@@ -86,7 +86,7 @@
         blurb: "Fuel cans on a gas station floor.",
         door: {
           title: "Ruby's Warning",
-          text: "At least two walkers. One at the back wall. One by the pumps. More come each day.\n\nFuel cans: on the floor. Back storeroom is locked. Clerk's note: counter.\n\n—Ruby",
+          text: "At least two walkers. One at the back wall. One by the pumps. More come each day.\n\nFuel cans: floor. Storeroom: right of the door. Locked. Clerk's note: counter.\n\n—Ruby",
         },
         notes: {
           "gasngo-counter": {
@@ -99,7 +99,7 @@
         blurb: "Small store, food on the floor.",
         door: {
           title: "Marker on the Glass",
-          text: "Front shelves are bare. Food: on the floor, far aisle. Walkers use the back loading door. At least two.\n\nCooler is cold and locked. Manager's note: front counter.\n\n—Doc Lin",
+          text: "Front shelves are bare. Food: on the floor, far aisle. Walkers use the back loading door. At least two.\n\nCooler is cold and locked. Manager's note: back counter.\n\n—Doc Lin",
         },
         notes: {
           "grocery-counter": {
@@ -112,7 +112,7 @@
         blurb: "Nails, tools, and lumber under one roof.",
         door: {
           title: "Nailed to the Door",
-          text: "Three walkers at least. Big one by the back lumber racks. Nails up front. Tools mid aisle.\n\nBack room is locked. Note by the paint shelves.\n\n—Mr. Reyes, owner",
+          text: "At least three walkers. Two: mid aisles. One: front door. Nails up front. Tools mid aisle. Lumber: back.\n\nBack room is locked. Note by the paint shelves.\n\n—Mr. Reyes, owner",
         },
         notes: {
           "hardware-paint": {
@@ -138,7 +138,7 @@
         blurb: "Engine parts up top, generator below.",
         door: {
           title: "Chalk on the Bay Door",
-          text: "Engine parts are on two benches. Front, back right. At least three walkers. One by the door crates.\n\nPit hatch is locked. Mr. Ortiz's note: by the office.\n\n—Dev, Gas-N-Go",
+          text: "Engine parts: two benches. Left wall, back right. At least three walkers. One by the crates, back left.\n\nPit hatch is locked. Mr. Ortiz's note: by the office.\n\n—Dev, Gas-N-Go",
         },
         notes: {
           "autoshop-office": {
@@ -151,7 +151,7 @@
         blurb: "Wire and radio parts near downtown crowds.",
         door: {
           title: "Cardboard in the Window",
-          text: "Wire spools are on the shelves. Middle rows. At least four walkers. One is near the front counter.\n\nThe manager's office is locked. Manager's note is up front.\n\n—Jo",
+          text: "Wire spools are on the shelves. Middle rows. At least four walkers. One near the back counter.\n\nThe manager's office is locked. Manager's note: back counter.\n\n—Jo",
         },
         notes: {
           "radioshack-counter": {
@@ -164,7 +164,7 @@
         blurb: "Seeds and soil at Rosa's greenhouses.",
         door: {
           title: "Paint on the Gate",
-          text: "Seed packets: front bench. Soil bags: stacked mid-room. At least three walkers. One in back.\n\nPotting shed is locked. My note: shelf by the bench.\n\n—Rosa, who ran the greenhouse",
+          text: "Seed packets: front bench. Soil bags: stacked mid-room. At least three walkers. One in back.\n\nPotting shed is locked. My note: potting bench, back right.\n\n—Rosa, who ran the greenhouse",
         },
         notes: {
           "garden-bench": {
@@ -190,7 +190,7 @@
         blurb: "Classrooms of books, maps in the closet.",
         door: {
           title: "Max and Mia's Note",
-          text: "Book boxes: classrooms, right side. At least four walkers. One in the hall.\n\nLibrary closet is locked. The key is in the teacher's note. First classroom.\n\n—Max and Mia",
+          text: "Books: back right classroom, bottom left room. At least four walkers. One in the hall.\n\nLibrary closet is locked. Key: in the teacher's note. Back left classroom.\n\n—Max and Mia",
         },
         notes: {
           "school-classroom": {
@@ -203,7 +203,7 @@
         blurb: "Tools and water tanks at Station 12.",
         door: {
           title: "Chief Dunn's Bay Door",
-          text: "Tool kit: front office. Water tank: truck bay, right side. At least four walkers. One in the truck bay.\n\nEquipment bay is locked. My note: front desk.\n\n—Chief Dunn",
+          text: "Tool kit: back office. Door behind the desk. Water tank: truck bay, right side. At least four walkers. One: truck bay.\n\nEquipment bay: locked. My note: front desk.\n\n—Chief Dunn",
         },
         notes: {
           "firehouse-desk": {
@@ -234,7 +234,7 @@
         notes: {
           "watertower-panel": {
             title: "Theo's Panel Note",
-            text: "Pump house key: in the breaker box. Grab it. Now you can open the pump house. Filters are in there. A water tank too. And wire.\n\nOne more thing. Turn the valve by the door. Do it before you leave. Then the tower keeps feeding the town.\n\n—Theo",
+            text: "Pump house key: in the breaker box. Grab it. Now you can open the pump house. Filters are in there. A water tank too. And wire.\n\nSt. Anne Annex is the hospital. Go north on the river road. It still has meds. It is the worst place in town.\n\n—Theo",
           },
         },
       },
@@ -268,7 +268,7 @@
         blurb: "Books both sides, maps in the archive.",
         door: {
           title: "On the Book Drop",
-          text: "Book boxes are in the reading rooms. Both sides. At least five walkers. Two in the main hall.\n\nArchive room is locked. My note: first reading room.\n\n—Mrs. Greer, librarian",
+          text: "Book boxes are in the reading rooms. Both sides. At least five walkers. Two in the main hall.\n\nArchive room: locked. My note: back left reading room.\n\n—Mrs. Greer, librarian",
         },
         notes: {
           "library-desk": {

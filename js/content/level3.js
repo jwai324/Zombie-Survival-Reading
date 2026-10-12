@@ -9,7 +9,7 @@
     howto: [
       "Your home base is a boarded-up house at the south end of town. You have one van, and it still runs. Every day you drive out for supplies, and every night you bring them home. At base you stand in the yard, with a fence around the lot. In calm time, go inside the cabin to build, or leave in the van. Then a wave comes, and walkers claw at the fence. Some waves are nothing, and some are a crowd. Stronger Walls make the fence hold longer. The base is the only place where the game saves. It saves when you arrive, after every build, and after every wave.",
       "Open the map and pick a place. Only a few places are known at first. Notes and the Radio room reveal the rest. The route is drawn for you, and then you drive. Walkers wander the road. Far places and dangerous places have more of them. The more days pass, the more walkers there are.",
-      "At the door you read a note before you go in. It tells you how many walkers wait inside and where the items are. Then you go in. Walkers come for you, so shoot them or slip around them. Grab items from shelves and floors. Find the note inside and read it. It tells you how to open the locked cache room. The best items are kept in there. It also names the next place to try. That place then shows up on the map. Every note you read goes in your backpack. You can open the backpack at base, on the map, or inside a building.",
+      "At the door you read a note before you go in. It tells you how many walkers wait inside and where the items are. Then you go in. Walkers come for you, so shoot them or slip around them. Grab items from shelves and floors. Those items come back three days after you take them. Cache items never do. Find the note inside and read it. It tells you how to open the locked cache room. The best items are kept in there. It also names the next place to try. That place then shows up on the map. Every note you read goes in your backpack. You can open the backpack at base, on the map, or inside a building.",
       "Drive home with your cargo. At base, cargo goes into storage, and you eat one food. The Garden adds food, and the day count goes up. Use items and scrap to upgrade the rooms. Upgrade the van and the gun in the garage. Three things end a run. The van gets wrecked, you go down inside, or the yard is overrun. Then the game loads your last base save. Everything since that save is gone, so plan each trip with care.",
     ],
     base: {
@@ -86,7 +86,7 @@
         blurb: "A small gas station with fuel on the floor and a locked storeroom.",
         door: {
           title: "Ruby's Warning",
-          text: "Ruby here. At least two walkers are inside. One stays near the back wall, and one by the pumps side. More come as the days pass, so do not wait. The fuel cans are on the floor, not on the shelves. The storeroom at the back is locked. The clerk kept a note on the counter.",
+          text: "Ruby here. At least two walkers are inside. One stays near the back wall, and one by the pumps side. More come as the days pass, so do not wait. The fuel cans are on the floor, not on the shelves. The storeroom is on the right, next to the door, and it is locked. The clerk kept a note on the counter.",
         },
         notes: {
           "gasngo-counter": {
@@ -99,7 +99,7 @@
         blurb: "A corner store with leftover food and a cold walk-in cooler.",
         door: {
           title: "Doc Lin on the Glass",
-          text: "Doc Lin. The front shelves are mostly picked over. The food that is left is on the floor by the far aisle. Walkers get in through the loading door at the back. Count on at least two. The walk-in cooler stays cold, and it is locked. The manager's note is at the front counter.",
+          text: "Doc Lin. The front shelves are mostly picked over. The food that is left is on the floor by the far aisle. Walkers get in through the loading door at the back. Count on at least two. The walk-in cooler stays cold, and it is locked. The manager's note is on the counter at the back wall.",
         },
         notes: {
           "grocery-counter": {
@@ -112,7 +112,7 @@
         blurb: "A big hardware store with nails, tools, lumber, and a locked back room.",
         door: {
           title: "Mr. Reyes Nailed This Up",
-          text: "Mr. Reyes, the owner. At least three walkers are inside. The big one stays near the lumber racks at the back. Nails are on the shelf near the front. Tools are in the middle aisle, and lumber is at the back. The back room is locked. My note is by the paint shelves.",
+          text: "Mr. Reyes, the owner. At least three walkers are inside. Two stay in the middle aisles, and one waits near the front door. Nails are near the front. Tools are in the middle aisle, and lumber is at the back. The back room is locked. My note is by the paint shelves.",
         },
         notes: {
           "hardware-paint": {
@@ -138,7 +138,7 @@
         blurb: "A repair shop with engine parts and a generator down in the service pit.",
         door: {
           title: "Dev's Chalk Note",
-          text: "Dev here, from the Gas-N-Go. Engine parts are on the workbenches. One bench is near the front, and one is near the back right. At least three walkers are inside. One wanders near the crates by the entrance, so watch the door. The service pit is covered by a locked hatch. Mr. Ortiz left a note by the office.",
+          text: "Dev here, from the Gas-N-Go. Engine parts are on the workbenches. One bench is on the left wall. The other is in the back right corner. At least three walkers are inside. One wanders near the crates in the back left corner. The service pit is covered by a locked hatch. Mr. Ortiz left a note by the office.",
         },
         notes: {
           "autoshop-office": {
@@ -151,7 +151,7 @@
         blurb: "An electronics store with spools of wire, close to the walker crowds.",
         door: {
           title: "Jo's Sign in the Window",
-          text: "Jo wrote this. Spools of wire are on the shelves in the middle rows. At least four walkers are inside, and one stays near the front counter. It will hear the door, so be ready. The manager's office is locked. The manager left a note at the front. Read it before you try that door.",
+          text: "Jo wrote this. Spools of wire are on the shelves in the middle rows. At least four walkers are inside. One stays near the counter on the back wall. It will hear the door, so be ready. The manager's office is locked. The manager left a note on that back counter. Read it before you try that door.",
         },
         notes: {
           "radioshack-counter": {
@@ -164,7 +164,7 @@
         blurb: "A row of greenhouses with seeds, soil, and a locked potting shed.",
         door: {
           title: "Rosa Painted the Gate",
-          text: "Rosa here. I ran this greenhouse before the Fall. Seed packets are on the bench near the front. Soil bags are stacked in the middle of the floor. At least three walkers are inside, and one stays near the back. The potting shed is locked. My note is on the shelf by the bench.",
+          text: "Rosa here. I ran this greenhouse before the Fall. Seed packets are on the bench near the front. Soil bags are stacked in the middle of the floor. At least three walkers are inside, and one stays near the back. The potting shed is locked. My note is on the potting bench at the back, on the right.",
         },
         notes: {
           "garden-bench": {
@@ -190,7 +190,7 @@
         blurb: "A middle school with boxes of books in classrooms and a locked library closet.",
         door: {
           title: "Max and Mia Were Here",
-          text: "Max and Mia wrote this. Boxes of books are in the classrooms on the right side. At least four walkers are inside, and one walks the hallway. It goes back and forth, so time your move. The library closet is locked. The key is in the teacher's note. Find it in the first classroom.",
+          text: "Max and Mia wrote this. Boxes of books are in the back right classroom and the bottom left room. At least four walkers are inside, and one walks the hallway. It goes back and forth, so time your move. The library closet is locked. The key is in the teacher's note. Find it in the back left classroom.",
         },
         notes: {
           "school-classroom": {
@@ -203,7 +203,7 @@
         blurb: "Station 12, a fire station with tools, water tanks, and a locked equipment bay.",
         door: {
           title: "Chief Dunn's Bay Door",
-          text: "Chief Dunn. A tool kit is in the front office. A water tank is in the truck bay on the right. At least four walkers are inside, and one is in the truck bay. It stands between you and the tank. The equipment bay is locked. My note is on the front desk.",
+          text: "Chief Dunn. A tool kit is in the back office. Go through the door behind the desk. A water tank is in the truck bay on the right. At least four walkers are inside, and one is in the truck bay. It stands between you and the tank. The equipment bay is locked. My note is on the front desk.",
         },
         notes: {
           "firehouse-desk": {
@@ -233,8 +233,8 @@
         },
         notes: {
           "watertower-panel": {
-            title: "Turn the Valve",
-            text: "Theo again. The pump house key is in the breaker box. That is the gray metal box on the wall, and it is not locked. Open it, and the key hangs on a nail inside. With it, you can open the pump house now. There are filters in there, a water tank, and wire. Take what you need and be quick about it.\n\nOne more thing, and it matters. Turn the valve by the door before you leave. That keeps the tower feeding the town. People downhill still drink this water, and they count on it.",
+            title: "The Breaker Box Key",
+            text: "Theo again. The pump house key is in the breaker box. That is the gray metal box on the wall, and it is not locked. Open it, and the key hangs on a nail inside. With it, you can open the pump house now. There are filters in there, a water tank, and wire. Take what you need and be quick about it.\n\nIf you need medicine, go to St. Anne Annex. It is the hospital, north along the river road. It still has medicine. But it is the most dangerous place in town. Do not go there alone, and do not go at night.",
           },
         },
       },
@@ -260,7 +260,7 @@
         notes: {
           "mall-guard": {
             title: "Luis Left the Code",
-            text: "My name is Luis, and I worked security at this mall. The office has a keypad by the door. The code is 0912. Type it in, and the lock lets go. You can open the security office now. There are gun parts inside, and there are radio parts and a tool kit. I locked them up on the last day.\n\nThe walkers here move as one group. They follow anyone who runs, and they do not get tired. So do not run, no matter how close they get. Walk, and they lose you. It feels wrong every time, but it works.",
+            text: "My name is Luis, and I worked security at this mall. The office has a keypad by the door. The code is 0912. Type it in, and the lock lets go. You can open the security office now. There are gun parts inside, and there are radio parts and a tool kit. I locked them up on the last day.\n\nThe walkers here move as one group. They come running at anyone who runs. So do not run, no matter how close they get. Walk, and most of them stay put. It feels wrong every time, but it works.",
           },
         },
       },
@@ -268,7 +268,7 @@
         blurb: "The Public Library north of downtown, with books, maps, and a locked archive room.",
         door: {
           title: "Mrs. Greer's Book Drop",
-          text: "Mrs. Greer, the librarian. Boxes of books are in the reading rooms on both sides of the building. At least five walkers are inside, and two are in the main hall. You will meet those two first. The archive room is locked. My note is in the first reading room.",
+          text: "Mrs. Greer, the librarian. Boxes of books are in the reading rooms on both sides of the building. At least five walkers are inside, and two are in the main hall. You will meet those two first. The archive room is locked. My note is in the back left reading room.",
         },
         notes: {
           "library-desk": {
