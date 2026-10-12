@@ -1,4 +1,4 @@
-# Zombie Survival Reading: Design Decisions
+# Zombie Survival: Design Decisions
 
 This file records the questions a first pass needed answered, and the answers chosen.
 Anything marked **Assumption** is a judgment call that can be changed cheaply.

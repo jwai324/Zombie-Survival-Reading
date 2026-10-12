@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="description" content="Drive the last Bookmobile down an endless zombie road. Read to survive. Reading level switchable from 1st to 6th grade.">
-  <title>Zombie Survival Reading</title>
+  <title>Zombie Survival</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Oswald:wght@500;700&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
@@ -57,7 +57,7 @@
   <section id="screen-title" class="screen">
     <div class="panel title-panel">
       <div class="caption">Issue #1 &middot; The Last Bookmobile</div>
-      <h1 class="logo"><span>Zombie</span><span>Survival</span><span class="accent">Reading</span></h1>
+      <h1 class="logo"><span>Zombie</span><span class="accent">Survival</span></h1>
       <p class="tagline">Keep driving. Keep reading. <strong>Stay alive.</strong></p>
       <canvas id="title-van" width="320" height="200" aria-hidden="true"></canvas>
       <div class="btn-col">
@@ -78,26 +78,26 @@
     <div class="panel settings-panel">
       <div class="caption">Settings</div>
       <h2>Set it up</h2>
-      <label class="field">
-        <span>Reading level</span>
+      <div class="field">
+        <span>Reading level <span id="grade-now" class="small muted"></span></span>
         <div class="seg" id="grade-seg" role="radiogroup" aria-label="Reading level">
           <button data-grade="1">1st</button><button data-grade="2">2nd</button><button data-grade="3">3rd</button>
           <button data-grade="4">4th</button><button data-grade="5">5th</button><button data-grade="6">6th</button>
         </div>
-      </label>
-      <label class="field">
+      </div>
+      <div class="field">
         <span>Text size</span>
         <div class="seg" id="size-seg" role="radiogroup" aria-label="Text size">
           <button data-size="normal">Normal</button><button data-size="large">Large</button><button data-size="huge">Huge</button>
         </div>
-      </label>
+      </div>
       <label class="field toggle"><input type="checkbox" id="opt-sound"><span>Sound effects</span></label>
       <label class="field toggle"><input type="checkbox" id="opt-aim"><span>Aim assist (shots bend toward nearby zombies)</span></label>
       <label class="field toggle"><input type="checkbox" id="opt-shake"><span>Screen shake</span></label>
       <div class="btn-row">
         <button id="btn-settings-back" class="btn big">Done</button>
       </div>
-      <p class="small muted">Reading level changes the passages and questions only; the road stays the same. A new level kicks in at the next haven. Progress is saved on this device only.</p>
+      <p class="small muted">Reading level changes the passages and questions only; the road stays the same. A new level applies to the next sign and the next haven. Progress is saved on this device only.</p>
     </div>
   </section>
 

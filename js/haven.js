@@ -98,7 +98,7 @@
         this.chosen = null;
         State().run.havens += 1;
       }
-      this.caption.textContent = "Safe haven · " + this.passage.place;
+      this.caption.textContent = "Safe haven · " + this.passage.place + " · Level " + State().run.grade;
       this.goto(saved ? saved.step : "arrive");
     },
 
@@ -460,6 +460,7 @@
       const save = () => State().saveProgress("sign", { road: ZSR.Game.snapshot(), sign: st });
       save();
 
+      document.getElementById("sign-caption").textContent = "On the road · Level " + run.grade;
       const textEl = document.getElementById("sign-text");
       const qEl = document.getElementById("sign-q");
       const opts = document.getElementById("sign-options");

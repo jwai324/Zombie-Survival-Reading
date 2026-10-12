@@ -125,17 +125,25 @@
       write(KEYS.run, null);
     },
 
-    /** Next haven passage for this grade; refills and reshuffles when empty. */
-    nextHaven() {
+    /**
+     * If the reading level changed in Settings, switch the run to the new bank
+     * before the next passage or sign is drawn. A haven already in progress
+     * finishes at its own level (it is looked up by id in the run's bank).
+     */
+    syncGrade() {
       const run = this.run;
-      const bank = ZSR.CONTENT[run.grade] || ZSR.CONTENT[this.settings.grade];
-      // If the grade changed mid-run, start drawing from the new bank.
-      if (run.grade !== this.settings.grade) {
+      if (run.grade !== this.settings.grade && ZSR.CONTENT[this.settings.grade]) {
         run.grade = this.settings.grade;
         run.havenQueue = [];
         run.signQueue = [];
       }
-      const content = ZSR.CONTENT[run.grade] || bank;
+      return ZSR.CONTENT[run.grade] || ZSR.CONTENT[this.settings.grade];
+    },
+
+    /** Next haven passage for the current reading level; refills and reshuffles when empty. */
+    nextHaven() {
+      const run = this.run;
+      const content = this.syncGrade();
       if (!run.havenQueue.length) run.havenQueue = shuffle(content.havens.map((h) => h.id));
       const id = run.havenQueue.shift();
       return content.havens.find((h) => h.id === id) || content.havens[0];
@@ -143,7 +151,7 @@
 
     nextSign() {
       const run = this.run;
-      const content = ZSR.CONTENT[run.grade] || ZSR.CONTENT[this.settings.grade];
+      const content = this.syncGrade();
       if (!run.signQueue.length) run.signQueue = shuffle(content.roadSigns.map((_, i) => i));
       run.currentSign = run.signQueue.shift();
       return content.roadSigns[run.currentSign];

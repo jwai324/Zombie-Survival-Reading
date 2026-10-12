@@ -1,6 +1,6 @@
 # Content Guide
 
-How to write reading content for Zombie Survival Reading. Each grade lives in
+How to write reading content for Zombie Survival. Each grade lives in
 `js/content/gradeN.js`. Run `npm test` after editing to validate the schema.
 
 ## Audience

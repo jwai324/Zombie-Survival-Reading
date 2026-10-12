@@ -1,7 +1,7 @@
 {
-  "name": "zombie-survival-reading",
+  "name": "zombie-survival",
   "version": "0.1.0",
-  "description": "Drive the last Bookmobile down an endless zombie road. Read to survive. Grades 1 to 6.",
+  "description": "Drive the last Bookmobile down an endless zombie road. Reading level switchable from 1st to 6th grade.",
   "private": true,
   "scripts": {
     "test": "node tests/validate-content.js && node tests/syntax-check.js",

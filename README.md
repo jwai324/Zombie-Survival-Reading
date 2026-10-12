@@ -1,4 +1,4 @@
-# Zombie Survival Reading
+# Zombie Survival
 
 Drive the last Bookmobile, an armored library van, down an endless road after the Fall.
 A grounded survival-comic game for teens where every upgrade is paid for by reading.

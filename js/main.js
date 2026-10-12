@@ -27,6 +27,7 @@
   function applySettings() {
     document.documentElement.setAttribute("data-size", State.settings.textSize);
     document.querySelectorAll("#grade-seg button").forEach((b) => b.classList.toggle("on", Number(b.dataset.grade) === State.settings.grade));
+    $("grade-now").textContent = "(now: " + ORDINAL[State.settings.grade] + " grade)";
     document.querySelectorAll("#size-seg button").forEach((b) => b.classList.toggle("on", b.dataset.size === State.settings.textSize));
     $("opt-sound").checked = !!State.settings.sound;
     $("opt-aim").checked = !!State.settings.aimAssist;
