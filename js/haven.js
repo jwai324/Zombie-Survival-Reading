@@ -6,7 +6,6 @@
   const State = () => ZSR.State;
   const Upgrades = () => ZSR.Upgrades;
   const Audio = () => ZSR.Audio;
-  const Speech = () => ZSR.Speech;
 
   const REWARD = { first: 30, second: 15, perfect: 20, sign: 15 };
   const LETTERS = ["A", "B", "C", "D"];
@@ -37,15 +36,6 @@
   }
   function wordCount(text) {
     return String(text).trim().split(/\s+/).filter(Boolean).length;
-  }
-  function speakButton(getText) {
-    if (!State().settings.readAloud || !Speech().available) return null;
-    const b = el("button", "btn small-btn speak-btn", "\u{1F50A} Read to me");
-    b.addEventListener("click", () => {
-      Audio().unlock();
-      Speech().speak(getText());
-    });
-    return b;
   }
   function effectTags(effects) {
     const e = effects || {};
@@ -110,8 +100,12 @@
       return h;
     },
 
+    /** Stop anything the haven keeps running (the garage preview loop). */
+    leave() {
+      cancelAnimationFrame(this.previewRaf);
+    },
+
     render(children) {
-      Speech().stop();
       cancelAnimationFrame(this.previewRaf);
       this.body.innerHTML = "";
       children.forEach((c) => c && this.body.appendChild(c));
@@ -128,10 +122,7 @@
       });
       const row = el("div", "btn-row");
       row.appendChild(btn);
-      const tools = el("div", "read-tools");
-      const sb = speakButton(() => p.host + " says: " + p.intro);
-      if (sb) tools.appendChild(sb);
-      this.render([this.steps(0), el("h2", null, esc(p.place)), this.host(p.intro), tools, row]);
+      this.render([this.steps(0), el("h2", null, esc(p.place)), this.host(p.intro), row]);
     },
 
     /* 2. Read the passage */
@@ -139,9 +130,6 @@
       const p = this.passage;
       const title = el("h2", "reading-title", esc(p.title) + '<span class="kind-badge">' + esc(KIND_LABEL[p.kind] || "Something to read") + "</span>");
       const paper = el("div", "paper lined reading", paragraphs(p.text));
-      const tools = el("div", "read-tools");
-      const sb = speakButton(() => p.title + ". " + p.text);
-      if (sb) tools.appendChild(sb);
       const btn = el("button", "btn big go", "Done reading");
       btn.addEventListener("click", () => {
         Audio().play("click");
@@ -153,7 +141,7 @@
       });
       const row = el("div", "btn-row");
       row.appendChild(btn);
-      this.render([this.steps(0), title, paper, tools, row]);
+      this.render([this.steps(0), title, paper, row]);
     },
 
     /* 3. Questions, one at a time, with the text available */
@@ -201,7 +189,6 @@
             feedback.classList.remove("hidden");
             next.classList.remove("hidden");
             Audio().play("correct");
-            Speech().stop();
           } else {
             b.classList.add("wrong");
             b.disabled = true;
@@ -231,10 +218,7 @@
         if (this.qi < 3) this.question();
         else this.quizSummary();
       });
-      const tools = el("div", "read-tools");
-      const sb = speakButton(() => q.q + ". " + q.options.map((o, i) => LETTERS[i] + ". " + o).join(". "));
-      if (sb) tools.appendChild(sb);
-      this.render([this.steps(1), toggle, textBox, qEl, tools, opts, feedback, row]);
+      this.render([this.steps(1), toggle, textBox, qEl, opts, feedback, row]);
     },
 
     quizSummary() {
@@ -272,10 +256,7 @@
         });
         cards.appendChild(card);
       });
-      const tools = el("div", "read-tools");
-      const sb = speakButton(() => c.prompt + ". " + c.options.map((o) => o.label + ": " + o.desc).join(". "));
-      if (sb) tools.appendChild(sb);
-      this.render([this.steps(2), el("p", "question", esc(c.prompt)), tools, cards]);
+      this.render([this.steps(2), el("p", "question", esc(c.prompt)), cards]);
     },
 
     applyChoice(o) {
@@ -373,7 +354,6 @@
       go.addEventListener("click", () => {
         Audio().play("click");
         cancelAnimationFrame(this.previewRaf);
-        Speech().stop();
         State().checkpoint();
         if (this.onDone) this.onDone();
       });
@@ -400,19 +380,11 @@
       const opts = document.getElementById("sign-options");
       const fb = document.getElementById("sign-feedback");
       const cont = document.getElementById("btn-sign-continue");
-      const speak = document.querySelector('#screen-sign .speak-btn');
       textEl.textContent = s.text;
       qEl.textContent = s.q;
       opts.innerHTML = "";
       fb.className = "feedback hidden";
       cont.classList.add("hidden");
-      if (speak) {
-        speak.style.display = State().settings.readAloud && Speech().available ? "" : "none";
-        speak.onclick = () => {
-          Audio().unlock();
-          Speech().speak(s.text + ". " + s.q + ". " + s.options.map((o, i) => LETTERS[i] + ". " + o).join(". "));
-        };
-      }
       const buttons = [];
       s.options.forEach((text, i) => {
         const b = el("button", "option", '<span class="letter">' + LETTERS[i] + "</span><span>" + esc(text) + "</span>");
@@ -442,7 +414,6 @@
         opts.appendChild(b);
       });
       cont.onclick = () => {
-        Speech().stop();
         Audio().play("click");
         onContinue();
       };

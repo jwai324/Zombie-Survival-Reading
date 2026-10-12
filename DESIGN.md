@@ -18,7 +18,7 @@ pays scrap. Scrap upgrades the van and the gun. Survive as many miles as you can
 **Q: Who is the game for?**
 Teens. The look is a grounded, realistic survival comic (heavy ink, muted palette,
 halftone, aged paper, hazard amber), the tone is tense and hopeful, and nothing in the
-game is cute. **Assumption:** PG. Walkers are a threat, not a joke and not a horror
+game is cute. Reading is on the page only; there is no read-aloud. **Assumption:** PG. Walkers are a threat, not a joke and not a horror
 show. No blood, no on-page deaths, no injuries described, no profanity.
 
 **Q: Then why reading levels from 1st to 6th grade?**
@@ -69,8 +69,14 @@ answer shows a hint and allows one retry for half the reward, then reveals the a
 Nothing punishes a wrong answer beyond the lost scrap.
 
 **Q: Read-aloud?**
-Yes, via the browser's built-in speech synthesis. A "Read to me" button on every
-passage and question. No audio files to ship. Can be hidden in Settings.
+No. The first pass had a browser-speech "Read to me" button on every passage; the
+owner asked for it to be removed. The module is in git history if it is ever wanted
+back.
+
+**Q: Can the player leave from anywhere?**
+Yes. A Home button sits on the road HUD, the road-sign pop-up, the haven panel, the
+pause menu, and the game-over screen. Leaving from a haven saves the run first, so
+scrap earned there is kept. Leaving from the road keeps the last haven's save.
 
 **Q: How does reading connect to winning?**
 Scrap is the only currency. Walker kills pay a little. Correct answers pay a lot

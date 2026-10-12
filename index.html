@@ -34,7 +34,10 @@
       <div class="hud-box" title="Walkers put down">
         <span class="hud-label">DOWNED</span><span id="kills-text" class="hud-value">0</span>
       </div>
-      <button id="btn-pause" class="hud-btn" title="Pause (P or Esc)" aria-label="Pause">II</button>
+      <div class="hud-actions">
+        <button id="btn-pause" class="hud-btn" title="Pause (P or Esc)" aria-label="Pause">II</button>
+        <button id="btn-home" class="hud-btn wide" title="Back to the home screen">Home</button>
+      </div>
     </div>
     <div class="hud-bottom">
       <div class="hud-box road-box">
@@ -88,7 +91,6 @@
           <button data-size="normal">Normal</button><button data-size="large">Large</button><button data-size="huge">Huge</button>
         </div>
       </label>
-      <label class="field toggle"><input type="checkbox" id="opt-readaloud"><span>Show the "Read to me" button (uses your browser's voice)</span></label>
       <label class="field toggle"><input type="checkbox" id="opt-sound"><span>Sound effects</span></label>
       <label class="field toggle"><input type="checkbox" id="opt-aim"><span>Aim assist (shots bend toward nearby zombies)</span></label>
       <label class="field toggle"><input type="checkbox" id="opt-shake"><span>Screen shake</span></label>
@@ -119,10 +121,10 @@
   <section id="screen-sign" class="screen hidden overlay">
     <div class="panel sign-panel">
       <div class="caption" id="sign-caption">On the road</div>
+      <button class="home-btn" id="btn-sign-home" title="Back to the home screen">Home</button>
       <div class="paper reading">
         <p id="sign-text"></p>
       </div>
-      <div class="read-tools"><button class="btn small-btn speak-btn" data-speak="sign">&#128266; Read to me</button></div>
       <p id="sign-q" class="question"></p>
       <div id="sign-options" class="options"></div>
       <div id="sign-feedback" class="feedback hidden"></div>
@@ -134,6 +136,7 @@
   <section id="screen-haven" class="screen hidden">
     <div class="panel haven-panel">
       <div class="caption" id="haven-caption">Safe haven</div>
+      <button class="home-btn" id="btn-haven-home" title="Back to the home screen (your progress here is kept)">Home</button>
       <div id="haven-body"></div>
     </div>
   </section>
@@ -146,9 +149,9 @@
       <div class="btn-col">
         <button id="btn-resume" class="btn big">Keep driving</button>
         <button id="btn-pause-settings" class="btn">Settings</button>
-        <button id="btn-quit" class="btn alt">Quit to title</button>
+        <button id="btn-quit" class="btn alt">Back to home screen</button>
       </div>
-      <p class="small muted">Your run is saved at the last safe haven you visited.</p>
+      <p class="small muted">Your run is saved at the last safe haven you visited. Going home now keeps that save.</p>
     </div>
   </section>
 
@@ -162,7 +165,7 @@
       <p id="gameover-best" class="small"></p>
       <div class="btn-col">
         <button id="btn-again" class="btn big">Run it again</button>
-        <button id="btn-gameover-title" class="btn">Back to title</button>
+        <button id="btn-gameover-title" class="btn">Home screen</button>
       </div>
     </div>
   </section>
@@ -178,7 +181,6 @@
 <script src="js/state.js"></script>
 <script src="js/upgrades.js"></script>
 <script src="js/audio.js"></script>
-<script src="js/speech.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/game.js"></script>
 <script src="js/haven.js"></script>

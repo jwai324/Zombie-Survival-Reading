@@ -29,8 +29,9 @@ Works on desktop (mouse + keyboard) and tablets (touch). Progress saves on the d
 5. Repeat until the van stops. The score that matters is **miles survived**.
 
 Reading level is set in Settings (1st through 6th grade). The passages and questions
-change; the road does not. Also in Settings: text size, a "Read to me" button (browser
-speech), sound, aim assist, and screen shake.
+change; the road does not. Also in Settings: text size, sound, aim assist, and screen
+shake. A Home button on every screen returns to the title; from a haven it saves what
+was earned there first, and from the road the last haven's save stands.
 
 ## Project layout
 
@@ -43,7 +44,6 @@ js/game.js            the road: spawning, shooting, collisions, difficulty table
 js/haven.js           reading, questions, route choice, garage, road-sign pop-up
 js/sprites.js         procedural comic drawing (van, walkers, road, bursts, fog, night)
 js/audio.js           synthesized sound effects
-js/speech.js          read-aloud via speechSynthesis
 js/main.js            screen flow and wiring
 js/content/gradeN.js  reading content, one file per grade
 docs/CONTENT_GUIDE.md how to write passages, questions, and route choices

@@ -9,7 +9,6 @@
   const DEFAULT_SETTINGS = {
     grade: 2,
     textSize: "normal", // normal | large | huge
-    readAloud: true,
     sound: true,
     aimAssist: true,
     shake: true,

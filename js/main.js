@@ -28,7 +28,6 @@
     document.documentElement.setAttribute("data-size", State.settings.textSize);
     document.querySelectorAll("#grade-seg button").forEach((b) => b.classList.toggle("on", Number(b.dataset.grade) === State.settings.grade));
     document.querySelectorAll("#size-seg button").forEach((b) => b.classList.toggle("on", b.dataset.size === State.settings.textSize));
-    $("opt-readaloud").checked = !!State.settings.readAloud;
     $("opt-sound").checked = !!State.settings.sound;
     $("opt-aim").checked = !!State.settings.aimAssist;
     $("opt-shake").checked = !!State.settings.shake;
@@ -118,6 +117,21 @@
     Game.resume();
   }
 
+  /**
+   * Back to the home screen from anywhere. From a haven the current run is
+   * checkpointed first (scrap and answers earned there are kept); from the
+   * road, the save from the last haven stands.
+   */
+  function goHome(saveNow) {
+    Audio.play("click");
+    Game.stop();
+    Haven.leave();
+    if (saveNow && State.run) State.checkpoint();
+    State.run = null;
+    show("screen-title");
+    refreshTitle();
+  }
+
   /* ---------- Wiring ---------- */
   function wire() {
     $("btn-play").addEventListener("click", () => {
@@ -173,7 +187,6 @@
         State.settings[key] = e.target.checked;
         State.saveSettings();
       });
-    bindToggle("opt-readaloud", "readAloud");
     bindToggle("opt-sound", "sound");
     bindToggle("opt-aim", "aimAssist");
     bindToggle("opt-shake", "shake");
@@ -184,13 +197,12 @@
       settingsReturn = "screen-pause";
       show("screen-settings");
     });
-    $("btn-quit").addEventListener("click", () => {
-      Game.stop();
-      // Keep the last haven checkpoint so the run can be continued later.
-      State.run = null;
-      show("screen-title");
-      refreshTitle();
-    });
+    // Home from the road or the pause menu keeps the last haven's save.
+    $("btn-quit").addEventListener("click", () => goHome(false));
+    $("btn-home").addEventListener("click", () => goHome(false));
+    $("btn-sign-home").addEventListener("click", () => goHome(false));
+    // Home from a haven saves what was earned there first.
+    $("btn-haven-home").addEventListener("click", () => goHome(true));
 
     $("btn-again").addEventListener("click", () => {
       Audio.play("click");
