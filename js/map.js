@@ -156,7 +156,7 @@
         const st = S.locState(id);
         const items = loc.items.filter((_, i) => S.itemAvailable(id, "i" + i));
         const cacheLeft = loc.cache.filter((_, i) => !st.cacheTaken["c" + i]);
-        if (fx.mapShowsStock || (fx.notesShowStock && S.noteRead(W().NOTES[id].door.id))) {
+        if (fx.mapShowsStock || fx.showStock || (fx.notesShowStock && S.noteRead(W().NOTES[id].door.id))) {
           info.appendChild(el("p", "small", "<strong>On the floor:</strong> " + (items.length ? items.map((k) => esc(W().ITEMS[k].name)).join(", ") : "nothing right now")));
           info.appendChild(el("p", "small", "<strong>" + esc(loc.cacheName) + ":</strong> " + (st.cacheOpened ? (cacheLeft.length ? cacheLeft.map((k) => esc(W().ITEMS[k].name)).join(", ") : "emptied") : fx.mapShowsCaches ? "locked, " + cacheLeft.length + " items" : "locked")));
         } else if (fx.mapShowsCaches) {
