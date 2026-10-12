@@ -30,17 +30,21 @@
 .bench-run b { color: var(--ink); }
 .bench-text { font-size: 1.8rem; line-height: 1.45; letter-spacing: .02em; font-weight: 600; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; text-align: left; }
 .t-done { color: #3b7a2a; }
-.t-next { display: inline-block; min-width: .55em; white-space: pre; background: var(--amber); outline: .125rem solid var(--ink); border-radius: .125rem; animation: benchPulse .9s infinite; }
+/* The caret stays inline (an inline-block would be a break opportunity and split words);
+   the padding is cancelled by the margin so the text never reflows as the caret moves. */
+.t-next { display: inline; padding: 0 .06em; margin: 0 -.06em; background: var(--amber); outline: .125rem solid var(--ink); border-radius: .125rem; animation: benchPulse .9s infinite; }
 .t-rest { color: var(--ink); opacity: .8; }
 .bench-finger { font-family: var(--font-head); font-size: 1.25rem; text-transform: uppercase; letter-spacing: .06em; text-align: center; margin: .3rem 0; min-height: 1.5rem; }
 .bench-finger .muted { font-size: .9rem; letter-spacing: .1em; }
+.bench-finger .caps { display: inline-block; color: var(--paper-3); background: var(--red); border: .125rem solid var(--ink); padding: 0 .4em; margin-left: .4em; letter-spacing: .04em; }
+.bench-panel:focus { outline: none; }
 .bench-meta { display: flex; gap: .4rem 1.2rem; justify-content: center; flex-wrap: wrap; font-family: var(--font-head); font-size: .95rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: .3rem 0; }
 .bench-meta b { color: var(--ink); }
 .bench-actions { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; margin-top: .6rem; }
 .bench .btn.small { font-size: .95rem; padding: .45rem .8rem; }
 
 /* Keyboard diagram: every key colored by the finger that owns it */
-.kbd { --k: min(2.5rem, 6.8vw); --g: .2rem; display: flex; flex-direction: column; gap: var(--g); align-items: flex-start; margin: .5rem auto .25rem; width: max-content; max-width: 100%; }
+.kbd { --k: min(2.5rem, 6.8vw, 5.6vh); --g: .2rem; display: flex; flex-direction: column; gap: var(--g); align-items: flex-start; margin: .5rem auto .25rem; width: max-content; max-width: 100%; }
 .kbd-row { display: flex; gap: var(--g); }
 .kbd-row.r2 { margin-left: calc(var(--k) * .5 + var(--g) * .5); }
 .kbd-row.r4 { margin-left: calc(var(--k) * 3.5 + var(--g) * 3.5); }
@@ -65,21 +69,24 @@
 .bench-lesson h3 { font-size: 1.05rem; margin: 0 0 .2rem; }
 .bench-lesson .reading { font-size: 1rem; line-height: 1.4; }
 .bench-lesson .reading p { margin: 0 0 .5em; }
-.bench-lesson .kbd { --k: min(2rem, 6.8vw); margin: .25rem auto .15rem; }
+.bench-lesson .kbd { --k: min(2rem, 6.8vw, 4.5vh); margin: .25rem auto .15rem; }
 .bench-lesson .kbd-legend { margin: .15rem 0 .25rem; font-size: .8rem; gap: .15rem .6rem; }
 .bench-lesson .bench-actions { margin-top: .3rem; }
-/* Wide windows: the lesson text sits beside the diagram so it fits without scrolling */
+/* Wide windows: the lesson text sits beside the diagram, the buttons under the diagram,
+   so it fits without scrolling. The side column is as wide as the keyboard: the legend
+   wraps to it instead of widening it (contain: inline-size). */
 @media (min-width: 1100px) {
   .bench-panel.lesson-wide { max-width: 64rem; }
-  .bench-lesson { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "head head" "text side" "actions actions"; gap: .25rem 1.25rem; align-items: start; }
+  .bench-lesson { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: auto auto minmax(0, 1fr); grid-template-areas: "head head" "text side" "text actions"; gap: .25rem 1.25rem; align-items: start; }
   .bench-lesson h3 { grid-area: head; }
   .bench-lesson .reading { grid-area: text; }
-  .bench-lesson .bench-side { grid-area: side; align-self: center; max-width: 30rem; }
+  .bench-lesson .bench-side { grid-area: side; max-width: 30rem; }
+  .bench-lesson .kbd-legend { contain: inline-size; }
   .bench-lesson .kbd { margin: .25rem 0 0; }
-  .bench-lesson .bench-actions { grid-area: actions; }
+  .bench-lesson .bench-actions { grid-area: actions; align-self: end; margin-top: .5rem; }
 }
 .bench-card { text-align: center; padding: .5rem 0 0; }
-.bench-card h3 { font-family: var(--font-comic); font-size: 3rem; letter-spacing: .05em; text-transform: none; color: var(--red); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; transform: rotate(-2deg); margin: .25rem 0 .5rem; }
+.bench-card h3 { font-family: var(--font-comic); font-size: 3rem; letter-spacing: .05em; text-transform: none; color: var(--red); -webkit-text-stroke: .125rem var(--ink); paint-order: stroke fill; transform: rotate(-2deg); margin: .25rem 0 .5rem; }
 .bench-card.ok h3 { color: var(--amber-2); }
 .bench-card .stats { margin: .75rem 0; }
 .bench-card .next { font-family: var(--font-head); font-size: 1.2rem; letter-spacing: .05em; text-transform: uppercase; margin: .5rem 0; }
@@ -96,6 +103,27 @@
   .bench-key.space { width: 10rem; height: 3.4rem; }
   .bench-text { font-size: 1.4rem; }
 }
+
+/* Large text (1rem = 21px): the same layout, a little tighter, so the keys round and
+   the lesson still fit a 1280x720 window without scrolling. No text is set smaller
+   than at the normal size (the tip is hidden, not shrunk). */
+:root[data-size="large"] .bench-panel { padding: 2.3rem 1.1rem .9rem; }
+:root[data-size="large"] .bench-tip { display: none; }
+:root[data-size="large"] .bench-head { margin-bottom: .2rem; }
+:root[data-size="large"] .bench-title { font-size: 1.4rem; }
+:root[data-size="large"] .bench-timer { margin: .15rem 0 .3rem; }
+:root[data-size="large"] .bench-prompt { min-height: 0; padding: .5rem 1rem; margin: .25rem 0; }
+:root[data-size="large"] .bench-key { width: 5rem; height: 5rem; font-size: 3.6rem; }
+:root[data-size="large"] .bench-key.space { width: 12rem; height: 3.6rem; }
+:root[data-size="large"] .bench-text { font-size: 1.5rem; line-height: 1.35; }
+:root[data-size="large"] .bench-finger { margin: .15rem 0; min-height: 0; font-size: 1.1rem; }
+:root[data-size="large"] .bench-meta, :root[data-size="large"] .bench-actions { margin: .2rem 0 0; }
+:root[data-size="large"] .kbd { margin: .3rem auto .15rem; }
+:root[data-size="large"] .bench-cost { line-height: 1.3; }
+:root[data-size="large"] .bench-lesson h3 { font-size: 1rem; margin: 0 0 .1rem; }
+:root[data-size="large"] .bench-lesson .reading { line-height: 1.25; }
+:root[data-size="large"] .bench-lesson .reading p { margin: 0 0 .35em; }
+:root[data-size="large"] .bench-lesson .kbd-legend { font-size: .8rem; margin: .1rem 0 .2rem; }
 
 /* Huge text (1rem = 1in): no diagram, no stage tag or tip, one-line prompt beside
    the finger hint, a thin timer, stacked buttons. Nothing shrinks below 1rem;
@@ -117,11 +145,12 @@
 :root[data-size="huge"] .bench-key { font-size: 1.5rem; width: 1.8rem; height: 1.8rem; border-width: .06rem; box-shadow: .08rem .08rem 0 var(--ink); transform: none; }
 :root[data-size="huge"] .bench-key.space { width: 4.5rem; height: 1.4rem; font-size: 1rem; }
 :root[data-size="huge"] .bench-finger { flex: 1 1 4rem; margin: 0; min-height: 0; letter-spacing: .02em; text-align: left; line-height: 1.15; }
+:root[data-size="huge"] .bench-finger .caps { display: block; width: max-content; max-width: 100%; margin: .1rem 0 0; border-width: .06rem; padding: 0 .2em; }
 :root[data-size="huge"] .bench-actions, :root[data-size="huge"] .bench-card .btn-row { width: 100%; flex-direction: column; align-items: stretch; gap: .2rem; margin-top: .15rem; }
 :root[data-size="huge"] .bench .btn, :root[data-size="huge"] .bench .btn.big, :root[data-size="huge"] .bench .btn.small { font-size: 1rem; padding: .2rem .4rem; letter-spacing: .02em; white-space: normal; border-width: .06rem; box-shadow: .08rem .08rem 0 var(--ink); }
 :root[data-size="huge"] .bench-card { padding: 0; }
 :root[data-size="huge"] .bench-card p { margin: .15rem 0; }
-:root[data-size="huge"] .bench-card h3 { font-size: 1.3rem; margin: 0 0 .1rem; -webkit-text-stroke: 1px var(--ink); transform: none; }
+:root[data-size="huge"] .bench-card h3 { font-size: 1.3rem; margin: 0 0 .1rem; -webkit-text-stroke: .05rem var(--ink); transform: none; }
 :root[data-size="huge"] .bench-lesson h3 { font-size: 1rem; margin: 0 0 .15rem; }
 :root[data-size="huge"] .bench-lesson { display: block; }
 :root[data-size="huge"] .bench-card .stats { grid-template-columns: 1fr 1fr; gap: .2rem; margin: .25rem 0; }

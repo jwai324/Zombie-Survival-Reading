@@ -80,9 +80,13 @@
     const clean = (arr) => arr.map((s) => String(s).trim()).filter(Boolean);
     if (def.kind === "keys") return def.runs ? take(RUNS, Math.ceil(def.count / 3)).slice(0, Math.ceil(def.count / 3)) : take(def.pool.split(""), def.count);
     if (def.kind === "words") {
+      // The length rule wins over the level's pool: top up from the built-in words
+      // (23 short, 17 long) when the content lacks words of that length.
+      const rule = (w) => w.length >= (def.min || 0) && w.length <= (def.max || 99);
       const all = clean(P.words);
-      const fit = all.filter((w) => w.length >= (def.min || 0) && w.length <= (def.max || 99));
-      return take(fit.length >= def.count ? fit : all, def.count);
+      let fit = all.filter(rule);
+      if (fit.length < def.count) fit = fit.concat(FALLBACK.words.filter((w) => rule(w) && fit.indexOf(w) < 0));
+      return take(fit.length ? fit : all, def.count);
     }
     return take(clean(P[def.kind]), def.count);
   }
@@ -105,8 +109,9 @@
     const other = (FINGER[k.base] || "right").indexOf("left") === 0 ? "right" : "left";
     return f + " + Shift (" + other + " pinky)";
   }
+  /** Exact match: a wrong-case letter (Caps Lock, a held Shift) is a mistake. */
   function matches(typed, want) {
-    return typed === want || (/[a-z]/.test(want) && typed.toLowerCase() === want);
+    return typed === want;
   }
 
   /* ---------- DOM ---------- */
@@ -170,7 +175,7 @@
   }
 
   /* ---------- The overlay ---------- */
-  const S = { built: false, open: false, view: null, opts: {}, items: [], idx: 0, pos: 0, correct: 0, wrong: 0, left: 0, elapsed: 0, paused: false, succeeded: false, timer: null, last: 0, guideFrom: null };
+  const S = { built: false, open: false, pending: null, view: null, opts: {}, items: [], idx: 0, pos: 0, correct: 0, wrong: 0, left: 0, elapsed: 0, paused: false, succeeded: false, timer: null, last: 0, guideFrom: null, capsWarn: false, flashT: null, returnFocus: null };
   const D = {}; // DOM refs
 
   function build() {
@@ -178,14 +183,19 @@
     const app = document.getElementById("app") || document.body;
     const sec = el("section", "screen hidden overlay bench");
     sec.id = "screen-bench";
+    sec.setAttribute("role", "dialog");
+    sec.setAttribute("aria-modal", "true");
+    sec.setAttribute("aria-labelledby", "bench-title");
     const canvas = el("canvas");
     canvas.id = "bench-canvas";
     canvas.setAttribute("aria-hidden", "true");
     sec.appendChild(canvas);
     const panel = el("div", "panel bench-panel");
+    panel.tabIndex = -1; // takes focus on open so Enter/Tab never reach the screen underneath
     panel.appendChild(el("div", "caption", "Workbench"));
     const head = el("div", "bench-head");
     D.title = el("h2", "bench-title", "Build");
+    D.title.id = "bench-title";
     D.stage = el("span", "bench-stage", "Stage 0");
     D.cost = el("p", "bench-cost", "");
     head.appendChild(D.title);
@@ -293,6 +303,12 @@
     D.panel = panel;
     D.views = { lesson, round, timeout: out, done };
     S.built = true;
+    if (S.pending) {
+      // open() was called before the DOM was ready: honor it now
+      const o = S.pending;
+      S.pending = null;
+      Typing.open(o);
+    }
   }
 
   function show(view) {
@@ -328,6 +344,7 @@
     S.elapsed = 0;
     S.paused = false;
     S.guideFrom = null;
+    S.capsWarn = false;
     S.last = performance.now();
     D.tip.textContent = def.tip || "";
     D.views.round.classList.toggle("mode-keys", def.kind === "keys");
@@ -350,12 +367,13 @@
     } else {
       D.text.innerHTML = '<span class="t-done">' + esc(item.slice(0, S.pos)) + '</span><span class="t-next">' + esc(ch) + '</span><span class="t-rest">' + esc(item.slice(S.pos + 1)) + "</span>";
     }
-    D.finger.innerHTML = '<span class="muted">Use: </span>' + esc(hint(ch));
+    D.finger.innerHTML = '<span class="muted">Use: </span>' + esc(hint(ch)) + (S.capsWarn ? ' <span class="caps" id="bench-caps">Caps Lock is on</span>' : "");
     highlight(D.kbd, ch, false);
     const total = S.items.reduce((a, s) => a + s.length, 0);
     const done = S.items.slice(0, S.idx).reduce((a, s) => a + s.length, 0) + S.pos;
     const unit = S.def.kind === "keys" ? "Key" : S.def.kind === "words" ? "Word" : S.def.kind === "phrases" ? "Phrase" : "Sentence";
-    const prog = S.def.kind === "keys" ? done + " / " + total : S.idx + 1 + " / " + S.items.length;
+    // 1-based "current item" in every mode: Key 1 / 10, Word 1 / 6
+    const prog = S.def.kind === "keys" ? Math.min(done + 1, total) + " / " + total : S.idx + 1 + " / " + S.items.length;
     D.meta.innerHTML = unit + " <b>" + prog + "</b> · Mistakes <b id='bench-wrong'>" + S.wrong + "</b> · Accuracy <b id='bench-acc'>" + Math.round(accuracy() * 100) + "%</b>";
   }
   function renderTimer() {
@@ -383,11 +401,37 @@
       show("timeout");
     }
   }
-  /** Flash the visible target red; renderTarget() clears it on the next key. */
+  /** Flash the visible target red for a moment. The next key re-renders it; a
+      timer clears it too, because animationend never fires under reduced motion. */
   function flash() {
     [S.def.kind === "keys" ? D.key : D.text.querySelector(".t-next")].concat(Array.from(D.kbd.querySelectorAll(".kbd-key.target"))).forEach((n) => {
       if (n) n.classList.add("flash");
     });
+    clearTimeout(S.flashT);
+    S.flashT = setTimeout(unflash, 300);
+  }
+  function unflash() {
+    S.flashT = null;
+    if (S.built) D.sec.querySelectorAll(".flash").forEach((n) => n.classList.remove("flash"));
+  }
+  /** Everything focusable inside the panel's visible view, in DOM order. */
+  function focusables() {
+    return Array.from(D.panel.querySelectorAll("button, [href], input, select, textarea, [tabindex]")).filter((n) => !n.disabled && n.tabIndex >= 0 && n.offsetParent !== null);
+  }
+  /** Keep Tab inside the overlay: the screen underneath must not get focus. */
+  function trapTab(e) {
+    const list = focusables();
+    const i = list.indexOf(document.activeElement);
+    let to = null;
+    if (!list.length) to = D.panel;
+    else if (i < 0) to = list[e.shiftKey ? list.length - 1 : 0];
+    else if (!e.shiftKey && i === list.length - 1) to = list[0];
+    else if (e.shiftKey && i === 0) to = list[list.length - 1];
+    if (to) {
+      e.preventDefault();
+      to.focus();
+    }
+    e.stopPropagation();
   }
   function onKey(e) {
     if (!S.open) return;
@@ -397,9 +441,20 @@
       leave(S.view === "done");
       return;
     }
+    if (e.key === "Tab") return trapTab(e);
+    if (e.key === "Enter") {
+      // Enter activates a focused button inside the panel; anywhere else it must
+      // not reach the screen underneath (the button that opened the bench).
+      const a = document.activeElement;
+      if (!(a && a !== D.panel && D.panel.contains(a))) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+      return;
+    }
     if (S.view !== "round" || S.paused || e.ctrlKey || e.metaKey || e.altKey) return;
     const k = e.key;
-    if (typeof k !== "string" || k.length !== 1) return; // Shift, Tab, Enter and friends: never a mistake
+    if (typeof k !== "string" || k.length !== 1) return; // Shift, arrows and friends: never a mistake
     e.preventDefault(); // Space would scroll the panel; "/" opens quick find in some browsers
     e.stopPropagation();
     if (e.repeat) return;
@@ -407,11 +462,13 @@
     const want = item[S.pos];
     if (!matches(k, want)) {
       S.wrong += 1;
+      S.capsWarn = !!(typeof e.getModifierState === "function" && e.getModifierState("CapsLock"));
       ZSR.Audio && ZSR.Audio.play("wrong");
       renderTarget();
       flash();
       return;
     }
+    S.capsWarn = false;
     S.correct += 1;
     S.pos += 1;
     ZSR.Audio && ZSR.Audio.play("click");
@@ -447,7 +504,9 @@
     S.last = performance.now();
     show("round");
   }
+  /** Close and report back exactly once per open(); a second call is a no-op. */
   function leave(succeeded) {
+    if (!S.open) return;
     const cb = S.opts.onClose;
     Typing.close();
     if (typeof cb === "function") cb(!!succeeded);
@@ -483,13 +542,22 @@
     },
     open(opts) {
       this.init();
-      if (!S.built) return;
-      if (S.open) this.close();
+      if (!S.built) {
+        // DOM not ready yet: build() opens this once DOMContentLoaded has fired.
+        const prev = S.pending;
+        S.pending = opts || {};
+        if (prev && typeof prev.onClose === "function") prev.onClose(false);
+        return;
+      }
+      if (S.open) leave(false); // the earlier open still gets its onClose(false)
+      const active = document.activeElement;
+      S.returnFocus = active && active !== document.body && !D.sec.contains(active) ? active : null;
       S.opts = opts || {};
       S.def = stageDef(S.opts.stage);
       S.open = true;
       S.succeeded = false;
       S.result = null;
+      S.capsWarn = false;
       S.focused = typeof document.hasFocus === "function" ? document.hasFocus() : true;
       D.title.textContent = S.opts.title || "Build";
       D.stage.textContent = describe(S.opts.stage);
@@ -504,19 +572,42 @@
         S.guideFrom = null;
         show("lesson");
       }
+      // Focus moves off the button that opened the bench, so Enter cannot click it again.
+      if (active && typeof active.blur === "function" && active !== document.body) active.blur();
+      try {
+        D.panel.focus({ preventScroll: true });
+      } catch (e) {
+        D.panel.focus();
+      }
     },
     close() {
-      if (!S.built) return;
+      if (!S.built) {
+        S.pending = null;
+        return;
+      }
       listen(false);
       if (S.timer) clearInterval(S.timer);
       S.timer = null;
+      clearTimeout(S.flashT);
+      S.flashT = null;
       S.open = false;
       S.view = null;
       S.paused = false;
       D.sec.classList.add("hidden");
+      // Give focus back to the opener, unless the player has moved it elsewhere meanwhile.
+      const rf = S.returnFocus;
+      S.returnFocus = null;
+      const a = document.activeElement;
+      if (rf && rf.isConnected && typeof rf.focus === "function" && (!a || a === document.body || D.sec.contains(a))) {
+        try {
+          rf.focus({ preventScroll: true });
+        } catch (e) {
+          /* focus can throw on detached nodes in old engines; nothing to do */
+        }
+      }
     },
     isOpen() {
-      return !!S.open;
+      return !!(S.open || S.pending);
     },
   };
 
