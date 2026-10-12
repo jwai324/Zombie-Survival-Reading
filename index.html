@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="description" content="Drive the last Bookmobile down an endless zombie road. Read to survive. Reading level switchable from 1st to 6th grade.">
+  <meta name="description" content="Run the last van out of a boarded-up house. Drive, scavenge, read the notes, defend the cabin. Reading level switchable from 1st to 6th grade.">
   <title>Zombie Survival</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,37 +14,18 @@
 <body>
 <div id="app">
 
-  <!-- ROAD (canvas) + HUD -->
-  <canvas id="game" aria-label="Road view: hold the line against the walkers"></canvas>
-  <div id="halftone" aria-hidden="true"></div>
-
+  <!-- ROAD canvas + HUD -->
+  <canvas id="game" class="hidden" aria-label="Road view"></canvas>
   <div id="hud" class="hidden">
     <div class="hud-top">
-      <div class="hud-box hp-box" title="Van health">
-        <span class="hud-label">VAN</span>
-        <div class="bar"><div id="hp-fill" class="bar-fill"></div></div>
-        <span id="hp-text" class="hud-value">100</span>
-      </div>
-      <div class="hud-box" title="Scrap (spend it at a safe haven)">
-        <span class="hud-label">SCRAP</span><span id="scrap-text" class="hud-value">0</span>
-      </div>
-      <div class="hud-box" title="Miles survived">
-        <span class="hud-label">MILES</span><span id="miles-text" class="hud-value">0.0</span>
-      </div>
-      <div class="hud-box" title="Walkers put down">
-        <span class="hud-label">DOWNED</span><span id="kills-text" class="hud-value">0</span>
-      </div>
-      <div class="hud-actions">
-        <button id="btn-pause" class="hud-btn" title="Pause (P or Esc)" aria-label="Pause">II</button>
-        <button id="btn-home" class="hud-btn wide" title="Back to the home screen">Home</button>
-      </div>
+      <div class="hud-box hp-box" title="Van health"><span class="hud-label">VAN</span><div class="bar"><div id="hp-fill" class="bar-fill"></div></div><span id="hp-text" class="hud-value">100</span></div>
+      <div class="hud-box" title="Scrap"><span class="hud-label">SCRAP</span><span id="scrap-text" class="hud-value">0</span></div>
+      <div class="hud-box" title="Miles"><span class="hud-label">MILES</span><span id="miles-text" class="hud-value">0.0</span></div>
+      <div class="hud-box" title="Walkers put down"><span class="hud-label">DOWNED</span><span id="kills-text" class="hud-value">0</span></div>
+      <div class="hud-actions"><button id="btn-pause" class="hud-btn" title="Pause (P or Esc)" aria-label="Pause">II</button></div>
     </div>
     <div class="hud-bottom">
-      <div class="hud-box road-box">
-        <span id="road-text" class="hud-label">ROAD 1</span>
-        <div class="bar"><div id="segment-fill" class="bar-fill alt"></div></div>
-        <span class="hud-label">HAVEN</span>
-      </div>
+      <div class="hud-box road-box"><span id="road-text" class="hud-label">TO: GAS-N-GO</span><div class="bar"><div id="segment-fill" class="bar-fill alt"></div></div><span class="hud-label">ARRIVE</span></div>
     </div>
     <div id="touch-controls" aria-hidden="true">
       <button class="touch-btn" id="touch-left">&#9664;</button>
@@ -53,16 +34,38 @@
     <div id="banner" class="banner hidden"></div>
   </div>
 
+  <!-- FIRST PERSON canvas (buildings and the yard) + HUD -->
+  <canvas id="fp" class="hidden" aria-label="First person view"></canvas>
+  <div id="int-hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-box hp-box" title="Your health"><span class="hud-label">YOU</span><div class="bar"><div id="int-hp-fill" class="bar-fill"></div></div><span id="int-hp-text" class="hud-value">100</span></div>
+      <div class="hud-box" title="Scrap"><span class="hud-label">SCRAP</span><span id="int-scrap" class="hud-value">0</span></div>
+      <div class="hud-box" title="Cargo in the van"><span class="hud-label">CARGO</span><span id="int-cargo" class="hud-value">0</span></div>
+      <div class="hud-box" title="Walkers near you"><span class="hud-label">WALKERS</span><span id="int-walkers" class="hud-value">0</span></div>
+      <div class="hud-actions">
+        <button id="int-btn-backpack" class="hud-btn wide" title="Backpack (B)">Backpack</button>
+        <button id="int-btn-pause" class="hud-btn" title="Pause (P or Esc)" aria-label="Pause">II</button>
+      </div>
+    </div>
+    <div class="hud-place"><span id="int-place" class="hud-box">Gas-N-Go</span><span id="int-phase" class="hud-box phase hidden">QUIET</span></div>
+    <div class="hud-bottom">
+      <div class="hud-box goal-box"><span id="int-goal">2 items on the floor · the storeroom: locked</span></div>
+    </div>
+    <div id="int-hint" class="hint"></div>
+    <div id="int-toast" class="toast hidden"></div>
+  </div>
+  <div id="halftone" aria-hidden="true"></div>
+
   <!-- TITLE -->
   <section id="screen-title" class="screen">
     <div class="panel title-panel">
-      <div class="caption">Issue #1 &middot; The Last Bookmobile</div>
+      <div class="caption">Issue #2 &middot; The Last Van</div>
       <h1 class="logo"><span>Zombie</span><span class="accent">Survival</span></h1>
-      <p class="tagline">Keep driving. Keep reading. <strong>Stay alive.</strong></p>
+      <p class="tagline">Drive. Scavenge. Read the notes. <strong>Hold the cabin.</strong></p>
       <canvas id="title-van" width="320" height="200" aria-hidden="true"></canvas>
       <div class="btn-col">
-        <button id="btn-play" class="btn big">Start a run</button>
-        <button id="btn-continue" class="btn big alt hidden">Continue</button>
+        <button id="btn-continue" class="btn big go hidden">Continue</button>
+        <button id="btn-play" class="btn big">New base</button>
         <div class="btn-row">
           <button id="btn-settings" class="btn">Settings</button>
           <button id="btn-howto" class="btn">How it works</button>
@@ -70,6 +73,7 @@
       </div>
       <p id="title-grade" class="small"></p>
       <p id="title-best" class="small"></p>
+      <p class="small muted">Buildings and the yard are first person and need a keyboard and mouse.</p>
     </div>
   </section>
 
@@ -84,60 +88,87 @@
           <button data-grade="1">1st</button><button data-grade="2">2nd</button><button data-grade="3">3rd</button>
           <button data-grade="4">4th</button><button data-grade="5">5th</button><button data-grade="6">6th</button>
         </div>
+        <p class="small muted">Changes every note, sign, and instruction in the game. Facts stay the same; the words change.</p>
       </div>
       <div class="field">
         <span>Text size</span>
         <div class="seg" id="size-seg" role="radiogroup" aria-label="Text size">
-          <button data-size="normal">Normal</button><button data-size="large">Large</button><button data-size="huge">Huge</button>
+          <button data-size="normal">Normal</button><button data-size="large">Large</button><button data-size="huge">Huge (1 inch)</button>
         </div>
       </div>
-      <label class="field toggle"><input type="checkbox" id="opt-sound"><span>Sound effects</span></label>
-      <label class="field toggle"><input type="checkbox" id="opt-aim"><span>Aim assist (shots bend toward nearby zombies)</span></label>
-      <label class="field toggle"><input type="checkbox" id="opt-shake"><span>Screen shake</span></label>
-      <div class="btn-row">
-        <button id="btn-settings-back" class="btn big">Done</button>
+      <div class="field">
+        <span>Mouse look speed</span>
+        <input type="range" id="opt-sens" min="0.4" max="2.5" step="0.1">
       </div>
-      <p class="small muted">Reading level changes the passages and questions only; the road stays the same. A new level applies to the next sign and the next haven. Progress is saved on this device only.</p>
+      <label class="field toggle"><input type="checkbox" id="opt-sound"><span>Sound effects</span></label>
+      <label class="field toggle"><input type="checkbox" id="opt-aim"><span>Aim assist on the road</span></label>
+      <label class="field toggle"><input type="checkbox" id="opt-shake"><span>Screen shake</span></label>
+      <div class="btn-row"><button id="btn-settings-back" class="btn big">Done</button></div>
     </div>
   </section>
 
-  <!-- HOW TO PLAY -->
+  <!-- HOW IT WORKS -->
   <section id="screen-howto" class="screen hidden">
     <div class="panel howto-panel">
       <div class="caption">How it works</div>
-      <h2>Three things to know</h2>
-      <ol class="howto">
-        <li><strong>The road.</strong> Aim with the mouse or your finger and hold to fire. Slide the van with the arrow keys, <kbd>A</kbd> and <kbd>D</kbd>, or the on-screen arrows. Walkers come from ahead and from both shoulders. Every one that reaches the van costs you.</li>
-        <li><strong>Safe havens.</strong> You are the convoy's reader. Someone hands you a radio log, a supply list, a letter, a warning. Read it, answer three questions, then decide which road to take. Right answers pay <strong>scrap</strong>. Reading pays better than shooting.</li>
-        <li><strong>The garage.</strong> Spend scrap on the van (armor, engine, ram plow, paint) and the gun (heavier rounds, rate of fire, spread), or a field repair.</li>
-      </ol>
-      <p>There is no ending. The road goes on until the van stops. The score that matters is miles.</p>
-      <p class="small muted">Pause with <kbd>P</kbd> or <kbd>Esc</kbd>. Home saves your exact spot; Continue brings you back to it.</p>
+      <div id="howto-body" class="reading"></div>
+      <h3>Controls</h3>
+      <ul class="controls">
+        <li><strong>Road:</strong> aim with the mouse, hold to fire. <kbd>A</kbd> <kbd>D</kbd> or arrows slide the van.</li>
+        <li><strong>Inside and in the yard:</strong> <kbd>W</kbd> <kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd> move, mouse looks, click fires, <kbd>E</kbd> reads notes and opens doors, <kbd>B</kbd> backpack, <kbd>P</kbd> pause.</li>
+        <li><strong>Map:</strong> tap a place, then Drive.</li>
+      </ul>
       <div class="btn-row"><button id="btn-howto-back" class="btn big">Got it</button></div>
     </div>
   </section>
 
-  <!-- ROAD SIGN (quick reading pop-up during a segment) -->
-  <section id="screen-sign" class="screen hidden overlay">
-    <div class="panel sign-panel">
-      <div class="caption" id="sign-caption">On the road</div>
-      <button class="home-btn" id="btn-sign-home" title="Back to the home screen">Home</button>
-      <div class="paper reading">
-        <p id="sign-text"></p>
+  <!-- MAP -->
+  <section id="screen-map" class="screen hidden">
+    <div class="map-layout">
+      <div class="map-board">
+        <div class="caption">The city</div>
+        <canvas id="map-canvas" width="1000" height="700"></canvas>
       </div>
-      <p id="sign-q" class="question"></p>
-      <div id="sign-options" class="options"></div>
-      <div id="sign-feedback" class="feedback hidden"></div>
-      <div class="btn-row"><button id="btn-sign-continue" class="btn big hidden">Keep driving</button></div>
+      <div class="panel map-panel">
+        <div id="map-info"></div>
+        <div class="btn-row">
+          <button id="map-btn-backpack" class="btn">Backpack</button>
+          <button id="map-btn-yard" class="btn alt hidden">Back to the yard</button>
+          <button id="map-btn-home" class="btn alt">Title</button>
+        </div>
+      </div>
     </div>
   </section>
 
-  <!-- SAFE HAVEN -->
-  <section id="screen-haven" class="screen hidden">
-    <div class="panel haven-panel">
-      <div class="caption" id="haven-caption">Safe haven</div>
-      <button class="home-btn" id="btn-haven-home" title="Back to the home screen (your spot is saved)">Home</button>
-      <div id="haven-body"></div>
+  <!-- BASE (build menu overlay) -->
+  <section id="screen-base" class="screen hidden overlay">
+    <div class="panel base-panel">
+      <div class="caption">Inside the cabin</div>
+      <div id="base-body"></div>
+    </div>
+  </section>
+
+  <!-- BACKPACK -->
+  <section id="screen-backpack" class="screen hidden overlay">
+    <div class="panel backpack-panel">
+      <div class="caption">Backpack</div>
+      <h2>Notes you've read</h2>
+      <div id="backpack-body"></div>
+      <div class="btn-row"><button id="btn-backpack-close" class="btn big">Close</button></div>
+    </div>
+  </section>
+
+  <!-- NOTE READER -->
+  <section id="screen-note" class="screen hidden overlay">
+    <div class="panel note-panel">
+      <div class="caption" id="note-caption">Gas-N-Go</div>
+      <h2 id="note-title" class="reading-title">Note</h2>
+      <p id="note-found" class="small muted"></p>
+      <div id="note-text" class="paper lined reading"></div>
+      <div class="btn-row">
+        <button id="btn-note-secondary" class="btn alt hidden">Back</button>
+        <button id="btn-note-primary" class="btn big">Close</button>
+      </div>
     </div>
   </section>
 
@@ -145,45 +176,62 @@
   <section id="screen-pause" class="screen hidden overlay">
     <div class="panel pause-panel">
       <div class="caption">Paused</div>
-      <h2>Engine idling</h2>
+      <h2>Hold up</h2>
       <div class="btn-col">
-        <button id="btn-resume" class="btn big">Keep driving</button>
+        <button id="btn-resume" class="btn big">Keep going</button>
+        <button id="btn-pause-backpack" class="btn">Backpack</button>
         <button id="btn-pause-settings" class="btn">Settings</button>
-        <button id="btn-quit" class="btn alt">Back to home screen</button>
+        <button id="btn-quit" class="btn alt">Quit to title</button>
       </div>
-      <p class="small muted">Going home saves your exact spot. Continue from the home screen to pick up right here.</p>
+      <p id="pause-note" class="small muted"></p>
     </div>
   </section>
 
-  <!-- GAME OVER -->
-  <section id="screen-gameover" class="screen hidden overlay">
-    <div class="panel gameover-panel">
-      <div class="caption">End of the line</div>
-      <h2 class="burst-title">WRECKED.</h2>
-      <p class="tagline">The Bookmobile won't start again. Not this time.</p>
-      <div id="gameover-stats" class="stats"></div>
-      <p id="gameover-best" class="small"></p>
+  <!-- DEATH -->
+  <section id="screen-death" class="screen hidden overlay">
+    <div class="panel death-panel">
+      <div class="caption">Down</div>
+      <h2 class="burst-title">OVERRUN.</h2>
+      <p id="death-text" class="tagline">You didn't make it back.</p>
+      <div id="death-stats" class="stats"></div>
       <div class="btn-col">
-        <button id="btn-again" class="btn big">Run it again</button>
-        <button id="btn-gameover-title" class="btn">Home screen</button>
+        <button id="btn-reload" class="btn big go">Reload last save</button>
+        <button id="btn-death-title" class="btn alt">Title</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONFIRM -->
+  <section id="screen-confirm" class="screen hidden overlay">
+    <div class="panel confirm-panel">
+      <div class="caption">Sure?</div>
+      <p id="confirm-text" class="tagline"></p>
+      <div class="btn-row">
+        <button id="btn-confirm-no" class="btn alt">No</button>
+        <button id="btn-confirm-yes" class="btn big">Yes</button>
       </div>
     </div>
   </section>
 
 </div>
 
-<script src="js/content/grade1.js"></script>
-<script src="js/content/grade2.js"></script>
-<script src="js/content/grade3.js"></script>
-<script src="js/content/grade4.js"></script>
-<script src="js/content/grade5.js"></script>
-<script src="js/content/grade6.js"></script>
-<script src="js/state.js"></script>
+<script src="js/world.js"></script>
+<script src="js/content/level1.js"></script>
+<script src="js/content/level2.js"></script>
+<script src="js/content/level3.js"></script>
+<script src="js/content/level4.js"></script>
+<script src="js/content/level5.js"></script>
+<script src="js/content/level6.js"></script>
 <script src="js/upgrades.js"></script>
+<script src="js/state.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/sprites.js"></script>
+<script src="js/sprites3d.js"></script>
 <script src="js/game.js"></script>
-<script src="js/haven.js"></script>
+<script src="js/interior.js"></script>
+<script src="js/map.js"></script>
+<script src="js/backpack.js"></script>
+<script src="js/base.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

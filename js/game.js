@@ -1,5 +1,6 @@
-/* The road: an endless top-down drive. Zombies come from ahead and from both
-   sides; the player aims and shoots; a segment ends at a safe haven.
+/* The road: a top-down drive from one map location to another. Walkers come
+   from ahead and from both shoulders; the player aims and shoots. The trip's
+   van health, scrap, and walker count live in ZSR.State.trip.
    All tuning lives in DIFF and ZOMBIE_TYPES. */
 (function (root) {
   "use strict";
@@ -9,33 +10,28 @@
   const Upgrades = () => ZSR.Upgrades;
   const Audio = () => ZSR.Audio;
 
-  /* ---------- Tuning ---------- */
   const DIFF = {
-    baseInterval: 1.5, // seconds between spawns on road 1
-    intervalStep: 0.07, // less time between spawns per road
+    baseInterval: 1.5,
+    intervalStep: 0.07,
     minInterval: 0.38,
-    hpStep: 0.12, // zombie health +12% per road
-    speedStep: 0.03,
+    hpStep: 0.1,
+    speedStep: 0.025,
     maxSpeedMult: 1.7,
-    runnerBase: 0.15,
+    runnerBase: 0.12,
     runnerStep: 0.05,
-    bruteBase: 0.06,
-    bruteStep: 0.045,
-    segBase: 45, // seconds
-    segStep: 3,
-    segMax: 75,
-    roadScroll: 240, // px/s at engine level 0
+    bruteBase: 0.05,
+    bruteStep: 0.04,
+    roadScroll: 240,
     milesPerSecond: 0.11,
-    sideSpawnChance: 0.45, // the rest spawn ahead
+    sideSpawnChance: 0.45,
     crateScrap: 15,
+    fogChanceAfterDay: 5,
   };
-
   const ZOMBIE_TYPES = {
     walker: { hp: 30, speed: 55, r: 18, dmg: 8, scrap: 1 },
     runner: { hp: 18, speed: 125, r: 15, dmg: 6, scrap: 2 },
     brute: { hp: 90, speed: 40, r: 26, dmg: 18, scrap: 4 },
   };
-
   const HIT_WORDS = ["BLAM!", "KRAK!", "THUD!"];
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -44,14 +40,8 @@
   const Game = {
     canvas: null,
     ctx: null,
-    W: 0,
-    H: 0,
-    dpr: 1,
     running: false,
     paused: false,
-    raf: 0,
-    last: 0,
-    time: 0,
     hooks: {},
 
     init(canvas, hooks) {
@@ -60,17 +50,8 @@
       this.hooks = hooks || {};
       this.keys = {};
       this.pointer = { x: 0, y: 0, down: false, seen: false };
-      this.hud = {
-        root: document.getElementById("hud"),
-        hpFill: document.getElementById("hp-fill"),
-        hpText: document.getElementById("hp-text"),
-        scrap: document.getElementById("scrap-text"),
-        miles: document.getElementById("miles-text"),
-        kills: document.getElementById("kills-text"),
-        road: document.getElementById("road-text"),
-        segFill: document.getElementById("segment-fill"),
-        banner: document.getElementById("banner"),
-      };
+      const $ = (id) => document.getElementById(id);
+      this.hud = { root: $("hud"), hpFill: $("hp-fill"), hpText: $("hp-text"), scrap: $("scrap-text"), miles: $("miles-text"), kills: $("kills-text"), road: $("road-text"), segFill: $("segment-fill"), banner: $("banner") };
       this.bindInput();
       root.addEventListener("resize", () => this.resize());
       this.resize();
@@ -95,7 +76,6 @@
       }
     },
 
-    /* ---------- Input ---------- */
     bindInput() {
       const c = this.canvas;
       const setAim = (e) => {
@@ -117,23 +97,21 @@
         e.preventDefault();
       });
       c.addEventListener("pointermove", (e) => setAim(e));
-      const up = () => {
-        this.pointer.down = false;
-      };
+      const up = () => (this.pointer.down = false);
       c.addEventListener("pointerup", up);
       c.addEventListener("pointercancel", up);
       c.addEventListener("contextmenu", (e) => e.preventDefault());
-
       root.addEventListener("keydown", (e) => {
+        if (!this.running) return;
         if (e.repeat) return;
         const k = e.key.toLowerCase();
         if (k === "arrowleft" || k === "a") this.keys.left = true;
         if (k === "arrowright" || k === "d") this.keys.right = true;
         if (k === " " || k === "arrowup" || k === "w") {
           this.keys.fire = true;
-          if (this.running) e.preventDefault();
+          e.preventDefault();
         }
-        if ((k === "p" || k === "escape") && this.running && this.hooks.onPauseKey) this.hooks.onPauseKey();
+        if ((k === "p" || k === "escape") && this.hooks.onPauseKey) this.hooks.onPauseKey();
       });
       root.addEventListener("keyup", (e) => {
         const k = e.key.toLowerCase();
@@ -141,7 +119,6 @@
         if (k === "arrowright" || k === "d") this.keys.right = false;
         if (k === " " || k === "arrowup" || k === "w") this.keys.fire = false;
       });
-
       const bindTouch = (id, key) => {
         const el = document.getElementById(id);
         if (!el) return;
@@ -149,9 +126,7 @@
           this.keys[key] = true;
           e.preventDefault();
         };
-        const off = () => {
-          this.keys[key] = false;
-        };
+        const off = () => (this.keys[key] = false);
         el.addEventListener("pointerdown", on);
         el.addEventListener("pointerup", off);
         el.addEventListener("pointercancel", off);
@@ -161,43 +136,21 @@
       bindTouch("touch-right", "right");
     },
 
-    /* ---------- Segment lifecycle ---------- */
-    /**
-     * Start the road for run.segment. With a snapshot (from Game.snapshot()) the
-     * segment resumes exactly where it was: clock, modifiers, van position,
-     * walkers, and crates.
-     */
-    startSegment(snapshot) {
-      const run = State().run;
-      const mods = snapshot ? Object.assign({}, snapshot.mods || {}) : Object.assign({}, run.nextMods || {});
-      if (!snapshot) run.nextMods = {};
-      const n = run.segment;
-      const stats = Upgrades().stats(run.upgrades);
-      this.stats = stats;
-      this.mods = mods;
-
-      const interval = Math.max(DIFF.minInterval, DIFF.baseInterval - DIFF.intervalStep * n) / (mods.zombies || 1);
-      this.diff = {
-        interval,
-        hpMult: 1 + DIFF.hpStep * n,
-        speedMult: Math.min(DIFF.maxSpeedMult, 1 + DIFF.speedStep * n),
-        runnerW: (DIFF.runnerBase + DIFF.runnerStep * n) * (mods.runners || 1),
-        bruteW: (DIFF.bruteBase + DIFF.bruteStep * n) * (mods.brutes || 1),
-      };
-      const duration = Math.min(DIFF.segMax, DIFF.segBase + DIFF.segStep * n) * (mods.length || 1);
-      this.seg = {
-        index: n,
-        duration,
-        elapsed: 0,
-        signAt: duration * rand(0.4, 0.6),
-        signShown: false,
-        ending: false,
-        endAt: null,
-        crateTimes: [],
-      };
-      for (let i = 0; i < (mods.crates || 0); i++) this.seg.crateTimes.push(rand(5, duration - 8));
+    /** Drive to `trip.to` for `trip.seconds`; danger and day set the walkers. */
+    startTrip(opts) {
+      const S = State();
+      const t = S.trip;
+      const fx = S.effects();
+      const n = opts.danger * 1.3 + (S.save.day - 1) * 0.5;
+      this.stats = Upgrades().stats(S.save.upgrades);
+      this.opts = opts;
+      this.mods = { fog: !fx.headlights && S.save.day >= DIFF.fogChanceAfterDay && Math.random() < 0.25, crates: fx.crates };
+      const interval = Math.max(DIFF.minInterval, DIFF.baseInterval - DIFF.intervalStep * n);
+      this.diff = { interval, hpMult: 1 + DIFF.hpStep * n, speedMult: Math.min(DIFF.maxSpeedMult, 1 + DIFF.speedStep * n), runnerW: DIFF.runnerBase + DIFF.runnerStep * n, bruteW: DIFF.bruteBase + DIFF.bruteStep * n };
+      const duration = opts.seconds;
+      this.seg = { duration, elapsed: 0, ending: false, endAt: null, crateTimes: [] };
+      for (let i = 0; i < (this.mods.crates || 0); i++) this.seg.crateTimes.push(rand(5, Math.max(6, duration - 8)));
       this.seg.crateTimes.sort((a, b) => a - b);
-
       this.van = { x: this.roadX + this.roadW / 2, y: this.H * 0.72, w: 66, h: 118, aim: -Math.PI / 2, hurt: 0, cooldown: 0, vx: 0, flash: 0 };
       this.zombies = [];
       this.bullets = [];
@@ -208,54 +161,21 @@
       this.fallen = [];
       this.scroll = 0;
       this.spawnTimer = 2.2;
-      this.saveTimer = 0;
       this.shake = 0;
       this.time = 0;
       this.gameOverAt = null;
       this.pointer.down = false;
       this.keys = {};
+      t.miles = t.miles || 0;
       for (let i = 0; i < 10; i++) this.spawnProp(rand(-this.H, this.H));
-
-      if (snapshot) this.restore(snapshot);
-
       this.hud.root.classList.remove("hidden");
-      this.hud.road.textContent = "ROAD " + (n + 1);
-      const extra = [mods.fog ? "FOG" : "", mods.night ? "NIGHT" : "", (mods.zombies || 1) >= 1.3 ? "HEAVY WALKERS" : ""].filter(Boolean).join(" ");
-      this.banner("ROAD " + (n + 1) + (extra ? "  " + extra : ""), 1800);
+      this.hud.road.textContent = "TO: " + opts.name.toUpperCase();
+      this.banner(opts.name.toUpperCase() + (this.mods.fog ? "  FOG" : "") + (t.hungry ? "  HUNGRY" : ""), 1800);
       this.running = true;
       this.paused = false;
       this.last = 0;
       cancelAnimationFrame(this.raf);
       this.raf = requestAnimationFrame((ts) => this.frame(ts));
-    },
-
-    /** Everything needed to put this road back exactly as it is now. */
-    snapshot() {
-      if (!this.seg || !this.van) return null;
-      return {
-        mods: Object.assign({}, this.mods),
-        seg: Object.assign({}, this.seg, { crateTimes: this.seg.crateTimes.slice() }),
-        vanX: this.van.x,
-        scroll: this.scroll,
-        spawnTimer: this.spawnTimer,
-        zombies: this.zombies.map((z) => ({ type: z.type, x: z.x, y: z.y, r: z.r, hp: z.hp, maxHp: z.maxHp, speed: z.speed, dmg: z.dmg, scrap: z.scrap })),
-        crates: this.crates.map((c) => ({ x: c.x, y: c.y })),
-      };
-    },
-
-    restore(s) {
-      if (s.seg) this.seg = Object.assign(this.seg, s.seg, { crateTimes: (s.seg.crateTimes || []).slice() });
-      if (typeof s.vanX === "number") this.van.x = clamp(s.vanX, this.roadX - 10, this.roadX + this.roadW + 10);
-      if (typeof s.scroll === "number") this.scroll = s.scroll;
-      if (typeof s.spawnTimer === "number") this.spawnTimer = Math.max(0.5, s.spawnTimer);
-      this.zombies = (s.zombies || []).map((z) => Object.assign({ angle: Math.PI / 2, phase: Math.random() * 6.28, hit: 0, cool: 0.5, kx: 0, ky: 0 }, z));
-      this.crates = (s.crates || []).map((c) => ({ x: c.x, y: c.y, t: 0 }));
-    },
-
-    /** Save the road as it is right now (skipped once the van is wrecked). */
-    autosave() {
-      if (!this.running || this.gameOverAt != null) return;
-      State().saveProgress("road", { road: this.snapshot() });
     },
 
     pause() {
@@ -280,7 +200,6 @@
       const b = this.hud.banner;
       b.textContent = text;
       b.classList.remove("hidden");
-      // restart the pop animation
       b.style.animation = "none";
       void b.offsetWidth;
       b.style.animation = "";
@@ -288,18 +207,15 @@
       this.bannerT = setTimeout(() => b.classList.add("hidden"), ms || 1500);
     },
 
-    /* ---------- Spawning ---------- */
     pickType() {
       const w = { walker: 1, runner: this.diff.runnerW, brute: this.diff.bruteW };
-      const total = w.walker + w.runner + w.brute;
-      let r = Math.random() * total;
+      let r = Math.random() * (w.walker + w.runner + w.brute);
       for (const k of Object.keys(w)) {
         if (r < w[k]) return k;
         r -= w[k];
       }
       return "walker";
     },
-
     spawnZombie() {
       const type = this.pickType();
       const base = ZOMBIE_TYPES[type];
@@ -314,32 +230,15 @@
         y = rand(this.H * 0.05, this.H * 0.6);
       }
       const hp = Math.round(base.hp * this.diff.hpMult);
-      this.zombies.push({
-        type,
-        x,
-        y,
-        r: base.r,
-        hp,
-        maxHp: hp,
-        speed: base.speed * this.diff.speedMult * rand(0.85, 1.15),
-        dmg: base.dmg,
-        scrap: base.scrap,
-        angle: Math.PI / 2,
-        phase: Math.random() * 6.28,
-        hit: 0,
-        cool: 0,
-        kx: 0,
-        ky: 0,
-      });
+      this.zombies.push({ type, x, y, r: base.r, hp, maxHp: hp, speed: base.speed * this.diff.speedMult * rand(0.85, 1.15), dmg: base.dmg, scrap: base.scrap, angle: Math.PI / 2, phase: Math.random() * 6.28, hit: 0, cool: 0, kx: 0, ky: 0 });
     },
-
     spawnProp(y) {
       const left = Math.random() < 0.5;
       const margin = 30;
       const x = left ? rand(margin, Math.max(margin + 1, this.roadX - 50)) : rand(Math.min(this.W - margin - 1, this.roadX + this.roadW + 50), this.W - margin);
       const roll = Math.random();
-      let p;
       const seed = Math.floor(Math.random() * 1e6);
+      let p;
       if (roll < 0.3) p = { kind: "tree", size: rand(22, 34), seed };
       else if (roll < 0.42) p = { kind: "barrel", color: ["#7a4a2a", "#5f6b3c", "#4d4f55"][Math.floor(Math.random() * 3)] };
       else if (roll < 0.52) p = { kind: "tire" };
@@ -350,15 +249,12 @@
       p.x = x;
       p.y = y == null ? -80 : y;
       this.props.push(p);
-      // cracks in the asphalt now and then
       if (Math.random() < 0.35) this.props.push({ kind: "crack", seed: seed + 1, x: rand(this.roadX + 30, this.roadX + this.roadW - 30), y: p.y - 40 });
     },
-
     spawnCrate() {
       this.crates.push({ x: rand(this.roadX + 40, this.roadX + this.roadW - 40), y: -40, t: 0 });
     },
 
-    /* ---------- Effects ---------- */
     burst(text, x, y, color, bg, size) {
       this.bursts.push({ text, x, y, t: 0, life: 0.8, color, bg, size: size || 1, rot: rand(-0.25, 0.25) });
       if (this.bursts.length > 12) this.bursts.shift();
@@ -378,7 +274,6 @@
       }
     },
 
-    /* ---------- Update ---------- */
     frame(ts) {
       if (!this.running) return;
       this.raf = requestAnimationFrame((t) => this.frame(t));
@@ -390,53 +285,40 @@
     },
 
     update(dt) {
-      const run = State().run;
+      const t = State().trip;
       const stats = this.stats;
       const van = this.van;
       const seg = this.seg;
       this.time += dt;
-
       if (this.gameOverAt != null) {
         this.gameOverAt -= dt;
         this.shake *= 0.9;
         this.updateParticles(dt);
         if (this.gameOverAt <= 0) {
           this.stop();
-          if (this.hooks.onGameOver) this.hooks.onGameOver();
+          if (this.hooks.onDeath) this.hooks.onDeath();
         }
         return;
       }
-
-      // Segment clock
       seg.elapsed += dt;
-      if (!seg.signShown && seg.elapsed >= seg.signAt) {
-        seg.signShown = true;
-        this.pause();
-        if (this.hooks.onSign) this.hooks.onSign();
-        return;
-      }
       if (!seg.ending && seg.elapsed >= seg.duration) {
         seg.ending = true;
-        seg.endAt = seg.elapsed + 3;
-        this.banner("SAFE HAVEN AHEAD!", 2800);
-        Audio().play("haven");
+        seg.endAt = seg.elapsed + 2.5;
+        this.banner(this.opts.to === "base" ? "HOME" : "YOU'RE HERE", 2500);
       }
       if (seg.ending && seg.elapsed >= seg.endAt) {
         this.stop();
-        if (this.hooks.onSegmentEnd) this.hooks.onSegmentEnd();
+        if (this.hooks.onArrive) this.hooks.onArrive(this.opts.to);
         return;
       }
       while (seg.crateTimes.length && seg.elapsed >= seg.crateTimes[0]) {
         seg.crateTimes.shift();
         this.spawnCrate();
       }
-
-      // Road scroll and miles
       const scrollSpeed = DIFF.roadScroll * stats.speed;
       this.scroll += scrollSpeed * dt;
-      run.miles += DIFF.milesPerSecond * stats.speed * dt;
+      t.miles += DIFF.milesPerSecond * stats.speed * dt;
 
-      // Van movement
       let dir = 0;
       if (this.keys.left) dir -= 1;
       if (this.keys.right) dir += 1;
@@ -444,21 +326,15 @@
       van.x = clamp(van.x + van.vx * dt, this.roadX - 10, this.roadX + this.roadW + 10);
       van.hurt = Math.max(0, van.hurt - dt * 2);
       van.cooldown -= dt;
-
-      // Aim
       if (this.pointer.seen) van.aim = Math.atan2(this.pointer.y - (van.y + 11), this.pointer.x - van.x);
       let aim = van.aim;
       if (State().settings.aimAssist) aim = this.assist(aim);
-
-      // Fire
       if ((this.pointer.down || this.keys.fire) && van.cooldown <= 0) {
         van.cooldown = stats.fireInterval;
         const n = stats.bullets;
         for (let i = 0; i < n; i++) {
           const a = aim + (i - (n - 1) / 2) * 0.14;
-          const ox = van.x + Math.cos(a) * 24;
-          const oy = van.y + 11 + Math.sin(a) * 24;
-          this.bullets.push({ x: ox, y: oy, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, dmg: stats.damage });
+          this.bullets.push({ x: van.x + Math.cos(a) * 24, y: van.y + 11 + Math.sin(a) * 24, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, dmg: stats.damage });
         }
         van.flash = 0.07;
         Audio().play("shoot");
@@ -466,7 +342,6 @@
       van.flash = Math.max(0, van.flash - dt);
       van.drawAim = aim;
 
-      // Spawning
       if (!seg.ending) {
         this.spawnTimer -= dt;
         if (this.spawnTimer <= 0) {
@@ -474,8 +349,6 @@
           this.spawnTimer = this.diff.interval * rand(0.7, 1.3);
         }
       }
-
-      // Bullets
       for (let i = this.bullets.length - 1; i >= 0; i--) {
         const b = this.bullets[i];
         b.x += b.vx * dt;
@@ -502,8 +375,6 @@
           }
         }
       }
-
-      // Zombies
       const drift = scrollSpeed * 0.35;
       for (let i = this.zombies.length - 1; i >= 0; i--) {
         const z = this.zombies[i];
@@ -513,7 +384,6 @@
         z.angle = Math.atan2(dy, dx);
         let vx = (dx / dist) * z.speed + z.kx;
         let vy = (dy / dist) * z.speed + drift + z.ky;
-        // keep them from stacking
         for (let j = 0; j < this.zombies.length; j++) {
           if (i === j) continue;
           const o = this.zombies[j];
@@ -533,8 +403,6 @@
         z.ky *= 0.85;
         z.hit = Math.max(0, z.hit - dt);
         z.cool = Math.max(0, z.cool - dt);
-
-        // touching the van?
         const nx = (z.x - van.x) / (van.w / 2 + z.r * 0.8);
         const ny = (z.y - van.y) / (van.h / 2 + z.r * 0.8);
         if (nx * nx + ny * ny < 1 && z.cool <= 0) {
@@ -552,22 +420,18 @@
         }
         if (z.y > this.H + 80 || z.x < -160 || z.x > this.W + 160) this.zombies.splice(i, 1);
       }
-
-      // Crates
       for (let i = this.crates.length - 1; i >= 0; i--) {
         const c = this.crates[i];
         c.y += scrollSpeed * dt;
         c.t += dt;
         if (Math.abs(c.x - van.x) < van.w / 2 + 14 && Math.abs(c.y - van.y) < van.h / 2 + 14) {
-          run.scrap += DIFF.crateScrap;
+          t.scrap += DIFF.crateScrap;
           this.burst("+" + DIFF.crateScrap + " SCRAP", c.x, c.y - 20, "#0f1012", "#d9a21b", 0.9);
           this.sparks(c.x, c.y, "#e6dfcc");
           Audio().play("pickup");
           this.crates.splice(i, 1);
         } else if (c.y > this.H + 60) this.crates.splice(i, 1);
       }
-
-      // Scenery and fallen walkers scroll with the road
       for (let i = this.props.length - 1; i >= 0; i--) {
         this.props[i].y += scrollSpeed * dt;
         if (this.props[i].y > this.H + 100) this.props.splice(i, 1);
@@ -579,17 +443,9 @@
         if (f.life <= 0 || f.y > this.H + 100) this.fallen.splice(i, 1);
       }
       if (this.props.length < 14 && Math.random() < dt * 1.6) this.spawnProp();
-
       this.updateParticles(dt);
       this.shake *= Math.pow(0.02, dt);
       this.updateHud();
-
-      // Periodic autosave so a refresh or a tap on Home lands back here.
-      this.saveTimer += dt;
-      if (this.saveTimer >= 3) {
-        this.saveTimer = 0;
-        this.autosave();
-      }
     },
 
     assist(aim) {
@@ -609,29 +465,28 @@
       }
       return best == null ? aim : best;
     },
-
     killZombie(i) {
       const z = this.zombies[i];
-      const run = State().run;
+      const t = State().trip;
       this.zombies.splice(i, 1);
       this.dust(z.x, z.y, z.r);
       this.fallen.push({ kind: "fallen", x: z.x, y: z.y, size: z.r, rot: z.angle + rand(-0.4, 0.4), life: 3 });
       if (this.fallen.length > 24) this.fallen.shift();
-      run.kills += 1;
-      run.scrap += z.scrap;
+      t.walkers += 1;
+      t.scrap += z.scrap;
       Audio().play("poof");
     },
-
     hurtVan(dmg, x, y) {
-      const run = State().run;
-      run.hp -= dmg;
+      const S = State();
+      const t = S.trip;
+      t.vanHp -= Math.round(dmg * S.effects().vanDamage);
       this.van.hurt = 1;
-      if (State().settings.shake) this.shake = 10;
+      if (S.settings.shake) this.shake = 10;
       this.burst("SLAM!", this.van.x, this.van.y - 70, "#e6dfcc", "#b3261e", 1.1);
       this.sparks(x, y, "#9ea3aa");
       Audio().play("crunch");
-      if (run.hp <= 0) {
-        run.hp = 0;
+      if (t.vanHp <= 0) {
+        t.vanHp = 0;
         this.gameOverAt = 1.4;
         this.shake = 18;
         for (let k = 0; k < 24; k++) {
@@ -643,7 +498,6 @@
         Audio().play("gameover");
       }
     },
-
     updateParticles(dt) {
       for (let i = this.particles.length - 1; i >= 0; i--) {
         const p = this.particles[i];
@@ -659,21 +513,20 @@
         if (this.bursts[i].t >= this.bursts[i].life) this.bursts.splice(i, 1);
       }
     },
-
     updateHud() {
-      const run = State().run;
+      const S = State();
+      const t = S.trip;
       const h = this.hud;
-      const pct = clamp((run.hp / this.stats.maxHp) * 100, 0, 100);
+      const pct = clamp((t.vanHp / t.vanMaxHp) * 100, 0, 100);
       h.hpFill.style.width = pct + "%";
       h.hpFill.style.background = pct > 50 ? "#7a9a3c" : pct > 25 ? "#d9a21b" : "#b3261e";
-      h.hpText.textContent = Math.max(0, Math.round(run.hp));
-      h.scrap.textContent = run.scrap;
-      h.miles.textContent = run.miles.toFixed(1);
-      h.kills.textContent = run.kills;
+      h.hpText.textContent = Math.max(0, Math.round(t.vanHp));
+      h.scrap.textContent = S.save.scrap + t.scrap;
+      h.miles.textContent = t.miles.toFixed(1);
+      h.kills.textContent = t.walkers;
       h.segFill.style.width = clamp((this.seg.elapsed / this.seg.duration) * 100, 0, 100) + "%";
     },
 
-    /* ---------- Draw ---------- */
     draw() {
       const ctx = this.ctx;
       const D = Draw();
@@ -681,26 +534,21 @@
       if (!van) return;
       ctx.save();
       if (this.shake > 0.5) ctx.translate(rand(-this.shake, this.shake), rand(-this.shake, this.shake));
-      const theme = this.mods.night ? { grass: "#3f3e2c", asphalt: "#2b2c30" } : this.mods.fog ? { grass: "#67654a" } : null;
-      D.road(ctx, this.W, this.H, this.roadX, this.roadW, this.scroll, theme);
+      D.road(ctx, this.W, this.H, this.roadX, this.roadW, this.scroll, this.mods.fog ? { grass: "#67654a" } : null);
       for (const p of this.props) D.prop(ctx, p);
       for (const f of this.fallen) D.prop(ctx, f);
       for (const c of this.crates) D.prop(ctx, { kind: "crate", x: c.x, y: c.y, t: c.t });
       const sorted = this.zombies.slice().sort((a, b) => a.y - b.y);
       for (const z of sorted) D.zombie(ctx, z, this.time);
       for (const b of this.bullets) D.bullet(ctx, b);
-      if (this.gameOverAt == null || this.gameOverAt > 0.9) {
-        D.van(ctx, van.x, van.y, { upgrades: State().run.upgrades, aim: van.drawAim == null ? van.aim : van.drawAim, t: this.time, hurt: van.hurt, flash: van.flash });
-      }
+      if (this.gameOverAt == null || this.gameOverAt > 0.9) D.van(ctx, van.x, van.y, { upgrades: State().save.upgrades, aim: van.drawAim == null ? van.aim : van.drawAim, t: this.time, hurt: van.hurt, flash: van.flash });
       for (const p of this.particles) D.particle(ctx, p);
       for (const b of this.bursts) D.burst(ctx, b);
       if (this.mods.fog) D.fog(ctx, this.W, this.H, this.dpr, van.x, van.y, 300);
-      if (this.mods.night) D.night(ctx, this.W, this.H, this.dpr, van.x, van.y + 11, van.drawAim == null ? van.aim : van.drawAim);
       ctx.restore();
       D.vignette(ctx, this.W, this.H);
     },
 
-    /** Static or animated preview of the van for title and garage screens. */
     showcase(canvas, upgrades, t) {
       const ctx = canvas.getContext("2d");
       const W = canvas.width;
@@ -711,11 +559,7 @@
       D.road(ctx, W, H, (W - roadW) / 2, roadW, (t || 0) * 160, null);
       D.prop(ctx, { kind: "wreck", x: W * 0.12, y: H * 0.85, rot: 0.5, color: "#3f4a55" });
       D.prop(ctx, { kind: "tree", x: W * 0.88, y: H * 0.15, size: 26, seed: 5 });
-      const zs = [
-        { type: "walker", x: W * 0.16, y: H * 0.3 + Math.sin((t || 0) * 2) * 6, r: 16, hp: 1, maxHp: 1, angle: 0.3, phase: 0, hit: 0 },
-        { type: "runner", x: W * 0.86, y: H * 0.58, r: 13, hp: 1, maxHp: 1, angle: Math.PI - 0.4, phase: 2, hit: 0 },
-      ];
-      zs.forEach((z) => D.zombie(ctx, z, t || 0));
+      [{ type: "walker", x: W * 0.16, y: H * 0.3 + Math.sin((t || 0) * 2) * 6, r: 16, hp: 1, maxHp: 1, angle: 0.3, phase: 0, hit: 0 }, { type: "runner", x: W * 0.86, y: H * 0.58, r: 13, hp: 1, maxHp: 1, angle: Math.PI - 0.4, phase: 2, hit: 0 }].forEach((z) => D.zombie(ctx, z, t || 0));
       D.van(ctx, W / 2, H * 0.55, { upgrades, aim: -Math.PI / 2 + Math.sin((t || 0) * 1.3) * 0.5, t: t || 0, scale: Math.min(1, H / 150) });
       D.vignette(ctx, W, H);
     },
