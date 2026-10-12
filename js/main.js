@@ -146,7 +146,7 @@
       const cargo = Object.values(t.cargo).reduce((a, b) => a + b, 0);
       State.returnHome();
       goYard({ firstCalm: W.DEFENSE.firstCalmSeconds });
-      Interior.toast("Home. " + cargo + " item" + (cargo === 1 ? "" : "s") + " unloaded, day " + State.save.day + ". Saved.", 5);
+      Interior.toast("Home. " + cargo + " item" + (cargo === 1 ? "" : "s") + " unloaded. Day " + State.save.day + ". Saved.", 4);
       return;
     }
     const loc = W.LOCATIONS.find((l) => l.id === destId);

@@ -240,7 +240,7 @@
       this.hud.place.textContent = loc.name;
       this.hud.phase.classList.add("hidden");
       this.startLoop();
-      this.toast("You're in. Walkers inside. E reads notes and opens doors. B opens the backpack.", 4);
+      this.toast("Walkers inside. E reads notes. B is the backpack.", 3.5);
     },
 
     /* ---------- The yard (cabin defense) ---------- */
@@ -281,7 +281,7 @@
       this.hud.place.textContent = "Home Base";
       this.hud.phase.classList.remove("hidden");
       this.startLoop();
-      this.toast("Home. It's quiet for now. E at the cabin door builds; E at the van heads out.", 5);
+      this.toast("Home. Quiet for now.", 3);
     },
 
     leave() {
@@ -404,7 +404,7 @@
           Audio().play("buy");
           this.updateHud();
         } else {
-          this.toast("Locked. A note in this building says how to open it.", 3);
+          this.toast("Locked. A note here says how.", 3);
           Audio().play("wrong");
         }
       } else if (f.kind === "exit") {
@@ -490,7 +490,7 @@
             z.awake = false;
             z.cool = 2;
           });
-          this.toast("The Medbay kit brings you back. Half health. Be careful.", 4);
+          this.toast("Medbay kit: back up at half health.", 3);
         } else {
           this.running = false;
           if (this.hooks.onDeath) this.hooks.onDeath();
@@ -549,7 +549,7 @@
             this.waveIndex += 1;
             const total = size === "some" ? D.someCount(S.save.day, this.waveIndex) : D.manyCount(S.save.day, this.waveIndex);
             this.phase = { kind: "wave", size, total, spawned: 0, spawnT: 0, t: 0 };
-            this.toast(size === "many" ? "A lot of them. Hold the fence!" : "Walkers at the fence.", 3);
+            this.toast(size === "many" ? "A lot of them. Hold the fence!" : "Walkers at the fence.", 2.5);
             Audio().play("haven");
           }
           this.updateHud();
@@ -572,7 +572,7 @@
           // the crew patches the fence between waves
           Object.keys(this.fence).forEach((k) => (this.fence[k] = this.fenceMax));
           for (let y = 0; y < this.gh; y++) for (let x = 0; x < this.gw; x++) if (W().YARD.grid[y][x] === "F" && this.grid[y][x] === ".") this.grid[y][x] = "F";
-          this.toast("Wave cleared. The fence is patched. Build while it's quiet.", 4);
+          this.toast("Wave cleared. Fence patched.", 3);
           Audio().play("correct");
           if (this.hooks.onWaveCleared) this.hooks.onWaveCleared();
         }
