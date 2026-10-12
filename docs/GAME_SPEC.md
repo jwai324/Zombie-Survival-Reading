@@ -61,7 +61,7 @@ tension.
 
 | Room | What it does |
 |------|--------------|
-| Walls | Stronger fence in cabin defense, more van health, more on-foot health |
+| Walls | Stronger fence in cabin defense, more van health, more on-foot health; level 2 unlocks spike traps, level 3 blast traps |
 | Garage | Unlocks higher van and gun upgrade tiers; free repair at base |
 | Power | Map shows danger; supply crates on drives; headlights beat night and fog |
 | Water | On-foot health regen; start buildings at full health |
@@ -69,6 +69,60 @@ tension.
 | Radio | Reveals locations; later shows which still hold items |
 | Medbay | Less on-foot damage; one revive per trip; less van damage |
 | Archive | Notes show what is left at a place; map shows caches and stock |
+| Well (late) | Needs Water 1. Clean water: faster regen, full health on entry at level 3. The Farm and the Lab need it |
+| Farm (late) | Needs Garden 2 + Well. Crop field, chicken coop, goat pen: 2 / 4 / 6 food a day on top of the Garden |
+| Lab (late) | Needs Medbay + Well. Makes medical kits: one every 2 days, then 1 a day, then 2 a day |
+
+A level can carry `requires: { room: level }`; the build button says which room to build first.
+Food and medicine from different rooms add up; every other effect takes the best level.
+
+## The fence, traps and kits
+
+- **The fence never patches itself.** Every hole a wave claws open stays until the player
+  pays for it: 1 scrap per hole, either by standing at the gap and pressing E or with the
+  "Fix all" button in the cabin menu. A cracked segment (under half strength) can be braced
+  the same way. Building Walls up rebuilds the whole fence. Fence state is part of the save.
+- **Traps** are crafted at the workbench (Walls 2 for spike traps, Walls 3 for blast traps)
+  and set in the yard with T (spike) and R (blast) on the ground in front of you, or just
+  past the fence line. A spike trap hurts the walker that steps on it (45, three uses); a
+  blast trap hurts every walker close to it (120, one use). Set traps are saved.
+- **Medical kits** live in the backpack (up to 3, packed from storage at the cabin). Using a
+  kit heals to full. Inside a building a kit from the van's cargo can be used too.
+- **Van repair** is instant and restores full health: 1 scrap for every 3 health missing
+  (at least 5), free once the Garage room is built.
+
+## Doors, re-entry, and the map
+
+- Every doorway inside a building is a real door, closed until opened. E opens and closes
+  it; a door cannot close on the player or a walker. Walkers cannot open doors. An unlocked
+  cache door becomes a normal door.
+- Leaving a building stores its state for the rest of the trip (walkers, scrap piles,
+  doors). Going back in on the same trip finds it exactly as left. Driving home clears it.
+- From the map, the place you are parked at offers "Go in" / "Go back in" (the door note is
+  shown only the first time).
+
+## The workbench (typing)
+
+Room builds, van and gun upgrades, and trap crafting open the workbench: a garage scene
+with a typing round in front. The first time, a lesson shows traditional home-row finger
+placement. Stages progress one per finished round: single home-row keys, home-row runs,
+the top row, the bottom row, short words, longer words, phrases, sentences, then faster
+sentences. Each round has a timer; running out offers a retry with new targets. Nothing is
+spent until the round is finished. Repairs need no typing. Word, phrase and sentence pools
+come from the reading-level text files.
+
+## Saves
+
+Up to four labeled saves (one per player), picked on the title screen; a name is asked for
+when a slot is created. An older single save migrates into slot 1. The base is still the
+only place the game saves.
+
+## Rendering notes
+
+Wall texture columns are sampled left to right as seen from each face, so signs read
+correctly from any side. The cabin has log walls, boarded windows, a plank gable and a
+shingled roof that rises to a ridge; the van is a low two-tile model with a cab, a sliding
+door, a nose and a tail; the treeline is taller than the walls.
 
 ## First person (desktop)
 
@@ -84,11 +138,12 @@ title screen says so and does not start a game.
 Normal, Large (1.3x), Huge (1 inch). Huge applies to everything: reading text, buttons,
 menus, HUD. Layouts collapse to one column.
 
-## Saves
+## Save format
 
-`zsr.base`: day, scrap, food, inventory, room levels, van and gun upgrades, known
-locations, per-location state (items taken, cache opened), backpack notes, best score.
-Only written at the base. "Continue" loads it and opens the base screen.
+`zs.slots` is the slot index (active slot, labels); `zs.save.<n>` holds one base save: day,
+scrap, food, inventory, room levels, van and gun upgrades, known locations, per-location
+state (items taken, cache opened), backpack notes, packed kits, fence health per segment,
+trap stock and set traps, typing progress, best score. Only written at the base.
 
 ## Content files
 

@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 /* Validates js/content/level*.js against js/world.js and docs/TEXT_GUIDE.md.
+   Covers howto, base rooms (incl. late rooms and what they require), traps, the
+   workbench blurb, and the typing drills (fingers, words, phrases, sentences).
    Usage: node tests/validate-text.js [level]. Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -7,13 +9,15 @@ const path = require("path");
 const vm = require("vm");
 
 const ROOT = path.join(__dirname, "..");
+// words/sentence: note length and max sentence length (docs/TEXT_GUIDE.md).
+// typeWord: letters per typing word; typePhrase / typeSentence: words per phrase / sentence.
 const LEVELS = {
-  1: { words: [30, 50], sentence: 7 },
-  2: { words: [45, 75], sentence: 10 },
-  3: { words: [70, 110], sentence: 14 },
-  4: { words: [100, 140], sentence: 18 },
-  5: { words: [130, 180], sentence: 22 },
-  6: { words: [160, 220], sentence: 26 },
+  1: { words: [30, 50], sentence: 7, typeWord: [3, 4], typePhrase: [2, 2], typeSentence: [3, 6] },
+  2: { words: [45, 75], sentence: 10, typeWord: [3, 5], typePhrase: [2, 2], typeSentence: [4, 7] },
+  3: { words: [70, 110], sentence: 14, typeWord: [3, 6], typePhrase: [2, 3], typeSentence: [5, 9] },
+  4: { words: [100, 140], sentence: 18, typeWord: [4, 7], typePhrase: [2, 3], typeSentence: [6, 10] },
+  5: { words: [130, 180], sentence: 22, typeWord: [4, 8], typePhrase: [2, 4], typeSentence: [7, 11] },
+  6: { words: [160, 220], sentence: 26, typeWord: [5, 9], typePhrase: [2, 4], typeSentence: [8, 12] },
 };
 const errors = [];
 const warnings = [];
@@ -22,6 +26,15 @@ const warn = (c, m) => warnings.push(c + ": " + m);
 const words = (s) => String(s).trim().split(/\s+/).filter(Boolean);
 const sentences = (s) => String(s).replace(/\n+/g, " ").split(/(?<=[.!?]["”']?)\s+/).map((x) => x.trim()).filter(Boolean);
 const isStr = (v, min = 1) => typeof v === "string" && v.trim().length >= min;
+const longestSentence = (p) => sentences(p).reduce((m, s) => Math.max(m, words(s).length), 0);
+// a few offending entries, quoted, for an error message
+const list = (arr, max = 8) => arr.slice(0, max).map((x) => JSON.stringify(x)).join(", ") + (arr.length > max ? `, ... (${arr.length} total)` : "");
+const dupes = (arr) => {
+  const seen = new Set();
+  const out = [];
+  arr.forEach((x) => { if (seen.has(x) && !out.includes(x)) out.push(x); seen.add(x); });
+  return out;
+};
 
 function load(file, key) {
   const sb = {};
@@ -56,6 +69,91 @@ function numberWord(num, text) {
   const w = NUM_WORDS[num];
   return w && new RegExp("\\b" + w + "\\b", "i").test(text);
 }
+// the number as digits (whole token) or as a number word
+const hasNumber = (num, text) => new RegExp("\\b" + String(num).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(text) || !!numberWord(num, text);
+
+/* howto: the paragraphs must carry the current rules and drop the old ones */
+const HOWTO_BANNED = /patched|patch the fence|fence is fixed between/i;
+const HOWTO_MUST = [
+  [/door/i, "the cabin door (E opens and closes it, walkers cannot)"],
+  [/trap/i, "traps (crafted at the bench, placed in the yard)"],
+  [/kit/i, "medical kits (the backpack carries them, one heals to full)"],
+  [/typ/i, "typing (how you build, upgrade, and craft)"],
+  [/scrap/i, "scrap (fence holes and van repair cost scrap)"],
+  [/save/i, "saving (the base is the only place the game saves)"],
+];
+/* typing.fingers: home-row placement must be taught in so many words */
+const FINGERS_MUST = [
+  [/home row/i, "the home row"],
+  [/\bF\b/, "the F key (its bump)"],
+  [/\bJ\b/, "the J key (its bump)"],
+  [/space/i, "the space bar (thumbs)"],
+];
+const PHRASE_RE = /^[a-z]+( [a-z]+){1,3}$/;
+const SENTENCE_RE = /^[A-Z][A-Za-z ,]*[a-z]\.$/;
+
+/* typing drills: finger lesson, then words, phrases, and sentences the player types */
+function checkTyping(ctx, ty, spec) {
+  ty = ty || {};
+  const fctx = `${ctx} typing.fingers`;
+  if (!Array.isArray(ty.fingers)) err(fctx, "missing (3 to 4 short paragraphs on home-row finger placement)");
+  else if (ty.fingers.length < 3 || ty.fingers.length > 4) err(fctx, `has ${ty.fingers.length} paragraphs, needs 3 to 4`);
+  else {
+    ty.fingers.forEach((p, i) => {
+      if (!isStr(p, 20)) return err(`${fctx}[${i}]`, "empty");
+      const longest = longestSentence(p);
+      if (longest > spec.sentence + 3) warn(`${fctx}[${i}]`, `longest sentence ${longest}, max ${spec.sentence}`);
+    });
+    const all = ty.fingers.join(" ");
+    FINGERS_MUST.forEach(([re, what]) => { if (!re.test(all)) err(fctx, `must mention ${what}`); });
+  }
+
+  const wctx = `${ctx} typing.words`;
+  if (!Array.isArray(ty.words)) err(wctx, "missing (40+ lowercase words from the game's world)");
+  else {
+    const W = ty.words;
+    if (W.length < 40) err(wctx, `${W.length} words, needs 40+`);
+    const bad = W.filter((w) => !/^[a-z]+$/.test(w));
+    if (bad.length) err(wctx, `must be lowercase a-z only, no spaces: ${list(bad)}`);
+    const d = dupes(W);
+    if (d.length) err(wctx, `duplicates: ${list(d)}`);
+    const [lo, hi] = spec.typeWord;
+    const off = W.filter((w) => typeof w === "string" && (w.length < lo || w.length > hi));
+    if (off.length) (off.length > W.length / 10 ? err : warn)(wctx, `${off.length} of ${W.length} outside ${lo}..${hi} letters: ${list(off)}`);
+  }
+
+  const pctx = `${ctx} typing.phrases`;
+  if (!Array.isArray(ty.phrases)) err(pctx, "missing (20+ lowercase phrases of 2 to 4 words)");
+  else {
+    const P = ty.phrases;
+    if (P.length < 20) err(pctx, `${P.length} phrases, needs 20+`);
+    const bad = P.filter((p) => !PHRASE_RE.test(p));
+    if (bad.length) err(pctx, `must be 2 to 4 lowercase words with single spaces, no punctuation: ${list(bad)}`);
+    const d = dupes(P);
+    if (d.length) warn(pctx, `duplicates: ${list(d)}`);
+    const [lo, hi] = spec.typePhrase;
+    const off = P.filter((p) => PHRASE_RE.test(p) && (p.split(" ").length < lo || p.split(" ").length > hi));
+    if (off.length) warn(pctx, `${off.length} of ${P.length} outside ${lo}..${hi} words: ${list(off)}`);
+  }
+
+  const sctx = `${ctx} typing.sentences`;
+  if (!Array.isArray(ty.sentences)) err(sctx, "missing (16+ sentences: capital first letter, final period, letters, spaces, commas only)");
+  else {
+    const S = ty.sentences;
+    if (S.length < 16) err(sctx, `${S.length} sentences, needs 16+`);
+    const bad = S.filter((s) => !SENTENCE_RE.test(s));
+    if (bad.length) err(sctx, `must start with a capital, end with a period, and use only letters, spaces, commas: ${list(bad)}`);
+    const dbl = S.filter((s) => /  /.test(s));
+    if (dbl.length) err(sctx, `double space: ${list(dbl)}`);
+    const gap = S.filter((s) => / ,/.test(s));
+    if (gap.length) warn(sctx, `space before a comma: ${list(gap)}`);
+    const d = dupes(S);
+    if (d.length) warn(sctx, `duplicates: ${list(d)}`);
+    const [lo, hi] = spec.typeSentence;
+    const off = S.filter((s) => SENTENCE_RE.test(s) && (words(s).length < lo || words(s).length > hi));
+    if (off.length) warn(sctx, `${off.length} of ${S.length} outside ${lo}..${hi} words: ${list(off)}`);
+  }
+}
 
 function checkLevel(n) {
   const spec = LEVELS[n];
@@ -72,18 +170,51 @@ function checkLevel(n) {
   if (!t) return err(ctx, `did not define ZSR.TEXT[${n}]`);
   if (t.level !== n) err(ctx, `level field is ${t.level}`);
   if (!Array.isArray(t.howto) || t.howto.length < 3) err(ctx, "howto needs 3+ paragraphs");
-  else t.howto.forEach((p, i) => {
-    if (!isStr(p, 20)) err(`${ctx} howto[${i}]`, "empty");
-    const longest = sentences(p).reduce((m, s) => Math.max(m, words(s).length), 0);
-    if (longest > spec.sentence + 3) warn(`${ctx} howto[${i}]`, `longest sentence ${longest}, max ${spec.sentence}`);
+  else {
+    if (t.howto.length > 6) warn(ctx, `howto has ${t.howto.length} paragraphs, keep it to 3 to 6`);
+    t.howto.forEach((p, i) => {
+      if (!isStr(p, 20)) err(`${ctx} howto[${i}]`, "empty");
+      const longest = longestSentence(p);
+      if (longest > spec.sentence + 3) warn(`${ctx} howto[${i}]`, `longest sentence ${longest}, max ${spec.sentence}`);
+    });
+    const all = t.howto.join(" ");
+    if (HOWTO_BANNED.test(all)) err(ctx, "howto still says the fence is patched between waves (holes stay until repaired, 1 scrap each)");
+    HOWTO_MUST.forEach(([re, what]) => { if (!re.test(all)) err(ctx, `howto must mention ${what}`); });
+  }
+  const base = t.base || {};
+  if (!isStr(base.intro)) err(ctx, "base.intro missing");
+  Object.entries(WORLD.BASE_ROOMS).forEach(([room, R]) => {
+    const rctx = `${ctx} base.rooms.${room}`;
+    const r = base.rooms && base.rooms[room];
+    if (!r) return err(rctx, "missing");
+    if (!isStr(r.desc)) err(rctx, "desc missing");
+    if (!Array.isArray(r.next) || r.next.length !== 3 || !r.next.every((x) => isStr(x))) return err(rctx, "next needs 3 strings");
+    // a level that requires other rooms must name them, so the player knows what to build first
+    R.levels.forEach((lv, i) => {
+      Object.entries(lv.requires || {}).forEach(([other, lvl]) => {
+        const name = WORLD.BASE_ROOMS[other].name;
+        if (!r.next[i].includes(name)) err(`${rctx} next[${i}]`, `must name "${name}" (requires ${name} ${lvl})`);
+        else if (lvl > 1 && !hasNumber(lvl, r.next[i])) warn(`${rctx} next[${i}]`, `names "${name}" but not level ${lvl}`);
+      });
+    });
   });
-  if (!t.base || !isStr(t.base.intro)) err(ctx, "base.intro missing");
-  Object.keys(WORLD.BASE_ROOMS).forEach((room) => {
-    const r = t.base && t.base.rooms && t.base.rooms[room];
-    if (!r) return err(`${ctx} base.rooms.${room}`, "missing");
-    if (!isStr(r.desc)) err(`${ctx} base.rooms.${room}`, "desc missing");
-    if (!Array.isArray(r.next) || r.next.length !== 3 || !r.next.every((x) => isStr(x))) err(`${ctx} base.rooms.${room}`, "next needs 3 strings");
+  // traps: key letter, damage, uses, and the Walls level that unlocks each
+  const traps = base.traps || {};
+  Object.entries(WORLD.TRAPS).forEach(([key, tr]) => {
+    const tctx = `${ctx} base.traps.${key}`;
+    const d = traps[key] && traps[key].desc;
+    if (!isStr(d)) return err(tctx, `desc missing (${tr.name}: key ${tr.key}, ${tr.damage} damage, ${tr.uses} use(s), needs ${Object.entries(tr.requires || {}).map(([o, l]) => WORLD.BASE_ROOMS[o].name + " " + l).join(", ")})`);
+    if (!new RegExp("\\b" + tr.key + "\\b").test(d)) err(tctx, `desc must give the placement key as a capital ${tr.key}`);
+    if (!hasNumber(tr.damage, d)) err(tctx, `desc must give the damage number ${tr.damage}`);
+    if (!hasNumber(tr.uses, d)) err(tctx, `desc must say how many walkers it lasts (${tr.uses})`);
+    Object.entries(tr.requires || {}).forEach(([other, lvl]) => {
+      const name = WORLD.BASE_ROOMS[other].name;
+      if (!d.includes(name)) err(tctx, `desc must name "${name}" (unlocked by ${name} ${lvl})`);
+      else if (!hasNumber(lvl, d)) warn(tctx, `desc names "${name}" but not level ${lvl}`);
+    });
   });
+  if (!base.bench || !isStr(base.bench.intro)) err(ctx, "base.bench.intro missing (one or two sentences shown at the garage workbench)");
+  checkTyping(ctx, t.typing, spec);
   if (!t.locations) return err(ctx, "locations missing");
   WORLD.LOCATIONS.filter((l) => l.id !== "base").forEach((loc) => {
     const L = t.locations[loc.id];
@@ -114,7 +245,8 @@ function checkLevel(n) {
       const L = t.locations[loc.id];
       return n2 + words(L.door.text).length + Object.values(L.notes).reduce((m, x) => m + words(x.text).length, 0);
     }, 0);
-    console.log(`level ${n}: ${WORLD.LOCATIONS.length - 1} locations, ${total} note words`);
+    const ty = t.typing;
+    console.log(`level ${n}: ${WORLD.LOCATIONS.length - 1} locations, ${total} note words, typing ${ty.words.length} words / ${ty.phrases.length} phrases / ${ty.sentences.length} sentences`);
   }
 }
 

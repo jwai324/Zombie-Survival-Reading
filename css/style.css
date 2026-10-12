@@ -185,6 +185,40 @@ kbd { font-family: var(--font-body); font-weight: 700; background: var(--paper-3
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .6rem; margin: .9rem 0; }
 .pause-panel, .death-panel, .confirm-panel { max-width: 40rem; text-align: center; }
 
+/* Save slots on the title screen */
+.slots-title { margin: .6rem 0 .3rem; }
+.slots { display: flex; flex-direction: column; gap: .5rem; margin: 0 auto .75rem; max-width: 30rem; text-align: left; }
+.slot { display: grid; grid-template-columns: 1fr auto; gap: .5rem; align-items: center; background: var(--paper-3); border: .19rem solid var(--ink); box-shadow: .19rem .19rem 0 var(--ink); padding: .5rem .7rem; }
+.slot.empty { background: rgba(0,0,0,.05); border-style: dashed; }
+.slot .who { font-family: var(--font-head); font-weight: 700; font-size: 1.15rem; letter-spacing: .04em; text-transform: uppercase; }
+.slot .sum { font-size: .85rem; color: var(--muted); }
+.slot .acts { display: flex; gap: .4rem; flex-wrap: wrap; justify-content: flex-end; }
+.slot .btn { font-size: .95rem; padding: .45rem .7rem; }
+.slot .btn.del { background: var(--paper-2); }
+#newsave-name { font: 700 1.3rem var(--font-head); letter-spacing: .04em; text-transform: uppercase; padding: .5rem .7rem; border: var(--border); background: var(--paper-3); color: var(--ink); width: 100%; }
+#screen-newsave .field label { font-weight: 700; }
+
+/* Hover tips in the cabin menu */
+.tip { position: fixed; z-index: 50; max-width: min(24rem, 92vw); background: var(--ink); color: var(--paper-3); border: .19rem solid var(--amber); box-shadow: .25rem .25rem 0 rgba(0,0,0,.5); padding: .5rem .7rem; font-size: .9rem; line-height: 1.45; pointer-events: none; }
+.tip strong { color: var(--amber-2); }
+.tip .t-line { display: block; margin-top: .2rem; }
+[data-tip] { cursor: help; }
+button[data-tip] { cursor: pointer; }
+
+/* Fence, traps, kits */
+.fence-row { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; background: var(--paper-3); border: .19rem solid var(--ink); padding: .5rem .7rem; margin: .25rem 0 .75rem; box-shadow: .19rem .19rem 0 var(--ink); }
+.fence-row .btn { font-size: .95rem; padding: .45rem .7rem; }
+.fence-row.bad { background: #e6c3bd; }
+.lock { font-size: .85rem; font-weight: 700; color: var(--red); }
+.stock { font-family: var(--font-head); font-weight: 700; font-size: 1.1rem; }
+.kits { background: var(--paper-3); border: .19rem solid var(--ink); box-shadow: .19rem .19rem 0 var(--ink); padding: .6rem .8rem; margin: .25rem 0 .9rem; }
+.kits h3 { margin: 0 0 .25rem; }
+.kits .row { display: flex; gap: .5rem; flex-wrap: wrap; align-items: center; margin-top: .4rem; }
+.kits .btn { font-size: .95rem; padding: .45rem .7rem; }
+.kit-pips { display: inline-flex; gap: .2rem; vertical-align: middle; margin-left: .3rem; }
+.kit-pips span { width: .9rem; height: .9rem; border: .125rem solid var(--ink); background: var(--paper); }
+.kit-pips span.on { background: var(--red); }
+
 /* Huge text: everything is one inch. In-game overlays collapse (fewer boxes, no labels)
    instead of shrinking, so the view stays visible. */
 :root[data-size="huge"] .hud-label { display: none; }
@@ -207,6 +241,9 @@ kbd { font-family: var(--font-body); font-weight: 700; background: var(--paper-3
 :root[data-size="huge"] .map-layout { grid-template-columns: minmax(0, 1fr); }
 :root[data-size="huge"] .map-board { display: none; }
 :root[data-size="huge"] .road-box { min-width: 0; }
+:root[data-size="huge"] .tip { display: none !important; }
+:root[data-size="huge"] .slot { grid-template-columns: 1fr; }
+:root[data-size="huge"] .slot .sum { display: none; }
 
 @media (max-width: 480px) {
   .panel { padding: 2.5rem .9rem 1rem; }

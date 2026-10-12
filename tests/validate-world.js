@@ -109,12 +109,48 @@ W.LOCATIONS.forEach((l) => { if (!known.has(l.id)) err(`${l.id}: never revealed 
 // recipes
 Object.entries(W.BASE_ROOMS).forEach(([room, r]) => {
   if (r.levels.length !== 3) err(`room ${room}: needs 3 levels`);
-  r.levels.forEach((lv, i) => Object.keys(lv.needs).forEach((it) => { if (!W.ITEMS[it]) err(`room ${room} L${i + 1}: unknown item ${it}`); }));
+  r.levels.forEach((lv, i) => {
+    Object.keys(lv.needs).forEach((it) => { if (!W.ITEMS[it]) err(`room ${room} L${i + 1}: unknown item ${it}`); });
+    if (!(lv.scrap > 0)) err(`room ${room} L${i + 1}: scrap cost missing`);
+    Object.entries(lv.requires || {}).forEach(([other, lvl]) => {
+      if (!W.BASE_ROOMS[other]) err(`room ${room} L${i + 1}: requires unknown room ${other}`);
+      else if (other === room) err(`room ${room} L${i + 1}: requires itself`);
+      else if (!(lvl >= 1 && lvl <= 3)) err(`room ${room} L${i + 1}: requires ${other} level ${lvl} (must be 1..3)`);
+    });
+  });
 });
+// requirements never form a cycle (every room is eventually buildable)
+{
+  const built = {};
+  Object.keys(W.BASE_ROOMS).forEach((k) => (built[k] = 0));
+  let grew = true;
+  while (grew) {
+    grew = false;
+    Object.entries(W.BASE_ROOMS).forEach(([room, r]) => {
+      const lv = r.levels[built[room]];
+      if (!lv) return;
+      const ok = Object.entries(lv.requires || {}).every(([o, l]) => built[o] >= l);
+      if (ok) { built[room] += 1; grew = true; }
+    });
+  }
+  Object.entries(built).forEach(([room, lvl]) => { if (lvl < 3) err(`room ${room}: level ${lvl + 1} can never be built (requirement cycle)`); });
+}
+// traps
+Object.entries(W.TRAPS || {}).forEach(([key, t]) => {
+  if (!t.name || !t.key) err(`trap ${key}: needs a name and a key`);
+  Object.keys(t.needs || {}).forEach((it) => { if (!W.ITEMS[it]) err(`trap ${key}: unknown item ${it}`); });
+  if (!(t.damage > 0) || !(t.uses >= 1) || !(t.radius > 0)) err(`trap ${key}: damage, uses, radius must be positive`);
+  Object.entries(t.requires || {}).forEach(([other, lvl]) => { if (!W.BASE_ROOMS[other] || !(lvl >= 1 && lvl <= 3)) err(`trap ${key}: bad requirement ${other} ${lvl}`); });
+});
+if (W.TRAPS) {
+  const keys = Object.values(W.TRAPS).map((t) => t.key);
+  if (new Set(keys).size !== keys.length) err("traps: two traps share a placement key");
+}
 // every item is obtainable somewhere
 const available = new Set();
 W.LOCATIONS.forEach((l) => (l.items || []).concat(l.cache || []).forEach((it) => available.add(it)));
 Object.values(W.BASE_ROOMS).forEach((r) => r.levels.forEach((lv) => Object.keys(lv.needs).forEach((it) => { if (!available.has(it)) err(`item ${it} is needed but found nowhere`); })));
+Object.values(W.TRAPS || {}).forEach((t) => Object.keys(t.needs || {}).forEach((it) => { if (!available.has(it)) err(`trap item ${it} is needed but found nowhere`); }));
 // roads connect everything
 const adj = {};
 W.ROADS.forEach(([a, b]) => { (adj[a] = adj[a] || []).push(b); (adj[b] = adj[b] || []).push(a); if (!ids.has(a) || !ids.has(b)) err(`road ${a}-${b} names an unknown location`); });

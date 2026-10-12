@@ -16,8 +16,10 @@
 
   const FOV = 1.22; // ~70 degrees
   const COL = 2; // pixels per ray
-  const SOLID = "#SCXGLETHBVF"; // blocks movement
-  const OPAQUE = "#SCXGLETHBV"; // blocks sight and rays (fence F is see-through)
+  const SOLID = "#SCXGLETHBVFO"; // blocks movement (O is a closed door)
+  const OPAQUE = "#SCXGLETHBVO"; // blocks sight and rays (fence F is see-through)
+  const HEIGHT = { V: 0.8, T: 1.45 }; // wall heights in tiles; everything else is 1
+  const CABIN = { eave: 1.0, ridge: 1.7 }; // the cabin's walls stop at the eave; the roof peaks at the ridge
   const WALKER_TYPES = {
     walker: { hp: 30, speed: 1.25, r: 0.32, dmgKey: "footDamageWalker", scrap: 2 },
     runner: { hp: 18, speed: 2.4, r: 0.28, dmgKey: "footDamageRunner", scrap: 3 },
@@ -26,7 +28,7 @@
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const normAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
-  const TEX_OF = { S: "shelf", C: "counter", X: "crate", G: "glass", L: "locked", E: "exit", T: "tree", H: "house", B: "door", V: "van" };
+  const TEX_OF = { S: "shelf", C: "counter", X: "crate", G: "glass", L: "locked", E: "exit", T: "tree", H: "house", B: "door", V: "van", O: "doorClosed" };
 
   const Interior = {
     canvas: null,
@@ -99,18 +101,18 @@
         this.releasing = false;
       });
       // physical key positions, so WASD works on any keyboard layout
-      const CODE = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyE: "e", KeyB: "b", KeyP: "p", Space: " ", ShiftLeft: "shift", ShiftRight: "shift", ArrowUp: "arrowup", ArrowDown: "arrowdown", ArrowLeft: "arrowleft", ArrowRight: "arrowright", Escape: "escape" };
+      const CODE = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyE: "e", KeyB: "b", KeyP: "p", KeyT: "t", KeyR: "r", Space: " ", ShiftLeft: "shift", ShiftRight: "shift", ArrowUp: "arrowup", ArrowDown: "arrowdown", ArrowLeft: "arrowleft", ArrowRight: "arrowright", Escape: "escape" };
       const keyOf = (e) => CODE[e.code] || e.key.toLowerCase();
       root.addEventListener("keydown", (e) => {
-        if (!this.running) return;
+        if (!this.running || this.paused) return; // paused: menus and the workbench own the keyboard
         const k = keyOf(e);
-        if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", " ", "e", "shift", "b"].includes(k) && !this.paused) e.preventDefault();
+        if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", " ", "e", "shift", "b", "t", "r"].includes(k)) e.preventDefault();
         if (e.repeat) return;
         this.keys[k] = true;
-        if (this.paused) return;
         if (k === "e") this.interact();
         if ((k === "p" || k === "escape") && this.hooks.onPause) this.hooks.onPause();
         if (k === "b" && this.hooks.onBackpack) this.hooks.onBackpack();
+        if ((k === "t" || k === "r") && this.mode === "yard") this.placeTrap(k === "t" ? "spike" : "blast");
       });
       root.addEventListener("keyup", (e) => {
         this.keys[keyOf(e)] = false;
@@ -137,10 +139,14 @@
       this.piles = [];
       this.walkers = [];
       this.fence = {}; // "x,y" -> hp
+      this.doors = []; // interior doors: { x, y, open }
+      this.traps = []; // yard traps: { x, y, type, uses }
       this.cacheDoor = null;
       this.exit = null;
       this.door = null;
       this.van = null;
+      this.cabin = null;
+      this.tileTex = {}; // "x,y" -> texture name override
       this.hudSig = null;
       this.spawns = [];
       this.floors = [];
@@ -181,6 +187,7 @@
       this.loc = loc;
       this.loadGrid(tpl.grid, tpl.palette);
       const st = S.locState(loc.id);
+      const snap = S.trip && S.trip.rooms && S.trip.rooms[loc.id]; // this trip's earlier visit: exactly as you left it
       const notes = W().NOTES[loc.id].notes;
       let itemIdx = 0;
       let cacheIdx = 0;
@@ -210,9 +217,16 @@
           } else if (ch === "z") {
             this.spawns.push([cx, cy]);
             this.grid[y][x] = ".";
+          } else if (ch === "D") {
+            // every doorway is a real door: closed until you open it
+            this.doors.push({ x, y, open: false });
+            this.grid[y][x] = "O";
           } else if (ch === "L") {
             this.cacheDoor = { x, y, open: st.cacheOpened };
-            if (st.cacheOpened) this.grid[y][x] = "D";
+            if (st.cacheOpened) {
+              this.doors.push({ x, y, open: true, cache: true });
+              this.grid[y][x] = "D";
+            }
           } else if (ch === "E") {
             this.exit = { x, y };
           }
@@ -226,24 +240,55 @@
       this.makePlayer(start[0], start[1], start[2]);
       if (this.fx.fullHealOnEntry) this.player.hp = this.player.maxHp;
 
-      const day = S.save.day;
-      const n = W().SETTINGS.walkersPerLocation(loc.danger, day);
-      // extra walkers go on floor tiles the player can actually reach, at least 6 steps from the door
-      const reach = this.reachable(Math.floor(start[0]), Math.floor(start[1]));
-      const far = this.floors.filter(([x, y]) => (reach.get(Math.floor(x) + "," + Math.floor(y)) || 0) >= 6);
-      const spots = this.spawns.slice();
-      while (spots.length < n && far.length) spots.push(far.splice(Math.floor(Math.random() * far.length), 1)[0]);
-      const hpMult = 1 + 0.1 * (day - 1);
-      spots.slice(0, n).forEach(([x, y], i) => {
-        const type = loc.danger >= 4 && i === 0 ? "brute" : loc.danger >= 2 && i % 3 === 1 ? "runner" : loc.danger >= 3 && i % 4 === 3 ? "brute" : "walker";
-        this.walkers.push(this.makeWalker(type, x, y, hpMult));
-      });
+      if (snap) {
+        this.restore(snap);
+      } else {
+        const day = S.save.day;
+        const n = W().SETTINGS.walkersPerLocation(loc.danger, day);
+        // extra walkers go on floor tiles the player can actually reach, at least 6 steps from the door
+        const reach = this.reachable(Math.floor(start[0]), Math.floor(start[1]));
+        const far = this.floors.filter(([x, y]) => (reach.get(Math.floor(x) + "," + Math.floor(y)) || 0) >= 6);
+        const spots = this.spawns.slice();
+        while (spots.length < n && far.length) spots.push(far.splice(Math.floor(Math.random() * far.length), 1)[0]);
+        const hpMult = 1 + 0.1 * (day - 1);
+        spots.slice(0, n).forEach(([x, y], i) => {
+          const type = loc.danger >= 4 && i === 0 ? "brute" : loc.danger >= 2 && i % 3 === 1 ? "runner" : loc.danger >= 3 && i % 4 === 3 ? "brute" : "walker";
+          this.walkers.push(this.makeWalker(type, x, y, hpMult));
+        });
+      }
       S.tripLoc(loc.id).visits += 1;
       if (!S.trip.visited.includes(loc.id)) S.trip.visited.push(loc.id);
       this.hud.place.textContent = loc.name;
       this.hud.phase.classList.add("hidden");
       this.startLoop();
-      this.toast("Walkers inside. E reads notes. B is the backpack.", 3.5);
+      this.toast(snap ? "Back inside. It is just as you left it." : "Walkers inside. E reads notes and opens doors. B is the backpack.", 3.5);
+    },
+
+    /** What this building looks like right now, so a return visit on the same trip finds it unchanged. */
+    snapshot() {
+      return {
+        walkers: this.walkers.map((z) => ({ type: z.type, x: z.x, y: z.y, hp: z.hp, maxHp: z.maxHp })),
+        piles: this.piles.map((pl) => pl.taken),
+        doors: this.doors.map((d) => d.open),
+      };
+    },
+    restore(snap) {
+      snap.walkers.forEach((w) => {
+        const z = this.makeWalker(w.type, w.x, w.y, 1);
+        z.hp = w.hp;
+        z.maxHp = w.maxHp;
+        z.cool = 1;
+        this.walkers.push(z);
+      });
+      snap.piles.forEach((taken, i) => {
+        if (this.piles[i]) this.piles[i].taken = taken;
+      });
+      snap.doors.forEach((open, i) => {
+        const d = this.doors[i];
+        if (!d) return;
+        d.open = open;
+        this.grid[d.y][d.x] = open ? "D" : "O";
+      });
     },
 
     /* ---------- The yard (cabin defense) ---------- */
@@ -254,7 +299,9 @@
       this.loc = { id: "base", name: "Home Base", cacheName: "" };
       this.loadGrid(Y.grid, Y.palette);
       const fenceHp = W().DEFENSE.fenceHp[S.save.rooms.walls] || W().DEFENSE.fenceHp[0];
+      const savedFence = S.save.fence || {}; // holes and cracks never close on their own
       let start = [2.5, 2.5, -Math.PI / 2];
+      let cab = null;
       for (let y = 0; y < this.gh; y++) {
         for (let x = 0; x < this.gw; x++) {
           const ch = this.grid[y][x];
@@ -265,16 +312,31 @@
             this.spawns.push([x + 0.5, y + 0.5]);
             this.grid[y][x] = ".";
           } else if (ch === "F") {
-            this.fence[x + "," + y] = fenceHp;
-          } else if (ch === "B") {
-            this.door = { x, y };
+            const key = x + "," + y;
+            const hp = savedFence[key] != null ? Math.min(fenceHp, savedFence[key]) : fenceHp;
+            if (hp > 0) this.fence[key] = hp;
+            else this.grid[y][x] = "."; // a hole
+          } else if (ch === "B" || ch === "H") {
+            if (ch === "B") this.door = { x, y };
+            cab = cab ? { x0: Math.min(cab.x0, x), x1: Math.max(cab.x1, x + 1), y0: Math.min(cab.y0, y), y1: Math.max(cab.y1, y + 1) } : { x0: x, x1: x + 1, y0: y, y1: y + 1 };
           } else if (ch === "V" && !this.van) {
             this.van = { x, y };
           }
           if (this.grid[y][x] === ".") this.floors.push([x + 0.5, y + 0.5]);
         }
       }
+      if (cab) {
+        // a gabled roof: the ridge runs along the long side, the end walls carry the gable
+        const alongX = cab.x1 - cab.x0 >= cab.y1 - cab.y0;
+        this.cabin = Object.assign(cab, { alongX, ridge: alongX ? (cab.y0 + cab.y1) / 2 : (cab.x0 + cab.x1) / 2, half: alongX ? (cab.y1 - cab.y0) / 2 : (cab.x1 - cab.x0) / 2 });
+        // windows either side of the door on the front wall
+        if (this.door) {
+          this.tileTex[this.door.x - 1 + "," + this.door.y] = "houseWindow";
+          this.tileTex[this.door.x + 1 + "," + this.door.y] = "houseWindow";
+        }
+      }
       this.fenceMax = fenceHp;
+      this.traps = (S.save.yardTraps || []).map((t) => Object.assign({}, t));
       this.makePlayer(start[0], start[1], start[2]);
       this.player.hp = this.player.maxHp; // home: rested
       this.waveIndex = S.save.wave || 0; // escalation survives a reload and the yard button; resets when a day passes
@@ -282,7 +344,130 @@
       this.hud.place.textContent = "Home Base";
       this.hud.phase.classList.remove("hidden");
       this.startLoop();
-      this.toast("Home. Quiet for now.", 3);
+      const holes = this.fenceHoles().length;
+      this.toast(holes ? "Home. The fence has " + holes + " hole" + (holes > 1 ? "s" : "") + ". E at a gap fixes it for 1 scrap." : "Home. Quiet for now.", holes ? 4.5 : 3);
+    },
+
+    /** Fence state to save: every segment's health; 0 is a hole. */
+    fenceState() {
+      const Y = W().YARD.grid;
+      const out = {};
+      for (let y = 0; y < this.gh; y++) for (let x = 0; x < this.gw; x++) if (Y[y][x] === "F") out[x + "," + y] = this.fence[x + "," + y] || 0;
+      return out;
+    },
+    fenceHoles() {
+      const Y = W().YARD.grid;
+      const out = [];
+      for (let y = 0; y < this.gh; y++) for (let x = 0; x < this.gw; x++) if (Y[y][x] === "F" && this.fence[x + "," + y] == null) out.push([x, y]);
+      return out;
+    },
+    walkerOnTile(x, y) {
+      return this.walkers.some((z) => Math.floor(z.x) === x && Math.floor(z.y) === y);
+    },
+    /** Rebuild one hole or brace one cracked segment. Costs scrap; returns true when done. */
+    repairFence(x, y) {
+      const S = State();
+      const key = x + "," + y;
+      const cost = W().SETTINGS.fenceRepairScrap;
+      if (S.save.scrap < cost) {
+        this.toast("Not enough scrap. " + cost + " scrap fixes a fence segment.", 3);
+        Audio().play("wrong");
+        return false;
+      }
+      if (this.walkerOnTile(x, y)) {
+        this.toast("Something is in the gap. Clear it first.", 2.5);
+        Audio().play("wrong");
+        return false;
+      }
+      S.save.scrap -= cost;
+      this.fence[key] = this.fenceMax;
+      this.grid[y][x] = "F";
+      Audio().play("buy");
+      this.updateHud();
+      if (this.hooks.onYardChanged) this.hooks.onYardChanged();
+      return true;
+    },
+    /** Fix every hole the player can afford (the cabin menu button). Returns how many were fixed. */
+    repairAllHoles() {
+      let n = 0;
+      for (const [x, y] of this.fenceHoles()) {
+        if (!this.repairFence(x, y)) break;
+        n++;
+      }
+      if (n) this.toast("Fence fixed: " + n + " hole" + (n > 1 ? "s" : "") + ".", 3);
+      return n;
+    },
+    /** Put a trap on the tile in front of you (or just past the fence). */
+    placeTrap(type) {
+      const S = State();
+      const def = W().TRAPS[type];
+      if (!def) return;
+      const have = (S.save.traps && S.save.traps[type]) || 0;
+      if (!have) {
+        this.toast("No " + def.name.toLowerCase() + "s. Craft them at the workbench in the cabin.", 3);
+        Audio().play("wrong");
+        return false;
+      }
+      const p = this.player;
+      let spot = null;
+      for (const d of [1.0, 2.0]) {
+        const gx = Math.floor(p.x + Math.cos(p.a) * d);
+        const gy = Math.floor(p.y + Math.sin(p.a) * d);
+        if (gx < 0 || gy < 0 || gx >= this.gw || gy >= this.gh) break;
+        const ch = this.grid[gy][gx];
+        if (ch === "F") continue; // over the fence
+        if (ch !== ".") break;
+        if (gx === Math.floor(p.x) && gy === Math.floor(p.y)) continue;
+        if (this.traps.some((t) => t.x === gx + 0.5 && t.y === gy + 0.5)) {
+          this.toast("There is already a trap there.", 2.5);
+          Audio().play("wrong");
+          return false;
+        }
+        spot = [gx, gy];
+        break;
+      }
+      if (!spot) {
+        this.toast("No room for a trap there. Face open ground or the fence.", 2.5);
+        Audio().play("wrong");
+        return false;
+      }
+      S.save.traps[type] -= 1;
+      this.traps.push({ x: spot[0] + 0.5, y: spot[1] + 0.5, type, uses: def.uses });
+      this.toast(def.name + " set. " + S.save.traps[type] + " left.", 2.5);
+      Audio().play("pickup");
+      this.updateHud();
+      if (this.hooks.onYardChanged) this.hooks.onYardChanged();
+      return true;
+    },
+    updateTraps(dt) {
+      const TR = W().TRAPS;
+      let changed = false;
+      this.traps.forEach((tr) => {
+        if (tr.uses <= 0) return;
+        tr.flash = Math.max(0, (tr.flash || 0) - dt);
+        const def = TR[tr.type];
+        const stepped = this.walkers.find((z) => z.hp > 0 && !(z.trapT > 0) && Math.hypot(z.x - tr.x, z.y - tr.y) < 0.55);
+        if (!stepped) return;
+        if (def.radius > 0.6) {
+          this.walkers.forEach((z) => {
+            if (Math.hypot(z.x - tr.x, z.y - tr.y) < def.radius) this.hurtWalker(z, def.damage);
+          });
+          tr.uses = 0;
+          this.shake = State().settings.shake ? 10 : 0;
+        } else {
+          this.hurtWalker(stepped, def.damage);
+          stepped.trapT = 1.2;
+          tr.uses -= 1;
+        }
+        tr.flash = 0.4;
+        Audio().play("crunch");
+        changed = true;
+      });
+      if (changed) {
+        this.traps = this.traps.filter((t) => t.uses > 0);
+        State().save.yardTraps = this.traps.map((t) => ({ x: t.x, y: t.y, type: t.type, uses: t.uses }));
+        this.updateHud();
+      }
     },
 
     /** Stop the loop and release every input hold (shared by leave and death). */
@@ -298,7 +483,20 @@
     },
     leave() {
       this.stop();
-      if (State().trip && this.player) State().trip.footHp = this.player.hp;
+      const S = State();
+      if (S.trip && this.player) S.trip.footHp = this.player.hp;
+      if (S.trip && this.mode === "building" && this.loc) {
+        S.trip.rooms = S.trip.rooms || {};
+        S.trip.rooms[this.loc.id] = this.snapshot();
+      }
+    },
+    /** A medical kit: back to full health (the backpack calls this). */
+    heal() {
+      if (!this.player) return false;
+      this.player.hp = this.player.maxHp;
+      this.player.hurt = 0;
+      this.updateHud();
+      return true;
     },
     pause() {
       if (!this.running) return;
@@ -314,17 +512,21 @@
       this.last = 0;
       this.updateHud();
     },
-    /** Call after the build menu changed the base (walls level, repairs). */
-    refreshYard() {
+    /** Call after the build menu changed the base. Building the Walls up rebuilds the whole fence;
+        nothing else touches it (holes stay until they are paid for). */
+    refreshYard(opts) {
       if (this.mode !== "yard") return;
       const S = State();
       const hp = W().DEFENSE.fenceHp[S.save.rooms.walls] || W().DEFENSE.fenceHp[0];
+      const grew = hp !== this.fenceMax;
       this.fenceMax = hp;
-      this.patchFence();
+      if (grew || (opts && opts.rebuildFence)) this.patchFence();
       this.gun = ZSR.Upgrades.stats(S.save.upgrades);
       this.fx = S.effects();
       this.player.maxHp = S.footMaxHp();
       this.player.hp = this.player.maxHp;
+      this.traps = (S.save.yardTraps || []).map((t) => Object.assign({}, t));
+      this.updateHud();
     },
 
     /** BFS step counts from a tile over walkable tiles (locked doors count as walls). */
@@ -397,21 +599,59 @@
       const cand = [];
       this.notes.forEach((n) => cand.push({ kind: "note", obj: n, x: n.x, y: n.y }));
       if (this.cacheDoor && !this.cacheDoor.open) cand.push({ kind: "cache", obj: this.cacheDoor, x: this.cacheDoor.x + 0.5, y: this.cacheDoor.y + 0.5 });
+      this.doors.forEach((d) => cand.push({ kind: "idoor", obj: d, x: d.x + 0.5, y: d.y + 0.5 }));
       if (this.exit) cand.push({ kind: "exit", obj: this.exit, x: this.exit.x + 0.5, y: this.exit.y + 0.5 });
       if (this.mode === "yard" && this.door) cand.push({ kind: "door", obj: this.door, x: this.door.x + 0.5, y: this.door.y + 0.5 });
       if (this.mode === "yard" && this.van) cand.push({ kind: "van", obj: this.van, x: this.van.x + 1, y: this.van.y + 0.5 });
+      if (this.mode === "yard") {
+        // fence segments near the player: holes to rebuild, cracks to brace
+        const Y = W().YARD.grid;
+        for (let gy = Math.floor(p.y) - 2; gy <= Math.floor(p.y) + 2; gy++) for (let gx = Math.floor(p.x) - 2; gx <= Math.floor(p.x) + 2; gx++) {
+          if (!Y[gy] || Y[gy][gx] !== "F") continue;
+          const hp = this.fence[gx + "," + gy];
+          if (hp == null) cand.push({ kind: "hole", obj: [gx, gy], x: gx + 0.5, y: gy + 0.5 });
+          else if (hp < this.fenceMax * 0.5) cand.push({ kind: "crack", obj: [gx, gy], x: gx + 0.5, y: gy + 0.5 });
+        }
+      }
       let best = null;
       cand.forEach((c) => {
         const dx = c.x - p.x;
         const dy = c.y - p.y;
         const d = Math.hypot(dx, dy);
-        const reach = c.kind === "note" ? 1.4 : c.kind === "van" ? 2.0 : 1.6;
+        const reach = c.kind === "note" ? 1.4 : c.kind === "van" ? 2.0 : c.kind === "hole" || c.kind === "crack" ? 1.8 : 1.6;
         if (d > reach) return;
         const diff = Math.abs(normAngle(Math.atan2(dy, dx) - p.a));
         if (diff > 0.95) return;
-        if (!best || d < best.d) best = Object.assign({ d }, c);
+        // nearest wins, except a note you have already read steps aside for the door behind it
+        const score = d + (c.kind === "note" && c.obj.read ? 1.5 : 0);
+        if (!best || score < best.score) best = Object.assign({ d, score }, c);
       });
       return best;
+    },
+    /** Open or close an interior door. Nothing may stand in the doorway when it closes. */
+    toggleDoor(d) {
+      const p = this.player;
+      if (d.open) {
+        if (Math.floor(p.x) === d.x && Math.floor(p.y) === d.y) {
+          this.toast("Step out of the doorway first.", 2);
+          Audio().play("wrong");
+          return;
+        }
+        if (this.walkerOnTile(d.x, d.y)) {
+          this.toast("Something is in the doorway.", 2);
+          Audio().play("wrong");
+          return;
+        }
+        d.open = false;
+        this.grid[d.y][d.x] = "O";
+        // a closed door changes every path
+        this.walkers.forEach((z) => (z.pathT = 0));
+      } else {
+        d.open = true;
+        this.grid[d.y][d.x] = "D";
+        this.walkers.forEach((z) => (z.pathT = 0));
+      }
+      Audio().play("click");
     },
     interact() {
       const f = this.facing();
@@ -425,6 +665,7 @@
         if (note && S.noteRead(note.id)) {
           this.cacheDoor.open = true;
           this.grid[this.cacheDoor.y][this.cacheDoor.x] = "D";
+          this.doors.push({ x: this.cacheDoor.x, y: this.cacheDoor.y, open: true, cache: true });
           S.tripLoc(this.loc.id).cacheOpened = true;
           this.toast("Opened: " + this.loc.cacheName + ".", 3);
           Audio().play("buy");
@@ -433,6 +674,10 @@
           this.toast("Locked. A note here says how.", 3);
           Audio().play("wrong");
         }
+      } else if (f.kind === "idoor") {
+        this.toggleDoor(f.obj);
+      } else if (f.kind === "hole" || f.kind === "crack") {
+        this.repairFence(f.obj[0], f.obj[1]);
       } else if (f.kind === "exit") {
         if (this.hooks.onExit) this.hooks.onExit();
       } else if (f.kind === "door") {
@@ -501,7 +746,10 @@
       }
 
       if (this.mode === "building") this.updatePickups();
-      else this.updateYard(dt);
+      else {
+        this.updateYard(dt);
+        this.updateTraps(dt);
+      }
 
       this.walkers.forEach((z) => this.updateWalker(z, dt));
       for (let i = this.walkers.length - 1; i >= 0; i--) if (this.walkers[i].hp <= 0) this.walkers.splice(i, 1);
@@ -530,7 +778,8 @@
 
       const f = this.facing();
       const inWave = this.phase && this.phase.kind === "wave";
-      const hint = !f ? "" : f.kind === "note" ? "Press E to read the note" : f.kind === "cache" ? "Press E to open " + this.loc.cacheName : f.kind === "exit" ? "Press E to leave for the van" : f.kind === "door" ? (inWave ? "Cabin door (clear the wave first)" : "Press E to go inside and build") : inWave ? "The van (clear the wave first)" : "Press E to head out in the van";
+      const fix = W().SETTINGS.fenceRepairScrap + " scrap";
+      const hint = !f ? "" : f.kind === "note" ? "Press E to read the note" : f.kind === "cache" ? "Press E to open " + this.loc.cacheName : f.kind === "idoor" ? (f.obj.open ? "Press E to close the door" : "Press E to open the door") : f.kind === "hole" ? "Press E to rebuild the fence (" + fix + ")" : f.kind === "crack" ? "Press E to brace the fence (" + fix + ")" : f.kind === "exit" ? "Press E to leave for the van" : f.kind === "door" ? (inWave ? "Cabin door (clear the wave first)" : "Press E to go inside and build") : inWave ? "The van (clear the wave first)" : "Press E to head out in the van";
       if (this.hud.hint.textContent !== hint) this.hud.hint.textContent = hint;
     },
 
@@ -599,9 +848,9 @@
         }
         if (ph.spawned >= ph.total && this.walkers.length === 0) {
           this.phase = { kind: "calm", t: rand(D.calmSeconds[0], D.calmSeconds[1]), size: "none" };
-          // the crew patches the fence between waves
-          this.patchFence();
-          this.toast("Wave cleared. Fence patched.", 3);
+          // nobody patches the fence for you: every hole costs scrap
+          const holes = this.fenceHoles().length;
+          this.toast(holes ? "Wave cleared. " + holes + " hole" + (holes > 1 ? "s" : "") + " in the fence: E at a gap fixes it for " + W().SETTINGS.fenceRepairScrap + " scrap." : "Wave cleared. The fence held.", holes ? 4.5 : 3);
           Audio().play("correct");
           if (this.hooks.onWaveCleared) this.hooks.onWaveCleared();
         }
@@ -621,6 +870,7 @@
       z.hit = Math.max(0, z.hit - dt);
       z.cool = Math.max(0, z.cool - dt);
       z.hurtT = Math.max(0, z.hurtT - dt);
+      z.trapT = Math.max(0, (z.trapT || 0) - dt);
       z.frameT += dt;
       // running is loud: sprinting players are noticed from farther away
       const hear = this.keys.shift && this.player.moving ? 9 : 6;
@@ -756,29 +1006,34 @@
       return path.length ? path : [[p.x, p.y]];
     },
 
+    /** Damage a walker; a kill pays scrap to the trip (out there) or the save (at home). */
+    hurtWalker(z, dmg) {
+      if (z.hp <= 0) return;
+      z.hp -= dmg;
+      z.hit = 0.12;
+      z.hurtT = 1;
+      z.awake = true;
+      if (z.hp <= 0) {
+        const S = State();
+        if (S.trip) {
+          S.trip.walkers += 1;
+          S.trip.scrap += z.scrap;
+        } else {
+          S.save.scrap += z.scrap;
+          S.save.stats.walkers += 1;
+        }
+        Audio().play("poof");
+        this.updateHud();
+      }
+    },
     shoot() {
       const n = this.gun.bullets;
       for (let s = 0; s < n; s++) {
         const off = (s - (n - 1) / 2) * 0.06;
         const target = this.walkerAt(off);
         if (target) {
-          target.hp -= this.gun.damage;
-          target.hit = 0.12;
-          target.hurtT = 1;
-          target.awake = true;
           Audio().play("hit");
-          if (target.hp <= 0) {
-            const S = State();
-            if (S.trip) {
-              S.trip.walkers += 1;
-              S.trip.scrap += target.scrap;
-            } else {
-              S.save.scrap += target.scrap;
-              S.save.stats.walkers += 1;
-            }
-            Audio().play("poof");
-            this.updateHud();
-          }
+          this.hurtWalker(target, this.gun.damage);
         }
       }
     },
@@ -820,8 +1075,10 @@
         const cacheState = this.cacheDoor ? (this.cacheDoor.open ? "open" : "locked") : "none";
         h.goal.textContent = (left ? left + " item" + (left > 1 ? "s" : "") + " on the floor" : "Floor cleared") + " · " + this.loc.cacheName + ": " + cacheState + (cacheLeft && cacheState === "open" ? ", " + cacheLeft + " left" : "");
       } else {
-        const broken = Object.values(W().YARD.grid.join("")).filter((c) => c === "F").length - Object.keys(this.fence).length;
-        h.goal.textContent = "Day " + S.save.day + " · fence " + (broken ? broken + " gap" + (broken > 1 ? "s" : "") : "intact") + " · walls level " + S.save.rooms.walls;
+        const broken = this.fenceHoles().length;
+        const tr = S.save.traps || {};
+        const held = Object.entries(W().TRAPS).filter(([k]) => tr[k] > 0).map(([k, d]) => tr[k] + " " + d.name.toLowerCase() + (tr[k] > 1 ? "s" : "") + " (" + d.key + ")");
+        h.goal.textContent = "Day " + S.save.day + " · fence " + (broken ? broken + " hole" + (broken > 1 ? "s" : "") + " (E to fix)" : "whole") + " · walls " + S.save.rooms.walls + (held.length ? " · traps: " + held.join(", ") : "");
       }
     },
 
@@ -897,7 +1154,7 @@
             const fp = side === 0 ? sideX - deltaX : sideY - deltaY;
             let fwx = side === 0 ? p.y + fp * rdy : p.x + fp * rdx;
             fwx -= Math.floor(fwx);
-            fence = { dist: Math.max(0.05, fp), wallX: fwx, side, key: mapX + "," + mapY };
+            fence = { dist: Math.max(0.05, fp), wallX: fwx, side, rdx, rdy, key: mapX + "," + mapY };
             continue;
           }
           if (OPAQUE.includes(tile)) break;
@@ -906,21 +1163,66 @@
         const dist = Math.max(0.05, perp);
         zbuf[col] = dist;
         fbuf[col] = fence ? fence.dist : Infinity;
-        const lineH = H / dist;
-        const top = H / 2 - lineH / 2;
-        const bottom = H / 2 + lineH / 2;
+        const unit = H / dist; // screen pixels per world unit at this distance
+        const bottom = H / 2 + unit / 2;
         let wallX = side === 0 ? p.y + perp * rdy : p.x + perp * rdx;
         wallX -= Math.floor(wallX);
-        const tex = D3().texture(TEX_OF[tile] || "wall", pal);
+        // texture columns run left to right as seen from the face's own side, so text never mirrors
+        const flip = (side === 0 && rdx < 0) || (side === 1 && rdy > 0);
+        let texX = Math.floor(wallX * 64);
+        if (flip) texX = 63 - texX;
         const x = col * COL;
-        ctx.drawImage(tex, Math.floor(wallX * 64), 0, 1, 64, x, top, COL, lineH);
+        const cab = this.cabin;
+        const isCabin = cab && (tile === "H" || tile === "B");
+        let zTop = HEIGHT[tile] || 1;
+        let texName = this.tileTex[mapX + "," + mapY] || TEX_OF[tile] || "wall";
+        if (tile === "V" && side === 0) texName = rdx > 0 ? "vanFront" : "vanBack";
+        else if (tile === "V") texName = this.van && mapX === this.van.x ? "vanCab" : "vanBody";
+        let roof = null; // [yTop, yEave] screen span of the roof slope above an eave wall
+        let gableY = null; // screen y of the eave on a gable end wall
+        if (isCabin) {
+          const eaveSide = cab.alongX ? side === 1 : side === 0; // the long walls carry the eave, the ends the gable
+          if (eaveSide) {
+            zTop = CABIN.eave;
+            // the roof rises from the eave to the ridge (or to the end of the cabin if the ray leaves it first)
+            const hx = p.x + perp * rdx;
+            const hy = p.y + perp * rdy;
+            const along = cab.alongX ? rdy : rdx; // travel across the cabin's depth
+            const across = cab.alongX ? rdx : rdy; // travel along its length
+            const lo = cab.alongX ? cab.x0 : cab.y0;
+            const hi = cab.alongX ? cab.x1 : cab.y1;
+            const at = cab.alongX ? hx : hy;
+            const tEdge = across !== 0 ? Math.abs(((across > 0 ? hi : lo) - at) / across) * Math.abs(along) : Infinity;
+            const t = Math.min(cab.half, tEdge);
+            const sTop = perp + t / Math.max(1e-6, Math.abs(along));
+            const zRoof = CABIN.eave + (CABIN.ridge - CABIN.eave) * (t / cab.half);
+            roof = [H / 2 - (zRoof - 0.5) * (H / sTop), H / 2 - (CABIN.eave - 0.5) * unit];
+          } else {
+            const w = cab.alongX ? p.y + perp * rdy : p.x + perp * rdx;
+            const f = clamp(1 - Math.abs(w - cab.ridge) / cab.half, 0, 1);
+            zTop = CABIN.eave + (CABIN.ridge - CABIN.eave) * f;
+            gableY = H / 2 - (CABIN.eave - 0.5) * unit;
+          }
+        }
+        let top = H / 2 - (zTop - 0.5) * unit;
+        const tex = D3().texture(texName, pal);
+        if (gableY != null && top < gableY) {
+          ctx.drawImage(D3().texture("gable", pal), texX, 0, 1, 64, x, top, COL, gableY - top);
+          ctx.drawImage(tex, texX, 0, 1, 64, x, gableY, COL, bottom - gableY);
+        } else ctx.drawImage(tex, texX, 0, 1, 64, x, top, COL, bottom - top);
+        if (roof && roof[0] < roof[1]) {
+          ctx.drawImage(D3().texture("roof", pal), texX, 0, 1, 64, x, roof[0], COL, roof[1] - roof[0]);
+          ctx.fillStyle = "#0f1012";
+          ctx.fillRect(x, roof[1] - 1, COL, 2.5);
+          top = roof[0];
+        }
         const dark = Math.min(0.8, dist / (pal.sky ? 22 : 13) + (side === 1 ? 0.12 : 0));
         if (dark > 0.02) {
           ctx.fillStyle = "rgba(0,0,0," + dark.toFixed(3) + ")";
-          ctx.fillRect(x, top, COL, lineH);
+          ctx.fillRect(x, top, COL, bottom - top);
         }
         ctx.fillStyle = "#0f1012";
-        const ink = Math.max(1.5, Math.min(4, lineH * 0.012));
+        const ink = Math.max(1.5, Math.min(4, unit * 0.012));
         ctx.fillRect(x, top, COL, ink);
         ctx.fillRect(x, bottom - ink, COL, ink);
         const key = mapX + "," + mapY + "," + side + tile;
@@ -941,6 +1243,7 @@
       this.items.forEach((it) => !it.taken && sprites.push({ x: it.x, y: it.y, img: D3().item(it.item), scale: 0.5, lift: 0.25 }));
       this.notes.forEach((n) => sprites.push({ x: n.x, y: n.y, img: D3().note(), scale: 0.42, lift: 0.3, dim: n.read ? 0.5 : 0 }));
       this.piles.forEach((pl) => !pl.taken && sprites.push({ x: pl.x, y: pl.y, img: D3().scrap(), scale: 0.5, lift: 0.25, wide: 1.33 }));
+      this.traps.forEach((tr) => tr.uses > 0 && sprites.push({ x: tr.x, y: tr.y, img: D3().trap(tr.type, false), scale: 0.3, lift: 0, wide: 1.6, dim: tr.flash > 0 ? 0.4 : 0 }));
       this.walkers.forEach((z) => sprites.push({ x: z.x, y: z.y, img: D3().walker(z.type, z.frame, z.hit > 0), scale: z.type === "brute" ? 1.05 : 0.95, lift: 0, wide: 0.75, hp: z.hp / z.maxHp }));
       const invDet = 1 / (planeX * dirY - dirX * planeY);
       sprites.forEach((s) => {
@@ -995,7 +1298,8 @@
           const hp = this.fence[f.key];
           const tex = hp != null && hp < this.fenceMax * 0.5 ? crackTex : fenceTex;
           const x = col * COL;
-          ctx.drawImage(tex, Math.floor(f.wallX * 64), 0, 1, 64, x, top, COL, h2);
+          const fx = (f.side === 0 && f.rdx < 0) || (f.side === 1 && f.rdy > 0) ? 63 - Math.floor(f.wallX * 64) : Math.floor(f.wallX * 64);
+          ctx.drawImage(tex, fx, 0, 1, 64, x, top, COL, h2);
           const dark = Math.min(0.7, f.dist / 22 + (f.side === 1 ? 0.1 : 0));
           ctx.fillStyle = "rgba(0,0,0," + dark.toFixed(3) + ")";
           ctx.fillRect(x, top, COL, h2);

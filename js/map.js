@@ -141,6 +141,10 @@
           info.appendChild(list);
         }
         if (this.at !== "base") {
+          const here = W().LOCATIONS.find((l) => l.id === this.at);
+          const back = el("button", "btn", "Back into " + esc(here ? here.name : "the building"));
+          back.addEventListener("click", () => this.hooks.onEnter && this.hooks.onEnter(this.at));
+          info.appendChild(back);
           const home = el("button", "btn big go", "Drive home");
           home.addEventListener("click", () => this.hooks.onDrive && this.hooks.onDrive("base"));
           info.appendChild(home);
@@ -173,9 +177,10 @@
         });
         info.appendChild(back);
       }
-      if (this.at === id && id !== "base" && S.trip && S.trip.atDoor === id) {
-        info.appendChild(el("p", "small muted", "You are parked at the door."));
-        const go = el("button", "btn big go", "Go in");
+      if (this.at === id && id !== "base" && S.trip) {
+        const again = S.trip.rooms && S.trip.rooms[id];
+        info.appendChild(el("p", "small muted", again ? "You are parked outside. Inside is just as you left it." : "You are parked at the door."));
+        const go = el("button", "btn big go", again ? "Go back in" : "Go in");
         go.addEventListener("click", () => this.hooks.onEnter && this.hooks.onEnter(id));
         info.appendChild(go);
       } else if (this.at === id) info.appendChild(el("p", "small muted", "You are here."));

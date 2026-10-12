@@ -1,12 +1,12 @@
-/* State: settings, the base save (the only save), and the in-memory trip.
-   The base save is written only at the base. A trip (everything since you
-   left) lives in memory and is lost on death or refresh, by design. */
+/* State: settings, labeled save slots (one base save per player), and the in-memory trip.
+   A base save is written only at the base. A trip (everything since you left) lives in
+   memory and is lost on death or refresh, by design. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
   const W = () => ZSR.WORLD;
 
-  const KEYS = { settings: "zs.settings", save: "zs.base" };
+  const KEYS = { settings: "zs.settings", slots: "zs.slots", legacy: "zs.base", slot: (id) => "zs.save." + id };
 
   const DEFAULT_SETTINGS = {
     level: 3, // reading level 1..6
@@ -38,11 +38,14 @@
     return JSON.parse(JSON.stringify(o));
   }
 
-  function freshSave() {
+  function freshSave(label) {
     const rooms = {};
     Object.keys(W().BASE_ROOMS).forEach((k) => (rooms[k] = 0));
+    const traps = {};
+    Object.keys(W().TRAPS).forEach((k) => (traps[k] = 0));
     return {
-      version: 2,
+      version: 3,
+      label: label || "Player",
       day: 1,
       scrap: W().SETTINGS.startScrap || 0,
       food: W().SETTINGS.startFood,
@@ -53,53 +56,138 @@
       known: W().LOCATIONS.filter((l) => l.known).map((l) => l.id),
       loc: {}, // per location: { taken: {spot: dayTaken}, cacheOpened, cacheTaken: {spot: true}, visits }
       backpack: [], // [{ noteId, locId, found, day }]
+      kits: 0, // medical kits packed in the backpack (heal to full)
+      fence: {}, // "x,y" -> health; 0 is a hole. Holes never close on their own.
+      traps, // crafted traps in stock, by type
+      yardTraps: [], // traps set in the yard: [{ x, y, type, uses }]
+      typing: { stage: 0, rounds: 0, tutorialSeen: false }, // the workbench typing game
+      labAcc: 0, // partial medical kits brewing in the Lab
       stats: { trips: 0, walkers: 0, notesRead: 0, wordsRead: 0, items: 0 },
       wave: 0, // waves survived during this stay at the base (escalation)
       best: { days: 1, baseLevel: 0 },
       savedAt: Date.now(),
     };
   }
+  /** Fill in anything an older save lacks, so every field the game reads exists. */
+  function upgradeSave(s) {
+    const fresh = freshSave(s.label);
+    Object.keys(fresh).forEach((k) => {
+      if (s[k] == null) s[k] = fresh[k];
+    });
+    Object.keys(fresh.rooms).forEach((k) => {
+      if (s.rooms[k] == null) s.rooms[k] = 0;
+    });
+    Object.keys(fresh.traps).forEach((k) => {
+      if (s.traps[k] == null) s.traps[k] = 0;
+    });
+    Object.keys(fresh.typing).forEach((k) => {
+      if (s.typing[k] == null) s.typing[k] = fresh.typing[k];
+    });
+    s.version = 3;
+    return s;
+  }
 
   const State = {
     settings: read(KEYS.settings, DEFAULT_SETTINGS),
     save: null, // committed base save (loaded or new)
-    trip: null, // in-memory: { at, vanHp, footHp, cargo, loc overlay, backpack additions, revived, visited }
+    trip: null, // in-memory: { at, vanHp, footHp, cargo, loc overlay, backpack additions, revived, visited, rooms }
 
     saveSettings() {
       write(KEYS.settings, this.settings);
     },
 
-    hasSave() {
-      return !!read(KEYS.save, { _none: true }).version;
+    /* ---------- Save slots ---------- */
+    /** The slot index: { active, list: { id: { label, createdAt } } }. Migrates the old single save into slot 1. */
+    slots() {
+      const idx = read(KEYS.slots, { active: null, list: {} });
+      if (!idx.list) idx.list = {};
+      const old = read(KEYS.legacy, {});
+      if (old.version && !idx.list[1]) {
+        old.label = old.label || "Player 1";
+        write(KEYS.slot(1), old);
+        idx.list[1] = { label: old.label, createdAt: old.savedAt || Date.now() };
+        if (!idx.active) idx.active = 1;
+        write(KEYS.slots, idx);
+        write(KEYS.legacy, null);
+      }
+      return idx;
+    },
+    listSlots() {
+      const idx = this.slots();
+      const out = [];
+      for (let id = 1; id <= (W().SETTINGS.saveSlots || 4); id++) {
+        const meta = idx.list[id];
+        const s = meta ? read(KEYS.slot(id), {}) : {};
+        out.push({ id, label: meta ? meta.label : null, save: s.version ? s : null, active: idx.active === id });
+      }
+      return out;
+    },
+    activeSlot() {
+      return this.slots().active;
+    },
+    setActiveSlot(id) {
+      const idx = this.slots();
+      idx.active = id;
+      write(KEYS.slots, idx);
+    },
+    hasSave(id) {
+      const sid = id || this.activeSlot();
+      return !!sid && !!read(KEYS.slot(sid), { _none: true }).version;
     },
     /** The save on disk for display only; never touches this.save or this.trip. */
-    peekSave() {
-      const s = read(KEYS.save, {});
+    peekSave(id) {
+      const sid = id || this.activeSlot();
+      if (!sid) return null;
+      const s = read(KEYS.slot(sid), {});
       return s.version ? s : null;
     },
-    loadSave() {
-      const s = read(KEYS.save, {});
+    loadSave(id) {
+      const sid = id || this.activeSlot();
+      if (!sid) return null;
+      const s = read(KEYS.slot(sid), {});
       if (!s.version) return null;
-      this.save = s;
+      if (id) this.setActiveSlot(id);
+      this.save = upgradeSave(s);
       this.trip = null;
-      return s;
+      return this.save;
     },
-    newGame() {
-      this.save = freshSave();
+    newGame(id, label) {
+      const idx = this.slots();
+      const sid = id || idx.active || 1;
+      const name = (label || "").trim() || "Player " + sid;
+      idx.list[sid] = { label: name, createdAt: Date.now() };
+      idx.active = sid;
+      write(KEYS.slots, idx);
+      this.save = freshSave(name);
       this.trip = null;
       this.commit();
       return this.save;
     },
+    deleteSlot(id) {
+      const idx = this.slots();
+      const wasActive = idx.active === id;
+      delete idx.list[id];
+      write(KEYS.slot(id), null);
+      if (wasActive) idx.active = null;
+      write(KEYS.slots, idx);
+      if (wasActive) {
+        this.save = null;
+        this.trip = null;
+      }
+    },
     /** Write the base save. Only called while at the base. */
     commit() {
       if (!this.save) return;
+      const sid = this.activeSlot();
+      if (!sid) return;
       this.save.savedAt = Date.now();
       this.save.best.days = Math.max(this.save.best.days, this.save.day);
       this.save.best.baseLevel = Math.max(this.save.best.baseLevel, this.baseLevel());
-      write(KEYS.save, this.save);
+      write(KEYS.slot(sid), this.save);
     },
     wipe() {
-      write(KEYS.save, null);
+      const sid = this.activeSlot();
+      if (sid) this.deleteSlot(sid);
       this.save = null;
       this.trip = null;
     },
@@ -107,19 +195,26 @@
     baseLevel() {
       return Object.values(this.save.rooms).reduce((a, b) => a + b, 0);
     },
+    maxBaseLevel() {
+      return Object.keys(W().BASE_ROOMS).length * 3;
+    },
 
     /* ---------- Derived effects of the base rooms ---------- */
     effects() {
-      const fx = { vanHp: 0, footHp: 0, tierCap: 2, freeRepair: false, showDanger: false, crates: 0, headlights: false, footRegen: 0, fullHealOnEntry: false, foodPerDay: 0, reveal: 0, showStock: false, footDamage: 1, revive: 0, vanDamage: 1, notesShowStock: false, mapShowsCaches: false, mapShowsStock: false };
+      const fx = { vanHp: 0, footHp: 0, tierCap: 2, freeRepair: false, showDanger: false, crates: 0, headlights: false, footRegen: 0, fullHealOnEntry: false, foodPerDay: 0, medsPerDay: 0, water: 0, reveal: 0, showStock: false, footDamage: 1, revive: 0, vanDamage: 1, notesShowStock: false, mapShowsCaches: false, mapShowsStock: false };
+      const ADD = { foodPerDay: true, medsPerDay: true }; // these stack across rooms; everything else takes the best level
       Object.entries(this.save.rooms).forEach(([room, lvl]) => {
-        for (let i = 0; i < lvl; i++) {
-          const e = W().BASE_ROOMS[room].levels[i].effect;
-          Object.entries(e).forEach(([k, v]) => {
-            if (typeof v === "number" && k !== "footDamage" && k !== "vanDamage") fx[k] = Math.max(fx[k], v);
+        const levels = W().BASE_ROOMS[room] ? W().BASE_ROOMS[room].levels : [];
+        const best = {};
+        for (let i = 0; i < lvl && i < levels.length; i++) {
+          Object.entries(levels[i].effect).forEach(([k, v]) => {
+            if (typeof v === "number" && ADD[k]) best[k] = Math.max(best[k] || 0, v);
+            else if (typeof v === "number" && k !== "footDamage" && k !== "vanDamage") fx[k] = Math.max(fx[k], v);
             else if (typeof v === "number") fx[k] = Math.min(fx[k], v);
             else fx[k] = v;
           });
         }
+        Object.entries(best).forEach(([k, v]) => (fx[k] += v));
       });
       return fx;
     },
@@ -137,6 +232,7 @@
       const maxHp = this.vanMaxHp() * (hungry ? W().SETTINGS.hungryVanPenalty : 1);
       this.trip = {
         at: "base",
+        atDoor: null,
         hungry,
         vanMaxHp: maxHp,
         vanHp: Math.min(s.vanHp, maxHp),
@@ -144,6 +240,7 @@
         cargo: {},
         scrap: 0, // scrap earned this trip (added to the save on return)
         loc: {}, // overlay of location changes made this trip
+        rooms: {}, // per building: walkers, piles and doors exactly as you left them
         notes: [], // notes read this trip (added to the backpack on return)
         revealed: [], // locations revealed this trip
         revived: false,
@@ -181,7 +278,7 @@
       this.trip.items += 1;
     },
     noteRead(noteId) {
-      return this.save.backpack.some((n) => n.noteId === noteId) || this.trip.notes.some((n) => n.noteId === noteId);
+      return this.save.backpack.some((n) => n.noteId === noteId) || (!!this.trip && this.trip.notes.some((n) => n.noteId === noteId));
     },
     readNote(noteId, locId, found) {
       if (!this.trip || this.noteRead(noteId)) return false;
@@ -234,10 +331,16 @@
         s.stats.notesRead += t.notes.length;
         s.stats.wordsRead += t.wordsRead;
         s.stats.items += t.items;
-        // a day passes: the crew eats, the garden grows
+        // a day passes: the crew eats, the garden and the farm grow, the lab brews
+        const fx = this.effects();
         s.day += 1;
         s.wave = 0;
-        s.food = Math.max(0, s.food - W().SETTINGS.foodPerTrip) + this.effects().foodPerDay;
+        s.food = Math.max(0, s.food - W().SETTINGS.foodPerTrip) + fx.foodPerDay;
+        s.labAcc = (s.labAcc || 0) + fx.medsPerDay;
+        while (s.labAcc >= 1 - 1e-9) {
+          s.labAcc -= 1;
+          s.inventory.meds = (s.inventory.meds || 0) + 1;
+        }
       }
       this.trip = null;
       if (this.effects().freeRepair) s.vanHp = this.vanMaxHp();
@@ -250,7 +353,44 @@
       this.loadSave();
     },
 
-    /* ---------- Base actions (each commits) ---------- */
+    /* ---------- Medical kits ---------- */
+    kitsHeld() {
+      return { packed: this.save.kits || 0, storage: this.save.inventory.meds || 0, cargo: this.trip ? this.trip.cargo.meds || 0 : 0 };
+    },
+    packKit() {
+      if (this.trip) return false; // only at the cabin
+      if ((this.save.inventory.meds || 0) < 1 || (this.save.kits || 0) >= W().SETTINGS.kitsMax) return false;
+      this.save.inventory.meds -= 1;
+      this.save.kits = (this.save.kits || 0) + 1;
+      this.commit();
+      return true;
+    },
+    unpackKit() {
+      if (this.trip || !(this.save.kits > 0)) return false;
+      this.save.kits -= 1;
+      this.save.inventory.meds = (this.save.inventory.meds || 0) + 1;
+      this.commit();
+      return true;
+    },
+    /** Spend a kit from the backpack ("pack") or the van's cargo ("cargo"). The caller heals the player. */
+    useKit(from) {
+      if (from === "cargo") {
+        if (!this.trip || !(this.trip.cargo.meds > 0)) return false;
+        this.trip.cargo.meds -= 1;
+        if (!this.trip.cargo.meds) delete this.trip.cargo.meds;
+        return true;
+      }
+      if (!(this.save.kits > 0)) return false;
+      this.save.kits -= 1;
+      if (!this.trip) this.commit();
+      return true;
+    },
+
+    /* ---------- Base actions ---------- */
+    /** Rooms that must be built first for this level, and which of them are missing. */
+    roomRequirements(def) {
+      return Object.entries(def.requires || {}).map(([room, lvl]) => ({ room, level: lvl, name: W().BASE_ROOMS[room].name, ok: (this.save.rooms[room] || 0) >= lvl }));
+    },
     canUpgradeRoom(room) {
       const lvl = this.save.rooms[room];
       const def = W().BASE_ROOMS[room].levels[lvl];
@@ -261,7 +401,9 @@
         if (have < n) missing[k] = n - have;
       });
       const scrapShort = Math.max(0, def.scrap - this.save.scrap);
-      return { ok: !Object.keys(missing).length && !scrapShort, missing, scrapShort, def };
+      const requires = this.roomRequirements(def);
+      const locked = requires.filter((r) => !r.ok);
+      return { ok: !Object.keys(missing).length && !scrapShort && !locked.length, missing, scrapShort, def, requires, locked };
     },
     upgradeRoom(room) {
       const c = this.canUpgradeRoom(room);
@@ -278,18 +420,80 @@
       this.commit();
       return true;
     },
-    repairVan() {
-      const max = this.vanMaxHp();
-      if (this.save.vanHp >= max) return false;
-      if (!this.effects().freeRepair) {
-        if (this.save.scrap < ZSR.Upgrades.REPAIR.cost) return false;
-        this.save.scrap -= ZSR.Upgrades.REPAIR.cost;
-        this.save.vanHp = Math.min(max, this.save.vanHp + ZSR.Upgrades.REPAIR.heal);
-      } else this.save.vanHp = max;
+    /** Van and gun upgrades, capped by the Garage room. */
+    upgradeCap(key) {
+      const cap = this.effects().tierCap;
+      const d = ZSR.Upgrades.DEFS[key];
+      return Math.min(d.max, key === "spread" ? Math.max(1, cap - 2) : cap);
+    },
+    canBuyUpgrade(key) {
+      const d = ZSR.Upgrades.DEFS[key];
+      const level = this.save.upgrades[key];
+      const cost = ZSR.Upgrades.cost(key, level);
+      const capFor = (tc) => Math.min(d.max, key === "spread" ? Math.max(1, tc - 2) : tc);
+      const capped = level >= capFor(this.effects().tierCap);
+      const garageLevels = W().BASE_ROOMS.garage.levels;
+      const needIdx = garageLevels.findIndex((l) => capFor(l.effect.tierCap) > level);
+      const garageNeeded = capped && cost != null ? (needIdx < 0 ? garageLevels.length : needIdx + 1) : 0;
+      return { ok: cost != null && !capped && this.save.scrap >= cost, cost, capped, maxed: cost == null, garageNeeded, level };
+    },
+    buyUpgrade(key) {
+      const c = this.canBuyUpgrade(key);
+      if (!c.ok) return false;
+      this.save.scrap -= c.cost;
+      this.save.upgrades[key] += 1;
+      if (key === "armor") this.save.vanHp = Math.min(this.vanMaxHp(), this.save.vanHp + 30);
       this.commit();
       return true;
     },
-
+    /** Scrap to bring the van back to full health. */
+    repairCost() {
+      const missing = this.vanMaxHp() - this.save.vanHp;
+      if (missing <= 0) return 0;
+      if (this.effects().freeRepair) return 0;
+      return Math.max(W().SETTINGS.repairMinScrap, Math.ceil(missing / W().SETTINGS.repairScrapPerHp));
+    },
+    repairVan() {
+      const max = this.vanMaxHp();
+      if (this.save.vanHp >= max) return false;
+      const cost = this.repairCost();
+      if (this.save.scrap < cost) return false;
+      this.save.scrap -= cost;
+      this.save.vanHp = max;
+      this.commit();
+      return true;
+    },
+    /* ---------- Traps ---------- */
+    canCraftTrap(type) {
+      const def = W().TRAPS[type];
+      const missing = {};
+      Object.entries(def.needs).forEach(([k, n]) => {
+        const have = this.save.inventory[k] || 0;
+        if (have < n) missing[k] = n - have;
+      });
+      const scrapShort = Math.max(0, def.scrap - this.save.scrap);
+      const requires = this.roomRequirements(def);
+      const locked = requires.filter((r) => !r.ok);
+      return { ok: !Object.keys(missing).length && !scrapShort && !locked.length, missing, scrapShort, def, requires, locked };
+    },
+    craftTrap(type) {
+      const c = this.canCraftTrap(type);
+      if (!c.ok) return false;
+      Object.entries(c.def.needs).forEach(([k, n]) => (this.save.inventory[k] -= n));
+      this.save.scrap -= c.def.scrap;
+      this.save.traps[type] = (this.save.traps[type] || 0) + 1;
+      this.commit();
+      return true;
+    },
+    /* ---------- The workbench typing game ---------- */
+    typingDone(result) {
+      const t = this.save.typing;
+      t.stage += 1;
+      t.rounds += 1;
+      t.tutorialSeen = true;
+      if (result && result.accuracy != null) t.lastAccuracy = result.accuracy;
+      this.commit();
+    },
   };
 
   /* ---------- Text at the current reading level, with a safe fallback ---------- */

@@ -25,18 +25,26 @@ road also work on touch.
 1. **Home base, cabin defense.** First person in the yard. Time runs in phases: calm
    (nothing at the fence; go inside to build, or leave in the van) and waves that are
    sometimes a few walkers and sometimes a lot. Walkers claw through the fence; the
-   Walls room makes it stronger. The base is the only place the game saves.
+   Walls room makes it stronger. Holes never close on their own: stand at a gap and press
+   E (1 scrap each) or fix them all from the cabin menu. Set traps with T and R. The
+   base is the only place the game saves.
 2. **Map.** A fixed city of 15 places. Only a few are known at first; the notes you read
    and the Radio room reveal the rest. Pick a destination, see the route, drive.
 3. **Road.** Top-down driving. Aim with the mouse, hold to fire, slide with A and D.
 4. **Building.** The note at the door tells you what is inside and where. Inside, first
-   person: W A S D to move, mouse to look, click to fire, E to read notes and open doors,
-   B for the backpack. Items sit on shelves and floors. The locked cache room holds the
-   best items and opens only once you have read the note that says how.
+   person: W A S D to move, mouse to look, click to fire, E to read notes and to open and
+   close doors (walkers cannot open them), B for the backpack (notes and medical kits).
+   Items sit on shelves and floors. The locked cache room holds the best items and opens
+   only once you have read the note that says how. Go back in from the map and the
+   building is exactly as you left it.
 5. **Home again.** Cargo is unloaded, a day passes, the crew eats one food, the game
-   saves. Build rooms with items plus scrap. Upgrade the van and the gun in the garage.
+   saves. Build rooms with items plus scrap, upgrade the van and the gun, craft traps:
+   each one is a short typing round at the garage workbench (the first time teaches
+   home-row finger placement; stages progress from single keys to sentences). Repairs
+   are instant and bring the van back to full.
 
 Death (wrecked van, down inside a building, overrun in the yard) reloads the last save.
+Up to four players keep their own labeled saves, picked on the title screen.
 
 ## Project layout
 
@@ -50,8 +58,10 @@ js/interior.js          first person: raycaster, walkers, items, notes, caches, 
 js/sprites3d.js         textures and sprites for first person
 js/game.js              the road (top-down drive between map locations)
 js/map.js               the city map and route finding
-js/base.js              the cabin build menu (rooms, garage, stock)
-js/backpack.js          the backpack and the note reader
+js/base.js              the cabin build menu (rooms, garage, traps, stock, fence repair, hover tips)
+js/typing.js            the workbench typing game (finger lesson, stages, timer, retry)
+js/bench.js             the garage workbench scene behind the typing game
+js/backpack.js          the backpack (medical kits, notes) and the note reader
 js/sprites.js           road drawing (van, walkers, scenery)
 js/upgrades.js          van and gun upgrades
 js/audio.js             synthesized sound effects

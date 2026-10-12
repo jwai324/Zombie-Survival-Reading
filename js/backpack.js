@@ -1,5 +1,5 @@
-/* The backpack: every note the player has read, kept with where it was found,
-   and the note reader used at doors and inside buildings. Notes are shown at
+/* The backpack: medical kits, every note the player has read (kept with where it was
+   found), and the note reader used at doors and inside buildings. Notes are shown at
    the current reading level, so changing the level re-renders them. */
 (function (root) {
   "use strict";
@@ -24,6 +24,7 @@
     open(onClose) {
       this.onClose = onClose;
       const screen = document.getElementById("screen-backpack");
+      this.renderKits();
       const body = document.getElementById("backpack-body");
       body.innerHTML = "";
       const notes = State().allNotes();
@@ -49,6 +50,69 @@
       }
       screen.classList.remove("hidden");
       document.getElementById("btn-backpack-close").onclick = () => this.close();
+    },
+
+    /** Medical kits: packed in the backpack, in storage at the cabin, or in the van's cargo. One kit heals to full. */
+    renderKits() {
+      const S = State();
+      const I = ZSR.Interior;
+      const box = document.getElementById("backpack-kits");
+      box.innerHTML = "";
+      const k = S.kitsHeld();
+      const max = W().SETTINGS.kitsMax;
+      const atHome = !S.trip;
+      const inside = I && I.running && I.player; // in the yard or a building (paused under this overlay)
+      const hurt = inside && I.player.hp < I.player.maxHp;
+      const wrap = el("div", "kits");
+      let pips = '<span class="kit-pips">';
+      for (let i = 0; i < max; i++) pips += '<span class="' + (i < k.packed ? "on" : "") + '"></span>';
+      pips += "</span>";
+      wrap.appendChild(el("h3", null, "Medical kits " + pips));
+      wrap.appendChild(el("p", "small", "<strong>" + k.packed + " of " + max + "</strong> packed. One kit heals you to full." + (inside ? " You: " + Math.round(I.player.hp) + " / " + I.player.maxHp + " health." : "") + (atHome ? " In storage: " + k.storage + "." : k.cargo ? " In the van's cargo: " + k.cargo + "." : "")));
+      const row = el("div", "row");
+      const heal = (from) => {
+        if (!hurt) return;
+        if (S.useKit(from)) {
+          I.heal();
+          ZSR.Audio.play("correct");
+          I.toast("Patched up. Full health.", 2.5);
+          this.renderKits();
+        }
+      };
+      const use = el("button", "btn" + (hurt && k.packed ? " go" : ""), "Use a kit");
+      use.disabled = !hurt || !k.packed;
+      use.title = !inside ? "Kits are used in the yard or inside a building." : !hurt ? "You are at full health." : !k.packed ? "No kits packed." : "Heal to full.";
+      use.addEventListener("click", () => heal("pack"));
+      row.appendChild(use);
+      if (!atHome && k.cargo) {
+        const useCargo = el("button", "btn" + (hurt ? " go" : ""), "Use one from the cargo (" + k.cargo + ")");
+        useCargo.disabled = !hurt;
+        useCargo.addEventListener("click", () => heal("cargo"));
+        row.appendChild(useCargo);
+      }
+      if (atHome) {
+        const pack = el("button", "btn", "Pack a kit from storage");
+        pack.disabled = !(k.storage > 0 && k.packed < max);
+        pack.addEventListener("click", () => {
+          if (S.packKit()) {
+            ZSR.Audio.play("pickup");
+            this.renderKits();
+          }
+        });
+        row.appendChild(pack);
+        const unpack = el("button", "btn alt", "Put one back");
+        unpack.disabled = !(k.packed > 0);
+        unpack.addEventListener("click", () => {
+          if (S.unpackKit()) {
+            ZSR.Audio.play("click");
+            this.renderKits();
+          }
+        });
+        row.appendChild(unpack);
+      }
+      wrap.appendChild(row);
+      if (atHome && !k.storage && !k.packed) wrap.appendChild(el("p", "small muted", "No medical kits yet. Pharmacies and the hospital have them; the Lab makes them."));
+      box.appendChild(wrap);
     },
     close() {
       document.getElementById("screen-backpack").classList.add("hidden");

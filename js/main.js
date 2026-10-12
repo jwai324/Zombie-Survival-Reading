@@ -1,4 +1,4 @@
-/* Screen flow: title -> yard (cabin defense) -> map -> road -> building -> map -> ... -> yard.
+/* Screen flow: title (save slots) -> yard (cabin defense) -> map -> road -> building -> map -> ... -> yard.
    The base save is written only at the yard. Death reloads it. */
 (function (root) {
   "use strict";
@@ -13,11 +13,12 @@
   const W = ZSR.WORLD;
 
   const $ = (id) => document.getElementById(id);
-  const SCREENS = ["screen-title", "screen-settings", "screen-howto", "screen-map", "screen-base", "screen-backpack", "screen-note", "screen-pause", "screen-death", "screen-confirm"];
+  const SCREENS = ["screen-title", "screen-newsave", "screen-settings", "screen-howto", "screen-map", "screen-base", "screen-backpack", "screen-note", "screen-pause", "screen-death", "screen-confirm"];
   const ORDINAL = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th" };
   let settingsReturn = "screen-title";
   let titleRaf = 0;
   let active = null; // "yard" | "road" | "building" | null
+  let pendingSlot = null;
 
   function show(id) {
     SCREENS.forEach((s) => $(s).classList.toggle("hidden", s !== id));
@@ -41,6 +42,7 @@
     };
     $("btn-confirm-no").onclick = () => $("screen-confirm").classList.add("hidden");
   }
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
   /* ---------- Settings ---------- */
   function applySettings() {
@@ -54,15 +56,70 @@
     $("opt-sens").value = State.settings.mouseSens || 1;
     refreshTitle();
   }
+  /** The title screen: one row per save slot. Display only; never reloads the save while a trip runs. */
   function refreshTitle() {
     $("title-grade").textContent = "Reading level: " + ORDINAL[State.settings.level] + " grade. Change it in Settings.";
-    const s = State.peekSave(); // display only: never reload the save while a trip is running
-    $("btn-continue").classList.toggle("hidden", !s);
-    $("btn-play").textContent = s ? "New base (erases the save)" : "New base";
-    if (s) {
-      const level = Object.values(s.rooms || {}).reduce((a, b) => a + b, 0);
-      $("title-best").textContent = "Saved: day " + s.day + ", base level " + level + ", " + (s.backpack || []).length + " notes in the backpack.";
-    } else $("title-best").textContent = "No save yet.";
+    const list = $("slot-list");
+    list.innerHTML = "";
+    State.listSlots().forEach((slot) => {
+      const row = document.createElement("div");
+      row.className = "slot" + (slot.save ? "" : " empty");
+      const info = document.createElement("div");
+      if (slot.save) {
+        const s = slot.save;
+        const level = Object.values(s.rooms || {}).reduce((a, b) => a + b, 0);
+        info.innerHTML = '<div class="who">' + esc(slot.label || "Player " + slot.id) + '</div><div class="sum">Day ' + s.day + " · base level " + level + " · " + (s.backpack || []).length + " notes · " + (s.scrap || 0) + " scrap</div>";
+      } else info.innerHTML = '<div class="who muted">Slot ' + slot.id + '</div><div class="sum">Empty</div>';
+      const acts = document.createElement("div");
+      acts.className = "acts";
+      if (slot.save) {
+        const go = document.createElement("button");
+        go.className = "btn go";
+        go.textContent = "Continue";
+        go.addEventListener("click", () => {
+          Audio.unlock();
+          Audio.play("click");
+          if (State.loadSave(slot.id)) goYard();
+        });
+        const del = document.createElement("button");
+        del.className = "btn del";
+        del.textContent = "Delete";
+        del.addEventListener("click", () => confirm("Delete " + (slot.label || "this save") + "? Day " + slot.save.day + " is gone for good.", () => {
+          State.deleteSlot(slot.id);
+          refreshTitle();
+        }));
+        acts.appendChild(go);
+        acts.appendChild(del);
+      } else {
+        const make = document.createElement("button");
+        make.className = "btn";
+        make.textContent = "New save";
+        make.addEventListener("click", () => {
+          Audio.unlock();
+          Audio.play("click");
+          pendingSlot = slot.id;
+          $("newsave-name").value = "";
+          show("screen-newsave");
+          setTimeout(() => $("newsave-name").focus(), 50);
+        });
+        acts.appendChild(make);
+      }
+      row.appendChild(info);
+      row.appendChild(acts);
+      list.appendChild(row);
+    });
+  }
+  function startNewGame() {
+    const name = $("newsave-name").value;
+    State.newGame(pendingSlot, name);
+    pendingSlot = null;
+    if (!State.settings.seenHowto) {
+      State.settings.seenHowto = true;
+      State.saveSettings();
+      settingsReturn = "start";
+      renderHowto();
+      show("screen-howto");
+    } else goYard();
   }
   function startTitleAnimation() {
     const c = $("title-van");
@@ -94,6 +151,13 @@
     showCanvas("fp");
     Interior.enterYard(opts);
   }
+  /** Copy the yard's fence and traps into the save and write it. */
+  function syncYard() {
+    if (Interior.mode !== "yard") return;
+    State.save.fence = Interior.fenceState();
+    State.save.yardTraps = Interior.traps.filter((t) => t.uses > 0).map((t) => ({ x: t.x, y: t.y, type: t.type, uses: t.uses }));
+    State.commit();
+  }
   const yardHooks = {
     onDoor() {
       Interior.pause();
@@ -102,18 +166,29 @@
           Interior.refreshYard();
           Interior.resume();
         },
-        onChanged() {
-          Interior.refreshYard();
+        onChanged(key) {
+          Interior.refreshYard({ rebuildFence: key === "walls" });
+          if (key === "walls") syncYard();
+        },
+        fenceHoles: () => Interior.fenceHoles().length,
+        onRepairFence() {
+          const n = Interior.repairAllHoles();
+          syncYard();
+          return n;
         },
       });
     },
     onVan() {
+      syncYard();
       Interior.leave();
       State.startTrip();
       openMap("base");
     },
     onWaveCleared() {
-      State.commit();
+      syncYard();
+    },
+    onYardChanged() {
+      syncYard();
     },
   };
 
@@ -167,6 +242,14 @@
       onClose: () => enterBuilding(loc),
     });
   }
+  /** From the map, at a place: straight back in once the door note has been read. */
+  function reenter(destId) {
+    if (!State.trip) return goYard();
+    const loc = W.LOCATIONS.find((l) => l.id === destId);
+    if (!loc || destId === "base") return;
+    if (State.noteRead(W.NOTES[destId].door.id)) enterBuilding(loc);
+    else showDoor(destId);
+  }
   function enterBuilding(loc) {
     State.trip.atDoor = null;
     hideScreens();
@@ -195,6 +278,9 @@
   };
 
   /* ---------- Shared: pause, backpack, death ---------- */
+  function overlayOpen() {
+    return ["screen-pause", "screen-note", "screen-backpack", "screen-base", "screen-bench", "screen-confirm"].some((id) => $(id) && !$(id).classList.contains("hidden"));
+  }
   function pauseActive() {
     if (active === "road" && Game.running && !Game.paused) Game.pause();
     if ((active === "building" || active === "yard") && Interior.running && !Interior.paused) Interior.pause();
@@ -205,9 +291,9 @@
     if (active === "building" || active === "yard") Interior.resume();
   }
   function onPause() {
-    if (!$("screen-pause").classList.contains("hidden") || !$("screen-note").classList.contains("hidden") || !$("screen-backpack").classList.contains("hidden") || !$("screen-base").classList.contains("hidden")) return;
+    if (overlayOpen()) return;
     pauseActive();
-    $("pause-note").textContent = active === "yard" ? "The base is saved after every wave and every build." : "Nothing since your last save at the cabin is kept if you quit.";
+    $("pause-note").textContent = active === "yard" ? "The base is saved after every wave, build and repair." : "Nothing since your last save at the cabin is kept if you quit.";
     show("screen-pause");
   }
   function onPauseKey() {
@@ -251,26 +337,19 @@
 
   /* ---------- Wiring ---------- */
   function wire() {
-    $("btn-play").addEventListener("click", () => {
-      Audio.unlock();
+    $("btn-newsave-start").addEventListener("click", () => {
       Audio.play("click");
-      const start = () => {
-        State.newGame();
-        if (!State.settings.seenHowto) {
-          State.settings.seenHowto = true;
-          State.saveSettings();
-          settingsReturn = "start";
-          renderHowto();
-          show("screen-howto");
-        } else goYard();
-      };
-      if (State.hasSave()) confirm("Start a new base? The current save (day " + (State.save ? State.save.day : "?") + ") is erased.", start);
-      else start();
+      startNewGame();
     });
-    $("btn-continue").addEventListener("click", () => {
-      Audio.unlock();
-      Audio.play("click");
-      if (State.loadSave()) goYard();
+    $("newsave-name").addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        startNewGame();
+      }
+    });
+    $("btn-newsave-back").addEventListener("click", () => {
+      pendingSlot = null;
+      show("screen-title");
     });
     $("btn-settings").addEventListener("click", () => {
       settingsReturn = "screen-title";
@@ -326,6 +405,11 @@
       $("screen-pause").classList.add("hidden");
       Backpack.open(() => show("screen-pause"));
     });
+    $("btn-pause-howto").addEventListener("click", () => {
+      settingsReturn = "screen-pause";
+      renderHowto();
+      show("screen-howto");
+    });
     $("btn-pause-settings").addEventListener("click", () => {
       settingsReturn = "screen-pause";
       show("screen-settings");
@@ -358,22 +442,25 @@
       onDoor: () => yardHooks.onDoor(),
       onVan: () => yardHooks.onVan(),
       onWaveCleared: () => yardHooks.onWaveCleared(),
+      onYardChanged: () => yardHooks.onYardChanged(),
       onReadNote: (n, loc) => buildingHooks.onReadNote(n, loc),
       onExit: () => buildingHooks.onExit(),
       onDeath,
       onPause,
       onBackpack,
     });
-    Map.init($("map-canvas"), { onDrive: drive, onEnter: (id) => showDoor(id) });
+    Map.init($("map-canvas"), { onDrive: drive, onEnter: reenter });
+    if (ZSR.Typing && ZSR.Typing.init) ZSR.Typing.init();
     wire();
     State.loadSave();
     applySettings();
     // first person needs a keyboard and mouse; on a touch-only device say so instead of leading into a dead end
     if (root.matchMedia && root.matchMedia("(pointer: coarse) and (hover: none)").matches) {
-      $("btn-play").disabled = true;
-      $("btn-continue").disabled = true;
+      document.querySelectorAll("#slot-list .btn").forEach((b) => (b.disabled = true));
       $("title-grade").textContent = "This game needs a keyboard and mouse. Open it on a laptop or desktop.";
     }
     show("screen-title");
   });
+
+  ZSR.Main = { syncYard };
 })(typeof globalThis !== "undefined" ? globalThis : this);

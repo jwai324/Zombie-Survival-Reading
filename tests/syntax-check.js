@@ -30,7 +30,8 @@ for (const rel of scripts) {
     failed = true;
   }
 }
-for (const rel of ["css/style.css"]) {
+const sheets = [...html.matchAll(/<link rel="stylesheet" href="([^"]+)">/g)].map((m) => m[1]);
+for (const rel of sheets.filter((s) => !/^https?:/.test(s))) {
   if (!fs.existsSync(path.join(ROOT, rel))) {
     console.log(`ERROR ${rel} missing`);
     failed = true;

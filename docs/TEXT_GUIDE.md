@@ -54,8 +54,17 @@ Door notes also give the walker count and rough positions. Keep numbers exact.
       intro: "One or two sentences shown at the top of the base screen.",
       rooms: {
         walls: { desc: "What the room does, in this level's words.", next: ["what level 1 adds", "what level 2 adds", "what level 3 adds"] },
-        // garage, power, water, garden, radio, medbay, archive
+        // garage, power, water, garden, radio, medbay, archive, well, farm, lab
+        // a level with `requires` in the world file must name those rooms in its `next` text
       },
+      traps: { spike: { desc: "key letter, damage, uses, what unlocks it" }, blast: { desc: "..." } },
+      bench: { intro: "One or two sentences shown at the workbench." },
+    },
+    typing: {
+      fingers: ["3 to 4 paragraphs: home row (A S D F / J K L ;), the bumps on F and J, thumbs on space, reach and return, eyes on the screen"],
+      words: ["lowercase a-z words from the game's world; 40+; length by level (L1 3-4 ... L6 5-9)"],
+      phrases: ["lowercase 2-4 word phrases, no punctuation; 20+"],
+      sentences: ["Capital first letter, period at the end, letters/spaces/commas only; 16+; word count by level"],
     },
     locations: {
       gasngo: {

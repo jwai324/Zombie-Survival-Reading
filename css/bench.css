@@ -1,0 +1,131 @@
+/* Workbench overlay: the garage scene behind, the typing game in front.
+   Linked after style.css; every size is in rem so the Text size setting
+   scales it. Huge mode collapses the diagram and stacks the buttons. */
+
+.screen.overlay.bench { background: rgba(10, 10, 12, .3); }
+#bench-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 0; }
+.bench-panel { max-width: 46rem; z-index: 1; }
+
+/* Header: what is being made, what it costs, which stage */
+.bench-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .25rem .75rem; margin-bottom: .4rem; }
+.bench-title { margin: 0; font-size: 1.7rem; }
+.bench-stage { font-family: var(--font-head); font-weight: 700; letter-spacing: .06em; text-transform: uppercase; background: var(--steel); color: var(--paper-3); padding: .15rem .5rem; border: .125rem solid var(--ink); font-size: .95rem; white-space: nowrap; }
+.bench-cost { width: 100%; margin: 0; font-size: 1rem; font-weight: 500; }
+.bench-cost strong { font-family: var(--font-head); font-size: 1.1rem; letter-spacing: .03em; }
+.bench-tip { margin: 0 0 .4rem; font-size: .95rem; color: var(--muted); font-weight: 600; line-height: 1.4; }
+
+/* Timer */
+.bench-timer { display: flex; align-items: center; gap: .6rem; margin: .25rem 0 .5rem; }
+.bench-timer .bar { height: 1rem; flex: 1; }
+.bench-timer .bar-fill { background: var(--olive); transition: width .1s linear, background .3s; }
+.bench-timer .bar-fill.low { background: var(--red); }
+.bench-secs { font-family: var(--font-head); font-weight: 700; font-size: 1.6rem; min-width: 2.2ch; text-align: right; line-height: 1; }
+
+/* Prompt: one big key, or a line of text */
+.bench-prompt { background: var(--paper-3); border: .19rem solid var(--ink); box-shadow: .19rem .19rem 0 var(--ink); padding: .75rem 1rem; text-align: center; margin: .4rem 0; min-height: 5rem; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: .35rem; }
+.bench-key { font-family: var(--font-comic); font-size: 4.6rem; line-height: 1; color: var(--ink); background: var(--amber); border: .25rem solid var(--ink); box-shadow: .3rem .3rem 0 var(--ink); width: 6.4rem; height: 6.4rem; display: flex; align-items: center; justify-content: center; transform: rotate(-2deg); }
+.bench-key.space { font-family: var(--font-head); font-size: 1.5rem; letter-spacing: .12em; text-transform: uppercase; width: 14rem; height: 4.4rem; }
+.bench-key.flash, .t-next.flash, .kbd-key.target.flash { background: var(--red) !important; color: var(--paper-3); animation: benchShake .25s; }
+.bench-run { font-family: var(--font-head); font-size: 1.15rem; letter-spacing: .3em; text-transform: uppercase; color: var(--muted); }
+.bench-run b { color: var(--ink); }
+.bench-text { font-size: 1.8rem; line-height: 1.45; letter-spacing: .02em; font-weight: 600; white-space: pre-wrap; overflow-wrap: anywhere; max-width: 100%; text-align: left; }
+.t-done { color: #3b7a2a; }
+.t-next { display: inline-block; min-width: .55em; white-space: pre; background: var(--amber); outline: .125rem solid var(--ink); border-radius: .125rem; animation: benchPulse .9s infinite; }
+.t-rest { color: var(--ink); opacity: .8; }
+.bench-finger { font-family: var(--font-head); font-size: 1.25rem; text-transform: uppercase; letter-spacing: .06em; text-align: center; margin: .3rem 0; min-height: 1.5rem; }
+.bench-finger .muted { font-size: .9rem; letter-spacing: .1em; }
+.bench-meta { display: flex; gap: .4rem 1.2rem; justify-content: center; flex-wrap: wrap; font-family: var(--font-head); font-size: .95rem; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: .3rem 0; }
+.bench-meta b { color: var(--ink); }
+.bench-actions { display: flex; gap: .75rem; justify-content: center; flex-wrap: wrap; margin-top: .6rem; }
+.bench .btn.small { font-size: .95rem; padding: .45rem .8rem; }
+
+/* Keyboard diagram: every key colored by the finger that owns it */
+.kbd { --k: min(2.5rem, 6.8vw); --g: .2rem; display: flex; flex-direction: column; gap: var(--g); align-items: flex-start; margin: .5rem auto .25rem; width: max-content; max-width: 100%; }
+.kbd-row { display: flex; gap: var(--g); }
+.kbd-row.r2 { margin-left: calc(var(--k) * .5 + var(--g) * .5); }
+.kbd-row.r4 { margin-left: calc(var(--k) * 3.5 + var(--g) * 3.5); }
+.kbd-key { width: var(--k); height: var(--k); display: flex; align-items: center; justify-content: center; font-family: var(--font-head); font-weight: 700; font-size: calc(var(--k) * .44); line-height: 1; text-transform: uppercase; border: .125rem solid var(--ink); border-radius: .25rem; box-shadow: .125rem .125rem 0 var(--ink); background: var(--paper-3); position: relative; user-select: none; -webkit-user-select: none; transition: transform .08s; }
+.kbd-key.f-pinky { background: #d7b9e3; }
+.kbd-key.f-ring { background: #b6d0ea; }
+.kbd-key.f-middle { background: #bfe0b2; }
+.kbd-key.f-pointer { background: #f3d98c; }
+.kbd-key.f-thumb { background: #efc5b2; }
+.kbd-key.shift { font-size: calc(var(--k) * .3); letter-spacing: .02em; }
+.kbd-key.shift.r { width: calc(var(--k) * 1.5 + var(--g) * .5); }
+.kbd-key.space { width: calc(var(--k) * 6 + var(--g) * 5); font-size: calc(var(--k) * .3); letter-spacing: .1em; }
+.kbd-key.bump::after { content: ""; position: absolute; bottom: .18rem; left: 32%; right: 32%; height: .15rem; background: var(--ink); border-radius: .1rem; }
+.kbd-key.home { box-shadow: 0 0 0 .19rem var(--amber), .125rem .125rem 0 var(--ink); }
+.kbd-key.target { background: var(--amber-2); transform: scale(1.14); z-index: 1; box-shadow: 0 0 0 .19rem var(--ink), 0 0 .9rem var(--amber); animation: benchPulse .8s infinite; }
+.kbd-legend { display: flex; flex-wrap: wrap; justify-content: center; gap: .3rem .8rem; font-size: .85rem; font-weight: 600; margin: .3rem 0 .5rem; }
+.kbd-legend span { display: inline-flex; align-items: center; gap: .3rem; }
+.kbd-legend i { display: inline-block; width: .9rem; height: .9rem; border: .125rem solid var(--ink); border-radius: .125rem; }
+.kbd-legend b { font-family: var(--font-head); letter-spacing: .08em; text-transform: uppercase; }
+
+/* Lesson and result cards */
+.bench-lesson h3 { font-size: 1.05rem; margin: 0 0 .2rem; }
+.bench-lesson .reading { font-size: 1rem; line-height: 1.4; }
+.bench-lesson .reading p { margin: 0 0 .5em; }
+.bench-lesson .kbd { --k: min(2rem, 6.8vw); margin: .25rem auto .15rem; }
+.bench-lesson .kbd-legend { margin: .15rem 0 .25rem; font-size: .8rem; gap: .15rem .6rem; }
+.bench-lesson .bench-actions { margin-top: .3rem; }
+/* Wide windows: the lesson text sits beside the diagram so it fits without scrolling */
+@media (min-width: 1100px) {
+  .bench-panel.lesson-wide { max-width: 64rem; }
+  .bench-lesson { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "head head" "text side" "actions actions"; gap: .25rem 1.25rem; align-items: start; }
+  .bench-lesson h3 { grid-area: head; }
+  .bench-lesson .reading { grid-area: text; }
+  .bench-lesson .bench-side { grid-area: side; align-self: center; max-width: 30rem; }
+  .bench-lesson .kbd { margin: .25rem 0 0; }
+  .bench-lesson .bench-actions { grid-area: actions; }
+}
+.bench-card { text-align: center; padding: .5rem 0 0; }
+.bench-card h3 { font-family: var(--font-comic); font-size: 3rem; letter-spacing: .05em; text-transform: none; color: var(--red); -webkit-text-stroke: 2px var(--ink); paint-order: stroke fill; transform: rotate(-2deg); margin: .25rem 0 .5rem; }
+.bench-card.ok h3 { color: var(--amber-2); }
+.bench-card .stats { margin: .75rem 0; }
+.bench-card .next { font-family: var(--font-head); font-size: 1.2rem; letter-spacing: .05em; text-transform: uppercase; margin: .5rem 0; }
+
+@keyframes benchPulse { 50% { box-shadow: 0 0 0 .19rem var(--ink), 0 0 .25rem var(--amber); } }
+@keyframes benchShake { 25% { transform: translateX(-.25rem); } 75% { transform: translateX(.25rem); } }
+
+/* Phones: no Shift keys, tighter prompt */
+@media (max-width: 520px) {
+  .kbd-key.shift { display: none; }
+  .kbd-row.r3 { margin-left: calc(var(--k) + var(--g)); }
+  .bench-title { font-size: 1.35rem; }
+  .bench-key { font-size: 3.4rem; width: 4.8rem; height: 4.8rem; }
+  .bench-key.space { width: 10rem; height: 3.4rem; }
+  .bench-text { font-size: 1.4rem; }
+}
+
+/* Huge text (1rem = 1in): no diagram, no stage tag or tip, one-line prompt beside
+   the finger hint, a thin timer, stacked buttons. Nothing shrinks below 1rem;
+   a 1280x720 window is only 13 by 7.5 rem, so the panel scrolls when it must. */
+:root[data-size="huge"] .screen.overlay.bench { padding: .25rem; }
+:root[data-size="huge"] .bench-panel { max-width: none; padding: 1.05rem .35rem .3rem; border-width: .1rem; box-shadow: .12rem .12rem 0 var(--ink); }
+:root[data-size="huge"] .bench .caption { font-size: 1rem; line-height: 1.1; padding: 0 .3rem; border-width: .08rem; box-shadow: .08rem .08rem 0 var(--ink); top: -.1rem; left: -.1rem; }
+:root[data-size="huge"] .kbd, :root[data-size="huge"] .kbd-legend, :root[data-size="huge"] .bench-tip, :root[data-size="huge"] .bench-run, :root[data-size="huge"] .bench-meta, :root[data-size="huge"] .bench-stage, :root[data-size="huge"] .bench-finger .muted { display: none; }
+:root[data-size="huge"] .bench-panel { display: flex; flex-direction: column; }
+:root[data-size="huge"] .bench-head { order: 2; gap: 0; margin: .15rem 0 0; border-top: .06rem solid var(--ink); padding-top: .1rem; }
+:root[data-size="huge"] .bench-title { font-size: 1rem; line-height: 1.1; width: 100%; }
+:root[data-size="huge"] .bench-cost, :root[data-size="huge"] .bench-cost strong, :root[data-size="huge"] .bench-finger, :root[data-size="huge"] .bench-text, :root[data-size="huge"] .bench-lesson .reading, :root[data-size="huge"] .bench-card .next, :root[data-size="huge"] .bench-card p { font-size: 1rem; line-height: 1.2; }
+:root[data-size="huge"] .bench-round { display: flex; flex-wrap: wrap; align-items: center; gap: .15rem .3rem; }
+:root[data-size="huge"] .bench-timer { width: 100%; margin: .05rem 0; gap: .3rem; }
+:root[data-size="huge"] .bench-timer .bar { height: .3rem; border-width: .06rem; }
+:root[data-size="huge"] .bench-secs { font-size: 1rem; }
+:root[data-size="huge"] .bench-prompt { flex: 1 1 100%; padding: .1rem .25rem; min-height: 0; margin: 0; border-width: .06rem; box-shadow: .06rem .06rem 0 var(--ink); gap: 0; align-items: flex-start; }
+:root[data-size="huge"] .bench-round.mode-keys .bench-prompt { flex: 0 0 auto; align-items: center; }
+:root[data-size="huge"] .bench-key { font-size: 1.5rem; width: 1.8rem; height: 1.8rem; border-width: .06rem; box-shadow: .08rem .08rem 0 var(--ink); transform: none; }
+:root[data-size="huge"] .bench-key.space { width: 4.5rem; height: 1.4rem; font-size: 1rem; }
+:root[data-size="huge"] .bench-finger { flex: 1 1 4rem; margin: 0; min-height: 0; letter-spacing: .02em; text-align: left; line-height: 1.15; }
+:root[data-size="huge"] .bench-actions, :root[data-size="huge"] .bench-card .btn-row { width: 100%; flex-direction: column; align-items: stretch; gap: .2rem; margin-top: .15rem; }
+:root[data-size="huge"] .bench .btn, :root[data-size="huge"] .bench .btn.big, :root[data-size="huge"] .bench .btn.small { font-size: 1rem; padding: .2rem .4rem; letter-spacing: .02em; white-space: normal; border-width: .06rem; box-shadow: .08rem .08rem 0 var(--ink); }
+:root[data-size="huge"] .bench-card { padding: 0; }
+:root[data-size="huge"] .bench-card p { margin: .15rem 0; }
+:root[data-size="huge"] .bench-card h3 { font-size: 1.3rem; margin: 0 0 .1rem; -webkit-text-stroke: 1px var(--ink); transform: none; }
+:root[data-size="huge"] .bench-lesson h3 { font-size: 1rem; margin: 0 0 .15rem; }
+:root[data-size="huge"] .bench-lesson { display: block; }
+:root[data-size="huge"] .bench-card .stats { grid-template-columns: 1fr 1fr; gap: .2rem; margin: .25rem 0; }
+:root[data-size="huge"] .bench-card .stat { padding: .1rem; border-width: .06rem; box-shadow: none; }
+:root[data-size="huge"] .bench-card .stat .v { font-size: 1rem; }
+:root[data-size="huge"] .bench-card .stat .l { font-size: 1rem; letter-spacing: 0; }
+:root[data-size="huge"] .bench-lesson .reading p { margin: 0 0 .4em; }

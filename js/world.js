@@ -93,10 +93,44 @@
         { needs: { books: 3, maps: 1 }, scrap: 120, effect: { notesShowStock: true, mapShowsCaches: true, mapShowsStock: true } },
       ],
     },
+    /* Late game. `requires` names other rooms (and their levels) that must be built first. */
+    well: {
+      name: "Well",
+      levels: [
+        { needs: { lumber: 2, tools: 1 }, scrap: 60, requires: { water: 1 }, effect: { water: 1, footRegen: 2 } },
+        { needs: { lumber: 2, parts: 1, waterFilter: 1 }, scrap: 100, effect: { water: 2, footRegen: 3 } },
+        { needs: { waterTank: 1, parts: 1, wire: 1 }, scrap: 150, effect: { water: 3, footRegen: 4, fullHealOnEntry: true } },
+      ],
+    },
+    farm: {
+      name: "Farm",
+      levels: [
+        { needs: { seeds: 2, soil: 2, lumber: 1 }, scrap: 80, requires: { garden: 2, well: 1 }, effect: { foodPerDay: 2 } }, // crop field
+        { needs: { lumber: 2, wire: 1, seeds: 1 }, scrap: 120, requires: { well: 2 }, effect: { foodPerDay: 4 } }, // chicken coop
+        { needs: { lumber: 3, wire: 2, waterTank: 1 }, scrap: 180, requires: { well: 3 }, effect: { foodPerDay: 6 } }, // goat pen
+      ],
+    },
+    lab: {
+      name: "Lab",
+      levels: [
+        { needs: { meds: 1, books: 1, seeds: 1 }, scrap: 80, requires: { medbay: 1, well: 1 }, effect: { medsPerDay: 0.5 } }, // herb beds and a still
+        { needs: { waterFilter: 1, books: 1, wire: 1 }, scrap: 120, requires: { well: 2 }, effect: { medsPerDay: 1 } }, // clean bench
+        { needs: { generator: 1, meds: 2, books: 1 }, scrap: 180, requires: { medbay: 2 }, effect: { medsPerDay: 2 } }, // powered lab
+      ],
+    },
+  };
+
+  /* ---------- Traps: crafted at the workbench, placed in the yard with a key ----------
+     A trap sits on one tile. A walker that steps on it takes `damage`; `radius` > 0.6 hurts
+     every walker that close. `uses` is how many walkers one trap stops before it is spent. */
+  const TRAPS = {
+    spike: { name: "Spike trap", key: "T", needs: { lumber: 1, nails: 1 }, scrap: 10, damage: 45, uses: 3, radius: 0.5, requires: { walls: 2 } },
+    blast: { name: "Blast trap", key: "R", needs: { fuel: 1, wire: 1 }, scrap: 25, damage: 120, uses: 1, radius: 1.6, requires: { walls: 3 } },
   };
 
   /* ---------- Interior templates ----------
-     Legend: # wall  . floor  D doorway (open, passable)  S shelf  C counter  X crates  G glass
+     Legend: # wall  . floor  D doorway (a real door: starts closed, E opens and closes it, walkers cannot open it)
+             S shelf  C counter  X crates  G glass
              E entrance (exit)  L locked cache door  i item spot  c cache item spot
              n note spot  z walker spawn  $ scrap pile
      Item spots are filled in reading order (top-left to bottom-right). */
@@ -435,10 +469,15 @@
     tripMaxSeconds: 95,
     restockDays: 3, // shelf and floor items come back this many days after they are taken; caches never do
     startScrap: 30,
+    fenceRepairScrap: 1, // scrap to rebuild one hole (or brace one cracked segment) of the fence; holes never close on their own
+    repairScrapPerHp: 3, // van repair: 1 scrap for every 3 health missing, back to full
+    repairMinScrap: 5,
+    kitsMax: 3, // medical kits the backpack can carry; one kit heals you to full
+    saveSlots: 4, // labeled saves, one per player
     walkersPerLocation(danger, day) {
       return Math.min(10, 1 + danger + Math.floor(day / 3));
     },
   };
 
-  ZSR.WORLD = { ITEMS, BASE_ROOMS, TEMPLATES, YARD, DEFENSE, LOCATIONS, NOTES, ROADS, SETTINGS };
+  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TEMPLATES, YARD, DEFENSE, LOCATIONS, NOTES, ROADS, SETTINGS };
 })(typeof globalThis !== "undefined" ? globalThis : this);

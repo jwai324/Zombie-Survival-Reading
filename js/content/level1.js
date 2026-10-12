@@ -7,11 +7,12 @@
   root.ZSR.TEXT[1] = {
     level: 1,
     howto: [
-      "You have one van. It runs from your home base. Pick a place on the map. Then drive there. The road has walkers. Keep moving.",
-      "A note waits at the door. Read it. It says how many walkers wait. It says where the items are. Then go in. Walkers come for you. Fight them. Grab what you find. Scrap piles give scrap.",
-      "Find the note inside. Read it. It tells how to open the cache. The cache has the best stuff. The note also names a new place. That place shows up on the map. Every note goes in your backpack. Read them again any time.",
-      "Back home, you stand in the yard. You see it first person. Time runs in two parts. Calm means nothing at the fence. Go in the cabin and build. Or leave in the van. A wave means walkers at the fence. They claw through it. Some waves are small. Some are big. Some bring no walkers at all. In a wave, the cabin door locks. The van locks too. Hold the fence till it ends. Between waves, the fence gets patched. The Walls room makes it stronger. The game saves when you get home. It saves after each build. It saves after each wave.",
-      "Drive your cargo home. Use it to build rooms. Upgrade the van and gun. The game saves at base only. Wreck the van? You lose the trip. Go down inside? Same thing. Lose the yard at home? Same thing. You start from your last save. So pick when to head home.",
+      "You have one van. It runs from home base. Pick a place on the map. Then drive there. The road has walkers. Keep moving. The Radio room finds new places. They show up on the map.",
+      "A note waits at the door. Read it. It says how many walkers wait. It says where the items are. Then go in. Each doorway is a real door. Press E to open it. Press E to shut it. Walkers cannot open doors. Fight them. Grab what you find. Scrap piles give scrap. Shelf stuff comes back in 3 days. Caches never do.",
+      "Find the note inside. Read it. It tells how to open the cache. The cache has the best stuff. The note also names a new place. Every note goes in your backpack. Read them again any time. Want back in? Open the map. Pick the place you are parked at. It stays as you left it. Downed walkers stay down. Taken scrap stays gone. Doors stay as you set them. Drive home, and it all resets. Hurt? Use a Medical kit. One kit heals you to full. The backpack holds up to 3 kits. Pack them from cabin storage. In a building, van cargo works too. Use a kit from there.",
+      "Back home, you stand in the yard. Time runs in two parts. Calm means no walkers at the fence. Go in the cabin and build. Or leave in the van. A wave means walkers at the fence. Some waves are small. Some are big. Some bring no walkers at all. In a wave, the cabin door locks. The van locks too. Hold the fence till it ends. The fence does not fix itself. Each hole stays till you fix it. Stand at the hole and press E. Or use the cabin menu. Each hole costs 1 scrap. Brace a cracked part for 1 scrap. Build Walls up. That remakes the whole fence. Set traps in the yard too. Or along the fence line. Make them at the bench. A walker steps on one. It gets hurt.",
+      "The garage has a workbench. Build rooms there. Upgrade the van and gun there. Craft traps there. Each one is a typing round. The words show on screen. A timer runs. Out of time? Just try again. Nothing is spent till you finish. First time? The bench shows home row. Each round you finish moves you up. First come single keys. Then the other rows. Then words, phrases, and sentences. Repairs need no typing. The garage fixes the van with scrap. Each 3 health lost costs 1 scrap. It costs at least 5 scrap. Build the Garage room. Then repairs are free.",
+      "Each player has their own save. Up to 4 saves. Pick yours on the title screen. The game saves at base only. It saves when you get home. It saves after each build. It saves after each wave. Wreck the van? You lose the trip. Go down inside? Same thing. Lose the yard at home? Same thing. You start from your last save. So pick when to head home.",
     ],
     base: {
       intro: "Home base. The game saves here, and only here. Hold the fence when walkers come.",
@@ -80,7 +81,92 @@
             "The map shows stock at every place. It marks caches too.",
           ],
         },
+        well: {
+          desc: "A hand-dug well by the cabin. Clean water, no filters. You heal faster on foot. The Farm and the Lab need it.",
+          next: [
+            "Needs the Water room first. Costs 60 scrap. Plus Lumber 2, Tool kit 1. You heal on foot at rate 2.",
+            "Costs 100 scrap. Plus Lumber 2, Engine parts 1, Water filter 1. Heal rate goes up to 3.",
+            "Costs 150 scrap. Plus Water tank 1, Engine parts 1, Spool of wire 1. Heal rate goes up to 4. You start each building at full health.",
+          ],
+        },
+        farm: {
+          desc: "Farmland next to the yard. Crops first, then animals. More food each day. It adds to the Garden.",
+          next: [
+            "A crop field: corn and beans. Needs Garden 2 and the Well. Costs 80 scrap. Plus Seed packets 2, Bag of soil 2, Lumber 1. Grows 2 food a day.",
+            "A chicken coop. Needs Well 2. Costs 120 scrap. Plus Lumber 2, Spool of wire 1, Seed packets 1. Gives 4 food a day.",
+            "A goat pen. Needs Well 3. Costs 180 scrap. Plus Lumber 3, Spool of wire 2, Water tank 1. Gives 6 food a day.",
+          ],
+        },
+        lab: {
+          desc: "Make medicine at home. Kits go to storage each new day.",
+          next: [
+            "Herb beds and a still. Needs Medbay 1 and the Well. Costs 80 scrap. Plus Medical kit 1, Box of books 1, Seed packets 1. Makes 1 Medical kit every 2 days.",
+            "A clean bench. Needs Well 2. Costs 120 scrap. Plus Water filter 1, Box of books 1, Spool of wire 1. Makes 1 Medical kit a day.",
+            "A powered lab. Needs Medbay 2. Costs 180 scrap. Plus Generator 1, Medical kit 2, Box of books 1. Makes 2 Medical kits a day.",
+          ],
+        },
       },
+      traps: {
+        spike: {
+          desc: "Spike trap. Walls 2 unlocks it. Costs 10 scrap. Plus Lumber 1, Box of nails 1. Press T to set it. It goes on the tile ahead. Over the fence works too. A walker steps on it. That walker takes 45. It lasts 3 walkers.",
+        },
+        blast: {
+          desc: "Blast trap. Walls 3 unlocks it. Costs 25 scrap. Plus Fuel can 1, Spool of wire 1. Press R to set it. It blows up once. Every walker close by takes 120. One use, then it is gone.",
+        },
+      },
+      bench: {
+        intro: "This is the garage workbench. Build, upgrade, and craft here by typing. Nothing is spent till you finish.",
+      },
+    },
+    typing: {
+      fingers: [
+        "Look at the keyboard. Find the middle row of letters. That is the home row. Your fingers rest there. They go back there each time.",
+        "Left hand goes on A S D F. Right hand goes on J K L. The right pinky gets the ; key. That key is the semicolon. Feel F and J. Each one has a small bump. The bumps tell you where home is. No need to look down.",
+        "Both thumbs rest on the space bar. Tap it with a thumb. That makes a space.",
+        "Each finger owns a few keys. It reaches up or down. Then it comes back home. Keep your eyes on the screen. Not on your hands. The words will come.",
+      ],
+      words: [
+        "van", "gas", "map", "key", "door", "fuel", "note", "nail", "wood", "wire",
+        "seed", "soil", "meds", "kit", "gun", "book", "food", "well", "farm", "lab",
+        "yard", "wave", "calm", "hold", "run", "walk", "hide", "pump", "tank", "trap",
+        "hole", "home", "base", "shed", "road", "hill", "town", "mall", "shop", "lock",
+        "code", "dark", "dusk", "rust", "bolt", "goat", "hen", "corn", "bean", "herb",
+        "tool", "part", "box", "bag", "pack", "aim", "read", "sign", "gate", "wall",
+        "roof", "step", "tile", "dock", "kiln", "tape", "help", "safe", "save", "wait",
+        "keep", "fix", "dig",
+      ],
+      phrases: [
+        "hold fast", "read it", "go in", "get gas", "fix it", "set trap", "run home", "hold on",
+        "lock door", "open door", "shut door", "grab food", "pack kit", "use kit", "dig well", "feed hens",
+        "plant corn", "drive home", "save game", "find key", "read note", "take scrap", "keep calm", "stay low",
+        "walk slow", "turn left", "head east", "go west", "pick up", "fix fence", "load van", "fill tank",
+        "stay put", "look out", "move on",
+      ],
+      sentences: [
+        "Read the note first.",
+        "The door is shut.",
+        "Press E at the door.",
+        "Hold the fence, Max.",
+        "Gas is on the floor.",
+        "Walkers come at dusk.",
+        "Fix the hole with scrap.",
+        "The well gives clean water.",
+        "Pack a kit, then go.",
+        "Dev went east to Ortiz Auto.",
+        "Rosa has seeds and soil.",
+        "Drive the van home now.",
+        "The cabin door locks.",
+        "Set a trap by the fence.",
+        "Stay quiet in the hall.",
+        "The radio finds new places.",
+        "Ruby left a note.",
+        "Do not run the saws.",
+        "Scrap piles give scrap.",
+        "The map shows the road.",
+        "Walk, do not run.",
+        "Nurse Ada is still here.",
+        "The hens lay eggs.",
+      ],
     },
     locations: {
       gasngo: {
