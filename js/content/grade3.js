@@ -7,381 +7,213 @@
     grade: 3,
     havens: [
       {
+        id: "g3-overpass-camp",
+        place: "Overpass Camp",
+        host: "Jo",
+        intro: "Jo slides a creased page across the table and taps the middle of it. \"Night twelve. I was on the radio, and then I wasn't. Read it back to me and tell me what's missing.\"",
+        kind: "log",
+        title: "Radio Log, Night 12",
+        text: "Overpass Camp. Radio log, Night 12. Kept by Jo.\n9:10 PM. Ruby calls from the garage. The van is fixed. She will sleep there.\n10:40 PM. Max and Mia check in from the hill. No walkers on the road.\n12:05 AM. Doc Lin asks for the weather. I tell her rain by morning.\n12:30 AM. Rook is at the door. He is not barking, but he will not lie down. He hears walkers before any of us do.\n\n4:50 AM. Back. The power went out, and the radio went with it.\n4:55 AM. Called the hill. The twins answer on the second try. Both fine.\n5:10 AM. Called the garage. No answer.\n5:40 AM. Ruby walks in through the gate. The garage radio died with the power. Everyone is counted. Rain starts.",
+        questions: [
+          {
+            type: "detail",
+            q: "What happened when Jo called the garage at 5:10 AM?",
+            options: ["The twins answered", "Nobody answered", "Ruby said the van was fixed", "The power came back on"],
+            answer: 1,
+            hint: "Find the 5:10 AM line."
+          },
+          {
+            type: "inference",
+            q: "Why did Jo call the hill and the garage as soon as the power came back?",
+            options: ["To ask about the weather", "To report the rain", "To order more fuel", "To make sure everyone was safe"],
+            answer: 3,
+            hint: "Think about what Jo could not do while the radio was dead."
+          },
+          {
+            type: "vocab",
+            word: "counted",
+            q: "What does \"counted\" mean when Jo writes \"Everyone is counted\"?",
+            options: ["Everyone is safe and here", "Everyone is asleep", "Everyone is out on the road", "Everyone is on the radio"],
+            answer: 0,
+            hint: "Jo writes it right after Ruby walks in through the gate."
+          }
+        ],
+        choice: {
+          prompt: "Jo folds the page. \"Two roads to the Gas-N-Go, and the rain is not going to wait for you.\"",
+          options: [
+            {
+              label: "The hill road",
+              desc: "The twins watched it all night and saw no walkers, but it is the long way around.",
+              effects: { zombies: 0.8, length: 1.2 },
+              result: "The hill road stays quiet the whole way. Rook lies down for the first time since midnight."
+            },
+            {
+              label: "The river road",
+              desc: "Shorter, and the stalled cars on it still hold scrap, but the rain brings fog up off the river.",
+              effects: { zombies: 1.2, fog: true, scrap: 20, length: 0.9 },
+              result: "Fog sits on the river road like a lid. You pull scrap from two stalled cars and do not stay long."
+            },
+            {
+              label: "Wait for noon",
+              desc: "Leave when the rain stops, so fewer walkers are moving, but you will still be driving after dark.",
+              effects: { zombies: 0.9, night: true, crates: 1 },
+              result: "The rain quits at noon. The light goes before you do, and the headlights find one crate by the road."
+            }
+          ]
+        }
+      },
+      {
         id: "g3-gas-n-go",
         place: "Gas-N-Go",
-        host: "Captain Ruby",
-        intro: "Captain Ruby wipes her hands on a rag. \"New rules on the wall. Read them out loud so the twins stop arguing with me.\"",
-        kind: "rules",
-        title: "Garage Rules",
-        text: "Welcome to the Gas-N-Go garage. Here are the rules, and I mean every one of them. Rule one: put every tool back on its hook when you are done. A tidy garage is a fast garage. Rule two: nobody drives a van with a flat tire. We keep a spare tire by the door, so use it. Rule three: Biscuit may not nap under the lift. He is a good dog, but he snores like a tractor.\n\nRule four: if a Shambler wanders in, do not panic. Honk the horn twice and it will shuffle right back out. Shamblers are not mean, just lost. The last rule is my favorite. Anyone who reads these rules out loud gets a free oil change. Yes, that means you. Signed, Captain Ruby.",
+        host: "Ruby",
+        intro: "Ruby drops a clipboard on the hood of the van and does not pick it up. \"I count fuel on Mondays. Max counted on Thursday. Read both and tell me if I'm wrong.\"",
+        kind: "list",
+        title: "Fuel Count, Monday and Thursday",
+        text: "Gas-N-Go fuel count. Monday, by Ruby.\nRed cans, full: 12. Red cans, empty: 4. Oil: 9 quarts. Fan belts: 2.\nRule: the van takes two cans for one full run. Nobody takes fuel without a mark on the board by the door. No mark, no fuel.\n\nThursday count, by Max.\nRed cans, full: 7. Red cans, empty: 6. Oil: 9 quarts. Fan belts: 2.\nBoard by the door: Ruby, two cans, Tuesday, for the Bookmobile run. Nothing else is written.\nMax: I counted twice. Then I counted a third time, because Ruby would ask. The numbers did not change. The gate was locked every night this week, and the lock is not broken.",
         questions: [
           {
             type: "detail",
-            q: "What should you do if a Shambler wanders into the garage?",
-            options: ["Hide under the lift", "Honk the horn twice", "Call Captain Ruby", "Give it a tire"],
-            answer: 1,
-            hint: "Look at rule four."
+            q: "How many cans does the van use for one full run?",
+            options: ["One can", "Four cans", "Two cans", "Seven cans"],
+            answer: 2,
+            hint: "Look at the rule under Monday's count."
           },
           {
             type: "inference",
-            q: "Why does Captain Ruby say a tidy garage is a fast garage?",
-            options: ["Clean tools shine brighter", "Biscuit likes it clean", "Tools are easy to find", "Clean vans drive faster"],
-            answer: 2,
-            hint: "Think about what happens when every tool is back on its hook."
+            q: "What do the two counts show?",
+            options: ["Max counted the wrong cans", "Someone took fuel without a mark", "The van used up all the fuel", "Ruby forgot to count the oil"],
+            answer: 1,
+            hint: "Compare the number of full cans with what is written on the board."
           },
           {
             type: "vocab",
-            word: "spare",
-            q: "What does the word \"spare\" mean in this passage?",
-            options: ["A broken one", "A tiny one", "A red one", "An extra one"],
+            word: "run",
+            q: "What does the word \"run\" mean in \"the Bookmobile run\"?",
+            options: ["A fast jog", "A broken engine", "A fuel can", "A delivery trip"],
             answer: 3,
-            hint: "Rule two says why the spare tire is kept by the door."
+            hint: "Think about what the van does with two cans of fuel."
           }
         ],
         choice: {
-          prompt: "Captain Ruby points at the map with a wrench. \"Three ways out. Pick one before Biscuit wakes up.\"",
+          prompt: "Ruby points down the road with the clipboard. \"Two ways to the Toll Plaza. Whichever you pick, I fill the tank for it.\"",
           options: [
             {
-              label: "The highway",
-              desc: "It is wide and open with few Shamblers, but it is a long drive.",
-              effects: { zombies: 0.8, length: 1.2 },
-              result: "The highway hums under your tires. Biscuit hangs his head out the window and grins."
-            },
-            {
-              label: "The old quarry road",
-              desc: "It is short and bumpy, with crates of scrap, but Shamblers nap there.",
-              effects: { zombies: 1.3, crates: 3, length: 0.9 },
-              result: "Rocks rattle under the van. A sleepy Shambler waves as you bounce past."
-            },
-            {
-              label: "Through the car wash",
-              desc: "The van comes out shiny, but the soap fog follows you down the road.",
-              effects: { fog: true, hp: 10 },
-              result: "Suds fly everywhere. The van sparkles, and a cloud of bubbles trails behind you."
-            }
-          ]
-        }
-      },
-      {
-        id: "g3-library-fort",
-        place: "Library Fort",
-        host: "Max and Mia",
-        intro: "Max and Mia unroll a crayon map across the checkout desk. \"We drew the whole fort. Can you read the key? Max wrote it, and his letters wiggle.\"",
-        kind: "map",
-        title: "Map Key for Library Fort",
-        text: "This is the map of Library Fort, drawn by Max and Mia. The key tells you what each mark means. A blue square is a door you can open. A red square is a door that is stuck, so do not try it. A green circle is a safe spot with snacks. A yellow star is the radio room, where Grandpa Joe sits. A paw print is Biscuit's bed, and he does not share it.\n\nThe wavy lines are the moat. It is only a kiddie pool, but Shamblers will not step in water. The dotted line is the secret path from the garage to the roof. Only the crew knows about it, so keep it quiet. If you see an X, dig there. Mia buried a jar of jellybeans, and she forgot which X is real.",
-        questions: [
-          {
-            type: "detail",
-            q: "What does a yellow star mean on the map?",
-            options: ["A stuck door", "The radio room", "A snack spot", "Biscuit's bed"],
-            answer: 1,
-            hint: "Find the sentence about the yellow star."
-          },
-          {
-            type: "inference",
-            q: "Which mark should you follow to reach the roof without being seen?",
-            options: ["The blue square", "The wavy lines", "The dotted line", "The yellow star"],
-            answer: 2,
-            hint: "Look for the path that only the crew knows about."
-          },
-          {
-            type: "vocab",
-            word: "moat",
-            q: "What does the word \"moat\" mean in this passage?",
-            options: ["Water around a fort", "A tall stone wall", "A hidden door", "A big flag"],
-            answer: 0,
-            hint: "Read what the wavy lines really are."
-          }
-        ],
-        choice: {
-          prompt: "Max and Mia point at three roads on their map. \"We drew them all. Which one?\"",
-          options: [
-            {
-              label: "The paved road",
-              desc: "Mia drew it straight and smooth, with few Shamblers, but it is long.",
-              effects: { zombies: 0.8, length: 1.15 },
-              result: "The road is as smooth as the map said. Mia waves until you are out of sight."
-            },
-            {
-              label: "The bumpy farm road",
-              desc: "Max drew lots of Shamblers on it, but also four crates of scrap.",
-              effects: { zombies: 1.4, crates: 4 },
-              result: "Max was right about the Shamblers. He was also right about the crates."
-            },
-            {
-              label: "The tunnel",
-              desc: "It is dark inside, but Max says it is short and empty.",
-              effects: { night: true, zombies: 0.9, length: 0.8 },
-              result: "You flick on the headlights. Your own echo is the only thing that follows you."
-            }
-          ]
-        }
-      },
-      {
-        id: "g3-moon-diner",
-        place: "Moon Diner",
-        host: "Doc Lin",
-        intro: "Doc Lin slides a flour-dusted card across the counter. \"My pancakes keep coming out flat as a Shambler's brain. Read the recipe and tell me what I'm missing.\"",
-        kind: "recipe",
-        title: "Moon Pancakes",
-        text: "You will need two cups of flour and two eggs. Add one cup of milk and a big spoon of honey. Last, add one spoon of baking powder. The baking powder is what makes the pancakes puff up like little moons. Mix the dry things in one bowl and the wet things in another. Then pour them together and stir, but only ten times. A lumpy batter makes a fluffy pancake.\n\nHeat the pan until a drop of water dances on it. Pour in a circle the size of your hand. When bubbles pop on top, flip it once. Do not flip it twice, no matter how much Biscuit begs. Stack them high, add butter, and eat them while the moon is still up. Makes eight pancakes, or four if Doc Lin is hungry.",
-        questions: [
-          {
-            type: "detail",
-            q: "How many times should you stir the batter?",
-            options: ["Ten times", "Two times", "Eight times", "Four times"],
-            answer: 0,
-            hint: "Look at what to do right after you pour the two bowls together."
-          },
-          {
-            type: "inference",
-            q: "What would happen if you forgot the baking powder?",
-            options: ["The pancakes would burn", "The pancakes would be sweet", "The pancakes would be lumpy", "The pancakes would be flat"],
-            answer: 3,
-            hint: "Think about what the baking powder does to the pancakes."
-          },
-          {
-            type: "vocab",
-            word: "batter",
-            q: "What does the word \"batter\" mean in this passage?",
-            options: ["A baseball player", "The pancake mix", "A hot pan", "A kind of honey"],
-            answer: 1,
-            hint: "The word comes right after the two bowls get stirred together."
-          }
-        ],
-        choice: {
-          prompt: "Doc Lin wipes the counter. \"Three ways out of town. Pick one before the syrup sets.\"",
-          options: [
-            {
-              label: "The flat valley road",
-              desc: "Few Shamblers and an easy drive, but it winds a long way around.",
-              effects: { zombies: 0.8, length: 1.2 },
-              result: "The valley road is calm. Doc Lin's pancakes sit warm on the seat beside you."
-            },
-            {
-              label: "The pass over the hills",
-              desc: "Steep and short, with scrap at the top, but the Shamblers are bouncy.",
-              effects: { zombies: 1.3, runners: 1.4, scrap: 30, length: 0.9 },
-              result: "The van groans up the pass. Bouncy Shamblers poof like popcorn behind you."
-            },
-            {
-              label: "The syrup factory road",
-              desc: "The sweet air makes a sticky fog, but the factory pays in scrap.",
-              effects: { fog: true, scrap: 20 },
-              result: "Sweet fog rolls over the windshield. Biscuit licks the glass."
-            }
-          ]
-        }
-      },
-      {
-        id: "g3-radio-tower",
-        place: "Radio Tower",
-        host: "Grandpa Joe",
-        intro: "Grandpa Joe hands you a clipboard with the pencil still tied to it. \"My eyes are tired from the dials. Read me yesterday's log, and don't skip the good parts.\"",
-        kind: "log",
-        title: "Radio Log, Tuesday",
-        text: "6 AM: Tower is quiet. Coffee is hot. Biscuit is asleep on my feet. 8 AM: Captain Ruby calls from the Gas-N-Go. She needs a new fan belt. I tell her the Bookmobile is on the way. 10 AM: A strange signal on channel nine. Someone keeps saying 'brains' very slowly. I think a Shambler found a walkie-talkie. I say 'no thank you' and it stops. 11 AM: Max and Mia report a crate of books on the north road.\n\n1 PM: Doc Lin calls to tell a joke. What do you call a Shambler with a map? Lost anyway. I laugh so hard I knock over the coffee. 3 PM: Clouds to the west. I warn every haven to shut the windows. 5 PM: The Bookmobile reports in. I switch on the tower light and sign off.",
-        questions: [
-          {
-            type: "detail",
-            q: "What does Captain Ruby need?",
-            options: ["A new fan belt", "A crate of books", "A cup of coffee", "A walkie-talkie"],
-            answer: 0,
-            hint: "Check the 8 AM entry."
-          },
-          {
-            type: "inference",
-            q: "Why does Grandpa Joe think a Shambler found a walkie-talkie?",
-            options: ["Doc Lin told him so", "The voice only says 'brains'", "He saw one on the road", "The signal was very loud"],
-            answer: 1,
-            hint: "Read what the strange voice on channel nine keeps saying."
-          },
-          {
-            type: "vocab",
-            word: "signal",
-            q: "What does the word \"signal\" mean in this passage?",
-            options: ["A bright light", "A road sign", "A radio message", "A loud bell"],
-            answer: 2,
-            hint: "The signal comes in on channel nine, and someone is talking."
-          }
-        ],
-        choice: {
-          prompt: "Grandpa Joe taps the map on the wall. \"Which way, kiddo? I'll radio ahead.\"",
-          options: [
-            {
-              label: "The north road",
-              desc: "The twins saw a crate of books there, but they saw Shamblers too.",
-              effects: { zombies: 1.3, crates: 2, scrap: 15 },
-              result: "You find the crate right where the twins said. The Shamblers find you a moment later."
-            },
-            {
-              label: "The west road",
-              desc: "Clouds are rolling in that way, so it is gray and slow but empty.",
-              effects: { zombies: 0.7, fog: true, length: 1.1 },
-              result: "The clouds swallow the road. Grandpa Joe's voice on the radio keeps you company."
-            }
-          ]
-        }
-      },
-      {
-        id: "g3-red-barn",
-        place: "Red Barn",
-        host: "Farmer Pat",
-        intro: "Farmer Pat pulls a note off a nail by the barn door. \"My helper Skip left this and ran off. I can read 'goat,' and that's about it.\"",
-        kind: "note",
-        title: "A Note From Skip",
-        text: "Farmer Pat, I took the tractor. Do not be mad. Gus the goat chewed through the fence again. He went over the hill toward the pond. I saw him eat a hat on the way. I think it was yours. Biscuit went with me, so I am not alone. We will be back before the sun goes down.\n\nPlease feed the hens at noon if I am late. They get grumpy when they are hungry. The seed is in the red can, not the blue one. The blue can is nails. If a Shambler shows up, do not worry. Gus already scared one off this morning. He butted it right into the hay, and it poofed. That goat is a hero. Your friend, Skip.",
-        questions: [
-          {
-            type: "detail",
-            q: "Where is the hen seed kept?",
-            options: ["In the blue can", "In the red can", "In the hay", "On the tractor"],
-            answer: 1,
-            hint: "Look at the part about feeding the hens."
-          },
-          {
-            type: "inference",
-            q: "Why does Skip say not to worry about Shamblers?",
-            options: ["Biscuit is guarding the barn", "Shamblers never visit farms", "Gus can scare them off", "Farmer Pat has a big hat"],
-            answer: 2,
-            hint: "Think about what Gus did this morning."
-          },
-          {
-            type: "vocab",
-            word: "butted",
-            q: "What did Gus do when he \"butted\" the Shambler?",
-            options: ["Hit it with his head", "Licked it all over", "Sang it a song", "Ran away from it"],
-            answer: 0,
-            hint: "Picture where the Shambler ended up right after Gus butted it."
-          }
-        ],
-        choice: {
-          prompt: "Farmer Pat points past the pond. \"Three ways to the next haven. Mind the goat.\"",
-          options: [
-            {
-              label: "Around the pond",
-              desc: "A smooth dirt road with few Shamblers, but it loops the long way around.",
-              effects: { zombies: 0.8, length: 1.2 },
-              result: "Ducks scatter as you roll by. Somewhere on the hill, a goat burps."
-            },
-            {
-              label: "Over the hill",
-              desc: "Short and steep, but every Shambler Gus ever scared off lives up there.",
-              effects: { zombies: 1.4, length: 0.85, scrap: 25 },
-              result: "The van bounces over the hill. Gus the goat watches from a rock, chewing a hat."
-            },
-            {
-              label: "The hay field",
-              desc: "The hay bales hide crates, but the dust is as thick as fog.",
-              effects: { fog: true, crates: 2 },
-              result: "Hay dust fills the air. Biscuit sneezes seven times in a row."
-            }
-          ]
-        }
-      },
-      {
-        id: "g3-mini-golf-castle",
-        place: "Mini-Golf Castle",
-        host: "King Toby",
-        intro: "A man in a cardboard crown bows low. \"I am King Toby of the Mini-Golf Castle. My royal poster is done, but is it any good? Read it to me, please.\"",
-        kind: "poster",
-        title: "Putt-Putt Party",
-        text: "PUTT-PUTT PARTY at the Mini-Golf Castle! This Saturday, from noon until the stars come out. All eighteen holes are open, even the windmill. Bring your own putter or borrow one from the king. Prizes for the best score, the worst score, and the silliest hat. Doc Lin will serve lemonade, and Grandpa Joe will play music on the radio.\n\nRules of the castle: No running on the greens. No feeding the moat fish. If a Shambler wanders onto hole seven, let it finish. They are terrible at golf, but they try hard. The castle gate closes at dark, so do not dawdle. Cost to enter: one book for the Bookmobile. The royal library is nearly empty, and the king is bored. Come one, come all!",
-        questions: [
-          {
-            type: "detail",
-            q: "What does it cost to enter the party?",
-            options: ["One book", "One putter", "One silly hat", "One lemonade"],
-            answer: 0,
-            hint: "Find the line that starts with 'Cost to enter.'"
-          },
-          {
-            type: "inference",
-            q: "Why does the king ask for books instead of scrap?",
-            options: ["He sells them for scrap", "His library is almost empty", "Shamblers like to read", "He needs them for prizes"],
-            answer: 1,
-            hint: "Read the sentence right after the cost to enter."
-          },
-          {
-            type: "vocab",
-            word: "dawdle",
-            q: "What does the word \"dawdle\" mean in this passage?",
-            options: ["Run fast", "Shout loudly", "Move slowly", "Hide away"],
-            answer: 2,
-            hint: "The gate closes at dark, so think about what you should not do."
-          }
-        ],
-        choice: {
-          prompt: "King Toby waves his putter at the road. \"Which way shall you go, brave reader?\"",
-          options: [
-            {
-              label: "The royal road",
-              desc: "Smooth and well lit, with guards at each gate, but a long ride.",
+              label: "The county road",
+              desc: "Long and open, and Ruby has driven it twice this month without seeing a walker.",
               effects: { zombies: 0.7, length: 1.25 },
-              result: "Cardboard guards salute as you pass. The road is long, but the view is royal."
+              result: "The county road stays empty. Ruby's two cans get you there with a little to spare."
             },
             {
-              label: "The windmill shortcut",
-              desc: "Fast and twisty, with scrap at the end, but the windmill spits out Shamblers.",
-              effects: { zombies: 1.4, runners: 1.3, scrap: 30, length: 0.85 },
-              result: "You zip past the windmill. Shamblers tumble out behind you and poof one after another."
-            },
-            {
-              label: "Through the moat",
-              desc: "The king pays you to splash through, but the water bangs up the van.",
-              effects: { hp: -10, scrap: 35, zombies: 0.9 },
-              result: "Splash! Fish scatter, the king cheers, and the van drips for a mile."
+              label: "The truck stop cut",
+              desc: "Short, but the lot is full of stalled trucks, and the bruisers stand between them.",
+              effects: { zombies: 1.3, brutes: 1.5, scrap: 30, length: 0.85 },
+              result: "You thread the van between the trucks. Bruisers turn slowly as you pass, and an open trailer gives up its scrap."
             }
           ]
         }
       },
       {
-        id: "g3-school-bus-camp",
-        place: "School Bus Camp",
-        host: "Bus Driver Bea",
-        intro: "Bus Driver Bea hands you an envelope covered in stickers. \"The kids wrote you a letter. They won't let me read it, so it's your job.\"",
+        id: "g3-toll-plaza",
+        place: "Toll Plaza",
+        host: "Doc Lin",
+        intro: "Doc Lin hands you a folded page with tape still hanging off one corner. \"This was on the booth window. Somebody is looking for a sister. Read it, and then we decide if we carry it.\"",
         kind: "letter",
-        title: "Dear Bookmobile",
-        text: "Dear Bookmobile, We are the kids of School Bus Camp. There are nine of us, plus Biscuit when he visits. We live in three yellow buses parked in a circle. Bus One is for sleeping. Bus Two is for eating. Bus Three is for reading, but it is almost empty. We have read every book on it twice, even the one about rocks.\n\nWe heard you are coming our way. Please bring books about dragons, space, and dogs. Nora wants a joke book, and Sam wants a cookbook with pictures. We will trade you a jar of blueberry jam for each book. We made the jam ourselves, so it might be a little runny. Bus Driver Bea says you can park next to Bus Two for supper. Your friends, the Camp Kids.",
+        title: "For Dana",
+        text: "Dana, if you come through the toll plaza, stop and read this.\nWe waited here four days, like we said. The water ran low on day three. On day four a convoy came through, and they had room. We went with them. I am sorry. I did not want to break the plan.\nWe are headed to the Water Tower camp on Route 9. The convoy leader says it has a well and a gate. Ask for Mara. That is me, in case you forgot what I look like.\n\nI left your blue jacket in the booth, under the counter. There is a can of peaches in the pocket. Save it for the road.\nIf you are reading this, you made it this far. That is the hard part. Keep going.\nMara.",
         questions: [
           {
             type: "detail",
-            q: "Which bus is for reading?",
-            options: ["Bus One", "Bus Two", "Bus Three", "Bea's bus"],
-            answer: 2,
-            hint: "Each bus has a job, so find the one with the books."
+            q: "Where did Mara leave the blue jacket?",
+            options: ["In the convoy truck", "Under the booth counter", "At the Water Tower camp", "On the road to Route 9"],
+            answer: 1,
+            hint: "Look for the sentence about the jacket."
           },
           {
             type: "inference",
-            q: "How do the kids probably feel about the book on rocks?",
-            options: ["It is their favorite", "It is a bit boring", "It is about dragons", "It is brand new"],
-            answer: 1,
-            hint: "Look at the way the kids mention reading the rock book."
+            q: "Why did Mara leave before Dana got there?",
+            options: ["She forgot the plan", "Dana told her to go", "The booth was locked", "Water was low and a convoy had room"],
+            answer: 3,
+            hint: "Read what happened on day three and day four."
           },
           {
             type: "vocab",
-            word: "trade",
-            q: "What does the word \"trade\" mean in this passage?",
-            options: ["Hide something", "Throw something", "Read something", "Swap something"],
-            answer: 3,
-            hint: "The kids will give jam, and they want something back for it."
+            word: "convoy",
+            q: "What does the word \"convoy\" mean in this letter?",
+            options: ["A group of trucks traveling together", "A locked toll booth", "A kind of water pump", "A place to sleep"],
+            answer: 0,
+            hint: "Mara says the convoy came through and had room."
           }
         ],
         choice: {
-          prompt: "Bus Driver Bea unfolds a map on the hood. \"Two roads from camp. Choose wisely, and watch the jam.\"",
+          prompt: "Doc Lin tucks the letter into her jacket. \"Route 9 to the Water Tower, or the long way past the lake. We carry it either way.\"",
           options: [
             {
-              label: "The school road",
-              desc: "It is short and pays well, but Shamblers swing at the playground.",
-              effects: { zombies: 1.3, length: 0.85, scrap: 20 },
-              result: "Shamblers creak back and forth on the swings. One waves, and you wave back."
+              label: "Route 9",
+              desc: "Straight to the Water Tower, but the convoy that passed here left walkers following its tracks.",
+              effects: { zombies: 1.3, scrap: 20, length: 0.9 },
+              result: "Route 9 is littered with what the convoy dropped. Walkers drift along the same ruts, and you keep the window up."
             },
             {
               label: "The lake road",
-              desc: "Longer and quieter, with a few crates the kids left out for you.",
-              effects: { zombies: 0.8, length: 1.15, crates: 2 },
-              result: "The lake glitters. You spot the crates right where the kids said they would be."
+              desc: "Longer and quiet, with the water on one side and nothing on the other.",
+              effects: { zombies: 0.8, length: 1.2 },
+              result: "Nothing moves on the lake road but the water. Doc Lin reads the letter twice."
+            },
+            {
+              label: "The toll lanes",
+              desc: "The plaza lanes are jammed with cars, and each car is a chance at scrap or a dent.",
+              effects: { zombies: 1.0, crates: 3, hp: -10 },
+              result: "You scrape the van through the jammed lanes. Three crates, two new dents."
+            }
+          ]
+        }
+      },
+      {
+        id: "g3-school-bus-wall",
+        place: "School Bus Wall",
+        host: "Harlan",
+        intro: "A tall man with a whistle on a cord points at the painted board by the gate. \"Harlan. I keep the gate. Read those out loud. New people always skip rule four.\"",
+        kind: "rules",
+        title: "Rules of the Wall",
+        text: "Rules of the School Bus Wall. Read them before you come in.\nRule one: no engines running inside the wall. Sound carries.\nRule two: the gate opens at dawn and closes at dusk. If you are late, you wait outside. Nobody likes this rule. It is still the rule.\nRule three: every person signs the board, in and out. We count twice a day.\n\nRule four: nobody goes over the wall at night, not even to help. In the spring, two of us went over to help a stranger. The gate stood open for five minutes. Walkers took half the garden, and we nearly lost more than that. Now we lower a rope and a light. The stranger climbs, or waits for dawn. The rope is by the bell. Harlan.",
+        questions: [
+          {
+            type: "detail",
+            q: "When does the gate close?",
+            options: ["At noon", "At dawn", "At dusk", "At midnight"],
+            answer: 2,
+            hint: "Rule two tells you about the gate."
+          },
+          {
+            type: "inference",
+            q: "Why does rule four exist?",
+            options: ["Walkers got in while the gate stood open", "The rope was lost in the spring", "Strangers are never let in", "The bell is too loud at night"],
+            answer: 0,
+            hint: "Read what happened in the spring."
+          },
+          {
+            type: "vocab",
+            word: "carries",
+            q: "What does \"carries\" mean in \"Sound carries\"?",
+            options: ["Holds something heavy", "Travels a long way", "Stops at the wall", "Gets quieter"],
+            answer: 1,
+            hint: "Think about why a running engine inside the wall would be a problem."
+          }
+        ],
+        choice: {
+          prompt: "Harlan lifts the bar on the gate. \"Two roads out. One goes past the old school. One goes across the fields.\"",
+          options: [
+            {
+              label: "The school road",
+              desc: "Past the bus lot, where the doors hang open and walkers wander between the buses.",
+              effects: { zombies: 1.3, crates: 2, scrap: 15, length: 0.9 },
+              result: "You roll past the bus lot slow. Doors hang open, and two crates sit on the curb where someone dropped them."
+            },
+            {
+              label: "The field road",
+              desc: "Dirt and ruts across open ground, slow going, but you can see a long way in every direction.",
+              effects: { zombies: 0.8, length: 1.15, hp: -5 },
+              result: "The ruts shake the van, but nothing comes at you across the open ground."
             }
           ]
         }
@@ -389,55 +221,217 @@
       {
         id: "g3-water-tower",
         place: "Water Tower",
-        host: "Lookout Lou",
-        intro: "Lookout Lou climbs down the ladder and hands you a page. \"I wrote down what happened last week. Everyone says I tell it wrong. You read it.\"",
-        kind: "story",
-        title: "The Day Biscuit Rang the Bell",
-        text: "Last Tuesday, I was on top of the water tower, watching the road. The big bell hung next to me. One ring means 'all clear.' Two rings mean 'Shamblers coming.' Three rings mean 'lunch is ready.' I was so sleepy that I dozed off. While I snored, Biscuit climbed the ladder all by himself. Nobody knew a dog could do that.\n\nBiscuit saw six Shamblers shuffling up the road. He grabbed the bell rope in his teeth and pulled. Ring, ring! Down below, Captain Ruby heard it and started the van. She drove in circles until every Shambler got dizzy and poofed. Then Biscuit pulled the rope again, but only once. All clear. He got a whole sausage, and I got a bucket of cold water.",
+        host: "Ines",
+        intro: "A woman with grease to her elbows hands you a plastic sheet covered in marker. \"Ines. I run the pump. The factory sheet is wrong in two places, and somebody fixed it by hand. Read all of it, fixes too.\"",
+        kind: "manual",
+        title: "Hand Pump, Model 40",
+        text: "Hand Pump, Model 40. How to start it.\n1. Open the valve on the left. (Marker: It is on the RIGHT now.)\n2. Pour one cup of water into the top. This is called priming. The pump will not pull without it.\n3. Work the handle ten times, slowly. Water should come on the tenth stroke. (Marker: Twenty strokes. The pipe is deeper than it was.)\n4. Close the valve when you are done.\n\nMarker, at the bottom:\nDo NOT pump after dark. The handle squeaks, and the sound goes across the field. We learned that the hard way. Oil the handle every Sunday, and keep the priming cup full. If the water comes up brown, stop and tell Ines. Do not drink it. Do not let Rook drink it either. He will try.",
         questions: [
           {
             type: "detail",
-            q: "What do two rings of the bell mean?",
-            options: ["All clear", "Shamblers coming", "Lunch is ready", "Biscuit is here"],
-            answer: 1,
-            hint: "Look at the list of what each number of rings means."
+            q: "How many strokes does the marker note say to use?",
+            options: ["Ten strokes", "Four strokes", "One stroke", "Twenty strokes"],
+            answer: 3,
+            hint: "Look at the note after step three."
           },
           {
             type: "inference",
-            q: "Why did Lookout Lou get a bucket of cold water?",
-            options: ["To give to Biscuit", "To put out a fire", "For sleeping on the job", "To fill the tower"],
+            q: "Why should nobody use the pump after dark?",
+            options: ["The water is brown at night", "The valve sticks in the cold", "The squeak could draw walkers", "Ines is asleep by then"],
             answer: 2,
-            hint: "Think about what Lou was doing when the Shamblers came."
+            hint: "The note at the bottom says what the handle does and where the sound goes."
           },
           {
             type: "vocab",
-            word: "dozed",
-            q: "What does the word \"dozed\" mean in this passage?",
-            options: ["Fell down", "Ran away", "Rang the bell", "Fell asleep"],
-            answer: 3,
-            hint: "Lou was sleepy, and the next sentence says he snored."
+            word: "priming",
+            q: "What does the word \"priming\" mean in this manual?",
+            options: ["Adding water so the pump can pull", "Oiling the handle", "Closing the valve", "Painting the pump"],
+            answer: 0,
+            hint: "Step two explains it."
           }
         ],
         choice: {
-          prompt: "Lookout Lou points from the top of the tower. \"I can see all three roads from here. Here's what I see.\"",
+          prompt: "Ines wipes her hands and nods at the field. \"Two roads from the tower, and the field between them.\"",
           options: [
             {
-              label: "The straight road",
-              desc: "I see a long, flat, empty road with one Shambler asleep on it.",
-              effects: { zombies: 0.7, length: 1.2 },
-              result: "The road is as empty as Lou promised. The sleeping Shambler never even wakes up."
+              label: "The paved road",
+              desc: "Smooth and long, past the farms, where the walkers are few and slow.",
+              effects: { zombies: 0.75, length: 1.2 },
+              result: "The road hums. Farm gates stand open on both sides, and nothing comes through them."
             },
+            {
+              label: "Across the field",
+              desc: "Short and straight through tall grass, where you cannot see what is standing in it.",
+              effects: { zombies: 1.3, runners: 1.4, scrap: 25, length: 0.8 },
+              result: "Grass drags on the doors. Twice something stands up in it, and twice you are already past."
+            },
+            {
+              label: "The back road at night",
+              desc: "Wait for dark and take the back road, where nothing moves after sunset, but neither can you see.",
+              effects: { night: true, zombies: 0.9, crates: 2 },
+              result: "Headlights only. You find two crates by the mile marker, right where Ines said they would be."
+            }
+          ]
+        }
+      },
+      {
+        id: "g3-radio-tower",
+        place: "Radio Tower",
+        host: "Max and Mia",
+        intro: "Max unrolls a map on the hood while Mia pins the corners with rocks. \"We mapped the valley from the top of the tower. One mark is crossed out. Read the legend so Jo knows which one.\"",
+        kind: "map",
+        title: "Legend for the Valley Map",
+        text: "Legend for the Valley Map. Drawn by Max and Mia from the Radio Tower.\nA black line is a road that cars can use. A broken line is a road with stalled cars on it.\nA triangle is a camp with people. A triangle with a dot is a camp that answers on the radio.\nA circle with a W is clean water. There were two on the map. There is one now.\n\nThe W by the creek is crossed out. We went down on Tuesday, and the water was cloudy. Doc Lin says to boil it or not to use it. Small arrows show which way the walkers were moving when we looked. Most of the arrows point at the highway. The star is the Bookmobile. You are the star. Mia.",
+        questions: [
+          {
+            type: "detail",
+            q: "What does a triangle with a dot mean?",
+            options: ["Clean water", "A road with stalled cars", "Where the van is parked", "A camp that answers the radio"],
+            answer: 3,
+            hint: "Find the two sentences about triangles."
+          },
+          {
+            type: "inference",
+            q: "Why is the W by the creek crossed out?",
+            options: ["The creek dried up", "The twins ran out of ink", "The water was not safe", "Walkers were standing in it"],
+            answer: 2,
+            hint: "Read what the twins found on Tuesday."
+          },
+          {
+            type: "vocab",
+            word: "legend",
+            q: "What does the word \"legend\" mean here?",
+            options: ["An old story", "A key that explains the marks", "A tall tower", "A kind of road"],
+            answer: 1,
+            hint: "Look at what the whole page is for."
+          }
+        ],
+        choice: {
+          prompt: "Mia taps the arrows with her pencil. \"They all point at the highway. So which way do you want?\"",
+          options: [
+            {
+              label: "The highway",
+              desc: "Fast and straight, but the arrows say the walkers are drifting that way too.",
+              effects: { zombies: 1.4, scrap: 30, length: 0.85 },
+              result: "The arrows were right. The highway is crowded, and the shoulder is full of scrap."
+            },
+            {
+              label: "The back valley",
+              desc: "Away from the arrows, on a broken line, where the stalled cars make you weave.",
+              effects: { zombies: 0.7, length: 1.2, hp: -5 },
+              result: "You weave between stalled cars for an hour. Nothing follows."
+            },
+            {
+              label: "Up the ridge",
+              desc: "A black line the twins have not driven yet, high and short, with cloud sitting on top of it.",
+              effects: { zombies: 1.0, fog: true, crates: 2 },
+              result: "Cloud covers the ridge road. You find two crates in the fog and never see who left them."
+            }
+          ]
+        }
+      },
+      {
+        id: "g3-greenhouse",
+        place: "Greenhouse",
+        host: "Wen",
+        intro: "A gardener with dirt under her nails nods at the back door. The letters on it are a foot tall. \"Wen. I grow what we eat. I painted that in May. Read it, and don't skip the part about the roof.\"",
+        kind: "warning",
+        title: "Painted on the Back Door",
+        text: "WARNING. READ THIS BEFORE YOU OPEN THE BACK DOOR.\nThe back door opens on the low field. The low field floods when it rains. When the water rises, walkers come down the creek with it. They do not climb out. They do not turn back. They stand in the water until it drops. Then they are in the field.\n\nSo: after rain, keep the back door shut for two days. Count them. Use the front door, even though it is farther. Check the field from the roof first. If the field is still wet, it is not empty. Three of us learned this in May. All three are fine. The paint is so it stays that way. The tomatoes are worth it. Wen.",
+        questions: [
+          {
+            type: "detail",
+            q: "How long should the back door stay shut after rain?",
+            options: ["One day", "Two days", "One week", "Until May"],
+            answer: 1,
+            hint: "Look for the sentence that starts with \"So.\""
+          },
+          {
+            type: "inference",
+            q: "Why check the field from the roof first?",
+            options: ["To see if the tomatoes are ripe", "To watch the creek rise", "To see if walkers are standing in it", "To find the front door"],
+            answer: 2,
+            hint: "Think about what the water brings down the creek."
+          },
+          {
+            type: "vocab",
+            word: "floods",
+            q: "What does the word \"floods\" mean in this warning?",
+            options: ["Fills up with water", "Grows tall grass", "Dries out", "Turns to mud"],
+            answer: 0,
+            hint: "The sentence about the low field and rain tells you."
+          }
+        ],
+        choice: {
+          prompt: "Wen walks you to the front door, the long way. \"Two ways to the diner. The creek, or the ridge.\"",
+          options: [
             {
               label: "The ridge road",
-              desc: "I see crates on the ridge, and big Shamblers guarding every one.",
-              effects: { zombies: 1.2, brutes: 1.5, crates: 3, length: 0.9 },
-              result: "Big Shamblers lumber toward the van. They are slow, and the crates are worth it."
+              desc: "High and dry, with a view of everything below, but it adds an hour.",
+              effects: { zombies: 0.75, length: 1.25 },
+              result: "From the ridge you can see the whole low field. It is wet, and it is not empty."
             },
             {
-              label: "The creek bed",
-              desc: "I see a short rocky creek bed with crates, but rocks hurt tires.",
-              effects: { hp: -10, crates: 2, length: 0.8, zombies: 0.9 },
-              result: "Rocks clang under the van. You grab the crates and promise the tires a rest."
+              label: "The creek road",
+              desc: "Quick, but it runs beside the water, and you know what comes down the creek.",
+              effects: { zombies: 1.4, runners: 1.3, scrap: 30, length: 0.9 },
+              result: "The creek road is fast and bad. You keep the windows up and the speed up, and the scrap pays for it."
+            }
+          ]
+        }
+      },
+      {
+        id: "g3-mile-9-diner",
+        place: "Mile 9 Diner",
+        host: "Cass",
+        intro: "Cass pulls a note from under the register and smooths it flat. \"This was here when we opened the place up. Whoever wrote it knew the diner. Read it. We still don't know who they were.\"",
+        kind: "note",
+        title: "Note Under the Register",
+        text: "To whoever comes next.\nThe coffee is in the back, in the tin marked FLOUR. The flour is in the tin marked COFFEE. Do not ask. The cooler has not run since the Fall. Do not open it.\nThe key to the roof hatch is taped under the pie case. The roof is the only place you can see the whole highway. Go up at dawn and at dusk. Count the cars. If the count changes, something moved them.\n\nI stayed nine days. I left when the count changed. I went north, toward the stadium. I took the radio and left the batteries. The radio does not work. The batteries do. Lock the back door. It sticks, so lift it as you turn.\nGood luck. The pie is gone. I am not sorry about that.",
+        questions: [
+          {
+            type: "detail",
+            q: "Where is the key to the roof hatch?",
+            options: ["In the coffee tin", "In the cooler", "By the back door", "Under the pie case"],
+            answer: 3,
+            hint: "Find the sentence about the key."
+          },
+          {
+            type: "inference",
+            q: "Why did the writer count the cars on the highway?",
+            options: ["To know if anything was moving out there", "To find a car that still runs", "To pass the time on the roof", "To make a list for Cass"],
+            answer: 0,
+            hint: "Read what the writer says a change in the count means."
+          },
+          {
+            type: "vocab",
+            word: "sticks",
+            q: "What does \"sticks\" mean in \"It sticks, so lift it as you turn\"?",
+            options: ["Is made of wood", "Is hard to open", "Is painted red", "Is always unlocked"],
+            answer: 1,
+            hint: "The second half of the sentence tells you how to deal with it."
+          }
+        ],
+        choice: {
+          prompt: "Cass folds the note back under the register. \"North on the highway toward the stadium, or the service road out back.\"",
+          options: [
+            {
+              label: "North on the highway",
+              desc: "Open and fast, and the car count has not changed in a week.",
+              effects: { zombies: 0.8, length: 1.15 },
+              result: "The highway is as still as the count said. You pass the same cars the note was written about."
+            },
+            {
+              label: "The service road",
+              desc: "Behind the diner, past the loading docks, short but with every dock door standing open.",
+              effects: { zombies: 1.3, brutes: 1.4, scrap: 25, length: 0.85 },
+              result: "Bruisers stand in the open dock doors and turn as you pass. The scrap on the loading ramp is worth the look."
+            },
+            {
+              label: "Go at dusk",
+              desc: "Climb up, count the cars one more time, and leave when the light is low.",
+              effects: { night: true, zombies: 0.9, scrap: 10 },
+              result: "The count holds. You pull out as the sun drops, and the headlights do the rest."
             }
           ]
         }
@@ -445,52 +439,52 @@
     ],
     roadSigns: [
       {
-        text: "Sign on a barn: \"Fresh eggs ahead. Honk twice and Farmer Pat will come out.\"",
-        q: "How should you call Farmer Pat?",
-        options: ["Ring a bell", "Honk twice", "Wave a flag"],
-        answer: 1
-      },
-      {
-        text: "Radio: \"Bridge is closed. Take the dirt road past the gas station.\"",
-        q: "Which road should you take?",
-        options: ["The dirt road", "The bridge", "The river road"],
+        text: "Spray paint on the overpass: WALKERS PAST MILE 12. STAY ON THE LEFT SIDE.",
+        q: "Which side of the road should you stay on?",
+        options: ["The left side", "The right side", "The middle"],
         answer: 0
       },
       {
-        text: "Sign: \"SLOW, Shamblers crossing. They will not move faster if you honk.\"",
-        q: "What should you do here?",
-        options: ["Honk loudly", "Speed up", "Slow down"],
+        text: "Jo on the radio: \"Bridge at the river is out. Take the mill road and keep your lights low.\"",
+        q: "What should you do with your lights?",
+        options: ["Turn them off", "Keep them low", "Flash them twice"],
+        answer: 1
+      },
+      {
+        text: "A note on a stalled car: \"Out of gas, not out of hope. Went east on foot, day 30.\"",
+        q: "Which way did the driver go?",
+        options: ["West", "North", "East"],
         answer: 2
       },
       {
-        text: "Chalk on the road: \"Max and Mia were here. Crates are hidden behind the blue mailbox.\"",
+        text: "Hand-lettered sign on a fence: \"Dogs bark at the gate, and walkers do not. Listen before you knock.\"",
+        q: "What should you do before you knock?",
+        options: ["Listen", "Honk", "Climb the fence"],
+        answer: 0
+      },
+      {
+        text: "Painted on the side of a bus: CAMP MOVED. FOLLOW THE RED ARROWS, NOT THE BLUE ONES.",
+        q: "Which arrows should you follow?",
+        options: ["The blue ones", "The red ones", "Both colors"],
+        answer: 1
+      },
+      {
+        text: "Jo on the radio: \"Sprinters seen near the quarry at dusk. Do not stop there after four.\"",
+        q: "When should you avoid the quarry?",
+        options: ["Before noon", "At dawn", "After four"],
+        answer: 2
+      },
+      {
+        text: "Chalk on the road: \"M + M. Crates in the ditch, left side, past the sign for Route 9.\"",
         q: "Where are the crates?",
-        options: ["Behind the blue mailbox", "Under the bridge", "Inside the gas station"],
+        options: ["Left ditch, past the sign", "Right ditch, before the sign", "Inside the Route 9 booth"],
         answer: 0
       },
       {
-        text: "Note taped to a pump: \"This pump is empty. The one by the ice machine still works.\"",
-        q: "Which pump works?",
-        options: ["The first pump", "The one by the ice machine", "None of the pumps"],
-        answer: 1
-      },
-      {
-        text: "Radio: \"Doc Lin here, fog on the coast road until noon. Keep your lights on.\"",
-        q: "What should you keep on?",
-        options: ["Your hat", "Your radio", "Your lights"],
+        text: "Sign on a gate: WATER INSIDE, KNOCK THREE TIMES AND WAIT. WE WILL SEE YOU BEFORE YOU SEE US.",
+        q: "How many times should you knock?",
+        options: ["Once", "Twice", "Three times"],
         answer: 2
-      },
-      {
-        text: "Sign on a diner: \"Pie is free for anyone who reads this out loud.\"",
-        q: "How do you get free pie?",
-        options: ["Pay with scrap", "Read the sign out loud", "Bring a book"],
-        answer: 1
-      },
-      {
-        text: "Painted on a water tower: \"Next haven: 12 miles. Last gas for 30 miles.\"",
-        q: "How far is the next haven?",
-        options: ["12 miles", "30 miles", "3 miles"],
-        answer: 0
       }
     ]
   };

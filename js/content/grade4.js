@@ -7,225 +7,113 @@
     grade: 4,
     havens: [
       {
+        id: "g4-library-fort",
+        place: "Library Fort",
+        host: "Jo",
+        intro: "Jo sets a page on the desk, pressed flat under a dictionary. \"Found in the book return slot when we took this place. Whoever wrote it held the library before us. Read it. I want to know why the shelves are where they are.\"",
+        kind: "diary",
+        title: "Page from the Return Slot",
+        text: "Day 19 in the library.\nI moved the last of the shelves today. The big oak ones are against the east windows now, with the heavy books on the bottom. Nobody will read the tax codes again, but they stop a window from giving. I learned that on day six, when something leaned on the glass for an hour. The glass held.\n\nWater is in the janitor's closet, in the mop buckets. I boiled all of it. The stove in the break room runs on a gas tank, and the tank is half full. That is a month if I am careful. I am careful now. I was not, before.\n\nIf you find this, the fort is yours. The shelves are a wall, not a mess. Do not move them to make the room look nice. The children's section is the safest corner: no windows, two doors, and chairs small enough to stack. I am going to the fire station to find the rest of my crew. If you meet a woman named Priya, tell her the library held.",
+        questions: [
+          {
+            type: "detail",
+            q: "Where is the water kept?",
+            options: ["In the break room stove", "In the return slot", "In the mop buckets", "In the children's section"],
+            answer: 2,
+            hint: "Look at the start of the second paragraph."
+          },
+          {
+            type: "inference",
+            q: "Why does the writer say not to move the shelves?",
+            options: ["The books are in order", "They keep the windows from breaking in", "They are too heavy to lift", "Priya wants them there"],
+            answer: 1,
+            hint: "Think about what happened on day six."
+          },
+          {
+            type: "vocab",
+            word: "held",
+            q: "What does \"held\" mean in \"the glass held\" and \"the library held\"?",
+            options: ["Fell down", "Was carried", "Opened wide", "Stayed strong"],
+            answer: 3,
+            hint: "Something leaned on the glass for an hour, so look at what the glass did."
+          }
+        ],
+        choice: {
+          prompt: "Jo marks the fire station on the map. \"North. Two roads, and I've only driven one of them.\"",
+          options: [
+            {
+              label: "Main Street",
+              desc: "The road Jo knows: slow, with lookouts on the rooftops, and nothing comes at you that you cannot see first.",
+              effects: { zombies: 0.75, length: 1.2 },
+              result: "Lookouts wave from the roofs. Main Street takes a while, and nothing surprises you."
+            },
+            {
+              label: "The rail bridge",
+              desc: "A shortcut over the river on the old rail bridge, where stalled freight cars hold scrap and whatever stayed with them.",
+              effects: { zombies: 1.3, brutes: 1.4, scrap: 30, length: 0.85 },
+              result: "The bridge groans under the van. Bruisers turn in the open boxcar doors, and you pull scrap from the first car you pass."
+            },
+            {
+              label: "The campus road",
+              desc: "Through the old college, short and quiet, but the fog off the river sits on it all morning.",
+              effects: { fog: true, zombies: 0.9, crates: 2 },
+              result: "Fog hangs between the campus buildings. You find two crates by the flagpole and do not linger."
+            }
+          ]
+        }
+      },
+      {
         id: "g4-fire-station",
         place: "Fire Station",
-        host: "Captain Ruby",
-        intro: "Captain Ruby slaps a clipboard on the hood of the van. \"The fire station crew left me a list, and half of it is scribbled. Read it to me in order, and don't skip the bad news.\"",
-        kind: "list",
-        title: "The Big Fix-It List",
-        text: "Fix-It List for the Fire Station, written by Captain Ruby and finished by everyone else.\n\n1. Fire truck: the siren is stuck on 'quack.' Nobody knows how. Needs a new horn. Doc Lin says it sounds like a duck in a hurry.\n2. Big garage door: it opens fine but refuses to close. Oil the chain, then check the spring. Until then, Biscuit is on guard duty, which mostly means napping in the doorway.\n3. Bookmobile: left headlight is cracked. Replace it before any night driving. Also, the back seat is still full of blueberry jam jars from the School Bus Camp.\n4. Radio: Grandpa Joe reports a crackle on channel four. Probably the antenna. Max and Mia climbed the tower to look, and found a bird's nest wedged in the wires. The bird has been asked, politely, to move.\n5. Lunch: we are out of everything except crackers and jam. Somebody please drive to the Bakery.\n\nUrgent items are 1, 2, and 3. Item 4 can wait, and item 5 is Grandpa Joe's opinion.",
-        questions: [
-          {
-            type: "detail",
-            q: "What is wrong with the fire truck?",
-            options: ["Its siren sounds like a duck", "Its headlight is cracked", "Its door will not close", "Its radio crackles"],
-            answer: 0,
-            hint: "Look at item 1 on the list."
-          },
-          {
-            type: "inference",
-            q: "Why is Biscuit on guard duty?",
-            options: ["The siren is broken", "The garage door stays open", "The crackers are missing", "The radio is crackling"],
-            answer: 1,
-            hint: "Read what the garage door does, and what Biscuit does until it is fixed."
-          },
-          {
-            type: "vocab",
-            word: "urgent",
-            q: "What does the word \"urgent\" mean in this passage?",
-            options: ["Can wait a while", "Already finished", "Easy to fix", "Must be done soon"],
-            answer: 3,
-            hint: "The last line compares the urgent items with an item that can wait."
-          }
-        ],
-        choice: {
-          prompt: "Captain Ruby tosses you the keys. \"Three roads from here. The crew voted, but it's your van.\"",
-          options: [
-            {
-              label: "The highway",
-              desc: "Wide and fast and mostly clear of Shamblers, though it takes the long way around.",
-              effects: { zombies: 0.75, length: 1.2 },
-              result: "The highway hums. Grandpa Joe reads you the weather twice, just to be sure."
-            },
-            {
-              label: "The old mill road",
-              desc: "Short and rough, with runner Shamblers racing on it, but the old mill pays well in scrap.",
-              effects: { zombies: 1.3, runners: 1.6, scrap: 35, length: 0.85 },
-              result: "Runners sprint beside the van, trip over each other, and poof in a tidy row."
-            },
-            {
-              label: "The night route",
-              desc: "Captain Ruby patched the van and dares you to try the dark road, which is short and quiet.",
-              effects: { night: true, zombies: 0.9, length: 0.8, hp: 10 },
-              result: "The new headlight cuts through the dark. Ruby's patch job holds, and then some."
-            }
-          ]
-        }
-      },
-      {
-        id: "g4-mountain-lodge",
-        place: "Mountain Lodge",
-        host: "Grandpa Joe",
-        intro: "Grandpa Joe pats the chair beside the fire. \"I wrote this one down so the twins would stop telling it wrong. Read it slow. The best part is the middle.\"",
+        host: "Ruby",
+        intro: "Ruby wipes her hands and does not sit down. \"You want to know why there's tape over the siren switch. I wrote it down once so I'd stop having to tell it. Read it. I'll be under the truck.\"",
         kind: "story",
-        title: "The Great Pancake Avalanche",
-        text: "Years ago, before the Bookmobile, I ran the kitchen at the Mountain Lodge. One winter morning, snow on the roof was so deep the lodge creaked like an old ship. Doc Lin, who was just a kid then, decided to make pancakes for the whole mountain. She mixed enough batter to fill the bathtub, which is exactly where she mixed it.\n\nThat is when the Shamblers arrived. Twenty of them shuffled up the slope, moaning 'Brrrains?' at the front door. I did not have a plan. Doc Lin had a ladle. She climbed to the roof, scooped batter onto the snow, and the whole drift let go at once. Pancake batter and snow poured down the slope in a sweet, sticky wave. The Shamblers were so confused that every single one of them poofed.\n\nWe ate pancakes for a week. The twins say the avalanche was taller than the lodge, but they were not even born yet. I say it was taller than the mountain.",
+        title: "Why the Siren Stays Off",
+        text: "Our first week at the station, we found the ladder truck with a dead battery. I spent two days on it. On the third day it started, and the whole crew cheered. Max asked if the siren worked. I said probably. He hit the switch before I could say anything else.\n\nIt worked. It ran for forty seconds, which is how long it took me to find the fuse. Forty seconds is a long time for a sound like that to go out over an empty town. Empty of people, anyway. Rook was at the bay door before the siren stopped. He did not bark. He just stood there, looking at the road.\n\nThey came for three days. Never fast, but steady, and from every direction. The gate held, because we had built it well. We counted two hundred by the end. Nobody slept much. So the siren has tape over the switch now. Under the tape is a note that says ASK RUBY. Nobody has asked.",
         questions: [
           {
             type: "detail",
-            q: "Where did Doc Lin mix the batter?",
-            options: ["In a big pot", "On the roof", "In the snow", "In the bathtub"],
-            answer: 3,
-            hint: "Look at the end of the first paragraph."
+            q: "How long did the siren run?",
+            options: ["Four seconds", "Forty seconds", "Three days", "Two days"],
+            answer: 1,
+            hint: "Look at the start of the second paragraph."
           },
           {
             type: "inference",
-            q: "Why does Grandpa Joe mention that the twins were not born yet?",
-            options: ["They are too young to cook", "They could not have seen it", "They do not like pancakes", "They were asleep upstairs"],
-            answer: 1,
-            hint: "Think about whether the twins could really know how tall the avalanche was."
+            q: "Why did Rook stand at the bay door without barking?",
+            options: ["He wanted to go outside", "He was afraid of the siren", "He heard walkers coming", "He was waiting for Ruby"],
+            answer: 2,
+            hint: "Think about what Rook always hears first, and what came next."
           },
           {
             type: "vocab",
-            word: "avalanche",
-            q: "What does the word \"avalanche\" mean in this passage?",
-            options: ["A stack of pancakes", "A big metal ladle", "Snow sliding downhill", "A loud Shambler moan"],
-            answer: 2,
-            hint: "Reread what happened when the whole drift let go."
+            word: "steady",
+            q: "What does the word \"steady\" mean in this story?",
+            options: ["Without stopping", "Very quick", "Very loud", "In a straight line"],
+            answer: 0,
+            hint: "Ruby uses it to describe how the walkers came for three days."
           }
         ],
         choice: {
-          prompt: "Grandpa Joe stirs the fire. \"Three ways down the mountain, and I've told stories about all of them.\"",
+          prompt: "Ruby slides back under the truck. \"Two roads to the Train Yard. Don't use the siren.\"",
           options: [
             {
-              label: "The switchback road",
-              desc: "It zigzags slowly down the mountain, and the Shamblers get dizzy and give up before the third turn.",
-              effects: { zombies: 0.7, length: 1.25 },
-              result: "Back and forth, back and forth. Biscuit falls asleep by the fourth turn."
+              label: "The bypass",
+              desc: "Long and wide, and most of what the siren drew has drifted away from it by now.",
+              effects: { zombies: 0.8, length: 1.2 },
+              result: "The bypass is empty except for stalled cars. Nobody says the word siren."
             },
             {
-              label: "The sled run",
-              desc: "Straight down and fast, with crates frozen in the snow, but big slow Shamblers fill the hill.",
-              effects: { zombies: 1.2, brutes: 1.6, crates: 3, length: 0.8 },
-              result: "The van skids, slides, and somehow stays upright. The crates crack free of the ice."
+              label: "Through town",
+              desc: "Fast, but the siren pulled every walker in town onto these streets, and some of them never left.",
+              effects: { zombies: 1.5, scrap: 35, length: 0.8 },
+              result: "They are still here, slow and spread out across every block. You take the scrap off a flatbed and do not slow down."
             },
             {
-              label: "The foggy valley",
-              desc: "The valley fog is thick as batter, but Joe left a stash of scrap by the old sign.",
-              effects: { fog: true, zombies: 0.8, scrap: 15 },
-              result: "You feel your way through the fog and find Joe's stash, right where he said."
-            }
-          ]
-        }
-      },
-      {
-        id: "g4-boat-dock",
-        place: "Boat Dock",
-        host: "Doc Lin",
-        intro: "Doc Lin waves a damp envelope. \"My sister Mei lives out on Gull Island. Her letter got wet on the boat, and my glasses got wetter. Read it for me?\"",
-        kind: "letter",
-        title: "A Letter From Gull Island",
-        text: "Dear Lin, Greetings from Gull Island, where it has rained for nine days straight. The lighthouse still works, the goats are still rude, and the ferry still runs on Tuesdays. That is how this letter reached you. We have a new problem, and it is a funny one. Three Shamblers floated over on a raft made of picnic tables. They cannot climb the dock ladder, so they just bob in the harbor and moan at the seagulls. The seagulls moan back. It is very loud.\n\nHere is my request. Please ask the Bookmobile to bring us a book about tying knots. Uncle Bo wants to build a better raft and tow the Shamblers back to the mainland. His last raft sank at the dock, and he says a proper knot would have saved it. I do not think a knot was the problem. I think the problem was the refrigerator he strapped to it.\n\nSend jam, send books, and send Biscuit if he will come. Your soggy sister, Mei.",
-        questions: [
-          {
-            type: "detail",
-            q: "How did the Shamblers get to Gull Island?",
-            options: ["On the Tuesday ferry", "On a raft of picnic tables", "They swam across", "In Uncle Bo's boat"],
-            answer: 1,
-            hint: "Look at how the Shamblers arrived in the first paragraph."
-          },
-          {
-            type: "inference",
-            q: "Why does Mei think the knot was not the problem?",
-            options: ["Uncle Bo ties great knots", "The raft was too small", "A fridge is too heavy", "The dock ladder was broken"],
-            answer: 2,
-            hint: "Read what Uncle Bo strapped to his last raft."
-          },
-          {
-            type: "vocab",
-            word: "mainland",
-            q: "What does the word \"mainland\" mean in this passage?",
-            options: ["The top of the lighthouse", "A tiny fishing boat", "The end of the dock", "The land across the water"],
-            answer: 3,
-            hint: "Mei lives on an island, so think about where Uncle Bo wants to tow the raft."
-          }
-        ],
-        choice: {
-          prompt: "Doc Lin folds the letter. \"The coast road splits at the pier. Which way, sailor?\"",
-          options: [
-            {
-              label: "The beach road",
-              desc: "Soft sand and slow going, but Shamblers hate sand between their toes, so it is nearly empty.",
-              effects: { zombies: 0.7, length: 1.2 },
-              result: "Sand hisses under the tires. A lone Shambler shakes out its shoe and wanders off."
-            },
-            {
-              label: "The cliff road",
-              desc: "Short and twisty, but wind blows Shamblers onto the road, and the fishermen pay for a delivery.",
-              effects: { zombies: 1.4, scrap: 30, length: 0.85 },
-              result: "The wind howls. Shamblers tumble across the road like beach balls and poof on the rocks."
-            },
-            {
-              label: "The ferry",
-              desc: "Uncle Bo's cousin will float the van across the bay, but the fog out there is famous.",
-              effects: { fog: true, zombies: 0.9, length: 0.9, crates: 1 },
-              result: "The ferry drops you on the far shore in thick white fog, plus a bonus crate from the deck."
-            }
-          ]
-        }
-      },
-      {
-        id: "g4-bakery",
-        place: "Bakery",
-        host: "Baker Benny",
-        intro: "A flour-covered baker slides a card across the counter. \"Doc Lin wrote this recipe, and her handwriting is worse than her puns. Read it before the oven gets cold.\"",
-        kind: "recipe",
-        title: "Brave Bread",
-        text: "Brave Bread, a recipe by Doc Lin. You will need three cups of flour, one spoon of salt, and one spoon of yeast. Add a cup of warm water. Warm means a bath for a baby, not a bath for a lobster. If the water is too hot, the yeast will not wake up. Then the bread stays flat and sad.\n\nStir everything together in a large bowl until it forms a shaggy lump. Knead it on the counter for ten minutes, pushing and folding, until it feels smooth and stretchy. This is a good job for anyone who is nervous, because you cannot punch dough too hard. Cover the bowl with a towel and let it rise for one hour. The dough should double in size.\n\nBake at 400 degrees for thirty minutes. The crust should be golden and sound hollow when you knock on it. Let it cool before slicing, or the inside will be gummy. Biscuit gets the first heel, and Grandpa Joe gets the second.",
-        questions: [
-          {
-            type: "detail",
-            q: "How long should the dough rise?",
-            options: ["Ten minutes", "Thirty minutes", "One hour", "Two hours"],
-            answer: 2,
-            hint: "Look for the sentence about the towel."
-          },
-          {
-            type: "inference",
-            q: "What would happen if you used lobster-bath water?",
-            options: ["The bread would be salty", "The bread would stay flat", "The dough would rise too much", "The crust would be too dark"],
-            answer: 1,
-            hint: "Figure out how hot lobster-bath water is, then find what that does to the yeast."
-          },
-          {
-            type: "vocab",
-            word: "knead",
-            q: "What does the word \"knead\" mean in this passage?",
-            options: ["Bake the dough", "Cut the dough", "Freeze the dough", "Push and fold the dough"],
-            answer: 3,
-            hint: "The sentence with the word describes what your hands do on the counter."
-          }
-        ],
-        choice: {
-          prompt: "Baker Benny hands you a warm loaf for the road. \"Three ways out of town, and I've delivered bread on all of them.\"",
-          options: [
-            {
-              label: "The main street",
-              desc: "Paved and calm, with a lookout on every roof, but it loops around every block in town.",
-              effects: { zombies: 0.75, length: 1.2 },
-              result: "You roll down Main Street slowly. Someone on a roof waves a wrench at you."
-            },
-            {
-              label: "The delivery alley",
-              desc: "Benny's shortcut is quick, with crates of day-old bread, but the smell draws Shamblers from blocks away.",
-              effects: { zombies: 1.4, crates: 3, length: 0.85 },
-              result: "Shamblers sniff the air and shuffle toward the bread smell. You grab the crates first."
-            },
-            {
-              label: "The flour mill road",
-              desc: "Dusty and dim, with flour clouds thick as fog, but the mill pays scrap for a delivery.",
-              effects: { fog: true, scrap: 25, zombies: 0.9 },
-              result: "Flour dust coats the windshield. The miller pays in scrap and one enormous sneeze."
+              label: "Before first light",
+              desc: "Take the bypass in the dark, which hides the van but leaves you only the headlights to see by.",
+              effects: { night: true, zombies: 0.7, length: 1.1, crates: 1 },
+              result: "You leave in the dark. The headlights find one crate on the shoulder and nothing else, which is how you like it."
             }
           ]
         }
@@ -234,110 +122,54 @@
         id: "g4-train-yard",
         place: "Train Yard",
         host: "Max and Mia",
-        intro: "Max and Mia spread a crayon map across a railroad tie. \"We mapped every track in the yard. Mia drew it and Max wrote the key, so the words are a little wiggly.\"",
+        intro: "Mia spreads the map across a railroad tie and weights it with spikes. \"We mapped the yard twice. The first time was wrong. Max drew the legend and I crossed out the part that changed. Read all of it, even the crossed-out part.\"",
         kind: "map",
-        title: "Train Yard Map Key",
-        text: "The thick black lines are train tracks that still work. The thin gray lines are tracks that are rusted through. Do not drive on them, or the van will get stuck. A square with a roof is a shed. A square with an X is a locked shed. The round tower near the middle is the water tower for the old steam engines. Grandpa Joe says it leaks, which is why there is a pond under it now.\n\nTrains are drawn as long rectangles. The red train by the north gate is the one Captain Ruby fixed, and it runs. The blue train is just for sleeping in. The green train has a Shambler in the last car. It got on in the spring and cannot figure out how to get off. We bring it a sandwich on Fridays. The arrows show which way each track goes. Follow the arrows toward the east gate to leave the yard. If you follow them the other way, you end up in the pond.",
+        title: "Train Yard Legend",
+        text: "Train Yard Legend. Max drew it. Mia fixed it.\nThick lines are tracks with cars on them. Thin lines are empty tracks. A box with a roof is a shed. A box with a lock drawn on it means we checked the shed, and it was locked.\nA box with a lock and a line through it is Shed 4. It was locked on Monday. On Thursday it was open, and the lock was on the ground, not broken. Somebody has a key. We do not know who. Mia crossed it out and wrote OPEN.\n\nAn arrow with two heads is a track we drove in both directions. An arrow with one head means we only came back one way. Ask us why before you use it.\nEach small x is a walker we saw standing still. Each small s is a sprinter. There are three s marks, all near Shed 4. Mia says that is not a coincidence. Max says it might be. Rook would not go near Shed 4 at all, which is the part we agree on.",
         questions: [
           {
             type: "detail",
-            q: "Which train did Captain Ruby fix?",
-            options: ["The blue train", "The green train", "The steam train", "The red train"],
-            answer: 3,
-            hint: "Look at the train parked by the north gate."
+            q: "What does a box with a lock drawn on it mean?",
+            options: ["The shed is empty", "The shed was locked when checked", "The shed holds supplies", "The shed belongs to Ruby"],
+            answer: 1,
+            hint: "Look at the end of the first paragraph."
           },
           {
             type: "inference",
-            q: "Which train would be the worst place to take a nap?",
-            options: ["The red train", "The blue train", "The green train", "The steam engine"],
-            answer: 2,
-            hint: "Think about which train has a surprise passenger."
+            q: "What does the lock on the ground, not broken, tell the twins?",
+            options: ["A bruiser forced the door", "The lock rusted through", "The wind blew the door open", "Someone has a key"],
+            answer: 3,
+            hint: "Read the sentence right after the twins describe the lock."
           },
           {
             type: "vocab",
-            word: "rusted",
-            q: "What does the word \"rusted\" mean in this passage?",
-            options: ["Old, weak, and crumbly", "New and shiny", "Painted bright gray", "Covered with grass"],
+            word: "coincidence",
+            q: "What does the word \"coincidence\" mean here?",
+            options: ["Something that happens by chance", "A kind of padlock", "A fast walker", "A mark on a map"],
             answer: 0,
-            hint: "The sentence after the word says what happens if you drive on those tracks."
+            hint: "Mia and Max disagree about whether the s marks near Shed 4 are one."
           }
         ],
         choice: {
-          prompt: "Mia points at the east gate with a crayon. \"Three tracks lead out. Max says the middle one, but Max also eats crayons.\"",
+          prompt: "Max points at three tracks with a spike. \"Three ways out of the yard. We mapped all three.\"",
           options: [
             {
-              label: "The east gate road",
-              desc: "Follow the arrows to a flat, quiet road, though it loops around the whole yard first.",
-              effects: { zombies: 0.8, length: 1.2 },
-              result: "The arrows lead you out without a hitch. Mia was right, and she will not let Max forget it."
+              label: "The east gate",
+              desc: "A two-headed arrow, driven both ways, slow and empty.",
+              effects: { zombies: 0.7, length: 1.2 },
+              result: "The east gate track is as empty as the map says. Mia will want that written down."
             },
             {
-              label: "The freight track",
-              desc: "Straight down the working rails: fast and bumpy, with spilled crates, but Shamblers nap in the boxcars.",
-              effects: { zombies: 1.3, crates: 4, length: 0.85 },
-              result: "The van rattles along the rails. Boxcar doors slide open and sleepy Shamblers stumble out behind you."
+              label: "Past Shed 4",
+              desc: "The short track runs right by the open shed, where the three s marks are.",
+              effects: { zombies: 1.2, runners: 1.8, scrap: 35, length: 0.8 },
+              result: "Something fast comes out from behind Shed 4 and does not catch you. The scrap pile by the siding was worth it, probably."
             },
             {
               label: "The tunnel track",
-              desc: "A rail tunnel through the hill, pitch dark but very short, and the big Shamblers cannot fit inside.",
-              effects: { night: true, length: 0.75, brutes: 0.5, zombies: 0.9 },
-              result: "Headlights on. The tunnel walls flash past, and nothing big enough to worry about can follow you in."
-            }
-          ]
-        }
-      },
-      {
-        id: "g4-zoo-gate",
-        place: "Zoo Gate",
-        host: "Zookeeper Zed",
-        intro: "A zookeeper in muddy boots hands you a notebook. \"Every day I write down what the animals and the Shamblers get up to. Read today's page so I know I'm not imagining it.\"",
-        kind: "log",
-        title: "Zoo Gate Daily Log",
-        text: "Monday, Zoo Gate daily log, kept by Zookeeper Zed. Sunrise: Fed the penguins. Counted eleven, which is one more than yesterday. Either a penguin walked in from somewhere, or I cannot count. Mid-morning: Two Shamblers shuffled up to the gate and stood very still. The flamingos stood very still back. This went on for forty minutes. The flamingos won.\n\nNoon: Doc Lin arrived to check on the tortoise, who has been slow lately. Doc Lin says that is the normal speed for a tortoise. She also says I owe her lunch for the house call. Afternoon: A Shambler got into the petting zoo. The goats surrounded it and chewed its shoelaces until it poofed. The goats seemed proud. Evening: Counted the penguins again. Twelve. I am now fairly sure the penguins are up to something.\n\nNote for tomorrow: Ask the Bookmobile for a book about penguins, any book at all.",
-        questions: [
-          {
-            type: "detail",
-            q: "How long did the Shamblers and the flamingos stand still?",
-            options: ["Ten minutes", "All afternoon", "Forty minutes", "Until noon"],
-            answer: 2,
-            hint: "Look at the mid-morning entry."
-          },
-          {
-            type: "inference",
-            q: "Why does Zed think the penguins are up to something?",
-            options: ["They keep stealing fish", "Their number keeps growing", "They stare at the Shamblers", "They are learning to count"],
-            answer: 1,
-            hint: "Compare the penguin counts at sunrise and in the evening."
-          },
-          {
-            type: "vocab",
-            word: "surrounded",
-            q: "What does the word \"surrounded\" mean in this passage?",
-            options: ["Ran away from it", "Fed it some hay", "Hid behind it", "Gathered all around it"],
-            answer: 3,
-            hint: "Picture where the goats had to be to chew the Shambler's shoelaces."
-          }
-        ],
-        choice: {
-          prompt: "Zookeeper Zed unlocks the back gate. \"Three roads from the zoo, and one goes right past the penguins.\"",
-          options: [
-            {
-              label: "The penguin path",
-              desc: "A slow road around the penguin pool, nearly empty of Shamblers, because penguins find them boring.",
-              effects: { zombies: 0.7, length: 1.15 },
-              result: "Twelve penguins watch you pass. Make that thirteen, and you decide not to count again."
-            },
-            {
-              label: "The safari road",
-              desc: "Fast and rough through the old safari park, with leftover crates, but Shamblers roam it in herds.",
-              effects: { zombies: 1.4, crates: 3, length: 0.9 },
-              result: "Herds of Shamblers graze on the grass like confused cows. You weave through and collect every crate."
-            },
-            {
-              label: "The reptile house",
-              desc: "Zed's shortcut through the reptile house is dark and warm, and the tortoise promises it is short.",
-              effects: { night: true, length: 0.8, zombies: 0.9 },
-              result: "The reptile house is dark and steamy. The tortoise waves you through at its normal speed."
+              desc: "Through the hill, dark the whole way, and short, and nothing big fits inside.",
+              effects: { night: true, brutes: 0.5, length: 0.75, zombies: 0.9 },
+              result: "Headlights on. The tunnel walls slide past, and nothing big enough to worry about can follow you in."
             }
           ]
         }
@@ -345,55 +177,217 @@
       {
         id: "g4-ranger-station",
         place: "Ranger Station",
-        host: "Ranger Ava",
-        intro: "Ranger Ava pins a poster to the board and steps back. \"Somebody keeps stealing hats on the trail. I drew the suspect. Read the poster and tell me if it makes sense.\"",
+        host: "Beck",
+        intro: "A ranger in a faded green jacket taps a poster on the board. Someone has written across it in red marker. \"Beck. I put that up on day forty. Read the whole thing, including what's written over it. The red part is the part that matters.\"",
         kind: "poster",
-        title: "WANTED: The Hat Thief",
-        text: "WANTED: The Hat Thief of Pine Ridge Trail. Over the past two weeks, seven hats have vanished from hikers' heads, including Ranger Ava's own lucky cap. The thief strikes near the picnic tables and always between noon and two. It leaves no footprints and no note. It does leave a small pile of acorn shells where the hat used to be.\n\nDescription: the size of a loaf of bread, with a big fluffy tail and cheeks full of acorns. Its face looks innocent, but it is not. Last seen scampering up the big oak with a sun hat in its mouth. Do not approach. Do not offer it a hat. It will take the hat. Do not try to climb the oak. The last hiker who tried is still up there, and we bring him sandwiches.\n\nReward: twenty scrap for every hat returned. One hundred scrap if you can teach it to read the NO HATS sign. Report sightings to Ranger Ava at the station. Bring your own hat, and hold on to it.",
+        title: "MISSING, Posted Day 40",
+        text: "MISSING. Posted Day 40 at the Ranger Station.\nHal Okafor, age 16. Tall, thin, brown jacket, torn left pocket. Last seen Day 38 at the north trailhead, going to check the rain gauges. He carries a green pack and a whistle. He knows the trails better than anyone here, and he knows not to walk at night.\nIf you see him, give him water and point him to the station. Do not send him toward the lake trail. The lake trail is closed. If you find his pack without him, bring the pack.\n\nWritten across the poster in red marker:\nFOUND. Day 43. Hal walked in at dawn with Rook beside him. The dog found him first, two miles up, sitting in a tree stand. The rain gauges were in his lap. He had been there two nights. He said the lake trail was full of walkers after the storm. So he went up instead of around. He was right to. Nobody takes this poster down. New people need to know that he came back. Beck.",
         questions: [
           {
             type: "detail",
-            q: "What does the thief leave behind?",
-            options: ["A pile of acorn shells", "A small note", "Muddy footprints", "A sandwich"],
-            answer: 0,
-            hint: "Look at the end of the first paragraph."
+            q: "What was Hal going to check when he left?",
+            options: ["The lake trail", "The north gate", "The tree stand", "The rain gauges"],
+            answer: 3,
+            hint: "Look at the line that starts with \"Last seen.\""
           },
           {
             type: "inference",
-            q: "What kind of animal is the Hat Thief most likely?",
-            options: ["A bear", "A squirrel", "A bird", "A Shambler"],
+            q: "Why was the lake trail closed?",
+            options: ["A tree fell across it", "Walkers filled it after the storm", "Hal lost his pack on it", "The rain gauges were there"],
             answer: 1,
-            hint: "Use the description, the clues it leaves behind, and where it was last seen."
+            hint: "The first part says the trail is closed, and the red part says what Hal found on it."
           },
           {
             type: "vocab",
-            word: "vanished",
-            q: "What does the word \"vanished\" mean in this passage?",
-            options: ["Got bigger", "Turned green", "Disappeared", "Fell apart"],
-            answer: 2,
-            hint: "The hats were on hikers' heads, and now they are not."
+            word: "trailhead",
+            q: "What does the word \"trailhead\" mean on this poster?",
+            options: ["The start of a trail", "A ranger's hat", "A kind of tree", "The top of a hill"],
+            answer: 0,
+            hint: "Hal was last seen there, going out to check something."
           }
         ],
         choice: {
-          prompt: "Ranger Ava hands you a spare hat. \"Three trails lead out of the park. Keep your hat on.\"",
+          prompt: "Beck unpins a trail map. \"Two ways down to the quarry, and one of them is the lake trail.\"",
           options: [
             {
-              label: "The paved park road",
-              desc: "Smooth, slow, and patrolled by rangers, so the Shamblers mostly stay in the woods.",
-              effects: { zombies: 0.75, length: 1.2 },
-              result: "Rangers wave from their trucks. Your hat stays firmly on your head."
+              label: "The lake trail",
+              desc: "Closed since the storm, short and straight, and Hal says it is full of walkers with nowhere to go.",
+              effects: { zombies: 1.5, scrap: 30, length: 0.8 },
+              result: "Hal was right about the lake trail. It is short, it is crowded, and you pull scrap from a ranger truck on the way out."
             },
             {
-              label: "The ridge trail",
-              desc: "A bumpy shortcut over the ridge with crates at the campsite, but the Shamblers there are big.",
-              effects: { zombies: 1.3, brutes: 1.5, crates: 3, length: 0.85 },
-              result: "Big Shamblers plod across the trail and poof one by one. Something small and fluffy eyes your hat from the oak."
+              label: "The fire road",
+              desc: "Around the mountain, long and dull, with one of Hal's rain gauges at every mile.",
+              effects: { zombies: 0.75, length: 1.25 },
+              result: "You count rain gauges all the way down. Nothing else on the fire road is counting anything."
             },
             {
-              label: "The creek crossing",
-              desc: "The creek is shallow and the sandbar is full of scrap, but the water rattles the van.",
-              effects: { hp: -10, scrap: 40, zombies: 0.9 },
-              result: "Water sloshes up to the doors. The scrap on the sandbar is worth every rattle."
+              label: "The high trail",
+              desc: "The way Hal went: up and over, with fog at the top, and the gear he left in the tree stand.",
+              effects: { fog: true, zombies: 0.9, crates: 2, hp: -5 },
+              result: "Fog closes in at the top. The tree stand is where Hal said, with two crates of gear under it, and the trail down is rough on the tires."
+            }
+          ]
+        }
+      },
+      {
+        id: "g4-quarry-gate",
+        place: "Quarry Gate",
+        host: "Teo",
+        intro: "The gatekeeper, Teo, does not lift the bar until you have read the paint. \"Every word on that steel is there for a reason. Read it to me. If you skip a line, I'll know.\"",
+        kind: "warning",
+        title: "Painted on the Quarry Gate",
+        text: "QUARRY GATE. STOP. READ. THEN KNOCK.\nNO HORNS. NO ENGINES AT THE GATE. NO SHOUTING.\nThe quarry is a bowl of stone. Every sound you make here goes to the far wall and comes back twice as loud. A car horn at this gate can be heard a mile down the road. We know this because a man leaned on his horn here in June. We spent a week clearing what it brought.\n\nNO LIGHTS AFTER DARK. We mean it. Headlights on the cliff face can be seen from the highway. Park in the trees, walk to the gate, and knock twice with your hand, not with metal.\nIf you are hurt, say so quietly, and Doc Lin will come out. If you are hungry, say so, and we will feed you. If you are loud, you will wait outside until morning. That is not a threat. It is just how stone works.\nTeo keeps the gate. Teo does not argue.",
+        questions: [
+          {
+            type: "detail",
+            q: "How should you knock at the gate?",
+            options: ["Twice, with your hand", "Three times, with metal", "Once, with the horn", "Loudly, with a stick"],
+            answer: 0,
+            hint: "Look at the sentence that starts with \"Park in the trees.\""
+          },
+          {
+            type: "inference",
+            q: "Why is the quarry so strict about sound?",
+            options: ["The workers sleep during the day", "Teo does not like noise", "The gate is made of thin wood", "The stone walls make every sound carry"],
+            answer: 3,
+            hint: "Read what the quarry is shaped like and what happened in June."
+          },
+          {
+            type: "vocab",
+            word: "clearing",
+            q: "What does \"clearing\" mean in \"a week clearing what it brought\"?",
+            options: ["Cutting down trees", "Getting rid of walkers", "Washing the gate", "Making a new path"],
+            answer: 1,
+            hint: "Think about what a loud horn would bring to the gate."
+          }
+        ],
+        choice: {
+          prompt: "Teo lifts the bar, quietly. \"The quarry road down to the hospital, or the long way around the lake.\"",
+          options: [
+            {
+              label: "The quarry road",
+              desc: "Steep and short, down through the cut, and whatever the horn drew in June is still drifting on it.",
+              effects: { zombies: 1.3, brutes: 1.5, scrap: 30, length: 0.8 },
+              result: "The cut is narrow and the bruisers are slow. You coast most of the way down with the engine off and take scrap from a loader at the bottom."
+            },
+            {
+              label: "The lake loop",
+              desc: "Flat and long, and quiet enough that Teo lets his own people walk it.",
+              effects: { zombies: 0.7, length: 1.3 },
+              result: "The lake loop is as quiet as promised. Rook sleeps for the first hour."
+            }
+          ]
+        }
+      },
+      {
+        id: "g4-hospital-annex",
+        place: "Hospital Annex",
+        host: "Doc Lin",
+        intro: "Doc Lin hands you an envelope with a red cross drawn on it in pen. \"This was taped to the pharmacy door when we got here. Another doctor wrote it. I've read it ten times. You read it once and tell me what I keep missing.\"",
+        kind: "letter",
+        title: "To Whoever Opens This Door",
+        text: "To whoever opens this door.\nMy name is Dr. Amara Osei. I ran this annex for sixty days after the Fall. I am leaving on foot for the coast, where my family may be. I am not leaving because the annex failed. I am leaving because I promised.\n\nThe pharmacy is locked, and the key is in the fish tank. Nobody looks in a fish tank. Antibiotics are on the second shelf, oldest first. Bandages are in the laundry room, not the supply closet. The supply closet has a window. The laundry room does not.\nThe generator runs the lights for four hours a night. Do not run it longer. It is loud, and it is the only one.\n\nThe ambulance is not here. I drove it as far as the bridge, where it died. If you need parts, it is still there with the keys in it. Nobody who needs an ambulance is going to steal one.\nBe kind to the people who come in. Most of them are more scared than sick.\nDr. Osei.",
+        questions: [
+          {
+            type: "detail",
+            q: "Where is the pharmacy key?",
+            options: ["In the supply closet", "In the ambulance", "On the second shelf", "In the fish tank"],
+            answer: 3,
+            hint: "Look at the first sentence of the second paragraph."
+          },
+          {
+            type: "inference",
+            q: "What does Dr. Osei mean by \"I am leaving because I promised\"?",
+            options: ["She promised to return the ambulance", "She promised to find her family", "She promised Doc Lin she would go", "She promised to fix the generator"],
+            answer: 1,
+            hint: "Read where Dr. Osei is going and who might be there."
+          },
+          {
+            type: "vocab",
+            word: "annex",
+            q: "What does the word \"annex\" mean in this letter?",
+            options: ["A building joined to a hospital", "A kind of medicine", "A doctor's bag", "A locked pharmacy"],
+            answer: 0,
+            hint: "Dr. Osei ran it for sixty days, and it has a pharmacy and a generator."
+          }
+        ],
+        choice: {
+          prompt: "Doc Lin tapes the letter back on the door. \"The coast road, or the bridge where the ambulance died.\"",
+          options: [
+            {
+              label: "The bridge road",
+              desc: "Past the dead ambulance, which still has parts in it, along with whatever found it after the doctor walked away.",
+              effects: { zombies: 1.4, scrap: 35, hp: 10, length: 0.9 },
+              result: "The ambulance is where the letter said. Ruby strips what the van needs while Rook watches the bridge, and you leave before whatever is coming gets there."
+            },
+            {
+              label: "The coast road",
+              desc: "Long and open along the water, with the wind in your favor and not much else on it.",
+              effects: { zombies: 0.75, length: 1.25 },
+              result: "The coast road is empty and loud with wind. Doc Lin says nothing for ten miles, which is new."
+            },
+            {
+              label: "The shore after dark",
+              desc: "Leave when the generator shuts off, in the dark and the quiet, where the tide leaves crates on the sand.",
+              effects: { night: true, zombies: 0.9, crates: 3 },
+              result: "Headlights on the wet sand. Three crates sit in the tide line, and the only sound is the water."
+            }
+          ]
+        }
+      },
+      {
+        id: "g4-boat-dock",
+        place: "Boat Dock",
+        host: "Marisol",
+        intro: "Marisol pins a damp card to the rail with a clothespin. \"Every crew that leaves this dock gets ten fish and a copy of this. The numbers matter more than the steps. Read it and tell me how long it lasts you.\"",
+        kind: "recipe",
+        title: "Smoked Fish for the Road",
+        text: "Smoked Fish for the Road. Boat Dock. Written by Marisol.\nTake ten fish, cleaned, and split them down the back. Rub each one with a spoon of salt, no more. Salt is scarce, and too much makes you thirsty, and water is scarcer. Lay them on the racks over the fire pit, skin side down.\nKeep the fire low and smoky, never hot. Use green wood, not dry. If you can see flame, it is too hot. Smoke them from dawn until the sun is high, and turn them once.\n\nWhen they are done, they bend without breaking and smell like the fire. Wrap each fish in a clean rag and keep them out of the sun.\nTen fish feed six people for five days, if nobody cheats. That is two fish a day for the whole crew, split fair. Rook gets the skins and nothing else. He will argue. Do not lose that argument.\nIf a fish smells wrong, it is wrong. Do not eat it. We have enough problems.",
+        questions: [
+          {
+            type: "detail",
+            q: "How much salt goes on each fish?",
+            options: ["One spoon", "Two spoons", "A handful", "None at all"],
+            answer: 0,
+            hint: "Look at the second sentence of the recipe."
+          },
+          {
+            type: "inference",
+            q: "What does \"if nobody cheats\" tell you about the crew's food?",
+            options: ["There is more than enough fish", "There is only just enough to go around", "The fish do not taste good", "Rook keeps stealing fish"],
+            answer: 1,
+            hint: "Think about why Marisol spells out exactly how many fish per day."
+          },
+          {
+            type: "vocab",
+            word: "scarce",
+            q: "What does the word \"scarce\" mean in this recipe?",
+            options: ["Very salty", "Easy to find", "Dried out", "Hard to find"],
+            answer: 3,
+            hint: "Marisol says salt is scarce and water is scarcer, so think about what that means for supplies."
+          }
+        ],
+        choice: {
+          prompt: "Marisol hands you the fish wrapped in rags. \"Two ways to the lighthouse. By water or by the shore road.\"",
+          options: [
+            {
+              label: "The shore road",
+              desc: "Sand and rock, slow and empty, with the tide on your left the whole way.",
+              effects: { zombies: 0.7, length: 1.25 },
+              result: "The shore road is slow and empty. The fish ration holds, and nobody cheats."
+            },
+            {
+              label: "The ferry barge",
+              desc: "Marisol's crew floats the van across the inlet, which is quick, but the fog on the water is thick and the far landing is not watched.",
+              effects: { fog: true, zombies: 1.2, length: 0.8, crates: 2 },
+              result: "The barge noses into fog and comes out on the far side. Two crates wait on the landing, and so does something else."
+            },
+            {
+              label: "The cannery road",
+              desc: "Through the old cannery lot, fast and full of scrap, where bruisers stand between the trucks.",
+              effects: { zombies: 1.3, brutes: 1.6, scrap: 40, length: 0.85 },
+              result: "The cannery lot smells like old salt. Bruisers turn slowly between the trucks, and the scrap pile by the loading door is the best you have seen in weeks."
             }
           ]
         }
@@ -401,49 +395,55 @@
       {
         id: "g4-old-lighthouse",
         place: "Old Lighthouse",
-        host: "Keeper Nell",
-        intro: "Keeper Nell blows dust off a little book. \"My diary. I write it by lamplight, and I can't read my own scrawl in the daylight. Read Thursday for me.\"",
-        kind: "diary",
-        title: "Keeper Nell's Diary",
-        text: "Thursday. Windy, with waves the size of school buses. The lamp at the top needs cleaning every morning, because the seagulls think it is a giant egg. Today I found two of them sitting on it, looking very patient. I explained that it would never hatch. They did not believe me.\n\nAfter lunch, Captain Ruby came by to fix the generator. She said the trouble was a Shambler asleep on the switch in the engine room. When she poked it with a wrench, it said 'Brrrains?' very softly and poofed. The generator started right up. Ruby charged me one jar of pickles for the repair, which is her usual price.\n\nTonight the beam is sweeping the water again, bright as ever. Max and Mia say ships can see it from twenty miles away. I hope the Bookmobile can see it too. I have been saving a shelf of sea stories for whoever drives it. They deserve to be read.",
+        host: "Ansel",
+        intro: "Ansel, the keeper, slides a ledger across the table and turns the lamp up. \"I write down every light I see on the water. Two weeks of nothing, and then this. Read the last six nights and tell me if you'd answer.\"",
+        kind: "log",
+        title: "Light Log, Nights 60 to 65",
+        text: "Light Log. Old Lighthouse. Kept by Ansel.\nNight 60. No lights on the water. Wind from the north. Lamp run twenty minutes at full dark, same as always.\nNight 61. No lights.\nNight 62. One light, far out, low on the water. Steady, not blinking. Gone before the lamp finished its run.\nNight 63. Same light, same place. It stayed through the whole run, then went out when the lamp did.\n\nNight 64. Two lights now. The far one, and a closer one that blinks. Three short, three long, three short. I know what that means. Everyone knows what that means. I did not answer. I do not know who is out there. The lamp can be seen from the highway as well as the sea.\nNight 65. Both lights. The blinking one came closer and kept blinking for an hour. Rook sat by the door the whole time and did not growl once. Jo says a dog knows. I am going to answer tomorrow. I am writing it here so I cannot change my mind.",
         questions: [
           {
             type: "detail",
-            q: "What did Captain Ruby charge for the repair?",
-            options: ["A jar of pickles", "Twenty scrap", "A sea story", "A giant egg"],
-            answer: 0,
-            hint: "Look at the end of the second paragraph."
+            q: "How long does the lamp run each night?",
+            options: ["Ten minutes", "One hour", "All night", "Twenty minutes"],
+            answer: 3,
+            hint: "Look at the entry for Night 60."
           },
           {
             type: "inference",
-            q: "Why does Nell hope the Bookmobile can see the beam?",
-            options: ["She needs the generator fixed", "She is afraid of the dark", "She wants more pickles", "To have her books read"],
-            answer: 3,
-            hint: "Read what Nell has been saving, and who it is for."
+            q: "What does Jo mean by \"a dog knows\"?",
+            options: ["Rook can read light signals", "Rook stays calm when there is no danger", "Rook wants to go outside", "Rook is afraid of the sea"],
+            answer: 1,
+            hint: "Think about what Rook usually does when walkers are near, and what he did not do."
           },
           {
             type: "vocab",
-            word: "patient",
-            q: "What does the word \"patient\" mean in this passage?",
-            options: ["Very sick", "Willing to wait", "Angry and loud", "Ready to fly"],
-            answer: 1,
-            hint: "The seagulls are sitting on the lamp because they expect something to happen."
+            word: "full dark",
+            q: "What does \"full dark\" mean in \"twenty minutes at full dark\"?",
+            options: ["When the moon is out", "Just at sunset", "When night has completely come", "Just before dawn"],
+            answer: 2,
+            hint: "Think about when a lighthouse lamp would be most useful."
           }
         ],
         choice: {
-          prompt: "Keeper Nell points the lamp down the coast. \"Two ways off the point. The beam reaches one of them.\"",
+          prompt: "Ansel closes the ledger. \"Two ways back to the convoy, and one is the beach where that light is headed.\"",
           options: [
             {
-              label: "The lit coast road",
-              desc: "The beam lights the whole road, so you see every Shambler coming, but it winds along every bay.",
-              effects: { zombies: 0.8, length: 1.2 },
-              result: "The beam swings over the van every few seconds. The Shamblers squint and wander off."
+              label: "The cliff road",
+              desc: "High and long, with the beam at your back for the first mile and nothing on the road after that.",
+              effects: { zombies: 0.75, length: 1.25 },
+              result: "The beam sweeps over the van twice and then falls behind. The cliff road is long and empty."
             },
             {
-              label: "The dark dune road",
-              desc: "Short and beyond the beam's reach, with crates washed up on the sand, but you only have headlights.",
-              effects: { night: true, crates: 3, length: 0.8, zombies: 1.1 },
-              result: "Headlights on, you bump over the dunes. The crates glint in the beam of your own lights."
+              label: "The beach",
+              desc: "Down on the sand toward where the lights are coming in, short, and whatever washed up with the tide is still there.",
+              effects: { zombies: 1.3, scrap: 30, crates: 2, length: 0.85 },
+              result: "The sand is firm at the tide line. You pick up two crates and a pile of scrap, and you do not stop to see what else came in."
+            },
+            {
+              label: "After the signal",
+              desc: "Wait for Ansel to answer, then leave in the dark with whatever the light brings, while Doc Lin uses the wait to patch the van.",
+              effects: { night: true, zombies: 1.0, hp: 10 },
+              result: "Ansel answers: three short, three long, three short. The far light turns toward shore, and you drive out under the beam."
             }
           ]
         }
@@ -451,52 +451,52 @@
     ],
     roadSigns: [
       {
-        text: "Radio, Grandpa Joe: \"Fog on the river road until the sun burns it off. Headlights on and slow down.\"",
-        q: "What should you do on the river road?",
-        options: ["Speed up to beat the fog", "Turn on headlights and slow down", "Turn off the radio"],
+        text: "Spray paint on the overpass, letters a foot high: HERD MOVED SOUTH ON DAY 50. DO NOT TAKE THE SOUTH RAMP.",
+        q: "Which ramp should you avoid?",
+        options: ["The north ramp", "The south ramp", "The east ramp"],
         answer: 1
       },
       {
-        text: "Sign on a water tower: \"MOON DINER, 8 miles. Pie is half price if you bring a book.\"",
-        q: "How do you get half-price pie?",
-        options: ["Bring a book", "Drive eight miles", "Order two slices"],
+        text: "Jo on the radio: \"Bookmobile, the Toll Plaza reports sprinters on the east approach. Come in from the west, and don't stop for the cars.\"",
+        q: "Which approach should you use?",
+        options: ["The west approach", "The east approach", "The toll lanes"],
         answer: 0
       },
       {
-        text: "Chalk on the road: \"Max and Mia were here. The bridge ahead is safe, but the one past it is NOT.\"",
-        q: "Which bridge should you avoid?",
-        options: ["The first bridge", "Both bridges", "The second bridge"],
+        text: "A note under a wiper blade: \"Engine is fine, tires are not. Took the spare and walked, so if you can patch two tires, this car is yours.\"",
+        q: "What is wrong with the car?",
+        options: ["The engine is dead", "The tires are flat", "The keys are missing"],
+        answer: 1
+      },
+      {
+        text: "Hand-lettered sign on a fence: \"We trade at the gate, not inside. Show your hands and keep your dog close.\"",
+        q: "Where does trading happen?",
+        options: ["At the gate", "Inside the camp", "On the road"],
+        answer: 0
+      },
+      {
+        text: "Painted on the side of a school bus: MILE 9 DINER HAS WATER, ASK FOR CASS. DO NOT ARRIVE AFTER DARK.",
+        q: "Who should you ask for at the diner?",
+        options: ["Ruby", "Jo", "Cass"],
         answer: 2
       },
       {
-        text: "Hand-painted sign: \"Shambler crossing. They stop for nothing except a good song on the radio.\"",
-        q: "What makes Shamblers stop at this crossing?",
-        options: ["A good song", "A honking horn", "Bright headlights"],
-        answer: 0
-      },
-      {
-        text: "Radio, Doc Lin: \"If you see the big blue barn, you missed the turn. Go back one mile.\"",
-        q: "What does seeing the blue barn mean?",
-        options: ["You are almost there", "You missed the turn", "You should stop for gas"],
+        text: "Jo on the radio: \"Fog on the river flats until noon. If you can't see the next mile marker, pull over and wait.\"",
+        q: "What should you do if you cannot see the next marker?",
+        options: ["Speed up", "Pull over and wait", "Turn on the siren"],
         answer: 1
       },
       {
-        text: "Sign on a gate: \"Ranger Station closed for lunch, back at one. Do not feed the goats, no matter what they say.\"",
-        q: "When will the station reopen?",
-        options: ["At one", "At noon", "Tomorrow"],
-        answer: 0
-      },
-      {
-        text: "Painted on the highway: \"Scrap crates ahead, left lane only. Right lane is the Shambler nap zone.\"",
-        q: "Which lane has the crates?",
-        options: ["Right lane", "Both lanes", "Left lane"],
+        text: "Chalk on the road, in Mia's handwriting: \"Bridge holds a van. Does NOT hold a truck, and yes, we checked.\"",
+        q: "What can the bridge hold?",
+        options: ["Nothing at all", "A loaded truck", "A van"],
         answer: 2
       },
       {
-        text: "Radio, Captain Ruby: \"Van sounding rattly? Pull in at the Fire Station, not the Gas-N-Go, because I moved my tools.\"",
-        q: "Where should a rattly van go?",
-        options: ["The Gas-N-Go", "The Fire Station", "The Moon Diner"],
-        answer: 1
+        text: "A sign wired to a stalled gas tanker: \"EMPTY. We checked on Day 20 and again on Day 41, so stop wasting your time.\"",
+        q: "What does the sign say about the tanker?",
+        options: ["It is empty", "It is full", "It is locked"],
+        answer: 0
       }
     ]
   };
