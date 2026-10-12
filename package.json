@@ -1,0 +1,12 @@
+{
+  "name": "zombie-survival-reading",
+  "version": "0.1.0",
+  "description": "Drive the last Bookmobile down an endless zombie road. Read to survive. Grades 1 to 6.",
+  "private": true,
+  "scripts": {
+    "test": "node tests/validate-content.js && node tests/syntax-check.js",
+    "validate": "node tests/validate-content.js",
+    "start": "npx --yes http-server -p 8080 -c-1 ."
+  },
+  "license": "MIT"
+}

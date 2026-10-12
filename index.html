@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="description" content="Drive the last Bookmobile down an endless zombie road. Read to survive. Grades 1 to 6.">
+  <title>Zombie Survival Reading</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Nunito:ital,wght@0,600;0,800;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='18' width='52' height='30' rx='6' fill='%23ffcf40' stroke='%23111' stroke-width='5'/%3E%3Crect x='12' y='24' width='16' height='10' fill='%23bfefff' stroke='%23111' stroke-width='4'/%3E%3Ccircle cx='18' cy='50' r='7' fill='%23333' stroke='%23111' stroke-width='4'/%3E%3Ccircle cx='46' cy='50' r='7' fill='%23333' stroke='%23111' stroke-width='4'/%3E%3C/svg%3E">
+</head>
+<body>
+<div id="app">
+
+  <!-- ROAD (canvas) + HUD -->
+  <canvas id="game" aria-label="Road view: shoot the zombies"></canvas>
+  <div id="halftone" aria-hidden="true"></div>
+
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-box hp-box" title="Van health">
+        <span class="hud-label">VAN</span>
+        <div class="bar"><div id="hp-fill" class="bar-fill"></div></div>
+        <span id="hp-text" class="hud-value">100</span>
+      </div>
+      <div class="hud-box" title="Scrap (spend it at a safe haven)">
+        <span class="hud-label">SCRAP</span><span id="scrap-text" class="hud-value">0</span>
+      </div>
+      <div class="hud-box" title="Miles survived">
+        <span class="hud-label">MILES</span><span id="miles-text" class="hud-value">0.0</span>
+      </div>
+      <div class="hud-box" title="Zombies poofed">
+        <span class="hud-label">POOFS</span><span id="kills-text" class="hud-value">0</span>
+      </div>
+      <button id="btn-pause" class="hud-btn" title="Pause (P or Esc)" aria-label="Pause">II</button>
+    </div>
+    <div class="hud-bottom">
+      <div class="hud-box road-box">
+        <span id="road-text" class="hud-label">ROAD 1</span>
+        <div class="bar"><div id="segment-fill" class="bar-fill alt"></div></div>
+        <span class="hud-label">HAVEN</span>
+      </div>
+    </div>
+    <div id="touch-controls" aria-hidden="true">
+      <button class="touch-btn" id="touch-left">&#9664;</button>
+      <button class="touch-btn" id="touch-right">&#9654;</button>
+    </div>
+    <div id="banner" class="banner hidden"></div>
+  </div>
+
+  <!-- TITLE -->
+  <section id="screen-title" class="screen">
+    <div class="panel title-panel">
+      <div class="caption">THE LAST BOOKMOBILE PRESENTS...</div>
+      <h1 class="logo"><span>Zombie</span><span>Survival</span><span class="accent">Reading</span></h1>
+      <p class="tagline">Drive. Shoot. <strong>Read to survive.</strong></p>
+      <canvas id="title-van" width="320" height="200" aria-hidden="true"></canvas>
+      <div class="btn-col">
+        <button id="btn-play" class="btn big">Start a new road trip</button>
+        <button id="btn-continue" class="btn big alt hidden">Continue from last haven</button>
+        <div class="btn-row">
+          <button id="btn-settings" class="btn">Settings</button>
+          <button id="btn-howto" class="btn">How to play</button>
+        </div>
+      </div>
+      <p id="title-grade" class="small"></p>
+      <p id="title-best" class="small"></p>
+    </div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="screen-settings" class="screen hidden">
+    <div class="panel settings-panel">
+      <div class="caption">SETTINGS</div>
+      <h2>Make it yours</h2>
+      <label class="field">
+        <span>Reading level</span>
+        <div class="seg" id="grade-seg" role="radiogroup" aria-label="Reading level">
+          <button data-grade="1">1st</button><button data-grade="2">2nd</button><button data-grade="3">3rd</button>
+          <button data-grade="4">4th</button><button data-grade="5">5th</button><button data-grade="6">6th</button>
+        </div>
+      </label>
+      <label class="field">
+        <span>Text size</span>
+        <div class="seg" id="size-seg" role="radiogroup" aria-label="Text size">
+          <button data-size="normal">Normal</button><button data-size="large">Large</button><button data-size="huge">Huge</button>
+        </div>
+      </label>
+      <label class="field toggle"><input type="checkbox" id="opt-readaloud"><span>Show the "Read to me" button (uses your browser's voice)</span></label>
+      <label class="field toggle"><input type="checkbox" id="opt-sound"><span>Sound effects</span></label>
+      <label class="field toggle"><input type="checkbox" id="opt-aim"><span>Aim assist (shots bend toward nearby zombies)</span></label>
+      <label class="field toggle"><input type="checkbox" id="opt-shake"><span>Screen shake</span></label>
+      <div class="btn-row">
+        <button id="btn-settings-back" class="btn big">Done</button>
+      </div>
+      <p class="small muted">Changing the reading level starts the next haven at that level. Progress is saved on this device only.</p>
+    </div>
+  </section>
+
+  <!-- HOW TO PLAY -->
+  <section id="screen-howto" class="screen hidden">
+    <div class="panel howto-panel">
+      <div class="caption">HOW TO PLAY</div>
+      <h2>Three things to know</h2>
+      <ol class="howto">
+        <li><strong>On the road:</strong> aim with the mouse or your finger and hold to shoot. Move the van with the arrow keys, A and D, or the on-screen arrows. Don't let zombies touch the van.</li>
+        <li><strong>At a safe haven:</strong> someone needs you to read something. Read it, answer three questions, then pick which road to take next. Right answers pay <strong>scrap</strong>.</li>
+        <li><strong>In the garage:</strong> spend scrap on the van (more health, speed, a spiked bumper, paint) and the gun (damage, fire rate, spread shot).</li>
+      </ol>
+      <p>There is no ending. The road goes on forever. See how many miles you can last.</p>
+      <p class="small muted">Pause with <kbd>P</kbd> or <kbd>Esc</kbd>. Zombies poof into smoke. Nobody gets hurt except the van.</p>
+      <div class="btn-row"><button id="btn-howto-back" class="btn big">Got it</button></div>
+    </div>
+  </section>
+
+  <!-- ROAD SIGN (quick reading pop-up during a segment) -->
+  <section id="screen-sign" class="screen hidden overlay">
+    <div class="panel sign-panel">
+      <div class="caption" id="sign-caption">ROAD SIGN</div>
+      <div class="paper reading">
+        <p id="sign-text"></p>
+      </div>
+      <div class="read-tools"><button class="btn small-btn speak-btn" data-speak="sign">&#128266; Read to me</button></div>
+      <p id="sign-q" class="question"></p>
+      <div id="sign-options" class="options"></div>
+      <div id="sign-feedback" class="feedback hidden"></div>
+      <div class="btn-row"><button id="btn-sign-continue" class="btn big hidden">Back to the road</button></div>
+    </div>
+  </section>
+
+  <!-- SAFE HAVEN -->
+  <section id="screen-haven" class="screen hidden">
+    <div class="panel haven-panel">
+      <div class="caption" id="haven-caption">MEANWHILE, AT THE RED BARN...</div>
+      <div id="haven-body"></div>
+    </div>
+  </section>
+
+  <!-- PAUSE -->
+  <section id="screen-pause" class="screen hidden overlay">
+    <div class="panel pause-panel">
+      <div class="caption">PAUSED</div>
+      <h2>Catch your breath</h2>
+      <div class="btn-col">
+        <button id="btn-resume" class="btn big">Keep driving</button>
+        <button id="btn-pause-settings" class="btn">Settings</button>
+        <button id="btn-quit" class="btn alt">Quit to title</button>
+      </div>
+      <p class="small muted">Your run is saved at the last safe haven you visited.</p>
+    </div>
+  </section>
+
+  <!-- GAME OVER -->
+  <section id="screen-gameover" class="screen hidden overlay">
+    <div class="panel gameover-panel">
+      <div class="caption">THE END OF THE ROAD</div>
+      <h2 class="burst-title">CRUNCH!</h2>
+      <p class="tagline">The Bookmobile is out of gas and out of luck.</p>
+      <div id="gameover-stats" class="stats"></div>
+      <p id="gameover-best" class="small"></p>
+      <div class="btn-col">
+        <button id="btn-again" class="btn big">Hit the road again</button>
+        <button id="btn-gameover-title" class="btn">Back to title</button>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<script src="js/content/grade1.js"></script>
+<script src="js/content/grade2.js"></script>
+<script src="js/content/grade3.js"></script>
+<script src="js/content/grade4.js"></script>
+<script src="js/content/grade5.js"></script>
+<script src="js/content/grade6.js"></script>
+<script src="js/state.js"></script>
+<script src="js/upgrades.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/speech.js"></script>
+<script src="js/sprites.js"></script>
+<script src="js/game.js"></script>
+<script src="js/haven.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
