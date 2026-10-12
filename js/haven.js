@@ -1,5 +1,6 @@
 /* Safe haven: arrive, read, answer three questions, choose a route, upgrade.
-   This is where most of the reading happens. */
+   This is where most of the reading happens. Every step saves an exact
+   bookmark so Continue returns to the same screen in the same state. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -11,7 +12,7 @@
   const LETTERS = ["A", "B", "C", "D"];
   const KIND_LABEL = { note: "Found note", letter: "Letter", log: "Radio log", map: "Map legend", diary: "Diary page", recipe: "Recipe", poster: "Poster", rules: "Posted rules", story: "Account", sign: "Sign", list: "Supply list", manual: "Instructions", warning: "Warning" };
 
-  /** Initials for the host avatar ("Doc Lin" -> "DL", "Max and Mia" -> "MM", "Rook" -> "RK"). */
+  /** Initials for the host avatar ("Doc Lin" -> "DL", "Max and Mia" -> "MM", "Rook" -> "RO"). */
   function avatarFor(host) {
     const words = String(host || "?").replace(/[^A-Za-z ]/g, " ").split(/\s+/).filter((w) => w && !/^(and|the|of)$/i.test(w));
     if (words.length >= 2) return (words[0][0] + words[words.length - 1][0]).toUpperCase();
@@ -61,22 +62,67 @@
     caption: null,
     onDone: null,
     passage: null,
+    step: null,
     qi: 0,
     earned: 0,
     correctHere: 0,
+    bonus: false,
+    attempts: {}, // per question index: { wrong: [optionIndex...], done: bool, reward: n }
+    chosen: null, // route option index once chosen
     previewRaf: 0,
 
-    start(onDone) {
+    /**
+     * Begin a haven. With `resume` (the saved haven bookmark) the same passage
+     * reopens at the same step with the same answers and purchases.
+     */
+    start(onDone, resume) {
       this.onDone = onDone;
       this.body = document.getElementById("haven-body");
       this.caption = document.getElementById("haven-caption");
-      this.passage = State().nextHaven();
-      this.qi = 0;
-      this.earned = 0;
-      this.correctHere = 0;
-      State().run.havens += 1;
-      this.caption.textContent = "Safe haven \u00B7 " + this.passage.place;
-      this.arrive();
+      const saved = resume && State().havenById(resume.id) ? resume : null;
+      if (saved) {
+        this.passage = State().havenById(saved.id);
+        this.qi = saved.qi || 0;
+        this.earned = saved.earned || 0;
+        this.correctHere = saved.correctHere || 0;
+        this.bonus = !!saved.bonus;
+        this.attempts = saved.attempts || {};
+        this.chosen = saved.chosen == null ? null : saved.chosen;
+      } else {
+        this.passage = State().nextHaven();
+        this.qi = 0;
+        this.earned = 0;
+        this.correctHere = 0;
+        this.bonus = false;
+        this.attempts = {};
+        this.chosen = null;
+        State().run.havens += 1;
+      }
+      this.caption.textContent = "Safe haven · " + this.passage.place;
+      this.goto(saved ? saved.step : "arrive");
+    },
+
+    goto(step) {
+      if (step === "read") return this.read();
+      if (step === "question") return this.qi < 3 ? this.question() : this.quizSummary();
+      if (step === "summary") return this.quizSummary();
+      if (step === "choice") return this.choice();
+      if (step === "result") return this.chosen == null ? this.choice() : this.showResult();
+      if (step === "garage") return this.garage();
+      return this.arrive();
+    },
+
+    /** Persist the exact step so Continue lands back on it. */
+    save(step) {
+      this.step = step;
+      State().saveProgress("haven", {
+        haven: { id: this.passage.id, step, qi: this.qi, earned: this.earned, correctHere: this.correctHere, bonus: this.bonus, attempts: this.attempts, chosen: this.chosen },
+      });
+    },
+
+    /** Stop anything the haven keeps running (the garage preview loop). */
+    leave() {
+      cancelAnimationFrame(this.previewRaf);
     },
 
     steps(current) {
@@ -100,11 +146,6 @@
       return h;
     },
 
-    /** Stop anything the haven keeps running (the garage preview loop). */
-    leave() {
-      cancelAnimationFrame(this.previewRaf);
-    },
-
     render(children) {
       cancelAnimationFrame(this.previewRaf);
       this.body.innerHTML = "";
@@ -114,6 +155,7 @@
 
     /* 1. Arrive */
     arrive() {
+      this.save("arrive");
       const p = this.passage;
       const btn = el("button", "btn big", "Read it");
       btn.addEventListener("click", () => {
@@ -127,6 +169,7 @@
 
     /* 2. Read the passage */
     read() {
+      this.save("read");
       const p = this.passage;
       const title = el("h2", "reading-title", esc(p.title) + '<span class="kind-badge">' + esc(KIND_LABEL[p.kind] || "Something to read") + "</span>");
       const paper = el("div", "paper lined reading", paragraphs(p.text));
@@ -150,6 +193,8 @@
       const q = p.questions[this.qi];
       const run = State().run;
       const wide = root.innerWidth >= 760;
+      const a = (this.attempts[this.qi] = this.attempts[this.qi] || { wrong: [], done: false, reward: 0 });
+      this.save("question");
 
       const toggle = el("button", "btn small-btn alt text-toggle", wide ? "Hide the text" : "Show the text");
       const textBox = el("div", "collapsed-text" + (wide ? " open" : ""));
@@ -165,70 +210,91 @@
       const row = el("div", "btn-row");
       const next = el("button", "btn big hidden", this.qi < 2 ? "Next question" : "Results");
       row.appendChild(next);
-      let attempts = 0;
       const buttons = [];
+
+      const showHint = () => {
+        feedback.className = "feedback bad";
+        feedback.innerHTML = "Not quite. Hint: " + esc(q.hint) + " Try once more.";
+      };
+      const showSolved = () => {
+        buttons.forEach((x) => (x.disabled = true));
+        buttons[q.answer].classList.add("correct");
+        if (a.reward > 0) {
+          feedback.className = "feedback good";
+          feedback.innerHTML = (a.wrong.length === 0 ? "Right. " : "That's it. ") + '<span class="scrap-pop">+' + a.reward + " scrap</span>";
+        } else {
+          feedback.className = "feedback bad";
+          feedback.innerHTML = "The answer was <strong>" + esc(q.options[q.answer]) + "</strong>. It's in the text. Next one.";
+        }
+        next.classList.remove("hidden");
+      };
+
       q.options.forEach((text, i) => {
         const b = el("button", "option", '<span class="letter">' + LETTERS[i] + "</span><span>" + esc(text) + "</span>");
+        if (a.wrong.includes(i)) {
+          b.classList.add("wrong");
+          b.disabled = true;
+        }
         b.addEventListener("click", () => {
-          if (b.disabled) return;
-          attempts += 1;
+          if (b.disabled || a.done) return;
           if (i === q.answer) {
-            const reward = attempts === 1 ? REWARD.first : REWARD.second;
-            buttons.forEach((x) => (x.disabled = true));
+            const reward = a.wrong.length === 0 ? REWARD.first : REWARD.second;
+            a.done = true;
+            a.reward = reward;
             b.classList.add("correct");
             run.scrap += reward;
-            run.correct += attempts === 1 ? 1 : 0;
+            run.correct += a.wrong.length === 0 ? 1 : 0;
             run.answered += 1;
-            State().stats.correct += attempts === 1 ? 1 : 0;
+            State().stats.correct += a.wrong.length === 0 ? 1 : 0;
             State().stats.answered += 1;
             State().saveStats();
             this.earned += reward;
-            if (attempts === 1) this.correctHere += 1;
-            feedback.className = "feedback good";
-            feedback.innerHTML = (attempts === 1 ? "Right. " : "That's it. ") + '<span class="scrap-pop">+' + reward + " scrap</span>";
-            feedback.classList.remove("hidden");
-            next.classList.remove("hidden");
+            if (a.wrong.length === 0) this.correctHere += 1;
+            showSolved();
             Audio().play("correct");
           } else {
+            a.wrong.push(i);
             b.classList.add("wrong");
             b.disabled = true;
             Audio().play("wrong");
-            if (attempts === 1) {
-              feedback.className = "feedback bad";
-              feedback.innerHTML = "Not quite. Hint: " + esc(q.hint) + " Try once more.";
-              feedback.classList.remove("hidden");
-            } else {
-              buttons.forEach((x) => (x.disabled = true));
-              buttons[q.answer].classList.add("correct");
+            if (a.wrong.length === 1) showHint();
+            else {
+              a.done = true;
+              a.reward = 0;
               run.answered += 1;
               State().stats.answered += 1;
               State().saveStats();
-              feedback.className = "feedback bad";
-              feedback.innerHTML = "The answer was <strong>" + esc(q.options[q.answer]) + "</strong>. It's in the text. Next one.";
-              next.classList.remove("hidden");
+              showSolved();
             }
           }
+          this.save("question");
         });
         buttons.push(b);
         opts.appendChild(b);
       });
+      // restore the look of a question that was already worked on
+      if (a.done) showSolved();
+      else if (a.wrong.length === 1) showHint();
+
       next.addEventListener("click", () => {
         Audio().play("click");
         this.qi += 1;
         if (this.qi < 3) this.question();
-        else this.quizSummary();
+        else {
+          if (this.correctHere === 3 && !this.bonus) {
+            this.bonus = true;
+            run.scrap += REWARD.perfect;
+            this.earned += REWARD.perfect;
+          }
+          this.quizSummary();
+        }
       });
       this.render([this.steps(1), toggle, textBox, qEl, opts, feedback, row]);
     },
 
     quizSummary() {
-      const run = State().run;
-      let bonusLine = "";
-      if (this.correctHere === 3) {
-        run.scrap += REWARD.perfect;
-        this.earned += REWARD.perfect;
-        bonusLine = '<p>Three for three on the first try. <span class="scrap-pop">+' + REWARD.perfect + " bonus scrap</span></p>";
-      }
+      this.save("summary");
+      const bonusLine = this.bonus ? '<p>Three for three on the first try. <span class="scrap-pop">+' + REWARD.perfect + " bonus scrap</span></p>" : "";
       const msg = this.correctHere === 3 ? "Clean read. Every answer, first try." : this.correctHere >= 1 ? "Good reading. We can use that." : "Rough one. The next stop goes better.";
       const box = el("div", "result-box", "<strong>" + msg + "</strong><br>You earned <strong>" + this.earned + " scrap</strong> at the " + esc(this.passage.place) + "." + bonusLine);
       const btn = el("button", "btn big go", "Choose the route");
@@ -243,23 +309,26 @@
 
     /* 4. Route choice */
     choice() {
+      this.save("choice");
       const p = this.passage;
       const c = p.choice;
       const cards = el("div", "choices");
-      c.options.forEach((o) => {
+      c.options.forEach((o, idx) => {
         const card = el("button", "choice-card");
         card.appendChild(el("h3", null, esc(o.label)));
         card.appendChild(el("p", null, esc(o.desc)));
         card.addEventListener("click", () => {
           Audio().play("click");
-          this.applyChoice(o);
+          this.applyChoice(o, idx);
+          this.showResult();
         });
         cards.appendChild(card);
       });
       this.render([this.steps(2), el("p", "question", esc(c.prompt)), cards]);
     },
 
-    applyChoice(o) {
+    /** Apply a route's immediate effects once and queue the rest for the next road. */
+    applyChoice(o, idx) {
       const run = State().run;
       const e = o.effects || {};
       const maxHp = Upgrades().stats(run.upgrades).maxHp;
@@ -270,7 +339,13 @@
         if (e[k] != null) mods[k] = e[k];
       });
       run.nextMods = mods;
+      this.chosen = idx;
+    },
 
+    showResult() {
+      this.save("result");
+      const o = this.passage.choice.options[this.chosen];
+      const e = o.effects || {};
       const box = el("div", "result-box", esc(o.result));
       const tags = el("div", "tags");
       effectTags(e).forEach(([t, cls]) => tags.appendChild(el("span", "tag " + cls, esc(t))));
@@ -289,6 +364,7 @@
 
     /* 5. Garage */
     garage() {
+      this.save("garage");
       const run = State().run;
       const U = Upgrades();
       const stats = U.stats(run.upgrades);
@@ -305,7 +381,7 @@
       const gunG = el("div", "upgrade-group");
       gunG.appendChild(el("h3", null, "The Gun"));
 
-      const rerender = () => this.garage();
+      const rerender = () => this.garage(); // re-saves, so purchases persist
       Object.keys(U.DEFS).forEach((key) => {
         const d = U.DEFS[key];
         const level = run.upgrades[key];
@@ -354,7 +430,8 @@
       go.addEventListener("click", () => {
         Audio().play("click");
         cancelAnimationFrame(this.previewRaf);
-        State().checkpoint();
+        // The next road starts fresh; the road itself autosaves from there.
+        State().saveProgress("road", { road: null });
         if (this.onDone) this.onDone();
       });
       const row = el("div", "btn-row");
@@ -372,9 +449,17 @@
     },
 
     /* ---------- Road sign pop-up (used mid-segment) ---------- */
-    sign(onContinue) {
-      const s = State().nextSign();
+    /**
+     * Show a road sign. With `resume` ({ answered, picked }) the sign that was on
+     * screen when the run was saved comes back in the same state.
+     */
+    sign(onContinue, resume) {
       const run = State().run;
+      const s = resume ? State().currentSign() : State().nextSign();
+      const st = resume ? { answered: !!resume.answered, picked: resume.picked == null ? null : resume.picked } : { answered: false, picked: null };
+      const save = () => State().saveProgress("sign", { road: ZSR.Game.snapshot(), sign: st });
+      save();
+
       const textEl = document.getElementById("sign-text");
       const qEl = document.getElementById("sign-q");
       const opts = document.getElementById("sign-options");
@@ -386,33 +471,44 @@
       fb.className = "feedback hidden";
       cont.classList.add("hidden");
       const buttons = [];
+
+      const showAnswered = () => {
+        buttons.forEach((x) => (x.disabled = true));
+        buttons[s.answer].classList.add("correct");
+        if (st.picked === s.answer) {
+          fb.className = "feedback good";
+          fb.innerHTML = 'Right. <span class="scrap-pop">+' + REWARD.sign + " scrap</span>";
+        } else {
+          if (st.picked != null && buttons[st.picked]) buttons[st.picked].classList.add("wrong");
+          fb.className = "feedback bad";
+          fb.innerHTML = "The answer was <strong>" + esc(s.options[s.answer]) + "</strong>.";
+        }
+        cont.classList.remove("hidden");
+      };
+
       s.options.forEach((text, i) => {
         const b = el("button", "option", '<span class="letter">' + LETTERS[i] + "</span><span>" + esc(text) + "</span>");
         b.addEventListener("click", () => {
-          buttons.forEach((x) => (x.disabled = true));
+          if (st.answered) return;
+          st.answered = true;
+          st.picked = i;
           run.answered += 1;
           State().stats.answered += 1;
           if (i === s.answer) {
-            b.classList.add("correct");
             run.scrap += REWARD.sign;
             run.correct += 1;
             State().stats.correct += 1;
-            fb.className = "feedback good";
-            fb.innerHTML = 'Right. <span class="scrap-pop">+' + REWARD.sign + " scrap</span>";
             Audio().play("correct");
-          } else {
-            b.classList.add("wrong");
-            buttons[s.answer].classList.add("correct");
-            fb.className = "feedback bad";
-            fb.innerHTML = "The answer was <strong>" + esc(s.options[s.answer]) + "</strong>.";
-            Audio().play("wrong");
-          }
+          } else Audio().play("wrong");
           State().saveStats();
-          cont.classList.remove("hidden");
+          showAnswered();
+          save();
         });
         buttons.push(b);
         opts.appendChild(b);
       });
+      if (st.answered) showAnswered();
+
       cont.onclick = () => {
         Audio().play("click");
         onContinue();

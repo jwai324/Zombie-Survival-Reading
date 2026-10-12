@@ -74,6 +74,8 @@
         havenQueue: [],
         signQueue: [],
         nextMods: {}, // effects chosen at the last haven, applied to the next segment
+        currentSign: null, // index of the road sign currently on screen
+        resume: null, // exact bookmark of where the player is (see saveProgress)
         startedAt: Date.now(),
       };
       this.stats.runs += 1;
@@ -82,12 +84,36 @@
       return this.run;
     },
 
-    /** Save the run at a safe haven so a refresh or a crash does not lose it. */
+    /**
+     * Persist the run with an exact bookmark of where the player is, so Continue
+     * returns to the same spot. `where` is "road" | "sign" | "haven"; `extra` carries
+     * the road snapshot, the sign state, or the haven step.
+     */
+    saveProgress(where, extra) {
+      if (!this.run) return;
+      this.run.resume = Object.assign({ where }, extra || {});
+      write(KEYS.run, this.run);
+    },
+    /** Save the run as is (used after purchases and other mutations mid-screen). */
     checkpoint() {
       if (this.run) write(KEYS.run, this.run);
     },
     hasCheckpoint() {
       return !!read(KEYS.run, { _none: true }).grade;
+    },
+    /** Short description of the saved spot for the title screen, or "" if none. */
+    resumeLabel() {
+      const r = read(KEYS.run, {});
+      if (!r.grade) return "";
+      const res = r.resume || { where: "road" };
+      if (res.where === "haven" && res.haven) {
+        const bank = ZSR.CONTENT[r.grade];
+        const h = bank && bank.havens.find((x) => x.id === res.haven.id);
+        const STEP = { arrive: "arriving", read: "reading", question: "answering", summary: "answering", choice: "choosing a route", result: "choosing a route", garage: "in the garage" };
+        return (h ? h.place : "a safe haven") + ", " + (STEP[res.haven.step] || "reading");
+      }
+      if (res.where === "sign") return "Road " + (r.segment + 1) + ", at a sign";
+      return "Road " + (r.segment + 1);
     },
     loadCheckpoint() {
       const r = read(KEYS.run, {});
@@ -119,7 +145,19 @@
       const run = this.run;
       const content = ZSR.CONTENT[run.grade] || ZSR.CONTENT[this.settings.grade];
       if (!run.signQueue.length) run.signQueue = shuffle(content.roadSigns.map((_, i) => i));
-      return content.roadSigns[run.signQueue.shift()];
+      run.currentSign = run.signQueue.shift();
+      return content.roadSigns[run.currentSign];
+    },
+    /** The sign that was on screen when the run was saved. */
+    currentSign() {
+      const run = this.run;
+      const content = ZSR.CONTENT[run.grade] || ZSR.CONTENT[this.settings.grade];
+      return content.roadSigns[run.currentSign] || content.roadSigns[0];
+    },
+    /** A haven passage by id from the run's grade bank (null if the bank changed). */
+    havenById(id) {
+      const content = ZSR.CONTENT[this.run.grade];
+      return (content && content.havens.find((h) => h.id === id)) || null;
     },
 
     /** Record a finished run into best scores and lifetime stats. */

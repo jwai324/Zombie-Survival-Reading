@@ -62,7 +62,7 @@
       <canvas id="title-van" width="320" height="200" aria-hidden="true"></canvas>
       <div class="btn-col">
         <button id="btn-play" class="btn big">Start a run</button>
-        <button id="btn-continue" class="btn big alt hidden">Continue the run</button>
+        <button id="btn-continue" class="btn big alt hidden">Continue</button>
         <div class="btn-row">
           <button id="btn-settings" class="btn">Settings</button>
           <button id="btn-howto" class="btn">How it works</button>
@@ -112,7 +112,7 @@
         <li><strong>The garage.</strong> Spend scrap on the van (armor, engine, ram plow, paint) and the gun (heavier rounds, rate of fire, spread), or a field repair.</li>
       </ol>
       <p>There is no ending. The road goes on until the van stops. The score that matters is miles.</p>
-      <p class="small muted">Pause with <kbd>P</kbd> or <kbd>Esc</kbd>. Your run is saved at every haven.</p>
+      <p class="small muted">Pause with <kbd>P</kbd> or <kbd>Esc</kbd>. Home saves your exact spot; Continue brings you back to it.</p>
       <div class="btn-row"><button id="btn-howto-back" class="btn big">Got it</button></div>
     </div>
   </section>
@@ -136,7 +136,7 @@
   <section id="screen-haven" class="screen hidden">
     <div class="panel haven-panel">
       <div class="caption" id="haven-caption">Safe haven</div>
-      <button class="home-btn" id="btn-haven-home" title="Back to the home screen (your progress here is kept)">Home</button>
+      <button class="home-btn" id="btn-haven-home" title="Back to the home screen (your spot is saved)">Home</button>
       <div id="haven-body"></div>
     </div>
   </section>
@@ -151,7 +151,7 @@
         <button id="btn-pause-settings" class="btn">Settings</button>
         <button id="btn-quit" class="btn alt">Back to home screen</button>
       </div>
-      <p class="small muted">Your run is saved at the last safe haven you visited. Going home now keeps that save.</p>
+      <p class="small muted">Going home saves your exact spot. Continue from the home screen to pick up right here.</p>
     </div>
   </section>
 

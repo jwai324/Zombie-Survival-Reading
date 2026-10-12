@@ -39,7 +39,9 @@
     $("title-grade").textContent = "Reading level: " + ORDINAL[g] + " grade. Change it in Settings.";
     const best = State.best[g];
     $("title-best").textContent = best ? "Best run at this level: " + best.miles + " miles, " + best.havens + " havens, " + best.correct + " questions right." : "No runs at this level yet.";
-    $("btn-continue").classList.toggle("hidden", !State.hasCheckpoint());
+    const has = State.hasCheckpoint();
+    $("btn-continue").classList.toggle("hidden", !has);
+    if (has) $("btn-continue").textContent = "Continue: " + State.resumeLabel();
   }
 
   function startTitleAnimation() {
@@ -65,9 +67,25 @@
     startRoad();
   }
 
+  /** Reopen the saved run exactly where it was: a haven step, an open sign, or the road. */
   function continueRun() {
-    if (!State.loadCheckpoint()) return newRun();
-    startRoad();
+    const run = State.loadCheckpoint();
+    if (!run) return newRun();
+    const r = run.resume || { where: "road" };
+    hideAll();
+    if (r.where === "haven" && r.haven) {
+      show("screen-haven");
+      Haven.start(() => startRoad(), r.haven);
+      return;
+    }
+    if (r.where === "sign" && r.road) {
+      Game.startSegment(r.road);
+      Game.pause();
+      show("screen-sign");
+      Haven.sign(afterSign, r.sign || { answered: false, picked: null });
+      return;
+    }
+    Game.startSegment(r.road || null);
   }
 
   function onSegmentEnd() {
@@ -77,12 +95,15 @@
     Haven.start(() => startRoad());
   }
 
+  function afterSign() {
+    hideAll();
+    Game.resume();
+    Game.autosave();
+  }
+
   function onSign() {
     show("screen-sign");
-    Haven.sign(() => {
-      hideAll();
-      Game.resume();
-    });
+    Haven.sign(afterSign);
   }
 
   function onGameOver() {
@@ -118,15 +139,24 @@
   }
 
   /**
-   * Back to the home screen from anywhere. From a haven the current run is
-   * checkpointed first (scrap and answers earned there are kept); from the
-   * road, the save from the last haven stands.
+   * Back to the home screen from anywhere. The exact spot is saved first:
+   * the haven and sign screens keep their own bookmark up to date, and the
+   * road is snapshotted here. A van that is already wrecked ends the run.
    */
-  function goHome(saveNow) {
+  function goHome() {
     Audio.play("click");
+    if (Game.running && Game.gameOverAt != null) {
+      Game.stop();
+      State.finishRun();
+      State.run = null;
+      show("screen-title");
+      refreshTitle();
+      return;
+    }
+    const signOpen = !$("screen-sign").classList.contains("hidden");
+    if (Game.running && !signOpen) Game.autosave();
     Game.stop();
     Haven.leave();
-    if (saveNow && State.run) State.checkpoint();
     State.run = null;
     show("screen-title");
     refreshTitle();
@@ -197,12 +227,7 @@
       settingsReturn = "screen-pause";
       show("screen-settings");
     });
-    // Home from the road or the pause menu keeps the last haven's save.
-    $("btn-quit").addEventListener("click", () => goHome(false));
-    $("btn-home").addEventListener("click", () => goHome(false));
-    $("btn-sign-home").addEventListener("click", () => goHome(false));
-    // Home from a haven saves what was earned there first.
-    $("btn-haven-home").addEventListener("click", () => goHome(true));
+    ["btn-quit", "btn-home", "btn-sign-home", "btn-haven-home"].forEach((id) => $(id).addEventListener("click", goHome));
 
     $("btn-again").addEventListener("click", () => {
       Audio.play("click");

@@ -47,8 +47,10 @@ fallbacks, so the game still works offline. Every upgrade is visible on the van.
 
 **Q: Where is progress saved?**
 `localStorage`, on the device. Settings, best scores per reading level, lifetime
-reading stats, and a run checkpoint taken at each safe haven ("Continue the run" on
-the title screen). No accounts, no server. **Open:** progress that follows a player
+reading stats, and an exact bookmark of the current run: the road snapshot (clock,
+modifiers, van position, walkers), the open road sign and whether it was answered,
+or the haven step with every answer and purchase. "Continue" on the title screen
+reopens that spot. The road autosaves every three seconds. No accounts, no server. **Open:** progress that follows a player
 across devices needs a backend. Not worth it for a first pass.
 
 ### The reading
@@ -75,8 +77,11 @@ back.
 
 **Q: Can the player leave from anywhere?**
 Yes. A Home button sits on the road HUD, the road-sign pop-up, the haven panel, the
-pause menu, and the game-over screen. Leaving from a haven saves the run first, so
-scrap earned there is kept. Leaving from the road keeps the last haven's save.
+pause menu, and the game-over screen. Leaving saves the exact spot, and Continue
+returns to it: mid-road with the same walkers on screen, the same open sign in the
+same answered state, or the same haven step (reading, a half-answered question,
+the route result, the garage with purchases made). A wrecked van ends the run
+instead of saving it.
 
 **Q: How does reading connect to winning?**
 Scrap is the only currency. Walker kills pay a little. Correct answers pay a lot

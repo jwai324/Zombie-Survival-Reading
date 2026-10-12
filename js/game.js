@@ -162,10 +162,15 @@
     },
 
     /* ---------- Segment lifecycle ---------- */
-    startSegment() {
+    /**
+     * Start the road for run.segment. With a snapshot (from Game.snapshot()) the
+     * segment resumes exactly where it was: clock, modifiers, van position,
+     * walkers, and crates.
+     */
+    startSegment(snapshot) {
       const run = State().run;
-      const mods = Object.assign({}, run.nextMods || {});
-      run.nextMods = {};
+      const mods = snapshot ? Object.assign({}, snapshot.mods || {}) : Object.assign({}, run.nextMods || {});
+      if (!snapshot) run.nextMods = {};
       const n = run.segment;
       const stats = Upgrades().stats(run.upgrades);
       this.stats = stats;
@@ -203,12 +208,15 @@
       this.fallen = [];
       this.scroll = 0;
       this.spawnTimer = 2.2;
+      this.saveTimer = 0;
       this.shake = 0;
       this.time = 0;
       this.gameOverAt = null;
       this.pointer.down = false;
       this.keys = {};
       for (let i = 0; i < 10; i++) this.spawnProp(rand(-this.H, this.H));
+
+      if (snapshot) this.restore(snapshot);
 
       this.hud.root.classList.remove("hidden");
       this.hud.road.textContent = "ROAD " + (n + 1);
@@ -219,6 +227,35 @@
       this.last = 0;
       cancelAnimationFrame(this.raf);
       this.raf = requestAnimationFrame((ts) => this.frame(ts));
+    },
+
+    /** Everything needed to put this road back exactly as it is now. */
+    snapshot() {
+      if (!this.seg || !this.van) return null;
+      return {
+        mods: Object.assign({}, this.mods),
+        seg: Object.assign({}, this.seg, { crateTimes: this.seg.crateTimes.slice() }),
+        vanX: this.van.x,
+        scroll: this.scroll,
+        spawnTimer: this.spawnTimer,
+        zombies: this.zombies.map((z) => ({ type: z.type, x: z.x, y: z.y, r: z.r, hp: z.hp, maxHp: z.maxHp, speed: z.speed, dmg: z.dmg, scrap: z.scrap })),
+        crates: this.crates.map((c) => ({ x: c.x, y: c.y })),
+      };
+    },
+
+    restore(s) {
+      if (s.seg) this.seg = Object.assign(this.seg, s.seg, { crateTimes: (s.seg.crateTimes || []).slice() });
+      if (typeof s.vanX === "number") this.van.x = clamp(s.vanX, this.roadX - 10, this.roadX + this.roadW + 10);
+      if (typeof s.scroll === "number") this.scroll = s.scroll;
+      if (typeof s.spawnTimer === "number") this.spawnTimer = Math.max(0.5, s.spawnTimer);
+      this.zombies = (s.zombies || []).map((z) => Object.assign({ angle: Math.PI / 2, phase: Math.random() * 6.28, hit: 0, cool: 0.5, kx: 0, ky: 0 }, z));
+      this.crates = (s.crates || []).map((c) => ({ x: c.x, y: c.y, t: 0 }));
+    },
+
+    /** Save the road as it is right now (skipped once the van is wrecked). */
+    autosave() {
+      if (!this.running || this.gameOverAt != null) return;
+      State().saveProgress("road", { road: this.snapshot() });
     },
 
     pause() {
@@ -546,6 +583,13 @@
       this.updateParticles(dt);
       this.shake *= Math.pow(0.02, dt);
       this.updateHud();
+
+      // Periodic autosave so a refresh or a tap on Home lands back here.
+      this.saveTimer += dt;
+      if (this.saveTimer >= 3) {
+        this.saveTimer = 0;
+        this.autosave();
+      }
     },
 
     assist(aim) {

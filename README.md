@@ -30,15 +30,17 @@ Works on desktop (mouse + keyboard) and tablets (touch). Progress saves on the d
 
 Reading level is set in Settings (1st through 6th grade). The passages and questions
 change; the road does not. Also in Settings: text size, sound, aim assist, and screen
-shake. A Home button on every screen returns to the title; from a haven it saves what
-was earned there first, and from the road the last haven's save stands.
+shake. A Home button on every screen returns to the title, and Continue reopens the run
+at the exact spot you left: the same point on the road, the open road sign, or the same
+haven step with your answers and purchases intact. The road also autosaves every few
+seconds, so a browser refresh lands back where you were.
 
 ## Project layout
 
 ```
 index.html            all screens (title, settings, road HUD, road sign, haven, pause, game over)
 css/style.css         comic-book styling
-js/state.js           settings, best scores, lifetime stats, run checkpoint (localStorage)
+js/state.js           settings, best scores, lifetime stats, exact-spot run save (localStorage)
 js/upgrades.js        upgrade definitions, costs, derived van/gun stats  <- tune here
 js/game.js            the road: spawning, shooting, collisions, difficulty table  <- tune here
 js/haven.js           reading, questions, route choice, garage, road-sign pop-up
