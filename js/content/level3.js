@@ -7,7 +7,8 @@
   root.ZSR.TEXT[3] = {
     level: 3,
     howto: [
-      "Your home base is a boarded-up house at the south end of town. You have one van, and it still runs. Every day you drive out for supplies, and every night you bring them home. At base you stand in the yard, with a fence around the lot. In calm time, go inside the cabin to build, or leave in the van. Then a wave comes, and walkers claw at the fence. Some waves are nothing, and some are a crowd. Stronger Walls make the fence hold longer. The base is the only place where the game saves. It saves when you arrive, after every build, and after every wave.",
+      "Your home base is a boarded-up house at the south end of town. You have one van, and it still runs. Every day you drive out for supplies, and every night you bring them home. Inside every building there are walkers, and there are notes. People who were there before you wrote the notes. Read them, and you find more and lose less. No one tests you on them. They are just useful.",
+      "You stand in the yard, first person, with a fence around the lot. Time runs in calm phases and waves. In a calm phase, nothing is at the fence. Go inside the cabin to build, or leave in the van. Then a wave comes. Sometimes it is a few walkers, sometimes a lot, and sometimes none at all. Walkers claw through the fence. The Walls room makes the fence stronger. During a wave, the cabin door and the van are locked. You have to hold the yard. Between waves, the fence is patched. The base is the only place the game saves. It saves when you arrive, after every build, and after every wave.",
       "Open the map and pick a place. Only a few places are known at first. Notes and the Radio room reveal the rest. The route is drawn for you, and then you drive. Walkers wander the road. Far places and dangerous places have more of them. The more days pass, the more walkers there are.",
       "At the door you read a note before you go in. It tells you how many walkers wait inside and where the items are. Then you go in. Walkers come for you, so shoot them or slip around them. Grab items from shelves and floors. Those items come back three days after you take them. Cache items never do. Find the note inside and read it. It tells you how to open the locked cache room. The best items are kept in there. It also names the next place to try. That place then shows up on the map. Every note you read goes in your backpack. You can open the backpack at base, on the map, or inside a building.",
       "Drive home with your cargo. At base, cargo goes into storage, and you eat one food. The Garden adds food, and the day count goes up. Use items and scrap to upgrade the rooms. Upgrade the van and the gun in the garage. Three things end a run. The van gets wrecked, you go down inside, or the yard is overrun. Then the game loads your last base save. Everything since that save is gone, so plan each trip with care.",
@@ -16,11 +17,11 @@
       intro: "This is home base, the only place the game saves. Build up the rooms, fix the van, and head back out.",
       rooms: {
         walls: {
-          desc: "Boards and plates on the fence, the house, and the van. Thicker walls make the fence hold longer. They also mean more health for the van, and for you on foot.",
+          desc: "Boards and plates on the fence, the house, and the van. Thicker walls make the fence stronger, so walkers take longer to claw through. They also mean more health for the van, and for you on foot. The fence starts at 150 strength.",
           next: [
-            "Van health up by 20. Your health on foot up by 20. The fence holds longer.",
-            "Van health up by 40. Your health on foot up by 40. The fence holds longer.",
-            "Van health up by 60. Your health on foot up by 60. The fence holds longer. This level needs an armor plate.",
+            "Fence strength goes from 150 to 240. Van health up by 20. Your health on foot up by 20.",
+            "Fence strength goes up to 360. Van health up by 40. Your health on foot up by 40.",
+            "Fence strength goes up to 520. Van health up by 60. Your health on foot up by 60. This level needs an armor plate.",
           ],
         },
         garage: {
@@ -32,11 +33,11 @@
           ],
         },
         power: {
-          desc: "A generator and a string of lights. Power shows how dangerous each place is, and later it helps on the road.",
+          desc: "Fuel, wire, and a string of lights, with a generator later on. Power shows how dangerous each place is. Later it adds supply crates on drives, and headlights for night and fog.",
           next: [
             "The map shows the danger level at every place.",
-            "The map shows danger. You find one supply crate on each drive.",
-            "The map shows danger. You find two supply crates on each drive. Headlights beat night and fog.",
+            "The map shows danger. You find one supply crate on each drive. This level needs a generator.",
+            "The map shows danger. You find two supply crates on each drive. Headlights beat night and fog. Night drives start on day 6 and come every third day after that.",
           ],
         },
         water: {
@@ -72,11 +73,11 @@
           ],
         },
         archive: {
-          desc: "Shelves of books and maps. Your notes learn what is left at each place, and so does the map.",
+          desc: "Shelves of books and maps. Read a place's door note, and the map shows what is still there. Later the map marks caches too.",
           next: [
-            "Backpack notes show what is still at each place.",
-            "Notes show stock. The map marks which places have a cache.",
-            "Notes show stock. The map marks caches and what is left at every place. This level needs city maps.",
+            "Once you read a place's door note, the map shows what is still there.",
+            "The map shows what is left at places you have read. It also marks which places have a cache.",
+            "The map marks caches. It shows what is left at every place, read or not. This level needs city maps.",
           ],
         },
       },
@@ -151,7 +152,7 @@
         blurb: "An electronics store with spools of wire, close to the walker crowds.",
         door: {
           title: "Jo's Sign in the Window",
-          text: "Jo wrote this. Spools of wire are on the shelves in the middle rows. At least four walkers are inside. One stays near the counter on the back wall. It will hear the door, so be ready. The manager's office is locked. The manager left a note on that back counter. Read it before you try that door.",
+          text: "Jo wrote this. Spools of wire are on the shelves in the middle rows. At least four walkers are inside. One stays near the counter on the back wall. It will hear the door, so be ready. The manager's office is locked. The manager left a note on the counter at the back. Read it before you try that door.",
         },
         notes: {
           "radioshack-counter": {
@@ -221,7 +222,7 @@
         notes: {
           "hospital-hall": {
             title: "Nurse Ada Stayed",
-            text: "I am Nurse Ada. I stayed when the others left, because someone had to. The stock room door needs a badge to open. My badge is in the drawer under this station. Take it, and you can open the stock room now. There are three medical kits inside. Use them well, because they are the last kits in this place.\n\nStay quiet in here. The walkers in this building follow sound more than light. Do not run, and do not shout. Walk soft, keep your light low, and they may not turn your way.",
+            text: "I am Nurse Ada. I stayed when the others left, because someone had to. The stock room door needs a badge to open. My badge is in the drawer under this station. Take it, and you can open the stock room now. There are three medical kits inside. Use them well. The stock room will not fill up again.\n\nStay quiet in here. The walkers in this building follow sound more than light. Do not run, and do not shout. Walk soft, keep your light low, and they may not turn your way.",
           },
         },
       },

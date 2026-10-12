@@ -7,7 +7,8 @@
   root.ZSR.TEXT[5] = {
     level: 5,
     howto: [
-      "Months after the Fall, you run the last working van out of a boarded-up house at the south end of town. That house is your home base, and it is the only place where the game saves. It saves when you arrive, after every build action, and after every wave. Between waves, the yard goes calm. Use that quiet to go inside and build, or to climb into the van and leave.",
+      "Months after the Fall, you run the last working van out of a boarded-up house at the south end of town. That house is your home base, and it is the only place where the game saves. Everything you bring back ends up there, and everything you build starts there.",
+      "Home base is cabin defense. You stand in the yard in first person. The cabin is behind you, the van sits in the driveway, and a fence rings the lot. Time runs in phases. During a calm, nothing touches the fence, so go inside to build or climb into the van and leave. Then a wave comes. Sometimes it is a few walkers, sometimes a lot, and sometimes nothing at all. Walkers claw through the fence if you let them, and the Walls room makes that fence stronger. During a wave the cabin door and the van are locked, so you hold the yard with what you have. Between waves the fence is patched. The game saves when you arrive, after every build, and after every wave.",
       "Open the map and choose a place. Only a few spots are known at first. Notes reveal the rest a place or two at a time, and the Radio room reveals them faster. Once you pick a destination, the route is drawn across the city and you drive. The road is never empty. Far places and dangerous places carry more walkers, and every day that passes adds a few more.",
       "At the door, you read a note before you step inside. It tells you how many walkers wait and where the items are, so read it like a map. Then you go in. Walkers come for you, so shoot them or slip around them. Items sit on shelves and floors, and scrap piles pay in scrap. Somewhere inside is another note. Reading it is what lets you open the locked cache room, where the best items wait. It also names the next place to try, and that place appears on the map. Every note you read goes into your backpack, which opens at base, on the map, or inside a building.",
       "Drive home with your cargo. At base, cargo moves into storage, you eat one food, the Garden adds food, and the day counter rises. Spend items and scrap to upgrade the rooms, and upgrade the van and the gun in the garage. If you die on the road, inside a building, or in the yard, the game reloads your last base save. Everything since that save is gone, so every trip is a bet. Make it a smart one.",
@@ -16,11 +17,11 @@
       intro: "Home base: a boarded-up house, a fence, and the last van in town. It is the only place the game saves, so build here, breathe here, and then go back out.",
       rooms: {
         walls: {
-          desc: "Boards, plates, and nails on the house, the fence, and the van. Thicker walls mean the fence holds longer, the van takes more hits, and so do you on foot.",
+          desc: "Boards, plates, and nails on the house, the fence, and the van. Thicker walls mean the fence holds longer against clawing walkers, the van takes more hits, and so do you on foot. A bare fence has 150 strength.",
           next: [
-            "Van health rises by 20, and your health on foot rises by 20.",
-            "Van health rises by 40, and your health on foot rises by 40.",
-            "Van health rises by 60, and your health on foot rises by 60. This level needs an armor plate.",
+            "Fence strength rises from 150 to 240. Van health rises by 20, and your health on foot rises by 20.",
+            "Fence strength rises to 360. Van health rises by 40, and your health on foot rises by 40.",
+            "Fence strength rises to 520. Van health rises by 60, and your health on foot rises by 60. This level needs an armor plate.",
           ],
         },
         garage: {
@@ -32,10 +33,10 @@
           ],
         },
         power: {
-          desc: "A generator, a tank of fuel, and a string of lights. Power lets the map show how dangerous each place is, and later it lights the road itself.",
+          desc: "Fuel, wire, and a string of lights at first, with a generator added later. Power lets the map show how dangerous each place is. Later it drops supply crates on your drives, and at last it lights the road itself. Night falls on the road on day 6, and every third day after that.",
           next: [
             "The map shows the danger level at every place.",
-            "The map shows danger, and you find one supply crate on every drive.",
+            "The map shows danger, and you find one supply crate on every drive. This level needs a generator.",
             "The map shows danger, you find two supply crates on every drive, and headlights beat night and fog.",
           ],
         },
@@ -72,11 +73,11 @@
           ],
         },
         archive: {
-          desc: "Shelves of books and city maps. The archive teaches your notes what is still at each place, and then it teaches the map the same thing.",
+          desc: "Shelves of books and city maps. Read a place's door note, and the map shows what is still there. Later the map marks caches, and at last it shows stock everywhere.",
           next: [
-            "Backpack notes show what is still at each place.",
-            "Notes show stock, and the map marks which places have a cache.",
-            "Notes show stock, and the map marks caches and what is left at every place. This level needs city maps.",
+            "Once you have read a place's door note, the map shows what is still there.",
+            "The map shows what is left at places whose door note you have read, and it marks which places hold a cache.",
+            "The map marks caches and shows what is left at every place, read or not. This level needs city maps.",
           ],
         },
       },
@@ -125,7 +126,7 @@
         blurb: "A small pharmacy with medical kits on the low shelves and a locked cabinet room.",
         door: {
           title: "Mr. Okafor's Door Note",
-          text: "Mr. Okafor, the pharmacist. Medical kits are on the low shelves near the middle of the store. Look down, not up, because the crowds grabbed what was at eye level and missed the rest. At least three walkers are inside, and most of them stay near the back by the loading door. They are slow until they see you. The cabinet room is locked, and the lock takes a code. The code is written on my note at the counter. Read it first, or you will stand at that door for nothing.",
+          text: "Mr. Okafor, the pharmacist. Medical kits are on the low shelves near the middle of the store. Look down, not up, because the crowds grabbed what was at eye level and missed the rest. At least three walkers are inside, and most of them stay near the back of the store. They are slow until they see you. The cabinet room is locked, and the lock takes a code. The code is written on my note at the counter. Read it first, or you will stand at that door for nothing.",
         },
         notes: {
           "pharmacy-counter": {
@@ -260,7 +261,7 @@
         notes: {
           "mall-guard": {
             title: "Luis Left the Code",
-            text: "My name is Luis, and I worked security at this mall. The office has a keypad by the door, and the code is 0912. Type it in, and the lock lets go. You can open the security office now. There are gun parts inside, and there are radio parts and a tool kit. I locked them up on the last day, when I understood that nobody was coming to relieve me.\n\nThe walkers here move as one group, and I have watched them for a long time. They follow anyone who runs, and they do not get tired. So do not run, no matter how close they get. Walk, and they lose you. Running is a fire alarm to them. Walking is just another body in the crowd. It feels wrong every single time, like holding still while a wave comes in, but it works. I am still here because of it.",
+            text: "My name is Luis, and I worked security at this mall. The office has a keypad by the door, and the code is 0912. Type it in, and the lock lets go. You can open the security office now. There are gun parts inside, and there are radio parts and a tool kit. I locked them up on the last day, when I understood that nobody was coming to relieve me.\n\nThe walkers here move as one group, and I have watched them for a long time. They come running at anyone who runs, and they do not get tired. So do not run, no matter how close they get. Walk, and most of them stay put. Running is a fire alarm to them. Walking is just another body in the crowd. It feels wrong every single time, like holding still while a wave comes in, but it works. I am still here because of it.",
           },
         },
       },

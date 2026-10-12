@@ -7,20 +7,21 @@
   root.ZSR.TEXT[1] = {
     level: 1,
     howto: [
-      "You have one van. It runs from your home base. A fence rings the yard. Walkers come at it in waves. Hold the fence. Between waves it is calm. Go in the cabin and build. Or pick a place on the map. Then drive there. The road has walkers. Keep moving.",
+      "You have one van. It runs from your home base. Pick a place on the map. Then drive there. The road has walkers. Keep moving.",
       "A note waits at the door. Read it. It says how many walkers wait. It says where the items are. Then go in. Walkers come for you. Fight them. Grab what you find. Scrap piles give scrap.",
       "Find the note inside. Read it. It tells how to open the cache. The cache has the best stuff. The note also names a new place. That place shows up on the map. Every note goes in your backpack. Read them again any time.",
+      "Back home, you stand in the yard. You see it first person. Time runs in two parts. Calm means nothing at the fence. Go in the cabin and build. Or leave in the van. A wave means walkers at the fence. They claw through it. Some waves are small. Some are big. Some bring no walkers at all. In a wave, the cabin door locks. The van locks too. Hold the fence till it ends. Between waves, the fence gets patched. The Walls room makes it stronger. The game saves when you get home. It saves after each build. It saves after each wave.",
       "Drive your cargo home. Use it to build rooms. Upgrade the van and gun. The game saves at base only. Wreck the van? You lose the trip. Go down inside? Same thing. Lose the yard at home? Same thing. You start from your last save. So pick when to head home.",
     ],
     base: {
       intro: "Home base. The game saves here, and only here. Hold the fence when walkers come.",
       rooms: {
         walls: {
-          desc: "Thick walls. The fence holds longer. The van and you get tougher.",
+          desc: "Thick walls. The fence starts at 150 strength. Each level makes it stronger. The van and you get tougher too.",
           next: [
-            "Van gets 20 more health. You get 20 more too.",
-            "Van health bonus rises to 40. Yours too.",
-            "Van health bonus rises to 60. Yours too.",
+            "Fence strength rises to 240. Van gets 20 more health. You get 20 more too.",
+            "Fence strength rises to 360. Van health bonus rises to 40. Yours too.",
+            "Fence strength rises to 520. Van health bonus rises to 60. Yours too.",
           ],
         },
         garage: {
@@ -72,11 +73,11 @@
           ],
         },
         archive: {
-          desc: "Notes and maps, sorted and kept.",
+          desc: "Notes and maps, sorted and kept. The map learns what you read.",
           next: [
-            "Notes show what a place still has.",
-            "Notes show what is left. The map shows caches.",
-            "Notes show what is left. The map shows caches and stock.",
+            "Read a door note. The map then shows that place's stock.",
+            "Read a door note. The map shows its stock. It marks caches too.",
+            "The map shows stock at every place. It marks caches too.",
           ],
         },
       },
@@ -86,7 +87,7 @@
         blurb: "Fuel cans on a gas station floor.",
         door: {
           title: "Ruby's Warning",
-          text: "At least two walkers. One at the back wall. One by the pumps. More come each day.\n\nFuel cans: floor. Storeroom: right of the door. Locked. Clerk's note: counter.\n\n—Ruby",
+          text: "At least two walkers. One: back wall. One: by the pumps. More come each day.\n\nFuel: floor. Storeroom: right side, next to the door. Locked. Clerk's note: counter.\n\n—Ruby",
         },
         notes: {
           "gasngo-counter": {
@@ -99,7 +100,7 @@
         blurb: "Small store, food on the floor.",
         door: {
           title: "Marker on the Glass",
-          text: "Front shelves are bare. Food: on the floor, far aisle. Walkers use the back loading door. At least two.\n\nCooler is cold and locked. Manager's note: back counter.\n\n—Doc Lin",
+          text: "Front shelves: bare. Food: on the floor, far aisle. Walkers use the back loading door. At least two.\n\nCooler is cold and locked. Manager's note: counter, back wall.\n\n—Doc Lin",
         },
         notes: {
           "grocery-counter": {
@@ -260,7 +261,7 @@
         notes: {
           "mall-guard": {
             title: "The Guard's Code",
-            text: "I guard this mall. The office code is 0912. Punch it in. It opens. Gun parts are inside. Radio parts too. And a tool kit.\n\nThe walkers here move as a pack. They chase anyone who runs. So walk. Walk, and they lose you.\n\n—Luis, mall security",
+            text: "I guard this mall. The office code is 0912. Punch it in. It opens. Gun parts are inside. Radio parts too. And a tool kit.\n\nRun, and the walkers here come running. Walk, and most of them stay put.\n\n—Luis, mall security",
           },
         },
       },

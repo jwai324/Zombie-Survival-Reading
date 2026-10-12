@@ -7,7 +7,8 @@
   root.ZSR.TEXT[2] = {
     level: 2,
     howto: [
-      "Your home base is a boarded-up house. It sits at the south end of town. You have one van, and it still runs. A fence runs around the yard. Walkers come at the fence in waves. Between waves it is calm. That is when you build or leave. In a wave, clear the fence first. Each day you drive out for supplies. Then you drive home.",
+      "Your home base is a boarded-up house. It sits at the south end of town. You have one van, and it still runs. A fence runs around the yard. Each day you drive out for supplies. Then you drive home. But first, you hold the yard.",
+      "At base you stand in the yard, first person. The cabin is behind you. The van is in the driveway. Time runs in phases. In a calm phase, nothing is at the fence. Go inside to build, or leave in the van. Then a wave comes. Sometimes a few walkers. Sometimes a lot. Sometimes none at all. Walkers claw through the fence. The Walls room makes the fence stronger. In a wave, the cabin door is locked. So is the van. Between waves, the fence is patched. The game saves when you arrive. It saves after every build. It saves after every wave.",
       "Pick a place on the map. Only some places are known at first. Notes and the Radio room show you more. The road is drawn for you. Then you drive. Walkers are on the road. Far places and bad places have more walkers. More days means more walkers, too.",
       "At the door, you read a note first. It says how many walkers wait inside. It says where the items are. Then you go in. Walkers come for you. Shoot them, or move around them. Grab items from shelves and floors. Find the note inside. Read it. It tells you how to open the locked cache room. The best items are in there. It also tells you which place to try next. Every note goes in your backpack. You can read it again any time.",
       "Drive home with your cargo. At base, cargo goes into storage. You eat one food. The day count goes up. Use items and scrap to upgrade rooms. Upgrade the van and the gun in the garage. The game saves only at base. It saves on its own. If the van is wrecked, you load that save. If you go down inside, you load it. If you go down in the yard, you load it. Everything since that save is gone. So plan each trip.",
@@ -16,11 +17,11 @@
       intro: "This is home base. It is the only place the game saves. Build up the rooms, then head back out.",
       rooms: {
         walls: {
-          desc: "Boards and plates on the fence, house, and van. The fence holds longer in a wave. Thicker walls mean more health. For the van, and for you on foot.",
+          desc: "Boards and plates on the fence, house, and van. The fence starts at strength 150. Walkers claw it down in a wave. Better walls mean a stronger fence. They mean more health, too. For the van, and for you on foot.",
           next: [
-            "The fence holds longer. Van health up 20. Your health on foot up 20.",
-            "The fence holds longer. Van health up 40. Your health on foot up 40.",
-            "The fence holds longer. Van health up 60. Your health on foot up 60. Needs an armor plate.",
+            "Fence strength 240. Van health up 20. Your health on foot up 20.",
+            "Fence strength 360. Van health up 40. Your health on foot up 40.",
+            "Fence strength 520. Van health up 60. Your health on foot up 60. Needs an armor plate.",
           ],
         },
         garage: {
@@ -32,10 +33,10 @@
           ],
         },
         power: {
-          desc: "A generator and lights. Power shows you how bad each place is. Later it helps you on the road.",
+          desc: "Fuel, wire, and lights. Later, a generator. Power shows you how bad each place is. Later it helps you on the road. Night drives start on day 6. Then one comes every third day.",
           next: [
             "The map shows the danger at each place.",
-            "The map shows danger. You find one supply crate on each drive.",
+            "The map shows danger. You find one supply crate on each drive. Needs the generator.",
             "The map shows danger. Two supply crates on each drive. Headlights beat night and fog.",
           ],
         },
@@ -72,11 +73,11 @@
           ],
         },
         archive: {
-          desc: "Shelves of books and maps. Your notes show what is left at each place. The map learns it, too.",
+          desc: "Shelves of books and maps. Read a place's door note. Then the map shows what is still there. Later it marks caches, too.",
           next: [
-            "Backpack notes show what is still at that place.",
-            "Notes show stock. The map shows which places have a cache.",
-            "Notes show stock. The map shows caches and what is left everywhere.",
+            "Read a door note. The map then shows what is left there.",
+            "The map shows stock at places you have read. It marks which places have a cache.",
+            "The map marks caches. It shows what is left everywhere. Needs city maps.",
           ],
         },
       },
@@ -86,7 +87,7 @@
         blurb: "A small gas station with fuel and a locked storeroom.",
         door: {
           title: "Ruby's Warning",
-          text: "Ruby here. At least two walkers inside. One near the back wall. One on the pumps side. More come as days pass. Fuel cans are on the floor, not the shelves. Locked storeroom: on the right, by the door. Clerk's note: on the counter.",
+          text: "Ruby here. At least two walkers inside. One near the back wall. One on the pumps side. More come as days pass. Fuel cans are on the floor, not the shelves. Locked storeroom: on the right, next to the door. Clerk's note: on the counter.",
         },
         notes: {
           "gasngo-counter": {
@@ -164,12 +165,12 @@
         blurb: "Greenhouses with seeds, soil, and a locked potting shed.",
         door: {
           title: "Rosa Painted the Gate",
-          text: "Rosa, who ran this greenhouse. Seed packets are on the bench near the front. Soil bags are stacked in the middle. At least three walkers inside. One stays near the back. The potting shed is locked. My note is on the potting bench, back right.",
+          text: "Rosa, who ran this greenhouse. Seed packets: the bench near the front. Soil bags: stacked in the middle. At least three walkers inside. One stays near the back. The potting shed is locked. My note: potting bench at the back, on the right.",
         },
         notes: {
           "garden-bench": {
             title: "Rosa's Watering Can",
-            text: "Rosa again. The shed has a padlock. The key is in the watering can. Reach in and grab it. You can open the potting shed now. There are more seeds in the shed. There is a water tank, too.\n\nStation 12 is the fire station. It is north of here. The equipment bay has tools and water tanks. Chief Dunn runs it. Tell him Rosa sent you.",
+            text: "Rosa again. The shed has a padlock. The key is in the watering can. Reach in and grab it. You can open the potting shed now. There are more seeds in the shed. There is a water tank, too.\n\nStation 12 is the fire station. It is north of here. The equipment bay has tools and water tanks. Chief Dunn left his notes there. Read them.",
           },
         },
       },
@@ -233,7 +234,7 @@
         },
         notes: {
           "watertower-panel": {
-            title: "Turn the Valve",
+            title: "The Key in the Breaker Box",
             text: "Theo again. The pump house key is in the breaker box. Open the gray box on the wall. The key hangs inside. You can open the pump house now. There are filters in there. There is a water tank and some wire, too.\n\nSt. Anne Annex is the hospital. It is north, along the river road. It still has medicine. But it is the most dangerous place in town.",
           },
         },
