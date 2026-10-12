@@ -33,7 +33,7 @@ const EFFECTS = {
   night: { type: "boolean" },
   crates: { type: "integer", min: 0, max: 4 },
 };
-const KINDS = ["note", "letter", "log", "map", "diary", "recipe", "poster", "rules", "story", "sign", "list"];
+const KINDS = ["note", "letter", "log", "map", "diary", "recipe", "poster", "rules", "story", "sign", "list", "manual", "warning"];
 const QTYPES = ["detail", "inference", "vocab"];
 
 const errors = [];

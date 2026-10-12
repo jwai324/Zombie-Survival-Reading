@@ -1,7 +1,8 @@
 # Zombie Survival Reading
 
-Drive the last Bookmobile down an endless zombie road. Reading is your superpower.
-A comic-style survival game for grades 1 to 6 where every upgrade is paid for by reading.
+Drive the last Bookmobile, an armored library van, down an endless road after the Fall.
+A grounded survival-comic game for teens where every upgrade is paid for by reading.
+The reading level is switchable from 1st to 6th grade; the game stays the same.
 
 ## Play it
 
@@ -15,20 +16,21 @@ Works on desktop (mouse + keyboard) and tablets (touch). Progress saves on the d
 
 ## How it plays
 
-1. **The road.** Top-down. Aim with the mouse or a finger, hold to fire. Move the van with
-   the arrow keys, `A`/`D`, or the on-screen arrows. Zombies come from ahead and from both
-   sides. Don't let them touch the van. `P` or `Esc` pauses.
-2. **A road sign.** Once per road the action pauses for a one-sentence message and one
-   question. Right answer, small scrap bonus.
-3. **A safe haven.** A survivor needs you to read something: a note, a letter, a radio
-   log, a map legend. Read it, answer three questions (detail, inference, vocabulary),
-   then choose which road to take next. Right answers pay scrap.
-4. **The garage.** Spend scrap on the van (armor, engine, spiked bumper, paint) and the gun
-   (damage, fire rate, spread shot), or buy a repair.
-5. Repeat forever. The score that matters is **miles survived**.
+1. **The road.** Top-down. Aim with the mouse or a finger, hold to fire. Slide the van
+   with the arrow keys, `A`/`D`, or the on-screen arrows. Walkers come from ahead and from
+   both shoulders. Every one that reaches the van costs you. `P` or `Esc` pauses.
+2. **On the road.** Once per road the action pauses for a short message (a painted
+   warning, a radio burst) and one question. Right answer, small scrap bonus.
+3. **A safe haven.** You are the convoy's reader. Someone hands you a radio log, a supply
+   list, a letter, a map legend, a warning. Read it, answer three questions (detail,
+   inference, vocabulary), then choose which road to take next. Right answers pay scrap.
+4. **The garage.** Spend scrap on the van (armor, engine, ram plow, paint) and the gun
+   (heavier rounds, rate of fire, spread shot), or a field repair.
+5. Repeat until the van stops. The score that matters is **miles survived**.
 
-Reading level is set in Settings (1st through 6th grade), along with text size, a
-"Read to me" button (browser speech), sound, aim assist, and screen shake.
+Reading level is set in Settings (1st through 6th grade). The passages and questions
+change; the road does not. Also in Settings: text size, a "Read to me" button (browser
+speech), sound, aim assist, and screen shake.
 
 ## Project layout
 
@@ -39,7 +41,7 @@ js/state.js           settings, best scores, lifetime stats, run checkpoint (loc
 js/upgrades.js        upgrade definitions, costs, derived van/gun stats  <- tune here
 js/game.js            the road: spawning, shooting, collisions, difficulty table  <- tune here
 js/haven.js           reading, questions, route choice, garage, road-sign pop-up
-js/sprites.js         procedural comic drawing (van, zombies, road, bursts, fog, night)
+js/sprites.js         procedural comic drawing (van, walkers, road, bursts, fog, night)
 js/audio.js           synthesized sound effects
 js/speech.js          read-aloud via speechSynthesis
 js/main.js            screen flow and wiring
@@ -60,7 +62,7 @@ npm test
 The validator checks ids, question counts, answer indexes, option counts per grade,
 vocabulary words appearing in the passage, and effect keys and ranges. It warns on
 passage length and sentence length outside the grade targets. See
-`docs/CONTENT_GUIDE.md` for the world, tone, and calibration rules.
+`docs/CONTENT_GUIDE.md` for the audience, world, tone, and calibration rules.
 
 ## Tuning
 

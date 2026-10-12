@@ -10,20 +10,14 @@
 
   const REWARD = { first: 30, second: 15, perfect: 20, sign: 15 };
   const LETTERS = ["A", "B", "C", "D"];
-  const KIND_LABEL = { note: "A note", letter: "A letter", log: "A radio log", map: "A map legend", diary: "A diary page", recipe: "A recipe", poster: "A poster", rules: "The rules", story: "A story", sign: "A sign", list: "A list" };
+  const KIND_LABEL = { note: "Found note", letter: "Letter", log: "Radio log", map: "Map legend", diary: "Diary page", recipe: "Recipe", poster: "Poster", rules: "Posted rules", story: "Account", sign: "Sign", list: "Supply list", manual: "Instructions", warning: "Warning" };
 
+  /** Initials for the host avatar ("Doc Lin" -> "DL", "Max and Mia" -> "MM", "Rook" -> "RK"). */
   function avatarFor(host) {
-    const h = (host || "").toLowerCase();
-    if (h.includes("ruby")) return "\u{1F469}\u{200D}\u{1F527}";
-    if (h.includes("doc") || h.includes("lin")) return "\u{1F469}\u{200D}\u{2695}\u{FE0F}";
-    if (h.includes("biscuit")) return "\u{1F415}";
-    if (h.includes("joe") || h.includes("grandpa")) return "\u{1F474}";
-    if (h.includes("max") || h.includes("mia") || h.includes("twin")) return "\u{1F9D2}";
-    if (h.includes("farmer")) return "\u{1F9D1}\u{200D}\u{1F33E}";
-    if (h.includes("ranger")) return "\u{1F9D1}\u{200D}\u{1F692}";
-    if (h.includes("chef") || h.includes("baker") || h.includes("cook")) return "\u{1F9D1}\u{200D}\u{1F373}";
-    if (h.includes("keeper") || h.includes("captain")) return "\u{1F9D1}\u{200D}\u{2708}\u{FE0F}";
-    return "\u{1F642}";
+    const words = String(host || "?").replace(/[^A-Za-z ]/g, " ").split(/\s+/).filter((w) => w && !/^(and|the|of)$/i.test(w));
+    if (words.length >= 2) return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+    const w = words[0] || "?";
+    return (w[0] + (w[1] || "")).toUpperCase();
   }
 
   function el(tag, cls, html) {
@@ -56,10 +50,10 @@
   function effectTags(effects) {
     const e = effects || {};
     const tags = [];
-    if (e.zombies >= 1.15) tags.push(["More zombies", "risk"]);
-    if (e.zombies && e.zombies <= 0.9) tags.push(["Fewer zombies", "safe"]);
-    if (e.runners >= 1.2) tags.push(["Fast zombies", "risk"]);
-    if (e.brutes >= 1.2) tags.push(["Big zombies", "risk"]);
+    if (e.zombies >= 1.15) tags.push(["More walkers", "risk"]);
+    if (e.zombies && e.zombies <= 0.9) tags.push(["Fewer walkers", "safe"]);
+    if (e.runners >= 1.2) tags.push(["Sprinters", "risk"]);
+    if (e.brutes >= 1.2) tags.push(["Bruisers", "risk"]);
     if (e.length >= 1.1) tags.push(["Longer road", "risk"]);
     if (e.length && e.length <= 0.9) tags.push(["Shorter road", "safe"]);
     if (e.scrap > 0) tags.push(["+" + e.scrap + " scrap", "bonus"]);
@@ -91,12 +85,12 @@
       this.earned = 0;
       this.correctHere = 0;
       State().run.havens += 1;
-      this.caption.textContent = "MEANWHILE, AT THE " + this.passage.place.toUpperCase() + "...";
+      this.caption.textContent = "Safe haven \u00B7 " + this.passage.place;
       this.arrive();
     },
 
     steps(current) {
-      const names = ["READ", "QUESTIONS", "ROUTE", "GARAGE"];
+      const names = ["READ", "ANSWER", "ROUTE", "GARAGE"];
       const wrap = el("div", "steps");
       names.forEach((n, i) => {
         const s = el("span", "step" + (i < current ? " done" : i === current ? " on" : ""), n);
@@ -127,7 +121,7 @@
     /* 1. Arrive */
     arrive() {
       const p = this.passage;
-      const btn = el("button", "btn big", "Let's read it");
+      const btn = el("button", "btn big", "Read it");
       btn.addEventListener("click", () => {
         Audio().play("click");
         this.read();
@@ -137,7 +131,7 @@
       const tools = el("div", "read-tools");
       const sb = speakButton(() => p.host + " says: " + p.intro);
       if (sb) tools.appendChild(sb);
-      this.render([this.steps(0), el("h2", null, "Safe haven: " + esc(p.place)), this.host(p.intro), tools, row]);
+      this.render([this.steps(0), el("h2", null, esc(p.place)), this.host(p.intro), tools, row]);
     },
 
     /* 2. Read the passage */
@@ -148,7 +142,7 @@
       const tools = el("div", "read-tools");
       const sb = speakButton(() => p.title + ". " + p.text);
       if (sb) tools.appendChild(sb);
-      const btn = el("button", "btn big go", "I read it. Ask me!");
+      const btn = el("button", "btn big go", "Done reading");
       btn.addEventListener("click", () => {
         Audio().play("click");
         const wc = wordCount(p.text);
@@ -181,7 +175,7 @@
       const opts = el("div", "options");
       const feedback = el("div", "feedback hidden");
       const row = el("div", "btn-row");
-      const next = el("button", "btn big hidden", this.qi < 2 ? "Next question" : "See how I did");
+      const next = el("button", "btn big hidden", this.qi < 2 ? "Next question" : "Results");
       row.appendChild(next);
       let attempts = 0;
       const buttons = [];
@@ -203,7 +197,7 @@
             this.earned += reward;
             if (attempts === 1) this.correctHere += 1;
             feedback.className = "feedback good";
-            feedback.innerHTML = (attempts === 1 ? "Yes! " : "That's it! ") + '<span class="scrap-pop">+' + reward + " scrap</span>";
+            feedback.innerHTML = (attempts === 1 ? "Right. " : "That's it. ") + '<span class="scrap-pop">+' + reward + " scrap</span>";
             feedback.classList.remove("hidden");
             next.classList.remove("hidden");
             Audio().play("correct");
@@ -223,7 +217,7 @@
               State().stats.answered += 1;
               State().saveStats();
               feedback.className = "feedback bad";
-              feedback.innerHTML = "The answer was <strong>" + esc(q.options[q.answer]) + "</strong>. Look at the text and you'll see it. On to the next one!";
+              feedback.innerHTML = "The answer was <strong>" + esc(q.options[q.answer]) + "</strong>. It's in the text. Next one.";
               next.classList.remove("hidden");
             }
           }
@@ -249,11 +243,11 @@
       if (this.correctHere === 3) {
         run.scrap += REWARD.perfect;
         this.earned += REWARD.perfect;
-        bonusLine = '<p>All three on the first try! <span class="scrap-pop">+' + REWARD.perfect + " bonus scrap</span></p>";
+        bonusLine = '<p>Three for three on the first try. <span class="scrap-pop">+' + REWARD.perfect + " bonus scrap</span></p>";
       }
-      const msg = this.correctHere === 3 ? "You read that perfectly." : this.correctHere >= 1 ? "Nice reading." : "Tough one. The next one will go better.";
+      const msg = this.correctHere === 3 ? "Clean read. Every answer, first try." : this.correctHere >= 1 ? "Good reading. We can use that." : "Rough one. The next stop goes better.";
       const box = el("div", "result-box", "<strong>" + msg + "</strong><br>You earned <strong>" + this.earned + " scrap</strong> at the " + esc(this.passage.place) + "." + bonusLine);
-      const btn = el("button", "btn big go", "Pick a road");
+      const btn = el("button", "btn big go", "Choose the route");
       btn.addEventListener("click", () => {
         Audio().play("click");
         this.choice();
@@ -299,7 +293,7 @@
       const box = el("div", "result-box", esc(o.result));
       const tags = el("div", "tags");
       effectTags(e).forEach(([t, cls]) => tags.appendChild(el("span", "tag " + cls, esc(t))));
-      if (!tags.children.length) tags.appendChild(el("span", "tag", "A normal road"));
+      if (!tags.children.length) tags.appendChild(el("span", "tag", "Normal road"));
       box.appendChild(el("p", "small muted", "Next road:"));
       box.appendChild(tags);
       const btn = el("button", "btn big", "Go to the garage");
@@ -326,7 +320,7 @@
       preview.height = 200;
       const groups = el("div", "upgrade-groups");
       const vanG = el("div", "upgrade-group");
-      vanG.appendChild(el("h3", null, "The Bookmobile"));
+      vanG.appendChild(el("h3", null, "The van"));
       const gunG = el("div", "upgrade-group");
       gunG.appendChild(el("h3", null, "The Gun"));
 
@@ -375,7 +369,7 @@
       groups.appendChild(vanG);
       groups.appendChild(gunG);
 
-      const go = el("button", "btn big go", "Hit the road!");
+      const go = el("button", "btn big go", "Roll out");
       go.addEventListener("click", () => {
         Audio().play("click");
         cancelAnimationFrame(this.previewRaf);
@@ -385,9 +379,9 @@
       });
       const row = el("div", "btn-row");
       row.appendChild(go);
-      const tip = el("p", "small muted", "Captain Ruby: \"Reading pays better than shooting. Come back with more scrap.\"");
+      const tip = el("p", "small muted", "Ruby: \"Reading pays better than bullets. Bring more scrap.\"");
 
-      this.render([this.steps(3), el("h2", null, "Captain Ruby's garage"), head, preview, groups, tip, row]);
+      this.render([this.steps(3), el("h2", null, "Ruby's garage"), head, preview, groups, tip, row]);
 
       const t0 = performance.now();
       const loop = () => {
@@ -432,7 +426,7 @@
             run.correct += 1;
             State().stats.correct += 1;
             fb.className = "feedback good";
-            fb.innerHTML = 'Right! <span class="scrap-pop">+' + REWARD.sign + " scrap</span>";
+            fb.innerHTML = 'Right. <span class="scrap-pop">+' + REWARD.sign + " scrap</span>";
             Audio().play("correct");
           } else {
             b.classList.add("wrong");

@@ -39,7 +39,7 @@
     const g = State.settings.grade;
     $("title-grade").textContent = "Reading level: " + ORDINAL[g] + " grade. Change it in Settings.";
     const best = State.best[g];
-    $("title-best").textContent = best ? "Best run at this level: " + best.miles + " miles, " + best.havens + " havens, " + best.correct + " questions right." : "No runs yet at this level. Let's fix that.";
+    $("title-best").textContent = best ? "Best run at this level: " + best.miles + " miles, " + best.havens + " havens, " + best.correct + " questions right." : "No runs at this level yet.";
     $("btn-continue").classList.toggle("hidden", !State.hasCheckpoint());
   }
 
@@ -49,7 +49,7 @@
     cancelAnimationFrame(titleRaf);
     const loop = () => {
       if ($("screen-title").classList.contains("hidden")) return;
-      Game.showcase(c, { armor: 1, engine: 1, bumper: 1, paint: 3, damage: 2, fireRate: 0, spread: 1 }, (performance.now() - t0) / 1000);
+      Game.showcase(c, { armor: 2, engine: 1, bumper: 2, paint: 3, damage: 2, fireRate: 0, spread: 1 }, (performance.now() - t0) / 1000);
       titleRaf = requestAnimationFrame(loop);
     };
     loop();
@@ -94,7 +94,7 @@
     const items = [
       [run.miles.toFixed ? run.miles.toFixed(1) : run.miles, "miles"],
       [run.havens, "havens"],
-      [run.kills, "poofs"],
+      [run.kills, "downed"],
       [run.correct, "right answers"],
     ];
     items.forEach(([v, l]) => {
@@ -103,7 +103,7 @@
       d.innerHTML = '<span class="v">' + v + '</span><span class="l">' + l + "</span>";
       stats.appendChild(d);
     });
-    $("gameover-best").textContent = result && result.isBest ? "New best run at this reading level!" : result && result.prev ? "Best at this level: " + result.prev.miles + " miles." : "";
+    $("gameover-best").textContent = result && result.isBest ? "New best run at this reading level." : result && result.prev ? "Best at this level: " + result.prev.miles + " miles." : "";
     show("screen-gameover");
     refreshTitle();
   }

@@ -9,185 +9,184 @@
       {
         id: "g2-library-fort",
         place: "Library Fort",
-        host: "Ms. Page",
-        intro: "A woman with a pencil in her hair peeks over a wall of books. \"Welcome to Library Fort! We have rules, but my glasses broke. Could you read them to the new kids?\"",
-        kind: "rules",
-        title: "Library Fort Rules",
-        text: "1. Do not pull books from the walls. The walls are made of books! If you pull one, the wall may fall.\n2. Read quietly in the fort. Biscuit is the only one who may snore.\n3. Put each book back where you found it.\n4. If a Shambler knocks, do not open the door. Read him a poem through the mail slot. Shamblers get bored and wander off.\n5. Share the good books. Do not hide them under your bed.",
-        questions: [
-          { type: "detail", q: "What are the walls made of?", options: ["Bricks", "Books", "Boxes"], answer: 1, hint: "Look at rule one." },
-          { type: "inference", q: "Why should you read a poem to a Shambler at the door?", options: ["So he learns to read", "So he falls asleep", "So he gets bored and leaves"], answer: 2, hint: "Rule four tells you what Shamblers do when they hear a poem." },
-          { type: "vocab", word: "wander", q: "What does the word \"wander\" mean here?", options: ["Walk off slowly", "Run very fast", "Sit down hard"], answer: 0, hint: "Rule four says what bored Shamblers do." }
-        ],
-        choice: {
-          prompt: "Ms. Page says there are three ways out of the fort.",
-          options: [
-            { label: "The book tunnel", desc: "It is long and twisty, but no Shamblers know about it.", effects: { zombies: 0.6, length: 1.3 }, result: "The tunnel is lined with comic books. Biscuit tries to read one." },
-            { label: "The front steps", desc: "It is fast, but Shamblers line up there to return their books.", effects: { zombies: 1.4, length: 0.9, scrap: 25 }, result: "Shamblers hold up overdue books. You poof them and keep the books." },
-            { label: "The reading garden", desc: "It is pretty and has crates, but the sprinklers make a mist.", effects: { zombies: 1.0, fog: true, crates: 2 }, result: "Sprinklers hiss and rainbows pop up in the mist. Two crates sit by the roses." }
-          ]
-        }
-      },
-      {
-        id: "g2-fire-station",
-        place: "Fire Station",
-        host: "Captain Ruby",
-        intro: "Captain Ruby slides out from under a fire truck. \"Max keeps the garage log for me. His writing is tiny. Read me Monday so I know what got done.\"",
-        kind: "log",
-        title: "Garage Log, Monday",
-        text: "8:00. Captain Ruby fixed the fire truck horn. It now plays a song.\n\n9:30. A Shambler bumped into the big red door. Biscuit barked once. The Shambler said sorry and left.\n\n11:00. Doc Lin patched the van tire. She made a joke about it being tired. Nobody laughed. She laughed.\n\n1:00. The crew ate lunch on the fire truck. Mia dropped her sandwich down the pole. Biscuit found it at the bottom. Lucky dog.\n\n3:00. Ruby filled the van with gas. Ready to roll!",
-        questions: [
-          { type: "detail", q: "What did Mia drop down the pole?", options: ["Her sandwich", "Her map", "Her hat"], answer: 0, hint: "Look at the 1:00 entry." },
-          { type: "inference", q: "Who thought Doc Lin's joke was funny?", options: ["Everyone", "Only Doc Lin", "Only Biscuit"], answer: 1, hint: "Read who laughed after the tire joke." },
-          { type: "vocab", word: "patched", q: "What does the word \"patched\" mean here?", options: ["Fixed", "Popped", "Painted"], answer: 0, hint: "Doc Lin did this to the tire so the van could go." }
-        ],
-        choice: {
-          prompt: "Ruby says the fire truck road splits in two.",
-          options: [
-            { label: "The hose road", desc: "It is wet and slow, and Shamblers slip right off it.", effects: { zombies: 0.7, length: 1.1 }, result: "Water sprays the road. Shamblers slide away like penguins." },
-            { label: "The siren road", desc: "It is short, but the horn song calls every fast Shambler in town.", effects: { zombies: 1.3, runners: 1.5, length: 0.8, scrap: 30 }, result: "The horn plays its song. Shamblers come dancing. Poof, poof, poof!" }
-          ]
-        }
-      },
-      {
-        id: "g2-water-tower",
-        place: "Water Tower",
         host: "Max and Mia",
-        intro: "Max and Mia climb down the water tower ladder with a rolled-up map. \"We drew the whole valley from up top! Mia wrote the key. Can you read it so Max stops guessing?\"",
-        kind: "map",
-        title: "The Twins' Map",
-        text: "The big blue circle is the water tower. The wavy blue line is Frog Creek. Do not drink from it. The frogs do. The brown line is the dirt road to town. The black line is the train track. No trains run now, so crossing is safe.\n\nThe green blobs are Shamblers. We counted nine. Most were stuck in mud by the creek. The gold stars are crates. We found three. The smudge is Biscuit. He would not sit still for his picture.",
+        intro: "Mia holds out a notebook with the cover torn off. Max looks at the floor. \"It got rained on. Half the words ran. Jo wants it in the log. You read it. I can't look at it.\"",
+        kind: "diary",
+        title: "Mia's Diary, Day 52",
+        text: "Day 52. The radio has been quiet for three days. Jo sits by it all night. She does not say much.\n\nMax and I walked the wall at dawn. We counted nine walkers in the lot. Last week it was four. They are coming closer. Ruby welded two more bus doors onto the wall.\n\nTonight the radio clicked. Jo grabbed the headset. It was Doc Lin. She said, \"Still here.\" Jo cried a little. Then she wrote it down.",
         questions: [
-          { type: "detail", q: "How many Shamblers did the twins count?", options: ["Nine", "Three", "Six"], answer: 0, hint: "Find the line right after the green blobs." },
-          { type: "inference", q: "Why is Biscuit a smudge on the map?", options: ["He fell in the mud", "He kept moving", "He is very small"], answer: 1, hint: "Read what Biscuit would not do." },
-          { type: "vocab", word: "smudge", q: "What does the word \"smudge\" mean here?", options: ["A small dog", "A gold star", "A messy mark"], answer: 2, hint: "It is what you get when a drawing gets rubbed." }
+          { type: "detail", q: "How many walkers did the twins count in the lot?", options: ["Four", "Nine", "Three"], answer: 1, hint: "Look at the part about walking the wall at dawn." },
+          { type: "inference", q: "Why did Ruby add more bus doors to the wall?", options: ["The walkers are coming closer", "The old doors looked bad", "Jo asked for more room"], answer: 0, hint: "Read the two lines right before Ruby's name." },
+          { type: "vocab", word: "welded", q: "What does the word \"welded\" mean here?", options: ["Painted them", "Took them off", "Fixed them on"], answer: 2, hint: "Think about what Ruby did with the bus doors and the wall." }
         ],
         choice: {
-          prompt: "The twins point at three lines on the map.",
+          prompt: "Max spreads the map. Two roads leave the Fort, and one more if you wait.",
           options: [
-            { label: "The dirt road", desc: "It is plain and long, and the Shamblers are busy in the mud.", effects: { zombies: 0.7, length: 1.2 }, result: "Dust puffs behind the van. The mud Shamblers wave goodbye." },
-            { label: "The train track", desc: "It is bumpy and Shamblers wait there, but so do three crates.", effects: { zombies: 1.3, crates: 3, hp: -5 }, result: "Bump, bump, bump. The crates are worth it. Mia marks them off the map." },
-            { label: "Frog Creek", desc: "It is shallow and quick, but the splash fogs up the windows.", effects: { fog: true, length: 0.9, scrap: 10 }, result: "Splash! Frogs ride on the hood. You can barely see the road." }
+            { label: "The lot road", desc: "It goes right past the nine walkers, but it is the short way.", effects: { zombies: 1.4, length: 0.8, scrap: 25 }, result: "The walkers turn as one. Ruby does not slow down, and the lot falls behind you." },
+            { label: "The creek road", desc: "It loops around the lot, and it takes most of a day.", effects: { zombies: 0.8, length: 1.3 }, result: "The creek road is empty and slow. Rook sleeps with one ear up." },
+            { label: "The night road", desc: "Leave after dark. Walkers see less, but so do you.", effects: { zombies: 0.9, night: true, crates: 2 }, result: "Headlights only. Mia spots two crates in the ditch." }
           ]
         }
       },
       {
-        id: "g2-drive-in-theater",
-        place: "Drive-In Theater",
-        host: "Doc Lin",
-        intro: "Doc Lin stands by the big screen with a bucket of popcorn. \"Grandpa Joe told this story on the radio. I wrote it down fast, and now I can't read my own writing. Help?\"",
-        kind: "story",
-        title: "The Shamblers See a Movie",
-        text: "Last Friday we showed a cartoon at the drive-in. Biscuit got the best seat, right on the hood.\n\nHalfway through, six Shamblers shuffled in. They did not have tickets. They sat in the back row and watched. Then the cartoon duck slipped on a banana. The Shamblers laughed! It sounded like, \"Brrr-ha-ha.\" They laughed so hard they fell over. Poof, poof, poof, poof, poof, poof. Six puffs of green smoke floated away.\n\nGrandpa Joe said it was the best movie ever. We all got extra popcorn.",
+        id: "g2-old-lighthouse",
+        place: "Old Lighthouse",
+        host: "Abe",
+        intro: "An old man with a lantern waits at the bottom of the lighthouse steps. \"Name's Abe. I keep the light. The code is painted on the wall. My eyes are no good anymore. Read it, so you know what the light is telling you.\"",
+        kind: "sign",
+        title: "The Light Code",
+        text: "THE LIGHT TALKS. LEARN IT.\n\nOne long flash: the road is clear. Come in.\nTwo short flashes: walkers on the beach. Wait.\nThree short flashes: walkers at the gate. Go back.\nNo light at all: the keeper is gone. Do not come.\n\nThe light turns on at dark. It turns off at dawn. No light? Look for a white rag on the rail. White rag means I am still here. The light just needs gas.",
         questions: [
-          { type: "detail", q: "Where did Biscuit sit?", options: ["In the back row", "By the screen", "On the hood"], answer: 2, hint: "Look at the first part of the story." },
-          { type: "inference", q: "Why did the Shamblers poof?", options: ["They laughed too hard", "The duck chased them", "Doc Lin shooed them"], answer: 0, hint: "Read what happened right before the poofs." },
-          { type: "vocab", word: "shuffled", q: "What does the word \"shuffled\" mean here?", options: ["Ran quickly", "Walked slowly", "Jumped high"], answer: 1, hint: "It is how slow Shamblers move their feet." }
+          { type: "detail", q: "What do two short flashes mean?", options: ["Walkers on the beach", "The road is clear", "The keeper is gone"], answer: 0, hint: "Find the line that starts with two." },
+          { type: "inference", q: "No light, but a white rag on the rail. What does it mean?", options: ["Abe is gone", "Walkers are at the gate", "Abe needs gas for the light"], answer: 2, hint: "Read the last three lines." },
+          { type: "vocab", word: "keeper", q: "What does the word \"keeper\" mean here?", options: ["A kind of walker", "The one who runs the light", "A boat on the beach"], answer: 1, hint: "Think about who wrote the sign and what his job is." }
         ],
         choice: {
-          prompt: "Doc Lin points past the big screen.",
+          prompt: "Abe points down the coast. Two roads.",
           options: [
-            { label: "The popcorn road", desc: "It is quick, but the big slow Shamblers love the smell of butter.", effects: { zombies: 1.2, brutes: 1.5, length: 0.9, scrap: 25 }, result: "The whole road smells like butter. Big Shamblers follow their noses. Poof!" },
-            { label: "The back lot", desc: "It is long and dull, and nothing much happens there.", effects: { zombies: 0.7, length: 1.2 }, result: "You bump over speaker poles for a mile. Biscuit snores the whole way." }
+            { label: "The beach road", desc: "Flat and fast, but the tide brings fog, and walkers walk the sand.", effects: { zombies: 1.2, fog: true, scrap: 20 }, result: "Fog comes off the water. Shapes move on the sand, and you do not stop to count them." },
+            { label: "The cliff road", desc: "High, slow, and clear. Nothing walks up there but you.", effects: { zombies: 0.7, length: 1.2 }, result: "The cliff road is long and empty. Behind you, Abe gives one long flash: the road is clear." }
           ]
         }
       },
       {
-        id: "g2-mini-golf-castle",
-        place: "Mini-Golf Castle",
-        host: "Queen Nell",
-        intro: "A woman in a paper crown leans on a putter. \"I am Queen Nell of the Mini-Golf Castle. Someone taped a poster to my drawbridge. Read it and tell me if it is good news.\"",
-        kind: "poster",
-        title: "Big Mini-Golf Contest!",
-        text: "Saturday at noon, at the Mini-Golf Castle.\n\nAll kids may play. All dogs may play too. Bring your own ball. If you have no ball, ask Queen Nell. She has a bucket of them.\n\nThe hardest hole is the dragon. His mouth opens and shuts. Hit the ball when the mouth is open! Shamblers are not allowed. They keep eating the balls.\n\nFirst prize is a golden putter. Second prize is a pie from the bakery. Everyone gets lemonade. Come and play!",
+        id: "g2-mile-9-diner",
+        place: "Mile 9 Diner",
+        host: "Ruby",
+        intro: "Ruby slaps a page on the diner counter. Coffee rings cover half of it. \"Doc counted the stock. Something on this list does not add up. Read it and tell me what.\"",
+        kind: "list",
+        title: "Diner Stock, Week 8",
+        text: "Counted by Doc Lin. Checked by Jo.\n\nWater: twelve jugs. Twelve on the shelf.\nBeans: twenty cans. Twenty on the shelf.\nRice: four bags. Four on the shelf.\nGas: six cans. Five on the shelf.\nMeds: two boxes. Two on the shelf.\nBatteries: one box. One on the shelf.\n\nNote from Jo: One gas can is missing. The door was locked all night. Nobody left camp. Ask Max and Mia who had the van keys last.",
         questions: [
-          { type: "detail", q: "What is first prize?", options: ["A golden putter", "A pie", "Lemonade"], answer: 0, hint: "Look near the end for the word first." },
-          { type: "inference", q: "Why are Shamblers not allowed?", options: ["They are too slow", "They have no money", "They eat the balls"], answer: 2, hint: "Read what Shamblers keep doing." },
-          { type: "vocab", word: "allowed", q: "What does the word \"allowed\" mean here?", options: ["Very loud", "Let in", "Given a prize"], answer: 1, hint: "Think about why the poster says Shamblers are not this." }
+          { type: "detail", q: "How many gas cans are on the shelf?", options: ["Six", "Four", "Five"], answer: 2, hint: "Find the line that starts with gas." },
+          { type: "inference", q: "What does Jo think happened to the gas?", options: ["Walkers took it", "Someone in camp used it", "It leaked out"], answer: 1, hint: "Read Jo's note about the door and the keys." },
+          { type: "vocab", word: "missing", q: "What does the word \"missing\" mean here?", options: ["Not where it should be", "Full to the top", "Too heavy to lift"], answer: 0, hint: "Compare the gas count with what is on the shelf." }
         ],
         choice: {
-          prompt: "Queen Nell lowers the drawbridge. Which way?",
+          prompt: "Ruby pockets the van keys. Which way from Mile 9?",
           options: [
-            { label: "The dragon hole", desc: "It is a shortcut through the dragon, but his mouth might bonk the van.", effects: { zombies: 1.0, hp: -10, scrap: 30, length: 0.8 }, result: "The mouth shuts. Bonk! But you grab a pile of scrap inside." },
-            { label: "The windmill lane", desc: "It is long and gentle, and the windmill blows the Shamblers away.", effects: { zombies: 0.7, length: 1.2 }, result: "Whoosh! The windmill spins. Shamblers roll off like tumbleweeds." },
-            { label: "The lemonade stand", desc: "You stop to help, and Nell fixes a dent, but Shamblers line up for lemonade too.", effects: { hp: 10, zombies: 1.2 }, result: "Queen Nell hammers out a dent while you pour. Shamblers wait in line. Politely." }
+            { label: "The highway", desc: "Fast and straight, but stalled cars line both sides for miles.", effects: { zombies: 1.3, length: 0.9, scrap: 25 }, result: "You thread the stalled lanes while Mia admits she filled the van tank last night. That was the missing can." },
+            { label: "The county road", desc: "Slow and quiet, with a crate left behind by another crew.", effects: { zombies: 0.8, length: 1.2, crates: 1 }, result: "The county road is empty. Mia admits she filled the van tank last night, and Ruby almost smiles." }
+          ]
+        }
+      },
+      {
+        id: "g2-train-yard",
+        place: "Train Yard",
+        host: "Jo",
+        intro: "Jo shines a flashlight on the side of a rusted boxcar. The letters are tall and dripping. \"Somebody wanted this read. Read it, slow.\"",
+        kind: "warning",
+        title: "Painted on Car 40",
+        text: "READ THIS BEFORE YOU GO IN.\n\nThe yard is not clear. Walkers are in cars 12 to 20. The doors are shut, but they are not locked. Do not slide any door open. Do not bang on the metal. They wake up when they hear it.\n\nThe tool shed is safe. The key is under the red brick. Take what you need. Leave the rest for the next crew. Lock it when you go.\n\nNobody got hurt here. Keep it that way.",
+        questions: [
+          { type: "detail", q: "Where is the shed key?", options: ["Inside car 12", "On the shed door", "Under the red brick"], answer: 2, hint: "Look at the lines about the tool shed." },
+          { type: "inference", q: "Why leave some tools for the next crew?", options: ["Others will need them too", "The tools are broken", "The shed is too small"], answer: 0, hint: "Think about who else will read this wall." },
+          { type: "vocab", word: "clear", q: "What does the word \"clear\" mean here?", options: ["Easy to see", "Free of walkers", "Clean and swept"], answer: 1, hint: "Read what the next line says is in the cars." }
+        ],
+        choice: {
+          prompt: "Jo locks the shed. Which way out of the yard?",
+          options: [
+            { label: "Along the tracks", desc: "Straight and flat, but the tracks pass cars 12 to 20.", effects: { zombies: 1.4, length: 0.9, scrap: 30 }, result: "Metal doors rattle as you pass. Nothing slides open, and the yard falls behind." },
+            { label: "The service road", desc: "It bends around the yard, and the fog off the river is thick.", effects: { zombies: 0.8, length: 1.1, fog: true }, result: "The service road is slow and gray. Rook stays quiet the whole way." }
           ]
         }
       },
       {
         id: "g2-boat-dock",
         place: "Boat Dock",
-        host: "Skipper Ann",
-        intro: "A woman in a yellow raincoat holds up a glass bottle. \"I am Skipper Ann. This washed up under the dock this morning. There is a letter inside. Read it to me?\"",
+        host: "Doc Lin",
+        intro: "Doc Lin hands you a letter in a plastic bag. \"Found it nailed inside the cabin of that blue boat. Someone wrote it for family. If they come through here, I want to be able to tell them what it says.\"",
         kind: "letter",
-        title: "A Letter in a Bottle",
-        text: "Dear Driver,\n\nWe are at the Old Lighthouse. Grandpa Joe is here too. The beach road is washed out. Do not take it! Take the hill road instead. Look for a yellow flag on a pole. That is the turn.\n\nBiscuit wears a tiny life jacket now. He tries to chew it off. We saw a Shambler on the beach. He tried to eat a crab. The crab pinched his nose. Poof! Hurry up, Grandpa Joe made soup.\n\nLove,\nMax and Mia",
+        title: "Letter in the Blue Boat",
+        text: "Dee,\n\nYou made it to the dock. Good. I knew you would.\n\nThe boat has no motor. Do not try to take it out. Dad and I went north on foot. We follow the river road. We mark every turn with a blue X. Follow the X marks and you will find us.\n\nThere is food in the cooler. There is a radio in the bag. Call on channel nine at noon. We listen every day.\n\nWe are not leaving without you.\n\nMom",
         questions: [
-          { type: "detail", q: "What should you look for at the turn?", options: ["A red barn", "A yellow flag", "A big rock"], answer: 1, hint: "Find the line about the pole." },
-          { type: "inference", q: "Why did the Shambler on the beach poof?", options: ["The crab pinched him", "Biscuit bit him", "He fell in the sea"], answer: 0, hint: "Read what the crab did." },
-          { type: "vocab", word: "pinched", q: "What does the word \"pinched\" mean here?", options: ["Kissed softly", "Pushed away", "Squeezed hard"], answer: 2, hint: "It is what a crab does with its claw." }
+          { type: "detail", q: "What channel should Dee call on?", options: ["Channel six", "Channel nine", "Channel two"], answer: 1, hint: "Find the line about the radio and noon." },
+          { type: "inference", q: "Why did Mom and Dad mark the turns with a blue X?", options: ["So walkers stay away", "So the boat stays safe", "So Dee can follow them"], answer: 2, hint: "Read what Mom says to do with the X marks." },
+          { type: "vocab", word: "cooler", q: "What does the word \"cooler\" mean here?", options: ["A box for food", "A cold wind", "A kind of boat"], answer: 0, hint: "Think about what Mom says is inside it." }
         ],
         choice: {
-          prompt: "Skipper Ann points up the coast. Which road?",
+          prompt: "Doc puts the letter back where she found it. Which road north?",
           options: [
-            { label: "The hill road", desc: "It is long and bendy, but it is the road the twins said to take.", effects: { zombies: 0.8, length: 1.2 }, result: "You spot the yellow flag and turn. Grandpa Joe's soup is still hot." },
-            { label: "The beach road", desc: "It is short, but it is washed out, and the waves splash the van.", effects: { zombies: 1.2, hp: -10, scrap: 30, length: 0.8 }, result: "Waves slosh over the hood, but you find a pile of washed-up scrap. Crabs ride along. Pinch, poof, pinch, poof." }
+            { label: "The river road", desc: "The one Mom marked. Long and wet, and the fog never lifts.", effects: { zombies: 0.8, length: 1.2, fog: true }, result: "Blue X marks show up on posts and trees. Someone is still ahead of you." },
+            { label: "The ridge cut", desc: "Short and dry, but sprinters use the cut too.", effects: { zombies: 1.2, runners: 1.6, length: 0.9, scrap: 25 }, result: "Something fast crosses the road behind you. Ruby does not look back." }
           ]
         }
       },
       {
-        id: "g2-radio-tower",
-        place: "Radio Tower",
-        host: "Grandpa Joe",
-        intro: "Grandpa Joe pats the chair next to his radio. \"I keep a diary up here. My handwriting looks like a chicken walked on it. Read me Tuesday, would you?\"",
-        kind: "diary",
-        title: "Grandpa Joe's Diary",
-        text: "Tuesday\n\nThe radio crackled, and then I heard Doc Lin. She told three puns about tires. I only laughed at one.\n\nAt lunch a Shambler stood under the tower. He moaned, \"Brrrains?\" I lowered a sandwich on a string. He sniffed it and said, \"Brrrread?\" Then he sat down and ate the whole thing. I think he was just hungry.\n\nLater I played the Bookmobile song on the radio. Max and Mia called in to sing along. Biscuit howled. It was the best part of my day.",
+        id: "g2-ranger-station",
+        place: "Ranger Station",
+        host: "Ruby",
+        intro: "Ruby drops a grease-stained card on the hood. \"Generator steps. I wrote them half asleep. Read them back before I touch it. Skip one and we lose the lights.\"",
+        kind: "manual",
+        title: "Generator Start-Up",
+        text: "1. Check the fuel. Half a tank or more.\n2. Open the vent on the roof. Fumes can make you sick.\n3. Turn the switch to START.\n4. Pull the cord. Pull it three times.\n5. If it does not catch, wait one minute. Try again.\n6. When it hums, flip the switch to RUN.\n7. Turn on one light at a time.\n\nRun it two hours, no more. It is loud. Shut it off before full dark. Walkers follow sound in the dark.",
         questions: [
-          { type: "detail", q: "What did Grandpa Joe lower on a string?", options: ["A radio", "A book", "A sandwich"], answer: 2, hint: "Look at the part about lunch." },
-          { type: "inference", q: "Why did the Shambler say \"Brrrread?\"", options: ["He wanted to sing", "He smelled the sandwich", "He saw the radio"], answer: 1, hint: "Read what he did right before he spoke." },
-          { type: "vocab", word: "crackled", q: "What does the word \"crackled\" mean here?", options: ["Made a popping sound", "Turned bright red", "Fell off the wall"], answer: 0, hint: "It is the sound an old radio makes before a voice comes through." }
+          { type: "detail", q: "How many times do you pull the cord?", options: ["Three times", "Two times", "One time"], answer: 0, hint: "Look at step four." },
+          { type: "inference", q: "Why shut the generator off before full dark?", options: ["The fuel runs out", "Walkers follow the sound", "The lights get too hot"], answer: 1, hint: "Read the last line on the card." },
+          { type: "vocab", word: "catch", q: "What does the word \"catch\" mean here?", options: ["Fall over", "Get stuck", "Start running"], answer: 2, hint: "Step five says what to do if it does not happen." }
         ],
         choice: {
-          prompt: "Grandpa Joe checks the radio for the roads.",
+          prompt: "Ruby wipes her hands. Which road from the station?",
           options: [
-            { label: "The valley road", desc: "It is long and quiet, and the radio says the Shamblers all went to lunch.", effects: { zombies: 0.6, length: 1.3 }, result: "The road hums. Grandpa Joe plays your song the whole way." },
-            { label: "The ridge road", desc: "It is short and windy, and the wind blows fast Shamblers up there, but crates too.", effects: { zombies: 1.2, runners: 1.5, length: 0.9, crates: 3 }, result: "Wind whistles over the ridge. Three crates glint in the sun." }
+            { label: "The logging road", desc: "Steep and short, and bruisers come down out of the trees.", effects: { zombies: 1.2, brutes: 1.6, length: 0.9, scrap: 30 }, result: "A big slow shape stands between the pines. You are past it before it turns." },
+            { label: "The lake loop", desc: "Flat and long. It is the road the rangers used.", effects: { zombies: 0.7, length: 1.3 }, result: "The lake loop is quiet. Max draws the shoreline as you drive." },
+            { label: "The dusk run", desc: "Leave at dusk. It gets dark fast, but there are crates at the boat ramp.", effects: { zombies: 1.0, night: true, crates: 3 }, result: "The light goes fast. Three crates sit at the ramp, right where Max said." }
           ]
         }
       },
       {
-        id: "g2-mountain-lodge",
-        place: "Mountain Lodge",
-        host: "Cook Ozzie",
-        intro: "A round man in a flannel shirt stirs a giant pot. \"I am Ozzie. I cook for anyone who climbs this high. Doc Lin wrote down her cocoa recipe. Read it so I do not mess it up again.\"",
-        kind: "recipe",
-        title: "Doc Lin's Cocoa for a Crowd",
-        text: "Get a big pot and eight cups of milk. Pour the milk into the pot. Warm it slowly. Do not let it boil, or it will foam over. Stir in half a cup of cocoa. Stir in half a cup of sugar. Keep stirring until it is smooth and brown.\n\nPour it into mugs. Drop six marshmallows in each mug. Seven if someone was brave today. Serve it hot, but blow first! Biscuit gets a dog treat, not cocoa. Cocoa is bad for dogs.",
+        id: "g2-toll-plaza",
+        place: "Toll Plaza",
+        host: "Doc Lin",
+        intro: "Doc Lin peels a poster off a toll booth window. \"These are all over the plaza. Someone is looking for a kid. Read it. If we have seen him, we need to say so.\"",
+        kind: "poster",
+        title: "Looking for Ben",
+        text: "LOOKING FOR BEN REYES. Age 16. Tall, thin, black hair. Last seen at the Toll Plaza, Day 30. He had a green pack and a red bike.\n\nBen, if you see this, come to the Water Tower. Go north on Route 4. Knock on the gate and ask for Ana. She will know your name.\n\nIf anyone has seen Ben, leave a note here. Say the day and the road. We check this booth every week.\n\nHe is not alone out there. He has us.",
         questions: [
-          { type: "detail", q: "How many marshmallows go in each mug?", options: ["Eight", "Six", "Two"], answer: 1, hint: "Look at the line about mugs." },
-          { type: "inference", q: "Why should you warm the milk slowly?", options: ["So it does not foam over", "So it turns brown faster", "So it gets nice and cold"], answer: 0, hint: "Read what happens if the milk boils." },
-          { type: "vocab", word: "smooth", q: "What does the word \"smooth\" mean here?", options: ["Very cold", "Full of bubbles", "With no lumps"], answer: 2, hint: "You keep stirring until the cocoa looks this way." }
+          { type: "detail", q: "What color is Ben's bike?", options: ["Green", "Black", "Red"], answer: 2, hint: "Find the line about what Ben had with him." },
+          { type: "inference", q: "Why does Ana's crew check the booth every week?", options: ["They sell tickets there", "They hope for news of Ben", "They live in the booth"], answer: 1, hint: "Read what the poster asks people to leave at the booth." },
+          { type: "vocab", word: "pack", q: "What does the word \"pack\" mean here?", options: ["A bag for your back", "A group of dogs", "A deck of cards"], answer: 0, hint: "Ben had it with him, along with his bike." }
         ],
         choice: {
-          prompt: "Ozzie points down the mountain. Which way?",
+          prompt: "Doc tapes the poster back up. Which lane out of the plaza?",
           options: [
-            { label: "The switchback road", desc: "It zigzags down slowly, and the Shamblers get dizzy and give up.", effects: { zombies: 0.7, length: 1.2 }, result: "Left, right, left, right. Biscuit's ears flap at every turn." },
-            { label: "The steep road", desc: "It goes straight down, which is fast, but the brakes get hot.", effects: { zombies: 1.1, length: 0.7, hp: -10, scrap: 25 }, result: "The van flies down the slope. The brakes squeal. Ozzie's cocoa sloshes." },
-            { label: "The sled run", desc: "The van slides down the snow, which is fun, but the spray hides the road.", effects: { fog: true, length: 0.8, crates: 2 }, result: "Snow sprays everywhere! Max yells, \"Crate!\" and you bump right over it." }
+            { label: "Route 4 north", desc: "The way Ana's crew went. Open road, and walkers use open road.", effects: { zombies: 1.3, scrap: 20 }, result: "Far up Route 4, a red bike leans on a mile marker. Mia writes down the day and the road." },
+            { label: "The frontage road", desc: "Slow, bumpy, and empty. It bends back toward the river.", effects: { zombies: 0.8, length: 1.2, hp: -5 }, result: "The frontage road rattles the van. Nothing follows, and nobody says much." }
+          ]
+        }
+      },
+      {
+        id: "g2-drive-in",
+        place: "Drive-In",
+        host: "Jo",
+        intro: "Jo spreads the log book on the ticket booth counter. \"The night the radio went quiet. I kept writing anyway. Read it. I want to hear how it sounds to someone else.\"",
+        kind: "log",
+        title: "Drive-In Log, Night 61",
+        text: "9:00 PM. Max and Mia check in from the screen tower. All clear.\n\n10:00 PM. Ruby checks in from the gate. All clear.\n\n11:00 PM. No check-in from the tower. I call twice. Nothing.\n\n11:20 PM. Still nothing. Rook is standing at the door. He does not bark. Ruby goes up with a light.\n\n11:45 PM. Ruby calls. Both twins are fine. Their radio battery died. Mia is mad at herself. Max is laughing.\n\nMidnight. All clear. New rule: spare batteries go up the tower.",
+        questions: [
+          { type: "detail", q: "Who went up the tower with a light?", options: ["Jo", "Ruby", "Rook"], answer: 1, hint: "Look at the 11:20 PM line." },
+          { type: "inference", q: "Why is there a new rule about batteries?", options: ["So Jo can sleep more", "So Max stops laughing", "So the radio stays on"], answer: 2, hint: "Think about why the twins missed their check-in." },
+          { type: "vocab", word: "spare", q: "What does the word \"spare\" mean here?", options: ["Extra ones", "Broken ones", "Heavy ones"], answer: 0, hint: "Think about what the tower needed when the battery died." }
+        ],
+        choice: {
+          prompt: "Jo closes the log. Where to from the Drive-In?",
+          options: [
+            { label: "The old highway", desc: "Short and open. Walkers like open road, and so do scrap piles.", effects: { zombies: 1.3, length: 0.9, scrap: 30 }, result: "Scrap glints in a wrecked trailer, and Ruby stops just long enough to grab it." },
+            { label: "The back roads", desc: "Long and twisty. Nobody has used them in months.", effects: { zombies: 0.7, length: 1.3 }, result: "Grass grows through the back roads. Rook sleeps the whole way, which means nothing is near." },
+            { label: "The night run", desc: "Leave now, in the dark, and be there by dawn.", effects: { zombies: 1.0, night: true, length: 0.9, crates: 1 }, result: "Headlights only. One crate sits at a crossroads, and you take it." }
           ]
         }
       }
     ],
     roadSigns: [
-      { text: "Sign: \"Fire Station, 1 mile. Honk twice at the gate.\"", q: "What should you do at the gate?", options: ["Honk twice", "Stop and wait", "Turn around"], answer: 0 },
-      { text: "Radio: \"Grandpa Joe here: Shamblers are napping at the bridge. Tiptoe the van across.\"", q: "What are the Shamblers doing at the bridge?", options: ["Dancing", "Napping", "Fishing"], answer: 1 },
-      { text: "Sign on a barn: \"Fresh eggs! Leave your scrap in the can, thanks.\"", q: "Where should you leave the scrap?", options: ["In the barn", "On the road", "In the can"], answer: 2 },
-      { text: "Road sign: \"Detour: the tunnel is full of bees. Use Oak Street.\"", q: "Why is the tunnel closed?", options: ["It is full of bees", "It is too dark", "It fell down"], answer: 0 },
-      { text: "Radio: \"Doc Lin here: grab the crate by the big oak. It has the band-aids.\"", q: "What is in the crate?", options: ["Books", "Band-aids", "Beans"], answer: 1 },
-      { text: "Sign on a gas pump: \"Pump is slow. Count to one hundred, then it works.\"", q: "How do you make the pump work?", options: ["Count to one hundred", "Hit it twice", "Call Captain Ruby"], answer: 0 },
-      { text: "Chalk on the road: \"Mia was here. Crates are hidden behind the water tower.\"", q: "Where are the crates?", options: ["Under the bridge", "In the van", "Behind the water tower"], answer: 2 },
-      { text: "Sign: \"Mall Rooftop Camp: the elevator is broken. Take the ramp.\"", q: "How do you get to the roof?", options: ["The elevator", "The ramp", "The stairs"], answer: 1 }
+      { text: "Spray paint on the overpass: WALKERS PAST THIS POINT. NO SAFE CAMP FOR 20 MILES.", q: "How far is it to a safe camp?", options: ["Two miles", "Twenty miles", "Ten miles"], answer: 1 },
+      { text: "Jo on the radio: \"Bridge at Mile 9 is out. Take the quarry road and go slow.\"", q: "Which road should you take?", options: ["The bridge", "Mile 9 road", "The quarry road"], answer: 2 },
+      { text: "Hand-lettered sign on a fence: SAFE CAMP AHEAD. HONK ONCE, THEN WAIT. DO NOT GET OUT.", q: "What should you do after you honk?", options: ["Get out and knock", "Wait in the van", "Honk again"], answer: 1 },
+      { text: "Note taped to a stalled car: \"Gas tank is empty. Battery is good. Take it, we did not need it.\"", q: "What is still good in the car?", options: ["The battery", "The gas", "The tires"], answer: 0 },
+      { text: "Max on the radio: \"Sprinters on the hill road. Do not stop for anything until the water tower.\"", q: "When can you stop?", options: ["On the hill road", "Right now", "At the water tower"], answer: 2 },
+      { text: "Paint on a garage door: NO LIGHTS AFTER DARK. THEY FOLLOW LIGHT.", q: "Why should you turn the lights off at night?", options: ["To save the battery", "Walkers follow light", "So the crew can sleep"], answer: 1 },
+      { text: "Chalk on the road: \"Cole crew went west, Day 70. Three crates in the barn for whoever needs them.\"", q: "Where are the crates?", options: ["In the barn", "On the road", "In the van"], answer: 0 },
+      { text: "Sign nailed to a tree: RANGER STATION 3 MILES. GATE OPENS AT DAWN. DO NOT KNOCK AT NIGHT.", q: "When does the gate open?", options: ["At night", "At noon", "At dawn"], answer: 2 }
     ]
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

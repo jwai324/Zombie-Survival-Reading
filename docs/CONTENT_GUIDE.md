@@ -3,38 +3,57 @@
 How to write reading content for Zombie Survival Reading. Each grade lives in
 `js/content/gradeN.js`. Run `npm test` after editing to validate the schema.
 
+## Audience
+
+The **game** is for teens. The **reading level** is switchable from grade 1 to grade 6.
+That means every passage is "high interest, low readability": the subject matter is
+grounded survival fiction a 14-year-old would read on purpose, and only the sentence
+length, word choice, and passage length change with the grade. A grade 1 passage about
+a locked gate uses five-word sentences. It does not become cute, and it never talks
+down to the reader. Think of the reader as a teen who reads at that level, not a
+small child.
+
 ## World
 
-- **Setting:** a cartoon road trip across a post-zombie America. Farms, small towns,
-  deserts, mountains, a coast. Always daytime-bright and colorful unless a route choice
-  says otherwise.
-- **The player:** drives the Bookmobile, the last van full of books. The player is the
-  only person around who reads well, which is why survivors need them.
-- **The zombies:** goofy, green, slow-thinking "Shamblers." They moan "Brrrains?" but
-  mostly bump into things. They are never gruesome. When hit they POOF into green smoke.
+- **Setting:** a realistic post-outbreak America, months after "the Fall." Overcast
+  skies, empty highways, stalled cars, boarded storefronts, hand-painted warnings,
+  camps built from school buses and shipping containers. A grounded survival comic:
+  tense, quiet, hopeful in small ways. Never goofy. Never gory.
+- **The player:** drives the Bookmobile, an armored library van that runs supplies and
+  messages between camps. The player is the convoy's reader. Many survivors they meet
+  read poorly, or the documents are torn, water-stained, or half-burned, and what the
+  player reads decides what the camp does next: which road, what is safe, who is
+  still out there.
+- **The walkers:** slow, relentless, silent except for a low moan. Survivors call them
+  "walkers." The fast ones are "sprinters," the big ones are "bruisers." They are a
+  danger, not a joke, and not a horror show: when one is put down it drops and is
+  gone. No blood, no bites described, no bodies described.
 - **Recurring crew (use them, add others freely):**
-  - Captain Ruby, the mechanic who runs the garage at every haven. Blunt, kind.
-  - Doc Lin, the medic. Loves puns.
-  - Biscuit, a brave scruffy dog.
-  - Grandpa Joe, who runs the radio and tells long stories.
-  - Max and Mia, twins who draw maps of the roads.
-- **Tone:** funny, brave, hopeful. Reading is a superpower. No blood, no injured
-  people, no death. Grades 1 and 2 avoid anything spooky. Grades 5 and 6 may be mildly
-  eerie (a foggy road, a creaky lighthouse) but never scary.
+  - Ruby, 19, the mechanic. Runs the garage at every stop. Blunt, reliable, says
+    little.
+  - Doc Lin, the medic. Dry humor, tired, kind.
+  - Jo, the older radio operator. Keeps the logs and the convoy's memory.
+  - Max and Mia, 15, twins who scout ahead and draw the maps.
+  - Rook, the convoy's dog, a scarred shepherd mix who hears walkers first.
+- **Tone:** grounded, tense, hopeful. Real stakes without gore: supplies run low, a
+  bridge is out, the radio goes quiet and comes back, someone is missing and is found.
+  No on-page deaths, no injuries described in detail, no profanity. PG rating.
+  Humor is dry and comes from character, never from slapstick.
 
 ## What a haven is
 
 At each haven a host hands the player something to read, then asks three questions,
-then the player makes a route choice. The thing to read should be a **real document
-from the world** whenever possible: a note, a letter, a map legend, a radio log, a
-diary page, a recipe, a poster, a list of rules, instructions for a machine, a
-wanted poster, a comic strip retold in words. A short story told by the host is also
-fine. Vary the types across the eight passages in a grade.
+then the player makes a route choice. The thing to read should be a **found document
+from the world** whenever possible: a radio log with timestamps, a supply list, a
+warning spray-painted on a wall, a letter left for someone, a map legend, the rules
+posted at a gate, a diary page, instructions for a generator or a water pump, a
+newspaper clipping, a wanted poster. A short story told by the host is also fine.
+Vary the types across the eight passages in a grade.
 
-Haven names to draw from (do not repeat within a grade): Red Barn, Gas-N-Go, Old
-Lighthouse, Library Fort, Drive-In Theater, School Bus Camp, Water Tower, Fire Station,
-Moon Diner, Mountain Lodge, Boat Dock, Mall Rooftop, Radio Tower, Greenhouse, Train
-Yard, Mini-Golf Castle, Ranger Station, Bakery, Toy Shop, Zoo Gate.
+Haven names to draw from (do not repeat within a grade): Overpass Camp, Gas-N-Go,
+Old Lighthouse, Library Fort, Drive-In, School Bus Wall, Water Tower, Fire Station,
+Mile 9 Diner, Mountain Lodge, Boat Dock, Mall Rooftop, Radio Tower, Greenhouse, Train
+Yard, Ranger Station, Quarry Gate, Hospital Annex, Stadium Gate, Toll Plaza.
 
 ## Grade calibration
 
@@ -48,7 +67,9 @@ Yard, Mini-Golf Castle, Ranger Station, Bakery, Toy Shop, Zoo Gate.
 | 6 | 230 to 280 | 26 words | 4 | Theme, author's purpose, multi-step inference. Sophisticated vocabulary. |
 
 Road signs are one or two sentences, well under the grade's sentence limit, and one
-question with three options at every grade.
+question with three options at every grade. They are things seen or heard on the
+road: a spray-painted warning on an overpass, a radio burst from Jo, a hand-lettered
+sign on a fence, a note taped to a stalled car.
 
 ## Questions
 
@@ -89,9 +110,9 @@ Effects must be balanced. A harder road pays more. Allowed keys:
 | `crates` | integer | 0 to 4 | Supply crates on the next road (drive over for scrap) |
 
 Good pattern: one safe option (`zombies: 0.8`, maybe `length: 1.1`), one risky option
-(`zombies: 1.4`, `scrap: 30` or `crates: 3`), optionally one quirky option (`fog: true`,
-`hp: 10`). Make the description honest about the tradeoff so the choice is a reading
-comprehension exercise in itself.
+(`zombies: 1.4`, `scrap: 30` or `crates: 3`), optionally one odd option (`fog: true`,
+`night: true`, `hp: 10`). Make the description honest about the tradeoff so the choice
+is a reading comprehension exercise in itself.
 
 ## Schema
 
@@ -103,12 +124,12 @@ comprehension exercise in itself.
     grade: 3,
     havens: [
       {
-        id: "g3-red-barn",            // unique, lowercase, "gN-" prefix
-        place: "Red Barn",            // haven name in the caption box
-        host: "Farmer Pat",           // who hands you the text
-        intro: "Farmer Pat waves you into the barn. \"Our goat ran off. Can you read the note she left?\"",
-        kind: "note",                 // note | letter | log | map | diary | recipe | poster | rules | story | sign | list
-        title: "A Note From Gus",
+        id: "g3-overpass-camp",       // unique, lowercase, "gN-" prefix
+        place: "Overpass Camp",       // haven name in the caption box
+        host: "Jo",                   // who hands you the text
+        intro: "Jo slides a water-stained page across the table. \"Radio log from the Fort. I can't make out half of it. You read it.\"",
+        kind: "log",                  // note | letter | log | map | diary | recipe | poster | rules | story | sign | list | manual | warning
+        title: "Fort Radio Log, Day 41",
         text: "Paragraph one.\n\nParagraph two.",
         questions: [
           { type: "detail", q: "...", options: ["a", "b", "c", "d"], answer: 2, hint: "..." },
@@ -118,14 +139,14 @@ comprehension exercise in itself.
         choice: {
           prompt: "Which way to the next town?",
           options: [
-            { label: "The hill road", desc: "It is steep and short, and Shamblers like hills.", effects: { zombies: 1.3, scrap: 25 }, result: "You climb the hill. The engine groans but the view is worth it." },
-            { label: "The river road", desc: "It is flat and long, and the fog rolls in at noon.", effects: { zombies: 0.8, length: 1.2, fog: true }, result: "The river road is quiet. Too quiet. Biscuit sniffs the fog." }
+            { label: "The ridge road", desc: "Short and steep, and the walkers gather where the cars stalled on the hill.", effects: { zombies: 1.3, scrap: 25 }, result: "The engine strains on the grade. You pass a line of stalled cars with their doors open." },
+            { label: "The river road", desc: "Flat and long, and the fog comes off the water by late afternoon.", effects: { zombies: 0.8, length: 1.2, fog: true }, result: "The river road is quiet. Rook stands at the window and does not sit down." }
           ]
         }
       }
     ],
     roadSigns: [
-      { text: "Radio: \"The bridge is out. Turn at the red barn.\"", q: "Where should you turn?", options: ["At the bridge", "At the red barn", "At the river"], answer: 1 }
+      { text: "Spray paint on the overpass: BRIDGE OUT. USE MILL ROAD.", q: "Which road should you use?", options: ["The bridge", "Mill Road", "The overpass"], answer: 1 }
     ]
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -36,7 +36,7 @@
     brute: { hp: 90, speed: 40, r: 26, dmg: 18, scrap: 4 },
   };
 
-  const HIT_WORDS = ["POW!", "BAM!", "ZAP!", "WHAM!", "BONK!"];
+  const HIT_WORDS = ["BLAM!", "KRAK!", "THUD!"];
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const normAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -193,13 +193,14 @@
       for (let i = 0; i < (mods.crates || 0); i++) this.seg.crateTimes.push(rand(5, duration - 8));
       this.seg.crateTimes.sort((a, b) => a - b);
 
-      this.van = { x: this.roadX + this.roadW / 2, y: this.H * 0.72, w: 64, h: 112, aim: -Math.PI / 2, hurt: 0, cooldown: 0, vx: 0 };
+      this.van = { x: this.roadX + this.roadW / 2, y: this.H * 0.72, w: 66, h: 118, aim: -Math.PI / 2, hurt: 0, cooldown: 0, vx: 0, flash: 0 };
       this.zombies = [];
       this.bullets = [];
       this.particles = [];
       this.bursts = [];
       this.crates = [];
       this.props = [];
+      this.fallen = [];
       this.scroll = 0;
       this.spawnTimer = 2.2;
       this.shake = 0;
@@ -211,7 +212,7 @@
 
       this.hud.root.classList.remove("hidden");
       this.hud.road.textContent = "ROAD " + (n + 1);
-      const extra = [mods.fog ? "FOG!" : "", mods.night ? "NIGHT!" : "", (mods.zombies || 1) >= 1.3 ? "ZOMBIE RUSH!" : ""].filter(Boolean).join(" ");
+      const extra = [mods.fog ? "FOG" : "", mods.night ? "NIGHT" : "", (mods.zombies || 1) >= 1.3 ? "HEAVY WALKERS" : ""].filter(Boolean).join(" ");
       this.banner("ROAD " + (n + 1) + (extra ? "  " + extra : ""), 1800);
       this.running = true;
       this.paused = false;
@@ -301,14 +302,19 @@
       const x = left ? rand(margin, Math.max(margin + 1, this.roadX - 50)) : rand(Math.min(this.W - margin - 1, this.roadX + this.roadW + 50), this.W - margin);
       const roll = Math.random();
       let p;
-      if (roll < 0.45) p = { kind: "tree", size: rand(22, 40) };
-      else if (roll < 0.7) p = { kind: "bush", size: rand(12, 18) };
-      else if (roll < 0.82) p = { kind: "rock", size: rand(10, 16) };
-      else if (roll < 0.92) p = { kind: "sign", text: ["!", "66", "STOP", "?", "ZZZ"][Math.floor(Math.random() * 5)], color: ["#ffcf40", "#e8392f", "#3aa0ff"][Math.floor(Math.random() * 3)] };
-      else p = { kind: "wreck", rot: rand(-0.6, 0.6), color: ["#b5553c", "#5b8fd9", "#9c9ca8"][Math.floor(Math.random() * 3)] };
+      const seed = Math.floor(Math.random() * 1e6);
+      if (roll < 0.3) p = { kind: "tree", size: rand(22, 34), seed };
+      else if (roll < 0.42) p = { kind: "barrel", color: ["#7a4a2a", "#5f6b3c", "#4d4f55"][Math.floor(Math.random() * 3)] };
+      else if (roll < 0.52) p = { kind: "tire" };
+      else if (roll < 0.64) p = { kind: "rubble", seed };
+      else if (roll < 0.74) p = { kind: "barrier", rot: rand(-0.3, 0.3) };
+      else if (roll < 0.84) p = { kind: "sign", text: ["KEEP OUT", "NO ENTRY", "MILE 9", "DETOUR", "QUIET"][Math.floor(Math.random() * 5)], color: ["#d9a21b", "#b3261e", "#e6dfcc"][Math.floor(Math.random() * 3)] };
+      else p = { kind: "wreck", rot: rand(-0.6, 0.6), color: ["#5a4538", "#3f4a55", "#6b6b6b", "#7a3a30"][Math.floor(Math.random() * 4)] };
       p.x = x;
       p.y = y == null ? -80 : y;
       this.props.push(p);
+      // cracks in the asphalt now and then
+      if (Math.random() < 0.35) this.props.push({ kind: "crack", seed: seed + 1, x: rand(this.roadX + 30, this.roadX + this.roadW - 30), y: p.y - 40 });
     },
 
     spawnCrate() {
@@ -320,18 +326,18 @@
       this.bursts.push({ text, x, y, t: 0, life: 0.8, color, bg, size: size || 1, rot: rand(-0.25, 0.25) });
       if (this.bursts.length > 12) this.bursts.shift();
     },
-    poof(x, y, r) {
-      for (let i = 0; i < 10; i++) {
+    dust(x, y, r) {
+      for (let i = 0; i < 7; i++) {
         const a = Math.random() * 6.28;
-        const s = rand(30, 120);
-        this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 20, life: 0.55, maxLife: 0.55, size: r * rand(0.3, 0.55), color: i % 3 === 0 ? "#b7f28f" : "#7ed957", grow: true });
+        const s = rand(20, 90);
+        this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 10, life: 0.5, maxLife: 0.5, size: r * rand(0.25, 0.45), color: i % 2 === 0 ? "#6b675c" : "#4a473f", grow: true });
       }
     },
     sparks(x, y, color) {
       for (let i = 0; i < 4; i++) {
         const a = Math.random() * 6.28;
         const s = rand(80, 200);
-        this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.25, maxLife: 0.25, size: 4, color: color || "#ffcf40" });
+        this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.25, maxLife: 0.25, size: 3.5, color: color || "#ffe9a6" });
       }
     },
 
@@ -417,8 +423,10 @@
           const oy = van.y + 11 + Math.sin(a) * 24;
           this.bullets.push({ x: ox, y: oy, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, dmg: stats.damage });
         }
+        van.flash = 0.07;
         Audio().play("shoot");
       }
+      van.flash = Math.max(0, van.flash - dt);
       van.drawAim = aim;
 
       // Spawning
@@ -500,7 +508,7 @@
           z.ky = -push * 0.8;
           if (z.hp <= 0) {
             this.killZombie(i);
-            this.burst("SPLAT!", van.x, van.y - 60, "#fff", "#8e5cff", 1.1);
+            this.burst("THUD!", van.x, van.y - 60, "#e6dfcc", "#4b5057", 1.1);
             continue;
           }
           this.hurtVan(z.dmg, z.x, z.y);
@@ -515,19 +523,25 @@
         c.t += dt;
         if (Math.abs(c.x - van.x) < van.w / 2 + 14 && Math.abs(c.y - van.y) < van.h / 2 + 14) {
           run.scrap += DIFF.crateScrap;
-          this.burst("+" + DIFF.crateScrap + " SCRAP", c.x, c.y - 20, "#141414", "#ffcf40", 0.9);
-          this.sparks(c.x, c.y, "#fff");
+          this.burst("+" + DIFF.crateScrap + " SCRAP", c.x, c.y - 20, "#0f1012", "#d9a21b", 0.9);
+          this.sparks(c.x, c.y, "#e6dfcc");
           Audio().play("pickup");
           this.crates.splice(i, 1);
         } else if (c.y > this.H + 60) this.crates.splice(i, 1);
       }
 
-      // Scenery
+      // Scenery and fallen walkers scroll with the road
       for (let i = this.props.length - 1; i >= 0; i--) {
         this.props[i].y += scrollSpeed * dt;
         if (this.props[i].y > this.H + 100) this.props.splice(i, 1);
       }
-      if (this.props.length < 12 && Math.random() < dt * 1.5) this.spawnProp();
+      for (let i = this.fallen.length - 1; i >= 0; i--) {
+        const f = this.fallen[i];
+        f.y += scrollSpeed * dt;
+        f.life -= dt;
+        if (f.life <= 0 || f.y > this.H + 100) this.fallen.splice(i, 1);
+      }
+      if (this.props.length < 14 && Math.random() < dt * 1.6) this.spawnProp();
 
       this.updateParticles(dt);
       this.shake *= Math.pow(0.02, dt);
@@ -556,8 +570,9 @@
       const z = this.zombies[i];
       const run = State().run;
       this.zombies.splice(i, 1);
-      this.poof(z.x, z.y, z.r);
-      this.burst("POOF!", z.x, z.y - z.r, "#141414", "#b7f28f", z.type === "brute" ? 1.3 : 1);
+      this.dust(z.x, z.y, z.r);
+      this.fallen.push({ kind: "fallen", x: z.x, y: z.y, size: z.r, rot: z.angle + rand(-0.4, 0.4), life: 3 });
+      if (this.fallen.length > 24) this.fallen.shift();
       run.kills += 1;
       run.scrap += z.scrap;
       Audio().play("poof");
@@ -568,8 +583,8 @@
       run.hp -= dmg;
       this.van.hurt = 1;
       if (State().settings.shake) this.shake = 10;
-      this.burst("CRUNCH!", this.van.x, this.van.y - 70, "#fff", "#e8392f", 1.1);
-      this.sparks(x, y, "#9c9ca8");
+      this.burst("SLAM!", this.van.x, this.van.y - 70, "#e6dfcc", "#b3261e", 1.1);
+      this.sparks(x, y, "#9ea3aa");
       Audio().play("crunch");
       if (run.hp <= 0) {
         run.hp = 0;
@@ -578,9 +593,9 @@
         for (let k = 0; k < 24; k++) {
           const a = Math.random() * 6.28;
           const s = rand(60, 260);
-          this.particles.push({ x: this.van.x, y: this.van.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1.2, maxLife: 1.2, size: rand(6, 16), color: k % 2 ? "#9c9ca8" : "#ffcf40", grow: true });
+          this.particles.push({ x: this.van.x, y: this.van.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1.2, maxLife: 1.2, size: rand(6, 16), color: k % 2 ? "#4a473f" : "#d9a21b", grow: true });
         }
-        this.burst("KA-BLAM!", this.van.x, this.van.y - 40, "#e8392f", "#ffcf40", 1.8);
+        this.burst("WRECKED!", this.van.x, this.van.y - 40, "#b3261e", "#d9a21b", 1.8);
         Audio().play("gameover");
       }
     },
@@ -606,7 +621,7 @@
       const h = this.hud;
       const pct = clamp((run.hp / this.stats.maxHp) * 100, 0, 100);
       h.hpFill.style.width = pct + "%";
-      h.hpFill.style.background = pct > 50 ? "#6cc644" : pct > 25 ? "#ffcf40" : "#e8392f";
+      h.hpFill.style.background = pct > 50 ? "#7a9a3c" : pct > 25 ? "#d9a21b" : "#b3261e";
       h.hpText.textContent = Math.max(0, Math.round(run.hp));
       h.scrap.textContent = run.scrap;
       h.miles.textContent = run.miles.toFixed(1);
@@ -622,21 +637,23 @@
       if (!van) return;
       ctx.save();
       if (this.shake > 0.5) ctx.translate(rand(-this.shake, this.shake), rand(-this.shake, this.shake));
-      const theme = this.mods.night ? { grass: "#4f7a45", asphalt: "#3a3a44" } : this.mods.fog ? { grass: "#9ccc82" } : null;
+      const theme = this.mods.night ? { grass: "#3f3e2c", asphalt: "#2b2c30" } : this.mods.fog ? { grass: "#67654a" } : null;
       D.road(ctx, this.W, this.H, this.roadX, this.roadW, this.scroll, theme);
       for (const p of this.props) D.prop(ctx, p);
+      for (const f of this.fallen) D.prop(ctx, f);
       for (const c of this.crates) D.prop(ctx, { kind: "crate", x: c.x, y: c.y, t: c.t });
       const sorted = this.zombies.slice().sort((a, b) => a.y - b.y);
       for (const z of sorted) D.zombie(ctx, z, this.time);
       for (const b of this.bullets) D.bullet(ctx, b);
       if (this.gameOverAt == null || this.gameOverAt > 0.9) {
-        D.van(ctx, van.x, van.y, { upgrades: State().run.upgrades, aim: van.drawAim == null ? van.aim : van.drawAim, t: this.time, hurt: van.hurt });
+        D.van(ctx, van.x, van.y, { upgrades: State().run.upgrades, aim: van.drawAim == null ? van.aim : van.drawAim, t: this.time, hurt: van.hurt, flash: van.flash });
       }
       for (const p of this.particles) D.particle(ctx, p);
       for (const b of this.bursts) D.burst(ctx, b);
       if (this.mods.fog) D.fog(ctx, this.W, this.H, this.dpr, van.x, van.y, 300);
       if (this.mods.night) D.night(ctx, this.W, this.H, this.dpr, van.x, van.y + 11, van.drawAim == null ? van.aim : van.drawAim);
       ctx.restore();
+      D.vignette(ctx, this.W, this.H);
     },
 
     /** Static or animated preview of the van for title and garage screens. */
@@ -648,12 +665,15 @@
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       const roadW = Math.min(W * 0.6, 220);
       D.road(ctx, W, H, (W - roadW) / 2, roadW, (t || 0) * 160, null);
+      D.prop(ctx, { kind: "wreck", x: W * 0.12, y: H * 0.85, rot: 0.5, color: "#3f4a55" });
+      D.prop(ctx, { kind: "tree", x: W * 0.88, y: H * 0.15, size: 26, seed: 5 });
       const zs = [
         { type: "walker", x: W * 0.16, y: H * 0.3 + Math.sin((t || 0) * 2) * 6, r: 16, hp: 1, maxHp: 1, angle: 0.3, phase: 0, hit: 0 },
         { type: "runner", x: W * 0.86, y: H * 0.58, r: 13, hp: 1, maxHp: 1, angle: Math.PI - 0.4, phase: 2, hit: 0 },
       ];
       zs.forEach((z) => D.zombie(ctx, z, t || 0));
       D.van(ctx, W / 2, H * 0.55, { upgrades, aim: -Math.PI / 2 + Math.sin((t || 0) * 1.3) * 0.5, t: t || 0, scale: Math.min(1, H / 150) });
+      D.vignette(ctx, W, H);
     },
 
     DIFF,
