@@ -127,9 +127,19 @@
       const fx = S.effects();
       const t = ZSR.text();
       const id = this.selected;
+      const huge = document.documentElement.getAttribute("data-size") === "huge";
       if (!id) {
         info.appendChild(el("h3", null, this.at === "base" ? "Where to?" : "Next stop?"));
-        info.appendChild(el("p", "small muted", "Tap a place on the map. Only places you know about are shown. Notes and the Radio reveal more."));
+        info.appendChild(el("p", "small muted", huge ? "Pick a place. Notes and the Radio reveal more." : "Tap a place on the map. Only places you know about are shown. Notes and the Radio reveal more."));
+        if (huge) {
+          const list = el("div", "btn-col");
+          W().LOCATIONS.filter((l) => S.isKnown(l.id) && l.id !== this.at).forEach((l) => {
+            const b = el("button", "btn", esc(l.name));
+            b.addEventListener("click", () => this.select(l.id));
+            list.appendChild(b);
+          });
+          info.appendChild(list);
+        }
         if (this.at !== "base") {
           const home = el("button", "btn big go", "Drive home");
           home.addEventListener("click", () => this.hooks.onDrive && this.hooks.onDrive("base"));
@@ -155,6 +165,14 @@
         if (st.visits) info.appendChild(el("p", "small muted", "Visited " + st.visits + " time" + (st.visits > 1 ? "s" : "") + "."));
       }
       const r = this.at === id ? null : this.route(this.at, id);
+      if (huge) {
+        const back = el("button", "btn alt", "Other places");
+        back.addEventListener("click", () => {
+          this.selected = null;
+          this.renderInfo();
+        });
+        info.appendChild(back);
+      }
       if (this.at === id) info.appendChild(el("p", "small muted", "You are here."));
       else if (r) {
         const secs = Math.round(Math.min(W().SETTINGS.tripMaxSeconds, Math.max(W().SETTINGS.tripMinSeconds, r.dist * W().SETTINGS.tripSecondsPerUnit)));

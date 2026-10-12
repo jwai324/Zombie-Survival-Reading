@@ -7,20 +7,20 @@
   root.ZSR.TEXT[1] = {
     level: 1,
     howto: [
-      "You have one van. It runs from your home base. Pick a place on the map. Then drive there. The road has walkers. Keep moving.",
+      "You have one van. It runs from your home base. A fence rings the yard. Walkers come at it in waves. Hold the fence. Between waves it is calm. Go in the cabin and build. Or pick a place on the map. Then drive there. The road has walkers. Keep moving.",
       "A note waits at the door. Read it. It says how many walkers wait. It says where the items are. Then go in. Walkers come for you. Fight them. Grab what you find. Scrap piles give scrap.",
       "Find the note inside. Read it. It tells how to open the cache. The cache has the best stuff. The note also names a new place. That place shows up on the map. Every note goes in your backpack. Read them again any time.",
-      "Drive your cargo home. Use it to build rooms. Upgrade the van and gun. The game saves at base only. Wreck the van? You lose the trip. Go down inside? Same thing. You start from your last save. So pick when to head home.",
+      "Drive your cargo home. Use it to build rooms. Upgrade the van and gun. The game saves at base only. Wreck the van? You lose the trip. Go down inside? Same thing. Lose the yard at home? Same thing. You start from your last save. So pick when to head home.",
     ],
     base: {
-      intro: "Home base is the one safe spot. The game saves here, and only here.",
+      intro: "Home base. The game saves here, and only here. Hold the fence when walkers come.",
       rooms: {
         walls: {
-          desc: "Thick walls. They make the van and you tougher.",
+          desc: "Thick walls. The fence holds longer. The van and you get tougher.",
           next: [
             "Van gets 20 more health. You get 20 more too.",
-            "Van gets 40 more health. You get 40 more too.",
-            "Van gets 60 more health. You get 60 more too.",
+            "Van health bonus rises to 40. Yours too.",
+            "Van health bonus rises to 60. Yours too.",
           ],
         },
         garage: {
@@ -58,7 +58,7 @@
         radio: {
           desc: "Hear the town. Find new places.",
           next: [
-            "Shows three new places on the map.",
+            "Shows up to three new places.",
             "Shows every place on the map.",
             "Shows every place. Also shows which still have items.",
           ],
@@ -156,7 +156,7 @@
         notes: {
           "radioshack-counter": {
             title: "Priya's Office Key",
-            text: "The office key is under the register. Taped there. You can open my office now. Two boxes of radio parts are inside. More wire too.\n\nGo north of downtown. The 4th Precinct is there. It has gun parts. Lincoln Middle School is there too. It has books.\n\n—Priya, manager",
+            text: "The office key is under the register. Taped there. You can open my office now. Two boxes of radio parts are inside. And wire.\n\nGo north of downtown. The 4th Precinct police station is there. It has gun parts. Lincoln Middle School is there too. It has books.\n\n—Priya, manager",
           },
         },
       },

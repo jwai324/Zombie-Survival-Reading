@@ -51,7 +51,8 @@
     },
 
     resize() {
-      const dpr = Math.min(2, root.devicePixelRatio || 1);
+      // one physical pixel per CSS pixel: the chunky comic look survives and the per-column fills stay cheap
+      const dpr = 1;
       this.dpr = dpr;
       this.W = root.innerWidth;
       this.H = root.innerHeight;
@@ -97,9 +98,12 @@
         if (!this.locked && this.running && !this.paused && !this.releasing && this.hooks.onPause) this.hooks.onPause();
         this.releasing = false;
       });
+      // physical key positions, so WASD works on any keyboard layout
+      const CODE = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyE: "e", KeyB: "b", KeyP: "p", Space: " ", ShiftLeft: "shift", ShiftRight: "shift", ArrowUp: "arrowup", ArrowDown: "arrowdown", ArrowLeft: "arrowleft", ArrowRight: "arrowright", Escape: "escape" };
+      const keyOf = (e) => CODE[e.code] || e.key.toLowerCase();
       root.addEventListener("keydown", (e) => {
         if (!this.running) return;
-        const k = e.key.toLowerCase();
+        const k = keyOf(e);
         if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", " ", "e", "shift", "b"].includes(k) && !this.paused) e.preventDefault();
         if (e.repeat) return;
         this.keys[k] = true;
@@ -109,7 +113,13 @@
         if (k === "b" && this.hooks.onBackpack) this.hooks.onBackpack();
       });
       root.addEventListener("keyup", (e) => {
-        this.keys[e.key.toLowerCase()] = false;
+        this.keys[keyOf(e)] = false;
+      });
+      // a click outside the page (the chat beside an embedded game) never sends keyup: drop keys and pause
+      root.addEventListener("blur", () => {
+        this.keys = {};
+        this.mouseDown = false;
+        if (this.running && !this.paused && this.hooks.onPause) this.hooks.onPause();
       });
       document.addEventListener("visibilitychange", () => {
         if (document.hidden && this.running && !this.paused && this.hooks.onPause) this.hooks.onPause();
@@ -215,7 +225,9 @@
 
       const day = S.save.day;
       const n = W().SETTINGS.walkersPerLocation(loc.danger, day);
-      const far = this.floors.filter(([x, y]) => Math.hypot(x - start[0], y - start[1]) > 4);
+      // extra walkers go on floor tiles the player can actually reach, at least 6 steps from the door
+      const reach = this.reachable(Math.floor(start[0]), Math.floor(start[1]));
+      const far = this.floors.filter(([x, y]) => (reach.get(Math.floor(x) + "," + Math.floor(y)) || 0) >= 6);
       const spots = this.spawns.slice();
       while (spots.length < n && far.length) spots.push(far.splice(Math.floor(Math.random() * far.length), 1)[0]);
       const hpMult = 1 + 0.1 * (day - 1);
@@ -306,6 +318,25 @@
       this.fx = S.effects();
       this.player.maxHp = S.footMaxHp();
       this.player.hp = this.player.maxHp;
+    },
+
+    /** BFS step counts from a tile over walkable tiles (locked doors count as walls). */
+    reachable(sx, sy) {
+      const dist = new Map([[sx + "," + sy, 0]]);
+      const q = [[sx, sy]];
+      while (q.length) {
+        const [x, y] = q.shift();
+        const d = dist.get(x + "," + y);
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= this.gw || ny >= this.gh) continue;
+          if (SOLID.includes(this.grid[ny][nx]) || dist.has(nx + "," + ny)) continue;
+          dist.set(nx + "," + ny, d + 1);
+          q.push([nx, ny]);
+        }
+      }
+      return dist;
     },
 
     solidAt(x, y) {
@@ -562,7 +593,9 @@
       z.cool = Math.max(0, z.cool - dt);
       z.hurtT = Math.max(0, z.hurtT - dt);
       z.frameT += dt;
-      if (!z.awake && (dist < 6 || (this.time - this.noise < 1.5 && dist < 11) || z.hurtT > 0)) z.awake = true;
+      // running is loud: sprinting players are noticed from farther away
+      const hear = this.keys.shift && this.player.moving ? 9 : 6;
+      if (!z.awake && (dist < hear || (this.time - this.noise < 1.5 && dist < 11) || z.hurtT > 0)) z.awake = true;
       if (!z.awake) return;
       if (z.frameT > 0.35 / (z.speed / 1.25)) {
         z.frameT = 0;

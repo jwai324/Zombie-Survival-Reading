@@ -7,20 +7,20 @@
   root.ZSR.TEXT[2] = {
     level: 2,
     howto: [
-      "Your home base is a boarded-up house. It sits at the south end of town. You have one van, and it still runs. Each day you drive out for supplies. Then you drive home.",
+      "Your home base is a boarded-up house. It sits at the south end of town. You have one van, and it still runs. A fence runs around the yard. Walkers come at the fence in waves. Between waves it is calm. That is when you build or leave. In a wave, clear the fence first. Each day you drive out for supplies. Then you drive home.",
       "Pick a place on the map. Only some places are known at first. Notes and the Radio room show you more. The road is drawn for you. Then you drive. Walkers are on the road. Far places and bad places have more walkers. More days means more walkers, too.",
       "At the door, you read a note first. It says how many walkers wait inside. It says where the items are. Then you go in. Walkers come for you. Shoot them, or move around them. Grab items from shelves and floors. Find the note inside. Read it. It tells you how to open the locked cache room. The best items are in there. It also tells you which place to try next. Every note goes in your backpack. You can read it again any time.",
-      "Drive home with your cargo. At base, cargo goes into storage. You eat one food. The day count goes up. Use items and scrap to upgrade rooms. Upgrade the van and the gun in the garage. The game saves only at base. It saves on its own. If you die out there, you load that save. Everything since you left is gone. So plan each trip.",
+      "Drive home with your cargo. At base, cargo goes into storage. You eat one food. The day count goes up. Use items and scrap to upgrade rooms. Upgrade the van and the gun in the garage. The game saves only at base. It saves on its own. If the van is wrecked, you load that save. If you go down inside, you load it. If the fence falls at home, you load it. Everything since that save is gone. So plan each trip.",
     ],
     base: {
       intro: "This is home base. It is the only place the game saves. Build up the rooms, then head back out.",
       rooms: {
         walls: {
-          desc: "Boards and plates on the house and the van. Thicker walls mean more health. For the van, and for you on foot.",
+          desc: "Boards and plates on the fence, the house, and the van. The fence holds longer in a wave. Thicker walls mean more health. For the van, and for you on foot.",
           next: [
-            "Van health up 20. Your health on foot up 20.",
-            "Van health up 40. Your health on foot up 40.",
-            "Van health up 60. Your health on foot up 60. Needs an armor plate.",
+            "The fence holds longer. Van health up 20. Your health on foot up 20.",
+            "The fence holds longer. Van health up 40. Your health on foot up 40.",
+            "The fence holds longer. Van health up 60. Your health on foot up 60. Needs an armor plate.",
           ],
         },
         garage: {

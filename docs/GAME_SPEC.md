@@ -31,7 +31,9 @@ useful.
    first person inside: WASD to move, mouse to look, click to fire, E to interact.
    Walkers inside come for you. Items sit on shelves and floors; a locked cache room
    holds the best items and only opens once you have read the note that explains how.
-   Scrap piles give scrap. Press E at the entrance to leave.
+   Scrap piles give scrap. Press E at the entrance to leave. Shelf and floor items come
+   back three days after they are taken; scrap piles are back every visit; cache items
+   never come back.
 5. **Map again.** Chain more locations or head home. Cargo rides in the van.
 6. **Back at base.** Cargo moves to base inventory, one food is eaten, the Garden adds
    food, the day counter goes up, and the game saves.
@@ -74,8 +76,8 @@ Raycast renderer on canvas, no engine, no dependencies. Grid interiors from
 `js/world.js` templates, comic shading (flat colors, ink edges, halftone). Mouse look
 via pointer lock, with arrow keys as a fallback for turning. Walkers are billboard
 sprites in the same style as the road; they path to the player. Hits are tested in
-screen space against the crosshair. Touch devices get the base, map, and road; inside
-a building they get a message to use a desktop for now.
+screen space against the crosshair. Touch-only devices are not supported yet: the
+title screen says so and does not start a game.
 
 ## Text size
 
@@ -90,6 +92,6 @@ Only written at the base. "Continue" loads it and opens the base screen.
 
 ## Content files
 
-`js/world.js` holds the facts. `js/content/level1.js` to `level6.js` hold the words:
-How it works, base room texts, item names, door notes, inside notes. `npm test` checks
+`js/world.js` holds the facts (item names included). `js/content/level1.js` to
+`level6.js` hold the words: How it works, base room texts, door notes, inside notes. `npm test` checks
 that every level has the same keys as the world and that lengths match the level.

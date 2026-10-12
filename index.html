@@ -20,8 +20,8 @@
     <div class="hud-top">
       <div class="hud-box hp-box" title="Van health"><span class="hud-label">VAN</span><div class="bar"><div id="hp-fill" class="bar-fill"></div></div><span id="hp-text" class="hud-value">100</span></div>
       <div class="hud-box" title="Scrap"><span class="hud-label">SCRAP</span><span id="scrap-text" class="hud-value">0</span></div>
-      <div class="hud-box" title="Miles"><span class="hud-label">MILES</span><span id="miles-text" class="hud-value">0.0</span></div>
-      <div class="hud-box" title="Walkers put down"><span class="hud-label">DOWNED</span><span id="kills-text" class="hud-value">0</span></div>
+      <div class="hud-box" id="hud-box-miles" title="Miles"><span class="hud-label">MILES</span><span id="miles-text" class="hud-value">0.0</span></div>
+      <div class="hud-box" id="hud-box-downed" title="Walkers put down"><span class="hud-label">DOWNED</span><span id="kills-text" class="hud-value">0</span></div>
       <div class="hud-actions"><button id="btn-pause" class="hud-btn" title="Pause (P or Esc)" aria-label="Pause">II</button></div>
     </div>
     <div class="hud-bottom">
@@ -39,11 +39,11 @@
   <div id="int-hud" class="hidden">
     <div class="hud-top">
       <div class="hud-box hp-box" title="Your health"><span class="hud-label">YOU</span><div class="bar"><div id="int-hp-fill" class="bar-fill"></div></div><span id="int-hp-text" class="hud-value">100</span></div>
-      <div class="hud-box" title="Scrap"><span class="hud-label">SCRAP</span><span id="int-scrap" class="hud-value">0</span></div>
+      <div class="hud-box" id="int-box-scrap" title="Scrap"><span class="hud-label">SCRAP</span><span id="int-scrap" class="hud-value">0</span></div>
       <div class="hud-box" title="Cargo in the van"><span class="hud-label">CARGO</span><span id="int-cargo" class="hud-value">0</span></div>
-      <div class="hud-box" title="Walkers near you"><span class="hud-label">WALKERS</span><span id="int-walkers" class="hud-value">0</span></div>
+      <div class="hud-box" id="int-box-walkers" title="Walkers near you"><span class="hud-label">WALKERS</span><span id="int-walkers" class="hud-value">0</span></div>
       <div class="hud-actions">
-        <button id="int-btn-backpack" class="hud-btn wide" title="Backpack (B)">Backpack</button>
+        <button id="int-btn-backpack" class="hud-btn wide" title="Backpack (B)">B<span>ackpack</span></button>
         <button id="int-btn-pause" class="hud-btn" title="Pause (P or Esc)" aria-label="Pause">II</button>
       </div>
     </div>

@@ -358,6 +358,12 @@
     Map.init($("map-canvas"), { onDrive: drive });
     wire();
     applySettings();
+    // first person needs a keyboard and mouse; on a touch-only device say so instead of leading into a dead end
+    if (root.matchMedia && root.matchMedia("(pointer: coarse) and (hover: none)").matches) {
+      $("btn-play").disabled = true;
+      $("btn-continue").disabled = true;
+      $("title-grade").textContent = "This game needs a keyboard and mouse. Open it on a laptop or desktop.";
+    }
     show("screen-title");
   });
 })(typeof globalThis !== "undefined" ? globalThis : this);

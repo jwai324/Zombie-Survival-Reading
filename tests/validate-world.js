@@ -46,6 +46,25 @@ Object.entries(W.TEMPLATES).forEach(([name, t]) => {
     if ("in$".includes(c) && !seen.has(x + "," + y)) err(`template ${name}: ${c} at ${x},${y} unreachable from the entrance`);
     if (c === "c" && seen.has(x + "," + y)) err(`template ${name}: cache spot at ${x},${y} reachable without the locked door`);
   }
+  // walkers must start at least 6 steps from the player's start tile (the tile above E), and no item may sit on it
+  const startTile = [start[0], start[1] - 1];
+  const dist = new Map([[startTile.join(","), 0]]);
+  const q = [startTile];
+  while (q.length) {
+    const [x, y] = q.shift();
+    const d = dist.get(x + "," + y);
+    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
+      const nx = x + dx, ny = y + dy;
+      if (ny < 0 || ny >= H || nx < 0 || nx >= w) return;
+      if (!pass(t.grid[ny][nx]) || dist.has(nx + "," + ny)) return;
+      dist.set(nx + "," + ny, d + 1);
+      q.push([nx, ny]);
+    });
+  }
+  if (!pass(t.grid[startTile[1]][startTile[0]]) || t.grid[startTile[1]][startTile[0]] === "i") err(`template ${name}: the tile above E must be plain floor`);
+  for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) {
+    if (t.grid[y][x] === "z" && dist.has(x + "," + y) && dist.get(x + "," + y) < 6) err(`template ${name}: walker spawn at ${x},${y} is only ${dist.get(x + "," + y)} steps from the entrance (need 6+)`);
+  }
   // cache spots reachable once L is open
   const seen2 = new Set();
   const stack2 = [start];

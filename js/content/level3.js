@@ -7,20 +7,20 @@
   root.ZSR.TEXT[3] = {
     level: 3,
     howto: [
-      "Your home base is a boarded-up house at the south end of town. You have one van, and it still runs. Every day you drive out for supplies, and every night you bring them home. The base is the only place where the game saves. It saves when you arrive, and after every action you take here.",
+      "Your home base is a boarded-up house at the south end of town. You have one van, and it still runs. Every day you drive out for supplies, and every night you bring them home. At base you stand in the yard, with a fence around the lot. In calm time, go inside the cabin to build, or leave in the van. Then a wave comes, and walkers claw at the fence. Some waves are nothing, and some are a crowd. Stronger Walls make the fence hold longer. The base is the only place where the game saves. It saves when you arrive, after every build, and after every wave.",
       "Open the map and pick a place. Only a few places are known at first. Notes and the Radio room reveal the rest. The route is drawn for you, and then you drive. Walkers wander the road. Far places and dangerous places have more of them. The more days pass, the more walkers there are.",
       "At the door you read a note before you go in. It tells you how many walkers wait inside and where the items are. Then you go in. Walkers come for you, so shoot them or slip around them. Grab items from shelves and floors. Find the note inside and read it. It tells you how to open the locked cache room. The best items are kept in there. It also names the next place to try. That place then shows up on the map. Every note you read goes in your backpack. You can open the backpack at base, on the map, or inside a building.",
-      "Drive home with your cargo. At base, cargo goes into storage, and you eat one food. The Garden adds food, and the day count goes up. Use items and scrap to upgrade the rooms. Upgrade the van and the gun in the garage. If you die out there, the game loads your last base save. Everything since you left is gone, so plan each trip with care.",
+      "Drive home with your cargo. At base, cargo goes into storage, and you eat one food. The Garden adds food, and the day count goes up. Use items and scrap to upgrade the rooms. Upgrade the van and the gun in the garage. Three things end a run. The van gets wrecked, you go down inside, or the yard is overrun. Then the game loads your last base save. Everything since that save is gone, so plan each trip with care.",
     ],
     base: {
       intro: "This is home base, the only place the game saves. Build up the rooms, fix the van, and head back out.",
       rooms: {
         walls: {
-          desc: "Boards and plates on the house and the van. Thicker walls mean more health for the van, and for you on foot.",
+          desc: "Boards and plates on the fence, the house, and the van. Thicker walls make the fence hold longer. They also mean more health for the van, and for you on foot.",
           next: [
-            "Van health up by 20. Your health on foot up by 20.",
-            "Van health up by 40. Your health on foot up by 40.",
-            "Van health up by 60. Your health on foot up by 60. This level needs an armor plate.",
+            "Van health up by 20. Your health on foot up by 20. The fence holds longer.",
+            "Van health up by 40. Your health on foot up by 40. The fence holds longer.",
+            "Van health up by 60. Your health on foot up by 60. The fence holds longer. This level needs an armor plate.",
           ],
         },
         garage: {
@@ -91,7 +91,7 @@
         notes: {
           "gasngo-counter": {
             title: "Dev's Note at the Register",
-            text: "This is Dev. I was the clerk here, and I ran the register. The storeroom key is on the hook under the counter. Feel for it with your hand. With that key, you can open the storeroom now. There is more fuel in there, and a spool of wire.\n\nI am going to Ortiz Auto on the east side of town. The shop is still standing, so I will try there first. Rosa is at Greenhouse Row. That is west, past this gas station. She has seeds and soil, and she will trade. Tell her Dev sent you.",
+            text: "This is Dev. I was the clerk here, and I ran the register. The storeroom key is on the hook under the counter. Feel for it with your hand. With that key, you can open the storeroom now. There is more fuel in there, and a spool of wire.\n\nI am going to Ortiz Auto on the east side of town. The shop is still standing, so I will try there first. Rosa is at Greenhouse Row. That is west, past this gas station. She has seeds and soil, and she left them out for people like you. Tell her Dev sent you.",
           },
         },
       },
@@ -187,7 +187,7 @@
         },
       },
       school: {
-        blurb: "A middle school with boxes of books in the classrooms and a locked library closet.",
+        blurb: "A middle school with boxes of books in classrooms and a locked library closet.",
         door: {
           title: "Max and Mia Were Here",
           text: "Max and Mia wrote this. Boxes of books are in the classrooms on the right side. At least four walkers are inside, and one walks the hallway. It goes back and forth, so time your move. The library closet is locked. The key is in the teacher's note. Find it in the first classroom.",
@@ -213,7 +213,7 @@
         },
       },
       hospital: {
-        blurb: "St. Anne Annex, the hospital in the north hills, with medicine and the worst walkers.",
+        blurb: "St. Anne Annex, the north hills hospital, with medicine and the worst walkers.",
         door: {
           title: "Doc Lin on the Ambulance",
           text: "Doc Lin. Medical kits are in the rooms along the top hall. There are more in the bottom left room. The generator is in the bottom right room. At least six walkers are inside, and they stand in the dark rooms. They do not come out until you are close. The pharmacy stock room is locked. The nurse's note is in the top hall.",
@@ -252,7 +252,7 @@
         },
       },
       mall: {
-        blurb: "Northgate Mall in the north, full of goods and the biggest walker crowd in town.",
+        blurb: "Northgate Mall in the north, full of goods and the biggest walker crowd.",
         door: {
           title: "Jo's Mall Door Note",
           text: "Jo here. Food, medicine, and wire are spread across the store floor. You will have to cover a lot of ground. At least six walkers are inside, and they move in a group. Where one goes, they all go. The security office is locked. The guard's note is by the paint display.",

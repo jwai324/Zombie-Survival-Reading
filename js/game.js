@@ -101,10 +101,17 @@
       c.addEventListener("pointerup", up);
       c.addEventListener("pointercancel", up);
       c.addEventListener("contextmenu", (e) => e.preventDefault());
+      const CODE = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyP: "p", Space: " ", ArrowUp: "arrowup", ArrowDown: "arrowdown", ArrowLeft: "arrowleft", ArrowRight: "arrowright", Escape: "escape" };
+      const keyOf = (e) => CODE[e.code] || e.key.toLowerCase();
+      root.addEventListener("blur", () => {
+        this.keys = {};
+        this.pointer.down = false;
+        if (this.running && !this.paused && this.hooks.onPause) this.hooks.onPause();
+      });
       root.addEventListener("keydown", (e) => {
         if (!this.running) return;
         if (e.repeat) return;
-        const k = e.key.toLowerCase();
+        const k = keyOf(e);
         if (k === "arrowleft" || k === "a") this.keys.left = true;
         if (k === "arrowright" || k === "d") this.keys.right = true;
         if (k === " " || k === "arrowup" || k === "w") {
@@ -114,7 +121,7 @@
         if ((k === "p" || k === "escape") && this.hooks.onPauseKey) this.hooks.onPauseKey();
       });
       root.addEventListener("keyup", (e) => {
-        const k = e.key.toLowerCase();
+        const k = keyOf(e);
         if (k === "arrowleft" || k === "a") this.keys.left = false;
         if (k === "arrowright" || k === "d") this.keys.right = false;
         if (k === " " || k === "arrowup" || k === "w") this.keys.fire = false;
@@ -144,8 +151,9 @@
       const n = opts.danger * 1.3 + (S.save.day - 1) * 0.5;
       this.stats = Upgrades().stats(S.save.upgrades);
       this.opts = opts;
-      this.mods = { fog: !fx.headlights && S.save.day >= DIFF.fogChanceAfterDay && Math.random() < 0.25, crates: fx.crates };
-      const interval = Math.max(DIFF.minInterval, DIFF.baseInterval - DIFF.intervalStep * n);
+      const day = S.save.day;
+      this.mods = { fog: !fx.headlights && day >= DIFF.fogChanceAfterDay && Math.random() < 0.25, night: !fx.headlights && day >= 4 && day % 3 === 0, crates: fx.crates };
+      const interval = Math.max(DIFF.minInterval, DIFF.baseInterval - DIFF.intervalStep * n) * (this.mods.night ? 0.85 : 1);
       this.diff = { interval, hpMult: 1 + DIFF.hpStep * n, speedMult: Math.min(DIFF.maxSpeedMult, 1 + DIFF.speedStep * n), runnerW: DIFF.runnerBase + DIFF.runnerStep * n, bruteW: DIFF.bruteBase + DIFF.bruteStep * n };
       const duration = opts.seconds;
       this.seg = { duration, elapsed: 0, ending: false, endAt: null, crateTimes: [] };
@@ -170,7 +178,7 @@
       for (let i = 0; i < 10; i++) this.spawnProp(rand(-this.H, this.H));
       this.hud.root.classList.remove("hidden");
       this.hud.road.textContent = "TO: " + opts.name.toUpperCase();
-      this.banner(opts.name.toUpperCase() + (this.mods.fog ? "  FOG" : "") + (t.hungry ? "  HUNGRY" : ""), 1800);
+      this.banner(opts.name.toUpperCase() + (this.mods.fog ? "  FOG" : "") + (this.mods.night ? "  NIGHT" : "") + (t.hungry ? "  HUNGRY" : ""), 1800);
       this.running = true;
       this.paused = false;
       this.last = 0;
@@ -534,7 +542,7 @@
       if (!van) return;
       ctx.save();
       if (this.shake > 0.5) ctx.translate(rand(-this.shake, this.shake), rand(-this.shake, this.shake));
-      D.road(ctx, this.W, this.H, this.roadX, this.roadW, this.scroll, this.mods.fog ? { grass: "#67654a" } : null);
+      D.road(ctx, this.W, this.H, this.roadX, this.roadW, this.scroll, this.mods.night ? { grass: "#3f3e2c", asphalt: "#2b2c30" } : this.mods.fog ? { grass: "#67654a" } : null);
       for (const p of this.props) D.prop(ctx, p);
       for (const f of this.fallen) D.prop(ctx, f);
       for (const c of this.crates) D.prop(ctx, { kind: "crate", x: c.x, y: c.y, t: c.t });
@@ -545,6 +553,7 @@
       for (const p of this.particles) D.particle(ctx, p);
       for (const b of this.bursts) D.burst(ctx, b);
       if (this.mods.fog) D.fog(ctx, this.W, this.H, this.dpr, van.x, van.y, 300);
+      if (this.mods.night) D.night(ctx, this.W, this.H, this.dpr, van.x, van.y + 11, van.drawAim == null ? van.aim : van.drawAim);
       ctx.restore();
       D.vignette(ctx, this.W, this.H);
     },

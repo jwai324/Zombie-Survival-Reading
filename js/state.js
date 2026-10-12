@@ -7,7 +7,6 @@
   const W = () => ZSR.WORLD;
 
   const KEYS = { settings: "zs.settings", save: "zs.base" };
-  const RESTOCK_DAYS = 3; // shelf items come back after this many days; caches never do
 
   const DEFAULT_SETTINGS = {
     level: 3, // reading level 1..6
@@ -45,7 +44,7 @@
     return {
       version: 2,
       day: 1,
-      scrap: 0,
+      scrap: W().SETTINGS.startScrap || 0,
       food: W().SETTINGS.startFood,
       inventory: {},
       rooms,
@@ -167,7 +166,7 @@
     itemAvailable(id, spot) {
       const st = this.locState(id);
       const when = st.taken[spot];
-      return when == null || this.save.day - when >= RESTOCK_DAYS;
+      return when == null || this.save.day - when >= W().SETTINGS.restockDays;
     },
     takeItem(id, spot, fromCache) {
       const tl = this.tripLoc(id);
@@ -222,7 +221,8 @@
         t.revealed.forEach((id) => {
           if (!s.known.includes(id)) s.known.push(id);
         });
-        s.vanHp = Math.max(1, Math.round(t.vanHp));
+        // the crew patches the worst of it overnight, so a near-dead van is never saved as a trap
+        s.vanHp = Math.max(Math.round(this.vanMaxHp() * 0.4), Math.round(t.vanHp));
         s.stats.trips += 1;
         s.stats.walkers += t.walkers;
         s.stats.notesRead += t.notes.length;
@@ -266,7 +266,7 @@
       if (room === "radio") {
         const fx = this.effects();
         const unknown = W().LOCATIONS.filter((l) => !this.save.known.includes(l.id)).sort((a, b) => a.danger - b.danger);
-        unknown.slice(0, fx.reveal >= 99 ? unknown.length : Math.max(0, fx.reveal - (this.save.known.length - 4))).forEach((l) => this.save.known.push(l.id));
+        unknown.slice(0, fx.reveal >= 99 ? unknown.length : fx.reveal).forEach((l) => this.save.known.push(l.id));
       }
       this.commit();
       return true;
@@ -283,7 +283,6 @@
       return true;
     },
 
-    RESTOCK_DAYS,
   };
 
   /* ---------- Text at the current reading level, with a safe fallback ---------- */

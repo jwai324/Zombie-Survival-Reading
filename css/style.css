@@ -185,25 +185,28 @@ kbd { font-family: var(--font-body); font-weight: 700; background: var(--paper-3
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .6rem; margin: .9rem 0; }
 .pause-panel, .death-panel, .confirm-panel { max-width: 40rem; text-align: center; }
 
-/* Huge text: menus and notes are one inch; in-game overlays stay readable but get
-   out of the way of the view (smaller boxes, see-through, toast at the bottom). */
-:root[data-size="huge"] .hud-box { font-size: .55rem; padding: .12rem .3rem; background: rgba(230,223,204,.9); }
-:root[data-size="huge"] .hud-label { font-size: .45rem; }
-:root[data-size="huge"] .hud-btn { width: 1.4rem; height: 1.4rem; font-size: .6rem; }
-:root[data-size="huge"] .hud-btn.wide { font-size: .5rem; padding: 0 .4rem; }
-:root[data-size="huge"] .hp-box { min-width: 7rem; }
-:root[data-size="huge"] .bar { height: .45rem; }
-:root[data-size="huge"] .hud-place { top: 1.9rem; }
-:root[data-size="huge"] .goal-box { font-size: .5rem; }
-:root[data-size="huge"] .hint { font-size: .6rem; bottom: 2.2rem; }
-:root[data-size="huge"] .toast { top: auto; bottom: 3.2rem; font-size: .7rem; padding: .25rem .5rem; max-width: 95vw; background: rgba(230,223,204,.92); }
-:root[data-size="huge"] .banner { font-size: 1.4rem; }
-:root[data-size="huge"] .touch-btn { width: 2.6rem; height: 2.6rem; font-size: 1rem; }
+/* Huge text: everything is one inch. In-game overlays collapse (fewer boxes, no labels)
+   instead of shrinking, so the view stays visible. */
+:root[data-size="huge"] .hud-label { display: none; }
+:root[data-size="huge"] #hud-box-miles, :root[data-size="huge"] #hud-box-downed, :root[data-size="huge"] #int-box-scrap, :root[data-size="huge"] #int-box-walkers { display: none; }
+:root[data-size="huge"] .hud-place, :root[data-size="huge"] .hud-bottom .goal-box { display: none; }
+:root[data-size="huge"] .hud-box { padding: .1rem .3rem; background: rgba(230,223,204,.9); }
+:root[data-size="huge"] .hp-box { min-width: 6rem; }
+:root[data-size="huge"] .bar { min-width: 3rem; height: .5rem; }
+:root[data-size="huge"] .hud-btn { width: 1.2rem; height: 1.2rem; font-size: 1rem; }
+:root[data-size="huge"] .hud-btn.wide { padding: 0 .3rem; font-size: 1rem; }
+:root[data-size="huge"] .hud-btn.wide span { display: none; }
+:root[data-size="huge"] .hint { font-size: 1rem; bottom: 1.4rem; max-width: 95vw; }
+:root[data-size="huge"] .toast { top: auto; bottom: 2.6rem; font-size: 1rem; padding: .2rem .4rem; max-width: 95vw; background: rgba(230,223,204,.92); }
+:root[data-size="huge"] .banner { font-size: 1.6rem; }
+:root[data-size="huge"] .touch-btn { width: 2rem; height: 2rem; font-size: 1rem; }
 :root[data-size="huge"] .panel { padding: 1.4rem .6rem .6rem; }
-:root[data-size="huge"] .caption { font-size: .6rem; padding: .1rem .4rem; }
+:root[data-size="huge"] .caption { font-size: 1rem; padding: .1rem .4rem; }
 :root[data-size="huge"] #title-van { max-width: 60%; }
 :root[data-size="huge"] .base-head { grid-template-columns: repeat(auto-fit, minmax(4rem, 1fr)); }
-:root[data-size="huge"] .stat .v { font-size: 1.2rem; }
+:root[data-size="huge"] .map-layout { grid-template-columns: minmax(0, 1fr); }
+:root[data-size="huge"] .map-board { display: none; }
+:root[data-size="huge"] .road-box { min-width: 0; }
 
 @media (max-width: 480px) {
   .panel { padding: 2.5rem .9rem 1rem; }
