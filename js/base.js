@@ -129,7 +129,7 @@
       const fx = S.effects();
       const wrap = el("div");
       const cap = fx.tierCap;
-      wrap.appendChild(el("p", "small muted", "Garage level " + s.rooms.garage + ": van and gun upgrades up to tier " + cap + (cap < 5 ? ". Build the Garage room to go higher." : ".") + (fx.freeRepair ? " Repairs are free here." : " Repairs cost " + U().REPAIR.cost + " scrap.")));
+      wrap.appendChild(el("p", "small muted", "Garage level " + s.rooms.garage + ": van and gun upgrades up to tier " + cap + ", Spread Shot two tiers lower" + (cap < 5 ? ". Build the Garage room to go higher." : ".") + (fx.freeRepair ? " Repairs are free here." : " Repairs cost " + U().REPAIR.cost + " scrap.")));
       const preview = el("canvas");
       preview.id = "garage-van";
       preview.width = 360;
@@ -145,7 +145,10 @@
         const d = U().DEFS[key];
         const level = s.upgrades[key];
         const cost = U().cost(key, level);
-        const capped = level >= Math.min(d.max, key === "spread" ? Math.max(1, cap - 2) : cap);
+        const capFor = (tc) => Math.min(d.max, key === "spread" ? Math.max(1, tc - 2) : tc);
+        const capped = level >= capFor(cap);
+        const garageLevels = W().BASE_ROOMS.garage.levels;
+        const needIdx = garageLevels.findIndex((l) => capFor(l.effect.tierCap) > level);
         const card = el("div", "upgrade" + (cost == null ? " maxed" : ""));
         card.appendChild(el("div", "icon", d.icon));
         const mid = el("div");
@@ -155,7 +158,7 @@
         for (let i = 0; i < d.max; i++) pips.appendChild(el("span", "pip" + (i < level ? " on" : "")));
         mid.appendChild(pips);
         card.appendChild(mid);
-        const btn = el("button", "btn", cost == null ? "MAX" : capped ? "Garage " + (level + 1 > 4 ? 3 : level + 1 > 3 ? 2 : 1) + " needed" : cost + " scrap");
+        const btn = el("button", "btn", cost == null ? "MAX" : capped ? "Garage " + (needIdx < 0 ? garageLevels.length : needIdx + 1) + " needed" : cost + " scrap");
         btn.disabled = cost == null || capped || s.scrap < cost;
         btn.onclick = () => {
           const c = U().cost(key, s.upgrades[key]);

@@ -139,6 +139,9 @@
       this.fence = {}; // "x,y" -> hp
       this.cacheDoor = null;
       this.exit = null;
+      this.door = null;
+      this.van = null;
+      this.hudSig = null;
       this.spawns = [];
       this.floors = [];
       this.noise = -99;
@@ -250,8 +253,6 @@
       this.mode = "yard";
       this.loc = { id: "base", name: "Home Base", cacheName: "" };
       this.loadGrid(Y.grid, Y.palette);
-      this.door = null;
-      this.van = null;
       const fenceHp = W().DEFENSE.fenceHp[S.save.rooms.walls] || W().DEFENSE.fenceHp[0];
       let start = [2.5, 2.5, -Math.PI / 2];
       for (let y = 0; y < this.gh; y++) {
@@ -276,7 +277,7 @@
       this.fenceMax = fenceHp;
       this.makePlayer(start[0], start[1], start[2]);
       this.player.hp = this.player.maxHp; // home: rested
-      this.waveIndex = 0;
+      this.waveIndex = S.save.wave || 0; // escalation survives a reload and the yard button; resets when a day passes
       this.phase = { kind: "calm", t: (opts && opts.firstCalm) || W().DEFENSE.firstCalmSeconds, total: 0, spawned: 0, spawnT: 0, size: "none" };
       this.hud.place.textContent = "Home Base";
       this.hud.phase.classList.remove("hidden");
@@ -284,13 +285,19 @@
       this.toast("Home. Quiet for now.", 3);
     },
 
-    leave() {
+    /** Stop the loop and release every input hold (shared by leave and death). */
+    stop() {
       this.running = false;
       this.paused = false;
+      this.keys = {};
+      this.mouseDown = false;
       cancelAnimationFrame(this.raf);
       this.hud.root.classList.add("hidden");
       this.releasing = true;
       if (document.pointerLockElement === this.canvas && document.exitPointerLock) document.exitPointerLock();
+    },
+    leave() {
+      this.stop();
       if (State().trip && this.player) State().trip.footHp = this.player.hp;
     },
     pause() {
@@ -313,7 +320,7 @@
       const S = State();
       const hp = W().DEFENSE.fenceHp[S.save.rooms.walls] || W().DEFENSE.fenceHp[0];
       this.fenceMax = hp;
-      Object.keys(this.fence).forEach((k) => (this.fence[k] = hp));
+      this.patchFence();
       this.gun = ZSR.Upgrades.stats(S.save.upgrades);
       this.fx = S.effects();
       this.player.maxHp = S.footMaxHp();
@@ -339,11 +346,29 @@
       return dist;
     },
 
+    /** Every fence segment back at full strength, whole again. */
+    patchFence() {
+      const Y = W().YARD.grid;
+      for (let y = 0; y < this.gh; y++) for (let x = 0; x < this.gw; x++) {
+        if (Y[y][x] === "F") {
+          this.fence[x + "," + y] = this.fenceMax;
+          this.grid[y][x] = "F";
+        }
+      }
+    },
     solidAt(x, y) {
       const gx = Math.floor(x);
       const gy = Math.floor(y);
       if (gx < 0 || gy < 0 || gx >= this.gw || gy >= this.gh) return true;
       return SOLID.includes(this.grid[gy][gx]);
+    },
+    /** The player never squeezes through a breach: the fence line stays solid for them. */
+    solidForPlayer(x, y) {
+      if (this.solidAt(x, y)) return true;
+      if (this.mode !== "yard") return false;
+      const gx = Math.floor(x);
+      const gy = Math.floor(y);
+      return W().YARD.grid[gy] && W().YARD.grid[gy][gx] === "F";
     },
     opaqueAt(x, y) {
       const gx = Math.floor(x);
@@ -351,11 +376,12 @@
       if (gx < 0 || gy < 0 || gx >= this.gw || gy >= this.gh) return true;
       return OPAQUE.includes(this.grid[gy][gx]);
     },
-    moveCircle(ent, dx, dy, r) {
+    moveCircle(ent, dx, dy, r, isPlayer) {
+      const solid = isPlayer ? (x, y) => this.solidForPlayer(x, y) : (x, y) => this.solidAt(x, y);
       const tryX = ent.x + dx;
-      if (!this.solidAt(tryX + Math.sign(dx) * r, ent.y - r * 0.7) && !this.solidAt(tryX + Math.sign(dx) * r, ent.y + r * 0.7)) ent.x = tryX;
+      if (!solid(tryX + Math.sign(dx) * r, ent.y - r * 0.7) && !solid(tryX + Math.sign(dx) * r, ent.y + r * 0.7)) ent.x = tryX;
       const tryY = ent.y + dy;
-      if (!this.solidAt(ent.x - r * 0.7, tryY + Math.sign(dy) * r) && !this.solidAt(ent.x + r * 0.7, tryY + Math.sign(dy) * r)) ent.y = tryY;
+      if (!solid(ent.x - r * 0.7, tryY + Math.sign(dy) * r) && !solid(ent.x + r * 0.7, tryY + Math.sign(dy) * r)) ent.y = tryY;
     },
 
     toast(text, secs) {
@@ -372,8 +398,8 @@
       this.notes.forEach((n) => cand.push({ kind: "note", obj: n, x: n.x, y: n.y }));
       if (this.cacheDoor && !this.cacheDoor.open) cand.push({ kind: "cache", obj: this.cacheDoor, x: this.cacheDoor.x + 0.5, y: this.cacheDoor.y + 0.5 });
       if (this.exit) cand.push({ kind: "exit", obj: this.exit, x: this.exit.x + 0.5, y: this.exit.y + 0.5 });
-      if (this.door) cand.push({ kind: "door", obj: this.door, x: this.door.x + 0.5, y: this.door.y + 0.5 });
-      if (this.van) cand.push({ kind: "van", obj: this.van, x: this.van.x + 1, y: this.van.y + 0.5 });
+      if (this.mode === "yard" && this.door) cand.push({ kind: "door", obj: this.door, x: this.door.x + 0.5, y: this.door.y + 0.5 });
+      if (this.mode === "yard" && this.van) cand.push({ kind: "van", obj: this.van, x: this.van.x + 1, y: this.van.y + 0.5 });
       let best = null;
       cand.forEach((c) => {
         const dx = c.x - p.x;
@@ -457,7 +483,7 @@
         const len = Math.hypot(fwd, side) || 1;
         const dx = (Math.cos(p.a) * fwd - Math.sin(p.a) * side) / len;
         const dy = (Math.sin(p.a) * fwd + Math.cos(p.a) * side) / len;
-        this.moveCircle(p, dx * speed * dt, dy * speed * dt, 0.3);
+        this.moveCircle(p, dx * speed * dt, dy * speed * dt, 0.3, true);
         p.bob += dt * 9;
         p.moving = true;
       } else p.moving = false;
@@ -492,12 +518,15 @@
           });
           this.toast("Medbay kit: back up at half health.", 3);
         } else {
-          this.running = false;
+          this.stop();
           if (this.hooks.onDeath) this.hooks.onDeath();
           return;
         }
       }
       this.shake *= Math.pow(0.02, dt);
+      // keep the HUD honest every frame (regen, spawns, breaches, kills, repairs)
+      const sig = Math.round(p.hp) + "|" + this.walkers.length + "|" + Object.keys(this.fence).length + "|" + (S.trip ? S.trip.scrap : S.save.scrap);
+      if (sig !== this.hudSig) this.updateHud();
 
       const f = this.facing();
       const inWave = this.phase && this.phase.kind === "wave";
@@ -547,6 +576,7 @@
             this.toast("Still quiet. Nothing at the fence.", 3);
           } else {
             this.waveIndex += 1;
+            S.save.wave = this.waveIndex;
             const total = size === "some" ? D.someCount(S.save.day, this.waveIndex) : D.manyCount(S.save.day, this.waveIndex);
             this.phase = { kind: "wave", size, total, spawned: 0, spawnT: 0, t: 0 };
             this.toast(size === "many" ? "A lot of them. Hold the fence!" : "Walkers at the fence.", 2.5);
@@ -570,8 +600,7 @@
         if (ph.spawned >= ph.total && this.walkers.length === 0) {
           this.phase = { kind: "calm", t: rand(D.calmSeconds[0], D.calmSeconds[1]), size: "none" };
           // the crew patches the fence between waves
-          Object.keys(this.fence).forEach((k) => (this.fence[k] = this.fenceMax));
-          for (let y = 0; y < this.gh; y++) for (let x = 0; x < this.gw; x++) if (W().YARD.grid[y][x] === "F" && this.grid[y][x] === ".") this.grid[y][x] = "F";
+          this.patchFence();
           this.toast("Wave cleared. Fence patched.", 3);
           Audio().play("correct");
           if (this.hooks.onWaveCleared) this.hooks.onWaveCleared();
@@ -776,6 +805,7 @@
       const p = this.player;
       const h = this.hud;
       if (!p) return;
+      this.hudSig = Math.round(p.hp) + "|" + this.walkers.length + "|" + Object.keys(this.fence).length + "|" + (S.trip ? S.trip.scrap : S.save.scrap);
       const pct = clamp((p.hp / p.maxHp) * 100, 0, 100);
       h.hpFill.style.width = pct + "%";
       h.hpFill.style.background = pct > 50 ? "#7a9a3c" : pct > 25 ? "#d9a21b" : "#b3261e";

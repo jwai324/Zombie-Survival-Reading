@@ -173,7 +173,12 @@
         });
         info.appendChild(back);
       }
-      if (this.at === id) info.appendChild(el("p", "small muted", "You are here."));
+      if (this.at === id && id !== "base" && S.trip && S.trip.atDoor === id) {
+        info.appendChild(el("p", "small muted", "You are parked at the door."));
+        const go = el("button", "btn big go", "Go in");
+        go.addEventListener("click", () => this.hooks.onEnter && this.hooks.onEnter(id));
+        info.appendChild(go);
+      } else if (this.at === id) info.appendChild(el("p", "small muted", "You are here."));
       else if (r) {
         const secs = Math.round(Math.min(W().SETTINGS.tripMaxSeconds, Math.max(W().SETTINGS.tripMinSeconds, r.dist * W().SETTINGS.tripSecondsPerUnit)));
         info.appendChild(el("p", "small muted", "Drive: about " + secs + " seconds by road" + (loc.id === "base" ? ". Cargo is unloaded and the day ends." : ".")));

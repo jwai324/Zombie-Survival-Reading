@@ -65,8 +65,8 @@
       name: "Garden",
       levels: [
         { needs: { seeds: 2, soil: 1 }, scrap: 40, effect: { foodPerDay: 1 } },
-        { needs: { seeds: 2, soil: 2 }, scrap: 80, effect: { foodPerDay: 2 } },
-        { needs: { seeds: 3, soil: 2, waterTank: 1 }, scrap: 120, effect: { foodPerDay: 3 } },
+        { needs: { seeds: 1, soil: 1 }, scrap: 80, effect: { foodPerDay: 2 } },
+        { needs: { seeds: 2, soil: 1, waterTank: 1 }, scrap: 120, effect: { foodPerDay: 3 } },
       ],
     },
     radio: {

@@ -56,12 +56,12 @@
   }
   function refreshTitle() {
     $("title-grade").textContent = "Reading level: " + ORDINAL[State.settings.level] + " grade. Change it in Settings.";
-    const has = State.hasSave();
-    $("btn-continue").classList.toggle("hidden", !has);
-    $("btn-play").textContent = has ? "New base (erases the save)" : "New base";
-    if (has) {
-      const s = State.loadSave();
-      $("title-best").textContent = "Saved: day " + s.day + ", base level " + State.baseLevel() + ", " + s.backpack.length + " notes in the backpack.";
+    const s = State.peekSave(); // display only: never reload the save while a trip is running
+    $("btn-continue").classList.toggle("hidden", !s);
+    $("btn-play").textContent = s ? "New base (erases the save)" : "New base";
+    if (s) {
+      const level = Object.values(s.rooms || {}).reduce((a, b) => a + b, 0);
+      $("title-best").textContent = "Saved: day " + s.day + ", base level " + level + ", " + (s.backpack || []).length + " notes in the backpack.";
     } else $("title-best").textContent = "No save yet.";
   }
   function startTitleAnimation() {
@@ -127,6 +127,7 @@
     Map.show(at);
   }
   function drive(destId) {
+    if (!State.trip) return goYard();
     const from = State.trip.at;
     const r = Map.route(from, destId);
     if (!r) return;
@@ -139,6 +140,7 @@
     Game.startTrip({ to: destId, name: loc.name, seconds: secs, danger: loc.danger });
   }
   function onArrive(destId) {
+    if (!State.trip) return goYard();
     State.trip.at = destId;
     showCanvas(null);
     if (destId === "base") {
@@ -149,8 +151,13 @@
       Interior.toast("Home. " + cargo + " item" + (cargo === 1 ? "" : "s") + " unloaded. Day " + State.save.day + ". Saved.", 4);
       return;
     }
+    showDoor(destId);
+  }
+  /** The note at the door; parked outside until the player goes in or drives off. */
+  function showDoor(destId) {
     const loc = W.LOCATIONS.find((l) => l.id === destId);
     const door = W.NOTES[destId].door;
+    State.trip.atDoor = destId;
     hideScreens();
     Backpack.read(destId, door.id, {
       isDoor: true,
@@ -161,6 +168,7 @@
     });
   }
   function enterBuilding(loc) {
+    State.trip.atDoor = null;
     hideScreens();
     showCanvas("fp");
     active = "building";
@@ -181,6 +189,7 @@
     },
     onExit() {
       Interior.leave();
+      if (!State.trip) return goYard();
       openMap(State.trip.at);
     },
   };
@@ -234,7 +243,7 @@
     Game.stop();
     Interior.leave();
     showCanvas(null);
-    State.trip = null;
+    State.loadSave(); // resync memory to the disk save; drops the trip and any uncommitted yard scrap
     active = null;
     show("screen-title");
     refreshTitle();
@@ -355,8 +364,9 @@
       onPause,
       onBackpack,
     });
-    Map.init($("map-canvas"), { onDrive: drive });
+    Map.init($("map-canvas"), { onDrive: drive, onEnter: (id) => showDoor(id) });
     wire();
+    State.loadSave();
     applySettings();
     // first person needs a keyboard and mouse; on a touch-only device say so instead of leading into a dead end
     if (root.matchMedia && root.matchMedia("(pointer: coarse) and (hover: none)").matches) {

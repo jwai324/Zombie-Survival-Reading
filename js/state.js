@@ -54,6 +54,7 @@
       loc: {}, // per location: { taken: {spot: dayTaken}, cacheOpened, cacheTaken: {spot: true}, visits }
       backpack: [], // [{ noteId, locId, found, day }]
       stats: { trips: 0, walkers: 0, notesRead: 0, wordsRead: 0, items: 0 },
+      wave: 0, // waves survived during this stay at the base (escalation)
       best: { days: 1, baseLevel: 0 },
       savedAt: Date.now(),
     };
@@ -70,6 +71,11 @@
 
     hasSave() {
       return !!read(KEYS.save, { _none: true }).version;
+    },
+    /** The save on disk for display only; never touches this.save or this.trip. */
+    peekSave() {
+      const s = read(KEYS.save, {});
+      return s.version ? s : null;
     },
     loadSave() {
       const s = read(KEYS.save, {});
@@ -230,6 +236,7 @@
         s.stats.items += t.items;
         // a day passes: the crew eats, the garden grows
         s.day += 1;
+        s.wave = 0;
         s.food = Math.max(0, s.food - W().SETTINGS.foodPerTrip) + this.effects().foodPerDay;
       }
       this.trip = null;
