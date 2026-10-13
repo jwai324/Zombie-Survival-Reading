@@ -22,6 +22,45 @@ The crew at the cabin (home base, south end of town):
 - **Pip**: eleven. Runs the radio once it is built, keeps a list of every voice heard.
   Asks hard questions. Wants a dog.
 
+## The cabin and the Hollis family
+
+The cabin is not small: it is a whole family house with a porch, the home of the **Hollis
+family**, who called it "the cabin" (a carved sign by the front door still says so). The crew
+keeps the name. The Hollises went north with the River Convoy, on Sergeant Vega's trucks, before
+the crew arrived; they are never met, only read about.
+
+- **Kate**: drew maps for the county at the office desk. Wrote the note on the fridge: if you
+  find our cabin and you are kind, it is yours now; please keep the garden going.
+- **Dan**: hung the dinner bell, labeled the pantry shelves, lost the last ping pong game.
+- **Gus** (16), **Finn** (11) and **Lucy** (7), and their dog **Biscuit**, who went with them.
+
+Facts in `js/story-home.js`: `HOUSE_NOTES` (one note per room, read up close on the wall; where
+each hangs is `HOUSE.notes` in `js/world.js`) and `HOUSE_UPGRADE_FACTS` (the computer's House
+tab). Words at six levels: `T.house` in each `levelN-home.js`.
+
+| Room | What hangs there | What the room is for now |
+|------|------------------|--------------------------|
+| Porch | The THE CABIN / THE HOLLIS FAMILY sign; the dinner bell and "ring for supper" | June's chalk: the bell carries far and walkers come to it, so ring it only when you are ready to fight |
+| Foyer | Five name hooks (Lucy's low), "last one out locks the door"; the keys went with them | |
+| Office | Kate's map desk; a sticky note: the computer runs off the big battery in the closet | The computer holds the base plans (rooms, van, guns, traps) |
+| Dining room | The chore chart, gold stars (Lucy leads, one of Gus's crossed out) | Pip's pencil row: feeds the dog we do not have yet |
+| Kitchen | Kate's note on the fridge, under a fish magnet | |
+| Pantry | Dan's shelf labels: beans, rice, peaches, flour | The crew counts food and everything in storage |
+| Ping pong room | Chalk score: Finn 21, Dad 19, "rematch on Sunday" | Tomas and Pip play; Pip says the table leans left |
+| Master bath | A heart on the mirror (Gus, Finn, Lucy); Lucy's two-minute toothbrush list | June left the list up |
+| Master bedroom | Kate and Dan's wedding photo by the river | The big bed heals you fully, but it takes time and walkers keep coming |
+| Living room | Growth lines on the door frame (Gus top, Lucy age 3; Pip between Finn and Gus) | The radio and June's ledger by the couch: read past days again |
+| Gus's room | GUS'S ROOM, KEEP OUT, THIS MEANS YOU FINN; a guitar with two broken strings | Tomas sleeps here; the sign now means Pip |
+| Finn's room | Finn's treehouse plan (rope ladder, lookout, bucket on a pulley) | Pip wants to build it once the fence is strong |
+| Lucy's room | MY DOG BISCUIT (sit, shake, roll over) | Pip's drawing of a dog with no name yet |
+| Play room | The typewriter desk; Kate's chalkboard: ten minutes a day, fingers on the home row | Typing practice |
+| Coat closet | The go bag list (water, flashlight, batteries, Biscuit's leash, photo album); meet at the river dock by the convoy trucks | |
+
+Tone: a family's home that strangers now live in. Warm, a little sad, never grim. The Hollises
+are written as people who left with a plan and might come back, never as lost. The **dinner
+bell** is the one thing in the house that calls trouble: ringing it brings the next wave of
+walkers, so the texts always pair it with June's warning.
+
 ## The people out there (they write the notes)
 
 | Who | Where they appear | Their thread |

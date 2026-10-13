@@ -1,10 +1,11 @@
 /* Yard mode for the first-person view, mixed into ZSR.Interior: the home base yard
    (cabin defense). The fence you can shoot over, holes and repairs, traps, the wave
-   phases (calm / some / many, from one or more sides), the cabin door (build menu),
-   the van (map), the cabin's roof and armor, the ground, the ten room plots and what
-   each room level builds on them, and the yard's HUD goal.
-   Yard legend (WORLD.YARD.grid): T treeline  F fence segment  H cabin wall
-   B cabin door  V the van  P player start  z walker spawn (outside the fence).
+   phases (calm / some / many, from one or more sides; the dinner bell and gunfire bring the
+   next one sooner), the van (map), the ground, the ten room plots and what each room level
+   builds on them, and the yard's HUD goal. The cabin itself (a house you walk into: the build
+   menu is its office computer) is js/house.js.
+   Yard legend (WORLD.YARD.grid): T treeline  F fence segment  V the van  P player start
+   z walker spawn (outside the fence), and the cabin's own legend (WORLD.HOUSE).
    The plots are WORLD.YARD.plots; the textures and sprites named below are drawn in
    yardart.js (the van and the gun in sprites3d.js read the upgrades themselves). */
 (function (root) {
@@ -24,8 +25,6 @@
     }
     return list;
   };
-  // the cabin's walls stop at the eave; the roof peaks at the ridge
-  const CABIN_ROOF = { eave: 1.0, ridge: 1.7, roofTex: "roof", gableTex: "gable" };
   // where a wave comes from, as the toast says it (the yard's north is the back fence, far from the cabin door)
   const SIDE_NAMES = { n: "the back fence", s: "the fence behind the cabin", w: "the fence by the garage", e: "the fence by the farm" };
   // name signs and plaques grow with the text size setting like all text the player must read (building.js
@@ -342,7 +341,6 @@
       const fenceHp = W().DEFENSE.fenceHp[S.save.rooms.walls] || W().DEFENSE.fenceHp[0];
       const savedFence = S.save.fence || {}; // holes and cracks never close on their own
       let start = [2.5, 2.5, -Math.PI / 2];
-      let cab = null;
       for (let y = 0; y < this.gh; y++) {
         for (let x = 0; x < this.gw; x++) {
           const ch = this.grid[y][x];
@@ -360,22 +358,18 @@
             const hp = savedFence[key] != null ? Math.min(fenceHp, savedFence[key]) : fenceHp;
             if (hp > 0) this.fence[key] = hp;
             else this.grid[y][x] = "."; // a hole
-          } else if (ch === "B" || ch === "H") {
-            if (ch === "B") this.door = { x, y };
-            cab = cab ? { x0: Math.min(cab.x0, x), x1: Math.max(cab.x1, x + 1), y0: Math.min(cab.y0, y), y1: Math.max(cab.y1, y + 1) } : { x0: x, x1: x + 1, y0: y, y1: y + 1 };
           } else if (ch === "V" && !this.van) {
             this.van = { x, y };
           }
           if (this.grid[y][x] === ".") this.floors.push([x + 0.5, y + 0.5]);
         }
       }
-      // a gabled roof over the cabin: one entry in the shared roofs list (dressYard keeps it first)
-      if (cab) this.cabin = Object.assign(cab, CABIN_ROOF);
       this.fenceMax = fenceHp;
+      this.makePlayer(start[0], start[1], start[2]);
+      this.houseLoad(); // the cabin: its doors, windows and roof (js/house.js)
       this.dressYard();
       this.trapsOffBuilds();
       this.traps = (S.save.yardTraps || []).map((t) => Object.assign({}, t));
-      this.makePlayer(start[0], start[1], start[2]);
       this.player.hp = this.player.maxHp; // home: rested
       this.waveIndex = S.save.wave || 0; // escalation survives a reload and the yard button; resets when a day passes
       this.phase = { kind: "calm", t: (opts && opts.firstCalm) || W().DEFENSE.firstCalmSeconds, total: 0, spawned: 0, spawnT: 0, size: "none" };
@@ -387,7 +381,7 @@
     },
 
     /* ---------- What the base rooms put in the yard ---------- */
-    /** Rebuild the yard's scene from the save: ground, the cabin's armor, the fence's look, and every
+    /** Rebuild the yard's scene from the save: ground, the cabin (js/house.js), the fence's look, and every
         plot (a staked lot with its name sign until the room is built, then that level's structure).
         Runs on entry and after every build; the grid, fence, walkers and traps are left alone. */
     dressYard() {
@@ -402,7 +396,7 @@
       this.tileTex = {};
       this.tileH = {};
       this.lowTiles = {};
-      this.roofs = this.cabin ? [this.cabin] : [];
+      this.roofs = [];
       this.props = [];
       this.blockers.clear();
       this.covers.clear();
@@ -410,8 +404,9 @@
       this.yardAnims = [];
       this.lots = []; // each plot's sign or plaque, read up close with E (the core's read panel)
       this.readLot = null;
+      this.signs = []; // the notes on the cabin's walls (dressHouse)
       this.yardGround();
-      this.dressCabin(walls);
+      this.dressHouse();
       Object.entries(Y.plots).forEach(([room, plot]) => this.buildPlot(room, plot, (S.save.rooms[room] || 0) | 0));
       this.maskDirty = true;
       this.refreshScene(); // the van's paint and gear may have changed too
@@ -425,28 +420,6 @@
         for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) this.setFloor(x, y, "dirt");
       });
       if (v) for (let y = v.y - 1; y <= v.y + 1; y++) for (let x = v.x - 1; x <= v.x + 2; x++) this.setFloor(x, y, "gravel");
-    },
-
-    /** The cabin's walls by Walls level (more boards, metal shutters, steel plates); windows either side of
-        the door, on the back wall and in each gable end. Its roof is done over in tin from level 2. */
-    dressCabin(walls) {
-      const c = this.cabin;
-      const d = this.door;
-      if (!c) return;
-      const lvl = { lvl: walls };
-      const tex = (name) => D3().texture(name, this.palette, lvl);
-      const midY = Math.floor((c.y0 + c.y1 - 1) / 2);
-      for (let y = c.y0; y < c.y1; y++) {
-        for (let x = c.x0; x < c.x1; x++) {
-          let t = "yCabinWall";
-          if (d && x === d.x && y === d.y) t = "yCabinDoor";
-          else if (d && y === c.y0 && Math.abs(x - d.x) === 2) t = "yCabinWindow";
-          else if (d && y === c.y1 - 1 && Math.abs(x - d.x) === 1) t = "yCabinWindow";
-          else if (y === midY && (x === c.x0 || x === c.x1 - 1)) t = "yCabinWindow";
-          this.tileTex[x + "," + y] = tex(t);
-        }
-      }
-      c.roofTex = walls >= 2 ? "yCabinRoof" : CABIN_ROOF.roofTex;
     },
 
     /** The fence's look by Walls level: the core draws this.fenceTex for every segment (whole, or cracked
@@ -781,6 +754,7 @@
       if (grew || (opts && opts.rebuildFence)) this.patchFence();
       this.gun = S.weaponStats(); // mods bought or a gun picked in the cabin
       this.fx = S.effects();
+      this.houseStrength(); // stronger doors or windows: mended and refit at once
       this.dressYard(); // what was just built goes up at once (and the van's paint and gear change)
       this.trapsOffBuilds();
       this.unstick(this.player);
@@ -855,7 +829,8 @@
           // what comes next?
           const r = Math.random();
           const mix = D.waveMix;
-          const size = r < mix.none ? "none" : r < mix.none + mix.some ? "some" : "many";
+          // after the dinner bell there is always a wave
+          const size = ph.forced ? (r < mix.some / (mix.some + mix.many) ? "some" : "many") : r < mix.none ? "none" : r < mix.none + mix.some ? "some" : "many";
           if (size === "none") {
             this.phase = { kind: "calm", t: rand(D.calmSeconds[0], D.calmSeconds[1]), size: "none" };
             this.toast("Still quiet. Nothing at the fence.", 3);
@@ -890,6 +865,7 @@
           const type = ph.size === "many" && ph.spawned % 5 === 4 ? "brute" : ph.spawned % 3 === 2 && day >= 2 ? "runner" : "walker";
           const z = this.makeWalker(type, x + rand(-0.3, 0.3), y + rand(-0.3, 0.3), 1 + 0.08 * (day - 1));
           z.awake = true;
+          z.raid = Math.random() < D.raidShare; // it makes for the cabin, not for you (js/house.js)
           this.walkers.push(z);
           ph.spawned += 1;
         }
@@ -897,7 +873,9 @@
           this.phase = { kind: "calm", t: rand(D.calmSeconds[0], D.calmSeconds[1]), size: "none" };
           // nobody patches the fence for you: every hole costs scrap
           const holes = this.fenceHoles().length;
-          this.toast(holes ? "Wave cleared. " + holes + " hole" + (holes > 1 ? "s" : "") + " in the fence: E at a gap fixes it for " + W().SETTINGS.fenceRepairScrap + " scrap." : "Wave cleared. The fence held.", holes ? 4.5 : 3);
+          const broken = this.houseDamage().broken;
+          const cabin = broken ? " The cabin has " + broken + " broken door" + (broken > 1 ? "s or windows" : " or window") + ": E there fixes it, or use the computer." : "";
+          this.toast((holes ? "Wave cleared. " + holes + " hole" + (holes > 1 ? "s" : "") + " in the fence: E at a gap fixes it for " + W().SETTINGS.fenceRepairScrap + " scrap." : "Wave cleared. The fence held.") + cabin, holes || broken ? 5 : 3);
           Audio().play("correct");
           if (this.hooks.onWaveCleared) this.hooks.onWaveCleared();
         }
@@ -926,7 +904,7 @@
     },
     yardFacing(cand) {
       const p = this.player;
-      if (this.door) cand.push({ kind: "door", obj: this.door, x: this.door.x + 0.5, y: this.door.y + 0.5 });
+      this.houseFacing(cand); // what E does in and around the cabin (js/house.js)
       if (this.van) cand.push({ kind: "van", obj: this.van, x: this.van.x + 1, y: this.van.y + 0.5 });
       // the lot signs and plaques in plain sight: E reads one
       this.lots.forEach((lot) => {
@@ -948,12 +926,13 @@
         Audio().play("click");
       } else if (f.kind === "hole" || f.kind === "crack") {
         this.repairFence(f.obj[0], f.obj[1]);
-      } else if (f.kind === "door" || f.kind === "van") {
+      } else if (f.kind === "spot" || f.kind === "pane") {
+        this.houseInteract(f);
+      } else if (f.kind === "van") {
         if (inWave) {
           this.toast("Not now. Clear the fence first.", 2.5);
           Audio().play("wrong");
-        } else if (f.kind === "door" && this.hooks.onDoor) this.hooks.onDoor();
-        else if (f.kind === "van" && this.hooks.onVan) this.hooks.onVan();
+        } else if (this.hooks.onVan) this.hooks.onVan();
       }
     },
     yardHint(f) {
@@ -962,7 +941,7 @@
       if (f.kind === "lot") return this.readLot === f.obj ? "Press E to put the sign away" : (State().save.rooms[f.obj.room] ? "Press E to read the plaque" : "Press E to read the sign");
       if (f.kind === "hole") return "Press E to rebuild the fence (" + fix + ")";
       if (f.kind === "crack") return "Press E to brace the fence (" + fix + ")";
-      if (f.kind === "door") return inWave ? "Cabin door (clear the wave first)" : "Press E to go inside and build";
+      if (f.kind === "spot" || f.kind === "pane") return this.houseHint(f);
       if (f.kind === "van") return inWave ? "The van (clear the wave first)" : "Press E to head out in the van";
       return "";
     },
@@ -971,7 +950,19 @@
       const broken = this.fenceHoles().length;
       const tr = S.save.traps || {};
       const held = Object.entries(W().TRAPS).filter(([k]) => tr[k] > 0).map(([k, d]) => tr[k] + " " + d.name.toLowerCase() + (tr[k] > 1 ? "s" : "") + " (" + d.key + ")");
-      return "Day " + S.save.day + " · fence " + (broken ? broken + " hole" + (broken > 1 ? "s" : "") + " (E to fix)" : "whole") + " · walls " + S.save.rooms.walls + (held.length ? " · traps: " + held.join(", ") : "");
+      const cabin = this.houseDamage().broken;
+      return "Day " + S.save.day + " · fence " + (broken ? broken + " hole" + (broken > 1 ? "s" : "") + " (E to fix)" : "whole") + (cabin ? " · cabin: " + cabin + " broken" : "") + " · walls " + S.save.rooms.walls + (held.length ? " · traps: " + held.join(", ") : "");
+    },
+    /** A shot in the calm carries: the next wave comes sooner (the bow is silent). */
+    yardNoise(tiles) {
+      const ph = this.phase;
+      const D = W().DEFENSE;
+      if (!ph || ph.kind !== "calm" || ph.t <= D.bellSeconds) return;
+      ph.t = Math.max(D.bellSeconds, ph.t - tiles * D.noiseCut);
+      if (!ph.noiseToast) {
+        ph.noiseToast = true;
+        this.toast("The shots carry a long way. They will come sooner.", 3);
+      }
     },
   });
 })(typeof globalThis !== "undefined" ? globalThis : this);

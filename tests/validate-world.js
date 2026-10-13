@@ -320,14 +320,14 @@ if (W.TRAPS) {
   const at = (x, y) => (x < 0 || y < 0 || x >= gw || y >= gh ? "T" : g[y][x]);
   if (!g.every((r) => r.length === gw)) err("yard: rows differ in length");
   if (!(Y.version >= 1)) err("yard: needs a version (older saves are migrated when it changes)");
-  g.forEach((r, y) => [...r].forEach((ch, x) => { if (!"TFHBVPz.".includes(ch)) err(`yard: unknown "${ch}" at ${x},${y}`); }));
+  g.forEach((r, y) => [...r].forEach((ch, x) => { if (!"TFVPz.HWBJD#".includes(ch)) err(`yard: unknown "${ch}" at ${x},${y}`); }));
   for (let x = 0; x < gw; x++) if (at(x, 0) !== "T" || at(x, gh - 1) !== "T") err(`yard: the treeline is open at column ${x}`);
   for (let y = 0; y < gh; y++) if (at(0, y) !== "T" || at(gw - 1, y) !== "T") err(`yard: the treeline is open at row ${y}`);
   const find = (ch) => { const out = []; g.forEach((r, y) => [...r].forEach((c, x) => c === ch && out.push([x, y]))); return out; };
   const P = find("P");
   const B = find("B");
   const V = find("V");
-  if (P.length !== 1 || B.length !== 1) err("yard: needs exactly one player start P and one cabin door B");
+  if (P.length !== 1 || B.length !== 1 || find("J").length !== 1) err("yard: needs exactly one player start P, one cabin front door B and one back door J");
   if (V.length !== 2 || V[0][1] !== V[1][1] || V[1][0] !== V[0][0] + 1) err("yard: the van is two V side by side");
   // inside the fence (from the start, not crossing F or T): the cabin and the van; no spawn
   const inside = new Set();
@@ -373,7 +373,7 @@ if (W.TRAPS) {
         if (on && (ch !== "." || !inside.has(x + "," + y))) err(`${ctx}: ${x},${y} is "${ch}"${inside.has(x + "," + y) ? "" : " outside the fence"}`);
         if (!on && ch === "F") err(`${ctx}: closer than two tiles to the fence at ${x},${y}`);
         const near = Math.max(x < p.x ? p.x - x : x - (p.x + p.w - 1), y < p.y ? p.y - y : y - (p.y + p.h - 1)) <= 1;
-        if (near && !on && "HBVP".includes(ch)) err(`${ctx}: right up against the ${ch === "V" ? "van" : ch === "P" ? "player start" : "cabin"} at ${x},${y}`);
+        if (near && !on && "HWBJD#VP".includes(ch)) err(`${ctx}: right up against the ${ch === "V" ? "van" : ch === "P" ? "player start" : "cabin"} at ${x},${y}`);
         if (on) {
           if (taken.has(x + "," + y)) err(`${ctx}: overlaps plot ${taken.get(x + "," + y)} at ${x},${y}`);
           taken.set(x + "," + y, k);
@@ -391,6 +391,84 @@ if (W.TRAPS) {
     for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
       if (!inside.has(x + "," + y) || taken.has(x + "," + y)) err(`yard: the path at ${x},${y} runs ${taken.has(x + "," + y) ? "over plot " + taken.get(x + "," + y) : "outside the fence"}`);
     }
+  });
+}
+// the cabin: its plan (WORLD.HOUSE) and how it sits in the yard; its doors and windows' levels
+{
+  const H = W.HOUSE;
+  const g = H.grid;
+  const hw = g[0].length;
+  const hh = g.length;
+  const at = (x, y) => (x < 0 || y < 0 || x >= hw || y >= hh ? " " : g[y][x]);
+  const [ax, ay] = H.at;
+  if (!g.every((r) => r.length === hw)) err("cabin: rows differ in length");
+  g.forEach((r, y) => [...r].forEach((ch, x) => {
+    if (!"HWBJ#D., ".includes(ch)) err(`cabin: unknown "${ch}" at ${x},${y}`);
+    if (ch !== " " && W.YARD.grid[ay + y][ax + x] !== (ch === "," ? "." : ch)) err(`cabin: the yard grid does not carry it at ${x},${y}`);
+  }));
+  // shut: from outside, only the doors (B J) and the porch lead in
+  const out = new Set();
+  const st = [];
+  for (let x = -1; x <= hw; x++) [-1, hh].forEach((y) => { out.add(x + "," + y); st.push([x, y]); });
+  for (let y = 0; y < hh; y++) [-1, hw].forEach((x) => { out.add(x + "," + y); st.push([x, y]); });
+  while (st.length) {
+    const [x, y] = st.pop();
+    for (const [dx, dy] of STEPS) {
+      const nx = x + dx;
+      const ny = y + dy;
+      if (nx < -1 || ny < -1 || nx > hw || ny > hh || out.has(nx + "," + ny)) continue;
+      const ch = at(nx, ny);
+      if (ch === ".") err(`cabin: the outside gets in at ${nx},${ny} (no wall)`);
+      if (ch !== " " && ch !== ",") continue;
+      out.add(nx + "," + ny);
+      st.push([nx, ny]);
+    }
+  }
+  if (!g.some((r) => r.includes("B")) || !g.some((r) => r.includes("J"))) err("cabin: needs a front door B and a back door J");
+  // rooms: on floor, not overlapping
+  const roomAt = new Map();
+  Object.entries(H.rooms).forEach(([k, r]) => {
+    const [x0, y0, x1, y1] = r.rect;
+    if (!r.name) err(`cabin room ${k}: no name`);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const ch = at(x, y);
+      if (k === "porch" ? ch !== "," : ch !== ".") err(`cabin room ${k}: ${x},${y} is "${ch}"`);
+      if (roomAt.has(x + "," + y)) err(`cabin rooms ${roomAt.get(x + "," + y)} and ${k} overlap at ${x},${y}`);
+      roomAt.set(x + "," + y, k);
+    }
+  });
+  // floor in no room is an archway between two rooms
+  g.forEach((r, y) => [...r].forEach((ch, x) => {
+    if (ch !== "." || roomAt.has(x + "," + y)) return;
+    const by = new Set(STEPS.map(([dx, dy]) => roomAt.get(x + dx + "," + (y + dy))).filter(Boolean));
+    if (by.size < 2) err(`cabin: floor at ${x},${y} is in no room`);
+  }));
+  // notes: on a wall, facing into their room; one per id
+  const SIDE = { n: [0, -1], s: [0, 1], w: [-1, 0], e: [1, 0] };
+  const ids = new Set();
+  H.notes.forEach((n) => {
+    if (ids.has(n.id)) err(`cabin note ${n.id}: twice`);
+    ids.add(n.id);
+    if (!(W.HOUSE_NOTES || {})[n.id]) err(`cabin note ${n.id}: no facts in HOUSE_NOTES`);
+    if (!"HW#".includes(at(n.wall[0], n.wall[1]))) err(`cabin note ${n.id}: ${n.wall} is not a wall`);
+    const [dx, dy] = SIDE[n.face] || [0, 0];
+    if (roomAt.get(n.wall[0] + dx + "," + (n.wall[1] + dy)) !== n.room) err(`cabin note ${n.id}: its face does not look into the ${n.room}`);
+  });
+  Object.keys(W.HOUSE_NOTES || {}).forEach((k) => ids.has(k) || err(`HOUSE_NOTES ${k}: not on any wall`));
+  ["computer", "pantry", "radio", "typewriter", "bed", "bell"].forEach((k) => {
+    const sp = H.spots[k];
+    if (!sp || at(sp[0], sp[1]) === " ") err(`cabin: the ${k} is not in the cabin`);
+  });
+  // in the yard: inside the fence, two tiles clear of it, clear of the plots and the van
+  for (let y = -2; y < hh + 2; y++) for (let x = -2; x < hw + 2; x++) {
+    const yc = W.YARD.grid[ay + y] && W.YARD.grid[ay + y][ax + x];
+    if (at(x, y) !== " " && (yc === undefined || "FTz".includes(yc))) err(`cabin: ${ax + x},${ay + y} is off the yard or on the fence`);
+    if (yc === "F" && Math.max(Math.abs(Math.min(Math.max(x, 0), hw - 1) - x), Math.abs(Math.min(Math.max(y, 0), hh - 1) - y)) < 2) err(`cabin: closer than two tiles to the fence at ${ax + x},${ay + y}`);
+  }
+  // doors and windows: strength for level 0 and each level after, rising
+  Object.entries(W.HOUSE_UPGRADES || {}).forEach(([k, U]) => {
+    if (U.hp.length !== U.levels.length + 1 || U.hp.some((v, i) => i && v <= U.hp[i - 1])) err(`HOUSE_UPGRADES ${k}: hp needs one rising value per level, from level 0`);
+    U.levels.forEach((l, i) => Object.keys(l.needs).forEach((it) => W.ITEMS[it] || err(`HOUSE_UPGRADES ${k} level ${i + 1}: no item ${it}`)));
   });
 }
 // home story facts: plot signs, the journal, the radio, item tags

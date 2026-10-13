@@ -22,18 +22,31 @@ road also work on touch.
 
 ## The loop
 
-1. **Home base, cabin defense.** First person in the yard. Time runs in phases: calm
+1. **Home base, cabin defense.** First person in the yard. Time runs in phases: a long calm
    (nothing at the fence; go inside to build, or leave in the van) and waves that are
-   sometimes a few walkers and sometimes a lot, from two sides or from every side.
-   Walkers claw through the fence; the Walls room makes it stronger. Holes never close on
-   their own: stand at a gap and press E (1 scrap each) or fix them all from the cabin menu.
-   Set traps with T and R. The base is the only place the game saves.
+   sometimes a few walkers and sometimes a lot, from two sides or from every side. The
+   dinner bell on the porch (E) brings the next wave now; gunshots in the calm bring it
+   sooner (the bow is silent). Walkers claw through the fence; the Walls room makes it
+   stronger. Holes never close on their own: stand at a gap and press E (1 scrap each) or
+   fix them all from the computer. Set traps with T and R. The base is the only place the
+   game saves.
+   **The cabin is a house you walk into** (the Hollis family's; the plan is `WORLD.HOUSE`):
+   porch, foyer, office, dining room, kitchen and pantry, ping pong room, living room,
+   bedrooms, baths, closets and a rear play room, each furnished. E at the office computer
+   opens the build menu; the pantry shelves list food and storage; the radio shelf by the
+   couch shows past days of June's journal and the radio; the typewriter in the play room is
+   free typing practice; the big bed heals you fully for a minute of the calm. Notes the
+   Hollis family left on the walls are read up close. Its doors open and shut with E:
+   walkers walk through an open one, pound a shut one down, and smash windows to climb in
+   (you cannot climb out). Some walkers in every wave make for the cabin, break in and wait
+   inside. E at a broken door or window fixes it (2 scrap); the computer's House tab makes
+   doors and windows stronger.
    **What you build is what you see:** every room has its own plot in the yard, a staked lot
    with its name on a sign until it is built, then a bigger build at each level (a carport,
    then a shed, then a workshop; rain barrels, then a tank on a stand, then a water tower).
    Walk up to a plot's sign (or its plaque once built) and press E to read what it is, what the
    next level needs and what must be built first. The Walls level is the fence itself (pickets, braced planks, corrugated metal, concrete
-   and razor wire) and the armor on the cabin. The van in the driveway shows its armor,
+   and razor wire). The van in the driveway shows its armor,
    plow, engine gear and paint, and its roof gun shows heavier rounds, rate of fire and
    spread. The gun in your hands shows its own mods: a heavier muzzle, a longer barrel and
    sights, a smoother action, a steadier grip (the bow: broadheads, stronger limbs, a smoother
@@ -103,16 +116,20 @@ js/interior.js          first-person engine: raycaster, low see-over tiles, roof
                         props, walkers, shooting and switching guns, reading signs up close, HUD plumbing
 js/building.js          building mode: layouts, landmarks, decor, items, notes, cache, stash and key,
                         wall signs, guns on the floor, the M map
-js/yard.js              yard mode: plots and their builds per level, fence by Walls level, traps, waves
+js/yard.js              yard mode: plots and their builds per level, fence by Walls level, traps, waves, the bell and gunfire
+js/house.js             the cabin in the yard: rooms and furniture, doors and windows (break, fix, upgrade), raiders,
+                        what E does inside (computer, pantry, radio shelf, typewriter, bed, dinner bell), wall notes
+js/houseart.js          cabin art: siding, roof, doors and windows by level and damage, wallpapers, wall notes,
+                        floors and ceiling, furniture
 js/sprites3d.js         first-person textures and sprites, the registration API, the 3D guns in hand
                         (each showing its mods), the walkers, the yard van
 js/decor.js             wall decor faces (signs, posters, lockers, notice boards ...)
 js/landmarks1.js        landmark art: gas station, grocery, hardware, pharmacy, auto shop, electronics, garden
 js/landmarks2.js        landmark art: precinct, school, fire station, hospital, water tower, lumber, mall, library
-js/yardart.js           yard art: every plot at every level, fence and cabin by Walls level
+js/yardart.js           yard art: every plot at every level, fence by Walls level
 js/game.js              the road: world-space drive, lanes, signs, turns, wrong-way restarts, minimap
 js/map.js               the city map, street names, side streets, "The way there"
-js/base.js              the cabin build menu (rooms, garage, traps, stock, fence repair, hover tips)
+js/base.js              the build menu at the cabin's computer (rooms, garage, weapons, traps, house, stock, repairs, hover tips)
 js/typing.js            the workbench typing game (finger lesson, stages, countdown, timer, retry, practice)
 js/bench.js             the garage workbench scene behind the typing game
 js/backpack.js          the backpack (medical kits, notes) and the note reader
@@ -151,7 +168,10 @@ tests/                  world, weapons, text, streets, drive, engine and art val
 ## Tuning
 
 - Walkers inside buildings: `SETTINGS.walkersPerLocation` in `js/world.js`.
-- Waves at the base: `DEFENSE` in `js/world.js` (fence strength, calm length, wave mix, counts,
+- The cabin: `HOUSE` (plan, rooms, notes, what E uses) and `HOUSE_UPGRADES` (door and window strength and
+  cost) in `js/world.js`; furniture and room looks in `js/house.js`. A moved wall can strand a note or
+  a doorway: `npm test` walks every room, reads every note and uses every spot.
+- Waves at the base: `DEFENSE` in `js/world.js` (fence strength, calm length, raiders, the bell, gunfire, rest, wave mix, counts,
   how many sides a wave comes from).
 - Road difficulty: `DIFF` and `ZOMBIE_TYPES` in `js/game.js`; lane and junction geometry:
   `GEOM` in `js/streets.js`.

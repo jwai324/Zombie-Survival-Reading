@@ -1,5 +1,6 @@
-/* The cabin build menu: rooms, garage, weapons, traps, inventory, fence repair. Opens from the
-   cabin door in the yard; the yard is paused while it is open. Building, upgrading and
+/* The cabin build menu: rooms, garage, weapons, traps, the cabin's doors and windows, inventory,
+   fence and cabin repair. Opens from the computer in the cabin's office; the yard is paused while
+   it is open. Building, upgrading and
    crafting go through the workbench (a typing round); repairs are instant. Every action
    commits the base save. Hovering any option shows a description. */
 (function (root) {
@@ -123,8 +124,9 @@
       });
       return built;
     },
-    /** A practice round at the workbench: nothing is built or spent; a good round counts toward the next stage. */
-    practice() {
+    /** A practice round at the workbench: nothing is built or spent; a good round counts toward the next stage.
+        `onClose`: what to do after (the typewriter in the cabin goes back to the yard; default: this menu). */
+    practice(onClose) {
       const S = State();
       const T = ZSR.Typing;
       if (!T || !T.open) return;
@@ -142,7 +144,7 @@
           S.commit();
         },
         onSuccess: (result) => S.typingDone(result),
-        onClose: () => this.render(),
+        onClose: () => (onClose ? onClose() : this.render()),
       });
     },
 
@@ -166,7 +168,7 @@
 
       // tabs
       const tabs = el("div", "tabs");
-      const TABS = [["rooms", "Rooms", "Build the cabin's rooms with items plus scrap. Each build is a typing round at the workbench."], ["garage", "Garage", "Van and van-gun upgrades, and van repair. Upgrades are typing rounds; repairs are instant."], ["weapons", "Weapons", "The guns you carry on foot. Pick one, and mod it with scrap: damage, range, fire rate, accuracy."], ["traps", "Traps", "Craft traps at the workbench, then set them in the yard with T and R."], ["inventory", "Cargo & stock", "Everything in storage, and what the next builds still need."]];
+      const TABS = [["rooms", "Rooms", "Build the cabin's rooms with items plus scrap. Each build is a typing round at the workbench."], ["garage", "Garage", "Van and van-gun upgrades, and van repair. Upgrades are typing rounds; repairs are instant."], ["weapons", "Weapons", "The guns you carry on foot. Pick one, and mod it with scrap: damage, range, fire rate, accuracy."], ["traps", "Traps", "Craft traps at the workbench, then set them in the yard with T and R."], ["house", "House", "The cabin's doors and windows: make them stronger, and fix the broken ones."], ["inventory", "Cargo & stock", "Everything in storage, and what the next builds still need."]];
       TABS.forEach(([k, label, hint]) => {
         const b = tip(el("button", "tab" + (this.tab === k ? " on" : ""), label), "<strong>" + label + "</strong><span class='t-line'>" + hint + "</span>");
         b.addEventListener("click", () => {
@@ -182,10 +184,11 @@
       else if (this.tab === "garage") body.appendChild(this.garage());
       else if (this.tab === "weapons") body.appendChild(this.weapons());
       else if (this.tab === "traps") body.appendChild(this.traps());
+      else if (this.tab === "house") body.appendChild(this.house());
       else body.appendChild(this.inventory());
 
       const row = el("div", "btn-row");
-      const back = tip(el("button", "btn big", "Back to the yard"), "Close the menu and go back outside. The yard was paused while you were in here.");
+      const back = tip(el("button", "btn big", "Step away from the computer"), "Close the menu. The yard was paused while you were at the computer.");
       back.addEventListener("click", () => {
         ZSR.Audio.play("click");
         this.close();
@@ -227,12 +230,84 @@
       return row;
     },
 
+    /** The cabin's doors and windows: how many are broken or cracked, fix them all for scrap. */
+    houseRow() {
+      const S = State();
+      const dmg = this.hooks.houseDamage ? this.hooks.houseDamage() : { broken: 0, cracked: 0 };
+      const n = dmg.broken + dmg.cracked;
+      const cost = n * W().SETTINGS.houseRepairScrap;
+      const row = el("div", "fence-row" + (dmg.broken ? " bad" : ""));
+      row.appendChild(el("span", "stock", n ? "Cabin: " + (dmg.broken ? dmg.broken + " broken" : "") + (dmg.broken && dmg.cracked ? ", " : "") + (dmg.cracked ? dmg.cracked + " cracked" : "") : "Cabin: doors and windows whole"));
+      if (n) {
+        const b = tip(el("button", "btn" + (S.save.scrap >= cost ? " go" : ""), "Fix all for " + cost + " scrap"), "<strong>Fix the cabin</strong><span class='t-line'>" + W().SETTINGS.houseRepairScrap + " scrap per door or window. You can also press E at a broken one.</span>");
+        b.disabled = S.save.scrap < W().SETTINGS.houseRepairScrap;
+        b.addEventListener("click", () => {
+          if (this.hooks.onRepairHouse) this.hooks.onRepairHouse();
+          this.render();
+        });
+        row.appendChild(b);
+      } else row.appendChild(el("span", "small muted", "Walkers smash windows and break shut doors. An open door just lets them in."));
+      return row;
+    },
+
+    /** The House tab: doors and windows, three levels each (WORLD.HOUSE_UPGRADES), a typing round each. */
+    house() {
+      const S = State();
+      const s = S.save;
+      const wrap = el("div");
+      wrap.appendChild(this.houseRow());
+      const grid = el("div", "rooms");
+      Object.entries(W().HOUSE_UPGRADES).forEach(([key, U]) => {
+        const lvl = s.house[key] || 0;
+        const txt = ZSR.houseUpgradeText(key);
+        const can = S.canBuyHouse(key);
+        const card = el("div", "room" + (can.maxed ? " maxed" : ""));
+        const head = el("div", "room-head");
+        head.appendChild(el("h3", null, esc(U.name)));
+        const pips = el("div", "pips");
+        for (let i = 0; i < U.levels.length; i++) pips.appendChild(el("span", "pip" + (i < lvl ? " on" : "")));
+        head.appendChild(pips);
+        card.appendChild(head);
+        card.appendChild(el("p", "room-desc", esc(txt.desc)));
+        card.appendChild(el("p", "small", "<strong>Strength now:</strong> " + U.hp[lvl] + " each"));
+        const nextText = txt.next[lvl] || "";
+        tip(card, "<strong>" + esc(U.name) + " · level " + lvl + " of " + U.levels.length + "</strong><span class='t-line'>" + esc(txt.desc) + "</span>" + (can.maxed ? "<span class='t-line'>Fully built.</span>" : "<span class='t-line'><strong>Next:</strong> " + esc(nextText) + "</span><span class='t-line'><strong>Needs:</strong> " + esc(needsText(can.def.needs, can.def.scrap)) + "</span>"));
+        if (can.maxed) card.appendChild(el("p", "small muted", "Fully built."));
+        else {
+          card.appendChild(el("p", "small", "<strong>Next:</strong> " + esc(nextText)));
+          const needs = el("ul", "needs");
+          Object.entries(can.def.needs).forEach(([k, n]) => {
+            const have = s.inventory[k] || 0;
+            needs.appendChild(el("li", have >= n ? "ok" : "short", esc(itemName(k)) + " <span>" + have + " / " + n + "</span>"));
+          });
+          needs.appendChild(el("li", s.scrap >= can.def.scrap ? "ok" : "short", "Scrap <span>" + s.scrap + " / " + can.def.scrap + "</span>"));
+          card.appendChild(needs);
+          const btn = el("button", "btn" + (can.ok ? " go" : ""), "Build level " + (lvl + 1));
+          btn.disabled = !can.ok;
+          tip(btn, can.ok ? "<strong>Build at the workbench</strong><span class='t-line'>A short typing round. Nothing is spent until you finish it. Every " + esc(U.name.toLowerCase().replace(/s$/, "")) + " is mended too.</span>" : "<strong>Not yet</strong><span class='t-line'>Missing: " + esc(Object.entries(can.missing).map(([k, n]) => n + " " + itemName(k)).concat(can.scrapShort ? [can.scrapShort + " scrap"] : []).join(", ")) + "</span>");
+          btn.addEventListener("click", () => {
+            if (!S.canBuyHouse(key).ok) return;
+            this.craft(U.name + " level " + (lvl + 1), needsText(can.def.needs, can.def.scrap), () => {
+              const ok = S.buyHouse(key);
+              if (ok && this.hooks.onChanged) this.hooks.onChanged(key);
+              return ok;
+            });
+          });
+          card.appendChild(btn);
+        }
+        grid.appendChild(card);
+      });
+      wrap.appendChild(grid);
+      return wrap;
+    },
+
     rooms() {
       const S = State();
       const s = S.save;
       const t = ZSR.text();
       const wrap = el("div");
       wrap.appendChild(this.fenceRow());
+      wrap.appendChild(this.houseRow());
       const grid = el("div", "rooms");
       Object.entries(W().BASE_ROOMS).forEach(([key, room]) => {
         const lvl = s.rooms[key];

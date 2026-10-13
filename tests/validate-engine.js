@@ -7,6 +7,8 @@
    closes cleanly, and what you have explored is kept in the trip, joins the save at home and is
    lost with a dead trip; a gun hidden in any building lies on floor you can reach, out of the cache
    room and off the landmarks; every gun mod tier and every van-gun step shows.
+   The cabin in the yard: every room walked into, every note read, every spot used, frames from every
+   room and through open doors, a raid, a siege, and a broken window kept through a save.
    validate-world.js checks the layout data itself; this checks the engine reads it the same way. */
 "use strict";
 const fs = require("fs");
@@ -85,7 +87,7 @@ sb.window = sb;
 vm.createContext(sb);
 pixels = vm.runInContext("(w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) })", sb);
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const WANT = ["layouts.js", "world.js", "story.js", "story-home.js", "upgrades.js", "weapons.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "landmarks1.js", "landmarks2.js", "yardart.js", "interior.js", "building.js", "yard.js"];
+const WANT = ["layouts.js", "world.js", "story.js", "story-home.js", "upgrades.js", "weapons.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "landmarks1.js", "landmarks2.js", "yardart.js", "interior.js", "building.js", "yard.js", "house.js"].concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
 const scripts = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]).filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -398,9 +400,10 @@ function yardCheck(ctx) {
   const sx = Math.floor(p.x);
   const sy = Math.floor(p.y);
   if (I.solidForPlayer(p.x, p.y)) err(`${ctx}: the player starts inside something at ${sx},${sy}`);
-  const reach = I.reachable(sx, sy, false);
+  const reach = I.reachable(sx, sy, true); // through doors: the cabin's are shut when you come home
   const near = (x, y) => N8.some(([dx, dy]) => reach.has(x + dx + "," + (y + dy)));
-  if (!I.door || !near(I.door.x, I.door.y)) err(`${ctx}: nobody can get to the cabin door`);
+  const front = I.doors.find((d) => d.house && !d.back);
+  if (!front || !near(front.x, front.y)) err(`${ctx}: nobody can get to the cabin's front door`);
   if (!I.van || !(near(I.van.x, I.van.y) || near(I.van.x + 1, I.van.y))) err(`${ctx}: nobody can get to the van`);
   // inside the fence (ignoring what is built), every open tile is reachable and every segment can be repaired
   const inside = new Set([sx + "," + sy]);
@@ -424,13 +427,13 @@ function yardCheck(ctx) {
   });
   for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) if (Y.grid[y][x] === "F" && !near(x, y)) err(`${ctx}: the fence at ${x},${y} cannot be reached to repair it`);
   // what the plots build stays on the plots (the cabin's own tiles aside)
-  const cabin = (k) => "HB".includes((Y.grid[+k.split(",")[1]] || "")[+k.split(",")[0]]);
+  const cabin = (k) => I.indoorAt(+k.split(",")[0] + 0.5, +k.split(",")[1] + 0.5);
   const off = (what, k) => !cabin(k) && !inPlot(+k.split(",")[0], +k.split(",")[1]) && err(`${ctx}: ${what} at ${k} is outside every plot`);
   Object.keys(I.tileTex).forEach((k) => off("a wall face", k));
   Object.keys(I.lowTiles).forEach((k) => off("a low tile", k));
   I.blockers.forEach((k) => off("a solid prop", k));
-  I.roofs.slice(1).forEach((r) => !(inPlot(r.x0, r.y0) && inPlot(r.x1 - 1, r.y1 - 1)) && err(`${ctx}: a roof at ${r.x0},${r.y0} is outside every plot`));
-  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) if (I.grid[y][x] === "#" && !inPlot(x, y)) err(`${ctx}: a wall at ${x},${y} is outside every plot`);
+  I.roofs.forEach((r) => !(inPlot(r.x0, r.y0) && inPlot(r.x1 - 1, r.y1 - 1)) && err(`${ctx}: a roof at ${r.x0},${r.y0} is outside every plot`));
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) if (I.grid[y][x] === "#" && !inPlot(x, y) && !I.indoorAt(x + 0.5, y + 0.5)) err(`${ctx}: a wall at ${x},${y} is outside every plot`);
   // every name is drawn: sprites, wall faces, roofs and gables
   I.props.forEach((pr) => pr.art && !D.hasSprite(pr.art) && err(`${ctx}: prop art "${pr.art}" is not registered`));
   I.roofs.forEach((r) => [r.roofTex, r.gableTex].forEach((t) => t && !D.hasTexture(t) && err(`${ctx}: roof texture "${t}" is not registered`)));
@@ -485,6 +488,8 @@ try {
   const ctxMath = vm.runInContext("Math", sb);
   const realRandom = ctxMath.random;
   ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(4242);
+  const raidShare = W.DEFENSE.raidShare;
+  W.DEFENSE.raidShare = 0; // here every walker comes for the player; the cabin's raiders are checked below
   for (const sides of [["n", "e"], ["s", "w"], ["n", "e", "s", "w"]]) {
     S.save.fence = {};
     I.enterYard({ firstCalm: 999 });
@@ -528,6 +533,198 @@ try {
     if (seenSides.size !== sides.length || sides.some((s) => !seenSides.has(s))) err(`${ctx}: walkers came from ${[...seenSides].join("+")}`);
     if (killed < 16) err(`${ctx}: only ${killed} of 16 walkers reached the player`);
   }
+
+  /* ---------- The cabin ----------
+     Every room can be walked into from the front door; every note on its walls can be read from its
+     room; what E does inside can be reached; frames render from every room and from the yard with the
+     doors open. Then a raid (walkers that make for the cabin break in and wait inside; going in brings
+     them out) and a siege (you inside, doors shut: they smash their way in and find you). */
+  const HZ = W.HOUSE;
+  const [hax, hay] = HZ.at;
+  setRooms(3);
+  I.enterYard({ firstCalm: 999 });
+  I.stop();
+  {
+    const front = I.doors.find((d) => d.house && !d.back);
+    const reach = I.reachable(front.x, front.y - 1, true);
+    Object.entries(HZ.rooms).forEach(([k, r]) => {
+      let open = 0;
+      for (let y = r.rect[1]; y <= r.rect[3]; y++) for (let x = r.rect[0]; x <= r.rect[2]; x++) if (reach.has(hax + x + "," + (hay + y))) open++;
+      if (!open) err(`cabin: nobody can get into the ${r.name}`);
+    });
+    HZ.notes.forEach((n) => {
+      const [dx, dy] = SIDES[n.face];
+      const wx = hax + n.wall[0];
+      const wy = hay + n.wall[1];
+      if (!OPAQUE.includes(I.grid[wy][wx])) err(`cabin note ${n.id}: ${wx},${wy} is not a wall`);
+      const sg = I.signs.find((x) => x.note === n.id);
+      if (!sg) return err(`cabin note ${n.id}: not on a wall`);
+      // stand somewhere in reach in front of it, facing it: it shows on the read panel
+      let read = false;
+      for (let r = 1; r <= 2 && !read; r++) {
+        for (let o = -1; o <= 1 && !read; o++) {
+          const tx = wx + dx * r + (dx ? 0 : o);
+          const ty = wy + dy * r + (dy ? 0 : o);
+          if (!reach.has(tx + "," + ty)) continue;
+          I.player.x = tx + 0.5;
+          I.player.y = ty + 0.5;
+          I.player.a = Math.atan2(wy + 0.5 - I.player.y, wx + 0.5 - I.player.x);
+          const near = I.nearReadable();
+          read = !!(near && near.sign && near.sign.note === n.id);
+        }
+      }
+      if (!read) err(`cabin note ${n.id}: cannot be read from its room`);
+      if (!ZSR.houseNoteText(n.id).text) err(`cabin note ${n.id}: no words`);
+    });
+    Object.entries(HZ.spots).forEach(([name, [sx, sy]]) => {
+      const x = hax + sx + 0.5;
+      const y = hay + sy + 0.5;
+      let found = false;
+      reach.forEach((v, k) => {
+        if (found) return;
+        const [tx, ty] = k.split(",").map(Number);
+        if (Math.hypot(tx + 0.5 - x, ty + 0.5 - y) > 1.5) return;
+        I.player.x = tx + 0.5;
+        I.player.y = ty + 0.5;
+        I.player.a = Math.atan2(y - I.player.y, x - I.player.x);
+        const f = I.facing();
+        found = !!(f && f.kind === "spot" && f.obj === name);
+      });
+      if (!found) err(`cabin: nobody can use the ${name}`);
+    });
+    // frames from every room, and from the yard and the porch with both doors open
+    Object.entries(HZ.rooms).forEach(([k, r]) => {
+      I.player.x = hax + (r.rect[0] + r.rect[2] + 1) / 2;
+      I.player.y = hay + (r.rect[1] + r.rect[3] + 1) / 2;
+      renderAround("cabin " + k);
+    });
+    I.doors.filter((d) => d.house).forEach((d) => I.toggleDoor(d));
+    [[front.x + 0.5, front.y - 4.5], [front.x + 0.5, front.y - 1.5], [front.x + 0.5, front.y + 1.5], [hax - 3, hay + 10], [hax + 12, hay + 29]].forEach(([x, y], i) => {
+      I.player.x = x;
+      I.player.y = y;
+      renderAround("cabin, doors open, view " + i);
+    });
+    if (!I.house || I.house.ridge <= 1) err("cabin: no roof");
+    if (!I.indoorAt(hax + 3.5, hay + 3.5) || I.indoorAt(hax - 1.5, hay + 3.5)) err("cabin: the engine has the wrong tiles under its roof");
+  }
+  // a raid: every walker makes for the cabin while you stay out in the yard; they get in and wait
+  {
+    W.DEFENSE.raidShare = 1;
+    S.save.rooms.walls = 0;
+    S.save.fence = {};
+    S.save.house.hp = {};
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    const p = I.player;
+    p.maxHp = p.hp = 1e9;
+    I.phase = { kind: "wave", size: "some", total: 6, spawned: 0, spawnT: 0, t: 0, sides: ["s"] };
+    let t = 0;
+    while (t < 240 && !(I.phase.spawned >= 6 && I.walkers.every((z) => z.inHouse))) {
+      I.update(0.05);
+      t += 0.05;
+    }
+    const broken = I.houseDamage().broken;
+    if (!broken) err("cabin raid: the walkers never broke a door or a window");
+    if (!I.walkers.length || !I.walkers.every((z) => z.inHouse && I.indoorAt(z.x, z.y))) err(`cabin raid: the walkers did not all get into the cabin (${I.walkers.filter((z) => z.inHouse).length} of ${I.walkers.length} after ${t.toFixed(0)} s)`);
+    // go in: they come out of the rooms for you
+    const front = I.doors.find((d) => d.house && !d.back);
+    if (!front.broken && !front.open) I.toggleDoor(front);
+    p.x = hax + 14.5;
+    p.y = hay + 14.5;
+    t = 0;
+    let killed = 0;
+    while (t < 120 && I.phase.kind === "wave") {
+      I.update(0.05);
+      t += 0.05;
+      I.walkers.forEach((z) => {
+        if (Math.hypot(z.x - p.x, z.y - p.y) < 1.2) {
+          I.hurtWalker(z, 1e6);
+          killed++;
+        }
+      });
+    }
+    if (I.phase.kind === "wave") err(`cabin raid: the walkers inside never came for the player (${I.walkers.length} left)`);
+  }
+  // a siege: you in the living room, both doors shut; they come through the fence and smash their way in
+  {
+    W.DEFENSE.raidShare = 0;
+    S.save.fence = {};
+    S.save.house.hp = {};
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    const p = I.player;
+    p.maxHp = p.hp = 1e9;
+    p.x = hax + 14.5;
+    p.y = hay + 14.5;
+    I.phase = { kind: "wave", size: "many", total: 10, spawned: 0, spawnT: 0, t: 0, sides: ["n", "e"] };
+    let t = 0;
+    let killed = 0;
+    while (t < 300 && I.phase.kind === "wave") {
+      I.update(0.05);
+      t += 0.05;
+      I.walkers.forEach((z) => {
+        if (I.solidAt(z.x, z.y)) err(`cabin siege: a walker is inside something solid at ${z.x.toFixed(1)},${z.y.toFixed(1)}`);
+        if (Math.hypot(z.x - p.x, z.y - p.y) < 1.2) {
+          I.hurtWalker(z, 1e6);
+          killed++;
+        }
+      });
+    }
+    if (!I.houseDamage().broken) err("cabin siege: the walkers never broke into the cabin");
+    if (I.phase.kind === "wave") err(`cabin siege: the wave never ended (${I.walkers.length} walkers left after 300 s)`);
+    if (killed < 10) err(`cabin siege: only ${killed} of 10 walkers found the player inside`);
+    if (I.solidForPlayer(...(() => { const b = Object.values(I.barriers).find((x) => x.kind === "window" && x.hp <= 0); return b ? [hax + b.hx + 0.5, hay + b.hy + 0.5] : [0, 0]; })()) !== true) err("cabin siege: the player can climb through a broken window");
+  }
+  // shut in a bedroom: a walker in the cabin forces the inner door open (it is not broken) and finds you
+  {
+    S.save.house.hp = {};
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    const p = I.player;
+    p.maxHp = p.hp = 1e9;
+    p.x = hax + 21.5;
+    p.y = hay + 7.5;
+    const door = I.doors.find((d) => d.x === hax + 19 && d.y === hay + 9);
+    if (!door) err("cabin: no door into Gus's room");
+    else {
+      I.toggleDoor(door);
+      I.phase = { kind: "wave", size: "some", total: 0, spawned: 0, spawnT: 0, t: 0, sides: ["n"] };
+      const z = I.makeWalker("walker", hax + 14.5, hay + 14.5, 1);
+      z.awake = true;
+      I.walkers.push(z);
+      let t = 0;
+      let got = false;
+      while (t < 60 && !got) {
+        I.update(0.05);
+        t += 0.05;
+        got = Math.hypot(z.x - p.x, z.y - p.y) < 1.2;
+      }
+      if (!got) err(`cabin: a walker never got through a shut inner door (at ${z.x.toFixed(1)},${z.y.toFixed(1)})`);
+      if (door.broken || !door.open) err("cabin: a forced inner door should be open and not broken");
+      I.walkers.length = 0;
+    }
+  }
+  // a broken window stays broken through a save (home is where the game saves), and a stronger level mends them all
+  {
+    S.save.house.hp = {};
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    const key = Object.keys(I.barriers).find((k) => I.barriers[k].kind === "window");
+    I.yardHitBarrier(key, 1e9);
+    S.save.house.hp = I.houseState();
+    S.commit();
+    S.save = S.loadSave(S.activeSlot());
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    const [kx, ky] = key.split(",").map(Number);
+    if (I.grid[ky][kx] !== "U" || I.barriers[key].hp !== 0) err("cabin: a broken window came back whole after a save");
+    S.save.house.windows = 1;
+    I.refreshYard();
+    if (I.grid[ky][kx] !== "W" || I.barriers[key].hp !== W.HOUSE_UPGRADES.windows.hp[1]) err("cabin: a stronger window level did not mend the windows");
+    S.save.house.windows = 0;
+  }
+  W.DEFENSE.raidShare = raidShare;
+  S.save.house.hp = {};
   ctxMath.random = realRandom;
 
   // a save from before the yard grew: its fence keys and trap spots mean nothing on the new grid, so the
@@ -955,4 +1152,4 @@ if (errors.length) {
   console.log(`\n${errors.length} engine problem(s).`);
   process.exit(1);
 }
-console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, and every yard plot's sign.`);
+console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, and the cabin (every room, note and spot, a raid, a siege, a save).`);

@@ -133,64 +133,164 @@
      before this file; legend and landmarks are explained there). The notes below point at
      those layouts' landmarks and rooms. */
   const TEMPLATES = ZSR.LAYOUTS || {};
+  /* ---------- The cabin: the Hollis family's house, walked into from the yard ----------
+     The crew still calls it "the cabin" (the Hollis family named it that); it is a full house.
+     One tile is about 2.5 feet. `at` is where house tile (0, 0) sits in the yard grid; the front
+     (the porch and the front door) faces north, toward the plots and the van.
+     Legend: H outer wall  W window (breakable: walkers smash it and climb in, you cannot climb out)
+       B front door  J back door (both open and close with E; walkers break a closed one down)
+       # inner wall  D inner doorway (a door that opens and closes with E; starts open)
+       . floor  , the covered porch (roofed, open on the sides)  (space) yard, not the house
+     rooms: interior rects [x0, y0, x1, y1] inclusive, in house tiles; js/yard.js furnishes each one
+     by its key. notes: what the Hollis family left on the walls, read up close like a wall sign:
+     the wall tile and the side of it that faces the room (the words: js/story-home.js and the
+     level files). spots: what E does inside (house tiles of the thing you face). */
+  const HOUSE = {
+    at: [19, 34],
+    grid: [
+      "HHWWHH,,,,,HHWWHH        ",
+      "W....H,,,,,H....W        ",
+      "H....HHHBHHH....H        ",
+      "H....D.....D....H        ",
+      "W....#.....#....W        ",
+      "H##D##.....##D##HHHHHWWHH",
+      "H...##.....#....#..#....W",
+      "H#####.....#....D..#....H",
+      "W....#.....#....####....W",
+      "H....#.....#....#..D....H",
+      "H....#.....#....#..#####H",
+      "H#D###.....#....#..#....W",
+      "W....#.....###D##..D....H",
+      "H....D.............#....H",
+      "W....#.............#####H",
+      "H....#.....#.......#....W",
+      "HHWWHHHWHHHH.......D....H",
+      "           W.......#....H",
+      "           H.......#####H",
+      "           H.......D....W",
+      "           H#D###D######H",
+      "           H....#..D....H",
+      "           W....####....W",
+      "           H....D..#....H",
+      "           H....#..HHWWHH",
+      "           HHJWHHHHH     ",
+    ],
+    rooms: {
+      porch: { name: "Porch", rect: [6, 0, 10, 1] },
+      office: { name: "Office", rect: [1, 1, 4, 4] },
+      officeCloset: { name: "Office closet", rect: [1, 6, 3, 6] },
+      foyer: { name: "Foyer", rect: [6, 3, 10, 5] },
+      dining: { name: "Dining room", rect: [12, 1, 15, 4] },
+      pingpong: { name: "Ping pong room", rect: [6, 6, 10, 15] },
+      kitchen: { name: "Kitchen", rect: [12, 6, 15, 11] },
+      pantry: { name: "Pantry", rect: [17, 6, 18, 7] },
+      hallway: { name: "Hallway", rect: [17, 9, 18, 12] },
+      living: { name: "Living room", rect: [12, 13, 18, 19] },
+      masterBath: { name: "Master bath", rect: [1, 8, 4, 10] },
+      master: { name: "Master bedroom", rect: [1, 12, 4, 15] },
+      gusRoom: { name: "Gus's room", rect: [20, 6, 23, 9] },
+      bath: { name: "Bathroom", rect: [20, 11, 23, 13] },
+      finnRoom: { name: "Finn's room", rect: [20, 15, 23, 17] },
+      linenCloset: { name: "Closet", rect: [20, 19, 23, 19] },
+      lucyRoom: { name: "Lucy's room", rect: [20, 21, 23, 23] },
+      playroom: { name: "Rear play room", rect: [12, 21, 15, 24] },
+      coatCloset: { name: "Coat closet", rect: [17, 21, 18, 21] },
+      toyCloset: { name: "Toy closet", rect: [17, 23, 18, 24] },
+    },
+    // in house tiles: [wall x, wall y, the face toward the room]
+    notes: [
+      { id: "porch", room: "porch", wall: [7, 2], face: "n" },
+      { id: "foyer", room: "foyer", wall: [5, 4], face: "e" },
+      { id: "office", room: "office", wall: [5, 1], face: "w" },
+      { id: "dining", room: "dining", wall: [16, 2], face: "w" },
+      { id: "kitchen", room: "kitchen", wall: [11, 10], face: "e" },
+      { id: "pantry", room: "pantry", wall: [17, 5], face: "s" },
+      { id: "pingpong", room: "pingpong", wall: [5, 10], face: "e" },
+      { id: "masterBath", room: "masterBath", wall: [1, 7], face: "s" },
+      { id: "master", room: "master", wall: [0, 13], face: "e" },
+      { id: "living", room: "living", wall: [12, 12], face: "s" },
+      { id: "gusRoom", room: "gusRoom", wall: [20, 10], face: "n" },
+      { id: "finnRoom", room: "finnRoom", wall: [24, 16], face: "w" },
+      { id: "lucyRoom", room: "lucyRoom", wall: [24, 23], face: "w" },
+      { id: "playroom", room: "playroom", wall: [11, 23], face: "e" },
+      { id: "coatCloset", room: "coatCloset", wall: [18, 20], face: "s" },
+    ],
+    // E inside the house: the office computer (the build menu), the pantry shelves (food and stock),
+    // the radio and June's ledger by the couch (the old days), the play room's typewriter desk
+    // (typing practice), the big bed (rest), and the dinner bell on the porch (it calls the next wave)
+    spots: {
+      computer: [2, 1],
+      pantry: [18, 6],
+      radio: [18, 17],
+      typewriter: [15, 21],
+      bed: [2, 14],
+      bell: [10, 0],
+    },
+  };
+  /* What the cabin's doors and windows can take: strength by level (0 is how the Hollis family left
+     them), and what each level costs. Built from the computer's House tab, a typing round each. */
+  const HOUSE_UPGRADES = {
+    doors: {
+      name: "Doors",
+      hp: [150, 260, 400, 560],
+      levels: [
+        { needs: { lumber: 2, nails: 1 }, scrap: 30 }, // a bar across each door
+        { needs: { armorPlate: 1, nails: 1 }, scrap: 70 }, // steel sheets bolted on
+        { needs: { armorPlate: 2, tools: 1 }, scrap: 120 }, // steel security doors
+      ],
+    },
+    windows: {
+      name: "Windows",
+      hp: [50, 140, 240, 380],
+      levels: [
+        { needs: { lumber: 3, nails: 2 }, scrap: 30 }, // boards over the glass
+        { needs: { armorPlate: 1, wire: 1 }, scrap: 80 }, // metal shutters
+        { needs: { armorPlate: 2, nails: 2 }, scrap: 130 }, // steel plates with a firing slot
+      ],
+    },
+  };
+
   /* ---------- The home base yard (cabin defense) ----------
-     Legend adds: T treeline (solid)  F fence segment (solid, breakable)
-     H cabin wall  B cabin door (interact: build menu)  V the van (interact: map)
-     P player start  z walker spawn (outside the fence, on all four sides)
+     Legend adds: T treeline (solid)  F fence segment (solid, breakable)  V the van (interact: map)
+     P player start  z walker spawn (outside the fence, on all four sides), and the cabin (HOUSE
+     above, stamped in at HOUSE.at with its own legend).
      Every base room but the Walls has a plot inside the fence: x, y, w, h (tiles) and the side
      it faces (n e s w: toward the open middle of the yard and the cabin door). A plot is a staked
      lot with a name sign until the room is built; each level puts up a bigger structure there
-     (js/yard.js). The Walls room is the fence itself and the armor on the cabin.
+     (js/yard.js). The Walls room is the fence itself.
      `version` goes up whenever the grid changes: older saves get a whole fence and their set
      traps back in stock (js/state.js). */
+  /** The yard grid: treeline, a ring of walker spawns, the fence, the van, the player start, the cabin. */
+  function yardGrid() {
+    const w = 55;
+    const h = 68;
+    const fence = [4, 4, 50, 63]; // x0 y0 x1 y1 of the fence ring
+    const rows = [];
+    for (let y = 0; y < h; y++) {
+      const r = [];
+      for (let x = 0; x < w; x++) {
+        let ch = ".";
+        if (x === 0 || y === 0 || x === w - 1 || y === h - 1) ch = "T";
+        else if ((x === fence[0] || x === fence[2]) && y >= fence[1] && y <= fence[3]) ch = "F";
+        else if ((y === fence[1] || y === fence[3]) && x >= fence[0] && x <= fence[2]) ch = "F";
+        // spawns: every 6 tiles along the top and bottom, every 5 down the sides
+        else if ((y === 2 || y === h - 3) && x >= 6 && x <= 48 && x % 6 === 0) ch = "z";
+        else if ((x === 2 || x === w - 3) && y >= 8 && y <= h - 8 && (y - 8) % 5 === 0) ch = "z";
+        r.push(ch);
+      }
+      rows.push(r);
+    }
+    rows[31][19] = rows[31][20] = "V";
+    rows[32][27] = "P";
+    HOUSE.grid.forEach((line, hy) => [...line].forEach((ch, hx) => {
+      if (ch !== " ") rows[HOUSE.at[1] + hy][HOUSE.at[0] + hx] = ch === "," ? "." : ch;
+    }));
+    return rows.map((r) => r.join(""));
+  }
   const YARD = {
-    version: 3,
-    palette: { wall: "#5a4a3a", shelf: "#6b4a3a", counter: "#4b5057", floor: "#6b6a4a", ceiling: "#9fb3c8", sky: true },
-    grid: [
-      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-      "T.....................................................T",
-      "T.....z.....z.....z.....z.....z.....z.....z.....z.....T",
-      "T.....................................................T",
-      "T...FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T.z.F.............................................F.z.T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T.z.F.............................................F.z.T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T.z.F.............................................F.z.T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T.z.F.............................................F.z.T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T.z.F.............................................F.z.T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T...F.............VV..............................F...T",
-      "T...F......................P......................F...T",
-      "T.z.F...................HHHBHHH...................F.z.T",
-      "T...F...................HHHHHHH...................F...T",
-      "T...F...................HHHHHHH...................F...T",
-      "T...F.............................................F...T",
-      "T...F.............................................F...T",
-      "T...FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...T",
-      "T.....................................................T",
-      "T.....z.....z.....z.....z.....z.....z.....z.....z.....T",
-      "T.....................................................T",
-      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-    ],
+    version: 4,
+    palette: { wall: "#5a4a3a", shelf: "#6b4a3a", counter: "#4b5057", floor: "#6b6a4a", ceiling: "#e8e2d4", sky: true },
+    grid: yardGrid(),
     plots: {
       radio: { x: 8, y: 8, w: 3, h: 3, face: "s" },
       power: { x: 15, y: 8, w: 4, h: 3, face: "s" },
@@ -205,14 +305,20 @@
     },
     // worn dirt paths, x0 y0 x1 y1 inclusive: door to the back row, along the back row, across to the
     // garden and the farm, around the well, over to the van
-    paths: [[27, 11, 27, 32], [9, 11, 44, 11], [12, 22, 40, 22], [32, 18, 36, 18], [32, 18, 32, 22], [36, 18, 36, 22], [20, 32, 26, 32]],
+    paths: [[27, 11, 27, 33], [9, 11, 44, 11], [12, 22, 40, 22], [32, 18, 36, 18], [32, 18, 32, 22], [36, 18, 36, 22], [20, 32, 26, 32]],
   };
 
   const DEFENSE = {
     fenceHp: [150, 240, 360, 520], // by Walls level 0..3
     fenceDps: { walker: 6, runner: 4, brute: 14 }, // damage per second to a fence segment
-    calmSeconds: [60, 100], // quiet time between waves
-    firstCalmSeconds: 45, // after arriving home
+    calmSeconds: [240, 400], // quiet time between waves (long enough to work inside the cabin)
+    firstCalmSeconds: 180, // after arriving home
+    raidShare: 0.25, // this share of a wave's walkers make for the cabin, not for you: they break in and wait inside
+    innerDoorHp: 60, // a shut door inside the cabin: walkers force it open after this much (it is not broken)
+    noiseCut: 0.15, // in the calm, every shot takes noise x this many seconds off the clock (the bow is silent)
+    bellSeconds: 4, // the dinner bell: the next wave comes this many seconds after it rings
+    restSeconds: 60, // a rest in the big bed: back to full health, and this much of the calm is gone
+    restMinCalm: 75, // ... only with at least this much calm left
     waveMix: { none: 0.2, some: 0.5, many: 0.3 }, // what the next wave is
     someCount: (day, wave) => 3 + Math.floor(day / 2) + Math.floor(wave / 2),
     manyCount: (day, wave) => 7 + day + wave,
@@ -399,6 +505,7 @@
     restockDays: 3, // shelf and floor items come back this many days after they are taken; caches never do
     startScrap: 30,
     fenceRepairScrap: 1, // scrap to rebuild one hole (or brace one cracked segment) of the fence; holes never close on their own
+    houseRepairScrap: 2, // scrap to fix one broken or cracked door or window of the cabin
     repairScrapPerHp: 3, // van repair: 1 scrap for every 3 health missing, back to full
     repairMinScrap: 5,
     kitsMax: 3, // medical kits the backpack can carry; one kit heals you to full
@@ -410,5 +517,5 @@
     },
   };
 
-  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TEMPLATES, YARD, DEFENSE, LOCATIONS, KEYS, NOTES, ROADS, SETTINGS };
+  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TEMPLATES, HOUSE, HOUSE_UPGRADES, YARD, DEFENSE, LOCATIONS, KEYS, NOTES, ROADS, SETTINGS };
 })(typeof globalThis !== "undefined" ? globalThis : this);

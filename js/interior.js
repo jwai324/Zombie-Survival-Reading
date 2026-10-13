@@ -9,8 +9,13 @@
    likewise Facing, Interact, Hint, Goal, Key and Leave.
    Free slots for other modules: modeKey(k, paused) and drawOverlay(ctx, W, H).
    Fields a mode may set: fenceTex = { whole, cracked } (its own fence drawings, canvases or texture
-   names; null draws the plain pickets) and holdFrame (true while a still overlay covers the paused
-   scene: the frame drawn when it was set stays on the canvas until it is cleared or the view resizes).
+   names; null draws the plain pickets), holdFrame (true while a still overlay covers the paused
+   scene: the frame drawn when it was set stays on the canvas until it is cleared or the view resizes),
+   and a walk-in house under open sky (setHouse): a ceiling over its tiles, a hip roof over its outline
+   seen from outside, and the yard seen through its open doors.
+   More mode hooks: WalkerGoal(z) (where a walker heads instead of the player), Barrier(z) (what a
+   walker that cannot reach its goal claws at instead of the fence), HitBarrier(key, damage),
+   Door(d) and DoorHint(d) (a door of the mode's own: true when it handled E), Noise(tiles) (a shot).
    Everything reads and writes the trip through ZSR.State. */
 (function (root) {
   "use strict";
@@ -25,7 +30,7 @@
   const COL = 2; // pixels per ray
   const PLANE_RES = 2; // floor and ceiling are cast at 1/PLANE_RES of the screen, then scaled up
   const SOLID = "#WSCXGLQETHBVFOKR"; // blocks movement (O is a closed door, Q the stash door)
-  const OPAQUE = "#WSXGLQETHBVO"; // blocks sight and rays (the low tiles F C K R are see-through)
+  const OPAQUE = "#WSXGLQETHBVOU"; // blocks sight and rays (the low tiles F C K R are see-through; U is a broken window: walkers climb through it, you cannot)
   const HEIGHT = { V: 0.8, T: 1.45 }; // wall heights in tiles; everything else is 1 (this.tileH overrides per tile)
   const MAX_LOW = 8; // see-through low runs kept per screen column (only ones that can show)
   const MAX_HITS = 10; // opaque faces kept per column (only ones that rise above the faces in front)
@@ -45,7 +50,7 @@
   };
   const IS_SOLID = flags(SOLID);
   const IS_OPAQUE = flags(OPAQUE);
-  const TEX_OF = { S: "shelf", X: "crate", G: "glass", L: "locked", E: "exit", T: "tree", H: "house", B: "door", V: "van", O: "doorClosed", W: "window", Q: "stash" };
+  const TEX_OF = { S: "shelf", X: "crate", G: "glass", L: "locked", E: "exit", T: "tree", H: "house", B: "door", V: "van", O: "doorClosed", W: "window", Q: "stash", U: "window" };
   const READ_REACH = 2.3; // how close a wall sign or a yard lot's sign must be to read it
   const REACH = { note: 1.4, van: 2.0, hole: 1.8, crack: 1.8, lot: READ_REACH }; // how close E works; everything else 1.6
   const words = (t) => String(t || "").trim().split(/\s+/).filter(Boolean).length;
@@ -113,6 +118,11 @@
       this.lowDef = new Array(cols * MAX_LOW);
       this.lowNext = new Int8Array(cols); // drawScene: the farthest low run of each column not drawn yet
       this.hitStore = Array.from({ length: cols * MAX_HITS }, () => ({}));
+      // per column, seen from under a roof through an opening (a door, the porch edge): what lies farther
+      // than capD shows only below capY (the ceiling hides the rest); colIn: the ray passed under a roof
+      this.capY = new Float32Array(cols);
+      this.capD = new Float32Array(cols);
+      this.colIn = new Uint8Array(cols);
       this.edges = [];
       this.sizePlane();
       this.frameHeld = false; // a new canvas is blank: a held frame must be drawn again
@@ -130,6 +140,7 @@
       this.planeBuf = new Uint32Array(this.planeImg.data.buffer);
       this.covLo = new Int16Array(this.planeW); // low-res rows hidden behind a full-height wall, per low-res column
       this.covHi = new Int16Array(this.planeW);
+      this.planeIn = new Uint8Array(this.planeW); // a low-res column that looks under a house roof (its ceiling is cast)
     },
 
     /* ---------- Input ---------- */
@@ -246,13 +257,15 @@
       this.signs = []; // wall signs and graffiti read up close: { x, y, face, id, kind }
       this.lots = []; // the yard plots' signs, read up close: { room, x, y } (yard.js)
       this.readLot = null; // the lot sign opened with E; it stays up until E again or you walk away
+      this.readSpot = null; // a list opened with E (the cabin's pantry): { name, x, y }
+      this.barriers = null; // the yard's cabin: its doors and windows (js/house.js)
       this.panelKey = null; // what the read-up-close panel shows now
       this.tagPanel = null; // an item tag shown for a few seconds after a pickup: { key, title, text, until }
       this.gunPickup = null; // a gun lying in this building: { x, y, id, taken } (building.js places it)
       this.exit = null;
       this.door = null;
       this.van = null;
-      this.cabin = null;
+      this.house = null; // setHouse: { mask, corner, eave, ridge, roofTex, ceiling }
       this.hudSig = null;
       this.spawns = [];
       this.floors = [];
@@ -309,6 +322,71 @@
       if (this.dimMemo) this.dimMemo.clear();
       if (this.texMemo) this.texMemo.clear();
       this.sc = null;
+    },
+    /** A walk-in house under the open sky: `inside(x, y)` says which tiles are under its roof (walls,
+        floors, doors, a covered porch). Indoors gets a ceiling at wall height; from outside, its outline
+        carries a hip roof that rises `pitch` per tile in from the edge, up to `rise` over the eave.
+        opts: { eave, pitch, rise, roofTex, ceiling (a floor kind for the ceiling) }. */
+    setHouse(inside, opts) {
+      const o = opts || {};
+      const gw = this.gw;
+      const gh = this.gh;
+      const mask = new Uint8Array(gw * gh);
+      for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) mask[y * gw + x] = inside(x, y) ? 1 : 0;
+      const eave = o.eave || 1;
+      const pitch = o.pitch || 0.42;
+      const rise = o.rise || 1;
+      // roof heights on the tile corners: a corner on the outline is at the eave, one farther in is higher
+      // (steps in from the outline, 4-neighbour: a rectangle's hip roof, valleys at inside corners)
+      const W1 = gw + 1;
+      const corner = new Float32Array(W1 * (gh + 1)).fill(eave);
+      const dist = new Int16Array(W1 * (gh + 1)).fill(-1);
+      const q = [];
+      const tileIn = (x, y) => x >= 0 && y >= 0 && x < gw && y < gh && mask[y * gw + x] === 1;
+      for (let y = 0; y <= gh; y++) {
+        for (let x = 0; x <= gw; x++) {
+          if (!(tileIn(x - 1, y - 1) && tileIn(x, y - 1) && tileIn(x - 1, y) && tileIn(x, y))) {
+            dist[y * W1 + x] = 0;
+            q.push(y * W1 + x);
+          }
+        }
+      }
+      for (let i = 0; i < q.length; i++) {
+        const v = q[i];
+        const vx = v % W1;
+        const vy = (v / W1) | 0;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = vx + dx;
+          const ny = vy + dy;
+          if (nx < 0 || ny < 0 || nx > gw || ny > gh || dist[ny * W1 + nx] >= 0) continue;
+          dist[ny * W1 + nx] = dist[v] + 1;
+          q.push(ny * W1 + nx);
+        }
+      }
+      for (let i = 0; i < corner.length; i++) corner[i] = eave + Math.min(rise, pitch * dist[i]);
+      this.house = { mask, corner, eave, ridge: eave + rise, roofTex: o.roofTex || "roof", ceiling: o.ceiling || "panels" };
+      this.sc = null;
+      return this.house;
+    },
+    /** The house roof's height over a point (between its tile corners, bilinear). */
+    roofAt(x, y) {
+      const gw = this.gw;
+      const gh = this.gh;
+      const c = this.house.corner;
+      const cx = x < 0 ? 0 : x >= gw ? gw - 1 : Math.floor(x);
+      const cy = y < 0 ? 0 : y >= gh ? gh - 1 : Math.floor(y);
+      const fx = clamp(x - cx, 0, 1);
+      const fy = clamp(y - cy, 0, 1);
+      const W1 = gw + 1;
+      const i = cy * W1 + cx;
+      return (c[i] * (1 - fx) + c[i + 1] * fx) * (1 - fy) + (c[i + W1] * (1 - fx) + c[i + W1 + 1] * fx) * fy;
+    },
+    /** Is this point under the house roof? */
+    indoorAt(x, y) {
+      const h = this.house;
+      const gx = Math.floor(x);
+      const gy = Math.floor(y);
+      return !!h && gx >= 0 && gy >= 0 && gx < this.gw && gy < this.gh && h.mask[gy * this.gw + gx] === 1;
     },
     /** Paint one tile's floor (a Draw3 floor kind name). */
     setFloor(x, y, kind) {
@@ -407,6 +485,7 @@
       if (this.hud.read) this.hud.read.classList.add("hidden");
       this.panelKey = null;
       this.readLot = null;
+      this.readSpot = null;
       this.tagPanel = null;
       this.releasing = true;
       this.holdFrame = false;
@@ -499,10 +578,13 @@
       if (gx < 0 || gy < 0 || gx >= this.gw || gy >= this.gh) return true;
       return this.solidMask()[gy * this.gw + gx] === 1;
     },
-    /** The player never squeezes through a breach: the fence line stays solid for them. */
+    /** The player never squeezes through a breach: the fence line and a broken window stay solid for them. */
     solidForPlayer(x, y) {
       if (this.solidAt(x, y)) return true;
-      return this.mode === "yard" && this.isFenceLine(Math.floor(x), Math.floor(y));
+      const gx = Math.floor(x);
+      const gy = Math.floor(y);
+      if (this.grid[gy][gx] === "U") return true;
+      return this.mode === "yard" && this.isFenceLine(gx, gy);
     },
     opaqueAt(x, y) {
       const gx = Math.floor(x);
@@ -576,8 +658,9 @@
     interact() {
       const f = this.facing();
       if (!f) return;
-      if (f.kind === "idoor") this.toggleDoor(f.obj);
-      else this.modeCall("Interact", f);
+      if (f.kind === "idoor") {
+        if (!this.modeCall("Door", f.obj)) this.toggleDoor(f.obj);
+      } else this.modeCall("Interact", f);
     },
 
     /* ---------- Update ---------- */
@@ -684,7 +767,7 @@
       if (sig !== this.hudSig) this.updateHud();
 
       const f = this.facing();
-      const hint = !f ? "" : f.kind === "idoor" ? (f.obj.open ? "Press E to close the door" : "Press E to open the door") : this.modeCall("Hint", f) || "";
+      const hint = !f ? "" : f.kind === "idoor" ? this.modeCall("DoorHint", f.obj) || (f.obj.open ? "Press E to close the door" : "Press E to open the door") : this.modeCall("Hint", f) || "";
       if (this.hud.hint.textContent !== hint) this.hud.hint.textContent = hint;
       this.updatePanel();
     },
@@ -695,6 +778,12 @@
     nearReadable() {
       const p = this.player;
       let best = null;
+      // a list opened with E (the cabin's pantry) stays up until E again or you walk away
+      const spot = this.readSpot;
+      if (spot) {
+        if (Math.hypot(spot.x - p.x, spot.y - p.y) <= READ_REACH + 0.4) return { spot };
+        this.readSpot = null;
+      }
       // (sx, sy): the point to see. A sign is a wall tile, so that is the point of its face nearest the player.
       const consider = (x, y, sx, sy, target) => {
         const d = Math.hypot(x - p.x, y - p.y);
@@ -728,12 +817,18 @@
     readableKey(t) {
       const S = State();
       if (t.sign) return "sign:" + t.sign.id + ":" + S.settings.level;
+      if (t.spot) return this.modeCall("SpotPanel", t.spot).key;
       const lvl = S.save.rooms[t.lot.room] || 0;
       const def = W().BASE_ROOMS[t.lot.room].levels[lvl];
       const have = def ? Object.keys(def.needs).map((k) => S.save.inventory[k] || 0).join(",") + "," + S.save.scrap : "";
       return "lot:" + t.lot.room + ":" + lvl + ":" + S.settings.level + ":" + have;
     },
     signPanel(sg) {
+      if (sg.kind === "hnote") {
+        // a note the Hollis family left on a wall of the cabin
+        const h = ZSR.houseNoteText(sg.note);
+        return { key: "sign:" + sg.id + ":" + State().settings.level, kind: "sign", house: true, title: h.title, status: "Left by the Hollis family", text: h.text, id: sg.id };
+      }
       const t = ZSR.signText(this.loc.id, sg.id);
       return { key: "sign:" + sg.id + ":" + State().settings.level, kind: sg.kind, title: t.title, text: t.text, id: sg.id };
     },
@@ -774,14 +869,15 @@
       const key = near ? this.readableKey(near) : tag ? tag.key : null;
       if (key === this.panelKey) return;
       this.panelKey = key;
-      const show = near ? (near.sign ? this.signPanel(near.sign) : this.lotPanel(near.lot)) : tag;
+      const show = near ? (near.sign ? this.signPanel(near.sign) : near.spot ? this.modeCall("SpotPanel", near.spot) : this.lotPanel(near.lot)) : tag;
       const el = this.hud.read;
       if (!el) return;
       if (!show) {
         el.classList.add("hidden");
         return;
       }
-      if (show.kind === "sign" || show.kind === "graffiti") State().seeSign(show.id, words(show.text));
+      if (show.house) State().seeHouseNote(show.id, words(show.text));
+      else if (show.kind === "sign" || show.kind === "graffiti") State().seeSign(show.id, words(show.text));
       const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
       el.className = "read-panel " + show.kind;
       el.innerHTML = '<div class="rp-head"><span class="rp-title">' + esc(show.title) + "</span>" + (show.status ? '<span class="rp-status">' + esc(show.status) + "</span>" : "") + "</div>" + '<div class="rp-text">' + esc(show.text).split(/\n\s*\n/).map((x) => "<p>" + x + "</p>").join("") + "</div>" + (show.meta && show.meta.length ? '<ul class="rp-meta">' + show.meta.map(([h, v]) => "<li><strong>" + esc(h) + ":</strong> " + esc(v) + "</li>").join("") + "</ul>" : "");
@@ -816,11 +912,24 @@
         }
         return;
       }
+      // the mode may send a walker somewhere else first (the yard: into the cabin, to wait there)
+      const goal = this.modeCall("WalkerGoal", z) || p;
+      if (goal !== p && Math.hypot(goal.x - z.x, goal.y - z.y) < 0.5) return; // there: it waits
       z.pathT -= dt;
       if (z.pathT <= 0) {
         z.pathT = 0.4;
-        z.path = this.lineClearMove(z.x, z.y, p.x, p.y) ? [[p.x, p.y]] : this.bfs(z, p);
-        z.fenceTarget = z.path.length ? null : this.nearestFence(z);
+        z.path = this.lineClearMove(z.x, z.y, goal.x, goal.y) ? [[goal.x, goal.y]] : this.bfs(z, goal);
+        // no way there: the mode may know a way through something to break ({ path to it, target }),
+        // else the nearest fence segment
+        const plan = z.path.length ? null : this.modeCall("Barrier", z, goal);
+        if (plan && plan.path.length) {
+          z.path = plan.path;
+          z.barrier = false;
+          z.fenceTarget = null;
+        } else {
+          z.barrier = !!plan;
+          z.fenceTarget = z.path.length ? null : plan ? plan.target : this.nearestFence(z);
+        }
       }
       if (z.fenceTarget) {
         const [fx, fy] = z.fenceTarget;
@@ -829,7 +938,9 @@
         const d = Math.hypot(tx, ty) || 1;
         if (d < 0.95) {
           const key = Math.floor(fx) + "," + Math.floor(fy);
-          if (this.fence[key] != null) {
+          if (z.barrier) {
+            if (!this.modeCall("HitBarrier", key, z.dps * dt)) z.pathT = 0; // gone (or opened): find the way again
+          } else if (this.fence[key] != null) {
             this.fence[key] -= z.dps * dt;
             if (this.fence[key] <= 0) {
               delete this.fence[key];
@@ -979,6 +1090,7 @@
       if (g.noise > 0) {
         this.noise = this.time;
         this.noiseR = g.noise;
+        this.modeCall("Noise", g.noise);
       }
       if (g.shake && State().settings.shake) this.shake = Math.max(this.shake, g.shake);
       this.shoot(power);
@@ -1168,6 +1280,7 @@
         sc.tex[i] = this.tileTex[k];
         sc.texAt.push(i);
       }
+      if (this.house && this.house.ridge > maxH) maxH = this.house.ridge;
       sc.maxH = maxH;
       sc.ceilH = this.sky ? Infinity : 1; // under a ceiling a full-height wall hides everything behind it
       // daylight in the yard (thin haze: the back row of plots still reads from the cabin door); inside,
@@ -1187,6 +1300,7 @@
         if (!sc.ftex[id]) sc.ftex[id] = D3().floorTexels(id, this.palette, false);
       }
       if (!this.sky && !sc.ctex) sc.ctex = D3().floorTexels(this.ceilingKind, this.palette, true);
+      if (this.sky && this.house && !sc.ctex) sc.ctex = D3().floorTexels(this.house.ceiling, this.palette, true);
       return sc;
     },
 
@@ -1212,7 +1326,12 @@
       const ftex = sc.ftex;
       const rowE = sc.rowE;
       const rowO = sc.rowO;
-      const ctex = this.sky ? null : sc.ctex;
+      // under open sky with a walk-in house: the ceiling is cast only where a ray looks under its roof,
+      // and only over its tiles; everywhere else above the horizon stays clear (the sky)
+      const house = this.sky ? this.house : null;
+      const hmask = house ? house.mask : null;
+      const ctex = this.sky && !house ? null : sc.ctex;
+      const planeIn = this.planeIn;
       // the ray through the center of low-res pixel column x is dir + plane * (cam0 + x * camStep)
       const camStep = (2 * R) / Wd;
       const cam0 = R / Wd - 1;
@@ -1229,6 +1348,11 @@
         const c1 = Math.min(this.cols - 1, Math.floor(((x + 1) * R - 1) / COL));
         let top = -Infinity;
         let bot = Infinity;
+        if (hmask) {
+          let lin = 0;
+          for (let c = c0; c <= c1; c++) lin |= this.colIn[c];
+          planeIn[x] = lin;
+        }
         for (let c = c0; c <= c1 && top < Infinity; c++) {
           const h = this.hitN[c] ? store[c * MAX_HITS] : null;
           if (!h || !h.full || h.ch === "V") top = Infinity;
@@ -1270,6 +1394,19 @@
             const id = cx >= 0 && cy >= 0 && cx < gw && cy < gh ? fk[cy * gw + cx] : defK;
             buf[o] = (x & 1 ? rowO : rowE)[id][((((fy - cy) * 64) | 0) << 6) | (((fx - cx) * 64) | 0)];
           }
+        } else if (hmask) {
+          const cE = ctex[fr > tE ? k1 : k0];
+          const cO = ctex[fr > tO ? k1 : k0];
+          for (let x = 0; o < end; x++, o++, fx += stx, fy += sty) {
+            if (!planeIn[x]) {
+              buf[o] = 0;
+              continue;
+            }
+            if (y >= covLo[x] && y <= covHi[x]) continue;
+            const cx = Math.floor(fx);
+            const cy = Math.floor(fy);
+            buf[o] = cx >= 0 && cy >= 0 && cx < gw && cy < gh && hmask[cy * gw + cx] ? (x & 1 ? cO : cE)[((((fy - cy) * 64) | 0) << 6) | (((fx - cx) * 64) | 0)] : 0;
+          }
         } else {
           const cE = ctex[fr > tE ? k1 : k0];
           const cO = ctex[fr > tO ? k1 : k0];
@@ -1310,6 +1447,12 @@
       const sx0 = Math.floor(px);
       const sy0 = Math.floor(py);
       if (sx0 >= 0 && sy0 >= 0 && sx0 < gw && sy0 < gh) seen[sy0 * gw + sx0] = 1;
+      // a walk-in house under the sky: each ray knows whether it is under the roof (see setHouse)
+      const hmask = this.sky && this.house ? this.house.mask : null;
+      const startIn = !!hmask && sx0 >= 0 && sy0 >= 0 && sx0 < gw && sy0 < gh && hmask[sy0 * gw + sx0] === 1;
+      const capY = this.capY;
+      const capD = this.capD;
+      const colIn = this.colIn;
       for (let col = 0; col < this.cols; col++) {
         const cameraX = (2 * (col * COL + COL / 2)) / Wd - 1;
         const rdx = dirX + pX * cameraX;
@@ -1331,6 +1474,11 @@
         let lastKept = false;
         const lb = col * MAX_LOW;
         const hb = col * MAX_HITS;
+        let inside = startIn; // under the house roof right now
+        let skipHouse = false; // behind a house wall seen from outside: its inside is hidden
+        let cD = Infinity;
+        let cY = -Infinity;
+        let cin = startIn ? 1 : 0;
         for (let i = 0; i < maxSteps; i++) {
           let d;
           let side;
@@ -1350,6 +1498,48 @@
           if (out && nh) break;
           const idx = out ? -1 : mapY * gw + mapX;
           const ch = out ? "#" : grid[mapY][mapX];
+          const hin = !!hmask && !out && hmask[idx] === 1;
+          if (hmask) {
+            if (skipHouse) {
+              if (hin) continue;
+              skipHouse = false;
+            }
+            if (inside && !hin) {
+              // out from under the roof (a doorway, the porch edge): farther on, the ceiling hides all above
+              // the opening's top
+              inside = false;
+              if (cD === Infinity) {
+                cD = d;
+                cY = half - (0.5 * H) / (d > 0.05 ? d : 0.05);
+              }
+            } else if (!inside && hin && IS_OPAQUE[ch] !== 1) {
+              // in under the roof through an opening: the roof over it shows above, nothing in front of it
+              inside = true;
+              cin = 1;
+              if (nh < MAX_HITS) {
+                const hit = store[hb + nh];
+                hit.perp = d > 0.05 ? d : 0.05;
+                hit.idx = idx;
+                hit.x = mapX;
+                hit.y = mapY;
+                hit.ch = ch;
+                hit.side = side;
+                hit.roof = -1;
+                hit.rdx = rdx;
+                hit.rdy = rdy;
+                hit.open = true;
+                hit.indoor = false;
+                hit.hroof = this.houseRoofY(px, py, rdx, rdy, d, mapX, mapY, sideX, sideY, deltaX, deltaY, stepX, stepY);
+                this.faceGeom(hit, sc);
+                if (hit.occ < clip) {
+                  hit.full = false;
+                  hitD[hb + nh] = hit.perp;
+                  hitTop[hb + nh] = 1e9; // a roof over a hole: what is behind still shows through the hole
+                  nh++;
+                }
+              }
+            }
+          }
           if (!out) {
             seen[idx] = 1;
             const li = lowOf[idx];
@@ -1395,8 +1585,13 @@
           hit.roof = ri;
           hit.rdx = rdx;
           hit.rdy = rdy;
+          hit.open = false;
+          hit.indoor = inside; // a wall seen from under the roof: the ceiling meets its top
+          // a house wall seen from outside carries the roof
+          hit.hroof = hin && !inside ? this.houseRoofY(px, py, rdx, rdy, d, mapX, mapY, sideX, sideY, deltaX, deltaY, stepX, stepY) : null;
           this.faceGeom(hit, sc);
-          const full = out || hit.zTop >= sc.ceilH;
+          if (hit.hroof != null) skipHouse = true; // the rest of the house is behind this wall and under its roof
+          const full = out || inside || hit.zTop >= sc.ceilH;
           // a face wholly behind the ones in front is never seen: it takes no slot (a full one still ends the column)
           if (hit.occ >= clip && !full) continue;
           hit.full = full;
@@ -1409,7 +1604,45 @@
         hitN[col] = nh;
         lowN[col] = nl;
         zbuf[col] = nh ? store[hb].perp : 1e9;
+        capY[col] = cY;
+        capD[col] = cD;
+        colIn[col] = cin;
       }
+    },
+    /** The top of the house roof over a ray that meets the house at distance d0 (from outside): the
+        highest point of the roof along the ray, on screen, sampled where it crosses tile edges and halfway
+        between. The DDA state is the main cast's at that tile (mx, my and the next crossings). */
+    houseRoofY(px, py, rdx, rdy, d0, mx, my, sX, sY, dX, dY, stX, stY) {
+      const H = this.H;
+      const half = H / 2;
+      const gw = this.gw;
+      const gh = this.gh;
+      const mask = this.house.mask;
+      let best = Infinity;
+      const sample = (t) => {
+        const tt = t > 0.05 ? t : 0.05;
+        const y = half - ((this.roofAt(px + tt * rdx, py + tt * rdy) - 0.5) * H) / tt;
+        if (y < best) best = y;
+      };
+      sample(d0 + 0.001);
+      let prev = d0;
+      for (let i = 0; i < 80; i++) {
+        let t;
+        if (sX < sY) {
+          t = sX;
+          sX += dX;
+          mx += stX;
+        } else {
+          t = sY;
+          sY += dY;
+          my += stY;
+        }
+        sample((prev + t) / 2);
+        sample(t - 0.001);
+        prev = t;
+        if (mx < 0 || my < 0 || mx >= gw || my >= gh || !mask[my * gw + mx]) break;
+      }
+      return best;
     },
     /** The opaque faces of every column, back to front, then ink where one face ends and the next begins. */
     drawFaces(ctx, sc) {
@@ -1426,15 +1659,28 @@
         const nh = this.hitN[col];
         const hb = col * MAX_HITS;
         const x = col * COL;
-        for (let k = nh - 1; k >= 0; k--) this.drawFace(ctx, store[hb + k], x, sc);
+        const cd = this.capD[col];
+        for (let k = nh - 1; k >= 0; k--) {
+          const hit = store[hb + k];
+          // seen out through an opening from under the roof: only what is below the opening's top shows
+          if (hit.perp > cd) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(x, this.capY[col], COL, this.H);
+            ctx.clip();
+            this.drawFace(ctx, hit, x, sc);
+            ctx.restore();
+          } else this.drawFace(ctx, hit, x, sc);
+        }
         if (!nh) continue;
         const h0 = store[hb];
         const key = ((h0.y + 1) * 8192 + h0.x + 1) * 2 + h0.side;
-        if (col > 0 && prevKey !== key && (Math.abs(prevDist - h0.perp) > 0.25 || prevSide !== h0.side || prevCh !== h0.ch)) edges.push(x, Math.min(h0.occ, prevTop), Math.max(h0.bottom, prevBottom));
+        const occ0 = h0.perp > cd ? Math.max(h0.occ, this.capY[col]) : h0.occ;
+        if (col > 0 && prevKey !== key && (Math.abs(prevDist - h0.perp) > 0.25 || prevSide !== h0.side || prevCh !== h0.ch)) edges.push(x, Math.min(occ0, prevTop), Math.max(h0.bottom, prevBottom));
         prevKey = key;
         prevSide = h0.side;
         prevCh = h0.ch;
-        prevTop = h0.occ;
+        prevTop = occ0;
         prevBottom = h0.bottom;
         prevDist = h0.perp;
       }
@@ -1451,6 +1697,19 @@
       hit.bottom = half + unit / 2;
       hit.hasRoof = false;
       hit.gableY = -1;
+      if (hit.hroof != null) {
+        // the house from outside: a wall up to the eave and the roof above it (hroof: its top on screen);
+        // over an opening only the roof shows
+        const top = half - (this.house.eave - 0.5) * unit;
+        hit.zTop = this.house.eave;
+        hit.top = top;
+        if (hit.open) hit.bottom = top;
+        hit.hasRoof = hit.hroof < top;
+        hit.roofTop = hit.hroof;
+        hit.roofBot = top;
+        hit.occ = hit.hasRoof ? hit.hroof : top;
+        return;
+      }
       let zTop = (hit.idx >= 0 && sc.h[hit.idx]) || HEIGHT[hit.ch] || 1;
       const r = hit.roof >= 0 ? this.roofs[hit.roof] : null;
       if (r) {
@@ -1539,17 +1798,21 @@
       const bottom = hit.bottom;
       const tw = tex.width;
       const tx = tw === 64 ? texX : Math.floor((texX * tw) / 64);
-      if (hit.gableY >= 0 && top < hit.gableY) {
+      if (hit.open) {
+        // the roof over an opening: no wall below it
+      } else if (hit.gableY >= 0 && top < hit.gableY) {
         ctx.drawImage(this.tex(r.gableTex || "gable"), texX, 0, 1, 64, x, top, COL, hit.gableY - top);
         ctx.drawImage(tex, tx, 0, 1, tex.height, x, hit.gableY, COL, bottom - hit.gableY);
       } else ctx.drawImage(tex, tx, 0, 1, tex.height, x, top, COL, bottom - top);
       if (hit.hasRoof) {
-        ctx.drawImage(this.tex(r.roofTex || "roof"), texX, 0, 1, 64, x, hit.roofTop, COL, hit.roofBot - hit.roofTop);
+        const roofTex = hit.hroof != null ? this.house.roofTex : r.roofTex || "roof";
+        ctx.drawImage(this.tex(roofTex), texX, 0, 1, 64, x, hit.roofTop, COL, hit.roofBot - hit.roofTop);
         ctx.fillStyle = INK;
         ctx.fillRect(x, hit.roofBot - 1, COL, 2.5);
       }
       const occ = hit.occ;
-      const dark = Math.min(sc.fogMax, hit.perp * sc.fogK + (hit.side === 1 ? 0.12 : 0));
+      // under the roof it is a little darker than out in the yard
+      const dark = Math.min(sc.fogMax, hit.perp * sc.fogK + (hit.side === 1 ? 0.12 : 0) + (hit.indoor ? 0.14 : 0));
       if (dark > 0.02) {
         ctx.globalAlpha = dark;
         ctx.fillStyle = "#000";
@@ -1639,18 +1902,19 @@
           if (li < 0) continue;
           const lb = col * MAX_LOW;
           if (!(lowD1[lb + li] > s.ty)) continue;
-          do this.drawLow(ctx, col, li--, sc);
+          do this.drawLowCapped(ctx, col, li--, sc);
           while (li >= 0 && lowD1[lb + li] > s.ty);
           next[col] = li;
         }
         this.drawSprite(ctx, s);
       }
-      for (let col = 0; col < cols; col++) for (let li = next[col]; li >= 0; li--) this.drawLow(ctx, col, li, sc);
+      for (let col = 0; col < cols; col++) for (let li = next[col]; li >= 0; li--) this.drawLowCapped(ctx, col, li, sc);
       // health bars over the walkers you can see
       list.forEach((s) => {
         if (s.hp == null || s.hp >= 1) return;
         const c = clamp(Math.floor(s.screenX / COL), 0, cols - 1);
         if (this.clipAt(c, s.ty) <= s.top) return;
+        if (s.ty > this.capD[c] && this.capY[c] > s.top - 10) return; // its head is above an opening, under the ceiling
         ctx.fillStyle = INK;
         ctx.fillRect(s.screenX - s.sw * 0.35 - 1, s.top - 10, s.sw * 0.7 + 2, 7);
         ctx.fillStyle = "#b3261e";
@@ -1670,11 +1934,13 @@
       if (s.dim) ctx.globalAlpha = 1 - s.dim;
       let run = -1;
       let clip = 0;
+      let cap = -Infinity;
       for (let col = s.c0; col <= c1 + 1; col++) {
         if (col <= c1) {
           clip = this.clipAt(col, s.ty);
+          cap = s.ty > this.capD[col] ? this.capY[col] : -Infinity; // seen through an opening from under the roof
           const u0 = (col * COL - s.left) * k;
-          if (clip >= bottom && u0 >= 0 && u0 + COL * k <= iw) {
+          if (clip >= bottom && cap <= s.top && u0 >= 0 && u0 + COL * k <= iw) {
             if (run < 0) run = col;
             continue;
           }
@@ -1685,26 +1951,40 @@
           ctx.drawImage(img, (x0 - s.left) * k, 0, w * k, img.height, x0, s.top, w, s.sh);
           run = -1;
         }
-        if (col <= c1 && clip > s.top) this.drawSpriteCol(ctx, s, col, k, clip);
+        if (col <= c1 && clip > s.top && clip > cap) this.drawSpriteCol(ctx, s, col, k, clip, cap);
       }
       if (s.dim) ctx.globalAlpha = 1;
     },
-    /** One column of a sprite, cut off at `clip` (clipAt: the first nearer opaque face that rises over it). */
-    drawSpriteCol(ctx, s, col, k, clip) {
+    /** One column of a sprite, cut off at `clip` (clipAt: the first nearer opaque face that rises over it)
+        and, seen out through an opening from under the roof, above `cap`. */
+    drawSpriteCol(ctx, s, col, k, clip, cap) {
       const img = s.im;
       const iw = img.width;
       const x0 = col * COL;
       const u0 = (x0 - s.left) * k;
       const u1 = u0 + COL * k;
       if (u1 <= 0 || u0 >= iw) return;
-      const visH = clip < s.top + s.sh ? clip - s.top : s.sh;
-      const sh = (img.height * visH) / s.sh;
-      if (u0 >= 0 && u1 <= iw) ctx.drawImage(img, u0, 0, u1 - u0, sh, x0, s.top, COL, visH);
+      const y0 = cap > s.top ? cap : s.top;
+      const y1 = clip < s.top + s.sh ? clip : s.top + s.sh;
+      if (y1 <= y0) return;
+      const sy = (img.height * (y0 - s.top)) / s.sh;
+      const sh = (img.height * (y1 - y0)) / s.sh;
+      if (u0 >= 0 && u1 <= iw) ctx.drawImage(img, u0, sy, u1 - u0, sh, x0, y0, COL, y1 - y0);
       else {
         // the picture's left or right edge is in this column: what is left of it fills the column
         const a = u0 > 0 ? u0 : 0;
-        ctx.drawImage(img, a, 0, Math.max(1, Math.min(iw, u1) - a), sh, x0, s.top, COL, visH);
+        ctx.drawImage(img, a, sy, Math.max(1, Math.min(iw, u1) - a), sh, x0, y0, COL, y1 - y0);
       }
+    },
+    /** A low run, clipped like a face when it is seen out through an opening from under the roof. */
+    drawLowCapped(ctx, col, li, sc) {
+      if (!(this.lowD1[col * MAX_LOW + li] > this.capD[col])) return this.drawLow(ctx, col, li, sc);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(col * COL, this.capY[col], COL, this.H);
+      ctx.clip();
+      this.drawLow(ctx, col, li, sc);
+      ctx.restore();
     },
     /** One low run in one column: the lit top face (when below eye level), then the front face. */
     drawLow(ctx, col, li, sc) {

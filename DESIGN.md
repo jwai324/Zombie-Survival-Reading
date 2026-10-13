@@ -19,12 +19,24 @@ marked **Assumption** can be changed cheaply.
 | Text size | Huge means one inch, everywhere. |
 | Delivery | Everything in one drop. |
 
+## Owner decisions: the walk-in cabin (2026-10-13, later)
+
+| Question | Answer |
+|----------|--------|
+| What is the cabin? | A family house you walk into, laid out from the owner's floor plan (porch, foyer, office, dining room, kitchen with four cabinet runs, pantry, ping pong room, living room, master bedroom and bath, three bedrooms, a second bath, closets, rear play room), furnished by room. It is still called "the cabin": the Hollis family named it that. |
+| Inside and outside | True scale and seamless: the yard grew south and the house is part of the yard scene (no loading); seen from outside it is a house with siding, shutters, a porch and a hip roof. |
+| Where do you build? | At the computer in the office: E opens the same build menu the cabin door used to. |
+| What else does E do inside? | Pantry: food and storage. Radio shelf: past days. Typewriter: typing practice. Big bed: full health for a minute of the calm. |
+| Reading inside | Notes from the previous owners (the Hollis family) on the walls of every room, at all six levels. |
+| Defense | The clock keeps running inside. Walkers walk through an open door, break a shut one slowly, and smash windows to climb in. Some walkers raid the cabin even when you are outside and wait inside for you. Doors and windows get a separate House upgrade track. |
+| Pace | Calm between waves is four times longer. The dinner bell calls the next wave now; gunfire shortens the calm. |
+
 ## Owner decisions (2026-10-13)
 
 | Question | Answer |
 |----------|--------|
 | What should upgrades change? | The world you see. Every room level, van upgrade, van-gun upgrade and gun mod is visible; Walls level 1 shows new walls. |
-| How do rooms show in the yard? | A bigger yard with a plot per room: a staked lot with a sign until built, then a distinct, bigger, solid build at each level. Walls is the fence and the cabin armor. |
+| How do rooms show in the yard? | A bigger yard with a plot per room: a staked lot with a sign until built, then a distinct, bigger, solid build at each level. Walls is the fence (the cabin's doors and windows have their own House levels since the walk-in cabin). |
 | Buildings | Unique per place, about 2 to 3 times the old area, real mazes, better art. (Built bigger; see the judgment calls.) |
 | A map inside? | M shows only what you have explored. Each main corner has something unique and memorable to steer by. |
 | Notes | Rewritten at all six levels to point at the landmarks. |

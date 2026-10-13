@@ -15,7 +15,7 @@
       "You took the first watch at the window, and nothing came.",
     ] },
     { id: "journal-2", facts: [
-      "In daylight the cabin is small, but the roof is sound.",
+      "In daylight the cabin is bigger than it looked: a whole family house with a porch, and the roof is sound.",
       "An old fence circles the yard, and some of its boards are loose.",
       "The dirt behind the cabin is dark and good, and June noticed it first.",
       "June wrote the first rule on the inside of the door: say where you are going before you go.",
@@ -523,6 +523,123 @@
         ["The sign says LAB: herb beds and a copper still.", "It makes 1 medical kit every 2 days."],
         ["The sign says LAB: a clean bench with a sink that runs filtered water.", "It makes 1 medical kit each day."],
         ["The sign says LAB: a powered lab, humming off a generator.", "It makes 2 medical kits each day."],
+      ],
+    },
+  };
+
+  /* Inside the cabin: what the Hollis family left on the walls, one per room (WORLD.HOUSE.notes says
+     where). The Hollis family: Kate and Dan, and their kids Gus (16), Finn (11) and Lucy (7), and
+     their dog Biscuit. They named the house "the cabin" and went north with the River Convoy.
+     Some notes also say what a thing in the room is for now (the computer, the pantry, the radio
+     shelf, the typewriter, the big bed, the dinner bell). */
+  W.HOUSE_NOTES = {
+    porch: [
+      "A carved sign by the front door says THE CABIN, and under it, THE HOLLIS FAMILY.",
+      "Dan Hollis hung a big iron dinner bell on the porch so the kids could hear it from the woods.",
+      "A note under the bell says: ring for supper.",
+      "June added a line in chalk: the bell carries far and walkers come to it, so ring it only when you are ready to fight.",
+    ],
+    foyer: [
+      "Five hooks by the door have names over them: Kate, Dan, Gus, Finn, and a low one for Lucy.",
+      "A tag on the last hook says: last one out locks the door.",
+      "The hooks are empty, because the Hollis family took their keys when they left.",
+    ],
+    office: [
+      "Kate Hollis worked at this desk and drew maps for the county.",
+      "A sticky note on the computer screen says it runs off the big battery in the closet.",
+      "June keeps the base plans on it now: the rooms, the van, the guns and the traps.",
+    ],
+    dining: [
+      "A chore chart hangs on the wall with gold stars on it.",
+      "Gus washed the dishes, Finn took out the trash, and Lucy fed Biscuit the dog.",
+      "Lucy has the most stars, and someone crossed out one of Gus's stars.",
+      "Pip added a row in pencil: Pip feeds the dog we do not have yet.",
+    ],
+    kitchen: [
+      "A note on the fridge is held up by a magnet shaped like a fish.",
+      "Kate wrote it the morning the family left: we are going north with the River Convoy, on Sergeant Vega's trucks.",
+      "They took Biscuit, their go bags and the last of the canned peaches.",
+      "She wrote: if you find our cabin and you are kind, it is yours now, so please keep the garden going.",
+    ],
+    pantry: [
+      "Dan Hollis put a label on every shelf: beans, rice, peaches, flour.",
+      "Most of the shelves are bare now, but the labels are still there.",
+      "The crew keeps count of the food in here, and of everything else in storage.",
+    ],
+    pingpong: [
+      "A chalk scoreboard hangs over the ping pong table.",
+      "The last game reads Finn 21, Dad 19.",
+      "Under it, in Dan's writing: rematch on Sunday.",
+      "Tomas and Pip play now, and Pip says the table leans to the left.",
+    ],
+    masterBath: [
+      "Someone drew a heart on the mirror with three names in it: Gus, Finn and Lucy.",
+      "A list taped by the sink says: brush your teeth for two whole minutes, Lucy.",
+      "June left the list up.",
+    ],
+    master: [
+      "A photo over the big bed shows Kate and Dan Hollis on their wedding day by the river.",
+      "June says whoever is hurt the most gets this bed.",
+      "A nap here heals you all the way, but it takes time, and the walkers keep coming while you sleep.",
+    ],
+    living: [
+      "Pencil lines on the door frame show how tall the kids grew each year.",
+      "Gus has the top line, and Lucy's lowest line says age 3.",
+      "Pip stood against the frame and comes up between Finn and Gus.",
+      "The radio and June's green ledger sit on the shelf by the couch, so anyone can read the past days again.",
+    ],
+    gusRoom: [
+      "A sign on the door says: GUS'S ROOM, KEEP OUT, THIS MEANS YOU FINN.",
+      "Gus is sixteen and left behind a guitar with two broken strings.",
+      "Tomas sleeps here now, and he says the sign still counts for Pip.",
+    ],
+    finnRoom: [
+      "Finn drew a plan for a treehouse in the woods past the fence.",
+      "The plan has a rope ladder, a lookout and a bucket on a pulley.",
+      "Pip wants to build it someday, after the fence is strong.",
+    ],
+    lucyRoom: [
+      "A crayon drawing of a dog with floppy ears says: MY DOG BISCUIT.",
+      "Lucy wrote under it that Biscuit can sit, shake and roll over.",
+      "Pip pinned a second drawing next to it, of a dog with no name yet.",
+    ],
+    playroom: [
+      "The play room has a little desk with an old typewriter on it, and a chalkboard.",
+      "On the board Kate wrote: practice your typing for ten minutes a day, with your fingers on the home row.",
+      "Lucy wrote her name ten times under it.",
+    ],
+    coatCloset: [
+      "A list is taped inside the closet door: the go bag.",
+      "It says water, a flashlight, batteries, Biscuit's leash and the photo album.",
+      "At the bottom it says: if we get split up, meet at the river dock by the convoy trucks.",
+    ],
+  };
+
+  /* The cabin's doors and windows, as the computer's House tab tells it (WORLD.HOUSE_UPGRADES has the
+     numbers): what each one is, and what each level adds. */
+  W.HOUSE_UPGRADE_FACTS = {
+    doors: {
+      desc: [
+        "The cabin has two doors to the yard: the front door on the porch and the back door in the play room.",
+        "Walkers pound on a closed door until it breaks, and an open door lets them walk right in.",
+        "A door starts with 150 strength.",
+      ],
+      next: [
+        ["A thick wooden bar goes across each door.", "Door strength rises to 260."],
+        ["Steel sheets are bolted onto both doors.", "Door strength rises to 400."],
+        ["Steel security doors replace the old ones.", "Door strength rises to 560."],
+      ],
+    },
+    windows: {
+      desc: [
+        "The cabin has many windows, and walkers smash the glass fast and climb in.",
+        "You cannot climb out through a broken window.",
+        "Glass starts with 50 strength.",
+      ],
+      next: [
+        ["Boards go up over the glass.", "Window strength rises to 140."],
+        ["Metal shutters go up over every window.", "Window strength rises to 240."],
+        ["Steel plates with a narrow slot cover every window.", "Window strength rises to 380."],
       ],
     },
   };

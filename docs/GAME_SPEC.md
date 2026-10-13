@@ -18,11 +18,21 @@ useful.
 
 1. **Home base: cabin defense.** You are in the yard, first person, with the cabin
    behind you, the van in the driveway, and a fence around the lot. Time runs in
-   phases: **calm** (no walkers; go inside to build, or leave in the van), then a
-   **wave** that is sometimes nothing, sometimes a few walkers, sometimes a lot.
-   Walkers claw through the fence; the Walls room makes it stronger. Inside the cabin
-   the build menu pauses the yard: upgrade rooms with items plus scrap, upgrade the
-   van and gun in the garage, re-read notes in the backpack. The base is the only
+   phases: **calm** (no walkers, 4 to 7 minutes; go inside to build, or leave in the van),
+   then a **wave** that is sometimes nothing, sometimes a few walkers, sometimes a lot.
+   The dinner bell on the porch calls the next wave at once; gunshots in the calm bring it
+   sooner. Walkers claw through the fence; the Walls room makes it stronger.
+   The cabin (v3, 2026-10-13) is the Hollis family's house, walked into from the yard,
+   laid out from the owner's floor plan: porch, foyer, office, dining room, kitchen with
+   four cabinet runs and a pantry, ping pong room, living room, master bedroom and bath,
+   three kids' rooms, a second bath, closets and a rear play room. The office computer
+   opens the build menu, which pauses the yard: upgrade rooms with items plus scrap, the van
+   and gun in the garage, the doors and windows in the House tab. The pantry lists food and
+   storage, the radio shelf shows past days, the typewriter is typing practice, and the big
+   bed heals fully for a minute of the calm. The computer, radio shelf and typewriter wait
+   while a wave is on. Doors open and shut with E; walkers break shut doors, smash windows
+   and climb in, and walk through open doors. A quarter of each wave's walkers make for the
+   cabin, break in and wait inside until you come for them. The base is the only
    place the game saves: on arrival, after every build action, and after every wave.
 2. **Map.** A fixed, hand-drawn city of 15 locations plus the base, with named streets and
    side streets. Only some are known at first; notes and the Radio room reveal the rest.
@@ -85,13 +95,15 @@ Food and medicine from different rooms add up; every other effect takes the best
 
 ## The yard shows the base
 
-Every room except Walls has its own plot in the yard (55 x 43 tiles, 160 fence segments).
+Every room except Walls has its own plot in the yard (55 x 68 tiles, 210 fence segments; the
+cabin, about 25 x 26 tiles, sits at the south end).
 Level 0 is a staked lot with the room's name on a big sign; levels 1 to 3 are distinct,
 bigger builds made of walls, roofs, see-over low tiles and props, with a name plaque and
 stars. They go up the moment the room is built. Builds are solid: walkers path around them
 and they are cover. Walls levels 0 to 3 change the fence (pickets, braced planks,
-corrugated metal with spikes, concrete blocks with razor wire, each with a cracked look) and
-the cabin's armor (boards, more boards, metal shutters, steel plates). The van in the
+corrugated metal with spikes, concrete blocks with razor wire, each with a cracked look).
+The cabin's doors (a bar, steel sheets, a security door) and windows (boards, shutters,
+steel plates) have their own levels in the House tab. The van in the
 driveway shows armor plates, the ram plow, engine gear (rack, exhaust, snorkel, light bar)
 and the paint. The van's roof gun on the road shows Heavier Rounds (longer barrels, a brake
 from tier 3), Rate of Fire (vented jacket, drum, cooling fins, a bigger drum, copper at the
@@ -253,8 +265,12 @@ only place the game saves.
 
 Wall texture columns are sampled left to right as seen from each face, so signs read
 correctly from any side. Counters, tables, beds, crop beds and the fence are low see-over
-tiles with a lit top face, drawn in depth order with sprites. Roofs (the cabin's gable,
-the yard sheds) come from a list of roofed blocks. Floors and ceilings are cast at reduced
+tiles with a lit top face, drawn in depth order with sprites. Roofs of the yard sheds
+come from a list of roofed blocks. The cabin is a walk-in house under the open sky
+(`setHouse`): a ceiling is cast over its tiles, its outline carries a hip roof (heights on
+the tile corners, highest a few tiles in from the edge), a doorway seen from outside shows
+the roof over it and the rooms beyond, and from inside, what lies past an opening is
+clipped at the opening's top (the ceiling hides the rest). Floors and ceilings are cast at reduced
 resolution with a texture per tile kind; buildings have a wall style and a light level.
 Landmarks and yard props are sprites; a footprint landmark is spread over its tiles of
 floor (the view is 2 tan(FOV / 2) times taller than wide). Art registers through

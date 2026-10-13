@@ -111,6 +111,8 @@
       traps, // crafted traps in stock, by type
       yardTraps: [], // traps set in the yard: [{ x, y, type, uses }]
       yardV: (W().YARD && W().YARD.version) || 1, // the yard grid the fence keys and trap spots belong to
+      house: { doors: 0, windows: 0, hp: {} }, // the cabin: door and window levels, and each one's strength ("x,y" in the yard; 0 is broken)
+      houseRead: [], // notes on the cabin's walls already read (their words counted once)
       typing: { stage: 0, passes: 0, rounds: 0, tutorialSeen: false, v: 2 }, // the workbench typing game: stage, good rounds at it
       labAcc: 0, // partial medical kits brewing in the Lab
       stats: { trips: 0, walkers: 0, notesRead: 0, wordsRead: 0, items: 0 },
@@ -132,6 +134,7 @@
         if (t && t.type) s.traps[t.type] = (s.traps[t.type] || 0) + 1;
       });
       s.yardTraps = [];
+      if (s.house) s.house.hp = {};
       s.yardV = fresh.yardV;
     }
     // a save from the old, fast typing stages (one round each): the stage maps onto the slower ones
@@ -151,6 +154,9 @@
     });
     Object.keys(fresh.typing).forEach((k) => {
       if (s.typing[k] == null) s.typing[k] = fresh.typing[k];
+    });
+    Object.keys(fresh.house).forEach((k) => {
+      if (s.house[k] == null) s.house[k] = fresh.house[k];
     });
     // where a note was found comes from the facts: a note that has moved since it was read says where it is now
     (Array.isArray(s.backpack) ? s.backpack : []).forEach((n) => {
@@ -680,6 +686,42 @@
       this.commit();
       return true;
     },
+    /* ---------- The cabin's doors and windows (WORLD.HOUSE_UPGRADES) ---------- */
+    /** Strength of one door or window at today's level ("doors" | "windows"). */
+    houseMax(key) {
+      const U = W().HOUSE_UPGRADES[key];
+      return U.hp[Math.min(this.save.house[key] || 0, U.hp.length - 1)];
+    },
+    canBuyHouse(key) {
+      const U = W().HOUSE_UPGRADES[key];
+      const level = this.save.house[key] || 0;
+      const def = U.levels[level];
+      if (!def) return { ok: false, maxed: true, level, missing: {}, scrapShort: 0 };
+      const missing = {};
+      Object.entries(def.needs).forEach(([k, n]) => {
+        const have = this.save.inventory[k] || 0;
+        if (have < n) missing[k] = n - have;
+      });
+      const scrapShort = Math.max(0, def.scrap - this.save.scrap);
+      return { ok: !Object.keys(missing).length && !scrapShort, maxed: false, level, def, missing, scrapShort };
+    },
+    buyHouse(key) {
+      const c = this.canBuyHouse(key);
+      if (!c.ok) return false;
+      Object.entries(c.def.needs).forEach(([k, n]) => (this.save.inventory[k] -= n));
+      this.save.scrap -= c.def.scrap;
+      this.save.house[key] = c.level + 1;
+      this.commit();
+      return true;
+    },
+    /** A note on a wall of the cabin, read for the first time: its words count. */
+    seeHouseNote(id, words) {
+      const list = this.save.houseRead || (this.save.houseRead = []);
+      if (list.includes(id)) return false;
+      list.push(id);
+      this.save.stats.wordsRead += words || 0;
+      return true;
+    },
     /* ---------- Traps ---------- */
     canCraftTrap(type) {
       const def = W().TRAPS[type];
@@ -833,6 +875,26 @@
     if (e) return e[(variant || 0) % e.length];
     const f = ((ZSR.WORLD.ITEM_TAGS || {})[item] || [])[variant || 0];
     return f ? f.join(" ") : "";
+  };
+  /** A note the Hollis family left on a wall of the cabin (WORLD.HOUSE.notes): { title, text }. */
+  ZSR.houseNoteText = function houseNoteText(id) {
+    const e = ZSR.textAt((t) => {
+      const n = t.house && t.house.notes && t.house.notes[id];
+      return n && n.text ? n : null;
+    });
+    if (e) return { title: e.title || "", text: e.text };
+    const room = (ZSR.WORLD.HOUSE.rooms || {})[id];
+    return { title: room ? room.name : "", text: ((ZSR.WORLD.HOUSE_NOTES || {})[id] || []).join(" ") };
+  };
+  /** A door or window upgrade as the computer's House tab says it: { desc, next: [level 1, 2, 3] }. */
+  ZSR.houseUpgradeText = function houseUpgradeText(key) {
+    const e = ZSR.textAt((t) => {
+      const u = t.house && t.house.upgrades && t.house.upgrades[key];
+      return u && u.desc ? u : null;
+    });
+    if (e) return e;
+    const f = (ZSR.WORLD.HOUSE_UPGRADE_FACTS || {})[key] || { desc: [], next: [[], [], []] };
+    return { desc: f.desc.join(" "), next: f.next.map((n) => n.join(" ")) };
   };
   /** The sign on a yard lot: level 0 is the empty lot. */
   ZSR.lotText = function lotText(room, level) {
