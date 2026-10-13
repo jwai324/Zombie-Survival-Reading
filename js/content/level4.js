@@ -53,11 +53,11 @@
           ],
         },
         water: {
-          desc: "Clean water from a filter and a tank. You recover health while on foot, and more water means faster recovery.",
+          desc: "Clean water from a filter and a tank. You recover health faster in the yard, and more water means faster recovery.",
           next: [
-            "You slowly recover health on foot, at rate 1.",
-            "You recover health on foot at rate 2.",
-            "You recover health on foot at rate 3, and you enter every building at full health.",
+            "You slowly recover health in the yard, at rate 1.",
+            "You recover health in the yard at rate 2.",
+            "You recover health in the yard at rate 3, and you enter every building at full health.",
           ],
         },
         garden: {
@@ -93,11 +93,11 @@
           ],
         },
         well: {
-          desc: "A hand-dug well beside the cabin. It gives clean water from deep underground, so you heal faster while you are on foot. The Farm and the Lab both need the Well before they can be built.",
+          desc: "A hand-dug well beside the cabin. It gives clean water from deep underground, so you heal faster while you are in the yard. The Farm and the Lab both need the Well before they can be built.",
           next: [
-            "Needs the Water room first. Costs Lumber 2, Tool kit 1, and 60 scrap. You heal on foot at rate 2.",
-            "Costs Lumber 2, Engine parts 1, Water filter 1, and 100 scrap. You heal on foot at rate 3.",
-            "Costs Water tank 1, Engine parts 1, Spool of wire 1, and 150 scrap. You heal on foot at rate 4, and you start every building at full health.",
+            "Needs the Water room first. Costs Lumber 2, Tool kit 1, and 60 scrap. You heal in the yard at rate 2.",
+            "Costs Lumber 2, Engine parts 1, Water filter 1, and 100 scrap. You heal in the yard at rate 3.",
+            "Costs Water tank 1, Engine parts 1, Spool of wire 1, and 150 scrap. You heal in the yard at rate 4, and you start every building at full health.",
           ],
         },
         farm: {

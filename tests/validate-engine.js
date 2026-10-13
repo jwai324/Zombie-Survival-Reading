@@ -894,6 +894,62 @@ try {
   err(`yard signs: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
 }
 
+/* ---------- You heal at home only ----------
+   In the yard health comes back 1 every 15 seconds, faster with the Water room; never in a building. */
+try {
+  const regen = (water, enterIt, secs = 1) => {
+    Object.keys(W.BASE_ROOMS).forEach((k) => (S.save.rooms[k] = 0));
+    S.save.rooms.water = water;
+    S.startTrip();
+    enterIt();
+    I.walkers = [];
+    I.player.hp = 40;
+    for (let i = 0; i < Math.round(secs / 0.05); i++) I.update(0.05);
+    const hp = I.player.hp;
+    I.stop();
+    S.abandonTrip();
+    return hp;
+  };
+  const shop = W.LOCATIONS.find((l) => l.id !== "base" && ZSR.LAYOUTS[l.id]);
+  if (regen(2, () => I.enter(shop)) !== 40) err(`regen: health came back inside ${shop.id}; clean water heals at home only`);
+  if (!(regen(2, () => I.enterYard({ firstCalm: 999 })) > 40)) err("regen: the Water room does not heal you in the yard");
+  const slow = regen(0, () => I.enterYard({ firstCalm: 999 }), 15) - 40;
+  if (Math.abs(slow - 1) > 0.01) err(`regen: without the Water room the yard healed ${slow.toFixed(2)} in 15 seconds; want 1`);
+  if (regen(0, () => I.enter(shop), 15) !== 40) err(`regen: health came back inside ${shop.id} without the Water room`);
+  Object.keys(W.BASE_ROOMS).forEach((k) => (S.save.rooms[k] = 0));
+} catch (e) {
+  err(`regen: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+}
+
+/* ---------- Each save keeps its own settings ---------- */
+try {
+  const a = S.activeSlot();
+  S.settings.level = 2;
+  S.settings.textSize = "huge";
+  S.saveSettings();
+  S.newGame(a === 2 ? 3 : 2, "Second");
+  const b = S.activeSlot();
+  if (S.settings.seenHowto) err("settings: a new save skips its player's how-to");
+  S.settings.level = 6;
+  S.settings.textSize = "normal";
+  S.saveSettings();
+  S.loadSave(a);
+  if (S.settings.level !== 2 || S.settings.textSize !== "huge") err(`settings: loading the first save brought back level ${S.settings.level}, size ${S.settings.textSize}; want 2, huge`);
+  S.loadSave(b);
+  if (S.settings.level !== 6 || S.settings.textSize !== "normal") err(`settings: loading the second save brought back level ${S.settings.level}, size ${S.settings.textSize}; want 6, normal`);
+  const row = S.listSlots().find((x) => x.id === a);
+  if (!row.settings || row.settings.level !== 2) err("settings: the slot list does not show each save's own reading level");
+  S.deleteSlot(b);
+  if (sb.localStorage.getItem("zs.settings." + b) != null) err("settings: deleting a save left its settings behind");
+  // a save from before settings were per save reads the shared ones
+  sb.localStorage.setItem("zs.settings", JSON.stringify({ level: 4 }));
+  sb.localStorage.removeItem("zs.settings." + a);
+  S.loadSave(a);
+  if (S.settings.level !== 4) err(`settings: an older save did not start from the shared settings (level ${S.settings.level})`);
+} catch (e) {
+  err(`settings: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+}
+
 if (errors.length) {
   errors.forEach((e) => console.log("ERROR " + e));
   console.log(`\n${errors.length} engine problem(s).`);

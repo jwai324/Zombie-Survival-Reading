@@ -30,21 +30,21 @@
       well: {
         title: "Well site",
         empty:
-          "WELL. Dig after the Water room is built. June paints that on the sign. Stones ring a spot by the cabin. Deep water comes up cold and clean. You would heal faster on foot. The Farm needs the Well first. So does the Lab.",
+          "WELL. Dig after the Water room is built. June paints that on the sign. Stones ring a spot by the cabin. Deep water comes up cold and clean. You would heal faster in the yard. The Farm needs the Well first. So does the Lab.",
         built: [
-          "The sign says WELL. Here is a hand-dug well. Lumber lines the inside. A bucket hangs on a rope. Drop it down. Pull it up. The water is cold and clean. It helps you heal faster on foot.",
-          "The sign says WELL. No more bucket and rope. Now a hand pump lifts the water. A filter sits on the pump. Pip likes to work the handle. Push down, and water comes out. You heal on foot even faster.",
-          "The sign says WELL. Now a pump runs on wire. It fills a tank all by itself. Nobody has to pump by hand. You heal on foot faster than ever. You start each building at full health. That is a big help.",
+          "The sign says WELL. Here is a hand-dug well. Lumber lines the inside. A bucket hangs on a rope. Drop it down. Pull it up. The water is cold and clean. It helps you heal faster in the yard.",
+          "The sign says WELL. No more bucket and rope. Now a hand pump lifts the water. A filter sits on the pump. Pip likes to work the handle. Push down, and water comes out. You heal in the yard even faster.",
+          "The sign says WELL. Now a pump runs on wire. It fills a tank all by itself. Nobody has to pump by hand. You heal in the yard faster than ever. You start each building at full health. That is a big help.",
         ],
       },
       water: {
         title: "Water barrel",
         empty:
-          "WATER, filter goes here. Tomas paints that on the sign. An empty barrel sits on two sawhorses. It is by the cabin wall. Rain fills it, but gray. A filter and tank could go here. They turn gray rain clear. Then you heal while on foot.",
+          "WATER, filter goes here. Tomas paints that on the sign. An empty barrel sits on two sawhorses. It is by the cabin wall. Rain fills it, but gray. A filter and tank could go here. They turn gray rain clear. Then you heal faster in the yard.",
         built: [
-          "The sign says WATER. A filter sits on the barrel. Gray water goes in the top. Clear water comes out the tap. Tomas tastes it first. He makes a face. It is fine. You heal slow while on foot.",
-          "The sign says WATER. Now there is a filter. A big tank sits by it. The tank is full of clean water. Nobody has to wait for rain. Pip checks the tank each night. You heal faster while on foot.",
-          "The sign says WATER. Two filters work now. A tank sits by them. The water is the best in town. You heal even faster on foot. Walk into each building at full health. That means fewer kits used up.",
+          "The sign says WATER. A filter sits on the barrel. Gray water goes in the top. Clear water comes out the tap. Tomas tastes it first. He makes a face. It is fine. You heal slow in the yard.",
+          "The sign says WATER. Now there is a filter. A big tank sits by it. The tank is full of clean water. Nobody has to wait for rain. Pip checks the tank each night. You heal faster in the yard.",
+          "The sign says WATER. Two filters work now. A tank sits by them. The water is the best in town. You heal even faster in the yard. Walk into each building at full health. That means fewer kits used up.",
         ],
       },
       power: {

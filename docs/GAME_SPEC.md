@@ -71,12 +71,12 @@ tension.
 | Walls | Stronger fence in cabin defense, more van health, more on-foot health; level 2 unlocks spike traps, level 3 blast traps |
 | Garage | Unlocks higher van and gun upgrade tiers; free repair at base |
 | Power | Map shows danger; supply crates on drives; headlights beat night and fog |
-| Water | On-foot health regen; start buildings at full health |
+| Water | Faster health regen in the yard (without it the yard heals 1 per 15 s; never on the road or in buildings); level 3 starts buildings at full health |
 | Garden | Food per day (each trip eats one food; no food means a weaker van) |
 | Radio | Reveals locations; later shows which still hold items |
 | Medbay | Less on-foot damage; one revive per trip; less van damage |
 | Archive | Notes show what is left at a place; map shows caches and stock |
-| Well (late) | Needs Water 1. Clean water: faster regen, full health on entry at level 3. The Farm and the Lab need it |
+| Well (late) | Needs Water 1. Clean water: faster yard regen, full health on entry at level 3. The Farm and the Lab need it |
 | Farm (late) | Needs Garden 2 + Well. Crop field, chicken coop, goat pen: 2 / 4 / 6 food a day on top of the Garden |
 | Lab (late) | Needs Medbay + Well. Makes medical kits: one every 2 days, then 1 a day, then 2 a day |
 

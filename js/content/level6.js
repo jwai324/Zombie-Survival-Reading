@@ -79,11 +79,11 @@
           ],
         },
         water: {
-          desc: "A filter and a tank that turn gray water clear. Clean water means you heal while on foot. More of it means you heal faster, and at its best you walk into every building whole.",
+          desc: "A filter and a tank that turn gray water clear. Clean water means you heal faster in the yard. More of it means you heal faster, and at its best you walk into every building whole.",
           next: [
-            "You slowly heal on foot, at rate 1.",
-            "You heal on foot at rate 2.",
-            "You heal on foot at rate 3, and you enter every building at full health.",
+            "You slowly heal in the yard, at rate 1.",
+            "You heal in the yard at rate 2.",
+            "You heal in the yard at rate 3, and you enter every building at full health.",
           ],
         },
         garden: {
@@ -119,11 +119,11 @@
           ],
         },
         well: {
-          desc: "A hand-dug well beside the cabin, lined with lumber and rigged to a pump. Its water comes up cold and clean from deep underground, so you heal faster on foot. The Farm and the Lab both wait on the Well before they can be built.",
+          desc: "A hand-dug well beside the cabin, lined with lumber and rigged to a pump. Its water comes up cold and clean from deep underground, so you heal faster in the yard. The Farm and the Lab both wait on the Well before they can be built.",
           next: [
-            "Needs the Water room first. Costs Lumber 2, Tool kit 1, and 60 scrap. You heal on foot at rate 2.",
-            "Costs Lumber 2, Engine parts 1, Water filter 1, and 100 scrap. You heal on foot at rate 3.",
-            "Costs Water tank 1, Engine parts 1, Spool of wire 1, and 150 scrap. You heal on foot at rate 4, and you start every building at full health.",
+            "Needs the Water room first. Costs Lumber 2, Tool kit 1, and 60 scrap. You heal in the yard at rate 2.",
+            "Costs Lumber 2, Engine parts 1, Water filter 1, and 100 scrap. You heal in the yard at rate 3.",
+            "Costs Water tank 1, Engine parts 1, Spool of wire 1, and 150 scrap. You heal in the yard at rate 4, and you start every building at full health.",
           ],
         },
         farm: {

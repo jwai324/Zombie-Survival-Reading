@@ -22,9 +22,9 @@
   const World = () => ZSR.WORLD;
 
   const DIFF = {
-    baseInterval: 1.5,
+    baseInterval: 2.2, // seconds between walkers on the road at danger 0, day 1
     intervalStep: 0.07,
-    minInterval: 0.38,
+    minInterval: 0.6,
     hpStep: 0.1,
     speedStep: 0.025,
     maxSpeedMult: 1.7,
@@ -44,9 +44,9 @@
     parkWait: 1.6, // seconds parked before the place opens
   };
   const ZOMBIE_TYPES = {
-    walker: { hp: 30, speed: 55, r: 18, dmg: 8, scrap: 1 },
-    runner: { hp: 18, speed: 125, r: 15, dmg: 6, scrap: 2 },
-    brute: { hp: 90, speed: 40, r: 26, dmg: 18, scrap: 4 },
+    walker: { hp: 30, speed: 55, r: 18, dmg: 5, scrap: 1 },
+    runner: { hp: 18, speed: 125, r: 15, dmg: 4, scrap: 2 },
+    brute: { hp: 90, speed: 40, r: 26, dmg: 12, scrap: 4 },
   };
   const HIT_WORDS = ["BLAM!", "KRAK!", "THUD!"];
   const SIZE = { normal: 1, large: 1.3, huge: 2 };

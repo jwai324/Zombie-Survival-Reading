@@ -6,7 +6,9 @@
   const ZSR = (root.ZSR = root.ZSR || {});
   const W = () => ZSR.WORLD;
 
-  const KEYS = { settings: "zs.settings", slots: "zs.slots", legacy: "zs.base", slot: (id) => "zs.save." + id };
+  // settings: the shared fallback (no save chosen yet, or a slot from before settings were per save);
+  // slotSettings: each save slot's own reading level, text size, sound and the rest
+  const KEYS = { settings: "zs.settings", slotSettings: (id) => "zs.settings." + id, slots: "zs.slots", legacy: "zs.base", slot: (id) => "zs.save." + id };
 
   const DEFAULT_SETTINGS = {
     level: 3, // reading level 1..6
@@ -24,6 +26,13 @@
       return raw ? Object.assign({}, fallback, JSON.parse(raw)) : Object.assign({}, fallback);
     } catch (e) {
       return Object.assign({}, fallback);
+    }
+  }
+  function has(key) {
+    try {
+      return !!(root.localStorage && root.localStorage.getItem(key));
+    } catch (e) {
+      return false;
     }
   }
   function write(key, value) {
@@ -154,12 +163,18 @@
   }
 
   const State = {
-    settings: read(KEYS.settings, DEFAULT_SETTINGS),
+    settings: null, // the active slot's settings (set below, and again whenever the active slot changes)
     save: null, // committed base save (loaded or new)
     trip: null, // in-memory: { at, vanHp, footHp, cargo, loc overlay, backpack additions, revived, visited, rooms }
 
+    /** A slot's own settings. A slot from before settings were per save starts from the shared ones. */
+    settingsFor(id) {
+      return id && has(KEYS.slotSettings(id)) ? read(KEYS.slotSettings(id), DEFAULT_SETTINGS) : read(KEYS.settings, DEFAULT_SETTINGS);
+    },
+    /** Writes to the active slot's settings, or the shared ones when no save is chosen. */
     saveSettings() {
-      write(KEYS.settings, this.settings);
+      const sid = this.activeSlot();
+      write(sid ? KEYS.slotSettings(sid) : KEYS.settings, this.settings);
     },
 
     /* ---------- Save slots ---------- */
@@ -184,7 +199,7 @@
       for (let id = 1; id <= (W().SETTINGS.saveSlots || 4); id++) {
         const meta = idx.list[id];
         const s = meta ? read(KEYS.slot(id), {}) : {};
-        out.push({ id, label: meta ? meta.label : null, save: s.version ? s : null, active: idx.active === id });
+        out.push({ id, label: meta ? meta.label : null, save: s.version ? s : null, active: idx.active === id, settings: meta ? this.settingsFor(id) : null });
       }
       return out;
     },
@@ -195,6 +210,7 @@
       const idx = this.slots();
       idx.active = id;
       write(KEYS.slots, idx);
+      this.settings = this.settingsFor(id);
     },
     hasSave(id) {
       const sid = id || this.activeSlot();
@@ -224,6 +240,9 @@
       idx.list[sid] = { label: name, createdAt: Date.now() };
       idx.active = sid;
       write(KEYS.slots, idx);
+      // a new save starts from the settings on screen, and shows its new player the how-to
+      this.settings = Object.assign({}, this.settings, { seenHowto: false });
+      this.saveSettings();
       this.save = freshSave(name);
       this.trip = null;
       this.logDay(null); // Day 1 in June's journal: the night the crew finds the cabin
@@ -235,11 +254,13 @@
       const wasActive = idx.active === id;
       delete idx.list[id];
       write(KEYS.slot(id), null);
+      write(KEYS.slotSettings(id), null);
       if (wasActive) idx.active = null;
       write(KEYS.slots, idx);
       if (wasActive) {
         this.save = null;
         this.trip = null;
+        this.settings = this.settingsFor(null);
       }
     },
     /** Write the base save. Only called while at the base. */
@@ -861,6 +882,10 @@
     // templates are written for any number: "1 items" reads "1 item"
     return out.join(" ").replace(/\b1 ((?:stash |new )?)(item|note|key|walker)s\b/g, "1 $1$2");
   };
+
+  // the last save played keeps its own settings from the first screen on (no slot migration here: an
+  // old single save has no settings of its own yet, so it reads the shared ones either way)
+  State.settings = State.settingsFor(read(KEYS.slots, { active: null }).active);
 
   ZSR.State = State;
 })(typeof globalThis !== "undefined" ? globalThis : this);
