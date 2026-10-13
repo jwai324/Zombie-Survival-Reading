@@ -12,7 +12,7 @@
       "A note waits at each door. Read it. It says how many walkers wait. It says where the items are. Buildings are big inside. Each corner has a landmark. The notes name them. Use them to find your way. Press M for a map. It shows the parts you have seen. Each doorway is a real door. Press E to open or shut it. Walkers cannot open doors. Shelf stuff comes back in 3 days. Caches never do.",
       "Find the note inside. It tells how to open the cache. The cache has the best stuff. It names a new place too. Notes go in your backpack. Want back in? Open the map. Pick the place you are at. It stays as you left it. Hurt? Use a Medical kit. One kit heals you to full. The backpack holds 3 kits. Pack them at the cabin.",
       "At home you stand in the yard. Calm means no walkers. Build, or leave in the van. A wave means walkers at the fence. They claw holes in it. The fence does not fix itself. Stand at a hole and press E. Each hole costs 1 scrap. Set traps too. Press T or R. A walker steps on one and gets hurt. What you build shows up in the yard. Each level makes it bigger and stronger. The Walls room changes the fence itself. Later, dig a Well for water. Build a Farm for food. Build a Lab to make Medical kits.",
-      "Build at the workbench in the garage. Each build is a typing round. Type the words on the screen. A timer runs. Out of time? Try again. Nothing is spent till you finish. First the bench shows where your fingers go. Repairs need no typing. Scrap fixes the van to full. Each player has a save. Up to 4 saves. Pick yours on the title screen. The game saves at base only. Go down, and you start from your last save.",
+      "Build at the workbench in the garage. Each build is a typing round. Type the words on the screen. A timer runs. Out of time? Try again. Nothing is spent till you finish. First the bench shows where your fingers go. Repairs need no typing. Scrap fixes the van to full. Each player has a save. Up to 4 saves. Pick yours on the title screen. The game saves at base only. Go down? You start from your last save.",
     ],
     controls: [
       "Road: Aim with the mouse. Hold to shoot. A and D change lanes. So do the arrow keys and side buttons. Read the sign. Be in your lane before the white line.",
@@ -50,7 +50,7 @@
       routeRight: "{dest} is on the right. Get in the right lane.",
     },
     base: {
-      intro: "Home base. The game saves here, and only here. Hold the fence when walkers come.",
+      intro: "Home base. The game saves here, and only here. Hold the fence when walkers come. What you build shows up in the yard.",
       rooms: {
         walls: {
           desc: "Thick walls. The fence starts at 150 strength. Each level makes it stronger. The van and you get tougher too.",
@@ -168,14 +168,14 @@
         "code", "dark", "dusk", "rust", "bolt", "goat", "hen", "corn", "bean", "herb",
         "tool", "part", "box", "bag", "pack", "aim", "read", "sign", "gate", "wall",
         "roof", "step", "tile", "dock", "rope", "tape", "help", "safe", "save", "wait",
-        "keep", "fix", "dig",
+        "keep", "fix", "dig", "lane", "lot",
       ],
       phrases: [
         "hold fast", "read it", "go in", "get gas", "fix it", "set trap", "run home", "hold on",
         "lock door", "open door", "shut door", "grab food", "pack kit", "use kit", "dig well", "feed hens",
         "plant corn", "drive home", "save game", "find key", "read note", "take scrap", "keep calm", "stay low",
         "walk slow", "turn left", "head east", "go west", "pick up", "fix fence", "load van", "fill tank",
-        "stay put", "look out", "move on",
+        "stay put", "look out", "move on", "dead end", "left lane", "turn right", "read sign",
       ],
       sentences: [
         "Read the note first.",
@@ -201,6 +201,9 @@
         "Walk, do not run.",
         "Nurse Ada is still here.",
         "The hens lay eggs.",
+        "Get in the left lane.",
+        "Read the sign, then turn.",
+        "Press M for the map.",
       ],
     },
     locations: {
@@ -213,7 +216,7 @@
         notes: {
           "gasngo-counter": {
             title: "Dev's Counter Note",
-            text: "Key: on the hook under this counter. Now you can open the storeroom. It has more fuel and wire.\n\nTake the back hall. Go away from the ice machine. Last door before the garage.\n\nI head east to Ortiz Auto. It still stands. Rosa is west, at Greenhouse Row. She has seeds and soil.\n\n—Dev, the clerk",
+            text: "Key: on the hook under this counter. Now you can open the storeroom. It has more fuel and wire.\n\nTake the back hall. Go away from the ice machine. Storeroom: last door before the garage.\n\nI head east to Ortiz Auto. It still stands. Rosa is west, at Greenhouse Row. She has seeds and soil.\n\n—Dev, the clerk",
           },
         },
       },
@@ -247,7 +250,7 @@
         blurb: "Med kits, behind five walkers.",
         door: {
           title: "Under the Tape",
-          text: "At least five walkers. Most are in back.\n\nMed kits: by the giant toothbrush. One more where the aisles cross.\n\nCabinet room: locked. Code: behind the counter. Go in on the right, by the wheelchairs.\n\n—Mr. Okafor",
+          text: "At least five walkers. Most are in back.\n\nMed kits: by the giant toothbrush. One more where the aisles cross.\n\nCabinet room: locked. Code note: behind the counter. Go in on the right, by the wheelchairs.\n\n—Mr. Okafor",
         },
         notes: {
           "pharmacy-counter": {
@@ -304,7 +307,7 @@
         notes: {
           "police-desk": {
             title: "The Armory Code",
-            text: "The armory lock is a dial. The code is 19-4-33. Spin it. The door opens. Inside: gun parts and an armor plate.\n\nGo to the back hall. Turn right, toward the police bike. The armory is at the end.\n\nThe Public Library is north of downtown. Its archive room has books. The librarian is still there.\n\n—Sergeant Vega",
+            text: "The armory lock is a dial. The code is 19-4-33. Spin it. The door opens. Inside: gun parts and an armor plate.\n\nGo to the back hall. Turn right, toward the police bike. The armory is near the end.\n\nThe Public Library is north of downtown. Its archive room has books. The librarian is still there.\n\n—Sergeant Vega",
           },
         },
       },
@@ -325,7 +328,7 @@
         blurb: "Tools and water tanks at Station 12.",
         door: {
           title: "Chief Dunn's Bay Door",
-          text: "Tool kit: office, behind the watch desk. Water tank: past the gear racks, on the right wall.\n\nAt least six walkers. Two in the truck bay.\n\nEquipment bay: locked. My note: watch desk, by the spotted dog.\n\n—Chief Dunn",
+          text: "Tool kit: office, behind the watch desk. Water tank: past the gear racks, right wall.\n\nAt least six walkers. Two in the truck bay.\n\nEquipment bay: locked. My note: watch desk, by the spotted dog.\n\n—Chief Dunn",
         },
         notes: {
           "firehouse-desk": {
@@ -364,7 +367,7 @@
         blurb: "Lumber stacks, a dock full of walkers.",
         door: {
           title: "Spray Paint on the Gate",
-          text: "Lumber: long racks in the middle. More out back, by the log pile.\n\nAt least eight walkers. They wait by the loading dock and the flatbed truck.\n\nKiln shed: locked. Boss's note: clipboard by the band saw.\n\n—Ruby",
+          text: "Lumber: long racks in the middle. More out back, by the log pile.\n\nAt least eight walkers. They wait by the loading dock and flatbed truck.\n\nKiln shed: locked. Yard boss's note: clipboard by the band saw.\n\n—Ruby",
         },
         notes: {
           "lumberyard-rack": {
