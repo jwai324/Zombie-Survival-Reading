@@ -89,7 +89,9 @@ Food and medicine from different rooms add up; every other effect takes the best
 - **Medical kits** live in the backpack (up to 3, packed from storage at the cabin). Using a
   kit heals to full. Inside a building a kit from the van's cargo can be used too.
 - **Van repair** is instant and restores full health: 1 scrap for every 3 health missing
-  (at least 5), free once the Garage room is built.
+  (at least 5), free once the Garage room is built. Do it in the cabin's Garage tab, or at
+  the van: starting it with less than full health asks "Fix the van?" first (Fix it / Go as
+  is; Esc stays in the yard). Short on scrap, the fix button is greyed out.
 
 ## Doors, re-entry, and the map
 

@@ -40,6 +40,14 @@ marked **Assumption** can be changed cheaply.
   time to defend" is clearer as two states than as a menu you can hide in.
 - **Why the save merges the trip only at home.** A trip is a bet. Items, notes, revealed
   places, and scrap only count once you are back behind the fence.
+- **Scarier walkers without gore (2026-10-13).** Walkers got gaunt, mottled skin, sunken
+  sockets with milky glowing eyes, a slack jaw with bad teeth, ragged grimy clothes and bony
+  clawed hands. There is still no blood and no wounds: fear comes from the face, the reach
+  and the silhouette, which keeps to the owner's no-gore rule for a teen audience.
+- **Why the pistol is a projected 3D model.** A flat drawing could not look like a real
+  handgun from the shooter's eye. A small modelled pistol (slide, frame, raked grip, sights)
+  drawn in perspective gets proportions, foreshortening and recoil right with no image
+  assets and no dependencies.
 
 ## Not in this drop
 
