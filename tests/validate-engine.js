@@ -894,17 +894,17 @@ try {
   err(`yard signs: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
 }
 
-/* ---------- Clean water heals you at home only ----------
-   With the Water room, health comes back in the yard; never in a building. Without it, not even in the yard. */
+/* ---------- You heal at home only ----------
+   In the yard health comes back 1 every 15 seconds, faster with the Water room; never in a building. */
 try {
-  const regen = (water, enterIt) => {
+  const regen = (water, enterIt, secs = 1) => {
     Object.keys(W.BASE_ROOMS).forEach((k) => (S.save.rooms[k] = 0));
     S.save.rooms.water = water;
     S.startTrip();
     enterIt();
     I.walkers = [];
     I.player.hp = 40;
-    for (let i = 0; i < 20; i++) I.update(0.05);
+    for (let i = 0; i < Math.round(secs / 0.05); i++) I.update(0.05);
     const hp = I.player.hp;
     I.stop();
     S.abandonTrip();
@@ -913,7 +913,9 @@ try {
   const shop = W.LOCATIONS.find((l) => l.id !== "base" && ZSR.LAYOUTS[l.id]);
   if (regen(2, () => I.enter(shop)) !== 40) err(`regen: health came back inside ${shop.id}; clean water heals at home only`);
   if (!(regen(2, () => I.enterYard({ firstCalm: 999 })) > 40)) err("regen: the Water room does not heal you in the yard");
-  if (regen(0, () => I.enterYard({ firstCalm: 999 })) !== 40) err("regen: health came back in the yard without the Water room");
+  const slow = regen(0, () => I.enterYard({ firstCalm: 999 }), 15) - 40;
+  if (Math.abs(slow - 1) > 0.01) err(`regen: without the Water room the yard healed ${slow.toFixed(2)} in 15 seconds; want 1`);
+  if (regen(0, () => I.enter(shop), 15) !== 40) err(`regen: health came back inside ${shop.id} without the Water room`);
   Object.keys(W.BASE_ROOMS).forEach((k) => (S.save.rooms[k] = 0));
 } catch (e) {
   err(`regen: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);

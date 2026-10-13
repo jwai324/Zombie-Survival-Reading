@@ -388,6 +388,7 @@
     foodPerTrip: 1,
     hungryVanPenalty: 0.7, // van max HP multiplier for a trip with no food
     footHp: 100,
+    yardRegen: 1 / 15, // health per second at home before the Water room: 1 every 15 seconds (the Water room and the Well replace it)
     footDamageWalker: 12,
     footDamageRunner: 9,
     footDamageBrute: 22,

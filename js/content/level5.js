@@ -79,7 +79,7 @@
           ],
         },
         water: {
-          desc: "A filter and a tank turn gray water clear. Clean water means you heal in the yard, and more water means faster healing.",
+          desc: "A filter and a tank turn gray water clear. Clean water means you heal faster in the yard, and more water means faster healing.",
           next: [
             "You slowly heal in the yard, at rate 1.",
             "You heal in the yard at rate 2.",

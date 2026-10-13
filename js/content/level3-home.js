@@ -36,7 +36,7 @@
       },
       water: {
         title: "Water barrel",
-        empty: "Tomas painted the sign: WATER, filter goes here. An empty barrel sits on two sawhorses by the cabin wall. When it rains, gray water fills it up. A filter and a tank here would turn that rainwater clear. Then you would heal while you are in the yard. To start, it needs 1 Water filter and 40 scrap. The Well waits on this lot, so build it early.",
+        empty: "Tomas painted the sign: WATER, filter goes here. An empty barrel sits on two sawhorses by the cabin wall. When it rains, gray water fills it up. A filter and a tank here would turn that rainwater clear. Then you would heal faster while you are in the yard. To start, it needs 1 Water filter and 40 scrap. The Well waits on this lot, so build it early.",
         built: [
           "The sign says WATER: a filter sits on top of the barrel. Gray water goes in at the top. Clear water drips out at the bottom, one slow drop at a time. It is slow, but it works. Because of it, you slowly heal in the yard. A big tank would hold much more. That needs a water tank, another filter, and 80 scrap.",
           "The sign says WATER: a filter and a big tank, full of clean water. The tank sits in the shade so nothing grows inside it. You heal faster in the yard now. June washes her hands at the spout. She says it feels like the old days. Two filters would make it even better. That needs a tank, 2 filters, and 120 scrap.",

@@ -79,7 +79,7 @@
           ],
         },
         water: {
-          desc: "Clean water from a filter and a tank. You heal while you are in the yard, and more water means faster healing.",
+          desc: "Clean water from a filter and a tank. You heal faster while you are in the yard, and more water means faster still.",
           next: [
             "You slowly heal in the yard, at rate 1.",
             "You heal in the yard at rate 2.",

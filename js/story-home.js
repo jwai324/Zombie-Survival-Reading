@@ -479,7 +479,7 @@
       empty: [
         "An empty barrel sits on two sawhorses by the cabin wall.",
         "Tomas painted the sign: WATER, filter goes here.",
-        "A filter and a tank here would turn gray rainwater clear, so you heal while you are in the yard.",
+        "A filter and a tank here would turn gray rainwater clear, so you heal faster while you are in the yard.",
       ],
       built: [
         ["The sign says WATER: a filter on top of the barrel turns gray water clear.", "You slowly heal in the yard."],

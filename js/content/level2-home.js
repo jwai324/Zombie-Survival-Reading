@@ -36,7 +36,7 @@
       },
       water: {
         title: "Water, filter here",
-        empty: "An empty barrel sits on two sawhorses. It is by the cabin wall. Tomas painted the sign: WATER, filter goes here. Rainwater fills the barrel, but it is gray. Nobody wants to drink it like that. A filter and a tank would turn it clear. Clean water means you heal in the yard.",
+        empty: "An empty barrel sits on two sawhorses. It is by the cabin wall. Tomas painted the sign: WATER, filter goes here. Rainwater fills the barrel, but it is gray. Nobody wants to drink it like that. A filter and a tank would turn it clear. Clean water means you heal faster in the yard.",
         built: [
           "The sign says WATER. A filter sits on top of the barrel now. Gray water goes in at the top. Clear water drips out at the bottom. It is slow, but it works. You slowly heal while you are in the yard. Pip watches the drips like a TV show.",
           "The sign says WATER. Next to the barrel stands a big tank. The filter feeds it all day. The tank is full of clean water. Nobody drinks gray water anymore. You heal faster in the yard. Tomas tapped the tank and smiled at the sound. Full tanks ring low.",

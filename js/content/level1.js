@@ -79,7 +79,7 @@
           ],
         },
         water: {
-          desc: "Clean water. You heal in the yard.",
+          desc: "Clean water. You heal faster in the yard.",
           next: [
             "You heal a bit in the yard.",
             "You heal faster in the yard.",

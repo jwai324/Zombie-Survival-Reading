@@ -36,7 +36,7 @@
       },
       water: {
         title: "Water barrel",
-        empty: "WATER, filter goes here. Tomas painted the sign and nailed it above an empty barrel. The barrel rests on two sawhorses by the cabin wall. When it rains, the barrel can catch the runoff from the roof. That water comes out gray and gritty, though, and nobody wants to drink it. A filter and a tank set up here would turn gray rainwater clear. With clean water every day, you would heal while you are in the yard.",
+        empty: "WATER, filter goes here. Tomas painted the sign and nailed it above an empty barrel. The barrel rests on two sawhorses by the cabin wall. When it rains, the barrel can catch the runoff from the roof. That water comes out gray and gritty, though, and nobody wants to drink it. A filter and a tank set up here would turn gray rainwater clear. With clean water every day, you would heal faster while you are in the yard.",
         built: [
           "WATER, says the sign, and the barrel finally does its job. A filter sits on top of it, packed with layers that catch the grit. Gray water goes in at the top. It comes out clear at the bottom, one slow drop at a time. Pip likes to watch it and calls it the slowest faucet in the world. It is not much water yet, but it is clean. Now you slowly heal while you are in the yard.",
           "WATER, reads the sign, and there is much more here to read about now. A filter and a big tank stand together by the cabin wall. The tank is full of clean water. Tomas fitted a spigot into its side so anyone can fill a cup. June hangs a ladle from a nail and insists that everyone use it. With all that clean water, you heal faster while you are in the yard.",
