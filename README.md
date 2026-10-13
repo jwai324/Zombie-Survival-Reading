@@ -40,9 +40,12 @@ road also work on touch.
    destination: the route is drawn and "The way there" lists it in words.
 3. **Road.** Top-down driving. Aim with the mouse, hold to fire. The road does not show the
    route: before every junction, side street and parking lot a sign says where each lane
-   goes, and A and D (or the arrows, or the side buttons) change lanes. Your usual lane goes
-   straight; move right to turn right; a turn lane opens on the far left to turn left. Be in
-   your lane before the white stop line. A wrong turn or a missed lot sends you back to where
+   goes, and A and D (or the arrows, or the side buttons) change lanes. Past side streets and
+   parking lots your usual lane (the left one) goes straight; move right to turn right; a turn
+   lane opens on the far left to turn left. At a junction every road out gets its own lane,
+   left to right, each with a painted arrow, and your usual lane may be one that turns (with
+   two roads out it takes the left one), so match the arrow on the sign. Be in your lane
+   before the white stop line. A wrong turn or a missed lot sends you back to where
    you set out (damage, scrap and kills stay). The minimap in the corner shows where you are
    and flags where you are going.
 4. **Building.** The note at the door tells you how many walkers wait inside and where the

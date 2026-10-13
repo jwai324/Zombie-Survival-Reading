@@ -110,7 +110,12 @@
       this.lowNext = new Int8Array(cols); // drawScene: the farthest low run of each column not drawn yet
       this.hitStore = Array.from({ length: cols * MAX_HITS }, () => ({}));
       this.edges = [];
-      // floor and ceiling: a small image, cast per pixel each frame
+      this.sizePlane();
+      this.frameHeld = false; // a new canvas is blank: a held frame must be drawn again
+    },
+    /** Floor and ceiling: a small image, cast per pixel each frame, at 1/planeRes of the view (the view's
+        own canvas is left alone, so a quality step does not blank the frame on screen). */
+    sizePlane() {
       this.planeW = Math.max(1, Math.ceil(this.W / this.planeRes));
       this.planeH = Math.max(1, Math.ceil(this.H / this.planeRes));
       this.planeCanvas = document.createElement("canvas");
@@ -121,7 +126,6 @@
       this.planeBuf = new Uint32Array(this.planeImg.data.buffer);
       this.covLo = new Int16Array(this.planeW); // low-res rows hidden behind a full-height wall, per low-res column
       this.covHi = new Int16Array(this.planeW);
-      this.frameHeld = false; // a new canvas is blank: a held frame must be drawn again
     },
 
     /* ---------- Input ---------- */
@@ -542,7 +546,7 @@
       this.renderN = (this.renderN || 0) + 1;
       if (this.planeRes < 3 && this.renderN > 180 && (this.renderMs > 12 || this.frameMs > 24)) {
         this.planeRes = 3;
-        this.resize();
+        this.sizePlane(); // the floor image only: resizing the view's canvas would blank this frame
       }
     },
 

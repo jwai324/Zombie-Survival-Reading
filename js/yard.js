@@ -166,17 +166,20 @@
       },
     ],
     radio: [
-      // a plank shack with a radio in the window and a whip antenna
+      // a plank shack with a radio in the window and a whip antenna (the plaque stands beside the shack, a
+      // little back, so it never covers the window or, at the next levels, the shack's own RADIO sign)
       (b) => {
         const P = "#6b5a46";
         b.box(0, 1, 2, 2, { h: 0.95, tex: wall("plank", P), front: (iu) => wall("plank", P, iu === 0 ? "radio" : "door"), roof: { ridge: 1.3, tex: "yRoofTin", gable: "yGablePlank" } });
         b.prop(2.5, 2.5, "yWhip", null, { scale: 2.1, solid: true, cover: false });
+        b.plaque = [2.65, 1.5];
       },
       // the shack gets a sign, and a tall mast on guy wires
       (b) => {
         const P = "#6b5a46";
         b.box(0, 1, 2, 2, { h: 0.95, tex: wall("plank", P), front: (iu) => wall("plank", P, iu === 0 ? "radio" : "door", { t: "RADIO", i: iu, n: 2 }), roof: { ridge: 1.3, tex: "yRoofTin", gable: "yGablePlank" } });
-        b.prop(2.5, 1.6, "yMast", null, { scale: 3.3, solid: true, cover: false });
+        b.prop(2.5, 2.5, "yMast", null, { scale: 3.3, solid: true, cover: false });
+        b.plaque = [2.65, 1.5];
       },
       // a lattice tower with a dish and a blinking light, a dish on the shack
       (b) => {
@@ -188,6 +191,7 @@
         b.prop(2.5, 2.5, "yWhip", null, { scale: 0.9, lift: 3.35 });
         b.anim(b.prop(2.5, 2.5, "yBeacon", null, { scale: 0.26, lift: 3.32 }), "blink");
         b.prop(1.0, 2.0, "yDish", null, { scale: 0.5, lift: 1.0 });
+        b.plaque = [2.65, 1.5];
       },
     ],
     medbay: [
@@ -284,16 +288,17 @@
         b.low(3, 2, 2, 1, { h: 0.42, tex: "yWire" });
         b.flock("yChicken", 3, [3.2, 2.2, 4.8, 2.8], 0.3);
       },
-      // a goat pen with goats and hay, beside the coop
+      // a goat pen with goats and hay, beside the coop; the scarecrow stands in the front crop row
       (b) => {
         b.floor(0, 0, b.W, b.D, "dirt");
         b.low(0, 1, b.W, 1, { h: 0.3, tex: "yCrops", top: "#6f8a3a" });
+        b.prop(2.5, 1.5, "yScarecrow", null, { scale: 1.3, solid: true, cover: false });
         b.box(3, 3, 2, 2, { h: 0.8, tex: wall("coop"), front: (iu) => wall("coop", null, iu === 0 ? "hatch" : "win"), roof: { ridge: 1.25, tex: "yRoofTinRed", gable: "yGableRed" } });
         b.low(3, 2, 2, 1, { h: 0.42, tex: "yWire" });
         b.flock("yChicken", 3, [3.2, 2.2, 4.8, 2.8], 0.3);
         b.low(0, 2, 3, 3, { h: 0.52, tex: "yPen" });
         b.prop(0.6, 4.4, "yHay", null, { scale: 0.5 });
-        b.flock("yGoat", 2, [0.6, 2.4, 2.4, 4.4], 0.62);
+        b.flock("yGoat", 2, [0.6, 2.4, 2.4, 4.4], 0.7);
       },
     ],
     lab: [

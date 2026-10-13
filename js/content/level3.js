@@ -9,13 +9,13 @@
     howto: [
       "Your home base is a boarded-up house at the south end of town. You have one van, and it still runs. Every day you drive out for supplies, and every night you bring them home. Inside every building there are walkers, and there are notes. People who were there before you wrote the notes. Read them, and you find more and lose less. No one tests you on them. They are just useful.",
       "You stand in the yard, first person, with a fence around the lot. Time runs in calm phases and waves. In a calm phase, nothing is at the fence. Go inside the cabin to build, or leave in the van. Then a wave comes. Sometimes it is a few walkers, sometimes a lot, and sometimes none at all. Walkers claw through the fence. During a wave, the cabin door and the van are locked. You have to hold the yard. The fence does not fix itself. Every hole stays until you fix it. Stand at the hole and press E, or use the cabin menu. Each hole costs 1 scrap. A cracked part of the fence can be braced for 1 scrap, too. Every room you build shows up in the yard. It looks bigger and stronger at each level. The Walls room changes the fence itself, and each level rebuilds the whole fence. Later, you can craft traps at the workbench. Set them along the fence line. A walker that steps on one is hurt. A Spike trap needs Walls 2, and a Blast trap needs Walls 3. Late in the game, dig a Well for clean water. Then build a Farm for crops and animals. A Lab makes Medical kits at home.",
-      "Open the map and pick a place. Only a few places are known at first. Notes and the Radio room reveal the rest. Plan your trip on the map. The road will not show you the way. The map lists the way there in words, one road at a time. Then you drive. Before each turn, a sign says where each lane goes. Read it. You drive in the left lane. It always goes straight past side streets and parking lots. To turn right, move into the right lane. To turn left, move into the turn lane that opens on the far left. Where roads meet, there is one lane for each road. Each lane has a painted arrow. Get in the lane for your way before the white stop line. Use A and D, the arrow keys, or the side buttons. Side streets are dead ends. At the end, turn into the lot of the place you picked. A wrong turn or a missed lot sends you back to where you started. You keep your damage, your scrap, and your kills. A small map in the corner shows where you are. A flag on it marks where you are going. Walkers wander the road. Far places and dangerous places have more of them. More come as the days pass. Still parked at a place? Open the map, and you can go back in from there.",
-      "At the door you read a note before you go in. It tells you how many walkers wait inside and where the items are. Buildings are big, with halls, side rooms, and dead ends. Each corner has a landmark, something big you will not forget. It might be a green dino or a big red wheel. The notes name these landmarks, so steer by them. Press M for a map of the parts you have seen. Every doorway inside is a real door. Press E to open it, and press E again to close it. Walkers cannot open doors. Walkers come for you, so shoot them or slip around them. Grab items from shelves and floors, and take scrap from the piles. Shelf items come back three days after you take them. Cache items never do. Find the note inside and read it. It tells you how to open the locked cache room. The best items are in there. It also names the next place to try. That place then shows up on the map. Every note you read goes in your backpack. You can open the backpack at base, on the map, or inside a building. You can go back into a building on the same trip. It is just as you left it. Walkers you put down stay down, and doors stay as you left them. Driving home resets all of that.",
+      "Open the map and pick a place. Only a few places are known at first. Notes and the Radio room reveal the rest. Plan your trip on the map. The road will not show you the way. The map lists the way there in words, one road at a time. Then you drive. Before each turn, a sign says where each lane goes. Read it. You drive in the left lane. It always goes straight past side streets and parking lots. If your lot is on the right, move into the right lane. If it is on the left, move into the turn lane that opens on the far left. Where roads meet, it works another way. There is one lane for each road, and your own lane may turn. Each lane has a painted arrow. Find your way on the sign. Then get in the lane with that arrow before the white stop line. Use A and D, the arrow keys, or the side buttons. Side streets are dead ends. At the end, turn into the lot of the place you picked. A wrong turn or a missed lot sends you back to where you started. You keep your damage, your scrap, and your kills. A small map in the corner shows where you are. A flag on it marks where you are going. Walkers wander the road. Far places and dangerous places have more of them. More come as the days pass. Still parked at a place? Open the map, and you can go back in from there.",
+      "At the door you read a note before you go in. It tells you how many walkers wait inside and where the items are. Buildings are big, with halls, side rooms, and dead ends. Each corner has a landmark, something big you will not forget. It might be a green dino or a big red wheel. The notes name these landmarks, so steer by them. Press M for a map of the parts you have seen. Every doorway inside is a real door. Press E to open it, and press E again to close it. Walkers cannot open doors. Walkers come for you, so shoot them or slip around them. Grab items from shelves and floors, and take scrap from the piles. Shelf items come back three days after you take them. Cache items never do. Find the note inside and read it. It tells you how to open the locked cache room. The best items are in there. Most of these notes also name the next place to try. That place then shows up on the map. Every note you read goes in your backpack. You can open the backpack at base, on the map, or inside a building. You can go back into a building on the same trip. It is just as you left it. Walkers you put down stay down, and doors stay as you left them. Driving home resets all of that.",
       "Hurt? Use a Medical kit, and it heals you to full. The backpack carries up to 3 kits. Pack them from storage at the cabin. Inside a building, you can also use a kit from the van's cargo. Drive home with your cargo. At base, cargo goes into storage, and you eat one food. The Garden and the Farm add food, and the day count goes up. The garage repairs the van back to full for scrap. It costs 1 scrap for every 3 health missing, and at least 5 scrap. Once the Garage room is built, repairs are free.",
       "Build rooms, upgrade the van or gun, and craft traps at the workbench. The workbench is in the garage. Each one is a short typing round. Repairs need no typing. The words to type are shown on the screen, with a timer. Run out of time, and you simply try again. Nothing is spent until you finish. The first time, the bench teaches you where to put your fingers. That is the home row. Every finished round moves you to the next typing stage. Single home-row keys come first, then the other rows. Then come words, phrases, and sentences. Each player has their own labeled save, and there are up to 4. Pick yours on the title screen. The base is still the only place the game saves. It saves when you arrive, after every build, and after every wave. Three things end a run. The van gets wrecked, you go down inside, or the yard is overrun. Then the game loads your last base save. Everything since that save is gone, so plan each trip with care.",
     ],
     controls: [
-      "Road: Aim with the mouse and hold to fire. A and D, the arrow keys, or the side buttons change lanes. Your left lane goes straight past side streets and lots. To turn right, use the right lane. To turn left, use the turn lane on the far left. Where roads meet, read the sign. Get in the lane for your way before the white line.",
+      "Road: Aim with the mouse and hold to fire. A and D, the arrow keys, or the side buttons change lanes. Your left lane goes straight past side streets and lots. For a lot on the right, use the right lane. For a lot on the left, use the turn lane on the far left. Where roads meet, each road has its own lane, and yours may turn. Match the arrow on the sign, and get in that lane before the white line.",
       "Inside and in the yard: W A S D move, the mouse looks, and a click fires. Shift makes you run, and B opens the backpack. P or Esc pauses the game. Inside a building, M opens a map of the parts you have seen.",
       "E does it all: E reads notes and opens and closes doors. It opens a cache once you have read its note. E also leaves a building, enters the cabin, and starts the van. It rebuilds a hole in the fence for 1 scrap.",
       "Traps in the yard: T sets a spike trap, and R sets a blast trap. Each trap goes on the ground in front of you, or past the fence.",
@@ -34,7 +34,7 @@
       noThrough: "No through road",
       closed: "Road closed",
       lot: "Parking lot",
-      hint: "Read the sign to see where each lane goes. Pick a lane with A and D, the arrow keys, or the side buttons.",
+      hint: "Read the sign to see where each lane goes. Pick a lane with A and D.",
       wrongWay: "Wrong way! That road goes to {place}.",
       wrongStreet: "Wrong way! That is {street}.",
       wrongSide: "Wrong way! {street} does not go through.",
@@ -45,7 +45,7 @@
       routeHead: "The way there",
       routeTake: "Take {street} to {place}.",
       routeTakeStreet: "Take {street}.",
-      routeStraight: "Stay in your left lane. It goes straight past side streets and other places.",
+      routeStraight: "Stay in your left lane past side streets and other places. Where roads meet, get in the lane the sign gives your road.",
       routeLeft: "{dest} is on the left. Move into the turn lane on the far left.",
       routeRight: "{dest} is on the right. Move into the right lane.",
     },
@@ -300,7 +300,7 @@
         blurb: "An electronics store with spools of wire, close to the walker crowds.",
         door: {
           title: "Jo's Sign in the Window",
-          text: "Jo wrote this. Spools of wire are between the two long shelves in the middle. One is on the TV wall side, and one is on the robot side. At least six walkers are inside. One is near the right end of the counter, by the robot. It will hear the door, so be ready. The manager's office is locked. The manager left a note on the counter at the back.",
+          text: "Jo wrote this. Spools of wire are between the two long shelves in the middle. One is on the TV wall side, and one is on the robot side. At least six walkers are inside. One is near the right end of the counter, by the robot. Get close and it will hear you, so be ready. The manager's office is locked. The manager left a note on the counter at the back.",
         },
         notes: {
           "radioshack-counter": {
@@ -339,7 +339,7 @@
         blurb: "A middle school with boxes of books in classrooms and a locked library closet.",
         door: {
           title: "Max and Mia Were Here",
-          text: "Max and Mia wrote this. There are two boxes of books. One is in the music room, with the drum set. The other is in the front office, behind the lion statue. At least six walkers are inside. One is in the main hallway, so time your move. The library closet is locked. The key is in the teacher's note. It is in the science room, back left, by the big brain.",
+          text: "Max and Mia wrote this. There are two boxes of books. One is in the music room, with the drum set. The other is in the front office, behind the lion statue. At least six walkers are inside. One is in the main hallway, so give it room. The library closet is locked. The key is in the teacher's note. It is in the science room, back left, by the big brain.",
         },
         notes: {
           "school-classroom": {
@@ -383,7 +383,7 @@
         notes: {
           "watertower-panel": {
             title: "The Breaker Box Key",
-            text: "Theo again. The pump house key is in the breaker box. That is the gray metal box on the wall, and it is not locked. Open it, and the key hangs on a nail inside. With it, you can open the pump house now. There are filters in there, a water tank, and wire.\n\nGo past the blue pump and into the pump hall. The pump house door is at the back, on the blue pump side. The big red wheel is at the far end.\n\nIf you need medicine, go to St. Anne Annex. It is the hospital, north along the river road. It still has medicine. But it is the most dangerous place in town.",
+            text: "Theo again. The pump house key is in the breaker box. That is the gray metal box on the wall, and it is not locked. Open it, and the key hangs on a nail inside. With it, you can open the pump house now. There are filters in there, a water tank, and wire.\n\nGo past the blue pump and into the pump hall. The pump house door is at the back, on the blue pump side. The big red wheel is at the far end.\n\nIf you need medicine, go to St. Anne Annex. It is the hospital, north up Hill Road. It still has medicine. But it is the most dangerous place in town.",
           },
         },
       },
@@ -391,7 +391,7 @@
         blurb: "Ridge Lumber on the east ridge, stacked with wood and a locked kiln shed.",
         door: {
           title: "Ruby's Spray Paint",
-          text: "Ruby again. Lumber is in the long racks in the middle. One more stack is out back, by the log pile. At least eight walkers are inside. They gather by the loading dock and the flatbed truck. Stay away from that side. The kiln shed is locked. The yard boss left a note on a clipboard by the band saw.",
+          text: "Ruby again. Lumber is in the long racks in the middle. One more stack is out back, by the log pile. A big walker stands right by it. At least eight walkers are inside. A crowd of them gathers by the loading dock and the flatbed truck. Stay away from that side. The kiln shed is locked. The yard boss left a note on a clipboard by the band saw.",
         },
         notes: {
           "lumberyard-rack": {
@@ -404,7 +404,7 @@
         blurb: "Northgate Mall in the north, full of goods and the biggest walker crowd.",
         door: {
           title: "Jo's Mall Door Note",
-          text: "Jo here. Food is in the food court at the back. Medicine is in the pharmacy on the left. Wire is in the gadget store on the right. It is next door to the orange tent. At least nine walkers are inside. They move in a group along the main hall. The security office is locked. The guard's note is in the play area, by the green dino.",
+          text: "Jo here. Food is in the food court at the back. Medicine is in the pharmacy on the left. Wire is in the gadget store on the right. It is next door to the orange tent. At least nine walkers are inside. Many of them stand along the main hall. The security office is locked. The guard's note is in the play area, by the green dino.",
         },
         notes: {
           "mall-guard": {

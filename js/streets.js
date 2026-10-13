@@ -73,7 +73,7 @@
     noThrough: "No through road",
     closed: "Road closed",
     lot: "Parking lot", // driveway sign of a place you do not know yet
-    hint: "Read the sign. Pick a lane with A and D, the arrow keys, or the side buttons.", // first sign of a drive
+    hint: "Read the sign. It tells where each lane goes. Pick a lane with A and D.", // first sign of a drive
     wrongWay: "Wrong way! That road goes to {place}.",
     wrongStreet: "Wrong way! That is {street}.",
     wrongSide: "Wrong way! {street} does not go through.",
@@ -85,7 +85,7 @@
     routeHead: "The way there",
     routeTake: "Take {street} to {place}.", // the road's far end is a place you know
     routeTakeStreet: "Take {street}.", // ... a place you do not know yet
-    routeStraight: "Stay in your lane, the left one: it goes straight on past side streets and other places.",
+    routeStraight: "Stay in your left lane past side streets and other places. Where roads meet, take the lane the sign gives your road.",
     routeLeft: "{dest} is on the left. Move into the turn lane on the far left.",
     routeRight: "{dest} is on the right. Move into the right lane.",
   };
@@ -107,7 +107,9 @@
     lotClear: 190, // clear road after a driveway before the next lanes begin
     destBack: 900, // the destination's driveway sits this far before its junction
     destMin: 640, // ... and never closer than this
-    startAt: 320, // the van starts this far out of the junction it leaves from
+    startAt: 320, // the van starts this far along the drive out of its place (or out of its junction, for a place with one road)
+    firstSign: 1.4, // seconds after the start before the first junction's sign shows (the start banner is gone by then)
+    winFirst: 3.5, // seconds of lanes before that first junction
     lotGap: 34, // grass between the road shoulder and a lot
     lotDepth: 340,
     lotHalf: 230, // half the lot's length along the road
@@ -410,6 +412,27 @@
     return sideCache[key];
   }
 
+  /** The way a drive leaves a place: its own drive runs in to its junction (unit vector, heading in) from the
+      middle of the widest gap between its roads, so the first turn is a choice too, one lane per road out.
+      null for a place with one road (the van starts on that road). */
+  function startDir(id) {
+    const p = pos(id);
+    const angs = neighbors(id)
+      .map((nb) => Math.atan2(pos(nb).y - p.y, pos(nb).x - p.x))
+      .sort((a, b) => a - b);
+    if (angs.length < 2) return null;
+    let best = null;
+    angs.forEach((a, i) => {
+      const b = i + 1 < angs.length ? angs[i + 1] : angs[0] + 2 * Math.PI;
+      if (!best || b - a > best.size) best = { size: b - a, mid: (a + b) / 2 };
+    });
+    return [-Math.cos(best.mid), -Math.sin(best.mid)];
+  }
+  /** Seconds a drive out of `from` spends on its own drive before the first junction (0 for a place with one road). */
+  function startSeconds(from) {
+    return from && startDir(from) ? GEOM.firstSign + GEOM.lead + GEOM.winFirst : 0;
+  }
+
   /** Static world: every road and side street at this scale. */
   function worldOf(scale) {
     const roads = W().ROADS.map(([a, b]) => {
@@ -431,7 +454,9 @@
    * Each decision: { kind: "side" | "lot" | "junction" | "dest", node, stop (s of the stop line on the
    * main track), zoneStart, signAt, n (lanes), lanes (lane -> option index), qx, qy (turn point),
    * ux, uy (approach), options; a junction also has exitS, where its turn ends }.
-   * A junction has one lane per road out. A side street, a driveway or the destination on the right turns
+   * A junction has one lane per road out. The drive begins on the first place's own drive (startDir), so its
+   * first decision is that place's junction (a junction with `start: true`); a place with one road starts on it.
+   * A side street, a driveway or the destination on the right turns
    * from the right lane; on the left a bay opens (out of the oncoming side) and both our lanes go on.
    * The van keeps to the left lane (laneCenter(0, 2)) unless moved, so left alone it never turns off.
    * Each option: { lane (its first lane), lanes, correct, rel (turn angle), to (place id), street, kind,
@@ -470,11 +495,29 @@
       const back = junction ? Math.max(G.stopMin, ...opts2.map((o) => o.T + 20)) : Math.max(T, G.boxR);
       corner[i] = { T, junction, back, opts: opts2 };
     }
+    // the drive out of the first place: its own drive in to its junction, then one lane per road out
+    const sd = startDir(path[0]);
+    let start = null;
+    if (sd) {
+      const [ax, ay] = sd;
+      const outs = neighbors(path[0]).map((nb) => {
+        const [vx, vy] = unit(pos(nb).x * scale - P[0].x, pos(nb).y * scale - P[0].y);
+        const rel = angle(ax, ay, vx, vy);
+        return { to: nb, vx, vy, rel, T: G.turnR * Math.tan(Math.abs(rel) / 2) };
+      });
+      const zone = G.startAt + (G.firstSign + G.lead) * v;
+      const stop = zone + G.winFirst * v;
+      const len = stop + Math.max(G.stopMin, ...outs.map((o) => o.T + 20));
+      const T = G.turnR * Math.tan(Math.abs(angle(ax, ay, segs[0].ux, segs[0].uy)) / 2);
+      start = { ux: ax, uy: ay, outs, zone, stop, T, x: P[0].x - ax * len, y: P[0].y - ay * len };
+      // drawn on past the van's start, so the road runs off the bottom of the screen
+      drive.roads.push({ key: "start|" + path[0], a: null, b: path[0], name: "", start: true, x0: start.x - ax * 900, y0: start.y - ay * 900, x1: P[0].x, y1: P[0].y });
+    }
 
     /* lay out the decisions along each road: positions are offsets from the road's first place */
     const plan = [];
     segs.forEach((sg, i) => {
-      const enter = i === 0 ? G.startAt : Math.max(corner[i].T, G.boxR) + G.gap;
+      const enter = i > 0 ? Math.max(corner[i].T, G.boxR) + G.gap : start ? Math.max(start.T, G.boxR) + G.gap : G.startAt;
       let free = enter;
       const list = [];
       sideStreetsOn(sg.a, sg.b).forEach((ss) => {
@@ -511,9 +554,16 @@
 
     /* the main track: the right way, ending in the destination's parking spot */
     const tr = track();
-    push(tr, P[0].x, P[0].y);
     const segS = []; // s at offset `off` of road i is segS[i].s + (off - segS[i].off)
-    segS[0] = { s: 0, off: 0 };
+    if (start) {
+      push(tr, start.x, start.y);
+      const T = fillet(tr, P[0].x, P[0].y, start.ux, start.uy, segs[0].ux, segs[0].uy, G.turnR);
+      push(tr, P[0].x + segs[0].ux * T, P[0].y + segs[0].uy * T);
+      segS[0] = { s: tr.len, off: T };
+    } else {
+      push(tr, P[0].x, P[0].y);
+      segS[0] = { s: 0, off: 0 };
+    }
     segs.forEach((sg, i) => {
       if (i < last) {
         const nx = segs[i + 1];
@@ -533,6 +583,35 @@
       dec.lanes = sgn < 0 ? [0, 1, 1] : [0, 1];
     };
     const aimOut = (x, y, vx, vy, along) => ({ x: x + vx * along, y: y + vy * along, vx, vy });
+    // a real junction: one lane per road out, left to right by the angle of the turn; every turn ends in the left lane
+    const roadOptions = (dec, node, id, outs, next) => {
+      dec.options = outs
+        .slice()
+        .sort((x, y) => x.rel - y.rel)
+        .map((o) => {
+          const correct = o.to === next;
+          const opt = { correct, kind: "road", rel: o.rel, to: o.to, street: streetName(id, o.to), aim: aimOut(node.x, node.y, o.vx, o.vy, o.T + (correct ? G.gap : G.branchRun)), endD: laneCenter(0, 2) };
+          if (correct) opt.rejoin = dec.exitS + G.gap;
+          return opt;
+        });
+      dec.lanes = dec.options.map((o, k) => k);
+    };
+    const finish = (dec) => {
+      dec.n = dec.lanes.length;
+      dec.options.forEach((o, k) => {
+        o.lanes = [];
+        dec.lanes.forEach((w, lane) => w === k && o.lanes.push(lane));
+        o.lane = o.lanes[0];
+      });
+      // the sign shows a little before its lanes begin (never before the last decision's stop line)
+      dec.signAt = dec.zoneStart - lead;
+      drive.decisions.push(dec);
+    };
+    if (start) {
+      const dec = { kind: "junction", node: path[0], start: true, qx: P[0].x, qy: P[0].y, ux: start.ux, uy: start.uy, road: null, stop: start.stop, zoneStart: start.zone, exitS: segS[0].s, options: [] };
+      roadOptions(dec, P[0], path[0], start.outs, path[1]);
+      finish(dec);
+    }
 
     plan.forEach((list, i) => {
       const sg = segs[i];
@@ -564,30 +643,10 @@
           } else through = { correct: true, kind: "through", rel: 0 };
           bay(dec, turn, through, sgn);
         } else {
-          // a real junction: one lane per road out, left to right by the angle of the turn; every turn ends in the left lane
-          const c = d.corner;
-          const node = P[i + 1];
           dec.exitS = segS[i + 1].s; // where the turn ends and the next road runs straight
-          dec.options = c.opts
-            .slice()
-            .sort((x, y) => x.rel - y.rel)
-            .map((o) => {
-              const correct = o.to === path[i + 2];
-              const opt = { correct, kind: "road", rel: o.rel, to: o.to, street: streetName(path[i + 1], o.to), aim: aimOut(node.x, node.y, o.vx, o.vy, o.T + (correct ? G.gap : G.branchRun)), endD: laneCenter(0, 2) };
-              if (correct) opt.rejoin = dec.exitS + G.gap;
-              return opt;
-            });
-          dec.lanes = dec.options.map((o, k) => k);
+          roadOptions(dec, P[i + 1], path[i + 1], d.corner.opts, path[i + 2]);
         }
-        dec.n = dec.lanes.length;
-        dec.options.forEach((o, k) => {
-          o.lanes = [];
-          dec.lanes.forEach((w, lane) => w === k && o.lanes.push(lane));
-          o.lane = o.lanes[0];
-        });
-        // the sign shows a little before its lanes begin (never before the last decision's stop line)
-        dec.signAt = dec.zoneStart - lead;
-        drive.decisions.push(dec);
+        finish(dec);
       });
     });
     drive.decisions.forEach((d, k) => {
@@ -649,8 +708,9 @@
     return out;
   }
 
-  /** px per map unit for a route: the drive takes about `seconds` at `speed` (the van starts a little out of
-      its junction and parks before the last one), never squeezed below minScale. */
+  /** px per map unit for a route: its roads take about `seconds` at `speed` (from a little out of the first junction
+      to parking before the last one), never squeezed below minScale. The drive out of a place with two roads or
+      more comes on top (startSeconds). */
   function scaleFor(dist, seconds, speed) {
     const v = speed || GEOM.baseSpeed;
     return Math.max((GEOM.minScale * v) / GEOM.baseSpeed, (seconds * v + GEOM.startAt + GEOM.destBack * 0.5) / Math.max(1, dist));
@@ -677,6 +737,8 @@
     buildDrive,
     turnPath,
     lotSide,
+    startDir,
+    startSeconds,
     destSide,
     directions,
     scaleFor,

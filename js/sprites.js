@@ -485,18 +485,27 @@
       });
     }
 
-    // engine: roof rack gear, exhaust smoke
+    // engine: roof rack gear (clear of the tail lights), an exhaust stack, the light bar, then twin stacks
     if (u.engine >= 1) {
-      rr(ctx, -w * 0.4, h * 0.4, 14, 8, 2);
+      rr(ctx, -w * 0.4, h * 0.4 - 8, 16, 10, 2);
       fillStroke(ctx, "#5f6b3c", 2.5);
       if (u.engine >= 2) {
-        rr(ctx, w * 0.4 - 14, h * 0.4, 14, 8, 2);
+        rr(ctx, w * 0.4 - 16, h * 0.4 - 8, 16, 10, 2);
         fillStroke(ctx, "#5f6b3c", 2.5);
       }
-      if (u.engine >= 3) circle(ctx, w * 0.26, h * 0.34, 7, "#1f2023", 2.5);
+      const stack = (sx) => {
+        circle(ctx, sx, h * 0.27, 7, "#1f2023", 2.5);
+        circle(ctx, sx, h * 0.27, 3, "#9ea3aa", 1.5);
+      };
+      if (u.engine >= 3) stack(w * 0.26);
       if (u.engine >= 4) {
         rr(ctx, -12, -h * 0.47, 24, 8, 2);
         fillStroke(ctx, "#2b2d31", 2.5);
+      }
+      if (u.engine >= 5) {
+        stack(-w * 0.26);
+        ctx.fillStyle = "#ffd36b";
+        [-8, -2, 4].forEach((lx) => ctx.fillRect(lx, -h * 0.47 + 2, 4, 4));
       }
     }
     if (opts.moving !== false) {
@@ -505,6 +514,14 @@
       ctx.beginPath();
       ctx.arc(-w * 0.3, h / 2 + 6 + puff * 20, 4 + puff * 9 + u.engine * 0.8, 0, TAU);
       ctx.fill();
+      if (u.engine >= 5) {
+        // the second stack puffs out of step with the first
+        const p2 = (puff + 0.5) % 1;
+        ctx.fillStyle = "rgba(90,90,95," + (0.5 - p2 * 0.45) + ")";
+        ctx.beginPath();
+        ctx.arc(w * 0.3, h / 2 + 6 + p2 * 20, 4 + p2 * 9 + u.engine * 0.8, 0, TAU);
+        ctx.fill();
+      }
     }
 
     // lights
@@ -1204,7 +1221,8 @@
     if (cur) lines.push(cur);
     return lines.length ? lines : [""];
   }
-  /** Lay out a sign: { style, rows: [{ rel, text, badge, badgeKind }] } at size k, no wider than maxW. */
+  /** Lay out a sign: { style, rows: [{ rel, text, badge, badgeKind }] } at size k, no wider than maxW
+      (fits: false when a word is too long for that and would run past its edge). */
   function layoutSign(ctx, sign, k, maxW) {
     const pad = 12 * k;
     const fs = Math.round(25 * k);
@@ -1234,7 +1252,7 @@
       h += rh + pad;
       return row;
     });
-    return { w: Math.min(maxW, w), h, rows, k, fs, bs, lineH, pad, arrow };
+    return { w: Math.min(maxW, w), h, rows, k, fs, bs, lineH, pad, arrow, fits: w <= maxW + 0.5 };
   }
   /** Draw a laid-out sign with its top-left at (x, y). alpha fades it. */
   function roadSign(ctx, x, y, sign, lay, alpha) {
@@ -1289,7 +1307,7 @@
     const pad = 8 * k;
     ctx.save();
     ctx.font = "700 " + fs + "px Oswald, Impact, sans-serif";
-    const lines = wrapText(ctx, String(text).toUpperCase(), w - pad * 2);
+    const lines = wrapText(ctx, String(text), w - pad * 2); // sentence case: easier to read than the signs' capitals
     const h = lines.length * fs * 1.2 + pad * 2;
     if (draw !== false) {
       ctx.globalAlpha = alpha == null ? 1 : alpha;

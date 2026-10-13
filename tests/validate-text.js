@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /* Validates js/content/level*.js against js/world.js and docs/TEXT_GUIDE.md.
    Covers howto, base rooms (incl. late rooms and what they require), traps, the
-   workbench blurb, and the typing drills (fingers, words, phrases, sentences).
+   workbench blurb, the typing drills (fingers, words, phrases, sentences), and the notes
+   (facts, landmarks, revealed places, and street names that must lie on the way there).
    Usage: node tests/validate-text.js [level]. Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -73,6 +74,21 @@ const landmarkNames = (loc) => {
   return Object.values(lay.landmarks || {}).map((d) => String(d.name || "").toLowerCase().replace(/^the\s+/, "")).filter(Boolean);
 };
 const landmarksIn = (text, names) => names.filter((n) => String(text || "").toLowerCase().includes(n));
+/* Streets have names on the signs, the city map and the minimap, so a note that names one must name a
+   street the player really takes from this place to a place the note reveals. */
+const STREETS = load(path.join(ROOT, "js", "streets.js"), "Streets", [path.join(ROOT, "js", "layouts.js"), path.join(ROOT, "js", "world.js")]);
+const STREET_LIST = STREETS ? Object.values(STREETS.STREET_NAMES).concat(STREETS.SIDE_STREETS.map((s) => s.name)) : [];
+function checkStreets(ctx, text, from, reveals) {
+  const low = String(text || "").toLowerCase();
+  STREET_LIST.forEach((name) => {
+    if (!new RegExp("\\b" + name.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(low)) return;
+    const onWay = (reveals || []).some((to) => {
+      const p = STREETS.route(from, to).path;
+      return p.slice(1).some((b, i) => STREETS.streetName(p[i], b) === name);
+    });
+    if (!onWay) err(ctx, `names "${name}", which is not on the way from here to ${(reveals || []).length ? reveals.join(" or ") : "a place this note reveals (it reveals none)"}`);
+  });
+}
 const NUM_WORDS = { 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten" };
 function numberWord(num, text) {
   const w = NUM_WORDS[num];
@@ -81,7 +97,10 @@ function numberWord(num, text) {
 // the number as digits (whole token) or as a number word
 const hasNumber = (num, text) => new RegExp("\\b" + String(num).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(text) || !!numberWord(num, text);
 
-/* howto: the paragraphs must carry the current rules and drop the old ones */
+/* howto: the paragraphs must carry the current rules and drop the old ones.
+   Lanes: the left lane goes straight past side streets and lots, but where roads meet there is one
+   lane per road in the order of the sign's arrows, so the player's own lane may be the one that turns. */
+const JUNCTION_LANES = /\bmay (well )?(be the one that )?turns?\b/i;
 const HOWTO_BANNED = /patched|patch the fence|fence is fixed between/i;
 const HOWTO_MUST = [
   [/door/i, "the cabin door (E opens and closes it, walkers cannot)"],
@@ -95,6 +114,7 @@ const HOWTO_MUST = [
   [/\blab\b/i, "the Lab (late game: medicine made at home)"],
   [/\blanes?\b/i, "lanes on the road (be in the right lane before the stop line)"],
   [/\bsigns?\b/i, "the road signs (they say where each lane goes)"],
+  [JUNCTION_LANES, "that where roads meet your own lane may turn (one lane per road, as the sign's arrows show)"],
 ];
 /* numbers the How it works text must carry, straight from the world file */
 const HOWTO_NUMBERS = () => [
@@ -114,6 +134,7 @@ const CONTROLS_MUST = [
   [/map/i, "the map"],
   [/\bM\b/, "the M key (the map of a building)"],
   [/\blanes?\b/i, "lanes on the road"],
+  [JUNCTION_LANES, "that where roads meet your own lane may turn"],
 ];
 /* typing.fingers: home-row placement must be taught in so many words */
 const FINGERS_MUST = [
@@ -287,6 +308,7 @@ function checkLevel(n) {
     if (!L.door || !isStr(L.door.title)) err(lctx + " door", "title missing");
     else if (words(L.door.title).length > 7) warn(lctx + " door", "title is long");
     checkText(lctx + " door", L.door && L.door.text, spec, 0.75, N.door.facts);
+    checkStreets(lctx + " door", L.door && L.door.text, loc.id, []);
     const marks = landmarkNames(loc);
     const doorMarks = landmarksIn(L.door && L.door.text, marks);
     if (marks.length && doorMarks.length < 2) err(lctx + " door", `must name at least two landmarks (${marks.join(", ")}); names ${doorMarks.length ? doorMarks.join(", ") : "none"}`);
@@ -295,6 +317,7 @@ function checkLevel(n) {
       if (!T) return err(`${lctx} ${note.id}`, "missing");
       if (!isStr(T.title)) err(`${lctx} ${note.id}`, "title missing");
       checkText(`${lctx} ${note.id}`, T.text, spec, 1.2, note.facts);
+      checkStreets(`${lctx} ${note.id}`, T.text, loc.id, note.reveals);
       if (marks.length && !landmarksIn(T.text, marks).length) err(`${lctx} ${note.id}`, `must name at least one landmark (${marks.join(", ")})`);
       if (note.unlocks && !/open|unlock|key|code|latch|bolt|badge|combination|handle|hatch|lift|twist/i.test(T.text || "")) warn(`${lctx} ${note.id}`, "note unlocks a cache but the text never says how to open it");
       (note.reveals || []).forEach((rid) => {
@@ -317,6 +340,13 @@ function checkLevel(n) {
 }
 
 const only = process.argv[2] ? [Number(process.argv[2])] : [1, 2, 3, 4, 5, 6];
+if (!STREETS) err("js/streets.js", "did not define ZSR.Streets");
+// the facts in world.js are held to the same rule as the words
+WORLD.LOCATIONS.filter((l) => WORLD.NOTES[l.id]).forEach((loc) => {
+  const N = WORLD.NOTES[loc.id];
+  checkStreets(`world ${N.door.id}`, N.door.facts.join(" "), loc.id, []);
+  N.notes.forEach((note) => checkStreets(`world ${note.id}`, note.facts.join(" "), loc.id, note.reveals));
+});
 only.forEach(checkLevel);
 if (warnings.length) {
   console.log(`\n${warnings.length} warning(s):`);

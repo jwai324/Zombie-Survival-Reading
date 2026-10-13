@@ -329,17 +329,17 @@
     watertower: {
       door: { id: "watertower-door", found: "on the fence gate", facts: ["Written by Theo, who tends the pumps.", "One water filter is by the crates near the big red wheel; the other is in the boat workshop, by the rowboat.", "At least six walkers inside the pump building.", "The pump house is locked; Theo's note is on the control panel in the back right room."] },
       notes: [
-        { id: "watertower-panel", found: "on the control panel", unlocks: "watertower", reveals: ["hospital"], facts: ["Written by Theo.", "The pump house key is in the breaker box, so the pump house can be opened now.", "The pump house has filters, a water tank, and wire.", "The pump house door is at the back of the pump hall, at the blue pump end, away from the big red wheel.", "St. Anne Annex, the hospital, is north along the river road; it still has medicine, but it is the most dangerous place in town."] },
+        { id: "watertower-panel", found: "on the control panel", unlocks: "watertower", reveals: ["hospital"], facts: ["Written by Theo.", "The pump house key is in the breaker box, so the pump house can be opened now.", "The pump house has filters, a water tank, and wire.", "The pump house door is at the back of the pump hall, at the blue pump end, away from the big red wheel.", "St. Anne Annex, the hospital, is north up Hill Road; it still has medicine, but it is the most dangerous place in town."] },
       ],
     },
     lumberyard: {
-      door: { id: "lumberyard-door", found: "spray-painted on the gate", facts: ["Written by Ruby.", "Lumber is in the long racks in the middle, and one more stack is out back by the log pile.", "At least eight walkers inside; they gather by the loading dock and the flatbed truck.", "The kiln shed is locked; the yard boss left a note on a clipboard by the band saw."] },
+      door: { id: "lumberyard-door", found: "spray-painted on the gate", facts: ["Written by Ruby.", "Lumber is in the long racks in the middle, and one more stack is out back by the log pile.", "At least eight walkers inside; a crowd gathers by the loading dock and the flatbed truck, and a big one stands by the log pile.", "The kiln shed is locked; the yard boss left a note on a clipboard by the band saw."] },
       notes: [
         { id: "lumberyard-rack", found: "on the clipboard by the band saw", unlocks: "lumberyard", facts: ["Written by the yard boss, Carla.", "The kiln shed padlock opens with the code 2218, so the kiln shed can be opened now.", "The shed has dry lumber and nails.", "The kiln shed door is in the back wall of the rack hall; from the band saw shop door, follow that wall toward the log pile.", "Do not run the saws; the noise brings the whole dock crowd."] },
       ],
     },
     mall: {
-      door: { id: "mall-door", found: "on the mall doors", facts: ["Written by Jo.", "Food is in the food court at the back, medicine is in the pharmacy on the left, and wire is in the gadget store on the right, next door to the orange tent.", "At least nine walkers inside; they move in a group along the main hall.", "The security office is locked; the guard's note is in the play area by the green dino."] },
+      door: { id: "mall-door", found: "on the mall doors", facts: ["Written by Jo.", "Food is in the food court at the back, medicine is in the pharmacy on the left, and wire is in the gadget store on the right, next door to the orange tent.", "At least nine walkers inside; many of them stand along the main hall.", "The security office is locked; the guard's note is in the play area by the green dino."] },
       notes: [
         { id: "mall-guard", found: "on a clipboard in the play area", unlocks: "mall", facts: ["Written by a mall security guard named Luis.", "The office code is 0912, so the security office can be opened now.", "The office has gun parts, radio parts, and a tool kit.", "Take the kitchen door at the back of the food court and turn right; the office is behind the green dino.", "The walkers here come running at anyone who runs; walk, and most of them stay put."] },
       ],

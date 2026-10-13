@@ -116,22 +116,31 @@ round). A light wave comes from two sides, a heavy one from every side.
 
 - The van drives in the left of its two lanes; past side streets and parking lots that lane
   goes straight. A turn to the right uses the right lane; a turn to the left uses a turn lane
-  that opens on the far left. At a junction there is one lane per road out, each with a
-  painted arrow, and the sign says where each lane goes.
-- Decision points along a route, in order: side streets (dead ends, no through roads, closed
-  roads), the parking lots of places the route passes (Home Base too), real junctions, and the
+  that opens on the far left. At a junction there is one lane per road out, left to right in
+  the order the roads turn, each with a painted arrow, and the sign says where each lane goes.
+  There is no straight-on lane there: the right lane takes the road furthest right, extra
+  lanes open to the left, and the van's own left lane takes whatever road it points at (with
+  two roads out, the left one).
+- Decision points along a route, in order: the junction of the place the drive sets out from
+  (the van starts on that place's own short drive, with one lane per road out; a place with one
+  road starts on it), then side streets (dead ends, no through roads, closed roads), the
+  parking lots of places the route passes (Home Base too), real junctions, and the
   destination's lot. Signs name a place only when the player knows it; otherwise the street.
+- At Huge text the road's top row keeps to one line (van health and pause, plus scrap from
+  1000 px wide), and signs shrink to fit under it.
 - The lane the van is in when it crosses the white stop line decides. A wrong lane drives a
   little way down the wrong road, then a card says what went wrong ("Wrong way! That road goes
   to ...", "You drove past ...") and the drive restarts from where it set out. Damage, scrap,
   kills and miles stay.
-- The minimap (top left, bottom left at Huge) turns with the van, shows known roads, side
+- The minimap (top left, under the HUD's top row) turns with the van, shows known roads, side
   streets and places, and flags the destination. It never draws the route.
 
 ## Buildings: floor plans, landmarks, the map
 
 - Each of the 15 places has its own floor plan in `js/layouts.js` (30 x 22 up to 42 x 32
   tiles): rooms, halls, dead ends, at least one loop, interior doors, wall decor and signs.
+  That is 3.7 to 6.5 times the old walkable floor; the owner asked for about 2 to 3 times,
+  so the bigger size is still to be confirmed (see `DESIGN.md`).
 - Four landmarks per building, one per corner, each unique in its building (the ice machine,
   the fire truck, the giant teddy bear). Big ones cover a footprint of tiles.
 - M (or the Map button) pauses and shows the tiles seen so far: walls, shelves, counters,

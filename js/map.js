@@ -190,7 +190,8 @@
       else if (r) {
         // long routes are never squeezed below the road's minimum scale (lanes need time to read), so they can run past tripMaxSeconds
         const secs0 = Math.min(W().SETTINGS.tripMaxSeconds, Math.max(W().SETTINGS.tripMinSeconds, r.dist * W().SETTINGS.tripSecondsPerUnit));
-        const secs = Math.round(ZSR.Streets ? Math.max(secs0, (r.dist * ZSR.Streets.GEOM.minScale) / ZSR.Streets.GEOM.baseSpeed) : secs0);
+        // ... and the drive out of this place to its first junction comes on top
+        const secs = Math.round(ZSR.Streets ? Math.max(secs0, (r.dist * ZSR.Streets.GEOM.minScale) / ZSR.Streets.GEOM.baseSpeed) + ZSR.Streets.startSeconds(this.at) : secs0);
         info.appendChild(el("p", "small muted", "Drive: about " + secs + " seconds by road" + (loc.id === "base" ? ". Cargo is unloaded and the day ends." : ".")));
         // the way in words: the road shows no route, so the player reads this here, then the signs out there
         if (ZSR.Streets) {
@@ -340,13 +341,14 @@
       }
       // street names along the known roads and side streets, upright, on a paper halo,
       // each where it overlaps the fewest place icons, place names and other street names
+      const late = []; // route names that could only go over an icon: drawn last
       if (St) {
         const boxes = [];
         ctx.font = "700 15px Oswald, Impact, sans-serif";
         W().LOCATIONS.forEach((l) => {
           if (!S.isKnown(l.id)) return;
           const nw = ctx.measureText(l.name.toUpperCase()).width / 2 + 4;
-          boxes.push([l.x - 28, l.y - 28, l.x + 28, l.y + 24], [l.x - nw, l.y + 28, l.x + nw, l.y + 48]);
+          boxes.push([l.x - 28, l.y - 28, l.x + 28, l.y + 24], [l.x - nw, l.y + 28, l.x + nw, l.y + 48, true]); // the icon, its name
         });
         const vanAt = pos[this.at];
         boxes.push([vanAt.x + 8, vanAt.y - 50, vanAt.x + 52, vanAt.y - 2]); // the van on the map
@@ -363,17 +365,25 @@
           const t = Math.max(0, Math.min(1, ((x - s0.x0) * dx + (y - s0.y0) * dy) / (dx * dx + dy * dy)));
           return Math.hypot(x - s0.x0 - dx * t, y - s0.y0 - dy * t);
         };
+        // the place icons, their names and the van are drawn after the labels: a label that runs into one would
+        // lose letters under it, so that counts three times, and six for a place's name (a street name that fits
+        // nowhere else is left out; a route name may sit over an icon's edge, never over a name)
+        const inBox = (x, y, r) => boxes.some(([x0, y0, x1, y1]) => x > x0 - r && x < x1 + r && y > y0 - r && y < y1 + r);
+        const hitsBox = (ps, r) => ps.some(([x, y]) => inBox(x, y, r * 0.5));
         const cost = (ps, r, own) => {
           let c = 0;
           ps.forEach(([x, y]) => {
-            boxes.forEach(([x0, y0, x1, y1]) => {
-              if (x > x0 - r && x < x1 + r && y > y0 - r && y < y1 + r) c += 1;
+            boxes.forEach(([x0, y0, x1, y1, name]) => {
+              if (x > x0 && x < x1 && y > y0 && y < y1) c += name ? 6 : 3;
+              else if (x > x0 - r && x < x1 + r && y > y0 - r && y < y1 + r) c += 1;
             });
             stubs.forEach((st) => {
               if (st !== own && segD(x, y, st) < r + 3) c += 1;
             });
             placed.forEach(([px, py]) => {
-              if (Math.hypot(px - x, py - y) < r * 2 + 2) c += 1;
+              const d = Math.hypot(px - x, py - y);
+              if (d < r * 1.4) c += 3; // letters on letters
+              else if (d < r * 2 + 2) c += 1;
             });
           });
           return c;
@@ -383,7 +393,7 @@
         const shown = this.canvas.getBoundingClientRect().width / 1000 || 0.8;
         const roadFs = Math.round(Math.max(13, Math.min(26, (12 * kSize) / shown)));
         const sideFs = Math.round(Math.max(12, Math.min(24, (11 * kSize) / shown)));
-        const label = (text, cands, size, own, must) => {
+        const label = (text, cands, size, own, must, route) => {
           ctx.font = "700 " + size + "px Oswald, Impact, sans-serif";
           const w = ctx.measureText(text).width;
           let best = null;
@@ -391,23 +401,31 @@
             const k = cost(pts(c.x, c.y, c.ang, w), size * 0.45, own) + i * 0.01;
             if (!best || k < best.k) best = { k, c };
           });
-          if (!best || (best.k >= 3 && !must)) return false; // nowhere clear: leave it to the minimap and the signs (never for the route)
+          // nowhere clear: leave it to the minimap and the signs (never for the route, whose names may sit over an icon's edge)
+          if (!best || (best.k >= (route ? 6 : 3) && !must)) return false;
           let { x, y, ang } = best.c;
-          placed.push(...pts(x, y, ang, w));
+          const mine = pts(x, y, ang, w);
+          placed.push(...mine);
           if (ang > Math.PI / 2) ang -= Math.PI;
           if (ang < -Math.PI / 2) ang += Math.PI;
-          ctx.save();
-          ctx.translate(x, y);
-          ctx.rotate(ang);
-          ctx.textAlign = "center";
-          ctx.textBaseline = "middle";
-          ctx.lineJoin = "round";
-          ctx.lineWidth = 4;
-          ctx.strokeStyle = "rgba(230,223,204,0.95)";
-          ctx.strokeText(text, 0, 0);
-          ctx.fillStyle = "#3a3d42";
-          ctx.fillText(text, 0, 0);
-          ctx.restore();
+          const draw = () => {
+            ctx.save();
+            ctx.font = "700 " + size + "px Oswald, Impact, sans-serif";
+            ctx.translate(x, y);
+            ctx.rotate(ang);
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.lineJoin = "round";
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = "rgba(230,223,204,0.95)";
+            ctx.strokeText(text, 0, 0);
+            ctx.fillStyle = "#3a3d42";
+            ctx.fillText(text, 0, 0);
+            ctx.restore();
+          };
+          // a route name that has to sit on an icon is drawn over it, after the icons, so it keeps every letter
+          if (hitsBox(mine, size * 0.45)) late.push(draw);
+          else draw();
           return true;
         };
         St.SIDE_STREETS.forEach((ss) => {
@@ -431,7 +449,7 @@
                 cands.push({ x: mx - Math.sin(ang) * off, y: my + Math.cos(ang) * off, ang });
               })
             );
-            if (label(St.STREET_NAMES[a + "|" + b], cands, size, null, onRoute.has(a + "|" + b) && size === roadFs - 4)) return;
+            if (label(St.STREET_NAMES[a + "|" + b], cands, size, null, onRoute.has(a + "|" + b) && size === roadFs - 4, onRoute.has(a + "|" + b))) return;
           }
         };
         const sideLabel = (st) => {
@@ -456,7 +474,7 @@
               const along = dir * (w / 2 + 8);
               cands.push({ x: st.x0 + (rx / rl) * along + ux * (off + 4), y: st.y0 + (ry / rl) * along + uy * (off + 4), ang: rang });
             });
-            if (label(ss.name, cands, size, st, onRoute.has(ss.road) && size === sideFs - 3)) return;
+            if (label(ss.name, cands, size, st, onRoute.has(ss.road) && size === sideFs - 3, onRoute.has(ss.road))) return;
           }
         };
         roads.filter(([a, b]) => onRoute.has(a + "|" + b)).forEach(roadLabel);
@@ -473,6 +491,9 @@
       // you are here
       const here = pos[this.at];
       ZSR.Draw.van(ctx, here.x + 30, here.y - 26, { upgrades: S.save.upgrades, scale: 0.34, moving: false, aim: -Math.PI / 2 });
+      late.forEach((draw) => draw());
+      // ... and the names of the places stay on top of those
+      if (late.length) W().LOCATIONS.forEach((l) => S.isKnown(l.id) && this.drawName(ctx, l));
       // compass
       ctx.save();
       ctx.translate(940, 60);
@@ -548,12 +569,18 @@
         ctx.lineWidth = 2;
         ctx.stroke();
       }
-      // label
+      ctx.restore();
+      this.drawName(ctx, l);
+    },
+    /** A place's name under its icon. */
+    drawName(ctx, l) {
+      const size = l.id === "base" ? 30 : 24;
+      ctx.save();
       ctx.fillStyle = INK;
       ctx.font = "700 15px Oswald, Impact, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "top";
-      ctx.fillText(l.name.toUpperCase(), 0, size * 1.1 + 4);
+      ctx.fillText(l.name.toUpperCase(), l.x, l.y + size * 1.1 + 4);
       ctx.restore();
     },
   };

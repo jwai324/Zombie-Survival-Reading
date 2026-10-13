@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /* Validates js/streets.js against js/world.js: every road is named, side streets are
    well formed and stay clear of other roads, the road text keys are complete, and for
-   EVERY ordered pair of places the drive is well formed at slow and fast vans: lanes,
+   EVERY ordered pair of places the drive is well formed at slow and fast vans: the first turn out of a
+   place with two roads or more is a junction on its own drive (which keeps clear of everything else), lanes,
    one right way per decision, the left lane always goes straight on past side streets and
    driveways, the van's own path through every turn from every lane is a smooth arc that
    leads somewhere (and back onto the route the right way), signs name something, the
@@ -187,6 +188,7 @@ let maxTime = 0;
 let minTime = Infinity;
 let minLot = Infinity;
 let minArc = Infinity;
+let minStart = Infinity;
 for (const a of ids) {
   for (const b of ids) {
     if (a === b) continue;
@@ -222,7 +224,7 @@ for (const a of ids) {
       minTime = Math.min(minTime, time);
       if (!(time >= 15 && time <= 125)) err(cs, `drive takes ${time.toFixed(0)} s (15..125)`);
       // the decisions expected along this route
-      const want = { side: 0, lot: 0, junction: 0, dest: 1 };
+      const want = { side: 0, lot: 0, junction: deg(a) >= 2 ? 1 : 0, dest: 1 }; // a place with two roads or more: the first turn is a junction too
       for (let i = 0; i < r.path.length - 1; i++) want.side += S.sideStreetsOn(r.path[i], r.path[i + 1]).length;
       for (let i = 1; i < r.path.length - 1; i++) {
         want.lot++;
@@ -235,6 +237,7 @@ for (const a of ids) {
       });
       const lastDec = d.decisions[d.decisions.length - 1];
       if (!lastDec || lastDec.kind !== "dest" || lastDec.node !== b) err(cs, "the last decision must be the destination's driveway");
+      if (deg(a) >= 2 && !(d.decisions[0].kind === "junction" && d.decisions[0].node === a && d.decisions[0].start)) err(cs, "the first decision must be the junction out of the place it starts from");
       let prevStop = d.startS;
       d.decisions.forEach((x, k) => {
         const cd = `${cs} decision ${k} (${x.kind}${x.node ? " " + x.node : ""})`;
@@ -326,6 +329,22 @@ for (const a of ids) {
         if (x.kind === "dest" && !x.options.some((o) => o.correct && o.kind === "lot")) err(cd, "the destination's right lane must turn into its lot");
         if ((x.kind === "lot" || x.kind === "side") && !x.options.some((o) => o.correct && o.kind === "through")) err(cd, "going straight on must be the right lane");
       });
+      // the place's own drive (the start) keeps clear of every road but its own, every side street and every other place
+      const startRoad = d.roads.find((rd) => rd.start);
+      if (deg(a) >= 2 && !startRoad) err(cs, "no drive out of the place it starts from");
+      if (startRoad) {
+        if (!finite(startRoad.x0, startRoad.y0, startRoad.x1, startRoad.y1)) err(cs, "the drive out is not finite");
+        let m = Infinity;
+        d.roads.forEach((rd) => {
+          if (rd !== startRoad && rd.a !== a && rd.b !== a) m = Math.min(m, segDist(startRoad, rd) - 2 * (G.half + G.shoulder));
+        });
+        d.sides.forEach((sd) => (m = Math.min(m, segDist(startRoad, sd) - G.half - G.sideHalf - 2 * G.shoulder)));
+        d.nodes.forEach((nd) => {
+          if (nd.id !== a) m = Math.min(m, distSeg(nd.x, nd.y, startRoad.x0, startRoad.y0, startRoad.x1, startRoad.y1) - G.half - G.boxR);
+        });
+        minStart = Math.min(minStart, m);
+        if (m < 0) err(cs, `the drive out of ${a} runs ${(-m).toFixed(0)} px into another road, side street or place`);
+      }
       // lots stay clear of the other roads and side streets
       d.lots.forEach((lot) => {
         const own = S.roadKey(lot.from, lot.node);
@@ -359,7 +378,7 @@ for (const a of ids) {
 }
 
 console.log(`streets: ${roadKeys.length} roads named, ${S.SIDE_STREETS.length} side streets, ${drives} drives checked`);
-console.log(`         shortest lane window ${minWin.toFixed(2)} s, drive time ${minTime.toFixed(0)}..${maxTime.toFixed(0)} s, closest lot ${minLot.toFixed(0)} px from another road, tightest turn ${minArc.toFixed(0)} px`);
+console.log(`         shortest lane window ${minWin.toFixed(2)} s, drive time ${minTime.toFixed(0)}..${maxTime.toFixed(0)} s, closest lot ${minLot.toFixed(0)} px from another road, tightest turn ${minArc.toFixed(0)} px, drives out of a place ${minStart.toFixed(0)} px clear`);
 warnings.forEach((w) => console.log("warn  " + w));
 errors.slice(0, 60).forEach((e) => console.log("ERROR " + e));
 if (errors.length > 60) console.log(`... ${errors.length - 60} more errors`);

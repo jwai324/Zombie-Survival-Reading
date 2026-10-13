@@ -7,15 +7,15 @@
   root.ZSR.TEXT[1] = {
     level: 1,
     howto: [
-      "You have one van. It leaves from home base. Pick a place on the map. The map tells the way there, in words. Read it, then drive. The road does not show the way. Walkers fill the road. Keep moving. A small map at the top shows you. A flag marks where you are going. The Radio room finds new places. They show up on the map.",
-      "You drive in the left lane. It goes straight on. It goes past side streets and lots. Want to turn right? Move to the right lane. Want to turn left? Use the turn lane. It opens on the far left. Where roads meet, each gets a lane. Each lane has an arrow. A sign tells where each lane goes. Be in your lane before the white line. Pick a lane with A and D. The arrow keys work too. So do the side buttons. Side streets are dead ends. At the end, turn into your lot. Wrong turn? Missed the lot? You go back to the start. The van keeps its damage. You keep your scrap and kills.",
+      "You have one van. It leaves from home base. Pick a place on the map. The map tells the way there, in words. Read it, then drive. The road does not show the way. Walkers fill the road. Keep moving. A small map in the corner shows you. A flag marks where you are going. The Radio room finds new places. They show up on the map.",
+      "You drive in the left lane. It goes straight on. It goes past side streets and lots. Is your lot on the right? Move to the right lane. Is it on the left? Use the turn lane. It opens on the far left. Where roads meet, it is not the same. Each road gets a lane. Each lane has an arrow. Your lane may turn! A sign tells where each lane goes. Find your way on it. Get in the lane with its arrow. Be in it before the white line. Pick a lane with A and D. The arrow keys work too. So do the side buttons. Side streets are dead ends. At the end, turn into your lot. Wrong turn? Missed the lot? You go back to the start. The van keeps its damage. You keep your scrap and kills.",
       "A note waits at each door. Read it. It says how many walkers wait. It says where the items are. Buildings are big inside. Each corner has a landmark. The notes name them. Use them to find your way. Press M for a map. It shows the parts you have seen. Each doorway is a real door. Press E to open or shut it. Walkers cannot open doors. Shelf stuff comes back in 3 days. Caches never do.",
-      "Find the note inside. It tells how to open the cache. The cache has the best stuff. It names a new place too. Notes go in your backpack. Want back in? Open the map. Pick the place you are at. It stays as you left it. Hurt? Use a Medical kit. One kit heals you to full. The backpack holds 3 kits. Pack them at the cabin.",
+      "Find the note inside. It tells how to open the cache. The cache has the best stuff. It may name a new place too. Notes go in your backpack. Want back in? Open the map. Pick the place you are at. It stays as you left it. Hurt? Use a Medical kit. One kit heals you to full. The backpack holds 3 kits. Pack them at the cabin.",
       "At home you stand in the yard. Calm means no walkers. Build, or leave in the van. A wave means walkers at the fence. They claw holes in it. The fence does not fix itself. Stand at a hole and press E. Each hole costs 1 scrap. Set traps too. Press T or R. A walker steps on one and gets hurt. What you build shows up in the yard. Each level makes it bigger and stronger. The Walls room changes the fence itself. Later, dig a Well for water. Build a Farm for food. Build a Lab to make Medical kits.",
       "Build at the workbench in the garage. Each build is a typing round. Type the words on the screen. A timer runs. Out of time? Try again. Nothing is spent till you finish. First the bench shows where your fingers go. Repairs need no typing. Scrap fixes the van to full. Each player has a save. Up to 4 saves. Pick yours on the title screen. The game saves at base only. Go down? You start from your last save.",
     ],
     controls: [
-      "Road: Aim with the mouse. Hold to shoot. A and D change lanes. So do the arrow keys and side buttons. Your lane skips side streets and lots. Turn right? Use the right lane. Turn left? Use the turn lane. It is on the far left. Where roads meet, read the sign. Be in your lane before the white line.",
+      "Road: Aim with the mouse. Hold to shoot. A and D change lanes. So do the arrow keys and side buttons. Your lane skips side streets and lots. Lot on the right? Use the right lane. Lot on the left? Use the turn lane. It is on the far left. Where roads meet, each road has a lane. Yours may turn! Read the sign. Get in the lane with your arrow. Be in it before the white line.",
       "Inside and in the yard: W A S D move. The mouse looks. Click shoots. Shift runs. B opens the backpack. M shows a map of the building. P stops the game.",
       "E does it all: E reads notes. E opens and shuts doors. E opens a cache. E leaves a building. E goes in the cabin. E starts the van. E fixes a fence hole for 1 scrap.",
       "Traps in the yard: T sets a spike trap. R sets a blast trap. It goes in front of you. Or just past the fence.",
@@ -34,7 +34,7 @@
       noThrough: "No way through",
       closed: "Road closed",
       lot: "Parking lot",
-      hint: "Read the sign. It tells where each lane goes. Pick a lane with A and D. The arrow keys and side buttons work too.",
+      hint: "Read the sign. It tells where each lane goes. Pick a lane with A and D.",
       wrongWay: "Wrong way! That road goes to {place}.",
       wrongStreet: "Wrong way! That is {street}.",
       wrongSide: "Wrong way! {street} is a dead end.",
@@ -45,7 +45,7 @@
       routeHead: "The way there",
       routeTake: "Take {street} to {place}.",
       routeTakeStreet: "Take {street}.",
-      routeStraight: "Stay in your lane. It goes past side streets and lots.",
+      routeStraight: "Your lane goes past side streets and lots. Where roads meet, read the sign. Get in the lane for your road.",
       routeLeft: "{dest} is on the left. Use the turn lane. It is on the far left.",
       routeRight: "{dest} is on the right. Move to the right lane.",
     },
@@ -359,7 +359,7 @@
         notes: {
           "watertower-panel": {
             title: "Theo's Panel Note",
-            text: "Key: in the breaker box. Now the pump house opens. Inside: filters, a water tank, wire.\n\nIts door: back of the pump hall. It is at the blue pump end. Not by the big red wheel.\n\nSt. Anne Annex, the hospital, is north. Take the river road. It still has meds. It is the worst place in town.\n\n—Theo",
+            text: "Key: in the breaker box. Now the pump house opens. Inside: filters, a water tank, wire.\n\nIts door: back of the pump hall. It is at the blue pump end. Not by the big red wheel.\n\nSt. Anne Annex, the hospital, is north. Take Hill Road. It still has meds. It is the worst place in town.\n\n—Theo",
           },
         },
       },
@@ -367,7 +367,7 @@
         blurb: "Lumber stacks, a dock full of walkers.",
         door: {
           title: "Spray Paint on the Gate",
-          text: "Lumber: long racks in the middle. More out back, by the log pile.\n\nAt least eight walkers. They wait by the loading dock and flatbed truck.\n\nKiln shed: locked. Yard boss's note: clipboard by the band saw.\n\n—Ruby",
+          text: "Lumber: middle racks. More by the log pile. A big walker waits there!\n\nAt least eight walkers. A group is at the dock and flatbed truck.\n\nKiln shed: locked. Yard boss's note: clipboard by the band saw.\n\n—Ruby",
         },
         notes: {
           "lumberyard-rack": {
@@ -380,7 +380,7 @@
         blurb: "Food, meds, wire, and the biggest crowd.",
         door: {
           title: "Jo's Mall Warning",
-          text: "Food: food court, in back. Meds: pharmacy, on the left. Wire: gadget store, by the orange tent.\n\nAt least nine walkers. They walk the main hall as a group.\n\nOffice: locked. Guard's note: by the green dino.\n\n—Jo",
+          text: "Food: food court, in back. Meds: pharmacy, on the left. Wire: gadget store, by the orange tent.\n\nAt least nine walkers. Lots of them stand in the main hall.\n\nOffice: locked. Guard's note: by the green dino.\n\n—Jo",
         },
         notes: {
           "mall-guard": {

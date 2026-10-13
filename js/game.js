@@ -1,6 +1,7 @@
 /* The road: a top-down drive through the city along the route picked on the map.
-   The van drives itself; A and D (or the arrows, or the touch buttons) change lanes. Before every
-   decision point (a side street, a driveway, a junction, the destination's driveway) the road
+   The van drives itself; A and D (or the arrows, or the touch buttons) change lanes. It sets out on
+   its place's own drive, so the first decision is that place's junction. Before every decision point
+   (a junction, a side street, a driveway, the destination's driveway) the road
    splits into lanes with arrows and a sign says where each lane goes; the lane the van is in at
    the stop line is the way it takes, and the van then drives its own arc through the turn.
    Left alone the van keeps to the left lane, which always goes straight on past side streets and
@@ -204,6 +205,8 @@
       this.buildScenery();
       this.resetDrive();
       this.hud.root.classList.remove("hidden");
+      this.hudFade(this.hud.top, 1);
+      this.miniA = null;
       this.hud.road.textContent = St.text("to", { dest: opts.name }).toUpperCase();
       const tags = [this.mods.fog && "fog", this.mods.night && "night", t.hungry && "hungry"].filter(Boolean).map((k) => St.text(k).toUpperCase());
       this.banner([opts.name.toUpperCase()].concat(tags).join("  "), 1800);
@@ -558,8 +561,8 @@
     },
     startFade(msg) {
       const words = String(msg).split(/\s+/).length + 5;
+      // firing already waits for the card to end; a button still held when the drive restarts keeps firing
       this.fade = { phase: "out", t: 0, msg, sub: Streets().text("restart", { origin: this.placeName(this.origin) }), hold: clamp(1.2 + words * 0.25, 2.4, 5.5), skip: false };
-      this.pointer.down = false;
     },
 
     update(dt) {
@@ -960,12 +963,52 @@
       if (this.fade) {
         const f = this.fade;
         dim = clamp(f.phase === "out" ? f.t / DIFF.fadeOut : f.phase === "hold" ? 1 : 1 - f.t / DIFF.fadeIn, 0, 1);
-        const hudTop = this.hudRects().top;
-        D.card(ctx, W, H, f.phase === "in" ? null : f.msg, f.sub, dim, k, hudTop ? hudTop.bottom + 8 : 0);
+        D.card(ctx, W, H, f.phase === "in" ? null : f.msg, f.sub, dim, k, 0);
       }
-      const op = String(Math.round((1 - dim) * 100) / 100);
-      if (this.hud.mini && this.hud.mini.style.opacity !== op) this.hud.mini.style.opacity = op;
+      // the card has the screen to itself: the HUD's top row and the minimap fade out with the road (P and Esc still pause)
+      this.hudFade(this.hud.top, 1 - dim);
+      this.hudFade(this.hud.mini, (1 - dim) * this.miniAlpha());
       this.drawMinimap(k);
+    },
+    /** Opacity for a HUD element, set only when it changes; hidden (and so not clickable) once faded out. */
+    hudFade(el, a) {
+      if (!el) return;
+      const op = String(Math.round(a * 100) / 100);
+      if (el.style.opacity !== op) {
+        el.style.opacity = op;
+        el.style.visibility = a < 0.02 ? "hidden" : "";
+      }
+    },
+    /** The minimap gives way (fades) while a parking lot by the road is under it, so the place it names can be seen. */
+    miniAlpha() {
+      const mb = this.hudRects().mini;
+      let want = 1;
+      if (mb && mb.width && this.onMain) {
+        for (const l of this.drive.lots) {
+          // the lot, its building and its name board, as a box on the screen
+          let x0 = Infinity;
+          let y0 = Infinity;
+          let x1 = -Infinity;
+          let y1 = -Infinity;
+          for (const [cx, cy] of l.corners) {
+            const p = this.toScreen(cx, cy);
+            x0 = Math.min(x0, p.x);
+            y0 = Math.min(y0, p.y);
+            x1 = Math.max(x1, p.x);
+            y1 = Math.max(y1, p.y);
+          }
+          if (x1 > mb.left && x0 < mb.right && y1 > mb.top && y0 < mb.bottom) {
+            want = 0.15;
+            break;
+          }
+        }
+      }
+      // eased, so it does not flicker at the edge of a lot
+      const now = this.time;
+      const dt = clamp(now - (this.miniT == null ? now : this.miniT), 0, 0.1);
+      this.miniT = now;
+      this.miniA = this.miniA == null ? want : this.miniA + (want - this.miniA) * Math.min(1, dt * 6);
+      return this.miniA;
     },
 
     /** The sign for the next decision: it comes down the road on the right and holds there until the stop line.
@@ -991,20 +1034,31 @@
       const sign = this.signFor(dec);
       // on the right of the road under the HUD (the minimap sits on the left, off the road)
       const rects = this.hudRects();
-      const top = rects.top ? rects.top.bottom + 10 : 70;
+      const top = rects.row + 10;
+      // how far down something from x to x + w may reach: the screen's edge, or the trip bar or touch buttons under it
+      const floor = (x, w) => rects.low.reduce((f, b) => (x < b.right && x + w > b.left ? Math.min(f, b.top - 8) : f), this.H - 8);
       const left = this.W / 2 + (G.half + G.shoulder + 14 - this.cam.d) * this.zoom;
       let maxW = this.W - left - 12;
-      let x = left;
+      let x0 = left;
       if (maxW < 160) {
         // a narrow screen: across the top, under the minimap
-        x = 8;
+        x0 = 8;
         maxW = this.W - 16;
       }
-      const lay = D.layoutSign(ctx, sign, Math.min(k, 1.8), maxW);
-      x = Math.min(x, this.W - lay.w - 12);
-      let y = top;
-      const mb = rects.mini;
-      if (mb && mb.width && x < mb.right + 6 && x + lay.w > mb.left - 6 && y < mb.bottom + 6 && y + lay.h > mb.top - 6) y = mb.bottom + 10;
+      const mb = rects.mini && rects.mini.width ? rects.mini : null;
+      const overMini = (x, w, y, h) => mb && x < mb.right + 6 && x + w > mb.left - 6 && y < mb.bottom + 6 && y + h > mb.top - 6;
+      // as big as the text size asks, a size smaller while it would run off the bottom or a word past its edge
+      const k0 = Math.min(k, 1.8);
+      let lay;
+      let x;
+      let y;
+      for (let sk = k0; ; sk -= 0.1) {
+        lay = D.layoutSign(ctx, sign, sk, maxW);
+        x = Math.min(x0, this.W - lay.w - 12);
+        y = overMini(x, lay.w, top, lay.h) ? mb.bottom + 10 : top;
+        if ((lay.fits && y + lay.h + 6 * lay.k <= floor(x, lay.w)) || sk <= Math.max(0.75, k0 * 0.6)) break;
+      }
+      y = Math.max(8, Math.min(y, this.H - 8 - lay.h - 6 * lay.k)); // never off the screen, even on one that has no room
       // slide in from above as it comes into view, slide down and fade once passed
       const lead = (dec.zoneStart - dec.signAt) || 1;
       const into = clamp((this.van.s - dec.signAt) / Math.min(lead, 0.5 * this.speed), 0, 1);
@@ -1012,21 +1066,45 @@
       const alpha = after ? 1 - after / 260 : 1;
       D.roadSign(ctx, x, yy, sign, lay, alpha);
       const boxes = [{ x, y: yy, w: lay.w + 6 * lay.k, h: lay.h + 6 * lay.k }];
-      // until the van has taken a way right, the sign carries a line on how lanes work: under it, or
-      // when that runs off the screen (huge text), on the grass left of the road under the HUD row
+      // until the van has taken a way right, the sign carries a line on how lanes work: under it, or on the
+      // grass left of the road (above or below the minimap), a size smaller where it would not fit
       if (!this.hintDone && !this.fade) {
-        const nk = Math.min(k, 1.5);
         const text = St.text("hint");
-        let nw = Math.max(lay.w, Math.min(maxW, 300 * lay.k));
-        let nx = Math.min(x, this.W - nw - 12);
-        let ny = yy + lay.h + 8 * lay.k + 4;
-        if (y + lay.h + 8 * lay.k + 4 + D.signNote(ctx, 0, 0, nw, text, nk, 1, false) > this.H - 8) {
-          nw = this.W / 2 - (G.half + G.shoulder + 14 + this.cam.d) * this.zoom - 20;
-          nx = 10;
-          ny = top;
-          if (mb && mb.width && mb.top < ny + 40) ny = mb.bottom + 10;
+        const nk0 = Math.min(k, 1.5);
+        const nkMin = Math.max(0.8, nk0 * 0.7);
+        const spots = [];
+        const nw = Math.max(lay.w, Math.min(maxW, 300 * lay.k));
+        const ux = Math.min(x, this.W - nw - 12);
+        spots.push({ x: ux, y: y + lay.h + 8 * lay.k + 4, w: nw, to: floor(ux, nw) });
+        const lw = this.W / 2 - (G.half + G.shoulder + 14 + this.cam.d) * this.zoom - 20;
+        if (lw >= 160) {
+          const besideMini = mb && mb.left < 10 + lw + 6 && mb.right > 4;
+          if (!besideMini) spots.push({ x: 10, y: top, w: lw, to: floor(10, lw) });
+          else {
+            spots.push({ x: 10, y: mb.bottom + 10, w: lw, to: floor(10, lw) });
+            spots.push({ x: 10, y: top, w: lw, to: mb.top - 10 });
+          }
         }
-        if (nw >= 160) boxes.push({ x: nx, y: ny, w: nw + 4, h: D.signNote(ctx, nx, ny, nw, text, nk, alpha) + 4 });
+        // last, a small screen: along the bottom behind the van (left of the sign when the sign reaches down there)
+        const behind = this.toScreen(this.van.x, this.van.y).y + 75 * this.zoom;
+        const bw = y + lay.h + 6 * lay.k > behind ? x - 20 : Math.min(this.W - 20, 760);
+        spots.push({ x: 10, y: behind, w: bw, to: floor(10, bw), up: true });
+        let fit = null;
+        for (let nk = nk0; !fit && nk >= nkMin - 1e-6; nk -= 0.1) {
+          for (const sp of spots) {
+            if (sp.w < 160) continue;
+            const h = D.signNote(ctx, 0, 0, sp.w, text, nk, 1, false);
+            if (sp.y + h <= sp.to) {
+              fit = { sp, nk, y: sp.up ? sp.to - h : sp.y };
+              break;
+            }
+          }
+        }
+        if (fit) {
+          const sp = fit.sp;
+          const ny = sp === spots[0] ? yy + lay.h + 8 * lay.k + 4 : fit.y; // under the sign it rides along with it
+          boxes.push({ x: sp.x, y: ny, w: sp.w + 4, h: D.signNote(ctx, sp.x, ny, sp.w, text, fit.nk, alpha) + 4 });
+        }
       }
       return boxes;
     },
@@ -1051,22 +1129,31 @@
       ctx.restore();
     },
 
-    /** Where the HUD's top row and the minimap sit; measured again only when the screen or the text size changes. */
+    /** Where the HUD's top row and the minimap sit; measured again only when the screen or the text size changes.
+        row: the bottom of the row's boxes (the signs and the minimap go under it); low: the boxes along the bottom. */
     hudRects() {
       const key = this.W + "x" + this.H + ":" + document.documentElement.getAttribute("data-size");
       if (this.rectKey !== key || !this.rects || !this.rects.mini || !this.rects.mini.width) {
         this.rectKey = key;
         const top = this.hud.top ? this.hud.top.getBoundingClientRect() : null;
+        let row = 60;
         if (top) {
-          // the minimap hangs on the left just under the HUD's top row (it wraps on narrow screens), off our lanes
-          let b = top.top;
+          // the minimap hangs on the left just under the HUD's top row, off our lanes
+          row = top.top;
           for (const el of this.hud.top.children) {
             const r = el.getBoundingClientRect();
-            if (r.height) b = Math.max(b, r.bottom);
+            if (r.height) row = Math.max(row, r.bottom);
           }
-          this.hud.root.style.setProperty("--mini-top", Math.round(b + 10) + "px");
+          this.hud.root.style.setProperty("--mini-top", Math.round(row + 10) + "px");
         }
-        this.rects = { top, mini: this.hud.mini ? this.hud.mini.getBoundingClientRect() : null };
+        // ... and what sits along the bottom (the trip bar, the touch buttons), when they show
+        const low = [];
+        const lows = this.hud.root.querySelectorAll ? this.hud.root.querySelectorAll(".hud-bottom > *, #touch-controls > *") : [];
+        for (const el of lows) {
+          const r = el.getBoundingClientRect();
+          if (r.height) low.push({ left: r.left, right: r.right, top: r.top });
+        }
+        this.rects = { top, row, low, mini: this.hud.mini ? this.hud.mini.getBoundingClientRect() : null };
       }
       return this.rects;
     },
@@ -1119,6 +1206,16 @@
         ctx.beginPath();
         ctx.moveTo(pos[a].x, pos[a].y);
         ctx.lineTo(pos[b].x, pos[b].y);
+        ctx.stroke();
+      });
+      // the drive out of the place the van set out from (it starts on it)
+      ctx.strokeStyle = "#4b5057";
+      ctx.lineWidth = 9 / zoom;
+      this.drive.roads.forEach((rd) => {
+        if (!rd.start) return;
+        ctx.beginPath();
+        ctx.moveTo(rd.x0 / scale, rd.y0 / scale);
+        ctx.lineTo(rd.x1 / scale, rd.y1 / scale);
         ctx.stroke();
       });
       St.SIDE_STREETS.forEach((s) => {

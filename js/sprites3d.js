@@ -1809,18 +1809,27 @@
     ctx.arc(96, -135, 26, 0, TAU);
     fill("#c9a27a");
   }
-  /** The gun, drawn once per look and screen size, then placed with the bob; the muzzle flash on top. */
+  /** The gun, drawn once per look and screen size, then placed with the bob; the muzzle flash on top.
+      Only the gun on screen is kept: a new look or a new window size replaces it, so resizes do not pile up canvases. */
+  let gunPic = { key: "", img: null };
   function gun(ctx, W, H, opts) {
     const bob = opts.bob || 0;
     const flash = opts.flash || 0;
     const s = Math.min(W, H) / 420;
     const g = opts.gear || gunGear();
     // the art spans x -40..200 and y -330..0 in its own units
-    const img = cached("gun:" + g.dmg + g.rof + g.spr + ":" + s.toFixed(3), Math.ceil(240 * s), Math.ceil(336 * s), (c) => {
-      c.scale(s, s);
-      c.translate(40, 334);
-      gunArt(c, g);
-    });
+    const key = g.dmg + "," + g.rof + "," + g.spr + ":" + s.toFixed(3);
+    if (gunPic.key !== key) {
+      gunPic = {
+        key,
+        img: make(Math.ceil(240 * s), Math.ceil(336 * s), (c) => {
+          c.scale(s, s);
+          c.translate(40, 334);
+          gunArt(c, g);
+        }),
+      };
+    }
+    const img = gunPic.img;
     const tx = W * 0.68 + Math.sin(bob) * 6 * s;
     const ty = H + Math.abs(Math.cos(bob)) * 8 * s - flash * 10;
     ctx.drawImage(img, tx - 40 * s, ty - 334 * s);

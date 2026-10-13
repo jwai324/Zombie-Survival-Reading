@@ -238,7 +238,12 @@ button[data-tip] { cursor: pointer; }
 :root[data-size="huge"] .hud-btn.wide { padding: 0 .3rem; font-size: 1rem; }
 :root[data-size="huge"] .hud-btn.wide span { display: none; }
 :root[data-size="huge"] .hud-actions { gap: .25rem; } /* B, M and pause stay on one row at 800 px */
-:root[data-size="huge"] .hint { font-size: 1rem; bottom: 1.4rem; max-width: 95vw; }
+:root[data-size="huge"] .hint { font-size: 1rem; bottom: 1.4rem; left: 2.5vw; right: 2.5vw; width: fit-content; margin: 0 auto; transform: none; max-width: 95vw; } /* centered by margins like the toast: one line where it fits, low and clear of the HUD buttons */
+/* first person at Huge: HP, then B, M and pause on one row down to 1024 px (cargo goes the way of scrap and walkers), so the buttons never sit in the hint's band */
+:root[data-size="huge"] #int-hud .hud-top { gap: .25rem; }
+:root[data-size="huge"] #int-hud .hp-box { min-width: 0; }
+:root[data-size="huge"] #int-hud .bar { min-width: 1.6rem; }
+:root[data-size="huge"] #int-hud .hud-box:has(#int-cargo) { display: none; }
 :root[data-size="huge"] .toast { top: auto; bottom: 2.6rem; left: 2.5vw; right: 2.5vw; width: fit-content; margin: 0 auto; transform: none; animation-name: popc; font-size: 1rem; padding: .2rem .4rem; max-width: 95vw; background: rgba(230,223,204,.92); } /* centered by margins, so it can use the full width */
 :root[data-size="huge"] .banner { font-size: 1.6rem; }
 :root[data-size="huge"] .touch-btn { width: 2rem; height: 2rem; font-size: 1rem; }
@@ -249,8 +254,14 @@ button[data-tip] { cursor: pointer; }
 :root[data-size="huge"] .map-layout { grid-template-columns: minmax(0, 1fr); }
 :root[data-size="huge"] .map-board { display: none; }
 :root[data-size="huge"] .road-box { min-width: 0; }
-:root[data-size="huge"] #minimap { top: auto; bottom: .15rem; left: .15rem; transform: none; width: min(3.3rem, 28vw); height: min(2.4rem, 34vh); }
+:root[data-size="huge"] #minimap { left: .15rem; transform: none; width: min(3.3rem, 28vw); height: min(2.4rem, 34vh); }
 :root[data-size="huge"] #hud .hud-bottom { display: none; } /* only a bar at this size; the signs need the room */
+/* the road's top row stays one short row at this size (the letters stay one inch), so the signs and the minimap fit under it */
+:root[data-size="huge"] #hud .hud-top { padding: .12rem; gap: .2rem; }
+:root[data-size="huge"] #hud .hud-box { line-height: 1; border-width: .08rem; box-shadow: .1rem .1rem 0 var(--ink); gap: .2rem; }
+:root[data-size="huge"] #hud .hp-box { min-width: 0; }
+:root[data-size="huge"] #hud .bar { min-width: 1.6rem; }
+@media (max-width: 999px) { :root[data-size="huge"] #hud-box-scrap { display: none; } } /* van health and pause only, on one row */
 :root[data-size="huge"] .tip { display: none !important; }
 :root[data-size="huge"] .slot { grid-template-columns: 1fr; }
 :root[data-size="huge"] .slot .sum { display: none; }

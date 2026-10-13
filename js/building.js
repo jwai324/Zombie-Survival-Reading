@@ -537,8 +537,9 @@
         if (!seen) return;
         const cx = ox + (lm.x + 0.5) * T;
         const cy = oy + (lm.y + 0.5) * T;
-        const bw = Math.max(f[0] * T * (f[0] > 1 ? 1 : 1.5), fs * (f[0] > 1 ? 3.8 : 2.2));
-        const bh = Math.max(f[1] * T * (f[1] > 1 ? 1 : 1.5), fs * 2.2);
+        // sized for the text, but never much more than its own few tiles (big text on a small screen makes small tiles)
+        const bw = Math.max(f[0] * T * (f[0] > 1 ? 1 : 1.5), Math.min(fs * (f[0] > 1 ? 3.8 : 2.2), T * (f[0] > 1 ? f[0] + 4 : 4)));
+        const bh = Math.max(f[1] * T * (f[1] > 1 ? 1 : 1.5), Math.min(fs * 2.2, T * 4));
         const r = [cx - bw / 2, cy - bh / 2, cx + bw / 2, cy + bh / 2];
         badges.push({ lm, r });
         rects.push(r);
@@ -559,7 +560,26 @@
       const youRect = [yx - ys, yy - ys, yx + ys, yy + ys];
       rects.push(youRect);
 
-      // labels: the landmark names (as the notes say them, without "the"), the exit, you
+      // labels: the landmark names (as the notes say them, without "the"), the exit, you. When the text is big
+      // for the tiles (Huge text on a small screen), a label pays for every explored tile it would hide, and it
+      // may stand in the strip above or below the map (on its badge's side) instead, tied to it by a line.
+      const crowd = Math.max(0, Math.min(0.6, ((fs * 1.5) / T - 1.6) * 0.3));
+      const hides = (q) => {
+        if (!crowd) return 0;
+        let a = 0;
+        const x0 = Math.max(0, Math.floor((q[0] - ox) / T));
+        const x1 = Math.min(gw - 1, Math.floor((q[2] - ox) / T));
+        const y0 = Math.max(0, Math.floor((q[1] - oy) / T));
+        const y1 = Math.min(gh - 1, Math.floor((q[3] - oy) / T));
+        for (let y = y0; y <= y1; y++) {
+          for (let x = x0; x <= x1; x++) {
+            if (show[y * gw + x]) a += Math.max(0, Math.min(q[2], ox + (x + 1) * T) - Math.max(q[0], ox + x * T)) * Math.max(0, Math.min(q[3], oy + (y + 1) * T) - Math.max(q[1], oy + y * T));
+          }
+        }
+        return a * crowd;
+      };
+      const stripR = side ? lx - pad * 0.5 : bounds[2]; // a strip label stays clear of the legend beside the map
+      const placed = [];
       const label = (text, r, font) => {
         g.font = font;
         const tw = g.measureText(text).width + fs * 0.6;
@@ -568,12 +588,13 @@
         const cy = (r[1] + r[3]) / 2;
         const gap = Math.max(3, fs * 0.25);
         const cands = [[r[2] + gap, cy - th / 2], [r[0] - gap - tw, cy - th / 2], [cx - tw / 2, r[3] + gap], [cx - tw / 2, r[1] - gap - th], [r[2] + gap, r[3] - th * 0.3], [r[0] - gap - tw, r[3] - th * 0.3], [r[2] + gap, r[1] - th * 0.7], [r[0] - gap - tw, r[1] - th * 0.7]];
+        if (crowd) cands.push([Math.max(bounds[0], Math.min(cx - tw / 2, stripR - tw)), cy < oy + mapH / 2 ? oy - sideH + (sideH - th) / 2 : oy + mapH + (sideH - th) / 2]);
         const over = (a, b) => Math.max(0, Math.min(a[2], b[2]) - Math.max(a[0], b[0])) * Math.max(0, Math.min(a[3], b[3]) - Math.max(a[1], b[1]));
         let best = null;
         cands.forEach(([x, y], i) => {
           const q = [x, y, x + tw, y + th];
-          let s = i * 2;
-          rects.forEach((o) => (s += over(q, o)));
+          let s = i * 2 + hides(q);
+          rects.forEach((o) => (s += over(q, o) * (o[4] || 1)));
           s += (Math.max(0, bounds[0] - q[0]) + Math.max(0, q[2] - bounds[2]) + Math.max(0, bounds[1] - q[1]) + Math.max(0, q[3] - bounds[3])) * th * 6;
           if (!best || s < best.s) best = { q, s };
         });
@@ -582,16 +603,13 @@
         const dy = Math.max(0, bounds[1] - q[1]) - Math.max(0, q[3] - bounds[3]);
         const x = Math.round(q[0] + dx);
         const y = Math.round(q[1] + dy);
-        rects.push([x, y, x + tw, y + th]);
-        g.fillStyle = MAP.label;
-        g.fillRect(x, y, tw, th);
-        g.strokeStyle = INK;
-        g.lineWidth = 2;
-        g.strokeRect(x, y, tw, th);
-        g.fillStyle = INK;
-        g.textAlign = "center";
-        g.textBaseline = "middle";
-        g.fillText(text, x + tw / 2, y + th / 2 + fs * 0.04);
+        rects.push([x, y, x + tw, y + th, 3]); // a label over a label is the worst place of all
+        // a label that stands away from what it names is tied to it by a line
+        const ax = Math.max(r[0], Math.min(x + tw / 2, r[2]));
+        const ay = Math.max(r[1], Math.min(y + th / 2, r[3]));
+        const bx = Math.max(x, Math.min(ax, x + tw));
+        const by = Math.max(y, Math.min(ay, y + th));
+        placed.push({ text, font, x, y, tw, th, lead: Math.hypot(bx - ax, by - ay) > gap * 2 ? [ax, ay, bx, by] : null });
       };
       badges.forEach((b) => label(b.lm.def.name.replace(/^the\s+/i, ""), b.r, "700 " + fs + "px " + BODY));
       if (this.exit && show[this.exit.y * gw + this.exit.x]) {
@@ -601,12 +619,47 @@
       }
       label("you", youRect, "700 " + fs + "px " + BODY);
 
-      // BACK over the far wall: the notes' back and front
+      // BACK over the far wall (the notes' back and front): in the middle, or the free stretch of its strip
+      // nearest the middle when labels stand there (left out when they fill it; the EXIT still marks the front)
       g.font = "700 " + Math.round(fs * 0.85) + "px " + HEAD;
-      g.fillStyle = "#5d5a52";
-      g.textAlign = "center";
-      g.textBaseline = "middle";
-      g.fillText("BACK", ox + mapW / 2, oy - sideH / 2);
+      const backW = g.measureText("BACK").width + fs * 0.4;
+      let from = ox;
+      const fits = [];
+      placed.filter((l) => l.y < oy && l.y + l.th > oy - sideH).map((l) => [l.x, l.x + l.tw]).sort((a, b) => a[0] - b[0]).concat([[ox + mapW, ox + mapW]]).forEach(([a, b]) => {
+        if (a - from >= backW) fits.push(Math.max(from + backW / 2, Math.min(ox + mapW / 2, a - backW / 2)));
+        from = Math.max(from, b);
+      });
+      if (fits.length) {
+        g.fillStyle = "#5d5a52";
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillText("BACK", fits.reduce((m, v) => (Math.abs(v - ox - mapW / 2) < Math.abs(m - ox - mapW / 2) ? v : m)), oy - sideH / 2);
+      }
+
+      placed.forEach((l) => {
+        if (!l.lead) return;
+        g.beginPath();
+        g.moveTo(l.lead[0], l.lead[1]);
+        g.lineTo(l.lead[2], l.lead[3]);
+        g.strokeStyle = MAP.label;
+        g.lineWidth = 6;
+        g.stroke();
+        g.strokeStyle = INK;
+        g.lineWidth = 2.5;
+        g.stroke();
+      });
+      placed.forEach((l) => {
+        g.font = l.font;
+        g.fillStyle = MAP.label;
+        g.fillRect(l.x, l.y, l.tw, l.th);
+        g.strokeStyle = INK;
+        g.lineWidth = 2;
+        g.strokeRect(l.x, l.y, l.tw, l.th);
+        g.fillStyle = INK;
+        g.textAlign = "center";
+        g.textBaseline = "middle";
+        g.fillText(l.text, l.x + l.tw / 2, l.y + l.th / 2 + fs * 0.04);
+      });
 
       // the legend
       const swatch = (it, x, y) => this.mapSwatch(g, it.kind, x, y, sw);

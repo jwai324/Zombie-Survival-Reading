@@ -131,6 +131,12 @@
     Object.keys(fresh.typing).forEach((k) => {
       if (s.typing[k] == null) s.typing[k] = fresh.typing[k];
     });
+    // where a note was found comes from the facts: a note that has moved since it was read says where it is now
+    (Array.isArray(s.backpack) ? s.backpack : []).forEach((n) => {
+      const N = n && W().NOTES[n.locId];
+      const note = N && (N.door.id === n.noteId ? N.door : (N.notes || []).find((x) => x.id === n.noteId));
+      if (note && note.found) n.found = note.found;
+    });
     s.version = 3;
     return s;
   }

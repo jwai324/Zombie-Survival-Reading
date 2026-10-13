@@ -25,7 +25,7 @@ marked **Assumption** can be changed cheaply.
 |----------|--------|
 | What should upgrades change? | The world you see. Every room level, van upgrade and gun upgrade is visible; Walls level 1 shows new walls. |
 | How do rooms show in the yard? | A bigger yard with a plot per room: a staked lot with a sign until built, then a distinct, bigger, solid build at each level. Walls is the fence and the cabin armor. |
-| Buildings | Unique per place, about 2 to 3 times the old area, real mazes, better art. |
+| Buildings | Unique per place, about 2 to 3 times the old area, real mazes, better art. (Built bigger; see the judgment calls.) |
 | A map inside? | M shows only what you have explored. Each main corner has something unique and memorable to steer by. |
 | Notes | Rewritten at all six levels to point at the landmarks. |
 | Turn cues on the road | Read the street signs; a minimap tracks the van and the destination but never draws the route. |
@@ -58,9 +58,15 @@ marked **Assumption** can be changed cheaply.
   only across its own side of the road, not the whole road. Damage taken on a drive measured
   the same as before. **Assumption:** the owner may want the old free slide back between
   junctions.
-- **Why the usual lane goes straight.** A player who does nothing never turns off; every
-  turn is a choice the sign asked for. Right turns use the right lane; left turns use a turn
-  lane that opens on the far left, so "the left lane" never means two things.
+- **Why the usual lane goes straight past side streets and lots.** A player who does nothing
+  never turns into a dead end or a parking lot; each of those turns is a choice the sign
+  asked for. Right turns there use the right lane; left turns use a turn lane that opens on
+  the far left, so at those signs "the left lane" never means two things. A real junction is
+  different: the road splits into one lane per road out, left to right by the angle of the
+  turn (the right lane takes the road furthest right, extra lanes open to the left), so
+  there is no straight-on lane to fall back on. Left alone, the van stays in its own left
+  lane, which there is the second lane from the right: with two roads out it takes the left
+  one, even a sharp left. The sign is how the player picks.
 - **Why the city map keeps the route line and adds "The way there".** The player plans on
   the map (more reading), then drives from memory, signs and the minimap. At Huge text the
   map board is hidden, so the words are the only route view there. **Assumption:** this can
@@ -70,12 +76,25 @@ marked **Assumption** can be changed cheaply.
 - **Why door notes no longer say where the cache room is.** The longer, landmark-based facts
   had to fit level 1 (about 38 words for a door note). The inside note gives the way from the
   note to the cache door instead.
+- **Why the buildings are bigger than "about 2 to 3 times".** The floor plans were drawn
+  to the sizes set for the build, 30 x 22 tiles for a small store up to 42 x 32 for the
+  hospital and the mall. Next to the old rooms that is 3 to 5.6 times the footprint and 3.7
+  (the pharmacy) to 6.5 (the hospital) times the floor you can walk on, so trips inside run
+  longer than the owner's answer suggests. **Assumption:** the owner is fine with the bigger
+  size. Trimming a place means redrawing its plan in `js/layouts.js` and checking its notes
+  at all six levels, since they point at its landmarks and rooms.
 - **Why landmark names are plain words.** One name serves all six levels and the map:
   "spotted dog", not "dalmatian"; "rescue van", not "ambulance".
 - **Why directions avoid "left of" and "right of" inside notes.** A reader leaving a room is
   facing the entrance, so "right of the office" sends them the wrong way. Notes steer by
   landmarks, signs and "toward the back" instead. Door notes keep left and right as seen
   walking in.
+- **Why some landmarks stand in a corner of the main hall.** Where a building's true corner
+  is a back room or the locked cache room, its landmark stands in the nearest corner of the
+  main hall, where it can be seen (the fish tank, the toothbrush, the wheelchairs, the TV wall,
+  the robot, the engine crane, the fire truck, the blue pump). Every landmark is still in its
+  own quarter of the building. **Assumption:** these can move into the true corners, at the
+  cost of rewriting those notes at all six levels.
 - **Why heavy waves come from every side.** The fence is twice as long (112 segments); waves
   from all sides spread walkers along it instead of jamming them at one hole.
 - **Why footprint landmarks are measured in tiles of floor.** The first-person view is about

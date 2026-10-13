@@ -120,6 +120,26 @@ function renderAround(ctx) {
   p.a = a0;
 }
 
+// a slow machine's quality step makes the floor image coarser and leaves the view's canvas alone (giving a
+// canvas a size clears it, so the frame just drawn would be shown blank)
+{
+  const cv = I.canvas;
+  let w = cv.width;
+  let sized = 0;
+  Object.defineProperty(cv, "width", { configurable: true, get: () => w, set: (v) => { sized++; w = v; } });
+  const was = [I.planeRes, I.renderN, I.renderMs, I.frameMs];
+  I.planeRes = 2;
+  I.renderN = 999;
+  I.renderMs = 50;
+  I.adaptQuality(50, 100);
+  if (I.planeRes !== 3 || I.planeW !== Math.ceil(I.W / 3)) err(`engine: the quality step did not make the floor image coarser (1/${I.planeRes}, ${I.planeW} wide)`);
+  if (sized) err("engine: the quality step gave the view's canvas a new size, which blanks the frame on screen");
+  delete cv.width;
+  cv.width = w;
+  [I.planeRes, I.renderN, I.renderMs, I.frameMs] = was;
+  I.sizePlane();
+}
+
 let entered = 0;
 W.LOCATIONS.filter((l) => l.id !== "base").forEach((loc) => {
   const ctx = loc.id;
