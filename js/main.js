@@ -448,8 +448,36 @@
     refreshTitle();
   }
 
+  /* ---------- Full screen ---------- */
+  // The top-left button shows only while the page is not full screen, and never where the
+  // browser cannot go full screen (iPhone Safari).
+  const fsCan = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  function isFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || (root.matchMedia && root.matchMedia("(display-mode: fullscreen)").matches));
+  }
+  function syncFullscreen() {
+    const show = fsCan && !isFullscreen();
+    $("btn-fullscreen").classList.toggle("hidden", !show);
+    document.documentElement.classList.toggle("fs-btn", show);
+  }
+  function enterFullscreen() {
+    const el = document.documentElement;
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if (!req) return;
+    const p = req.call(el);
+    if (p && p.catch) p.catch(() => {}); // refused (not from a click, or blocked by the page's host): the button stays
+  }
+
   /* ---------- Wiring ---------- */
   function wire() {
+    $("btn-fullscreen").addEventListener("click", (e) => {
+      e.currentTarget.blur(); // so Space and Enter in the game never press it again
+      Audio.play("click");
+      enterFullscreen();
+    });
+    ["fullscreenchange", "webkitfullscreenchange"].forEach((ev) => document.addEventListener(ev, syncFullscreen));
+    root.addEventListener("resize", syncFullscreen); // F11 full screen fires no fullscreenchange
+    syncFullscreen();
     $("btn-newsave-start").addEventListener("click", () => {
       Audio.play("click");
       startNewGame();

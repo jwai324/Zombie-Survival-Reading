@@ -295,6 +295,16 @@ button[data-tip] { cursor: pointer; }
 :root[data-size="huge"] .btn-row, :root[data-size="huge"] .slot .acts, :root[data-size="huge"] .kits .row, :root[data-size="huge"] .fence-row { justify-content: flex-start; }
 :root[data-size="huge"] .logo { font-size: 1.6rem; }
 
+/* Full screen: a button in the top-left corner while the page is not full screen (js/main.js
+   sets .fs-btn on <html>); the HUD's top rows and the screens make room for it */
+:root { --fs: 2.75rem; --fs-at: .6rem; }
+:root[data-size="huge"] { --fs: 1.2rem; --fs-at: .15rem; }
+#btn-fullscreen { position: fixed; top: var(--fs-at); left: var(--fs-at); z-index: 20; width: var(--fs); height: var(--fs); padding: 0; display: flex; align-items: center; justify-content: center; }
+#btn-fullscreen svg { width: 60%; height: 60%; }
+:root[data-size="huge"] #btn-fullscreen { border-width: .08rem; box-shadow: .1rem .1rem 0 var(--ink); }
+:root.fs-btn #hud .hud-top, :root.fs-btn #int-hud .hud-top { padding-left: calc(var(--fs-at) + var(--fs) + .5rem); }
+:root.fs-btn .screen { padding-top: calc(var(--fs-at) + var(--fs) + .5rem); }
+
 @media (max-width: 480px) {
   .panel { padding: 2.5rem .9rem 1rem; }
   h2 { font-size: 1.5rem; }
