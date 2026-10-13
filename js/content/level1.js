@@ -18,7 +18,7 @@
       "Road: Aim with the mouse. Hold to shoot. A and D change lanes. So do the arrow keys and side buttons. Read the sign. Be in your lane before the white line.",
       "Inside and in the yard: W A S D move. The mouse looks. Click shoots. Shift runs. B opens the backpack. M shows a map of the building. P stops the game.",
       "E does it all: E reads notes. E opens and shuts doors. E opens a cache. E leaves a building. E goes in the cabin. E starts the van. E fixes a fence hole for 1 scrap.",
-      "Traps in the yard: T sets a spike trap. R sets a blast trap. It goes in front of you, or just past the fence.",
+      "Traps in the yard: T sets a spike trap. R sets a blast trap. It goes in front of you. Or just past the fence.",
       "Backpack: Your notes and your kits. Use a kit to heal to full.",
       "Workbench: Building is a typing round. Type what you see. Beat the timer. Out of time? Try again.",
       "Map: Tap a place. Read the way there. Then Drive. At a place, you can go back in.",
@@ -221,7 +221,7 @@
         blurb: "Small store, food on the floor.",
         door: {
           title: "Marker on the Glass",
-          text: "Shelves: bare. Food: on the floor, by the fish tank. More by the freezers, on the right.\n\nAt least three walkers. They use the loading door, back by the forklift.\n\nCooler: locked. Manager's note: office, back left.\n\n—Doc Lin",
+          text: "Shelves: bare. Food: on the floor, by the fish tank. More by the freezers, right side.\n\nAt least three walkers. They use the loading door, back by the forklift.\n\nCooler: locked. Manager's note: office, back left.\n\n—Doc Lin",
         },
         notes: {
           "grocery-counter": {
@@ -239,7 +239,7 @@
         notes: {
           "hardware-paint": {
             title: "The Sticky Door",
-            text: "The back room door sticks. Lift the handle, then push. It opens. Inside: a water filter. A tool kit. Lumber too.\n\nTake the side door by the paint mixer. The back room is past the lumber racks.\n\nRidge Lumber is on the east ridge. It has stacks of lumber. The Water Tower is west. Its pump house has filters.\n\n—Mr. Reyes",
+            text: "The back room door sticks. Lift the handle, then push. It opens. Inside: a water filter, a tool kit, lumber.\n\nTake the side door by the paint mixer. The back room is past the lumber racks.\n\nRidge Lumber is on the east ridge. It has stacks of lumber. The Water Tower is west. Its pump house has filters.\n\n—Mr. Reyes",
           },
         },
       },
@@ -286,12 +286,12 @@
         blurb: "Seeds and soil at Rosa's greenhouses.",
         door: {
           title: "Paint on the Gate",
-          text: "Soil: in my big greenhouse, by the scarecrow. Seeds: by the big gnome, in the shop by the gate.\n\nAt least five walkers. One in back of the big greenhouse.\n\nPotting shed: locked. My note: by the palm tree, back right.\n\n—Rosa",
+          text: "Soil: my big greenhouse, by the scarecrow. Seeds: by the big gnome, near the gate.\n\nAt least five walkers. One in back of the big greenhouse.\n\nPotting shed: locked. My note: by the palm tree, back right.\n\n—Rosa",
         },
         notes: {
           "garden-bench": {
             title: "Rosa's Shed Key",
-            text: "The shed has a padlock. The key is in the watering can. Fish it out. Now you can open the potting shed. More seeds are in there. A water tank too.\n\nWalk the path from the palm tree house. It goes down to the beehives. The shed door is on it.\n\nStation 12 is the fire station, north of here. Its equipment bay has tools and water tanks.\n\n—Rosa",
+            text: "Padlock key: in the watering can. Fish it out. Now you can open the potting shed. It has more seeds and a water tank.\n\nGo from the palm tree house toward the beehives. The shed door is on that path.\n\nStation 12, the fire station, is north. Its equipment bay has tools and water tanks.\n\n—Rosa",
           },
         },
       },
@@ -299,7 +299,7 @@
         blurb: "Gun parts and armor, eight walkers deep.",
         door: {
           title: "Notice Board",
-          text: "At least eight walkers. Gun parts: squad room, left of the long hall.\n\nGarage: on the right. A big walker is by the police bike. Armor plate: by the riot shields.\n\nArmory: locked. Code: my note, front desk.\n\n—Sergeant Vega",
+          text: "At least eight walkers. Gun parts: squad room, left of the long hall.\n\nGarage: on the right. Big walker: by the police bike. Armor plate: by the riot shields.\n\nArmory: locked. Code: my note, front desk.\n\n—Sergeant Vega",
         },
         notes: {
           "police-desk": {
@@ -312,7 +312,7 @@
         blurb: "Classrooms of books, maps in the closet.",
         door: {
           title: "Max and Mia's Note",
-          text: "Books: music room, by the drum set. And the front office, behind the lion statue.\n\nAt least six walkers. One in the main hall.\n\nLibrary closet: locked. Key: teacher's note, by the big brain.\n\n—Max and Mia",
+          text: "Books: music room, by the drum set. And the front office, behind the lion statue.\n\nAt least six walkers. One in the main hall.\n\nLibrary closet: locked. Key: science teacher's note, by the big brain.\n\n—Max and Mia",
         },
         notes: {
           "school-classroom": {
@@ -325,7 +325,7 @@
         blurb: "Tools and water tanks at Station 12.",
         door: {
           title: "Chief Dunn's Bay Door",
-          text: "Tool kit: office, behind the watch desk. Water tank: truck bay, right wall, past the gear racks.\n\nAt least six walkers. Two are in the truck bay.\n\nEquipment bay: locked. My note: watch desk, by the spotted dog.\n\n—Chief Dunn",
+          text: "Tool kit: office, behind the watch desk. Water tank: past the gear racks, on the right wall.\n\nAt least six walkers. Two in the truck bay.\n\nEquipment bay: locked. My note: watch desk, by the spotted dog.\n\n—Chief Dunn",
         },
         notes: {
           "firehouse-desk": {
@@ -338,12 +338,12 @@
         blurb: "Meds and a generator, worst in town.",
         door: {
           title: "On the Ambulance Doors",
-          text: "Med kits: room next to the x-ray machine. And by the giant teddy bear. Generator: utility room, on the right.\n\nAt least nine walkers. They wait in dark rooms.\n\nStock room: locked. Nurse's note: nurses' station, in the middle.\n\n—Doc Lin",
+          text: "Med kits: room next to the x-ray machine. And by the giant teddy bear. Generator: utility room, right side.\n\nAt least nine walkers, in dark rooms.\n\nStock room: locked. Note: nurses' station, in the middle.\n\n—Doc Lin",
         },
         notes: {
           "hospital-hall": {
             title: "Nurse Ada's Badge",
-            text: "I am still here. The stock room needs a badge. Badge: in the drawer under this station. Swipe it. The door opens. Three med kits are inside.\n\nThe stock room door is across the hall. It is on the angel statue side.\n\nStay quiet. They follow sound more than light. Do not shout.\n\n—Nurse Ada",
+            text: "I am still here. The stock room needs a badge. Badge: in the drawer under this station. Swipe it. The door opens. Three med kits are inside.\n\nThe stock room door is across the hall. It is on the angel statue side.\n\nStay quiet. Walkers here follow sound more than light. Do not shout.\n\n—Nurse Ada",
           },
         },
       },
@@ -351,12 +351,12 @@
         blurb: "Water filters, out on the west side.",
         door: {
           title: "On the Fence Gate",
-          text: "Filters: by the crates near the big red wheel. And in the boat shop, by the rowboat.\n\nAt least six walkers, in the pump building.\n\nPump house: locked. My note: control panel, back right room.\n\n—Theo, I tend the pumps",
+          text: "Filters: by the crates near the big red wheel. And in the boat shop, by the rowboat.\n\nAt least six walkers inside.\n\nPump house: locked. My note: control panel, back right room.\n\n—Theo, I tend the pumps",
         },
         notes: {
           "watertower-panel": {
             title: "Theo's Panel Note",
-            text: "Key: in the breaker box. Now you can open the pump house. It has filters, a water tank, and wire.\n\nIt is at the back of the pump hall. It is right of the big red wheel.\n\nSt. Anne Annex, the hospital, is north. Take the river road. It still has meds. It is the worst place in town.\n\n—Theo",
+            text: "Key: in the breaker box. Now you can open the pump house. It has filters, a water tank, and wire.\n\nIts door: back of the pump hall. Right of the big red wheel.\n\nSt. Anne Annex, the hospital, is north. Take the river road. It still has meds. It is the worst place in town.\n\n—Theo",
           },
         },
       },
@@ -390,12 +390,12 @@
         blurb: "Books both sides, maps in the archive.",
         door: {
           title: "On the Book Drop",
-          text: "Books: stacks on both sides of the main hall. And the kids' room, by the toy castle.\n\nAt least eight walkers. Two in the main hall.\n\nArchive: locked. My note: by the giant globe, back left.\n\n—Mrs. Greer, librarian",
+          text: "Books: stacks, both sides of the main hall. And the kids' room, by the toy castle.\n\nAt least eight walkers. Two in the main hall.\n\nArchive: locked. My note: by the giant globe, back left.\n\n—Mrs. Greer, librarian",
         },
         notes: {
           "library-desk": {
             title: "The Dictionary Key",
-            text: "Key: in the big dictionary on this desk. Now the archive room opens. It has books and a folder of city maps.\n\nThe archive door is at the back of the main hall. The giant globe is to its left. The tall clock is to its right.\n\nReading saved this place. The walls are stacks of books no one wanted.\n\n—Mrs. Greer",
+            text: "Key: in the big dictionary on this desk. Now the archive room opens. Inside: books and a folder of city maps.\n\nWalk to the back of the main hall. The archive door is there. Giant globe room: left. Tall clock room: right.\n\nReading saved this place. The walls are stacks of books no one wanted.\n\n—Mrs. Greer",
           },
         },
       },

@@ -253,7 +253,7 @@
         blurb: "A small gas station with fuel cans by the slushie machine and in the garage, and a locked storeroom off the back hall.",
         door: {
           title: "Ruby's Warning on the Door",
-          text: "Ruby here, and I am writing fast. At least three walkers are inside, and one of them waits in the garage by the car lift. That number will not stay at three. More drift in as the days pass, so every day you wait makes this place worse. One can sits on the floor by the slushie machine, in the front left corner. The other is in the garage, by the tire tower near the big bay doors. The storeroom is locked, and I could not budge it. The clerk left a note on the counter by the front door, so read that before you fight the lock. Grab the cans, read the note, and do not wake the one by the car lift.",
+          text: "Ruby here, and I am writing fast. At least three walkers are inside, and one of them waits in the garage by the car lift. That number will not stay at three. More drift in as the days pass, so every day you wait makes this place worse. One fuel can sits on the floor by the slushie machine, in the front left corner. The other is in the garage, by the tire tower near the big bay doors. The storeroom is locked, and I could not budge it. The clerk left a note on the counter by the front door, so read that before you fight the lock. Grab the cans, read the note, and do not wake the one by the car lift.",
         },
         notes: {
           "gasngo-counter": {
