@@ -33,8 +33,10 @@ road also work on touch.
    then a shed, then a workshop; rain barrels, then a tank on a stand, then a water tower).
    The Walls level is the fence itself (pickets, braced planks, corrugated metal, concrete
    and razor wire) and the armor on the cabin. The van in the driveway shows its armor,
-   plow, engine gear and paint; the gun in your hands shows heavier rounds, rate of fire and
-   spread.
+   plow, engine gear and paint, and its roof gun shows heavier rounds, rate of fire and
+   spread. The gun in your hands shows its own mods: a heavier muzzle, a longer barrel and
+   sights, a smoother action, a steadier grip (the bow: broadheads, stronger limbs, a smoother
+   draw, sight pins).
 2. **Map.** A fixed city of 15 places, with named streets and side streets. Only a few
    places are known at first; the notes you read and the Radio room reveal the rest. Pick a
    destination: the route is drawn and "The way there" lists it in words.
@@ -56,8 +58,12 @@ road also work on touch.
    holds the best items and opens only once you have read the note inside, which also gives
    the way there. Go back in from the map and the building is exactly as you left it; what you
    have explored is kept once you are home.
+   Four more guns lie on the floor of four buildings, different ones in every save:
+   double pistols, a machine gun, a heavy machine gun, and a bow and arrow. Walk over one
+   to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns.
 5. **Home again.** Cargo is unloaded, a day passes, the crew eats one food, the game
-   saves. Build rooms with items plus scrap, upgrade the van and the gun, craft traps:
+   saves. Build rooms with items plus scrap, upgrade the van and its gun, mod your guns
+   (damage, range, fire rate, accuracy) in the Weapons tab, craft traps:
    each one is a short typing round at the garage workbench (the first time teaches
    home-row finger placement; stages progress from single keys to sentences). Repairs
    are instant and bring the van back to full.
@@ -76,10 +82,12 @@ js/streets.js           street names, side streets, lanes and decisions for a ro
 js/content/levelN.js    THE WORDS: all in-world text at reading level N (1..6)
 js/state.js             settings, the base save, the in-memory trip, room effects, explored maps
 js/interior.js          first-person engine: raycaster, low see-over tiles, roofs, floors and ceilings,
-                        props, walkers, shooting, HUD plumbing
-js/building.js          building mode: layouts, landmarks, decor, items, notes, cache, the M map
+                        props, walkers, shooting and switching guns, HUD plumbing
+js/building.js          building mode: layouts, landmarks, decor, items, notes, cache, guns on the floor,
+                        the M map
 js/yard.js              yard mode: plots and their builds per level, fence by Walls level, traps, waves
-js/sprites3d.js         first-person textures and sprites, the registration API, the gun, the yard van
+js/sprites3d.js         first-person textures and sprites, the registration API, the 3D guns in hand
+                        (each showing its mods), the walkers, the yard van
 js/decor.js             wall decor faces (signs, posters, lockers, notice boards ...)
 js/landmarks1.js        landmark art: gas station, grocery, hardware, pharmacy, auto shop, electronics, garden
 js/landmarks2.js        landmark art: precinct, school, fire station, hospital, water tower, lumber, mall, library
@@ -90,13 +98,14 @@ js/base.js              the cabin build menu (rooms, garage, traps, stock, fence
 js/typing.js            the workbench typing game (finger lesson, stages, timer, retry)
 js/bench.js             the garage workbench scene behind the typing game
 js/backpack.js          the backpack (medical kits, notes) and the note reader
-js/sprites.js           road drawing (van, walkers, scenery, lanes, signs, lots)
-js/upgrades.js          van and gun upgrades
+js/sprites.js           road drawing (van and its gun, walkers, scenery, lanes, signs, lots)
+js/upgrades.js          van and van-gun upgrades (the road)
+js/weapons.js           guns carried on foot: stats, mods, where each one is hidden
 js/audio.js             synthesized sound effects
 js/main.js              screen flow
 docs/GAME_SPEC.md       the design as agreed
 docs/TEXT_GUIDE.md      how to write the six reading levels from the facts
-tests/                  world, text, streets, drive, engine and art validators, script syntax check
+tests/                  world, weapons, text, streets, drive, engine and art validators, script syntax check
 ```
 
 ## Editing content
@@ -124,7 +133,10 @@ tests/                  world, text, streets, drive, engine and art validators, 
   `GEOM` in `js/streets.js`.
 - Base rooms, recipes, and effects: `BASE_ROOMS` in `js/world.js`; what each level looks like
   in the yard: `BUILDS` in `js/yard.js`.
-- Van and gun upgrades: `js/upgrades.js`.
+- Van and van-gun upgrades: `js/upgrades.js`.
+- Guns on foot (damage, fire rate, range, spread, noise, pierce, mod prices, which danger
+  levels each one can be hidden at): `js/weapons.js`. How each sits in your hands and what
+  each mod tier adds to it: `POSES` and the gun models in `js/sprites3d.js`.
 
 ## Privacy
 

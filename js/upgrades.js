@@ -1,5 +1,5 @@
-/* Upgrade definitions and the derived van/gun stats.
-   Tune numbers here; nothing else needs to change. */
+/* Upgrade definitions and the derived van and van-gun stats (the road).
+   Guns carried on foot are in js/weapons.js. Tune numbers here; nothing else needs to change. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -9,9 +9,9 @@
     engine: { group: "van", name: "Engine Tune", icon: "ENG", desc: "More speed. More miles. Faster dodges.", max: 5, costs: [45, 80, 120, 170, 230] },
     bumper: { group: "van", name: "Ram Plow", icon: "RAM", desc: "Front plow. Walkers that touch it pay for it.", max: 5, costs: [35, 60, 95, 140, 200] },
     paint: { group: "van", name: "Paint & Decals", icon: "PNT", desc: "New finish for the van. Style only.", max: 5, costs: [20, 25, 30, 35, 40] },
-    damage: { group: "gun", name: "Heavier Rounds", icon: "RND", desc: "Every hit does more.", max: 5, costs: [40, 70, 110, 160, 220] },
-    fireRate: { group: "gun", name: "Rate of Fire", icon: "ROF", desc: "Shorter time between shots.", max: 5, costs: [40, 70, 110, 160, 220] },
-    spread: { group: "gun", name: "Spread Shot", icon: "SPR", desc: "Extra rounds with every shot.", max: 3, costs: [90, 180, 300] },
+    damage: { group: "gun", name: "Heavier Rounds", icon: "RND", desc: "The van's gun on the road. Every hit does more.", max: 5, costs: [40, 70, 110, 160, 220] },
+    fireRate: { group: "gun", name: "Rate of Fire", icon: "ROF", desc: "The van's gun on the road. Shorter time between shots.", max: 5, costs: [40, 70, 110, 160, 220] },
+    spread: { group: "gun", name: "Spread Shot", icon: "SPR", desc: "The van's gun on the road. Extra rounds with every shot.", max: 3, costs: [90, 180, 300] },
   };
 
   const REPAIR = { name: "Field Repair", icon: "FIX", desc: "Ruby and Doc Lin patch the van.", cost: 30, heal: 40 };

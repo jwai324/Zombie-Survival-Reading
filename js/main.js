@@ -33,14 +33,29 @@
     $("game").classList.toggle("hidden", which !== "road");
     $("fp").classList.toggle("hidden", which !== "fp");
   }
-  function confirm(text, onYes) {
+  /** Yes/No dialog. opts: caption, yes/no labels, yesDisabled, onNo, onCancel (Esc; falls back to onNo). */
+  let confirmCancel = null;
+  function confirm(text, onYes, opts) {
+    const o = opts || {};
+    const close = () => {
+      confirmCancel = null;
+      $("screen-confirm").classList.add("hidden");
+    };
+    $("confirm-caption").textContent = o.caption || "Sure?";
     $("confirm-text").textContent = text;
+    $("btn-confirm-yes").textContent = o.yes || "Yes";
+    $("btn-confirm-no").textContent = o.no || "No";
+    $("btn-confirm-yes").disabled = !!o.yesDisabled;
     $("screen-confirm").classList.remove("hidden");
     $("btn-confirm-yes").onclick = () => {
-      $("screen-confirm").classList.add("hidden");
+      close();
       onYes();
     };
-    $("btn-confirm-no").onclick = () => $("screen-confirm").classList.add("hidden");
+    $("btn-confirm-no").onclick = () => {
+      close();
+      if (o.onNo) o.onNo();
+    };
+    confirmCancel = o.onCancel || o.onNo || null;
   }
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -135,7 +150,7 @@
     };
     loop();
   }
-  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D, the arrow keys or the side buttons change lanes. Your left lane goes straight past side streets and lots. For a lot on the right, use the right lane; for one on the left, the turn lane that opens on the far left. Where roads meet there is one lane per road and yours may turn: match the arrow on the sign and be in that lane before the white stop line.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, M opens the map of a building, P or Esc pauses.", "E does it all: reads notes, opens and closes doors, opens a cache once you have read its note, leaves a building, enters the cabin, starts the van, and rebuilds a hole in the fence for 1 scrap.", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
+  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D, the arrow keys or the side buttons change lanes. Your left lane goes straight past side streets and lots. For a lot on the right, use the right lane; for one on the left, the turn lane that opens on the far left. Where roads meet there is one lane per road and yours may turn: match the arrow on the sign and be in that lane before the white stop line.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, M opens the map of a building, P or Esc pauses.", "E does it all: reads notes, opens and closes doors, opens a cache once you have read its note, leaves a building, enters the cabin, starts the van, and rebuilds a hole in the fence for 1 scrap.", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Guns: more guns are hidden in buildings around town. Walk over one to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns. Hold to draw the bow, let go to shoot. Mod guns with scrap in the cabin's Weapons tab.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
   function renderHowto() {
     const t = ZSR.text();
     const body = $("howto-body");
@@ -160,7 +175,7 @@
       }
       const rest = parts.join(":");
       // single capital letters and known key names become key caps
-      rest.split(/(\b(?:W|A|S|D|E|B|M|P|T|R|Esc|Shift)\b)/).forEach((piece, i) => {
+      rest.split(/(\b(?:W|A|S|D|E|B|M|P|T|R|Q|Esc|Shift)\b)/).forEach((piece, i) => {
         if (i % 2) {
           const k = document.createElement("kbd");
           k.textContent = piece;
@@ -209,9 +224,35 @@
     },
     onVan() {
       syncYard();
-      Interior.leave();
-      State.startTrip();
-      openMap("base");
+      const depart = () => {
+        Interior.leave();
+        State.startTrip();
+        openMap("base");
+      };
+      const max = State.vanMaxHp();
+      if (State.save.vanHp >= max) return depart();
+      const hp = Math.floor(State.save.vanHp);
+      // the van is hurt: offer a full repair before the trip starts
+      Interior.pause();
+      const cost = State.repairCost();
+      const scrap = State.save.scrap;
+      const short = scrap < cost;
+      const price = cost ? cost + " scrap" : "free";
+      confirm(
+        "The van has " + hp + " of " + max + " health. " + (short ? "A full fix costs " + cost + " scrap. You have " + scrap + "." : "Fix it before you go? Cost: " + price + ". You have " + scrap + " scrap."),
+        () => {
+          if (State.repairVan()) Audio.play("buy");
+          depart();
+        },
+        {
+          caption: "Fix the van?",
+          yes: short ? "Not enough scrap" : "Fix it (" + price + ")",
+          yesDisabled: short,
+          no: "Go as is",
+          onNo: depart,
+          onCancel: () => Interior.resume(), // Esc: stay in the yard
+        }
+      );
     },
     onWaveCleared() {
       syncYard();
@@ -330,7 +371,10 @@
   }
   function onPauseKey() {
     if (!$("screen-confirm").classList.contains("hidden")) {
-      $("screen-confirm").classList.add("hidden"); // Esc answers "No"
+      $("screen-confirm").classList.add("hidden"); // Esc answers "No", or cancels when the dialog says how
+      const cancel = confirmCancel;
+      confirmCancel = null;
+      if (cancel) cancel();
       return;
     }
     if (!$("screen-pause").classList.contains("hidden")) resumeActive();

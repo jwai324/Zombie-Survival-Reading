@@ -1,4 +1,4 @@
-/* The cabin build menu: rooms, garage, traps, inventory, fence repair. Opens from the
+/* The cabin build menu: rooms, garage, weapons, traps, inventory, fence repair. Opens from the
    cabin door in the yard; the yard is paused while it is open. Building, upgrading and
    crafting go through the workbench (a typing round); repairs are instant. Every action
    commits the base save. Hovering any option shows a description. */
@@ -143,7 +143,7 @@
 
       // tabs
       const tabs = el("div", "tabs");
-      const TABS = [["rooms", "Rooms", "Build the cabin's rooms with items plus scrap. Each build is a typing round at the workbench."], ["garage", "Garage", "Van and gun upgrades, and van repair. Upgrades are typing rounds; repairs are instant."], ["traps", "Traps", "Craft traps at the workbench, then set them in the yard with T and R."], ["inventory", "Cargo & stock", "Everything in storage, and what the next builds still need."]];
+      const TABS = [["rooms", "Rooms", "Build the cabin's rooms with items plus scrap. Each build is a typing round at the workbench."], ["garage", "Garage", "Van and van-gun upgrades, and van repair. Upgrades are typing rounds; repairs are instant."], ["weapons", "Weapons", "The guns you carry on foot. Pick one, and mod it with scrap: damage, range, fire rate, accuracy."], ["traps", "Traps", "Craft traps at the workbench, then set them in the yard with T and R."], ["inventory", "Cargo & stock", "Everything in storage, and what the next builds still need."]];
       TABS.forEach(([k, label, hint]) => {
         const b = tip(el("button", "tab" + (this.tab === k ? " on" : ""), label), "<strong>" + label + "</strong><span class='t-line'>" + hint + "</span>");
         b.addEventListener("click", () => {
@@ -157,6 +157,7 @@
 
       if (this.tab === "rooms") body.appendChild(this.rooms());
       else if (this.tab === "garage") body.appendChild(this.garage());
+      else if (this.tab === "weapons") body.appendChild(this.weapons());
       else if (this.tab === "traps") body.appendChild(this.traps());
       else body.appendChild(this.inventory());
 
@@ -253,7 +254,7 @@
       const fx = S.effects();
       const wrap = el("div");
       const cap = fx.tierCap;
-      wrap.appendChild(el("p", "small muted", "Garage level " + s.rooms.garage + ": van and gun upgrades up to tier " + cap + ", Spread Shot two tiers lower" + (cap < 5 ? ". Build the Garage room to go higher." : ".") + (fx.freeRepair ? " Repairs are free here." : " Repairs cost " + W().SETTINGS.repairMinScrap + " scrap or more, 1 for every " + W().SETTINGS.repairScrapPerHp + " health missing.")));
+      wrap.appendChild(el("p", "small muted", "Garage level " + s.rooms.garage + ": van and van-gun upgrades up to tier " + cap + ", Spread Shot two tiers lower" + (cap < 5 ? ". Build the Garage room to go higher." : ".") + (fx.freeRepair ? " Repairs are free here." : " Repairs cost " + W().SETTINGS.repairMinScrap + " scrap or more, 1 for every " + W().SETTINGS.repairScrapPerHp + " health missing.")));
       const preview = el("canvas");
       preview.id = "garage-van";
       preview.width = 360;
@@ -264,7 +265,7 @@
       const vanG = el("div", "upgrade-group");
       vanG.appendChild(el("h3", null, "The van"));
       const gunG = el("div", "upgrade-group");
-      gunG.appendChild(el("h3", null, "The gun"));
+      gunG.appendChild(el("h3", null, "The van's gun (on the road)"));
       const STAT = {
         armor: (st) => "Van health " + st.maxHp,
         engine: (st) => "Speed x" + st.speed.toFixed(2),
@@ -328,6 +329,100 @@
       groups.appendChild(vanG);
       groups.appendChild(gunG);
       wrap.appendChild(groups);
+      return wrap;
+    },
+
+    /** On-foot weapons: the ones you hold, their mods, and hints for the ones still out there. */
+    weapons() {
+      const S = State();
+      const s = S.save;
+      const WP = ZSR.Weapons;
+      const wrap = el("div");
+      wrap.appendChild(el("p", "small muted", "Guns lie on the floor in buildings around the city, a different place every game. Pick one up and it is in your hands; bring it home and it is yours. Outside, 1 to 5, Q or the mouse wheel switch guns. Mods cost scrap and are typing rounds at the workbench."));
+      const grid = el("div", "rooms weapons");
+      const where = (w) => (w.danger[1] <= 2 ? "Somewhere close to home, in one of the quieter places." : w.danger[0] >= 4 ? "Only in one of the most dangerous places in town." : "Somewhere in the middle of town.");
+      const fmt = (st) => {
+        const shots = st.draw ? 1 / (st.draw + st.interval) : 1 / st.interval;
+        const extra = [];
+        if (st.noise === 0) extra.push("silent");
+        if (st.pierce > 1) extra.push("goes through " + st.pierce + " walkers");
+        if (st.move < 1) extra.push("you walk " + Math.round((1 - st.move) * 100) + "% slower");
+        return "Damage " + st.damage + " · range " + st.range + " · " + shots.toFixed(1) + " shots/s · spread " + ((st.spread * 180) / Math.PI).toFixed(1) + "°" + (extra.length ? " · " + extra.join(", ") : "");
+      };
+      WP.ORDER.forEach((id) => {
+        const w = WP.WEAPONS[id];
+        const owned = s.weapons.owned.includes(id);
+        const on = owned && S.equippedWeapon() === id;
+        const card = el("div", "room weapon" + (on ? " on" : "") + (owned ? "" : " missing"));
+        const head = el("div", "room-head");
+        head.appendChild(el("h3", null, w.slot + " · " + esc(w.name)));
+        card.appendChild(head);
+        if (owned) {
+          // as you hold it: every mod you bought shows on it
+          const view = el("canvas", "weapon-view");
+          view.width = 320;
+          view.height = 180;
+          view.getContext("2d").drawImage(ZSR.Draw3.weaponView(id, s.weapons.mods[id], 320, 180), 0, 0);
+          card.appendChild(view);
+        } else {
+          const icon = el("canvas", "weapon-icon");
+          icon.width = 128;
+          icon.height = 64;
+          icon.getContext("2d").drawImage(ZSR.Draw3.weaponIcon(id), 0, 0);
+          card.appendChild(icon);
+        }
+        card.appendChild(el("p", "room-desc", esc(w.desc)));
+        if (!owned) {
+          card.appendChild(el("p", "small", "<strong>Not found yet.</strong> " + esc(where(w))));
+          tip(card, "<strong>" + esc(w.name) + "</strong><span class='t-line'>" + esc(w.desc) + "</span><span class='t-line'>" + esc(where(w)) + "</span>");
+          grid.appendChild(card);
+          return;
+        }
+        const st = S.weaponStats(id);
+        card.appendChild(el("p", "small", esc(fmt(st))));
+        tip(card, "<strong>" + esc(w.name) + "</strong><span class='t-line'>" + esc(w.desc) + "</span><span class='t-line'>" + esc(fmt(st)) + "</span>");
+        const pick = el("button", "btn" + (on ? "" : " go"), on ? "In hand" : "Carry this one");
+        pick.disabled = on;
+        tip(pick, "Take the " + esc(w.name.toLowerCase()) + " outside. You can still switch with " + w.slot + " or Q.");
+        pick.addEventListener("click", () => {
+          if (S.equipWeapon(id)) {
+            S.commit();
+            ZSR.Audio.play("equip");
+            if (this.hooks.onChanged) this.hooks.onChanged("weapon");
+            this.render();
+          }
+        });
+        card.appendChild(pick);
+        Object.keys(WP.MODS).forEach((key) => {
+          const m = WP.mod(id, key);
+          const can = S.canBuyMod(id, key);
+          const row = el("div", "upgrade" + (can.maxed ? " maxed" : ""));
+          row.appendChild(el("div", "icon", m.icon));
+          const mid = el("div");
+          mid.appendChild(el("div", "name", esc(m.name)));
+          const pips = el("div", "pips");
+          for (let i = 0; i < WP.MOD_MAX; i++) pips.appendChild(el("span", "pip" + (i < can.level ? " on" : "")));
+          mid.appendChild(pips);
+          row.appendChild(mid);
+          const next = can.maxed ? null : WP.stats(id, Object.assign({}, s.weapons.mods[id], { [key]: can.level + 1 }));
+          const STAT = { damage: (x) => "damage " + x.damage, range: (x) => "range " + x.range, rate: (x) => (x.draw ? (1 / (x.draw + x.interval)).toFixed(1) : (1 / x.interval).toFixed(1)) + " shots/s", aim: (x) => "spread " + ((x.spread * 180) / Math.PI).toFixed(1) + "°" };
+          tip(row, "<strong>" + esc(m.name) + " · tier " + can.level + " of " + WP.MOD_MAX + "</strong><span class='t-line'>" + esc(m.desc) + "</span><span class='t-line'><strong>Now:</strong> " + esc(STAT[key](st)) + "</span>" + (next ? "<span class='t-line'><strong>Next:</strong> " + esc(STAT[key](next)) + " for " + can.cost + " scrap</span>" : "<span class='t-line'>Maxed out.</span>"));
+          const btn = el("button", "btn" + (can.ok ? " go" : ""), can.maxed ? "MAX" : can.cost + " scrap");
+          btn.disabled = !can.ok;
+          btn.addEventListener("click", () => {
+            if (!S.canBuyMod(id, key).ok) return;
+            this.craft(w.name + ": " + m.name.toLowerCase() + " tier " + (can.level + 1), can.cost + " scrap", () => {
+              const ok = S.buyMod(id, key);
+              if (ok && this.hooks.onChanged) this.hooks.onChanged("weapon");
+              return ok;
+            });
+          });
+          row.appendChild(btn);
+          card.appendChild(row);
+        });
+        grid.appendChild(card);
+      });
+      wrap.appendChild(grid);
       return wrap;
     },
 

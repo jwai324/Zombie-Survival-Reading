@@ -41,7 +41,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); f
 .hud-top, .hud-bottom { position: absolute; left: 0; right: 0; display: flex; gap: .5rem; padding: .6rem; align-items: center; flex-wrap: wrap; }
 .hud-top { top: 0; }
 .hud-bottom { bottom: 0; justify-content: center; padding-bottom: .9rem; }
-.hud-place { position: absolute; left: .6rem; top: 3.6rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+.hud-place { position: absolute; left: .6rem; top: 3.6rem; display: flex; gap: .5rem; flex-wrap: wrap; max-width: calc(100% - 16rem); } /* clear of the Backpack, Map and pause buttons when they wrap to this row */
 .hud-box { pointer-events: auto; display: flex; align-items: center; gap: .5rem; background: var(--paper); border: var(--border); box-shadow: .25rem .25rem 0 var(--ink); padding: .25rem .6rem; font-family: var(--font-head); font-size: 1.1rem; letter-spacing: .06em; text-transform: uppercase; transform: rotate(-.6deg); }
 .hud-box:nth-child(even) { transform: rotate(.6deg); }
 .hud-box.phase { background: var(--olive); }
@@ -229,7 +229,7 @@ button[data-tip] { cursor: pointer; }
 /* Huge text: everything is one inch. In-game overlays collapse (fewer boxes, no labels)
    instead of shrinking, so the view stays visible. */
 :root[data-size="huge"] .hud-label { display: none; }
-:root[data-size="huge"] #hud-box-miles, :root[data-size="huge"] #hud-box-downed, :root[data-size="huge"] #int-box-scrap, :root[data-size="huge"] #int-box-walkers { display: none; }
+:root[data-size="huge"] #hud-box-miles, :root[data-size="huge"] #hud-box-downed, :root[data-size="huge"] #int-box-scrap, :root[data-size="huge"] #int-box-walkers, :root[data-size="huge"] #int-box-gun { display: none; }
 :root[data-size="huge"] .hud-place, :root[data-size="huge"] .hud-bottom .goal-box { display: none; }
 :root[data-size="huge"] .hud-box { padding: .1rem .3rem; background: rgba(230,223,204,.9); }
 :root[data-size="huge"] .hp-box { min-width: 6rem; }
@@ -280,3 +280,11 @@ button[data-tip] { cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 @keyframes pop { 0% { transform: translateX(-50%) scale(.96); } 60% { transform: translateX(-50%) scale(1.05); } 100% { transform: translateX(-50%) scale(1); } }
 @keyframes popc { 0% { transform: scale(.96); } 60% { transform: scale(1.05); } 100% { transform: scale(1); } }
+
+/* Weapons tab: one card per gun, its side view, then its mods */
+.weapon .weapon-icon { width: 8rem; height: 4rem; align-self: center; image-rendering: auto; }
+.weapon .weapon-view { width: 100%; max-width: 16rem; height: auto; aspect-ratio: 16 / 9; align-self: center; background: linear-gradient(#9fb3c6 0 55%, #7d9460 55%); border: .12rem solid var(--ink, #0f1012); }
+.weapon.on { background: #f1e3b5; }
+.weapon.missing { opacity: .7; }
+.weapon.missing .weapon-icon { filter: grayscale(1) brightness(.35); }
+.weapon .upgrade { margin: .2rem 0; padding: .35rem .5rem; }

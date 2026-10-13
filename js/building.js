@@ -1,7 +1,8 @@
 /* Building mode for the first-person view, mixed into ZSR.Interior: entering a place
    from its layout (legend v2), the trip snapshot for a return visit, pickups, notes,
-   the locked cache room, decor and landmarks, the building's HUD goal, and the M map
-   (only what you have seen; kept in the trip and, once home, in the save).
+   the locked cache room, decor and landmarks, a gun lying on the floor (when this save hid
+   one here), the building's HUD goal, and the M map (only what you have seen; kept in the
+   trip and, once home, in the save).
 
    Legend v2 (see js/layouts.js):
      #  wall              W  wall with a window      .  floor
@@ -139,6 +140,7 @@
           this.walkers.push(this.makeWalker(type, x, y, hpMult));
         });
       }
+      this.placeGun(loc, start);
       S.tripLoc(loc.id).visits += 1;
       if (!S.trip.visited.includes(loc.id)) S.trip.visited.push(loc.id);
       this.hud.place.textContent = loc.name;
@@ -258,6 +260,49 @@
       this.maskDirty = true;
     },
 
+    /** A gun still lying in this building goes on a floor tile well inside: the same tile on every visit
+        of this save (seeded), on open floor you can walk to with every door open, never in the cache room,
+        never on a landmark's tiles, an item, a note or a scrap pile. Distances count every door as open,
+        so where doors stand never moves it. */
+    placeGun(loc, start) {
+      const S = State();
+      const id = S.weaponAt(loc.id);
+      if (!id) return;
+      const gw = this.gw;
+      const m = this.solidMask();
+      const cd = this.cacheDoor;
+      const pass = (x, y) => !(cd && x === cd.x && y === cd.y) && (!m[y * gw + x] || this.grid[y][x] === "O");
+      const sx = Math.floor(start[0]);
+      const sy = Math.floor(start[1]);
+      const reach = new Map([[sx + "," + sy, 0]]);
+      const q = [[sx, sy]];
+      while (q.length) {
+        const [x, y] = q.shift();
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= gw || ny >= this.gh || reach.has(nx + "," + ny) || !pass(nx, ny)) continue;
+          reach.set(nx + "," + ny, reach.get(x + "," + y) + 1);
+          q.push([nx, ny]);
+        }
+      }
+      const busy = new Set(this.items.concat(this.notes, this.piles).map((o) => Math.floor(o.x) + "," + Math.floor(o.y)));
+      this.landmarks.forEach((lm) => {
+        const f = lm.def && Array.isArray(lm.def.foot) ? lm.def.foot : [1, 1];
+        for (let y = lm.y - (f[1] >> 1) - 1; y <= lm.y + (f[1] >> 1) + 1; y++) for (let x = lm.x - (f[0] >> 1) - 1; x <= lm.x + (f[0] >> 1) + 1; x++) busy.add(x + "," + y);
+      });
+      const ok = (min) => this.floors.filter(([x, y]) => {
+        const k = Math.floor(x) + "," + Math.floor(y);
+        return (reach.get(k) || 0) >= min && !busy.has(k);
+      });
+      const spots = [10, 5, 2].map(ok).find((list) => list.length);
+      if (!spots) return;
+      let h = S.save.weapons.seed || 1;
+      for (const ch of loc.id) h = (h * 31 + ch.charCodeAt(0)) % 2147483647;
+      const [x, y] = spots[h % spots.length];
+      this.gunPickup = { x, y, id, taken: false };
+    },
+
     noteWasRead(noteObj) {
       noteObj.read = true;
       const added = State().reveal(noteObj.reveals);
@@ -279,6 +324,16 @@
           this.updateHud();
         }
       });
+      const g = this.gunPickup;
+      if (g && !g.taken && Math.hypot(g.x - p.x, g.y - p.y) < 0.6) {
+        // straight into your hands; it is yours once you get it home
+        g.taken = true;
+        S.takeWeapon(g.id);
+        const w = ZSR.Weapons.WEAPONS[g.id];
+        this.switchWeapon(g.id);
+        this.toastFit(["Found: " + w.name + "! Press " + w.slot + " or Q to switch guns. Get it home to keep it.", "Found: " + w.name + "! " + w.slot + " or Q switches."], 4.5);
+        Audio().play("buy");
+      }
       this.piles.forEach((pl) => {
         if (pl.taken) return;
         if (Math.hypot(pl.x - p.x, pl.y - p.y) < 0.6) {

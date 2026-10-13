@@ -93,9 +93,10 @@ and they are cover. Walls levels 0 to 3 change the fence (pickets, braced planks
 corrugated metal with spikes, concrete blocks with razor wire, each with a cracked look) and
 the cabin's armor (boards, more boards, metal shutters, steel plates). The van in the
 driveway shows armor plates, the ram plow, engine gear (rack, exhaust, snorkel, light bar)
-and the paint; the gun shows Heavier Rounds (barrel, muzzle brake, compensator), Rate of
-Fire (vented jacket, fins, drum; copper at the top tier) and Spread Shot (one barrel per
-round). A light wave comes from two sides, a heavy one from every side.
+and the paint. The van's roof gun on the road shows Heavier Rounds (longer barrels, a brake
+from tier 3), Rate of Fire (vented jacket, drum, cooling fins, a bigger drum, copper at the
+top tier) and Spread Shot (one barrel per round). The gun in your hands shows its own mods
+(see Guns). A light wave comes from two sides, a heavy one from every side.
 
 ## The fence, traps and kits
 
@@ -110,7 +111,9 @@ round). A light wave comes from two sides, a heavy one from every side.
 - **Medical kits** live in the backpack (up to 3, packed from storage at the cabin). Using a
   kit heals to full. Inside a building a kit from the van's cargo can be used too.
 - **Van repair** is instant and restores full health: 1 scrap for every 3 health missing
-  (at least 5), free once the Garage room is built.
+  (at least 5), free once the Garage room is built. Do it in the cabin's Garage tab, or at
+  the van: starting it with less than full health asks "Fix the van?" first (Fix it / Go as
+  is; Esc stays in the yard). Short on scrap, the fix button is greyed out.
 
 ## Driving: lanes, signs, side streets
 
@@ -158,9 +161,47 @@ round). A light wave comes from two sides, a heavy one from every side.
 - From the map, the place you are parked at offers "Go in" / "Go back in" (the door note is
   shown only the first time).
 
+## Guns
+
+| Key | Gun | What sets it apart | Hidden at danger |
+|-----|-----|--------------------|------------------|
+| 1 | Pistol | Carried from day one. Steady, cheap to mod | (start) |
+| 2 | Double pistols | One in each hand, fired left and right in turn: twice the rate, a little wilder | 1 to 2 |
+| 3 | Machine gun | Hold to keep firing; loud | 2 to 3 |
+| 4 | Heavy machine gun | Belt-fed; every round goes through two walkers; you walk 20% slower; the whole block hears it | 4 to 5 |
+| 5 | Bow and arrow | Hold to draw, let go to shoot; a full draw hits hardest; silent; longest range | 2 to 4 |
+
+- A new save hides each found gun in a random building within its danger range, no two in
+  the same building. Inside, it lies on a floor tile well away from the door, the same tile
+  on every visit. Walk over it to pick it up: it goes straight into your hands.
+- A gun picked up on a trip is a trip item: it is yours once you get home, and a death
+  puts it back where it was. Switching guns: 1 to 5, Q, or the mouse wheel.
+- Every gun has a range (nothing farther is hit), a spread (random aim error, wider while
+  moving), and a noise radius (walkers that close hear the shot; the bow makes none).
+- **Mods**, in the cabin's Weapons tab: Damage (+25% a tier), Range (+25%), Fire rate (12%
+  less time between shots; the bow draws and nocks faster), Accuracy (30% less spread).
+  Three tiers each, paid in scrap (dearer for the bigger guns), each one a typing round at
+  the workbench. Only guns you own can be modded.
+- **Every mod tier shows on the gun in your hands**, and on its picture in the Weapons tab:
+  - Pistol and double pistols: Damage adds a compensator (longer, more ports, then a gold
+    barrel); Range the barrel's crown and fiber-optic sights, a long slide, a red-dot sight;
+    Fire rate windows in the slide, front serrations and top cuts, a red slide release and
+    trigger; Accuracy a laser under the frame, a light, the laser on (a beam to the crosshair).
+  - Machine gun: Damage a ported brake, a fluted heavy barrel, a boxy brake; Range a longer
+    barrel, a scope, a longer barrel and sunshade; Fire rate a see-through magazine, two
+    clamped together, a drum; Accuracy a tan handguard and foregrip, a laser, the laser on.
+  - Heavy machine gun: Damage a longer flash hider, a brake, a bigger brake and red-tipped
+    rounds; Range a longer barrel, a scope, both longer; Fire rate a bigger ammo box, a heat
+    shield on the shroud, copper shield and cooling rings; Accuracy as the machine gun.
+  - Bow: Broadheads a three-blade head and a cresting wrap, a carbon shaft, a big head on a
+    brass collar with long vanes; Stronger limbs a laminate stripe, thicker dark limbs, black
+    limbs with white tips; Draw speed string silencers, a quiver of three, five and a brass
+    nocking point; Sight pins a sight ring with one pin, three, five and a stabilizer.
+- The van's turret on the road is a separate gun, upgraded in the Garage tab.
+
 ## The workbench (typing)
 
-Room builds, van and gun upgrades, and trap crafting open the workbench: a garage scene
+Room builds, van and van-gun upgrades, gun mods, and trap crafting open the workbench: a garage scene
 with a typing round in front. The first time, a lesson shows traditional home-row finger
 placement. Stages progress one per finished round: single home-row keys, home-row runs,
 the top row, the bottom row, short words, longer words, phrases, sentences, then faster
@@ -188,11 +229,14 @@ floor (the view is 2 tan(FOV / 2) times taller than wide). Art registers through
 ## First person (desktop)
 
 Raycast renderer on canvas, no engine, no dependencies. Grid interiors from
-`js/world.js` templates, comic shading (flat colors, ink edges, halftone). Mouse look
+`js/layouts.js`, comic shading (flat colors, ink edges, halftone). Mouse look
 via pointer lock, with arrow keys as a fallback for turning. Walkers are billboard
-sprites in the same style as the road; they path to the player. Hits are tested in
-screen space against the crosshair. Touch-only devices are not supported yet: the
-title screen says so and does not start a game.
+sprites (gaunt, grimy, no gore); they path to the player. Hits are tested along the
+crosshair line within the gun's range: walls and cover (tall solid props, landmark
+footprints) stop a shot, counters and the fence do not. The gun in hand is a small 3D
+model drawn in perspective; at rest it is drawn once per look and screen size and moved
+with the walk bob, and a shot, the bow's draw or a switch draws it live. Touch-only
+devices are not supported yet: the title screen says so and does not start a game.
 
 ## Text size
 
@@ -202,11 +246,13 @@ menus, HUD. Layouts collapse to one column.
 ## Save format
 
 `zs.slots` is the slot index (active slot, labels); `zs.save.<n>` holds one base save: day,
-scrap, food, inventory, room levels, van and gun upgrades, known locations, per-location
-state (items taken, cache opened, explored tiles as a packed bitset), backpack notes, packed
-kits, fence health per segment, trap stock and set traps, the yard grid version (`yardV`:
-an older yard's fence is rebuilt whole and its set traps return to stock), typing progress,
-best score. Only written at the base.
+scrap, food, inventory, room levels, van and van-gun upgrades, guns (owned, in hand, mods,
+where each unfound gun is hidden, and the seed that picks its floor tile), known locations,
+per-location state (items taken, cache opened, explored tiles as a packed bitset), backpack
+notes, packed kits, fence health per segment, trap stock and set traps, the yard grid version
+(`yardV`: an older yard's fence is rebuilt whole and its set traps return to stock), typing
+progress, best score. Only written at the base. An older save gets guns on load: the pistol,
+with mods carried over from its gun upgrades.
 
 ## Content files
 

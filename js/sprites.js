@@ -538,8 +538,25 @@
     ctx.save();
     ctx.translate(0, ty);
     ctx.rotate(aim);
+    // every gun upgrade shows: Heavier Rounds lengthen the barrels (a brake from 3), Spread Shot adds
+    // barrels, Rate of Fire adds a vented jacket (1), a drum magazine (2), cooling fins (3), a bigger drum
+    // with a brass ring (4) and a copper jacket (5)
     const barrels = 1 + (u.spread || 0);
     const len = 24 + (u.damage || 0) * 3;
+    const rof = u.fireRate || 0;
+    if (rof >= 2) {
+      const big = rof >= 4;
+      const r = big ? 9.5 : 7;
+      circle(ctx, -3, 14 + (big ? 2 : 0), r, big ? "#3a3d42" : "#5d636b", 2.5);
+      circle(ctx, -3, 14 + (big ? 2 : 0), r * 0.4, "#2f3136", 2);
+      if (big) {
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * Math.PI * 2;
+          ctx.fillStyle = "#d9a21b";
+          ctx.fillRect(-3 + Math.cos(a) * r * 0.72 - 1, 16 + Math.sin(a) * r * 0.72 - 1, 2.2, 2.2);
+        }
+      }
+    }
     for (let i = 0; i < barrels; i++) {
       const off = (i - (barrels - 1) / 2) * 7;
       rr(ctx, 8, off - 3, len, 6, 1.5);
@@ -548,6 +565,21 @@
         rr(ctx, 8 + len - 6, off - 4.5, 7, 9, 1.5);
         fillStroke(ctx, "#5a5d66", 2);
       }
+    }
+    if (rof >= 1) {
+      const half = ((barrels - 1) / 2) * 7 + 4.5;
+      const jl = Math.min(len - 8, 14 + rof);
+      if (rof >= 3) {
+        ctx.fillStyle = rof >= 5 ? "#e0a066" : "#9ea3aa";
+        for (let k = 0; k < 3; k++) {
+          ctx.fillRect(12 + k * (jl / 3), -half - 3.5, 3, 3.5);
+          ctx.fillRect(12 + k * (jl / 3), half, 3, 3.5);
+        }
+      }
+      rr(ctx, 9, -half, jl, half * 2, 2);
+      fillStroke(ctx, rof >= 5 ? "#b8733a" : "#4b5057", 2);
+      ctx.fillStyle = rof >= 5 ? "#5a2a12" : "#0f1012";
+      for (let x = 12; x < 9 + jl - 3; x += 4.5) ctx.fillRect(x, -1.2, 2.2, 2.4);
     }
     if (opts.flash > 0) {
       star(ctx, 8 + len + 6, 0, 6, 12 + opts.flash * 60, 5, t * 20);
@@ -571,11 +603,13 @@
   /* ---------- Walkers ---------- */
 
   const ZOMBIE_LOOK = {
-    walker: { skin: "#8d9a84", shirt: "#4d525a", hair: "#2a2d2a", hood: false },
-    runner: { skin: "#9aa392", shirt: "#2f3340", hair: "#1f2226", hood: true },
-    brute: { skin: "#6f7a6a", shirt: "#3a3d42", hair: "#1c1e1c", hood: false },
+    walker: { skin: "#9aa38c", shirt: "#5d6670", hair: "#2e2a25", hood: false, eye: "#e6e3c4" },
+    runner: { skin: "#a7ab99", shirt: "#3a3f4d", hair: "#1f2226", hood: true, eye: "#f0e7a0" },
+    brute: { skin: "#808b74", shirt: "#6b6250", hair: "#24211d", hood: false, eye: "#dcdcc0" },
   };
 
+  /* Seen from above: hunched shoulders, bony arms out front, a mottled scalp and
+     milky eyes glaring up at the van. Grimy, not gory. */
   function zombie(ctx, z, t) {
     const look = ZOMBIE_LOOK[z.type] || ZOMBIE_LOOK.walker;
     const r = z.r;
@@ -587,13 +621,75 @@
     ctx.translate(z.x, z.y);
     ctx.rotate(z.angle + Math.PI / 2 + lurch); // sprite faces "up"; z.angle points at the van
     // shadow
-    ctx.fillStyle = "rgba(0,0,0,0.28)";
+    ctx.fillStyle = "rgba(0,0,0,0.32)";
     ctx.beginPath();
     ctx.ellipse(5, 7, r * 1.15, r * 0.95, 0, 0, TAU);
     ctx.fill();
-    // shoulders / torso
+    // arms reaching forward, out of phase: thin, knuckly, long-nailed
+    [[-1, bobL], [1, bobR]].forEach(([side, bob]) => {
+      const ax = side * r * 0.82;
+      const reach = r * 1.6 + bob;
+      const hx = ax - side * r * 0.08;
+      ctx.lineCap = "round";
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = r * 0.36 + 2.5;
+      ctx.beginPath();
+      ctx.moveTo(ax, r * 0.1);
+      ctx.lineTo(hx, -reach);
+      ctx.stroke();
+      ctx.strokeStyle = shade(look.skin, -12);
+      ctx.lineWidth = r * 0.36;
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(255,255,255,0.12)";
+      ctx.lineWidth = r * 0.1;
+      ctx.beginPath();
+      ctx.moveTo(ax - side * r * 0.06, 0);
+      ctx.lineTo(hx - side * r * 0.06, -reach);
+      ctx.stroke();
+      // claw: splayed fingers with dark nails
+      for (let f = -1.5; f <= 1.5; f += 1) {
+        const fx = hx + f * r * 0.13;
+        const fy = -reach - r * 0.12;
+        const tx = hx + f * r * 0.22;
+        const ty = -reach - r * 0.5 + Math.abs(f) * r * 0.08;
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(fx, fy);
+        ctx.lineTo(tx, ty);
+        ctx.stroke();
+        ctx.strokeStyle = look.skin;
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        circle(ctx, tx, ty, 1, "#2b2a22", 0.01);
+      }
+      circle(ctx, hx, -reach, r * 0.2, look.skin, 2);
+    });
+    // shoulders / torso, hunched forward, lit from the top left
     rr(ctx, -r * 1.15, -r * 0.25, r * 2.3, r * 1.35, r * 0.45);
-    fillStroke(ctx, look.shirt);
+    const tg = ctx.createLinearGradient(-r, -r * 0.3, r, r);
+    tg.addColorStop(0, shade(look.shirt, 18));
+    tg.addColorStop(1, shade(look.shirt, -35));
+    fillStroke(ctx, tg);
+    ctx.save();
+    rr(ctx, -r * 1.15, -r * 0.25, r * 2.3, r * 1.35, r * 0.45);
+    ctx.clip();
+    // grime and a torn patch over the shoulder blade
+    ctx.fillStyle = "rgba(40,34,26,0.35)";
+    [[-0.6, 0.6, 0.35], [0.5, 0.2, 0.28], [0.1, 0.9, 0.3]].forEach(([x, y, rad]) => {
+      ctx.beginPath();
+      ctx.ellipse(x * r, y * r, rad * r, rad * r * 0.7, x, 0, TAU);
+      ctx.fill();
+    });
+    ctx.fillStyle = shade(look.skin, -20);
+    ctx.beginPath();
+    ctx.moveTo(r * 0.35, r * 0.25);
+    ctx.lineTo(r * 0.8, r * 0.1);
+    ctx.lineTo(r * 0.9, r * 0.55);
+    ctx.lineTo(r * 0.55, r * 0.7);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
     // torn edge on the shirt
     ctx.fillStyle = "rgba(0,0,0,0.3)";
     ctx.beginPath();
@@ -607,25 +703,16 @@
     ctx.lineTo(-r * 0.9, r * 1.1);
     ctx.closePath();
     ctx.fill();
-    // arms reaching forward, out of phase
-    [[-1, bobL], [1, bobR]].forEach(([side, bob]) => {
-      const ax = side * r * 0.8;
-      const reach = r * 1.55 + bob;
-      rr(ctx, ax - r * 0.2, -reach, r * 0.4, reach, r * 0.18);
-      fillStroke(ctx, look.skin, 3);
-      // claw hand
-      circle(ctx, ax, -reach, r * 0.26, look.skin, 2.5);
-      ctx.strokeStyle = INK;
-      ctx.lineWidth = 2;
-      for (let f = -1; f <= 1; f++) {
-        ctx.beginPath();
-        ctx.moveTo(ax + f * r * 0.12, -reach - r * 0.2);
-        ctx.lineTo(ax + f * r * 0.2, -reach - r * 0.42);
-        ctx.stroke();
-      }
-    });
-    // head
-    circle(ctx, 0, 0, r * 0.82, z.hit > 0 ? "#ffffff" : look.skin);
+    // head: mottled skin, shaded away from the light
+    const hg = ctx.createRadialGradient(-r * 0.25, -r * 0.3, r * 0.1, 0, 0, r * 0.9);
+    hg.addColorStop(0, shade(look.skin, 20));
+    hg.addColorStop(1, shade(look.skin, -38));
+    circle(ctx, 0, 0, r * 0.82, z.hit > 0 ? "#ffffff" : hg);
+    ctx.fillStyle = "rgba(80,70,95,0.22)";
+    ctx.beginPath();
+    ctx.ellipse(r * 0.3, r * 0.25, r * 0.22, r * 0.15, 0.5, 0, TAU);
+    ctx.ellipse(-r * 0.35, -r * 0.1, r * 0.15, r * 0.12, 0, 0, TAU);
+    ctx.fill();
     if (look.hood) {
       ctx.beginPath();
       ctx.arc(0, 0, r * 0.95, Math.PI * 0.9, Math.PI * 2.1);
@@ -634,40 +721,50 @@
       ctx.closePath();
       fillStroke(ctx, look.shirt, 3);
     } else {
-      // matted hair
-      ctx.fillStyle = look.hair;
-      ctx.beginPath();
-      ctx.moveTo(-r * 0.7, -r * 0.3);
-      ctx.lineTo(-r * 0.5, -r * 0.85);
-      ctx.lineTo(-r * 0.1, -r * 0.6);
-      ctx.lineTo(r * 0.2, -r * 0.9);
-      ctx.lineTo(r * 0.55, -r * 0.55);
-      ctx.lineTo(r * 0.7, -r * 0.2);
-      ctx.lineTo(r * 0.3, -r * 0.4);
-      ctx.lineTo(-r * 0.2, -r * 0.3);
-      ctx.closePath();
-      ctx.fill();
+      // thin, matted strands over the scalp
+      ctx.strokeStyle = look.hair;
+      ctx.lineCap = "round";
+      for (let i = 0; i < (z.type === "brute" ? 4 : 9); i++) {
+        const a = Math.PI * (1.05 + i * 0.1);
+        ctx.lineWidth = 1.6;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * r * 0.2, -r * 0.55);
+        ctx.quadraticCurveTo(Math.cos(a) * r * 0.75, Math.sin(a) * r * 0.6, Math.cos(a) * r * 0.82, Math.sin(a) * r * 0.25 + r * 0.25);
+        ctx.stroke();
+      }
     }
-    // sunken eyes with pale points
+    // sunken sockets, milky glaring eyes, heavy brow
     const ex = r * 0.3;
-    const ey = r * 0.02;
-    ctx.fillStyle = "#1a1c1e";
+    const ey = r * 0.05;
+    ctx.fillStyle = "#121314";
     ctx.beginPath();
-    ctx.ellipse(-ex, ey, r * 0.2, r * 0.15, 0.2, 0, TAU);
-    ctx.ellipse(ex, ey, r * 0.2, r * 0.15, -0.2, 0, TAU);
+    ctx.ellipse(-ex, ey, r * 0.21, r * 0.16, 0.2, 0, TAU);
+    ctx.ellipse(ex, ey, r * 0.21, r * 0.16, -0.2, 0, TAU);
     ctx.fill();
-    ctx.fillStyle = "#d8dcc8";
+    ctx.save();
+    ctx.shadowColor = look.eye;
+    ctx.shadowBlur = r * 0.35;
+    ctx.fillStyle = look.eye;
     ctx.beginPath();
-    ctx.arc(-ex + r * 0.04, ey, r * 0.06, 0, TAU);
-    ctx.arc(ex - r * 0.04, ey, r * 0.06, 0, TAU);
+    ctx.ellipse(-ex + r * 0.03, ey + r * 0.02, r * 0.09, r * 0.06, 0.2, 0, TAU);
+    ctx.ellipse(ex - r * 0.03, ey + r * 0.02, r * 0.09, r * 0.06, -0.2, 0, TAU);
     ctx.fill();
-    // mouth
+    ctx.restore();
     ctx.strokeStyle = INK;
-    ctx.lineWidth = 2.5;
+    ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(-r * 0.25, r * 0.42);
-    ctx.lineTo(r * 0.25, r * 0.4);
+    ctx.moveTo(-ex - r * 0.2, ey - r * 0.2);
+    ctx.lineTo(-r * 0.06, ey - r * 0.04);
+    ctx.moveTo(ex + r * 0.2, ey - r * 0.2);
+    ctx.lineTo(r * 0.06, ey - r * 0.04);
     ctx.stroke();
+    // open mouth with a hint of teeth
+    ctx.fillStyle = "#0b0a0c";
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.45, r * 0.22, r * 0.13, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = "#cfc59a";
+    ctx.fillRect(-r * 0.14, r * 0.34, r * 0.28, r * 0.05);
     // hit flash
     if (z.hit > 0) {
       ctx.globalAlpha = Math.min(0.8, z.hit * 3);

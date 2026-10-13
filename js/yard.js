@@ -775,7 +775,7 @@
       const grew = hp !== this.fenceMax;
       this.fenceMax = hp;
       if (grew || (opts && opts.rebuildFence)) this.patchFence();
-      this.gun = ZSR.Upgrades.stats(S.save.upgrades);
+      this.gun = S.weaponStats(); // mods bought or a gun picked in the cabin
       this.fx = S.effects();
       this.dressYard(); // what was just built goes up at once (and the van's paint and gear change)
       this.trapsOffBuilds();

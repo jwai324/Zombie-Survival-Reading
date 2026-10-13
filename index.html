@@ -50,7 +50,7 @@
         <button id="int-btn-pause" class="hud-btn" title="Pause (P or Esc)" aria-label="Pause">II</button>
       </div>
     </div>
-    <div class="hud-place"><span id="int-place" class="hud-box">Gas-N-Go</span><span id="int-phase" class="hud-box phase hidden">QUIET</span></div>
+    <div class="hud-place"><span id="int-place" class="hud-box">Gas-N-Go</span><span id="int-phase" class="hud-box phase hidden">QUIET</span><div class="hud-box" id="int-box-gun" title="Your gun: 1 to 5, Q or the mouse wheel switches"><span class="hud-label">GUN</span><span id="int-gun" class="hud-value">1 Pistol</span></div></div>
     <div class="hud-bottom">
       <div class="hud-box goal-box"><span id="int-goal">2 items on the floor · the storeroom: locked</span></div>
     </div>
@@ -219,7 +219,7 @@
   <!-- CONFIRM -->
   <section id="screen-confirm" class="screen hidden overlay">
     <div class="panel confirm-panel">
-      <div class="caption">Sure?</div>
+      <div id="confirm-caption" class="caption">Sure?</div>
       <p id="confirm-text" class="tagline"></p>
       <div class="btn-row">
         <button id="btn-confirm-no" class="btn alt">No</button>
@@ -240,6 +240,7 @@
 <script src="js/content/level5.js"></script>
 <script src="js/content/level6.js"></script>
 <script src="js/upgrades.js"></script>
+<script src="js/weapons.js"></script>
 <script src="js/state.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/sprites.js"></script>

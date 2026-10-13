@@ -88,6 +88,7 @@
       inventory: {},
       rooms,
       upgrades: { armor: 0, engine: 0, bumper: 0, paint: 0, damage: 0, fireRate: 0, spread: 0 },
+      weapons: ZSR.Weapons.fresh(W().LOCATIONS), // { owned, equipped, mods: {id: {damage, range, rate, aim}}, where: {id: locId}, seed }
       vanHp: 100,
       known: W().LOCATIONS.filter((l) => l.known).map((l) => l.id),
       loc: {}, // per location: { taken: {spot: dayTaken}, cacheOpened, cacheTaken: {spot: true}, visits }
@@ -107,6 +108,7 @@
   }
   /** Fill in anything an older save lacks, so every field the game reads exists. */
   function upgradeSave(s) {
+    ZSR.Weapons.upgradeSave(s, W().LOCATIONS); // before the fill-in below, so an old pistol keeps its gun upgrades
     const fresh = freshSave(s.label);
     // a save from an older yard grid: its fence keys and trap spots point at the wrong tiles, so the
     // fence comes back whole and every set trap goes back into stock (checked before the fill-in below)
@@ -296,6 +298,7 @@
         loc: {}, // overlay of location changes made this trip
         rooms: {}, // per building: walkers, piles and doors exactly as you left them
         notes: [], // notes read this trip (added to the backpack on return)
+        weapons: [], // weapons picked up this trip (yours once you get home)
         revealed: [], // locations revealed this trip
         revived: false,
         visited: [],
@@ -405,6 +408,9 @@
         });
         t.revealed.forEach((id) => {
           if (!s.known.includes(id)) s.known.push(id);
+        });
+        (t.weapons || []).forEach((id) => {
+          if (!s.weapons.owned.includes(id)) s.weapons.owned.push(id);
         });
         // the crew patches the worst of it overnight, so a near-dead van is never saved as a trap;
         // a hungry trip ran on a lower ceiling, so scale its health back before saving it as damage
@@ -568,6 +574,55 @@
       this.commit();
       return true;
     },
+    /* ---------- On-foot weapons ---------- */
+    /** Weapons in hand right now: owned, plus anything picked up this trip. In slot order. */
+    weaponsHeld() {
+      const wp = this.save.weapons;
+      const extra = this.trip ? this.trip.weapons || [] : [];
+      return ZSR.Weapons.ORDER.filter((id) => wp.owned.includes(id) || extra.includes(id));
+    },
+    hasWeapon(id) {
+      return this.weaponsHeld().includes(id);
+    },
+    equippedWeapon() {
+      const id = this.save.weapons.equipped;
+      return this.hasWeapon(id) ? id : "pistol";
+    },
+    equipWeapon(id) {
+      if (!this.hasWeapon(id)) return false;
+      this.save.weapons.equipped = id; // written with the next save; a trip-only pick-up is undone by death like everything else
+      return true;
+    },
+    weaponStats(id) {
+      const wid = id || this.equippedWeapon();
+      return ZSR.Weapons.stats(wid, this.save.weapons.mods[wid]);
+    },
+    /** The weapon still lying in this building, if any (not yet owned or picked up). */
+    weaponAt(locId) {
+      const wp = this.save.weapons;
+      return ZSR.Weapons.ORDER.find((id) => wp.where[id] === locId && !this.hasWeapon(id)) || null;
+    },
+    takeWeapon(id) {
+      if (this.hasWeapon(id)) return false;
+      if (this.trip) this.trip.weapons.push(id);
+      else this.save.weapons.owned.push(id);
+      return true;
+    },
+    canBuyMod(id, key) {
+      const level = (this.save.weapons.mods[id] || {})[key] || 0;
+      const cost = ZSR.Weapons.cost(id, key, level);
+      const owned = this.save.weapons.owned.includes(id);
+      return { ok: owned && cost != null && this.save.scrap >= cost, cost, level, maxed: cost == null, owned };
+    },
+    buyMod(id, key) {
+      const c = this.canBuyMod(id, key);
+      if (!c.ok) return false;
+      this.save.scrap -= c.cost;
+      this.save.weapons.mods[id][key] = c.level + 1;
+      this.commit();
+      return true;
+    },
+
     /* ---------- The workbench typing game ---------- */
     typingDone(result) {
       const t = this.save.typing;

@@ -5,7 +5,8 @@
    a walkable start facing in, every decor entry applied to a face you can see, walkers on floor
    the player can reach, and frames that render without throwing; the M map opens, draws and
    closes cleanly, and what you have explored is kept in the trip, joins the save at home and is
-   lost with a dead trip.
+   lost with a dead trip; a gun hidden in any building lies on floor you can reach, out of the cache
+   room and off the landmarks; every gun mod tier and every van-gun step shows.
    validate-world.js checks the layout data itself; this checks the engine reads it the same way. */
 "use strict";
 const fs = require("fs");
@@ -84,7 +85,7 @@ sb.window = sb;
 vm.createContext(sb);
 pixels = vm.runInContext("(w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) })", sb);
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const WANT = ["layouts.js", "world.js", "upgrades.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "landmarks1.js", "landmarks2.js", "yardart.js", "interior.js", "building.js", "yard.js"];
+const WANT = ["layouts.js", "world.js", "upgrades.js", "weapons.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "landmarks1.js", "landmarks2.js", "yardart.js", "interior.js", "building.js", "yard.js"];
 const scripts = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]).filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -146,13 +147,54 @@ W.LOCATIONS.filter((l) => l.id !== "base").forEach((loc) => {
   const lay = I.layoutFor(loc);
   if (!lay) return err(`${ctx}: no layout`);
   S.startTrip();
+  // a gun hidden here (main's rule picks the building per save; every building must have room for one)
+  const hide = loc.id === "gasngo" || loc.id === "grocery" ? "dual" : "bow";
+  const whereWas = S.save.weapons.where;
+  S.save.weapons.where = { [hide]: loc.id };
   try {
     I.enter(loc);
   } catch (e) {
     return err(`${ctx}: enter threw ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
   }
   I.stop();
+  S.save.weapons.where = whereWas;
   entered++;
+  // the gun on the floor: on open floor you can walk to from the door (doors opened), never in the cache room,
+  // never on a landmark's tiles, an item, a note or a scrap pile, and on the same tile every visit
+  const gp = I.gunPickup;
+  if (!gp || gp.id !== hide) err(`${ctx}: a gun hidden here was not placed on the floor`);
+  else {
+    const gx = Math.floor(gp.x);
+    const gy = Math.floor(gp.y);
+    const reach = I.reachable(Math.floor(I.startPos[0]), Math.floor(I.startPos[1]), true);
+    const cd = I.cacheDoor;
+    const behindCache = (() => {
+      if (!cd) return false;
+      // reachable only through the cache door: the tile drops out when that door is a wall
+      const g = I.grid[cd.y][cd.x];
+      I.grid[cd.y][cd.x] = "L";
+      I.maskDirty = true;
+      const r = I.reachable(Math.floor(I.startPos[0]), Math.floor(I.startPos[1]), true);
+      I.grid[cd.y][cd.x] = g;
+      I.maskDirty = true;
+      return !r.has(gx + "," + gy);
+    })();
+    if (I.solidAt(gp.x, gp.y) || I.grid[gy][gx] !== ".") err(`${ctx}: the gun lies on a solid tile at ${gx},${gy}`);
+    else if (!reach.has(gx + "," + gy)) err(`${ctx}: the gun at ${gx},${gy} cannot be reached from the door`);
+    else if (behindCache) err(`${ctx}: the gun at ${gx},${gy} is in the cache room`);
+    I.landmarks.forEach((lm) => {
+      const f = lm.def && Array.isArray(lm.def.foot) ? lm.def.foot : [1, 1];
+      if (Math.abs(gx - lm.x) <= (f[0] >> 1) && Math.abs(gy - lm.y) <= (f[1] >> 1)) err(`${ctx}: the gun at ${gx},${gy} lies on landmark ${lm.id}`);
+    });
+    I.items.concat(I.notes, I.piles).forEach((o) => {
+      if (Math.floor(o.x) === gx && Math.floor(o.y) === gy) err(`${ctx}: the gun at ${gx},${gy} lies on an item, a note or a scrap pile`);
+    });
+    if ((reach.get(gx + "," + gy) || 0) < 5) err(`${ctx}: the gun at ${gx},${gy} is only ${reach.get(gx + "," + gy)} steps from the door`);
+    const again = I.gunPickup;
+    I.placeGun(loc, I.startPos);
+    if (I.gunPickup.x !== again.x || I.gunPickup.y !== again.y) err(`${ctx}: the gun moves between visits`);
+    I.gunPickup = null;
+  }
   const gw = I.gw;
   const gh = I.gh;
   const solid = (x, y) => I.solidAt(x + 0.5, y + 0.5);
@@ -507,7 +549,7 @@ try {
   err(`yard: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
 }
 
-/* ---------- Every upgrade step shows on the gun and the van ----------
+/* ---------- Every upgrade step shows on the guns and the van ----------
    The gun and the van faces are drawn on a tiny rasterizer that keeps, for every pixel, the color painted
    there last (fills and strokes; text is skipped), and each level is compared with the one below it: a
    step that changes almost nothing (a part drawn, then covered by the next one) fails. The van's faces
@@ -583,6 +625,9 @@ function raster(w, h) {
       subs.push(Object.assign([at(x, y), at(x + rw, y), at(x + rw, y + rh), at(x, y + rh)], { closed: true }));
       cur = null;
     },
+    arcTo(x1, y1) {
+      this.lineTo(x1, y1); // a rounded corner as a plain one
+    },
     arc(x, y, r, a0, a1, ccw) {
       curve(x, y, r, r, a0, a1, ccw);
     },
@@ -656,27 +701,45 @@ try {
     return el;
   };
   const differ = (a, b) => a.reduce((n, v, i) => n + (v !== b[i] ? 1 : 0), 0);
-  // the gun at 420 x 420 (one unit of its art a pixel; a size the game never caches), one upgrade at a time
-  const guns = new Map();
-  const gunAt = (gear) => {
-    const key = gear.dmg + "," + gear.rof + "," + gear.spr;
-    if (!guns.has(key)) {
-      drawn = null;
-      D.gun(element("canvas").getContext("2d"), 420, 420, { gear });
-      guns.set(key, drawn && drawn.px);
-    }
-    return guns.get(key);
+  // every gun in hand, drawn live at 420 x 420: each tier of each mod must change it, from no mods and
+  // from every other mod at the top (a part hidden behind the next tier's would not count)
+  const WP = ZSR.Weapons;
+  const gunAt = (id, mods) => {
+    const c = sb.document.createElement("canvas");
+    c.width = 420;
+    c.height = 420;
+    const g = c.getContext("2d");
+    D.gun(g, 420, 420, { weapon: id, mods, live: true });
+    return g.px;
   };
-  const GUN_MAX = { dmg: 5, rof: 5, spr: 3 };
-  const NAME = { dmg: "damage", rof: "fire rate", spr: "spread" };
-  if (!gunAt({ dmg: 0, rof: 0, spr: 0 })) err("upgrades: the gun is not drawn on a canvas of its own");
-  else {
-    for (const k of Object.keys(GUN_MAX)) for (const o of [0, 2, 5]) {
-      const base = { dmg: Math.min(o, 5), rof: Math.min(o, 5), spr: Math.min(o, 3) };
-      for (let lv = 1; lv <= GUN_MAX[k]; lv++) {
-        const n = differ(gunAt(Object.assign({}, base, { [k]: lv - 1 })), gunAt(Object.assign({}, base, { [k]: lv })));
-        if (n < 150) err(`upgrades: the gun at ${NAME[k]} ${lv} looks like ${NAME[k]} ${lv - 1} (${n} px change; the others at ${o})`);
+  WP.ORDER.forEach((id) => {
+    for (const k of Object.keys(WP.MODS)) for (const o of [0, WP.MOD_MAX]) {
+      const base = {};
+      Object.keys(WP.MODS).forEach((m) => (base[m] = o));
+      for (let lv = 1; lv <= WP.MOD_MAX; lv++) {
+        const n = differ(gunAt(id, Object.assign({}, base, { [k]: lv - 1 })), gunAt(id, Object.assign({}, base, { [k]: lv })));
+        if (n < 40) err(`mods: the ${WP.WEAPONS[id].name.toLowerCase()} at ${k} ${lv} looks like ${k} ${lv - 1} (${n} px change; the other mods at ${o})`);
       }
+    }
+    // the picture kept at rest (cropped, placed with the bob) is made and drawn without trouble
+    D.gun(element("canvas").getContext("2d"), 480, 270, { weapon: id, mods: { damage: 3, range: 3, rate: 3, aim: 3 }, bob: 1 });
+    D.gun(element("canvas").getContext("2d"), 480, 270, { weapon: id, mods: { damage: 3, range: 3, rate: 3, aim: 3 }, bob: 1, flash: 0.08, flashL: 0.08, draw: 0.6, raise: 0.5 });
+  });
+  // the van's own gun on the road: every Garage gun upgrade step shows on the turret
+  const vanGunAt = (u) => {
+    const c = sb.document.createElement("canvas");
+    c.width = 160;
+    c.height = 200;
+    const g = c.getContext("2d");
+    ZSR.Draw.van(g, 80, 100, { upgrades: Object.assign({ armor: 0, engine: 0, bumper: 0, paint: 0, damage: 0, fireRate: 0, spread: 0 }, u), aim: 0, t: 0 });
+    return g.px;
+  };
+  for (const k of ["damage", "fireRate", "spread"]) for (const o of [0, 2]) {
+    const max = ZSR.Upgrades.DEFS[k].max;
+    const base = { damage: o, fireRate: o, spread: Math.min(o, 3) };
+    for (let lv = 1; lv <= max; lv++) {
+      const n = differ(vanGunAt(Object.assign({}, base, { [k]: lv - 1 })), vanGunAt(Object.assign({}, base, { [k]: lv })));
+      if (n < 8) err(`upgrades: the van's gun at ${k} ${lv} looks like ${k} ${lv - 1} (${n} px change; the others at ${o})`);
     }
   }
   // the van: its five faces, one upgrade at a time from nothing and from the middle
@@ -720,4 +783,4 @@ if (errors.length) {
   console.log(`\n${errors.length} engine problem(s).`);
   process.exit(1);
 }
-console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept.`);
+console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible.`);

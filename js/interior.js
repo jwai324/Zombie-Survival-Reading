@@ -1,8 +1,9 @@
 /* First person on a grid: the core shared by buildings and the home-base yard.
    WASD / arrows to move and turn, mouse to look (pointer lock when allowed,
-   plain mouse movement otherwise), click or Space to fire, E to interact,
-   B for the backpack, P or Esc to pause.
-   This file: canvas, input, movement, walker AI, shooting, rendering, HUD plumbing.
+   plain mouse movement otherwise), click or Space to fire (hold to draw the bow, let go to shoot),
+   E to interact, 1 to 5, Q or the mouse wheel to switch guns, B for the backpack, P or Esc to pause.
+   This file: canvas, input, movement, walker AI, the guns in hand (firing, range, spread, pierce,
+   noise, switching), rendering, HUD plumbing.
    building.js (buildings) and yard.js (the yard) mix their modes into ZSR.Interior;
    the core calls the active mode's hooks by name: buildingUpdate / yardUpdate, and
    likewise Facing, Interact, Hint, Goal, Key and Leave.
@@ -78,7 +79,7 @@
       this.keys = {};
       this.mouseDown = false;
       const $ = (id) => document.getElementById(id);
-      this.hud = { root: $("int-hud"), hpFill: $("int-hp-fill"), hpText: $("int-hp-text"), scrap: $("int-scrap"), cargo: $("int-cargo"), walkers: $("int-walkers"), place: $("int-place"), goal: $("int-goal"), hint: $("int-hint"), toast: $("int-toast"), phase: $("int-phase") };
+      this.hud = { root: $("int-hud"), hpFill: $("int-hp-fill"), hpText: $("int-hp-text"), scrap: $("int-scrap"), cargo: $("int-cargo"), walkers: $("int-walkers"), gun: $("int-gun"), place: $("int-place"), goal: $("int-goal"), hint: $("int-hint"), toast: $("int-toast"), phase: $("int-phase") };
       this.bind();
       root.addEventListener("resize", () => this.resize());
       this.resize();
@@ -156,13 +157,25 @@
         if (dx) this.player.a += dx * 0.0022 * (State().settings.mouseSens || 1);
       });
       c.addEventListener("contextmenu", (e) => e.preventDefault());
+      c.addEventListener(
+        "wheel",
+        (e) => {
+          if (!this.running || this.paused) return;
+          e.preventDefault();
+          const now = performance.now();
+          if (now - (this.wheelT || 0) < 150) return; // one notch, one gun
+          this.wheelT = now;
+          this.cycleWeapon(e.deltaY > 0 ? 1 : -1);
+        },
+        { passive: false }
+      );
       document.addEventListener("pointerlockchange", () => {
         this.locked = document.pointerLockElement === c;
         if (!this.locked && this.running && !this.paused && !this.releasing && this.hooks.onPause) this.hooks.onPause();
         this.releasing = false;
       });
       // physical key positions, so WASD works on any keyboard layout
-      const CODE = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyE: "e", KeyB: "b", KeyM: "m", KeyP: "p", KeyT: "t", KeyR: "r", Space: " ", ShiftLeft: "shift", ShiftRight: "shift", ArrowUp: "arrowup", ArrowDown: "arrowdown", ArrowLeft: "arrowleft", ArrowRight: "arrowright", Escape: "escape" };
+      const CODE = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyE: "e", KeyB: "b", KeyM: "m", KeyP: "p", KeyT: "t", KeyR: "r", KeyQ: "q", Digit1: "1", Digit2: "2", Digit3: "3", Digit4: "4", Digit5: "5", Numpad1: "1", Numpad2: "2", Numpad3: "3", Numpad4: "4", Numpad5: "5", Space: " ", ShiftLeft: "shift", ShiftRight: "shift", ArrowUp: "arrowup", ArrowDown: "arrowdown", ArrowLeft: "arrowleft", ArrowRight: "arrowright", Escape: "escape" };
       const keyOf = (e) => CODE[e.code] || e.key.toLowerCase();
       root.addEventListener("keydown", (e) => {
         if (!this.running) return;
@@ -185,6 +198,11 @@
         if (k === "e") this.interact();
         if ((k === "p" || k === "escape") && this.hooks.onPause) this.hooks.onPause();
         if (k === "b" && this.hooks.onBackpack) this.hooks.onBackpack();
+        if (k === "q") this.cycleWeapon(1);
+        if (k >= "1" && k <= "5" && k.length === 1) {
+          const id = ZSR.Weapons.ORDER.find((w) => ZSR.Weapons.WEAPONS[w].slot === Number(k));
+          if (id) this.switchWeapon(id);
+        }
       });
       root.addEventListener("keyup", (e) => {
         this.keys[keyOf(e)] = false;
@@ -220,6 +238,7 @@
       this.doors = []; // interior doors: { x, y, open }
       this.traps = []; // yard traps: { x, y, type, uses }
       this.cacheDoor = null;
+      this.gunPickup = null; // a gun lying in this building: { x, y, id, taken } (building.js places it)
       this.exit = null;
       this.door = null;
       this.van = null;
@@ -228,6 +247,7 @@
       this.spawns = [];
       this.floors = [];
       this.noise = -99;
+      this.noiseR = 0; // how far the last shot carried (tiles)
       this.time = 0;
       this.shake = 0;
       this.phase = null;
@@ -328,9 +348,38 @@
       const S = State();
       const fx = S.effects();
       this.fx = fx;
-      this.gun = ZSR.Upgrades.stats(S.save.upgrades);
+      this.gun = S.weaponStats();
       const maxHp = S.footMaxHp();
-      this.player = { x, y, a, hp: clamp(S.trip ? S.trip.footHp : maxHp, 1, maxHp), maxHp, cooldown: 0, bob: 0, flash: 0, hurt: 0, moving: false };
+      this.player = { x, y, a, hp: clamp(S.trip ? S.trip.footHp : maxHp, 1, maxHp), maxHp, cooldown: 0, bob: 0, flash: 0, flashL: 0, flashR: 0, side: "L", draw: 0, raise: 1, hurt: 0, moving: false };
+    },
+    /** Put a held gun in your hands. */
+    switchWeapon(id) {
+      const S = State();
+      if (!this.player || id === this.gun.id) return false;
+      if (!S.hasWeapon(id)) {
+        this.toast(ZSR.Weapons.WEAPONS[id].name + ": not found yet. It is somewhere out there.", 2.5);
+        Audio().play("wrong");
+        return false;
+      }
+      S.equipWeapon(id);
+      this.gun = S.weaponStats(id);
+      const p = this.player;
+      p.raise = 1;
+      p.draw = 0;
+      p.cooldown = Math.max(p.cooldown, 0.3);
+      Audio().play("equip");
+      this.toast(this.gun.name, 1.5);
+      this.updateHud();
+      return true;
+    },
+    cycleWeapon(dir) {
+      const held = State().weaponsHeld();
+      if (held.length < 2) {
+        this.toast("Only the pistol so far. Other guns are out there in the city.", 2.5);
+        return;
+      }
+      const i = held.indexOf(this.gun.id);
+      this.switchWeapon(held[(i + dir + held.length) % held.length]);
     },
     makeWalker(type, x, y, hpMult) {
       const t = WALKER_TYPES[type];
@@ -369,6 +418,7 @@
       this.paused = true;
       this.keys = {};
       this.mouseDown = false;
+      if (this.player) this.player.draw = 0; // a half-drawn bow eases off; it never looses on resume
       this.releasing = true;
       if (document.pointerLockElement === this.canvas && document.exitPointerLock) document.exitPointerLock();
     },
@@ -564,7 +614,7 @@
       if (k.s || k.arrowdown) fwd -= 1;
       if (k.a) side -= 1;
       if (k.d) side += 1;
-      const speed = 3.1 * (k.shift ? 1.35 : 1);
+      const speed = 3.1 * (k.shift ? 1.35 : 1) * (this.gun.move || 1); // the heavy gun slows you down
       if (fwd || side) {
         const len = Math.hypot(fwd, side) || 1;
         const dx = (Math.cos(p.a) * fwd - Math.sin(p.a) * side) / len;
@@ -575,16 +625,21 @@
       } else p.moving = false;
       p.cooldown -= dt;
       p.flash = Math.max(0, p.flash - dt);
+      p.flashL = Math.max(0, p.flashL - dt);
+      p.flashR = Math.max(0, p.flashR - dt);
+      p.raise = Math.max(0, p.raise - dt * 3.5);
       p.hurt = Math.max(0, p.hurt - dt * 1.5);
       if (this.fx.footRegen) p.hp = Math.min(p.maxHp, p.hp + this.fx.footRegen * dt);
 
-      if ((this.mouseDown || k[" "]) && p.cooldown <= 0) {
-        p.cooldown = this.gun.fireInterval;
-        p.flash = 0.08;
-        this.noise = this.time;
-        this.shoot();
-        Audio().play("shoot");
-      }
+      const held = this.mouseDown || k[" "];
+      if (this.gun.draw) {
+        // the bow: hold to draw, let go to shoot; a tiny pull just lets the string back down
+        if (held && p.cooldown <= 0 && p.raise <= 0) p.draw = Math.min(1, p.draw + dt / this.gun.draw);
+        else if (!held && p.draw > 0) {
+          if (p.draw >= 0.2) this.fire(p.draw);
+          p.draw = 0;
+        }
+      } else if (held && p.cooldown <= 0 && p.raise <= 0) this.fire(1);
 
       this.modeCall("Update", dt);
 
@@ -630,7 +685,7 @@
       z.frameT += dt;
       // running is loud: sprinting players are noticed from farther away
       const hear = this.keys.shift && this.player.moving ? 9 : 6;
-      if (!z.awake && (dist < hear || (this.time - this.noise < 1.5 && dist < 11) || z.hurtT > 0)) z.awake = true;
+      if (!z.awake && (dist < hear || (this.time - this.noise < 1.5 && dist < this.noiseR) || z.hurtT > 0)) z.awake = true;
       if (!z.awake) return;
       if (z.frameT > 0.35 / (z.speed / 1.25)) {
         z.frameT = 0;
@@ -796,33 +851,56 @@
         this.updateHud();
       }
     },
-    shoot() {
-      const n = this.gun.bullets;
-      for (let s = 0; s < n; s++) {
-        const off = (s - (n - 1) / 2) * 0.06;
-        const target = this.walkerAt(off);
-        if (target) {
-          Audio().play("hit");
-          this.hurtWalker(target, this.gun.damage);
-        }
+    /** One shot (one arrow) from the gun in hand. power 0..1 is the bow's draw. */
+    fire(power) {
+      const g = this.gun;
+      const p = this.player;
+      p.cooldown = g.interval;
+      const flash = Math.min(0.08, g.interval * 0.75);
+      if (g.id === "dual") {
+        p.side = p.side === "R" ? "L" : "R";
+        if (p.side === "R") p.flashR = flash;
+        else p.flashL = flash;
+      } else p.flash = flash;
+      if (g.noise > 0) {
+        this.noise = this.time;
+        this.noiseR = g.noise;
       }
+      if (g.shake && State().settings.shake) this.shake = Math.max(this.shake, g.shake);
+      this.shoot(power);
+      Audio().play(g.id === "bow" ? "bow" : g.id === "hmg" ? "heavy" : "shoot");
     },
-    walkerAt(angleOff) {
+    shoot(power) {
+      const g = this.gun;
+      const p = this.player;
+      // aim error: wider on the move, and a half-drawn bow is shaky
+      const spread = g.spread * (p.moving ? 1.6 : 1) * (g.draw ? 2 - power : 1);
+      const hits = this.walkersOnLine((Math.random() * 2 - 1) * spread, g.range).slice(0, g.pierce);
+      const dmg = g.draw ? g.damage * (0.3 + 0.7 * power) : g.damage;
+      hits.forEach((z, i) => this.hurtWalker(z, Math.round(dmg * (i ? 0.6 : 1)))); // a round that went through one walker hits the next softer
+      if (hits.length) Audio().play("hit");
+    },
+    /** Walkers under the crosshair (plus an angle), nearest first, within range, with a clear shot
+        (walls and cover stop it: a tall solid prop or a landmark's footprint; counters and the fence do not). */
+    walkersOnLine(angleOff, range) {
       const p = this.player;
       const a = p.a + angleOff;
-      let best = null;
+      const out = [];
       this.walkers.forEach((z) => {
         const dx = z.x - p.x;
         const dy = z.y - p.y;
         const dist = Math.hypot(dx, dy);
-        if (dist < 0.05) return;
+        if (dist < 0.05 || dist > (range || Infinity)) return;
         const ang = normAngle(Math.atan2(dy, dx) - a);
         const halfWidth = Math.atan2(z.r * 1.1, dist);
         if (Math.abs(ang) > halfWidth) return;
         if (!this.shotClear(p.x, p.y, z.x, z.y)) return;
-        if (!best || dist < best.dist) best = { z, dist };
+        out.push({ z, dist });
       });
-      return best ? best.z : null;
+      return out.sort((m, n) => m.dist - n.dist).map((o) => o.z);
+    },
+    walkerAt(angleOff, range) {
+      return this.walkersOnLine(angleOff, range)[0] || null;
     },
 
     updateHud() {
@@ -839,6 +917,7 @@
       const cargoN = S.trip ? Object.values(S.trip.cargo).reduce((a, b) => a + b, 0) : 0;
       h.cargo.textContent = cargoN;
       h.walkers.textContent = this.walkers.length;
+      if (h.gun && this.gun) h.gun.textContent = this.gun.slot + " " + this.gun.name;
       h.goal.textContent = this.modeCall("Goal") || "";
     },
 
@@ -884,8 +963,12 @@
         ctx.fillRect(0, 0, Wd, H);
       }
       ZSR.Draw.vignette(ctx, Wd, H);
-      D3().gun(ctx, Wd, H, { bob: p.moving ? p.bob : 0, flash: p.flash });
-      D3().crosshair(ctx, Wd / 2, H / 2, !!this.walkerAt(0));
+      const g = this.gun;
+      const mods = State().save.weapons.mods[g.id]; // every mod tier shows on the gun in your hands
+      D3().gun(ctx, Wd, H, { weapon: g.id, mods, bob: p.moving ? p.bob : 0, flash: p.flash, flashL: p.flashL, flashR: p.flashR, draw: p.draw, loaded: p.cooldown <= 0, raise: p.raise });
+      // the gap opens with the gun's spread (and closes as the bow comes to full draw); red means in range
+      const gap = 4 + g.spread * H * 0.5 * (p.moving ? 1.6 : 1) * (g.draw ? 2 - p.draw : 1);
+      D3().crosshair(ctx, Wd / 2, H / 2, !!this.walkerAt(0, g.range), gap);
       if (this.drawOverlay) this.drawOverlay(ctx, Wd, H);
     },
 
@@ -1384,6 +1467,8 @@
       this.items.forEach((it) => !it.taken && sprites.push({ x: it.x, y: it.y, img: D.item(it.item), scale: 0.5, lift: 0.25 }));
       this.notes.forEach((n) => sprites.push({ x: n.x, y: n.y, img: D.note(), scale: 0.42, lift: 0.3, dim: n.read ? 0.5 : 0 }));
       this.piles.forEach((pl) => !pl.taken && sprites.push({ x: pl.x, y: pl.y, img: D.scrap(), scale: 0.5, lift: 0.25, wide: 1.33 }));
+      const gp = this.gunPickup;
+      if (gp && !gp.taken) sprites.push({ x: gp.x, y: gp.y, img: D.weaponIcon(gp.id), scale: 0.36, lift: 0.18 + Math.sin(this.time * 3) * 0.03, wide: 2 });
       this.traps.forEach((tr) => tr.uses > 0 && sprites.push({ x: tr.x, y: tr.y, img: D.trap(tr.type, false), scale: 0.3, lift: 0, wide: 1.6, dim: tr.flash > 0 ? 0.4 : 0 }));
       this.walkers.forEach((z) => sprites.push({ x: z.x, y: z.y, img: D.walker(z.type, z.frame, z.hit > 0), scale: z.type === "brute" ? 1.05 : 0.95, lift: 0, wide: 0.75, hp: z.hp / z.maxHp }));
       const ceil = this.sky ? Infinity : 0.98;

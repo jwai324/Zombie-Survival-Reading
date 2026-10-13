@@ -6,7 +6,8 @@
      variants on that building's palette, every wall style; landmark color and label), with finite
      numbers, no negative radius, color stops inside 0..1, real colors and fonts;
    - a decor face starts by painting its whole tile opaque (the engine never draws behind a wall),
-     and the page loads the art files.
+     and the page loads the art files;
+   - every gun in hand draws cleanly at every mod tier, at rest and in motion, with its icon and view.
    validate-world.js checks the layout data, validate-engine.js what the engine makes of it. */
 "use strict";
 const fs = require("fs");
@@ -236,6 +237,38 @@ Object.entries(LAYOUTS).forEach(([id, lay]) => {
   });
 });
 
+/* ---------- The guns in hand with their mods (live and at rest), their floor icons and tab views ---------- */
+let guns = 0;
+const MOD_SETS = [0, 1, 2, 3].map((n) => ({ damage: n, range: n, rate: n, aim: n })).concat([{ damage: 3 }, { range: 2, aim: 1 }, { rate: 3, aim: 3 }]);
+const MOTION = [{}, { bob: 2.1 }, { flash: 0.08, flashL: 0.08, flashR: 0.03, draw: 0.7, raise: 0.4, bob: 1 }, { draw: 1, loaded: false }];
+Object.keys(D.POSES || {}).forEach((id) => {
+  MOD_SETS.forEach((mods) => {
+    MOTION.forEach((o) => {
+      const what = (current = `gun ${id} ${JSON.stringify(mods)} ${JSON.stringify(o)}`);
+      const c = element("canvas");
+      c.width = 1280;
+      c.height = 720;
+      try {
+        D.gun(c.getContext("2d"), 1280, 720, Object.assign({ weapon: id, mods }, o));
+        guns++;
+      } catch (e) {
+        err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+      }
+    });
+  });
+  try {
+    current = `weapon icon ${id}`;
+    const icon = D.weaponIcon(id);
+    if (!icon || !(icon.width > 0)) err(`${current}: no image`);
+    current = `weapon view ${id}`;
+    const view = D.weaponView(id, { damage: 3, range: 3, rate: 3, aim: 3 }, 320, 180);
+    if (!view || view.width !== 320 || view.height !== 180) err(`${current}: not a 320 x 180 picture`);
+  } catch (e) {
+    err(`${current}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+  }
+});
+if (!guns) err("js/sprites3d.js: no guns to draw (Draw3.POSES)");
+
 warnings.forEach((w) => console.log("warn  " + w));
 if (errors.length) {
   errors.slice(0, 60).forEach((e) => console.log("ERROR " + e));
@@ -243,4 +276,4 @@ if (errors.length) {
   console.log(`\n${errors.length} art problem(s).`);
   process.exit(1);
 }
-console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn, every call checked).`);
+console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, every call checked.`);

@@ -23,7 +23,7 @@ marked **Assumption** can be changed cheaply.
 
 | Question | Answer |
 |----------|--------|
-| What should upgrades change? | The world you see. Every room level, van upgrade and gun upgrade is visible; Walls level 1 shows new walls. |
+| What should upgrades change? | The world you see. Every room level, van upgrade, van-gun upgrade and gun mod is visible; Walls level 1 shows new walls. |
 | How do rooms show in the yard? | A bigger yard with a plot per room: a staked lot with a sign until built, then a distinct, bigger, solid build at each level. Walls is the fence and the cabin armor. |
 | Buildings | Unique per place, about 2 to 3 times the old area, real mazes, better art. (Built bigger; see the judgment calls.) |
 | A map inside? | M shows only what you have explored. Each main corner has something unique and memorable to steer by. |
@@ -53,6 +53,55 @@ marked **Assumption** can be changed cheaply.
   time to defend" is clearer as two states than as a menu you can hide in.
 - **Why the save merges the trip only at home.** A trip is a bet. Items, notes, revealed
   places, and scrap only count once you are back behind the fence.
+- **Scarier walkers without gore (2026-10-13).** Walkers got gaunt, mottled skin, sunken
+  sockets with milky glowing eyes, a slack jaw with bad teeth, ragged grimy clothes and bony
+  clawed hands. There is still no blood and no wounds: fear comes from the face, the reach
+  and the silhouette, which keeps to the owner's no-gore rule for a teen audience.
+- **Why the pistol is a projected 3D model.** A flat drawing could not look like a real
+  handgun from the shooter's eye. A small modelled pistol (slide, frame, raked grip, sights)
+  drawn in perspective gets proportions, foreshortening and recoil right with no image
+  assets and no dependencies.
+
+## Guns (2026-10-13)
+
+The owner asked for guns found at random in different places, each modded with scrap for
+better damage, range and so on, each with its own look: a machine gun, a heavy machine gun,
+a bow and arrow, and double pistols.
+
+- **Random per save, fixed within it.** Each gun's building is rolled when the save is made
+  (within a danger band, so the heavy machine gun is only in the worst places) and its floor
+  tile comes from a seed. Re-rolling on every visit would make the map unreadable; fixing it
+  per save keeps "where did I see it" meaningful and still differs between players.
+- **A trip item, like everything else.** Picking one up puts it in your hands at once (the
+  fun part), but it only becomes yours at home. Death taking it back keeps the trip a bet.
+- **No ammo.** Not asked for, and it would add a resource to balance and a screen to manage.
+  The guns are balanced by range, spread, noise, walking speed and pierce instead: the heavy
+  machine gun is strongest but slow and wakes the block; the bow is silent and long but slow.
+- **The van's gun is its own thing.** The old "gun" upgrades drove both the van turret and
+  the pistol. With five guns on foot each having mods, that double counted, so the Garage
+  upgrades now apply to the road only. **Migration:** an older save's pistol gets Damage and
+  Fire rate mods equal to its old gun upgrades (capped at 3), so nobody loses power.
+- **Mods go through the workbench** like every other build, for consistency with the spec.
+  **Assumption:** three tiers per mod; prices in `js/weapons.js` can move cheaply.
+- **Every gun is a projected 3D model**, like the pistol: the double pistols are the pistol
+  model twice (the left one mirrored, firing in turn), the long guns are posed close and to
+  the right so their sides show, and the bow bends and its string comes back as you draw.
+- **Every mod tier shows on the gun in your hands (merging the guns with the visible base).**
+  The owner's rule that every upgrade changes what you see covers gun mods too: each tier of
+  each mod adds a part in the same modelled style (compensators and brakes, longer barrels,
+  sights and scopes, slide cuts, magazines, lasers and lights; on the bow broadheads, limbs, a
+  quiver and sight pins), and the Weapons tab shows the gun as you hold it. The Garage's gun
+  upgrades used to be drawn on the first-person pistol; now they show on the van's roof gun on
+  the road and in the Garage preview, which gained a look for every Rate of Fire tier.
+- **Why the gun at rest is a cached picture.** A modelled gun costs more to draw than the rest
+  of the HUD. At rest it is drawn once per look and screen size, cropped, and moved with the
+  walk bob; a shot, the bow's draw or a switch draws the model live. One picture is kept, so
+  resizes and mod changes never pile up canvases.
+- **Where a gun lies in the bigger buildings.** Still seeded per save and building, on open
+  floor you can walk to with every door open, at least 10 steps in (5, then 2, in a cramped
+  plan), never in the cache room and never on or beside a landmark, an item, a note or a scrap
+  pile. Shots from it obey the same cover as the pistol: walls and tall solid props stop them,
+  counters and the fence do not. The M map does not show it; you find it by looking.
 
 - **Why the van keeps to its own two lanes.** Lanes are the mechanic now: the van slides
   only across its own side of the road, not the whole road. Damage taken on a drive measured

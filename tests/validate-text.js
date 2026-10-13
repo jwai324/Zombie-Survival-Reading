@@ -128,6 +128,8 @@ const CONTROLS_MUST = [
   [/\bE\b/, "the E key"],
   [/\bT\b/, "the T key (spike trap)"],
   [/\bR\b/, "the R key (blast trap)"],
+  [/\bQ\b/, "the Q key (switch guns)"],
+  [/\bbow\b/i, "the bow (hold to draw, let go to shoot)"],
   [/\bB\b/, "the B key (backpack)"],
   [/\bP\b/, "the P key (pause)"],
   [/typ/i, "typing at the workbench"],
