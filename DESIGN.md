@@ -19,6 +19,19 @@ marked **Assumption** can be changed cheaply.
 | Text size | Huge means one inch, everywhere. |
 | Delivery | Everything in one drop. |
 
+## Owner decisions (2026-10-13)
+
+| Question | Answer |
+|----------|--------|
+| What should upgrades change? | The world you see. Every room level, van upgrade and gun upgrade is visible; Walls level 1 shows new walls. |
+| How do rooms show in the yard? | A bigger yard with a plot per room: a staked lot with a sign until built, then a distinct, bigger, solid build at each level. Walls is the fence and the cabin armor. |
+| Buildings | Unique per place, about 2 to 3 times the old area, real mazes, better art. |
+| A map inside? | M shows only what you have explored. Each main corner has something unique and memorable to steer by. |
+| Notes | Rewritten at all six levels to point at the landmarks. |
+| Turn cues on the road | Read the street signs; a minimap tracks the van and the destination but never draws the route. |
+| Wrong turn or missed lot | A card says what went wrong, then the drive restarts from where it set out. Damage, scrap and kills from the failed attempt stay. |
+| Where are the decisions? | Real map junctions plus side streets (dead ends, no through roads, closed roads), the lots of places passed, and the destination's lot. |
+
 ## Judgment calls
 
 - **Why a raycaster and not a 3D engine.** Free-roam first person was required; a grid
@@ -41,9 +54,40 @@ marked **Assumption** can be changed cheaply.
 - **Why the save merges the trip only at home.** A trip is a bet. Items, notes, revealed
   places, and scrap only count once you are back behind the fence.
 
+- **Why the van keeps to its own two lanes.** Lanes are the mechanic now: the van slides
+  only across its own side of the road, not the whole road. Damage taken on a drive measured
+  the same as before. **Assumption:** the owner may want the old free slide back between
+  junctions.
+- **Why the usual lane goes straight.** A player who does nothing never turns off; every
+  turn is a choice the sign asked for. Right turns use the right lane; left turns use a turn
+  lane that opens on the far left, so "the left lane" never means two things.
+- **Why the city map keeps the route line and adds "The way there".** The player plans on
+  the map (more reading), then drives from memory, signs and the minimap. At Huge text the
+  map board is hidden, so the words are the only route view there. **Assumption:** this can
+  be turned off if the owner wants drives to rest on the road signs alone.
+- **Why the minimap turns with the van.** Left on the minimap is a left turn. A small N marks
+  north.
+- **Why door notes no longer say where the cache room is.** The longer, landmark-based facts
+  had to fit level 1 (about 38 words for a door note). The inside note gives the way from the
+  note to the cache door instead.
+- **Why landmark names are plain words.** One name serves all six levels and the map:
+  "spotted dog", not "dalmatian"; "rescue van", not "ambulance".
+- **Why directions avoid "left of" and "right of" inside notes.** A reader leaving a room is
+  facing the entrance, so "right of the office" sends them the wrong way. Notes steer by
+  landmarks, signs and "toward the back" instead. Door notes keep left and right as seen
+  walking in.
+- **Why heavy waves come from every side.** The fence is twice as long (112 segments); waves
+  from all sides spread walkers along it instead of jamming them at one hole.
+- **Why footprint landmarks are measured in tiles of floor.** The first-person view is about
+  1.4 times taller than wide; measuring a footprint in floor tiles keeps a fire truck on its
+  tiles instead of reaching into the walls.
+
 ## Not in this drop
 
 - Touch controls for first person (the map and road already work on touch).
+- Text that is painted onto signs, walls and landmarks in the world does not grow with Huge
+  text; the names a player must read are also in the notes, on the building map and on the
+  road signs, which do.
 - Per-player profiles and a parent view of words read.
 - Music and ambient sound.
 - Sentence-level highlighting for read-aloud (read-aloud itself was removed at the

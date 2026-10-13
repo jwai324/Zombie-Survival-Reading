@@ -1,6 +1,8 @@
-# Zombie Survival: Game Spec (v2)
+# Zombie Survival: Game Spec (v3)
 
-Decisions confirmed with the owner on 2026-10-12. This replaces the haven-and-quiz loop.
+Decisions confirmed with the owner on 2026-10-12 (v2: map, cabin defense, first-person
+buildings) and 2026-10-13 (v3: the world shows every upgrade, unique buildings with
+landmarks and a map, driving by lanes and signs).
 
 ## Pitch
 
@@ -22,18 +24,21 @@ useful.
    the build menu pauses the yard: upgrade rooms with items plus scrap, upgrade the
    van and gun in the garage, re-read notes in the backpack. The base is the only
    place the game saves: on arrival, after every build action, and after every wave.
-2. **Map.** A fixed, hand-drawn city of 15 locations plus the base. Only some are known
-   at first; notes and the Radio room reveal the rest. Pick a known destination; the
-   route is drawn; drive.
-3. **Road.** The existing top-down drive, with length set by map distance and walker
-   density set by the destination's danger and the day count. No pop-ups.
+2. **Map.** A fixed, hand-drawn city of 15 locations plus the base, with named streets and
+   side streets. Only some are known at first; notes and the Radio room reveal the rest.
+   Pick a known destination; the route is drawn and listed in words ("The way there").
+3. **Road.** Top-down driving in world space, the camera turned so the van always heads up.
+   Length is set by map distance, walker density by the destination's danger and the day
+   count. The road never shows the route: the player navigates by lanes and signs (see
+   Driving below).
 4. **Location.** A door note is shown first (added to the backpack). Then free-roam
-   first person inside: WASD to move, mouse to look, click to fire, E to interact.
-   Walkers inside come for you. Items sit on shelves and floors; a locked cache room
-   holds the best items and only opens once you have read the note that explains how.
-   Scrap piles give scrap. Press E at the entrance to leave. Shelf and floor items come
-   back three days after they are taken; scrap piles are back every visit; cache items
-   never come back.
+   first person inside a building with its own floor plan: WASD to move, mouse to look,
+   click to fire, E to interact, M for the map of what you have seen. Four landmarks, one
+   per corner, are what the notes steer by. Walkers inside come for you. Items sit on
+   shelves and floors; a locked cache room holds the best items and only opens once you
+   have read the note that explains how. Scrap piles give scrap. Press E at the entrance
+   to leave. Shelf and floor items come back three days after they are taken; scrap piles
+   are back every visit; cache items never come back.
 5. **Map again.** Chain more locations or head home. Cargo rides in the van.
 6. **Back at base.** Cargo moves to base inventory, one food is eaten, the Garden adds
    food, the day counter goes up, and the game saves.
@@ -52,10 +57,12 @@ tension.
 - No questions anywhere.
 - **Backpack**: every note read is kept with its title, the location, and where in the
   building it was found. Opens from the base, the map, and inside a building (pauses).
-- **Why read**: the door note says how many walkers and where the items are; the inside
-  note says how to open the cache (reading it is what unlocks the door), what is in
-  the cache, and which other location to try next (reading it reveals that location on
-  the map).
+- **Why read**: the door note says how many walkers and where the items are, by landmark;
+  the inside note says how to open the cache (reading it is what unlocks the door), what is
+  in the cache, the way from the note to the cache door, and often which other location to
+  try next (reading it reveals that location on the map). On the road, the street signs
+  say where each lane goes, and the city map lists the way there in words.
+- Landmark names are plain words, the same at every level and on the building map.
 
 ## Home base rooms (3 levels each; recipes in `js/world.js`)
 
@@ -76,6 +83,20 @@ tension.
 A level can carry `requires: { room: level }`; the build button says which room to build first.
 Food and medicine from different rooms add up; every other effect takes the best level.
 
+## The yard shows the base
+
+Every room except Walls has its own plot in the yard (41 x 33 tiles, 112 fence segments).
+Level 0 is a staked lot with the room's name on a big sign; levels 1 to 3 are distinct,
+bigger builds made of walls, roofs, see-over low tiles and props, with a name plaque and
+stars. They go up the moment the room is built. Builds are solid: walkers path around them
+and they are cover. Walls levels 0 to 3 change the fence (pickets, braced planks,
+corrugated metal with spikes, concrete blocks with razor wire, each with a cracked look) and
+the cabin's armor (boards, more boards, metal shutters, steel plates). The van in the
+driveway shows armor plates, the ram plow, engine gear (rack, exhaust, snorkel, light bar)
+and the paint; the gun shows Heavier Rounds (barrel, muzzle brake, compensator), Rate of
+Fire (vented jacket, fins, drum; copper at the top tier) and Spread Shot (one barrel per
+round). A light wave comes from two sides, a heavy one from every side.
+
 ## The fence, traps and kits
 
 - **The fence never patches itself.** Every hole a wave claws open stays until the player
@@ -90,6 +111,33 @@ Food and medicine from different rooms add up; every other effect takes the best
   kit heals to full. Inside a building a kit from the van's cargo can be used too.
 - **Van repair** is instant and restores full health: 1 scrap for every 3 health missing
   (at least 5), free once the Garage room is built.
+
+## Driving: lanes, signs, side streets
+
+- The van drives in the left of its two lanes; past side streets and parking lots that lane
+  goes straight. A turn to the right uses the right lane; a turn to the left uses a turn lane
+  that opens on the far left. At a junction there is one lane per road out, each with a
+  painted arrow, and the sign says where each lane goes.
+- Decision points along a route, in order: side streets (dead ends, no through roads, closed
+  roads), the parking lots of places the route passes (Home Base too), real junctions, and the
+  destination's lot. Signs name a place only when the player knows it; otherwise the street.
+- The lane the van is in when it crosses the white stop line decides. A wrong lane drives a
+  little way down the wrong road, then a card says what went wrong ("Wrong way! That road goes
+  to ...", "You drove past ...") and the drive restarts from where it set out. Damage, scrap,
+  kills and miles stay.
+- The minimap (top left, bottom left at Huge) turns with the van, shows known roads, side
+  streets and places, and flags the destination. It never draws the route.
+
+## Buildings: floor plans, landmarks, the map
+
+- Each of the 15 places has its own floor plan in `js/layouts.js` (30 x 22 up to 42 x 32
+  tiles): rooms, halls, dead ends, at least one loop, interior doors, wall decor and signs.
+- Four landmarks per building, one per corner, each unique in its building (the ice machine,
+  the fire truck, the giant teddy bear). Big ones cover a footprint of tiles.
+- M (or the Map button) pauses and shows the tiles seen so far: walls, shelves, counters,
+  doors open or closed, the cache door (locked until opened), the exit, landmarks by name and
+  notes found. Walkers and items are not shown. What you explore is kept for the trip and
+  saved once you are home; death loses this trip's exploring.
 
 ## Doors, re-entry, and the map
 
@@ -120,9 +168,13 @@ only place the game saves.
 ## Rendering notes
 
 Wall texture columns are sampled left to right as seen from each face, so signs read
-correctly from any side. The cabin has log walls, boarded windows, a plank gable and a
-shingled roof that rises to a ridge; the van is a low two-tile model with a cab, a sliding
-door, a nose and a tail; the treeline is taller than the walls.
+correctly from any side. Counters, tables, beds, crop beds and the fence are low see-over
+tiles with a lit top face, drawn in depth order with sprites. Roofs (the cabin's gable,
+the yard sheds) come from a list of roofed blocks. Floors and ceilings are cast at reduced
+resolution with a texture per tile kind; buildings have a wall style and a light level.
+Landmarks and yard props are sprites; a footprint landmark is spread over its tiles of
+floor (the view is 2 tan(FOV / 2) times taller than wide). Art registers through
+`ZSR.Draw3` (`registerTexture`, `registerSprite`, `registerFloor`).
 
 ## First person (desktop)
 
@@ -142,11 +194,16 @@ menus, HUD. Layouts collapse to one column.
 
 `zs.slots` is the slot index (active slot, labels); `zs.save.<n>` holds one base save: day,
 scrap, food, inventory, room levels, van and gun upgrades, known locations, per-location
-state (items taken, cache opened), backpack notes, packed kits, fence health per segment,
-trap stock and set traps, typing progress, best score. Only written at the base.
+state (items taken, cache opened, explored tiles as a packed bitset), backpack notes, packed
+kits, fence health per segment, trap stock and set traps, the yard grid version (`yardV`:
+an older yard's fence is rebuilt whole and its set traps return to stock), typing progress,
+best score. Only written at the base.
 
 ## Content files
 
-`js/world.js` holds the facts (item names included). `js/content/level1.js` to
-`level6.js` hold the words: How it works, base room texts, door notes, inside notes. `npm test` checks
-that every level has the same keys as the world and that lengths match the level.
+`js/world.js` holds the facts (item names included); `js/layouts.js` holds the floor plans
+and landmarks the facts point at; `js/streets.js` holds street names and side streets.
+`js/content/level1.js` to `level6.js` hold the words: How it works, controls, base room
+texts, door notes, inside notes, road signs and cards. `npm test` checks that every level
+has the same keys as the world, that lengths match the level, that notes name their
+building's landmarks, that every route drives correctly, and that every piece of art exists.
