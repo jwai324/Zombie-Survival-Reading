@@ -29,6 +29,7 @@
     DEFS,
     REPAIR,
     PAINT_LOOKS,
+    SPREAD: 0.14, // radians between the roof gun's barrels; each barrel fires along its own line
 
     cost(key, level) {
       const d = DEFS[key];

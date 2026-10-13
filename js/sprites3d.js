@@ -3329,23 +3329,25 @@
   }
 
   /* Where each weapon sits in front of the eye. off: metres right, up and forward of the eye;
-     yaw turns the muzzle in toward the crosshair (and shows the gun's left side), pitch lifts it,
      roll cants it; sway: walk bob (x, y); kick: recoil back (z) and muzzle climb (pitch) on a shot;
-     jitter: shake while firing. A long gun shows its side only when its rear sits close and to the right. */
+     jitter: shake while firing. In hand every bore runs straight ahead, parallel to the view: such a
+     line vanishes at the screen's centre, so the barrel points at the crosshair (where the shot goes)
+     wherever the gun sits and however it bobs. show: [yaw, pitch] for the cabin's Weapons tab only,
+     turned to show the gun's left side and its mods. */
   const POSES = {
-    pistol: { off: [0.098, -0.04, 0.27], yaw: 0.6, pitch: 0, roll: 0, pivot: [0, -0.07, 0.03], sway: [0.005, 0.006], kick: [0.012, 0.08], jitter: 0 },
-    dual: { off: [0.13, -0.052, 0.27], yaw: 0.62, pitch: 0, roll: 0, pivot: [0, -0.07, 0.03], sway: [0.005, 0.006], kick: [0.012, 0.08], jitter: 0 },
-    mg: { off: [0.17, -0.07, 0.26], yaw: 0.42, pitch: 0.03, roll: -0.03, pivot: [0, -0.05, 0], sway: [0.006, 0.007], kick: [0.012, 0.025], jitter: 0.003 },
-    hmg: { off: [0.175, -0.08, 0.27], yaw: 0.4, pitch: 0.03, roll: -0.03, pivot: [0, -0.05, 0], sway: [0.01, 0.012], kick: [0.02, 0.03], jitter: 0.006 },
-    bow: { off: [-0.055, -0.07, 0.5], yaw: 0, pitch: 0, roll: 0.24, pivot: [0, 0, 0], sway: [0.004, 0.005], kick: [0, 0], jitter: 0 },
+    pistol: { off: [0.098, -0.04, 0.27], roll: 0, pivot: [0, -0.07, 0.03], sway: [0.005, 0.006], kick: [0.012, 0.08], jitter: 0, show: [0.6, 0] },
+    dual: { off: [0.13, -0.052, 0.27], roll: 0, pivot: [0, -0.07, 0.03], sway: [0.005, 0.006], kick: [0.012, 0.08], jitter: 0, show: [0.62, 0] },
+    mg: { off: [0.17, -0.07, 0.26], roll: -0.03, pivot: [0, -0.05, 0], sway: [0.006, 0.007], kick: [0.012, 0.025], jitter: 0.003, show: [0.42, 0.03] },
+    hmg: { off: [0.175, -0.08, 0.27], roll: -0.03, pivot: [0, -0.05, 0], sway: [0.01, 0.012], kick: [0.02, 0.03], jitter: 0.006, show: [0.4, 0.03] },
+    bow: { off: [-0.055, -0.07, 0.5], roll: 0.24, pivot: [0, 0, 0], sway: [0.004, 0.005], kick: [0, 0], jitter: 0, show: [0, 0] },
   };
-  function pose(id, bob, kick, drop, mirror) {
+  function pose(id, bob, kick, drop, mirror, show) {
     const p = POSES[id];
     const j = p.jitter && kick > 0 ? (Math.random() - 0.5) * p.jitter * kick : 0;
     return {
       off: [p.off[0] + Math.sin(bob) * p.sway[0] + j, p.off[1] - Math.abs(Math.cos(bob)) * p.sway[1] - drop + j, p.off[2] - kick * p.kick[0]],
-      yaw: p.yaw,
-      pitch: p.pitch + kick * p.kick[1],
+      yaw: show ? p.show[0] : 0,
+      pitch: (show ? p.show[1] : 0) + kick * p.kick[1],
       roll: p.roll,
       pivot: p.pivot,
       mirror,
@@ -3370,9 +3372,9 @@
     const mm = MODELS[id](ctx, rg, kick, t);
     return { m: mm.m, ahead: mm.ahead, s: rg.s };
   }
-  const restPose = (id, mirror, bounds) => Object.assign(pose(id, 0, 0, 0, mirror), { bounds });
-  /** The weapon at rest (no bob, no kick) on a W x H view, each part cropped to what it covers. */
-  function restParts(W, H, id, t) {
+  const restPose = (id, mirror, bounds, show) => Object.assign(pose(id, 0, 0, 0, mirror, show), { bounds });
+  /** The weapon at rest (no bob, no kick) on a W x H view, each part cropped to what it covers; show: turned as the Weapons tab shows it. */
+  function restParts(W, H, id, t, show) {
     const sides = id === "dual" ? [["L", true], ["R", false]] : [["", false]];
     // a margin past the screen's edges, so an arm that runs off it still fills the edge when the bob lifts it
     const pad = Math.ceil(((400 * Math.min(W, H)) / 420) * 0.06);
@@ -3383,7 +3385,7 @@
       const g = c.getContext("2d");
       g.translate(pad, pad);
       const b = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
-      const mm = drawPart(g, W, H, id, t, restPose(id, mirror, b), 0, { draw: 0, loaded: true, twang: 0, now: 0 });
+      const mm = drawPart(g, W, H, id, t, restPose(id, mirror, b, show), 0, { draw: 0, loaded: true, twang: 0, now: 0 });
       const x0 = Math.max(-pad, Math.floor(b.x0));
       const y0 = Math.max(-pad, Math.floor(b.y0));
       const w = Math.max(1, Math.min(W + pad, Math.ceil(b.x1)) - x0);
@@ -3392,6 +3394,11 @@
       c.width = c.height = 0; // let the full-size scratch go at once
       return { side, mirror, img, x: x0, y: y0, mm };
     });
+  }
+  /** Where the barrel of a weapon at rest points on a W x H view: its muzzle and a point further along the bore,
+      on screen, for each hand (the art validator checks that the line through them meets the crosshair). */
+  function muzzleLine(id, W, H) {
+    return restParts(W, H, id, NO_MODS).map((pt) => pt.mm).filter((mm) => mm && mm.m);
   }
   /** How far the walk bob moves a part on screen from its rest position (the model sways a few mm). */
   function bobShift(id, bob, mirror, W, H) {
@@ -3462,7 +3469,7 @@
     if (views[wid] && views[wid].key === key) return views[wid].img;
     const VW = 960;
     const VH = 600;
-    const parts = restParts(VW, VH, wid, t);
+    const parts = restParts(VW, VH, wid, t, true);
     const ux = Math.min(...parts.map((p) => p.x));
     const uy = Math.min(...parts.map((p) => p.y));
     const all = make(Math.max(...parts.map((p) => p.x + p.img.width)) - ux, Math.max(...parts.map((p) => p.y + p.img.height)) - uy, (g) => parts.forEach((p) => g.drawImage(p.img, p.x - ux, p.y - uy)));
@@ -3689,7 +3696,7 @@
   }
 
   ZSR.Draw3 = {
-    texture, walker, item, note, key, scrap, trap, gun, weaponView, weaponIcon, crosshair, shade, mix, rng, label, halftone, border, POSES,
+    texture, walker, item, note, key, scrap, trap, gun, weaponView, weaponIcon, crosshair, shade, mix, rng, label, halftone, border, POSES, muzzleLine,
     // registration API for other modules (decor, landmarks, yard builds)
     registerTexture, hasTexture, registerSprite, hasSprite, sprite, registerFloor, floorId, floorTexels, wallBase, dim,
     WALL_STYLES: Object.keys(WALL_STYLES), SHADES, SHADE_MAX, INK,

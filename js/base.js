@@ -102,6 +102,7 @@
         title,
         cost: costText,
         stage: typing.stage,
+        passes: typing.passes || 0,
         tutorialSeen: !!typing.tutorialSeen,
         upgrades: S.save.upgrades,
         onLessonDone: () => {
@@ -121,6 +122,28 @@
         },
       });
       return built;
+    },
+    /** A practice round at the workbench: nothing is built or spent; a good round counts toward the next stage. */
+    practice() {
+      const S = State();
+      const T = ZSR.Typing;
+      if (!T || !T.open) return;
+      Tip.hide();
+      const typing = S.save.typing;
+      T.open({
+        title: "Typing practice",
+        practice: true,
+        stage: typing.stage,
+        passes: typing.passes || 0,
+        tutorialSeen: !!typing.tutorialSeen,
+        upgrades: S.save.upgrades,
+        onLessonDone: () => {
+          S.save.typing.tutorialSeen = true;
+          S.commit();
+        },
+        onSuccess: (result) => S.typingDone(result),
+        onClose: () => this.render(),
+      });
     },
 
     render() {
@@ -171,6 +194,16 @@
       pack.addEventListener("click", () => ZSR.Backpack.open(() => this.render()));
       row.appendChild(back);
       row.appendChild(pack);
+      if (ZSR.Typing && ZSR.Typing.open) {
+        const ty = s.typing || {};
+        const need = ZSR.Typing.stageDef(ty.stage).need;
+        const prac = tip(el("button", "btn alt", "Typing practice"), "<strong>" + esc(ZSR.Typing.describe(ty.stage)) + "</strong><span class='t-line'>Good rounds: " + Math.min(need, ty.passes || 0) + " of " + need + ". A round with " + Math.round(ZSR.Typing.PASS * 100) + "% accuracy or better counts, from a build or from practice.</span><span class='t-line'>Practice is free: nothing is built or spent.</span>");
+        prac.addEventListener("click", () => {
+          ZSR.Audio.play("click");
+          this.practice();
+        });
+        row.appendChild(prac);
+      }
       body.appendChild(row);
     },
 

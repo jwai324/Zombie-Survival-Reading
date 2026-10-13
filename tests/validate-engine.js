@@ -563,11 +563,11 @@ function raster(w, h) {
     if (!ids.has(k)) ids.set(k, ids.size + 1);
     return ids.get(k);
   };
-  let m = [1, 1, 0, 0]; // scale x, scale y, then translate (enough for these drawings)
+  let m = [1, 0, 0, 1, 0, 0]; // the 2D transform a b c d e f: x' = a x + c y + e, y' = b x + d y + f
   const stack = [];
   let subs = [];
   let cur = null;
-  const at = (x, y) => [m[0] * x + m[2], m[1] * y + m[3]];
+  const at = (x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
   const each = (pts, pad, fn) => {
     const xs = pts.map((q) => q[0]);
     const ys = pts.map((q) => q[1]);
@@ -599,12 +599,23 @@ function raster(w, h) {
       if (s) [m, this.fillStyle, this.strokeStyle, this.lineWidth] = s;
     },
     translate(x, y) {
-      m[2] += m[0] * x;
-      m[3] += m[1] * y;
+      m[4] += m[0] * x + m[2] * y;
+      m[5] += m[1] * x + m[3] * y;
     },
     scale(x, y) {
       m[0] *= x;
-      m[1] *= y;
+      m[1] *= x;
+      m[2] *= y;
+      m[3] *= y;
+    },
+    rotate(t) {
+      const [a, b, c, d] = m;
+      const co = Math.cos(t);
+      const si = Math.sin(t);
+      m[0] = a * co + c * si;
+      m[1] = b * co + d * si;
+      m[2] = c * co - a * si;
+      m[3] = d * co - b * si;
     },
     beginPath() {
       subs = [];
@@ -653,7 +664,7 @@ function raster(w, h) {
       each([].concat(...all), 0, inside);
     },
     stroke() {
-      const hw = (this.lineWidth * Math.abs(m[0])) / 2;
+      const hw = (this.lineWidth * Math.sqrt(Math.abs(m[0] * m[3] - m[1] * m[2]))) / 2;
       const col = id(this.strokeStyle);
       subs.forEach((s) => {
         const n = s.closed ? s.length : s.length - 1;
@@ -862,11 +873,20 @@ try {
       I.player.x = lot.x + dx * 1.2;
       I.player.y = lot.y + dy * 1.2;
       I.player.a = Math.atan2(-dy, -dx);
+      // a lot's sign stays shut until E opens it, then reads; E again (or walking off) shuts it
+      I.readLot = null;
+      const shut = I.nearReadable();
+      if (shut && shut.lot) err(`yard (rooms at ${lv}): the ${lot.room} plot's sign opens by itself; it should wait for E`);
+      const f = I.facing();
+      if (!f || f.kind !== "lot" || f.obj !== lot) return err(`yard (rooms at ${lv}): E in front of the ${lot.room} plot's sign does not reach it`);
+      I.yardInteract(f);
       const t = I.nearReadable();
       if (!t || !t.lot || t.lot.room !== lot.room) return err(`yard (rooms at ${lv}): the ${lot.room} plot's sign cannot be read from in front of it`);
       I.panelKey = null;
       I.updatePanel();
       if (!String(I.hud.read.innerHTML || "").includes(W.BASE_ROOMS[lot.room].name)) err(`yard (rooms at ${lv}): the panel does not name the ${lot.room} plot`);
+      I.yardInteract(f);
+      if (I.nearReadable()) err(`yard (rooms at ${lv}): E again does not put the ${lot.room} plot's sign away`);
     });
   });
   Object.keys(W.BASE_ROOMS).forEach((k) => (S.save.rooms[k] = 0));

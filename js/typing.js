@@ -1,7 +1,12 @@
 /* The workbench typing game. Every build action goes through a short, timed
    typing round; nothing is spent until the round is finished (the caller
    spends in onSuccess). The first time, a lesson explains touch-typing
-   finger placement. Each finished round advances the player's stage.
+   finger placement. Every round starts after a five-second countdown.
+   The stages go slowly: the home row one pair of keys at a time, then its
+   runs and words, a full home-row check, the top row a pair at a time, the
+   bottom row, and only then words, phrases and sentences. A stage moves up
+   after a few good rounds (90% accuracy or better); a sloppy round still
+   builds, it just does not count. A practice round (Base) counts too.
    Text pools come from ZSR.text().typing when that exists; built-in
    fallbacks ship here so the bench works without content. */
 (function (root) {
@@ -26,26 +31,71 @@
   const SHIFTED = { "?": "/", "!": "1", ":": ";", '"': "'", "<": ",", ">": ".", "(": "9", ")": "0", _: "-" };
   const ROWS = ["qwertyuiop", "asdfghjkl;", "zxcvbnm,./"];
   const HOME = "asdfjkl;";
-  const RUNS = ["fjf", "dkd", "sls", "a;a", "jfj", "kdk", "lsl", ";a;", "fdf", "jkj", "sas", "l;l"];
+  const RUNS = ["fjf", "dkd", "sls", "a;a", "jfj", "kdk", "lsl", ";a;", "fdf", "jkj", "sas", "l;l", "fdsa", "jkl;", "asdf", ";lkj", "dfd", "kjk"];
+  // words typed with the home row alone, then with G and H too, then with the top row as well
+  const HOME_WORDS = ["as", "ask", "asks", "add", "adds", "all", "alas", "dad", "dads", "fad", "fads", "fall", "falls", "flask", "flasks", "lad", "lads", "lass", "sad", "salad", "salads", "sass", "alfalfa"];
+  const GH_WORDS = ["has", "had", "hall", "halls", "half", "glad", "gas", "flash", "dash", "gash", "lash", "shall", "hash", "sash", "slash", "flag", "flags", "glass", "lag", "lags", "sag", "gall", "ash", "gals"];
+  const TOP_WORDS = ["road", "yard", "read", "door", "food", "hold", "wall", "tire", "trap", "well", "key", "fuel", "radio", "walker", "fire", "safe", "rest", "path", "gate", "tool", "shed", "fight", "light", "quiet", "stop", "post", "tree", "dirt", "water", "power", "ready", "keep", "hurt", "out", "wait", "fort", "rope", "sheet", "storage", "outside"];
+  const ALL_HOME = "asdfghjkl;";
+  const TOP = "qwertyuiop";
 
+  /* The stages, slowest at the start. keys: the keys this stage brings in (most of the targets); review:
+     keys already learned, mixed in; need: good rounds (PASS accuracy or better) to move up; rate: keys a
+     second the clock allows once a round is longer than `seconds` (a beginner's pace). */
   const STAGES = [
-    { name: "Home row", kind: "keys", count: 10, seconds: 60, pool: "asdfjkl;", tip: "Rest your fingers on A S D F and J K L ;. Press the key shown, then come back home." },
-    { name: "Home row runs", kind: "keys", count: 12, seconds: 60, runs: true, tip: "Short runs along the home row: one finger at a time, left hand and right hand." },
-    { name: "Reach up", kind: "keys", count: 10, seconds: 60, pool: "qwertyuiop", tip: "Reach up one row with the finger that owns the key, press, and come straight back home." },
-    { name: "Reach down", kind: "keys", count: 10, seconds: 60, pool: "zxcvbnm,.", tip: "Reach down one row. The bottom row is the hardest. Go slow." },
-    { name: "Short words", kind: "words", count: 6, seconds: 60, min: 3, max: 4, tip: "Whole words now. Read the word, then type it one letter at a time." },
-    { name: "Longer words", kind: "words", count: 6, seconds: 60, min: 5, tip: "Longer words. Keep your eyes on the screen, not on your hands." },
-    { name: "Phrases", kind: "phrases", count: 4, seconds: 70, tip: "Phrases: your thumb taps the space bar between words." },
-    { name: "Sentences", kind: "sentences", count: 2, seconds: 80, tip: "Sentences: hold Shift with the other hand's pinky for a capital, and finish with the period key." },
-    { name: "Sentences, faster", kind: "sentences", count: 3, seconds: 90, tip: "Three sentences, a little less time each stage. Steady beats fast." },
+    { name: "F and J", kind: "keys", count: 15, seconds: 60, keys: "fj", review: "", need: 3, tip: "Find the little bumps on F and J. Left pointer finger on F, right pointer finger on J. Press the key shown, then rest." },
+    { name: "D and K", kind: "keys", count: 15, seconds: 60, keys: "dk", review: "fj", need: 3, tip: "Middle fingers now: left middle on D, right middle on K. Pointers stay on F and J." },
+    { name: "S and L", kind: "keys", count: 15, seconds: 60, keys: "sl", review: "fjdk", need: 3, tip: "Ring fingers: left ring on S, right ring on L. Every finger stays on its home key." },
+    { name: "A and ;", kind: "keys", count: 15, seconds: 60, keys: "a;", review: "fjdksl", need: 3, tip: "Pinkies: left pinky on A, right pinky on the ; key. That is all eight home keys." },
+    { name: "The home row", kind: "keys", count: 20, seconds: 60, keys: HOME, review: "", need: 4, tip: "All eight home keys, mixed up. Do not look down: the bumps on F and J tell you where you are." },
+    { name: "Home row runs", kind: "keys", count: 18, seconds: 60, runs: true, need: 3, tip: "Short runs along the home row, one finger after another. Fingers stay home the whole time." },
+    { name: "Home row words", kind: "words", count: 8, seconds: 60, list: "home", rate: 0.6, need: 4, tip: "Real words from the home row alone. Read the word, then type it one letter at a time." },
+    { name: "G and H", kind: "keys", count: 15, seconds: 60, keys: "gh", review: HOME, need: 3, tip: "Pointer fingers slide one key in: left pointer to G, right pointer to H. Then back to F and J." },
+    { name: "Home row words with G and H", kind: "words", count: 8, seconds: 60, list: "gh", rate: 0.6, need: 3, tip: "Words with G and H in them. Slide in, press, slide back home." },
+    { name: "Home row check", kind: "keys", count: 25, seconds: 60, keys: ALL_HOME, review: "", need: 4, tip: "Prove the home row before the other rows: every home key, mixed up, no looking down." },
+    { name: "E and I", kind: "keys", count: 15, seconds: 60, keys: "ei", review: ALL_HOME, need: 3, tip: "The top row. Middle fingers reach up: left middle to E, right middle to I. Then straight back home." },
+    { name: "R and U", kind: "keys", count: 15, seconds: 60, keys: "ru", review: ALL_HOME + "ei", need: 3, tip: "Pointer fingers reach up: left pointer to R, right pointer to U. Back home after each one." },
+    { name: "T and Y", kind: "keys", count: 15, seconds: 60, keys: "ty", review: ALL_HOME + "eiru", need: 3, tip: "Pointer fingers reach up and in: left pointer to T, right pointer to Y." },
+    { name: "W and O", kind: "keys", count: 15, seconds: 60, keys: "wo", review: ALL_HOME + "eiruty", need: 3, tip: "Ring fingers reach up: left ring to W, right ring to O." },
+    { name: "Q and P", kind: "keys", count: 15, seconds: 60, keys: "qp", review: ALL_HOME + "eirutywo", need: 3, tip: "Pinkies reach up: left pinky to Q, right pinky to P. Go slow: pinkies are the weakest fingers." },
+    { name: "Top row check", kind: "keys", count: 20, seconds: 60, keys: TOP, review: ALL_HOME, need: 3, tip: "The whole top row, mixed with the home row. Reach up, press, come back home." },
+    { name: "Home and top row words", kind: "words", count: 8, seconds: 60, list: "top", rate: 0.7, need: 3, tip: "Words from the two rows you know. Your eyes stay on the screen." },
+    { name: "V and M", kind: "keys", count: 15, seconds: 60, keys: "vm", review: ALL_HOME, need: 3, tip: "The bottom row. Pointer fingers reach down: left pointer to V, right pointer to M." },
+    { name: "C and comma", kind: "keys", count: 15, seconds: 60, keys: "c,", review: ALL_HOME + "vm", need: 3, tip: "Middle fingers reach down: left middle to C, right middle to the comma key." },
+    { name: "X and period", kind: "keys", count: 15, seconds: 60, keys: "x.", review: ALL_HOME + "vmc,", need: 3, tip: "Ring fingers reach down: left ring to X, right ring to the period key." },
+    { name: "B and N", kind: "keys", count: 15, seconds: 60, keys: "bn", review: ALL_HOME + "vmc,x.", need: 3, tip: "Pointer fingers reach down and in: left pointer to B, right pointer to N." },
+    { name: "Z", kind: "keys", count: 15, seconds: 60, keys: "z", review: ALL_HOME + "vmc,x.bn", need: 3, tip: "Left pinky reaches down to Z. The bottom row is the hardest. Go slow." },
+    { name: "All the rows", kind: "keys", count: 25, seconds: 60, keys: TOP + "zxcvbnm,.", review: ALL_HOME, need: 3, tip: "Every row, mixed up. Each finger reaches from its home key and comes straight back." },
+    { name: "Short words", kind: "words", count: 8, seconds: 60, min: 3, max: 4, rate: 0.8, need: 3, tip: "Whole words now. Read the word, then type it one letter at a time." },
+    { name: "Longer words", kind: "words", count: 8, seconds: 60, min: 5, rate: 0.9, need: 3, tip: "Longer words. Keep your eyes on the screen, not on your hands." },
+    { name: "Phrases", kind: "phrases", count: 4, seconds: 70, rate: 0.9, need: 3, tip: "Phrases: your thumb taps the space bar between words." },
+    { name: "Sentences", kind: "sentences", count: 2, seconds: 80, rate: 1.0, need: 3, tip: "Sentences: hold Shift with the other hand's pinky for a capital, and finish with the period key." },
+    { name: "Sentences, faster", kind: "sentences", count: 3, seconds: 90, rate: 1.2, need: 3, tip: "Three sentences. Steady beats fast." },
   ];
+  const PASS = 0.9; // accuracy for a round to count toward the next stage
+  const COUNTDOWN = 5; // seconds on the screen before a round starts
+  const HOME_ROW = STAGES.findIndex((d) => d.name === "The home row"); // all eight home keys
+  const stageIndex = (n) => Math.max(0, Math.min(STAGES.length - 1, n | 0));
   function stageDef(n) {
-    const i = Math.max(0, n | 0);
-    const d = STAGES[Math.min(i, STAGES.length - 1)];
-    return i < STAGES.length - 1 ? d : Object.assign({}, d, { seconds: Math.max(60, 90 - (i - 8) * 4) });
+    return STAGES[stageIndex(n)];
   }
   function describe(n) {
-    return "Stage " + Math.max(0, n | 0) + ": " + stageDef(n).name;
+    return "Stage " + (stageIndex(n) + 1) + ": " + stageDef(n).name;
+  }
+  /** Where a round leaves the player: a good round (PASS accuracy or better) counts toward the stage, and
+      `need` of them move it up. The last stage repeats. */
+  function progress(stage, passes, accuracy) {
+    const i = stageIndex(stage);
+    const need = STAGES[i].need;
+    const good = accuracy >= PASS;
+    const p = Math.min(need, Math.max(0, passes | 0) + (good ? 1 : 0));
+    if (good && p >= need && i < STAGES.length - 1) return { stage: i + 1, passes: 0, good, up: true, need: STAGES[i + 1].need };
+    return { stage: i, passes: p, good, up: false, need };
+  }
+  /** A save from before these stages (9 of them, one round each): anyone past the first stage goes back to
+      the eight-key home row stage, so the home row is proven before the other rows. */
+  function migrate(oldStage) {
+    return (oldStage | 0) >= 1 ? HOME_ROW : 0;
   }
 
   function pools() {
@@ -58,6 +108,18 @@
     }
     const pick = (k, min) => (Array.isArray(ty[k]) && ty[k].length >= (min || 1) ? ty[k] : FALLBACK[k]);
     return { fingers: pick("fingers"), words: pick("words", 8), phrases: pick("phrases", 4), sentences: pick("sentences", 3) };
+  }
+  /** n single keys: every new key twice (once when there are too many to fit twice), the rest about two in
+      three from the new keys and one in three from the keys already learned, shuffled so no key comes three
+      times running. */
+  function keyDrill(fresh, review, n) {
+    const pick = (pool) => pool[Math.floor(Math.random() * pool.length)];
+    const out = (fresh + fresh).split("").slice(0, n);
+    while (out.length < n) out.push(pick(review && Math.random() < 0.35 ? review : fresh));
+    const triple = (a) => a.some((k, i) => i >= 2 && k === a[i - 1] && k === a[i - 2]);
+    let best = shuffle(out);
+    for (let tries = 0; tries < 40 && triple(best); tries++) best = shuffle(out);
+    return best;
   }
   function shuffle(a) {
     const b = a.slice();
@@ -78,7 +140,15 @@
   function targets(def) {
     const P = pools();
     const clean = (arr) => arr.map((s) => String(s).trim()).filter(Boolean);
-    if (def.kind === "keys") return def.runs ? take(RUNS, Math.ceil(def.count / 3)).slice(0, Math.ceil(def.count / 3)) : take(def.pool.split(""), def.count);
+    if (def.kind === "keys") return def.runs ? take(RUNS, Math.ceil(def.count / 3)).slice(0, Math.ceil(def.count / 3)) : keyDrill(def.keys, def.review, def.count);
+    if (def.kind === "words" && def.list) {
+      if (def.list === "home") return take(HOME_WORDS, def.count);
+      if (def.list === "gh") return take(GH_WORDS.concat(HOME_WORDS.slice(0, 6)), def.count); // mostly G and H words
+      // home and top rows: the level's own words that fit, topped up with the built-in ones
+      const ok = (w) => /^[a-z]+$/.test(w) && w.length <= 7 && w.split("").every((c) => (ALL_HOME + TOP).indexOf(c) >= 0);
+      const fit = clean(P.words).filter(ok);
+      return take(fit.concat(TOP_WORDS.filter((w) => fit.indexOf(w) < 0)), def.count);
+    }
     if (def.kind === "words") {
       // The length rule wins over the level's pool: top up from the built-in words
       // (23 short, 17 long) when the content lacks words of that length.
@@ -175,7 +245,7 @@
   }
 
   /* ---------- The overlay ---------- */
-  const S = { built: false, open: false, pending: null, view: null, opts: {}, items: [], idx: 0, pos: 0, correct: 0, wrong: 0, left: 0, elapsed: 0, paused: false, succeeded: false, timer: null, last: 0, guideFrom: null, capsWarn: false, flashT: null, returnFocus: null };
+  const S = { built: false, open: false, pending: null, view: null, opts: {}, items: [], idx: 0, pos: 0, correct: 0, wrong: 0, left: 0, elapsed: 0, count: 0, paused: false, succeeded: false, timer: null, last: 0, guideFrom: null, capsWarn: false, flashT: null, returnFocus: null };
   const D = {}; // DOM refs
 
   function build() {
@@ -253,6 +323,14 @@
     prompt.appendChild(D.key);
     prompt.appendChild(D.run);
     prompt.appendChild(D.text);
+    // the countdown before every round covers the prompt: five seconds to put the fingers home
+    D.count = el("div", "bench-count hidden");
+    D.count.id = "bench-count";
+    D.count.appendChild(el("span", "l", "Get ready"));
+    D.countN = el("span", "n", "5");
+    D.count.appendChild(D.countN);
+    D.count.appendChild(el("span", "l", "Fingers on the home row"));
+    prompt.appendChild(D.count);
     round.appendChild(prompt);
     D.finger = el("div", "bench-finger", "");
     D.finger.id = "bench-finger";
@@ -288,11 +366,14 @@
     // done
     const done = el("div", "bench-view bench-card ok hidden");
     done.id = "bench-done";
-    done.appendChild(el("h3", null, "Built!"));
+    D.doneTitle = el("h3", null, "Built!");
+    done.appendChild(D.doneTitle);
     D.doneStats = el("div", "stats");
     done.appendChild(D.doneStats);
     D.next = el("p", "next", "");
     done.appendChild(D.next);
+    D.nextWhy = el("p", "next-why", "");
+    done.appendChild(D.nextWhy);
     const drow = el("div", "btn-row");
     const dbtn = button("big go", "Done", () => leave(true));
     dbtn.id = "bench-done-btn";
@@ -343,17 +424,18 @@
     S.pos = 0;
     S.correct = 0;
     S.wrong = 0;
-    // the clock follows what was drawn: a beginner's pace (0.9 keys a second) that tightens slowly
-    // to about 19 words a minute, so long sentences at high reading levels never wall a player off
+    // the clock follows what was drawn: at least the stage's seconds, more for a long draw at the stage's
+    // pace (a beginner's 0.6 keys a second, up to about 14 words a minute for the last sentences), so
+    // long sentences at high reading levels never wall a player off
     const chars = S.items.reduce((a, s) => a + s.length, 0);
-    const rate = Math.min(1.6, 0.9 + 0.07 * Math.max(0, (S.opts.stage | 0) - 4));
-    const budget = def.kind === "keys" ? def.seconds : Math.max(def.seconds, Math.ceil(chars / rate));
+    const budget = Math.max(def.seconds, Math.ceil(chars / (def.rate || 0.6)));
     S.left = S.opts._seconds > 0 ? S.opts._seconds : budget;
     S.total = S.left;
     S.elapsed = 0;
     S.paused = false;
     S.guideFrom = null;
     S.capsWarn = false;
+    S.count = S.opts._countdown != null ? S.opts._countdown : COUNTDOWN;
     S.last = performance.now();
     D.tip.textContent = def.tip || "";
     D.views.round.classList.toggle("mode-keys", def.kind === "keys");
@@ -363,7 +445,22 @@
     show("round");
     renderTarget();
     renderTimer();
+    D.countN.textContent = ""; // every number of a fresh countdown ticks
+    renderCount();
     if (!S.timer) S.timer = setInterval(tick, 50);
+  }
+  /** The countdown over the prompt; while it runs the keyboard shows the home keys, not the first target. */
+  function renderCount() {
+    const on = S.count > 0;
+    D.count.classList.toggle("hidden", !on);
+    if (!on) return;
+    const n = String(Math.ceil(S.count));
+    if (D.countN.textContent !== n) {
+      D.countN.textContent = n;
+      ZSR.Audio && ZSR.Audio.play("click");
+    }
+    D.finger.innerHTML = '<span class="muted">Ready: </span>fingers on A S D F and J K L ;';
+    highlight(D.kbd, null, true);
   }
   function renderTarget() {
     const item = current();
@@ -401,6 +498,13 @@
     const dt = ((now - S.last) / 1000) * (Typing._timeScale || 1);
     S.last = now;
     if (S.paused || document.hidden || !S.focused) return;
+    if (S.count > 0) {
+      // the round's clock waits for the countdown
+      S.count = Math.max(0, S.count - dt);
+      renderCount();
+      if (S.count === 0) renderTarget();
+      return;
+    }
     S.left -= dt;
     S.elapsed += dt;
     renderTimer();
@@ -466,7 +570,7 @@
     if (typeof k !== "string" || k.length !== 1) return; // Shift, arrows and friends: never a mistake
     e.preventDefault(); // Space would scroll the panel; "/" opens quick find in some browsers
     e.stopPropagation();
-    if (e.repeat) return;
+    if (e.repeat || S.count > 0) return; // keys during the countdown are never mistakes
     const item = current();
     const want = item[S.pos];
     if (!matches(k, want)) {
@@ -490,12 +594,27 @@
     renderTarget();
   }
   function finish() {
-    const result = { stage: S.opts.stage | 0, seconds: Math.round(S.elapsed * 10) / 10, accuracy: Math.round(accuracy() * 1000) / 1000, chars: S.correct };
+    const result = { stage: stageIndex(S.opts.stage), seconds: Math.round(S.elapsed * 10) / 10, accuracy: Math.round(accuracy() * 1000) / 1000, chars: S.correct };
+    const pr = progress(result.stage, S.opts.passes, result.accuracy);
+    result.progress = pr;
     S.result = result;
     show("done");
+    D.doneTitle.textContent = S.opts.practice ? "Good practice!" : "Built!";
     D.doneStats.innerHTML = "";
     [[result.seconds + "s", "time"], [Math.round(result.accuracy * 100) + "%", "accuracy"], [S.wrong, "mistakes"], [result.chars, "keys"]].forEach(([v, l]) => D.doneStats.appendChild(el("div", "stat", '<span class="v">' + esc(v) + '</span><span class="l">' + l + "</span>")));
-    D.next.textContent = "Next: " + describe(result.stage + 1);
+    D.stage.textContent = describe(pr.stage) + " · " + pr.passes + "/" + pr.need;
+    const left = pr.need - pr.passes;
+    const more = left + " more good round" + (left === 1 ? "" : "s");
+    if (pr.up) {
+      D.next.textContent = "Stage up! Next: " + describe(pr.stage);
+      D.nextWhy.textContent = "That stage is learned. The next one needs " + pr.need + " good rounds (" + Math.round(PASS * 100) + "% or better).";
+    } else if (pr.good) {
+      D.next.textContent = "Good round: " + pr.passes + " of " + pr.need + " for " + describe(pr.stage);
+      D.nextWhy.textContent = left > 0 ? more + " (" + Math.round(PASS * 100) + "% or better) and you move up." : "This is the last stage. Keep it steady.";
+    } else {
+      D.next.textContent = "Under " + Math.round(PASS * 100) + "%: this round does not count";
+      D.nextWhy.textContent = "Slow down and keep your fingers home. " + describe(pr.stage) + " still needs " + more + ".";
+    }
     if (!S.succeeded) {
       S.succeeded = true;
       if (typeof S.opts.onSuccess === "function") S.opts.onSuccess(result);
@@ -542,8 +661,14 @@
 
   const Typing = {
     STAGES,
+    PASS,
+    COUNTDOWN,
     stageDef,
     describe,
+    progress,
+    migrate,
+    drill: (def) => keyDrill(def.keys, def.review, def.count), // the validator draws rounds with these
+    wordList: (name) => (name === "home" ? HOME_WORDS : name === "gh" ? GH_WORDS.concat(HOME_WORDS) : TOP_WORDS),
     _timeScale: 1,
     init() {
       if (S.built) return;
@@ -570,8 +695,10 @@
       S.capsWarn = false;
       S.focused = typeof document.hasFocus === "function" ? document.hasFocus() : true;
       D.title.textContent = S.opts.title || "Build";
-      D.stage.textContent = describe(S.opts.stage);
-      D.cost.innerHTML = S.opts.cost ? "<strong>" + esc(S.opts.cost) + "</strong> spent when you finish." : "Nothing is spent until you finish.";
+      const need = stageDef(S.opts.stage).need;
+      D.stage.textContent = describe(S.opts.stage) + " · " + Math.min(need, S.opts.passes | 0) + "/" + need;
+      D.stage.title = "Good rounds at this stage (" + Math.round(PASS * 100) + "% accuracy or better). " + need + " move you up.";
+      D.cost.innerHTML = S.opts.practice ? "Practice: nothing is built or spent, and a good round counts toward the next stage." : S.opts.cost ? "<strong>" + esc(S.opts.cost) + "</strong> spent when you finish." : "Nothing is spent until you finish.";
       D.lessonText.innerHTML = pools().fingers.map((p) => "<p>" + esc(p) + "</p>").join("");
       D.btnStart.textContent = "Start";
       D.sec.classList.remove("hidden");
