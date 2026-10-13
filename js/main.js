@@ -33,14 +33,29 @@
     $("game").classList.toggle("hidden", which !== "road");
     $("fp").classList.toggle("hidden", which !== "fp");
   }
-  function confirm(text, onYes) {
+  /** Yes/No dialog. opts: caption, yes/no labels, yesDisabled, onNo, onCancel (Esc; falls back to onNo). */
+  let confirmCancel = null;
+  function confirm(text, onYes, opts) {
+    const o = opts || {};
+    const close = () => {
+      confirmCancel = null;
+      $("screen-confirm").classList.add("hidden");
+    };
+    $("confirm-caption").textContent = o.caption || "Sure?";
     $("confirm-text").textContent = text;
+    $("btn-confirm-yes").textContent = o.yes || "Yes";
+    $("btn-confirm-no").textContent = o.no || "No";
+    $("btn-confirm-yes").disabled = !!o.yesDisabled;
     $("screen-confirm").classList.remove("hidden");
     $("btn-confirm-yes").onclick = () => {
-      $("screen-confirm").classList.add("hidden");
+      close();
       onYes();
     };
-    $("btn-confirm-no").onclick = () => $("screen-confirm").classList.add("hidden");
+    $("btn-confirm-no").onclick = () => {
+      close();
+      if (o.onNo) o.onNo();
+    };
+    confirmCancel = o.onCancel || o.onNo || null;
   }
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
@@ -209,9 +224,35 @@
     },
     onVan() {
       syncYard();
-      Interior.leave();
-      State.startTrip();
-      openMap("base");
+      const depart = () => {
+        Interior.leave();
+        State.startTrip();
+        openMap("base");
+      };
+      const max = State.vanMaxHp();
+      if (State.save.vanHp >= max) return depart();
+      const hp = Math.floor(State.save.vanHp);
+      // the van is hurt: offer a full repair before the trip starts
+      Interior.pause();
+      const cost = State.repairCost();
+      const scrap = State.save.scrap;
+      const short = scrap < cost;
+      const price = cost ? cost + " scrap" : "free";
+      confirm(
+        "The van has " + hp + " of " + max + " health. " + (short ? "A full fix costs " + cost + " scrap. You have " + scrap + "." : "Fix it before you go? Cost: " + price + ". You have " + scrap + " scrap."),
+        () => {
+          if (State.repairVan()) Audio.play("buy");
+          depart();
+        },
+        {
+          caption: "Fix the van?",
+          yes: short ? "Not enough scrap" : "Fix it (" + price + ")",
+          yesDisabled: short,
+          no: "Go as is",
+          onNo: depart,
+          onCancel: () => Interior.resume(), // Esc: stay in the yard
+        }
+      );
     },
     onWaveCleared() {
       syncYard();
@@ -329,7 +370,10 @@
   }
   function onPauseKey() {
     if (!$("screen-confirm").classList.contains("hidden")) {
-      $("screen-confirm").classList.add("hidden"); // Esc answers "No"
+      $("screen-confirm").classList.add("hidden"); // Esc answers "No", or cancels when the dialog says how
+      const cancel = confirmCancel;
+      confirmCancel = null;
+      if (cancel) cancel();
       return;
     }
     if (!$("screen-pause").classList.contains("hidden")) resumeActive();
