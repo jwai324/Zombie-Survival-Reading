@@ -9,13 +9,13 @@
     howto: [
       "Your home base is a boarded-up cabin. It sits at the south end of town. You have one van, and it still runs. A fence runs around the yard. At base you stand in the yard, first person. The cabin is behind you. The van is in the driveway. Time runs in phases. In a calm phase, nothing is at the fence. Go inside to build, or leave in the van. Then a wave comes. Sometimes a few walkers. Sometimes a lot. Sometimes none at all. Walkers claw through the fence. In a wave, the cabin door is locked. So is the van. Hold the yard until the wave ends.",
       "The fence does not fix itself. Every hole stays until you fix it. Stand at the hole and press E. Or use the cabin menu. Each hole costs 1 scrap. You can brace a cracked part for 1 scrap. Every room you build shows up in the yard. It looks bigger and stronger at each level. The Walls room changes the fence itself. Build Walls up. That rebuilds the whole fence, tougher than before. Later, you can craft traps at the workbench. Set them in the yard or along the fence line. A walker that steps on one gets hurt. A Spike trap needs Walls 2. A Blast trap needs Walls 3. Later you can dig a Well for water. Build a Farm for more food. Build a Lab to make Medical kits.",
-      "Pick a place on the city map. Only some places are known at first. Notes and the Radio room show you more. The map shows your way there. It lists the way in words, too. Plan your trip on the map. The road will not show you the way. Walkers are on the road. Far places and bad places have more walkers. More days means more walkers, too. Before the road splits, you see a sign. It says where each lane goes. Get in that lane before the white stop line. Change lanes with A and D or the arrow keys. The side buttons work too. The left lane always goes straight. It goes past side streets and parking lots. Side streets are dead ends. At the end, turn into the right lot. Did you take a wrong turn? Did you miss the lot? Then you go back to where you started. You keep your damage, your scrap, and your kills. A small map shows where you are. A flag marks where you are going.",
+      "Pick a place on the city map. Only some places are known at first. Notes and the Radio room show you more. The map shows your way there. It lists the way in words, too. Plan your trip on the map. The road will not show you the way. Walkers are on the road. Far places and bad places have more walkers. More days means more walkers, too. Before the road splits, you see a sign. It says where each lane goes. You drive in the left lane. It always goes straight past side streets and parking lots. To turn right, move into the right lane. To turn left, use the turn lane. It opens on the far left. Where roads meet, there is one lane for each road. Each lane has an arrow painted on it. Get in your lane before the white stop line. Change lanes with A and D or the arrow keys. The side buttons work too. Side streets are dead ends. At the end, turn into the lot you picked. Did you take a wrong turn? Did you miss the lot? Then you go back to where you started. You keep your damage, your scrap, and your kills. A small map shows where you are. A flag marks where you are going.",
       "At the door, you read a note first. It says how many walkers wait inside. It says where the items are. Then you go in. The buildings are big, with many rooms. Each corner has a landmark. It might be a fish tank or a fire truck. Notes name the landmarks, so steer by them. Press M. It shows a map of where you have been. Every doorway inside is a real door. Press E to open it. Press E again to close it. Walkers cannot open doors. Walkers come for you. Shoot them, or move around them. Grab items from shelves and floors. Scrap piles give scrap. Shelf items come back in 3 days. Caches never do. Find the note inside. It tells you how to open the locked cache room. The best items are in there. It also tells you which place to try next. Every note goes in your backpack. Still parked at a place? Open the map. You can go back in. It is just as you left it. Driving home resets it.",
       "The garage has a workbench. Build rooms there. Rooms cost items and scrap. Upgrade the van and the gun there. Craft traps there, too. Each one is a short typing round. The words to type show on the screen. A timer runs. Run out of time, and you just try again. Nothing is spent until you finish. The first time, the bench teaches you the home row. That is where your fingers rest. Every finished round moves you up a stage. Single home-row keys come first. Then the other rows. Then words, phrases, and sentences. Repairs need no typing. The garage fixes the van back to full health. You pay 1 scrap for every 3 health missing. It costs at least 5 scrap. Build the Garage room, and repairs are free.",
       "Hurt? Use a Medical kit. One kit heals you back to full health. The backpack carries up to 3 kits. Pack them from storage at the cabin. Inside a building, kits in the van's cargo work too. Drive home with your cargo. At base, cargo goes into storage. You eat one food. The day count goes up. Each player has their own labeled save. There are up to 4 saves. Pick yours on the title screen. The game saves only at base. It saves when you arrive. It saves after every build. It saves after every wave. If the van is wrecked, you load that save. If you go down inside, you load it. If you go down in the yard, you load it. Everything since that save is gone. So plan each trip.",
     ],
     controls: [
-      "Road: Aim with the mouse and hold to fire. A and D change lanes. So do the arrow keys and the side buttons. Read the sign. Be in your lane before the white line.",
+      "Road: Aim with the mouse and hold to fire. A and D change lanes. So do the arrow keys and the side buttons. Your left lane goes straight past side streets and lots. To turn right, use the right lane. To turn left, use the turn lane. It is on the far left. Where roads meet, read the sign. Be in your lane before the white line.",
       "Inside and in the yard: W A S D move. The mouse looks. Click to fire. Shift runs. B opens the backpack. In a building, M opens the building map. P or Esc pauses.",
       "E does it all: E reads notes. E opens and closes doors. E opens a cache once you read its note. E leaves a building and enters the cabin. E starts the van. E also fixes a fence hole for 1 scrap.",
       "Traps in the yard: T sets a spike trap. R sets a blast trap. Each goes on the ground in front of you. It can go just past the fence, too.",
@@ -193,7 +193,7 @@
         "Pick your save on the title screen.",
         "Stay quiet in the dark hall.",
         "Read the sign before the turn.",
-        "Get in the left lane.",
+        "Use the turn lane to go left.",
         "Press M to see the map.",
         "The food is by the fish tank.",
       ],
@@ -209,7 +209,7 @@
       noThrough: "No through road",
       closed: "Road closed",
       lot: "Parking lot",
-      hint: "Read the sign. A and D change lanes. So do the arrows and side buttons.",
+      hint: "Read the sign. It says where each lane goes. A and D change lanes. So do the arrows and side buttons.",
       wrongWay: "Wrong way! That road goes to {place}.",
       wrongStreet: "Wrong way! That is {street}.",
       wrongSide: "Wrong way! {street} does not go through.",
@@ -221,8 +221,8 @@
       routeTake: "Take {street} to {place}.",
       routeTakeStreet: "Take {street}.",
       routeStraight: "Stay in the left lane past side streets and lots.",
-      routeLeft: "{dest} is on the left. Get in the left lane.",
-      routeRight: "{dest} is on the right. Get in the right lane.",
+      routeLeft: "{dest} is on the left. Move into the turn lane on the far left.",
+      routeRight: "{dest} is on the right. Move into the right lane.",
     },
     locations: {
       gasngo: {
@@ -247,7 +247,7 @@
         notes: {
           "grocery-counter": {
             title: "Hana's Cooler Trick",
-            text: "I am Hana, the store manager. The cooler latch is stuck, not broken. Lift the latch while you pull. It opens every time. So you can open the cooler now. Inside there is food and one medical kit.\n\nThe cooler is the next door right of this office. It is on the way to the forklift.\n\nTry Mile 9 Pharmacy next. It is west of here. Last week it still had medicine on the shelves.",
+            text: "I am Hana, the store manager. The cooler latch is stuck, not broken. Lift the latch while you pull. It opens every time. So you can open the cooler now. Inside there is food and one medical kit.\n\nLeave this office. Walk down the hall toward the forklift. The cooler is the next door.\n\nTry Mile 9 Pharmacy next. It is west of here. Last week it still had medicine on the shelves.",
           },
         },
       },
@@ -325,7 +325,7 @@
         notes: {
           "police-desk": {
             title: "The Armory Combination",
-            text: "Sergeant Vega again. The armory combination is 19-4-33. Spin it slow. Left, right, left. You can open the armory now. There are gun parts inside. There is an armor plate, too.\n\nGo to the back hall. The armory is at its right end. That end is toward the police bike.\n\nThe Public Library is north of downtown. It has books in its archive room. The librarian stayed. Her name is Mrs. Greer.",
+            text: "Sergeant Vega again. The armory combination is 19-4-33. Spin it slow. Left, right, left. You can open the armory now. There are gun parts inside. There is an armor plate, too.\n\nGo to the back hall. Head toward the police bike. The armory is the last door before the garage.\n\nThe Public Library is north of downtown. It has books in its archive room. The librarian stayed. Her name is Mrs. Greer.",
           },
         },
       },
@@ -338,7 +338,7 @@
         notes: {
           "school-classroom": {
             title: "Ms. Adler's Desk",
-            text: "I am Ms. Adler. I taught in this room. The library closet key is in my desk. Open the top drawer. You can open the closet now. It holds books and a folder of city maps. Keep them dry.\n\nThe library is next to the drum set room. The closet is in its back right corner.\n\nNorthgate Mall is to the north. It has food, medicine, and wire. But the crowds there are the worst in town. Go only if you must.",
+            text: "I am Ms. Adler. I taught in this room. The library closet key is in my desk. Open the top drawer. You can open the closet now. It holds books and a folder of city maps.\n\nWalk the hallway toward the drum set room. The library is next to it. Its closet is in the back corner, drum set side.\n\nNorthgate Mall is to the north. It has food, medicine, and wire. But the crowds there are the worst in town. Go only if you must.",
           },
         },
       },
@@ -351,7 +351,7 @@
         notes: {
           "firehouse-desk": {
             title: "The Red Key",
-            text: "Chief Dunn again. Look at the board of keys by this desk. Take the red key. It opens the equipment bay lock. You can open the bay now. It has a water tank, some lumber, and tools.\n\nGo to the back of the truck bay. The equipment bay is right of the fire truck.\n\nNeed water filters? Try the Water Tower. It is on the west side of town. The filters are in its pump house. Theo looks after the pumps.",
+            text: "Chief Dunn again. Look at the board of keys by this desk. Take the red key. It opens the equipment bay lock. You can open the bay now. It has a water tank, some lumber, and tools.\n\nGo to the back of the truck bay. The equipment bay is beside the fire truck. It is on the gear racks side.\n\nNeed water filters? Try the Water Tower. It is on the west side of town. The filters are in its pump house. Theo looks after the pumps.",
           },
         },
       },
@@ -364,7 +364,7 @@
         notes: {
           "hospital-hall": {
             title: "Nurse Ada Stayed",
-            text: "I am Nurse Ada. I stayed when the others left. The stock room needs a badge. Mine is in the drawer under this station. Take it. You can open the stock room now. There are three medical kits inside.\n\nThe stock room door is across the hall from here. It is on the angel statue side.\n\nStay quiet in here. The walkers follow sound more than light. Do not run. Do not shout. Walk soft, and they may not turn.",
+            text: "I am Nurse Ada. I stayed when the others left. The stock room needs a badge. Mine is in the drawer under this station. Take it. You can open the stock room now. There are three medical kits inside.\n\nThe stock room door is in this room. It is across the walkway from this desk. It is on the angel statue side.\n\nStay quiet in here. The walkers follow sound more than light. Do not run. Do not shout. Walk soft, and they may not turn.",
           },
         },
       },
@@ -377,7 +377,7 @@
         notes: {
           "watertower-panel": {
             title: "The Key in the Breaker Box",
-            text: "Theo again. The pump house key is in the breaker box. Open the gray box on the wall. The key hangs inside. You can open the pump house now. It has filters, a water tank, and some wire.\n\nGo to the back of the pump hall. The pump house door is there. It is right of the big red wheel.\n\nSt. Anne Annex is the hospital. It is north, along the river road. It still has medicine. But it is the most dangerous place in town.",
+            text: "Theo again. The pump house key is in the breaker box. That is the gray box on the wall. You can open the pump house now. It has filters, a water tank, and wire.\n\nGo past the blue pump into the pump hall. The pump house door is at the back, near you. The big red wheel is far from it.\n\nSt. Anne Annex is the hospital. It is north, along the river road. It still has medicine. But it is the most dangerous place in town.",
           },
         },
       },
@@ -390,7 +390,7 @@
         notes: {
           "lumberyard-rack": {
             title: "Carla's Clipboard",
-            text: "Carla here. I am the yard boss. The kiln shed has a padlock with a code. The code is 2218. You can open the kiln shed now. The lumber in there is dry. There are nails, too.\n\nGo to the back wall of the rack hall. The kiln shed door is there. It is right of the band saw shop.\n\nDo not run the saws. Not even once. The noise brings the whole dock crowd. Carry what you need and go.",
+            text: "Carla here. I am the yard boss. The kiln shed has a padlock with a code. The code is 2218. You can open the kiln shed now. The lumber in there is dry. There are nails, too.\n\nLeave the band saw shop. Walk along the back wall of the rack hall. Go toward the log pile. The kiln shed door is in that wall.\n\nDo not run the saws. Not even once. The noise brings the whole dock crowd. Carry what you need and go.",
           },
         },
       },

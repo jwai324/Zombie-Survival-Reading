@@ -82,7 +82,7 @@ sb.window = sb;
 vm.createContext(sb);
 pixels = vm.runInContext("(w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) })", sb);
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const WANT = ["layouts.js", "world.js", "upgrades.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "interior.js", "building.js", "yard.js"];
+const WANT = ["layouts.js", "world.js", "upgrades.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "yardart.js", "interior.js", "building.js", "yard.js"];
 const scripts = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]).filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));

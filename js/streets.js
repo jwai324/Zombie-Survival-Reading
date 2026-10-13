@@ -85,9 +85,9 @@
     routeHead: "The way there",
     routeTake: "Take {street} to {place}.", // the road's far end is a place you know
     routeTakeStreet: "Take {street}.", // ... a place you do not know yet
-    routeStraight: "Go straight on past side streets and other places.",
-    routeLeft: "{dest} is on the left. Get in the left lane.",
-    routeRight: "{dest} is on the right. Get in the right lane.",
+    routeStraight: "Stay in your lane, the left one: it goes straight on past side streets and other places.",
+    routeLeft: "{dest} is on the left. Move into the turn lane on the far left.",
+    routeRight: "{dest} is on the right. Move into the right lane.",
   };
 
   /* ---------- Geometry (world px unless noted) ---------- */

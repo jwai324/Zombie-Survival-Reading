@@ -8,14 +8,14 @@
     level: 1,
     howto: [
       "You have one van. It leaves from home base. Pick a place on the map. The map tells the way there, in words. Read it, then drive. The road does not show the way. Walkers fill the road. Keep moving. A small map at the top shows you. A flag marks where you are going. The Radio room finds new places. They show up on the map.",
-      "A sign comes before each turn. It tells where each lane goes. Pick a lane with A and D. The arrow keys work too. So do the side buttons. Be in your lane before the white line. The left lane goes straight on. It goes past side streets and lots. Side streets are dead ends. At the end, turn into the right lot. Wrong turn? Missed the lot? You go back to the start. The van keeps its damage. You keep your scrap and kills.",
+      "You drive in the left lane. It goes straight on. It goes past side streets and lots. Want to turn right? Move to the right lane. Want to turn left? Use the turn lane. It opens on the far left. Where roads meet, each gets a lane. Each lane has an arrow. A sign tells where each lane goes. Be in your lane before the white line. Pick a lane with A and D. The arrow keys work too. So do the side buttons. Side streets are dead ends. At the end, turn into your lot. Wrong turn? Missed the lot? You go back to the start. The van keeps its damage. You keep your scrap and kills.",
       "A note waits at each door. Read it. It says how many walkers wait. It says where the items are. Buildings are big inside. Each corner has a landmark. The notes name them. Use them to find your way. Press M for a map. It shows the parts you have seen. Each doorway is a real door. Press E to open or shut it. Walkers cannot open doors. Shelf stuff comes back in 3 days. Caches never do.",
       "Find the note inside. It tells how to open the cache. The cache has the best stuff. It names a new place too. Notes go in your backpack. Want back in? Open the map. Pick the place you are at. It stays as you left it. Hurt? Use a Medical kit. One kit heals you to full. The backpack holds 3 kits. Pack them at the cabin.",
       "At home you stand in the yard. Calm means no walkers. Build, or leave in the van. A wave means walkers at the fence. They claw holes in it. The fence does not fix itself. Stand at a hole and press E. Each hole costs 1 scrap. Set traps too. Press T or R. A walker steps on one and gets hurt. What you build shows up in the yard. Each level makes it bigger and stronger. The Walls room changes the fence itself. Later, dig a Well for water. Build a Farm for food. Build a Lab to make Medical kits.",
       "Build at the workbench in the garage. Each build is a typing round. Type the words on the screen. A timer runs. Out of time? Try again. Nothing is spent till you finish. First the bench shows where your fingers go. Repairs need no typing. Scrap fixes the van to full. Each player has a save. Up to 4 saves. Pick yours on the title screen. The game saves at base only. Go down? You start from your last save.",
     ],
     controls: [
-      "Road: Aim with the mouse. Hold to shoot. A and D change lanes. So do the arrow keys and side buttons. Read the sign. Be in your lane before the white line.",
+      "Road: Aim with the mouse. Hold to shoot. A and D change lanes. So do the arrow keys and side buttons. Your lane skips side streets and lots. Turn right? Use the right lane. Turn left? Use the turn lane. It is on the far left. Where roads meet, read the sign. Be in your lane before the white line.",
       "Inside and in the yard: W A S D move. The mouse looks. Click shoots. Shift runs. B opens the backpack. M shows a map of the building. P stops the game.",
       "E does it all: E reads notes. E opens and shuts doors. E opens a cache. E leaves a building. E goes in the cabin. E starts the van. E fixes a fence hole for 1 scrap.",
       "Traps in the yard: T sets a spike trap. R sets a blast trap. It goes in front of you. Or just past the fence.",
@@ -34,7 +34,7 @@
       noThrough: "No way through",
       closed: "Road closed",
       lot: "Parking lot",
-      hint: "Read the sign. Pick a lane with A and D. The arrow keys and side buttons work too.",
+      hint: "Read the sign. It tells where each lane goes. Pick a lane with A and D. The arrow keys and side buttons work too.",
       wrongWay: "Wrong way! That road goes to {place}.",
       wrongStreet: "Wrong way! That is {street}.",
       wrongSide: "Wrong way! {street} is a dead end.",
@@ -45,9 +45,9 @@
       routeHead: "The way there",
       routeTake: "Take {street} to {place}.",
       routeTakeStreet: "Take {street}.",
-      routeStraight: "Go straight on past side streets and lots.",
-      routeLeft: "{dest} is on the left. Get in the left lane.",
-      routeRight: "{dest} is on the right. Get in the right lane.",
+      routeStraight: "Stay in your lane. It goes past side streets and lots.",
+      routeLeft: "{dest} is on the left. Use the turn lane. It is on the far left.",
+      routeRight: "{dest} is on the right. Move to the right lane.",
     },
     base: {
       intro: "Home base. The game saves here, and only here. Hold the fence when walkers come. What you build shows up in the yard.",
@@ -201,7 +201,7 @@
         "Walk, do not run.",
         "Nurse Ada is still here.",
         "The hens lay eggs.",
-        "Get in the left lane.",
+        "Get in the turn lane.",
         "Read the sign, then turn.",
         "Press M for the map.",
       ],
@@ -307,7 +307,7 @@
         notes: {
           "police-desk": {
             title: "The Armory Code",
-            text: "The armory lock is a dial. The code is 19-4-33. Spin it. The door opens. Inside: gun parts and an armor plate.\n\nGo to the back hall. Turn right, toward the police bike. The armory is near the end.\n\nThe Public Library is north of downtown. Its archive room has books. The librarian is still there.\n\n—Sergeant Vega",
+            text: "The armory lock is a dial. The code is 19-4-33. Spin it. The door opens. Inside: gun parts and an armor plate.\n\nGo to the back hall. Head toward the police bike. Armory: last door before the garage.\n\nThe Public Library is north of downtown. Its archive room has books. The librarian is still there.\n\n—Sergeant Vega",
           },
         },
       },
@@ -320,7 +320,7 @@
         notes: {
           "school-classroom": {
             title: "Ms. Adler's Desk Drawer",
-            text: "Key: my top desk drawer. Now you can open the library closet. It has books and a folder of city maps.\n\nThe library is by the drum set room. Its closet: back right corner.\n\nNorthgate Mall is to the north. It has food, meds, and wire. But its crowds are the worst in town.\n\n—Ms. Adler, teacher",
+            text: "Key: my top desk drawer. Now the library closet opens. Inside: books, a folder of city maps.\n\nTake the main hall. Head for the drum set room. The library is next to it. Closet: back corner, drum set side.\n\nNorthgate Mall is north. It has food, meds, and wire. Its crowds are the worst in town.\n\n—Ms. Adler, teacher",
           },
         },
       },
@@ -333,7 +333,7 @@
         notes: {
           "firehouse-desk": {
             title: "The Red Key",
-            text: "The red key is on the board. It opens the equipment bay. Go open it now. A water tank is in there. Lumber and tools too.\n\nGo to the back of the truck bay. The equipment bay is right of the fire truck.\n\nThe Water Tower is on the west side. Its pump house has filters.\n\n—Chief Dunn",
+            text: "The red key is on the board. It opens the equipment bay. Go open it now. Inside: a water tank, lumber, tools.\n\nGo to the back of the truck bay. Locked door: by the fire truck. It is on the gear racks side.\n\nThe Water Tower is on the west side. Its pump house has filters.\n\n—Chief Dunn",
           },
         },
       },
@@ -346,7 +346,7 @@
         notes: {
           "hospital-hall": {
             title: "Nurse Ada's Badge",
-            text: "I am still here. The stock room needs a badge. Badge: in the drawer under this station. Swipe it. The door opens. Three med kits are inside.\n\nThe stock room door is across the hall. It is on the angel statue side.\n\nStay quiet. Walkers here follow sound more than light. Do not shout.\n\n—Nurse Ada",
+            text: "I am still here. The stock room needs a badge. Badge: in the drawer under this station. Swipe it. The door opens. Three med kits are inside.\n\nStock room door: in this room. Cross the walkway from this desk. It is on the angel statue side.\n\nStay quiet. Walkers here follow sound more than light. Do not shout.\n\n—Nurse Ada",
           },
         },
       },
@@ -359,7 +359,7 @@
         notes: {
           "watertower-panel": {
             title: "Theo's Panel Note",
-            text: "Key: in the breaker box. Now you can open the pump house. It has filters, a water tank, and wire.\n\nIts door: back of the pump hall. Right of the big red wheel.\n\nSt. Anne Annex, the hospital, is north. Take the river road. It still has meds. It is the worst place in town.\n\n—Theo",
+            text: "Key: in the breaker box. Now the pump house opens. Inside: filters, a water tank, wire.\n\nIts door: back of the pump hall. It is at the blue pump end. Not by the big red wheel.\n\nSt. Anne Annex, the hospital, is north. Take the river road. It still has meds. It is the worst place in town.\n\n—Theo",
           },
         },
       },
@@ -372,7 +372,7 @@
         notes: {
           "lumberyard-rack": {
             title: "Carla's Kiln Code",
-            text: "I run this yard. The kiln shed has a padlock. The code is 2218. Punch it in. The shed opens. Dry lumber is in there. Nails too.\n\nIts door: back wall of the rack hall. Right of the band saw shop.\n\nDo not run the saws. The noise brings the dock crowd. All of them.\n\n—Carla, yard boss",
+            text: "The kiln shed has a padlock. The code is 2218. Punch it in. The shed opens. Dry lumber is in there. Nails too.\n\nDoor: back wall of the rack hall. Leave the saw shop. Go along it toward the log pile.\n\nDo not run the saws. The noise brings the dock crowd. All of them.\n\n—Carla, yard boss",
           },
         },
       },

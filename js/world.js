@@ -189,10 +189,13 @@
       water: { x: 31, y: 7, w: 3, h: 3, face: "s" },
       garden: { x: 7, y: 12, w: 4, h: 4, face: "e" },
       garage: { x: 7, y: 19, w: 4, h: 5, face: "e" },
-      well: { x: 19, y: 15, w: 3, h: 3, face: "s" },
+      well: { x: 24, y: 14, w: 3, h: 3, face: "s" },
       farm: { x: 29, y: 12, w: 5, h: 5, face: "w" },
       medbay: { x: 30, y: 19, w: 4, h: 4, face: "w" },
     },
+    // worn dirt paths, x0 y0 x1 y1 inclusive: door to the back row, along the back row, across to the
+    // garden and the farm, around the well, over to the van
+    paths: [[20, 10, 20, 22], [8, 10, 32, 10], [11, 17, 28, 17], [23, 13, 27, 13], [23, 13, 23, 17], [27, 13, 27, 17], [15, 22, 19, 22]],
   };
 
   const DEFENSE = {
@@ -265,7 +268,7 @@
     grocery: {
       door: { id: "grocery-door", found: "written on the glass in marker", facts: ["Written by Doc Lin.", "The shelves are picked over; food is on the floor by the fish tank and by the freezers on the right.", "Walkers get in through the loading door at the back, by the forklift; count on at least three.", "The cooler is locked; the manager's note is in the office, back left."] },
       notes: [
-        { id: "grocery-counter", found: "on the desk in the manager's office", unlocks: "grocery", reveals: ["pharmacy"], facts: ["Written by the store manager, Hana.", "The cooler latch opens if you lift it while pulling, so the cooler can be opened now.", "Inside the cooler there is food and one medical kit.", "The cooler is the next door right of the office, toward the forklift.", "The pharmacy at Mile 9, west of here, had medicine on its shelves last week."] },
+        { id: "grocery-counter", found: "on the desk in the manager's office", unlocks: "grocery", reveals: ["pharmacy"], facts: ["Written by the store manager, Hana.", "The cooler latch opens if you lift it while pulling, so the cooler can be opened now.", "Inside the cooler there is food and one medical kit.", "Out of the office, the cooler is the next door down the back hall, toward the forklift.", "The pharmacy at Mile 9, west of here, had medicine on its shelves last week."] },
       ],
     },
     hardware: {
@@ -301,37 +304,37 @@
     police: {
       door: { id: "police-door", found: "on a notice board by the door", facts: ["Written by Sergeant Vega.", "Gun parts are in the squad room, left of the long hall; an armor plate is in the garage on the right, by the riot shields.", "At least eight walkers inside, and a big one by the police bike in the garage.", "The armory is locked; the sergeant left the combination on a note at the front desk."] },
       notes: [
-        { id: "police-desk", found: "on the front desk", unlocks: "police", reveals: ["library"], facts: ["Written by Sergeant Vega.", "The armory combination is 19-4-33, so the armory can be opened now.", "The armory has gun parts and an armor plate.", "The armory is at the right end of the back hall, toward the police bike.", "The Public Library north of downtown has books in its archive room; the librarian stayed."] },
+        { id: "police-desk", found: "on the front desk", unlocks: "police", reveals: ["library"], facts: ["Written by Sergeant Vega.", "The armory combination is 19-4-33, so the armory can be opened now.", "The armory has gun parts and an armor plate.", "The armory is near the end of the back hall toward the police bike: the last door before the garage.", "The Public Library north of downtown has books in its archive room; the librarian stayed."] },
       ],
     },
     school: {
       door: { id: "school-door", found: "on the office door", facts: ["Written by Max and Mia.", "Boxes of books: one is in the music room with the drum set, the other in the front office, behind the lion statue.", "At least six walkers inside, one in the main hallway.", "The library closet is locked; the key is in the teacher's note in the science room, back left, by the big brain."] },
       notes: [
-        { id: "school-classroom", found: "on the teacher's desk in the science room", unlocks: "school", reveals: ["mall"], facts: ["Written by Ms. Adler, a teacher.", "The library closet key is in the top desk drawer, so the closet can be opened now.", "The closet has books and a folder of city maps.", "The library is the room next to the drum set room; its closet is in the back right corner.", "Northgate Mall in the north has food, medicine, and wire, but the crowds there are the worst in town."] },
+        { id: "school-classroom", found: "on the teacher's desk in the science room", unlocks: "school", reveals: ["mall"], facts: ["Written by Ms. Adler, a teacher.", "The library closet key is in the top desk drawer, so the closet can be opened now.", "The closet has books and a folder of city maps.", "Follow the main hallway toward the drum set room; the library is the room next to it, and its closet is in the back corner on the drum set side.", "Northgate Mall in the north has food, medicine, and wire, but the crowds there are the worst in town."] },
       ],
     },
     firehouse: {
       door: { id: "firehouse-door", found: "on the bay door", facts: ["Written by Chief Dunn.", "A tool kit is in the office behind the watch desk; a water tank is on the right wall of the truck bay, past the gear racks.", "At least six walkers inside, two in the truck bay.", "The equipment bay is locked; the chief's note is on the watch desk, by the spotted dog."] },
       notes: [
-        { id: "firehouse-desk", found: "on the watch desk", unlocks: "firehouse", reveals: ["watertower"], facts: ["Written by Chief Dunn.", "The equipment bay lock opens with the red key on the board, so the equipment bay can be opened now.", "The bay has a water tank, lumber, and tools.", "The equipment bay is at the back of the truck bay, right of the fire truck.", "The Water Tower on the west side has filters in its pump house."] },
+        { id: "firehouse-desk", found: "on the watch desk", unlocks: "firehouse", reveals: ["watertower"], facts: ["Written by Chief Dunn.", "The equipment bay lock opens with the red key on the board, so the equipment bay can be opened now.", "The bay has a water tank, lumber, and tools.", "The equipment bay is at the back of the truck bay, beside the fire truck on the gear racks side.", "The Water Tower on the west side has filters in its pump house."] },
       ],
     },
     hospital: {
       door: { id: "hospital-door", found: "on the ambulance doors", facts: ["Written by Doc Lin.", "One medical kit is in the patient room next to the x-ray machine, one is by the giant teddy bear in the gift shop; the generator is in the utility room, on the right.", "At least nine walkers inside; they stand in the dark rooms.", "The pharmacy stock room is locked; the nurse's note is at the nurses' station in the middle."] },
       notes: [
-        { id: "hospital-hall", found: "on the nurses' station", unlocks: "hospital", facts: ["Written by Nurse Ada, who stayed.", "The stock room badge is in the drawer under the station, so the stock room can be opened now.", "The stock room has three medical kits.", "The stock room door is across the corridor from the station, on the angel statue side.", "Stay quiet; the walkers here follow sound more than light."] },
+        { id: "hospital-hall", found: "on the nurses' station", unlocks: "hospital", facts: ["Written by Nurse Ada, who stayed.", "The stock room badge is in the drawer under the station, so the stock room can be opened now.", "The stock room has three medical kits.", "The stock room door is in the nurses' station room itself, across its walkway from the desk, on the angel statue side.", "Stay quiet; the walkers here follow sound more than light."] },
       ],
     },
     watertower: {
       door: { id: "watertower-door", found: "on the fence gate", facts: ["Written by Theo, who tends the pumps.", "One water filter is by the crates near the big red wheel; the other is in the boat workshop, by the rowboat.", "At least six walkers inside the pump building.", "The pump house is locked; Theo's note is on the control panel in the back right room."] },
       notes: [
-        { id: "watertower-panel", found: "on the control panel", unlocks: "watertower", reveals: ["hospital"], facts: ["Written by Theo.", "The pump house key is in the breaker box, so the pump house can be opened now.", "The pump house has filters, a water tank, and wire.", "The pump house door is at the back of the pump hall, right of the big red wheel.", "St. Anne Annex, the hospital, is north along the river road; it still has medicine, but it is the most dangerous place in town."] },
+        { id: "watertower-panel", found: "on the control panel", unlocks: "watertower", reveals: ["hospital"], facts: ["Written by Theo.", "The pump house key is in the breaker box, so the pump house can be opened now.", "The pump house has filters, a water tank, and wire.", "The pump house door is at the back of the pump hall, at the blue pump end, away from the big red wheel.", "St. Anne Annex, the hospital, is north along the river road; it still has medicine, but it is the most dangerous place in town."] },
       ],
     },
     lumberyard: {
       door: { id: "lumberyard-door", found: "spray-painted on the gate", facts: ["Written by Ruby.", "Lumber is in the long racks in the middle, and one more stack is out back by the log pile.", "At least eight walkers inside; they gather by the loading dock and the flatbed truck.", "The kiln shed is locked; the yard boss left a note on a clipboard by the band saw."] },
       notes: [
-        { id: "lumberyard-rack", found: "on the clipboard by the band saw", unlocks: "lumberyard", facts: ["Written by the yard boss, Carla.", "The kiln shed padlock opens with the code 2218, so the kiln shed can be opened now.", "The shed has dry lumber and nails.", "The kiln shed door is in the back wall of the rack hall, right of the band saw shop.", "Do not run the saws; the noise brings the whole dock crowd."] },
+        { id: "lumberyard-rack", found: "on the clipboard by the band saw", unlocks: "lumberyard", facts: ["Written by the yard boss, Carla.", "The kiln shed padlock opens with the code 2218, so the kiln shed can be opened now.", "The shed has dry lumber and nails.", "The kiln shed door is in the back wall of the rack hall; from the band saw shop door, follow that wall toward the log pile.", "Do not run the saws; the noise brings the whole dock crowd."] },
       ],
     },
     mall: {
