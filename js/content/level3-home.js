@@ -27,20 +27,20 @@
       },
       well: {
         title: "Well site",
-        empty: "June painted the sign: WELL, dig after the Water room is built. A ring of stones marks the spot beside the cabin. Deep under the stones, the water is cold and clean. Water from down there would help you heal faster on foot. The Farm and the Lab both need the Well first, so this lot matters. To dig it, you need 2 Lumber, 1 Tool kit, and 60 scrap.",
+        empty: "June painted the sign: WELL, dig after the Water room is built. A ring of stones marks the spot beside the cabin. Deep under the stones, the water is cold and clean. Water from down there would help you heal faster in the yard. The Farm and the Lab both need the Well first, so this lot matters. To dig it, you need 2 Lumber, 1 Tool kit, and 60 scrap.",
         built: [
-          "The sign says WELL: a hand-dug well lined with lumber. A bucket hangs on a rope, and the rope creaks on every pull. Tomas says the creak is a feature. The water comes up cold, clean, and a little sweet. Its clean water helps you heal faster on foot. A hand pump would work even better. It needs lumber, engine parts, a water filter, and 100 scrap.",
-          "The sign says WELL: a hand pump with a filter brings the water up. No more rope burns on anyone's hands. Pip likes to work the handle and count the strokes out loud, but softly. You heal on foot even faster than before. The Farm and the Lab can grow bigger now, too. A wired pump would need a water tank, engine parts, wire, and 150 scrap.",
-          "The sign says WELL: a wired pump fills a tank all by itself. When the yard is quiet, you can hear it hum. You heal on foot faster than ever. You also start every building at full health, which feels like a gift. Tomas wired the pump in one long afternoon. June baked him a cake out of beans to say thanks. Nobody asked how.",
+          "The sign says WELL: a hand-dug well lined with lumber. A bucket hangs on a rope, and the rope creaks on every pull. Tomas says the creak is a feature. The water comes up cold, clean, and a little sweet. Its clean water helps you heal faster in the yard. A hand pump would work even better. It needs lumber, engine parts, a water filter, and 100 scrap.",
+          "The sign says WELL: a hand pump with a filter brings the water up. No more rope burns on anyone's hands. Pip likes to work the handle and count the strokes out loud, but softly. You heal in the yard even faster than before. The Farm and the Lab can grow bigger now, too. A wired pump would need a water tank, engine parts, wire, and 150 scrap.",
+          "The sign says WELL: a wired pump fills a tank all by itself. When the yard is quiet, you can hear it hum. You heal in the yard faster than ever. You also start every building at full health, which feels like a gift. Tomas wired the pump in one long afternoon. June baked him a cake out of beans to say thanks. Nobody asked how.",
         ],
       },
       water: {
         title: "Water barrel",
-        empty: "Tomas painted the sign: WATER, filter goes here. An empty barrel sits on two sawhorses by the cabin wall. When it rains, gray water fills it up. A filter and a tank here would turn that rainwater clear. Then you would heal while you are on foot. To start, it needs 1 Water filter and 40 scrap. The Well waits on this lot, so build it early.",
+        empty: "Tomas painted the sign: WATER, filter goes here. An empty barrel sits on two sawhorses by the cabin wall. When it rains, gray water fills it up. A filter and a tank here would turn that rainwater clear. Then you would heal while you are in the yard. To start, it needs 1 Water filter and 40 scrap. The Well waits on this lot, so build it early.",
         built: [
-          "The sign says WATER: a filter sits on top of the barrel. Gray water goes in at the top. Clear water drips out at the bottom, one slow drop at a time. It is slow, but it works. Because of it, you slowly heal while on foot. A big tank would hold much more. That needs a water tank, another filter, and 80 scrap.",
-          "The sign says WATER: a filter and a big tank, full of clean water. The tank sits in the shade so nothing grows inside it. You heal faster while on foot now. June washes her hands at the spout. She says it feels like the old days. Two filters would make it even better. That needs a tank, 2 filters, and 120 scrap.",
-          "The sign says WATER: two filters and a tank, working side by side. The water runs clear and cold, with no smell at all. You heal even faster on foot. Better still, you walk into every building at full health. Tomas checks the filters once a week. Pip checks them every single day, just in case Tomas missed something.",
+          "The sign says WATER: a filter sits on top of the barrel. Gray water goes in at the top. Clear water drips out at the bottom, one slow drop at a time. It is slow, but it works. Because of it, you slowly heal in the yard. A big tank would hold much more. That needs a water tank, another filter, and 80 scrap.",
+          "The sign says WATER: a filter and a big tank, full of clean water. The tank sits in the shade so nothing grows inside it. You heal faster in the yard now. June washes her hands at the spout. She says it feels like the old days. Two filters would make it even better. That needs a tank, 2 filters, and 120 scrap.",
+          "The sign says WATER: two filters and a tank, working side by side. The water runs clear and cold, with no smell at all. You heal even faster in the yard. Better still, you walk into every building at full health. Tomas checks the filters once a week. Pip checks them every single day, just in case Tomas missed something.",
         ],
       },
       power: {

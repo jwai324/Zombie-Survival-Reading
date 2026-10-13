@@ -466,25 +466,25 @@
       empty: [
         "A ring of stones marks the spot beside the cabin.",
         "June painted the sign: WELL, dig after the Water room is built.",
-        "Water from deep underground comes up cold and clean, so you would heal faster on foot.",
+        "Water from deep underground comes up cold and clean, so you would heal faster in the yard.",
         "The Farm and the Lab both need the Well first.",
       ],
       built: [
-        ["The sign says WELL: a hand-dug well lined with lumber, with a bucket on a rope.", "Its clean water helps you heal faster on foot."],
-        ["The sign says WELL: a hand pump with a filter now brings the water up.", "You heal on foot even faster."],
-        ["The sign says WELL: a wired pump fills a tank.", "You heal on foot faster than ever, and you start every building at full health."],
+        ["The sign says WELL: a hand-dug well lined with lumber, with a bucket on a rope.", "Its clean water helps you heal faster in the yard."],
+        ["The sign says WELL: a hand pump with a filter now brings the water up.", "You heal in the yard even faster."],
+        ["The sign says WELL: a wired pump fills a tank.", "You heal in the yard faster than ever, and you start every building at full health."],
       ],
     },
     water: {
       empty: [
         "An empty barrel sits on two sawhorses by the cabin wall.",
         "Tomas painted the sign: WATER, filter goes here.",
-        "A filter and a tank here would turn gray rainwater clear, so you heal while you are on foot.",
+        "A filter and a tank here would turn gray rainwater clear, so you heal while you are in the yard.",
       ],
       built: [
-        ["The sign says WATER: a filter on top of the barrel turns gray water clear.", "You slowly heal while on foot."],
-        ["The sign says WATER: a filter and a big tank, full of clean water.", "You heal faster while on foot."],
-        ["The sign says WATER: two filters and a tank.", "You heal even faster on foot, and you walk into every building at full health."],
+        ["The sign says WATER: a filter on top of the barrel turns gray water clear.", "You slowly heal in the yard."],
+        ["The sign says WATER: a filter and a big tank, full of clean water.", "You heal faster in the yard."],
+        ["The sign says WATER: two filters and a tank.", "You heal even faster in the yard, and you walk into every building at full health."],
       ],
     },
     power: {

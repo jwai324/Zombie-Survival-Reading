@@ -643,7 +643,7 @@
       p.flashR = Math.max(0, p.flashR - dt);
       p.raise = Math.max(0, p.raise - dt * 3.5);
       p.hurt = Math.max(0, p.hurt - dt * 1.5);
-      if (this.fx.footRegen) p.hp = Math.min(p.maxHp, p.hp + this.fx.footRegen * dt);
+      if (this.fx.footRegen && this.mode === "yard") p.hp = Math.min(p.maxHp, p.hp + this.fx.footRegen * dt); // clean water heals you at home only
 
       const held = this.mouseDown || k[" "];
       if (this.gun.draw) {

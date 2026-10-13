@@ -69,13 +69,24 @@
     $("opt-aim").checked = !!State.settings.aimAssist;
     $("opt-shake").checked = !!State.settings.shake;
     $("opt-sens").value = State.settings.mouseSens || 1;
+    $("settings-for").textContent = whoseSettings();
     refreshTitle();
   }
   // first person needs a keyboard and mouse; on a touch-only device say so instead of leading into a dead end
   const touchOnly = !!(root.matchMedia && root.matchMedia("(pointer: coarse) and (hover: none)").matches);
+  /** Each save keeps its own settings; these lines say which save the Settings screen changes. */
+  function activeLabel() {
+    const slot = State.listSlots().find((x) => x.active && x.save);
+    return slot ? slot.label || "Player " + slot.id : null;
+  }
+  function whoseSettings() {
+    const who = activeLabel();
+    return who ? "Settings for " + who + ". Each save keeps its own." : "Settings for the next new save. Each save keeps its own.";
+  }
   /** The title screen: one row per save slot. Display only; never reloads the save while a trip runs. */
   function refreshTitle() {
-    $("title-grade").textContent = touchOnly ? "This game needs a keyboard and mouse. Open it on a laptop or desktop." : "Reading level: " + ORDINAL[State.settings.level] + " grade. Change it in Settings.";
+    const who = activeLabel();
+    $("title-grade").textContent = touchOnly ? "This game needs a keyboard and mouse. Open it on a laptop or desktop." : (who ? who + ": r" : "R") + "eading level " + ORDINAL[State.settings.level] + " grade. Change it in Settings.";
     const list = $("slot-list");
     list.innerHTML = "";
     State.listSlots().forEach((slot) => {
@@ -85,7 +96,7 @@
       if (slot.save) {
         const s = slot.save;
         const level = Object.values(s.rooms || {}).reduce((a, b) => a + b, 0);
-        info.innerHTML = '<div class="who">' + esc(slot.label || "Player " + slot.id) + '</div><div class="sum">Day ' + s.day + " · base level " + level + " · " + (s.backpack || []).length + " notes · " + (s.scrap || 0) + " scrap</div>";
+        info.innerHTML = '<div class="who">' + esc(slot.label || "Player " + slot.id) + '</div><div class="sum">Day ' + s.day + " · base level " + level + " · " + (s.backpack || []).length + " notes · " + (s.scrap || 0) + " scrap · " + ORDINAL[slot.settings.level] + " grade</div>";
       } else info.innerHTML = '<div class="who muted">Slot ' + slot.id + '</div><div class="sum">Empty</div>';
       const acts = document.createElement("div");
       acts.className = "acts";
@@ -96,14 +107,16 @@
         go.addEventListener("click", () => {
           Audio.unlock();
           Audio.play("click");
-          if (State.loadSave(slot.id)) goYardWithDay(); // an unread day page (closed mid-read) comes first
+          if (!State.loadSave(slot.id)) return;
+          applySettings(); // this save's own reading level, text size and the rest
+          goYardWithDay(); // an unread day page (closed mid-read) comes first
         });
         const del = document.createElement("button");
         del.className = "btn del";
         del.textContent = "Delete";
         del.addEventListener("click", () => confirm("Delete " + (slot.label || "this save") + "? Day " + slot.save.day + " is gone for good.", () => {
           State.deleteSlot(slot.id);
-          refreshTitle();
+          applySettings(); // deleting the active save falls back to the shared settings
         }));
         acts.appendChild(go);
         acts.appendChild(del);
@@ -131,6 +144,7 @@
     const name = $("newsave-name").value;
     State.newGame(pendingSlot, name);
     pendingSlot = null;
+    applySettings();
     if (!State.settings.seenHowto) {
       State.settings.seenHowto = true;
       State.saveSettings();

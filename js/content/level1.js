@@ -79,11 +79,11 @@
           ],
         },
         water: {
-          desc: "Clean water. You heal while on foot.",
+          desc: "Clean water. You heal in the yard.",
           next: [
-            "You heal a bit on foot.",
-            "You heal faster on foot.",
-            "You heal fast on foot. You start each building at full health.",
+            "You heal a bit in the yard.",
+            "You heal faster in the yard.",
+            "You heal fast in the yard. You start each building at full health.",
           ],
         },
         garden: {
@@ -119,9 +119,9 @@
           ],
         },
         well: {
-          desc: "A hand-dug well by the cabin. Clean water from deep down. You heal faster on foot. The Farm and the Lab need it.",
+          desc: "A hand-dug well by the cabin. Clean water from deep down. You heal faster in the yard. The Farm and the Lab need it.",
           next: [
-            "Needs the Water room first. Costs 60 scrap. Plus Lumber 2, Tool kit 1. You heal on foot at rate 2.",
+            "Needs the Water room first. Costs 60 scrap. Plus Lumber 2, Tool kit 1. You heal in the yard at rate 2.",
             "Costs 100 scrap. Plus Lumber 2, Engine parts 1, Water filter 1. Heal rate goes up to 3.",
             "Costs 150 scrap. Plus Water tank 1, Engine parts 1, Spool of wire 1. Heal rate goes up to 4. You start each building at full health.",
           ],

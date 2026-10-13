@@ -27,20 +27,20 @@
       },
       well: {
         title: "Well, dig later",
-        empty: "A ring of stones sits beside the cabin. June painted the sign: WELL. Under that: dig after the Water room is built. Deep under the ground, the water is cold and clean. With it, you would heal faster on foot. The Farm and the Lab both need the Well first.",
+        empty: "A ring of stones sits beside the cabin. June painted the sign: WELL. Under that: dig after the Water room is built. Deep under the ground, the water is cold and clean. With it, you would heal faster in the yard. The Farm and the Lab both need the Well first.",
         built: [
-          "The sign says WELL. It is a hand-dug well. Its walls are lined with lumber. A bucket hangs on a rope. The water comes up cold. It tastes like stone and rain. Its clean water helps you heal faster on foot. Tomas says he dug enough for a lifetime.",
-          "The sign says WELL. No more bucket. A hand pump stands over the hole now. Pump the handle, and water comes up. It goes through a filter on the way. Pip likes to work the pump. Tomas oiled it, so it does not squeak. You heal on foot even faster than before.",
-          "The sign says WELL. A wired pump hums by the stones. It fills a tank all on its own. Nobody pumps by hand now. You heal on foot faster than ever. You start every building at full health, too. June says the well is the heart of the yard.",
+          "The sign says WELL. It is a hand-dug well. Its walls are lined with lumber. A bucket hangs on a rope. The water comes up cold. It tastes like stone and rain. Its clean water helps you heal faster in the yard. Tomas says he dug enough for a lifetime.",
+          "The sign says WELL. No more bucket. A hand pump stands over the hole now. Pump the handle, and water comes up. It goes through a filter on the way. Pip likes to work the pump. Tomas oiled it, so it does not squeak. You heal in the yard even faster than before.",
+          "The sign says WELL. A wired pump hums by the stones. It fills a tank all on its own. Nobody pumps by hand now. You heal in the yard faster than ever. You start every building at full health, too. June says the well is the heart of the yard.",
         ],
       },
       water: {
         title: "Water, filter here",
-        empty: "An empty barrel sits on two sawhorses. It is by the cabin wall. Tomas painted the sign: WATER, filter goes here. Rainwater fills the barrel, but it is gray. Nobody wants to drink it like that. A filter and a tank would turn it clear. Clean water means you heal while on foot.",
+        empty: "An empty barrel sits on two sawhorses. It is by the cabin wall. Tomas painted the sign: WATER, filter goes here. Rainwater fills the barrel, but it is gray. Nobody wants to drink it like that. A filter and a tank would turn it clear. Clean water means you heal in the yard.",
         built: [
-          "The sign says WATER. A filter sits on top of the barrel now. Gray water goes in at the top. Clear water drips out at the bottom. It is slow, but it works. You slowly heal while you are on foot. Pip watches the drips like a TV show.",
-          "The sign says WATER. Next to the barrel stands a big tank. The filter feeds it all day. The tank is full of clean water. Nobody drinks gray water anymore. You heal faster while on foot. Tomas tapped the tank and smiled at the sound. Full tanks ring low.",
-          "The sign says WATER. Now there are two filters on the barrel. A big tank stands next to them. The water is as clear as glass. You heal even faster on foot. You also walk into every building at full health. That is a big deal out there.",
+          "The sign says WATER. A filter sits on top of the barrel now. Gray water goes in at the top. Clear water drips out at the bottom. It is slow, but it works. You slowly heal while you are in the yard. Pip watches the drips like a TV show.",
+          "The sign says WATER. Next to the barrel stands a big tank. The filter feeds it all day. The tank is full of clean water. Nobody drinks gray water anymore. You heal faster in the yard. Tomas tapped the tank and smiled at the sound. Full tanks ring low.",
+          "The sign says WATER. Now there are two filters on the barrel. A big tank stands next to them. The water is as clear as glass. You heal even faster in the yard. You also walk into every building at full health. That is a big deal out there.",
         ],
       },
       power: {
