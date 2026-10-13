@@ -136,31 +136,63 @@
   /* ---------- The home base yard (cabin defense) ----------
      Legend adds: T treeline (solid)  F fence segment (solid, breakable)
      H cabin wall  B cabin door (interact: build menu)  V the van (interact: map)
-     P player start  z walker spawn (outside the fence) */
+     P player start  z walker spawn (outside the fence, on all four sides)
+     Every base room but the Walls has a plot inside the fence: x, y, w, h (tiles) and the side
+     it faces (n e s w: toward the open middle of the yard and the cabin door). A plot is a staked
+     lot with a name sign until the room is built; each level puts up a bigger structure there
+     (js/yard.js). The Walls room is the fence itself and the armor on the cabin.
+     `version` goes up whenever the grid changes: older saves get a whole fence and their set
+     traps back in stock (js/state.js). */
   const YARD = {
+    version: 2,
     palette: { wall: "#5a4a3a", shelf: "#6b4a3a", counter: "#4b5057", floor: "#6b6a4a", ceiling: "#9fb3c8", sky: true },
     grid: [
-      "TTTTTTTTTTTTTTTTTTTTTTTT",
-      "T..z.........z.......z.T",
-      "T......................T",
-      "T...FFFFFFFFFFFFFFFF...T",
-      "T...F..............F...T",
-      "T...F..............F...T",
-      "T.z.F..............F.z.T",
-      "T...F..............F...T",
-      "T...F..............F...T",
-      "T.z.F..............F.z.T",
-      "T...F..............F...T",
-      "T...F.VV...........F...T",
-      "T...F......P.......F...T",
-      "T...F....HHBHH.....F...T",
-      "T...F....HHHHH.....F...T",
-      "T...FFFFFFFFFFFFFFFF...T",
-      "T......................T",
-      "T..z........z.......z..T",
-      "T......................T",
-      "TTTTTTTTTTTTTTTTTTTTTTTT",
+      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+      "T.......................................T",
+      "T.....z.....z.....z.....z.....z....z....T",
+      "T.......................................T",
+      "T...FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...T",
+      "T...F...............................F...T",
+      "T...F...............................F...T",
+      "T.z.F...............................F.z.T",
+      "T...F...............................F...T",
+      "T...F...............................F...T",
+      "T...F...............................F...T",
+      "T...F...............................F...T",
+      "T.z.F...............................F.z.T",
+      "T...F...............................F...T",
+      "T...F...............................F...T",
+      "T...F...............................F...T",
+      "T...F...............................F...T",
+      "T.z.F...............................F.z.T",
+      "T...F...............................F...T",
+      "T...F...............................F...T",
+      "T...F...............................F...T",
+      "T...F........VV.....................F...T",
+      "T.z.F...............P...............F.z.T",
+      "T...F............HHHBHHH............F...T",
+      "T...F............HHHHHHH............F...T",
+      "T...F............HHHHHHH............F...T",
+      "T.z.F...............................F.z.T",
+      "T...F...............................F...T",
+      "T...FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF...T",
+      "T.......................................T",
+      "T.....z.....z.....z.....z.....z....z....T",
+      "T.......................................T",
+      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
     ],
+    plots: {
+      radio: { x: 7, y: 7, w: 3, h: 3, face: "s" },
+      power: { x: 12, y: 7, w: 4, h: 3, face: "s" },
+      archive: { x: 18, y: 7, w: 5, h: 3, face: "s" },
+      lab: { x: 25, y: 7, w: 4, h: 3, face: "s" },
+      water: { x: 31, y: 7, w: 3, h: 3, face: "s" },
+      garden: { x: 7, y: 12, w: 4, h: 5, face: "e" },
+      garage: { x: 7, y: 18, w: 4, h: 5, face: "e" },
+      well: { x: 19, y: 15, w: 3, h: 3, face: "s" },
+      farm: { x: 29, y: 12, w: 5, h: 5, face: "w" },
+      medbay: { x: 30, y: 19, w: 4, h: 4, face: "w" },
+    },
   };
 
   const DEFENSE = {
@@ -172,6 +204,9 @@
     someCount: (day, wave) => 3 + Math.floor(day / 2) + Math.floor(wave / 2),
     manyCount: (day, wave) => 7 + day + wave,
     spawnInterval: 1.6, // seconds between walkers during a wave
+    // a wave comes out of the trees on this many sides of the yard (picked at random, told in the toast),
+    // so on a fence twice as long the player can still be where the walkers are
+    waveSides: { some: 1, many: 2 },
   };
 
   /* ---------- Locations on the city map (1000 x 700 units) ---------- */
