@@ -5,10 +5,15 @@
 
    Sizing contract (building.js dressLayout): the whole canvas is drawn `size` tiles tall
    (under a ceiling at most 0.98), so every object stands on the bottom edge and reaches the
-   top one, on a transparent background. A footprint landmark (`foot: [w, h]`) is drawn
-   w * 0.95 tiles wide, so its art is about w:1 (504 x 168 for 3 wide); the others keep their
-   own aspect, tall things tall and thin. `color` and `label` opts are used where the catalog
-   line says so, with the layout's value as the default. */
+   top one, on a transparent background. The others keep their own pixel shape, tall things
+   tall and thin. A footprint landmark (`foot: [w, h]`) is a `span` prop: the engine spreads
+   the WHOLE canvas over w * 0.95 tiles of floor, and the first-person view is STRETCH
+   (2 tan(FOV / 2), about 1.4) times taller than wide (at depth d a tile of floor is H / d px
+   tall but H / (STRETCH * d) wide, interior.js). So footSprite makes that canvas
+   w * 0.95 / min(size, 0.98) / STRETCH times as wide as tall (350 x 168 for 3 wide at 0.98,
+   about 2.08:1) and the drawing fills it edge to edge with its wheels and knobs round.
+   `color` and `label` opts are used where the catalog line says so, with the layout's value
+   as the default. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -199,6 +204,10 @@
     KEYS.push(name);
     ART[name] = { w, h, fn };
   };
+  const STRETCH = 2 * Math.tan(1.22 / 2); // the view's height-to-width stretch (FOV 1.22 in interior.js)
+  /** A footprint landmark `tiles` wide at `size` tall (its layout's foot[0] and size), `h` px tall: the
+      engine spreads the whole canvas over tiles * 0.95 of floor, so the canvas is made that shape. */
+  const footSprite = (name, tiles, size, h, fn) => sprite(name, Math.round((tiles * 0.95 * h) / Math.min(size, 0.98) / STRETCH), h, fn);
 
   /* ================= Gas-N-Go ================= */
 
@@ -230,86 +239,89 @@
   });
 
   /* A rusty sedan up on a yellow two-post lift, its wheels hanging (foot 3 x 3, color = car body). */
-  sprite("carLift", 504, 168, (ctx, w, h, o) => {
+  footSprite("carLift", 3, 0.98, 168, (ctx, w, h, o) => {
     const body = hue(o, "#3f6fb0");
     const G = h - 4;
     const Y = "#f2c230";
-    shadow(ctx, w / 2, G, 240);
-    oval(ctx, 388, G - 4, 46, 6, "rgba(15,16,18,0.5)", 0);
-    rbox(ctx, 360, G - 14, 52, 12, 4, "#e8761a", 3.5);
+    const P = 22; // a post's width
+    shadow(ctx, w / 2, G, w / 2 - 8);
+    // the drip pan under the engine
+    oval(ctx, 268, G - 4, 32, 5, "rgba(15,16,18,0.5)", 0);
+    rbox(ctx, 250, G - 14, 38, 12, 4, "#e8761a", 3.5);
     // the posts and the beam across the top
-    [14, w - 44].forEach((px) => {
-      box(ctx, px, 6, 30, G - 6, Y, LW);
-      line(ctx, [[px + 15, 24], [px + 15, G - 40]], shade(Y, -60), 3);
-      hazard(ctx, px, G - 34, 30, 34);
-      box(ctx, px, G - 34, 30, 34, null, LW);
-      darken(ctx, px + 18, 6, 12, G - 6, 0.14);
+    [8, w - 8 - P].forEach((px) => {
+      box(ctx, px, 6, P, G - 6, Y, LW);
+      line(ctx, [[px + P / 2, 24], [px + P / 2, G - 40]], shade(Y, -60), 3);
+      hazard(ctx, px, G - 34, P, 34);
+      box(ctx, px, G - 34, P, 34, null, LW);
+      darken(ctx, px + P - 9, 6, 9, G - 6, 0.14);
     });
-    box(ctx, 14, 4, w - 28, 16, Y, LW);
-    hazard(ctx, 14, 4, 46, 16);
-    hazard(ctx, w - 60, 4, 46, 16);
-    box(ctx, 14, 4, w - 28, 16, null, LW);
+    box(ctx, 8, 4, w - 16, 16, Y, LW);
+    hazard(ctx, 8, 4, 36, 16);
+    hazard(ctx, w - 44, 4, 36, 16);
+    box(ctx, 8, 4, w - 16, 16, null, LW);
     // carriages and the arms under the car
-    box(ctx, 40, 92, 18, 30, shade(Y, -30), LW);
-    box(ctx, w - 58, 92, 18, 30, shade(Y, -30), LW);
-    bar(ctx, 54, 112, 188, 106, 10, "#4a4f57", 3.5);
-    bar(ctx, w - 54, 112, w - 188, 106, 10, "#4a4f57", 3.5);
-    box(ctx, 176, 98, 22, 8, INK, 0);
-    box(ctx, w - 198, 98, 22, 8, INK, 0);
-    // the car
+    box(ctx, 26, 92, 14, 30, shade(Y, -30), LW);
+    box(ctx, w - 40, 92, 14, 30, shade(Y, -30), LW);
+    bar(ctx, 36, 112, 130, 106, 9, "#4a4f57", 3.5);
+    bar(ctx, w - 36, 112, w - 130, 106, 9, "#4a4f57", 3.5);
+    box(ctx, 120, 98, 18, 8, INK, 0);
+    box(ctx, w - 138, 98, 18, 8, INK, 0);
+    // the car, facing right
     const carPath = () => {
       ctx.beginPath();
-      ctx.moveTo(64, 100);
-      ctx.lineTo(60, 74);
-      ctx.quadraticCurveTo(62, 62, 78, 60);
-      ctx.lineTo(136, 58);
-      ctx.lineTo(182, 26);
-      ctx.quadraticCurveTo(242, 18, 302, 24);
-      ctx.lineTo(352, 58);
-      ctx.lineTo(426, 64);
-      ctx.quadraticCurveTo(446, 68, 448, 82);
-      ctx.lineTo(446, 100);
-      ctx.lineTo(404, 100);
-      ctx.arc(374, 100, 30, 0, Math.PI, true);
-      ctx.lineTo(160, 100);
-      ctx.arc(130, 100, 30, 0, Math.PI, true);
+      ctx.moveTo(44, 100);
+      ctx.lineTo(42, 74);
+      ctx.quadraticCurveTo(43, 62, 54, 60);
+      ctx.lineTo(94, 58);
+      ctx.lineTo(126, 26);
+      ctx.quadraticCurveTo(168, 18, 210, 24);
+      ctx.lineTo(244, 58);
+      ctx.lineTo(296, 64);
+      ctx.quadraticCurveTo(310, 68, 311, 82);
+      ctx.lineTo(310, 100);
+      ctx.lineTo(285, 100);
+      ctx.arc(260, 100, 25, 0, Math.PI, true);
+      ctx.lineTo(115, 100);
+      ctx.arc(90, 100, 25, 0, Math.PI, true);
       ctx.closePath();
     };
     carPath();
     paint(ctx, body, 0);
-    onTop(ctx, 50, 18, 410, 90, () => {
+    onTop(ctx, 34, 18, 284, 90, () => {
       ctx.fillStyle = "rgba(15,16,18,0.2)";
-      ctx.fillRect(50, 82, 410, 30);
-      [[118, 92, 30, 12, 11], [160, 70, 14, 9, 12], [322, 94, 26, 10, 13], [228, 96, 22, 6, 14], [90, 66, 18, 7, 15], [420, 76, 16, 10, 16]].forEach(([x, y, rx, ry, s]) => {
+      ctx.fillRect(34, 82, 284, 30);
+      [[82, 92, 21, 12, 11], [111, 70, 10, 9, 12], [224, 94, 18, 10, 13], [158, 96, 15, 6, 14], [62, 66, 12, 7, 15], [292, 76, 11, 10, 16]].forEach(([x, y, rx, ry, s]) => {
         blob(ctx, x, y, rx, ry, s, "#9a5428");
-        blob(ctx, x + 3, y + 1, rx * 0.5, ry * 0.5, s + 40, "#6b3518");
+        blob(ctx, x + 2, y + 1, rx * 0.5, ry * 0.5, s + 40, "#6b3518");
       });
     });
-    dots(ctx, 50, 82, 410, 22, 0.2);
+    dots(ctx, 34, 82, 284, 22, 0.2);
     carPath();
     paint(ctx, null, LW);
-    line(ctx, [[66, 78], [444, 80]], shade(body, 55), 3);
-    line(ctx, [[84, 64], [132, 62]], "rgba(255,255,255,0.6)", 4);
-    line(ctx, [[360, 63], [420, 67]], "rgba(255,255,255,0.6)", 4);
-    poly(ctx, [[146, 58], [186, 30], [240, 27], [240, 58]], "#a9c4d6", 3.5);
-    poly(ctx, [[248, 58], [248, 27], [298, 28], [338, 58]], "#a9c4d6", 3.5);
-    line(ctx, [[172, 52], [196, 34]], "rgba(255,255,255,0.7)", 4);
-    line(ctx, [[268, 52], [288, 34]], "rgba(255,255,255,0.7)", 4);
-    line(ctx, [[244, 58], [244, 98]], INK, 3);
-    line(ctx, [[142, 60], [150, 98]], INK, 3);
-    line(ctx, [[344, 60], [340, 98]], INK, 3);
-    box(ctx, 196, 66, 18, 5, "#d7dbe0", 2.5);
-    box(ctx, 296, 66, 18, 5, "#d7dbe0", 2.5);
-    box(ctx, 56, 66, 10, 14, "#d23a2a", 3);
-    rbox(ctx, 436, 70, 12, 10, 3, "#ffe28a", 3);
-    box(ctx, 54, 86, 14, 14, "#3a3d43", 3);
-    box(ctx, 438, 86, 14, 14, "#3a3d43", 3);
+    line(ctx, [[46, 78], [308, 80]], shade(body, 55), 3);
+    line(ctx, [[58, 64], [92, 62]], "rgba(255,255,255,0.6)", 4);
+    line(ctx, [[250, 63], [292, 67]], "rgba(255,255,255,0.6)", 4);
+    poly(ctx, [[101, 58], [129, 30], [167, 27], [167, 58]], "#a9c4d6", 3.5);
+    poly(ctx, [[173, 58], [173, 27], [207, 28], [236, 58]], "#a9c4d6", 3.5);
+    line(ctx, [[119, 52], [134, 36]], "rgba(255,255,255,0.7)", 4);
+    line(ctx, [[186, 52], [199, 35]], "rgba(255,255,255,0.7)", 4);
+    line(ctx, [[170, 58], [170, 98]], INK, 3);
+    line(ctx, [[99, 60], [103, 97]], INK, 3);
+    line(ctx, [[239, 60], [237, 97]], INK, 3);
+    box(ctx, 136, 66, 13, 5, "#d7dbe0", 2.5);
+    box(ctx, 206, 66, 13, 5, "#d7dbe0", 2.5);
+    box(ctx, 39, 66, 8, 14, "#d23a2a", 3);
+    rbox(ctx, 303, 70, 9, 10, 3, "#ffe28a", 3);
+    box(ctx, 36, 86, 10, 14, "#3a3d43", 3);
+    box(ctx, 304, 86, 10, 14, "#3a3d43", 3);
     // the wheels, hanging below their arches
-    [130, 374].forEach((cx) => {
-      circle(ctx, cx, 112, 25, "#1d1f23", LW);
-      circle(ctx, cx, 112, 13, "#b9c0c8", 3);
-      circle(ctx, cx, 112, 4.5, "#3a3d43", 2);
-      line(ctx, [[cx - 18, 100], [cx - 8, 94]], "#4a4f57", 3);
+    [90, 260].forEach((cx) => {
+      circle(ctx, cx, 111, 21, "#1d1f23", LW);
+      circle(ctx, cx, 111, 11, "#b9c0c8", 3);
+      for (let k = 0; k < 5; k++) circle(ctx, cx + Math.cos((k / 5) * TAU) * 6.5, 111 + Math.sin((k / 5) * TAU) * 6.5, 1.4, "#3a3d43", 0);
+      circle(ctx, cx, 111, 3, "#3a3d43", 1.5);
+      line(ctx, [[cx - 14, 100], [cx - 7, 95]], "#4a4f57", 3);
     });
   });
 
@@ -484,63 +496,63 @@
   });
 
   /* A small warehouse forklift, side view: the forks up with a pallet of boxes (foot 3 x 1, color = paint). */
-  sprite("forklift", 504, 168, (ctx, w, h, o) => {
+  footSprite("forklift", 3, 0.98, 168, (ctx, w, h, o) => {
     const paintC = hue(o, "#e3b21b");
     const G = h - 4;
     const dark = "#2a2d33";
-    shadow(ctx, 250, G, 232);
+    shadow(ctx, w / 2, G, w / 2 - 12);
     // counterweight and body
-    rbox(ctx, 22, 70, 124, 84, 16, shade(paintC, -28), LW);
-    hazard(ctx, 22, 92, 20, 56);
-    rbox(ctx, 22, 70, 124, 84, 16, null, LW);
-    box(ctx, 110, 100, 230, 54, paintC, LW);
-    rbox(ctx, 34, 64, 156, 38, 10, paintC, LW);
-    shine(ctx, 44, 70, 130, 5, 0.45);
-    darken(ctx, 22, 128, 320, 30, 0.14);
-    // seat, wheel and the overhead cage
-    rbox(ctx, 146, 28, 22, 46, 6, dark, LW);
-    rbox(ctx, 144, 58, 62, 14, 6, dark, LW);
-    line(ctx, [[272, 100], [252, 68]], dark, 6);
-    oval(ctx, 250, 64, 18, 6, null, 5, -0.3);
-    tube(ctx, [[140, 66], [140, 18]], dark, 6);
-    tube(ctx, [[302, 100], [288, 18]], dark, 6);
-    box(ctx, 128, 10, 172, 11, dark, 3.5);
-    for (let x = 150; x < 290; x += 22) line(ctx, [[x, 12], [x + 8, 19]], "#555b64", 2.5);
-    line(ctx, [[140, 46], [180, 20]], dark, 4);
+    rbox(ctx, 12, 70, 88, 84, 14, shade(paintC, -28), LW);
+    hazard(ctx, 12, 92, 14, 56);
+    rbox(ctx, 12, 70, 88, 84, 14, null, LW);
+    box(ctx, 76, 100, 160, 54, paintC, LW);
+    rbox(ctx, 22, 64, 110, 38, 10, paintC, LW);
+    shine(ctx, 30, 70, 92, 5, 0.45);
+    darken(ctx, 12, 128, 226, 30, 0.14);
+    // seat, steering wheel and the overhead cage
+    rbox(ctx, 104, 28, 16, 46, 6, dark, LW);
+    rbox(ctx, 103, 58, 42, 14, 6, dark, LW);
+    line(ctx, [[189, 100], [175, 68]], dark, 6);
+    oval(ctx, 174, 64, 13, 6, null, 5, -0.3);
+    tube(ctx, [[96, 66], [96, 18]], dark, 6);
+    tube(ctx, [[210, 100], [201, 18]], dark, 6);
+    box(ctx, 87, 10, 122, 11, dark, 3.5);
+    for (let x = 102; x < 200; x += 15) line(ctx, [[x, 12], [x + 6, 19]], "#555b64", 2.5);
+    line(ctx, [[96, 46], [124, 20]], dark, 4);
     ctx.beginPath();
-    ctx.ellipse(214, 10, 11, 9, 0, Math.PI, 0);
+    ctx.ellipse(148, 10, 9, 8, 0, Math.PI, 0);
     ctx.closePath();
     paint(ctx, "#ff8a1f", 3);
-    circle(ctx, 292, 44, 6, "#ffe28a", 3);
+    circle(ctx, 203, 44, 5, "#ffe28a", 3);
     // the mast, its chain and ram
-    box(ctx, 338, 8, 14, 144, "#4a4f57", LW);
-    box(ctx, 352, 14, 10, 138, "#5d646d", LW);
-    for (let y = 20; y < 140; y += 9) line(ctx, [[345, y - 3], [345, y + 3]], "#9aa1a9", 2);
-    tube(ctx, [[357, 150], [357, 64]], "#c9d0d7", 4);
+    box(ctx, 234, 8, 10, 144, "#4a4f57", LW);
+    box(ctx, 244, 14, 8, 138, "#5d646d", LW);
+    for (let y = 20; y < 140; y += 9) line(ctx, [[239, y - 3], [239, y + 3]], "#9aa1a9", 2);
+    tube(ctx, [[248, 150], [248, 64]], "#c9d0d7", 3);
     // carriage, backrest and forks
-    box(ctx, 362, 44, 12, 58, dark, LW);
-    [366, 372, 378].forEach((x) => line(ctx, [[x, 22], [x, 46]], dark, 4));
-    line(ctx, [[364, 22], [380, 22]], dark, 5);
-    poly(ctx, [[370, 94], [494, 94], [498, 100], [370, 102]], dark, 3.5);
+    box(ctx, 252, 44, 9, 58, dark, LW);
+    [255, 260, 265].forEach((x) => line(ctx, [[x, 22], [x, 46]], dark, 4));
+    line(ctx, [[254, 22], [267, 22]], dark, 5);
+    poly(ctx, [[258, 94], [w - 8, 94], [w - 5, 100], [258, 102]], dark, 3.5);
     // the pallet and boxes on the forks
-    box(ctx, 380, 80, 112, 8, "#b07a43", 3.5);
-    [382, 428, 474].forEach((x) => box(ctx, x, 88, 16, 12, "#8a5a2e", 3));
+    box(ctx, 264, 80, 78, 8, "#b07a43", 3.5);
+    [265, 297, 330].forEach((x) => box(ctx, x, 88, 11, 12, "#8a5a2e", 3));
     const crate = (x, y, cw, ch) => {
       box(ctx, x, y, cw, ch, "#c99a5e", 3.5);
-      box(ctx, x + cw / 2 - 5, y, 10, ch, "#e3c48f", 0);
+      box(ctx, x + cw / 2 - 4, y, 8, ch, "#e3c48f", 0);
       box(ctx, x, y, cw, ch, null, 3.5);
-      poly(ctx, [[x + 10, y + 16], [x + 15, y + 9], [x + 20, y + 16]], INK, 0);
+      poly(ctx, [[x + 6, y + 16], [x + 10, y + 9], [x + 14, y + 16]], INK, 0);
       darken(ctx, x + cw * 0.7, y, cw * 0.3, ch, 0.12);
     };
-    crate(384, 40, 52, 40);
-    crate(436, 46, 52, 34);
-    crate(398, 8, 62, 32);
+    crate(267, 40, 36, 40);
+    crate(303, 46, 36, 34);
+    crate(277, 8, 43, 32);
     // wheels
-    circle(ctx, 98, 138, 23, "#1d1f23", LW);
-    circle(ctx, 98, 138, 10, "#9aa1a9", 3);
-    circle(ctx, 298, 134, 28, "#1d1f23", LW);
-    circle(ctx, 298, 134, 13, "#e0e3e6", 3);
-    circle(ctx, 298, 134, 4, dark, 0);
+    circle(ctx, 66, 141, 21, "#1d1f23", LW);
+    circle(ctx, 66, 141, 9, "#9aa1a9", 3);
+    circle(ctx, 206, 137, 25, "#1d1f23", LW);
+    circle(ctx, 206, 137, 12, "#e0e3e6", 3);
+    circle(ctx, 206, 137, 4, dark, 0);
   });
 
   /* A tangled heap of chrome shopping carts, one upside down on top, red handles. */
@@ -1223,16 +1235,16 @@
   /* ================= Signal Electronics ================= */
 
   /* A wide pyramid of old box TVs, every screen gray static, one showing color bars (foot 3 x 1). */
-  sprite("tvWall", 504, 168, (ctx, w, h) => {
+  footSprite("tvWall", 3, 0.98, 168, (ctx, w, h) => {
     const G = h - 4;
-    shadow(ctx, w / 2, G, 244);
+    shadow(ctx, w / 2, G, w / 2 - 6);
     const casings = ["#7a5232", "#8d939a", "#cdbf9c", "#3a3d43", "#a0703f", "#6b7480"];
     let seed = 1;
     const tv = (x, y, tw, th, casing, bars) => {
       rbox(ctx, x, y, tw, th, 6, casing, 4);
       const sx = x + 6;
       const sy = y + 6;
-      const sw = Math.round(tw * 0.68);
+      const sw = Math.round(tw * 0.66);
       const sh = th - 12;
       rbox(ctx, sx, sy, sw, sh, 8, "#aeb6bd", 3.5);
       const r = rng(seed++ * 97);
@@ -1260,21 +1272,28 @@
         line(ctx, [[sx + 6, sy + sh - 8], [sx + sw * 0.45, sy + 4]], "rgba(255,255,255,0.4)", 4);
       });
       rbox(ctx, sx, sy, sw, sh, 8, null, 3.5);
-      const kx = x + tw * 0.86;
+      // the knobs and speaker grille beside the screen
+      const kx = (sx + sw + x + tw) / 2;
       circle(ctx, kx, y + th * 0.28, 5, "#2a2d33", 2.5);
       circle(ctx, kx, y + th * 0.52, 4, "#2a2d33", 2.5);
-      for (let k = 0; k < 3; k++) line(ctx, [[kx - 6, y + th * 0.7 + k * 4], [kx + 6, y + th * 0.7 + k * 4]], INK, 1.5);
+      for (let k = 0; k < 3; k++) line(ctx, [[kx - 5, y + th * 0.7 + k * 4], [kx + 5, y + th * 0.7 + k * 4]], INK, 1.5);
       darken(ctx, x + tw - 10, y, 10, th, 0.12);
     };
-    for (let i = 0; i < 6; i++) tv(12 + i * 80, G - 54, 80, 54, casings[i % 6], false);
-    for (let i = 0; i < 5; i++) tv(52 + i * 80, G - 106, 80, 52, casings[(i + 3) % 6], i === 3);
-    for (let i = 0; i < 3; i++) tv(134 + i * 80, G - 154, 76, 48, casings[(i + 1) % 6], false);
+    // rows of n sets, each tw x th, centered, the bottom one on the floor
+    const row = (n, tw, th, y, c0, barsAt) => {
+      const x0 = (w - n * tw) / 2;
+      for (let i = 0; i < n; i++) tv(x0 + i * tw, y, tw, th, casings[(i + c0) % 6], i === barsAt);
+    };
+    row(5, 66, 54, G - 54, 0, -1);
+    row(4, 66, 52, G - 106, 3, 2);
+    row(3, 64, 48, G - 154, 1, -1);
     // rabbit ears on the top middle one
-    line(ctx, [[252, 14], [232, 2]], INK, 3);
-    line(ctx, [[252, 14], [276, 3]], INK, 3);
-    circle(ctx, 232, 3, 3, "#c9d0d7", 2);
-    circle(ctx, 276, 4, 3, "#c9d0d7", 2);
-    oval(ctx, 252, 14, 8, 4, "#2a2d33", 2.5);
+    const cx = w / 2;
+    line(ctx, [[cx, 14], [cx - 20, 2]], INK, 3);
+    line(ctx, [[cx, 14], [cx + 24, 3]], INK, 3);
+    circle(ctx, cx - 20, 3, 3, "#c9d0d7", 2);
+    circle(ctx, cx + 24, 4, 3, "#c9d0d7", 2);
+    oval(ctx, cx, 14, 8, 4, "#2a2d33", 2.5);
   });
 
   /* The store's robot mascot: silver box body, round red eyes, one arm waving, a word on its chest (label). */
