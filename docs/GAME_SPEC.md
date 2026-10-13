@@ -126,6 +126,34 @@ Food and medicine from different rooms add up; every other effect takes the best
   the workbench. Only guns you own can be modded.
 - The van's turret on the road is a separate gun, upgraded in the Garage tab.
 
+## Reading expansion (2026-10-13)
+
+Every level carries at least four times the reading it had before. All of it is native to
+the game and none of it is quizzed.
+
+- **More notes per building.** Besides the door note and the main note: a two-note trail
+  (`trail1` says where `trail2` is; `trail2` appears once `trail1` is read and says where the
+  key is) and dead-end notes placed by reading level (1 at levels 1, 2 at levels 2 and 3, 3 at
+  levels 4 and 5, 4 at level 6). Some dead ends are decoys: wrong codes, emptied rooms.
+- **Stashes and the key ring.** Every building has a small locked stash room (`K` door, `k`
+  spots, two good items that never come back). Its key is hidden in another building (`y`
+  spot), visible once that building's `trail2` is read. `KEYS` in `js/world.js` is a ring
+  through all fifteen places. A key picked up is a trip item: yours once home, lost on death.
+  Keys are listed in the backpack and the cabin's stock tab (what each opens, where it was
+  found, its tag, the clue note); the map shows a stash once you hold its key.
+- **Wall signs and graffiti.** Four per building (`W` tiles). Walk up and look at one and a
+  panel shows it; no key press, no pause.
+- **Item tags.** Every item has two tags (label, sticky note). The tag shows for a few seconds
+  on pickup and is kept in the backpack.
+- **Yard lots.** Garden, Farm, Well, Water, Power, Radio and Lab each have a lot in the yard
+  (`YARD.lots`). Empty, it is stakes, string and a painted sign; built, it shows the room at
+  its level. Walk up to one and a panel says what it is, what the next level needs, and why
+  it is locked (the same facts as the cabin's build menu).
+- **The day page.** Day 1 and every arrival home show a page: a recap of the trip (items,
+  scrap, notes, keys, food, the nearest build), June's journal entry, and, once the Radio room
+  is built, one broadcast. Thirty of each are written; after day 30 the last ten repeat. Every
+  page is kept in the backpack.
+
 ## The workbench (typing)
 
 Room builds, van and van-gun upgrades, gun mods, and trap crafting open the workbench: a garage scene
@@ -168,7 +196,9 @@ menus, HUD. Layouts collapse to one column.
 `zs.slots` is the slot index (active slot, labels); `zs.save.<n>` holds one base save: day,
 scrap, food, inventory, room levels, van and van-gun upgrades, guns (owned, in hand, mods,
 where each unfound gun is hidden, and the seed that picks its floor tile), known locations,
-per-location state (items taken, cache opened), backpack notes, packed kits, fence health
+per-location state (items taken, cache opened, stash opened and taken), stash keys found,
+item tags read, the day log (journal and radio entries by index, recap numbers), broadcasts
+heard, backpack notes, packed kits, fence health
 per segment, trap stock and set traps, typing progress, best score. Only written at the base.
 An older save gets guns on load: the pistol, with mods carried over from its gun upgrades.
 

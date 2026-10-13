@@ -215,6 +215,119 @@
       ctx.stroke();
       border(ctx, w, h);
     },
+    /* A printed sign on the wall: a board with a red header and lines of text (read it up close). */
+    sign(ctx, w, h, p) {
+      TEX.wall(ctx, w, h, p);
+      ctx.fillStyle = "#f3eee0";
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2.5;
+      ctx.fillRect(10, 12, w - 20, 34);
+      ctx.strokeRect(10, 12, w - 20, 34);
+      ctx.fillStyle = "#b3261e";
+      ctx.fillRect(10, 12, w - 20, 9);
+      ctx.strokeRect(10, 12, w - 20, 9);
+      ctx.strokeStyle = "rgba(15,16,18,0.7)";
+      ctx.lineWidth = 2;
+      [26, 32, 38].forEach((y, i) => {
+        ctx.beginPath();
+        ctx.moveTo(15, y);
+        ctx.lineTo(w - 15 - i * 7, y);
+        ctx.stroke();
+      });
+      // two screws
+      ctx.fillStyle = "#9ea3aa";
+      [[13, 43], [w - 13, 43]].forEach(([x, y]) => {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.6, 0, TAU);
+        ctx.fill();
+      });
+    },
+    /* Survivor graffiti: a red R mark, a slashed count and drips. */
+    graffiti(ctx, w, h, p) {
+      TEX.wall(ctx, w, h, p);
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#b3261e";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(12, 46);
+      ctx.lineTo(12, 14);
+      ctx.quadraticCurveTo(30, 12, 26, 26);
+      ctx.quadraticCurveTo(22, 32, 13, 30);
+      ctx.lineTo(28, 46);
+      ctx.stroke();
+      ctx.strokeStyle = "#f3eee0";
+      ctx.lineWidth = 3;
+      [36, 42, 48].forEach((x) => {
+        ctx.beginPath();
+        ctx.moveTo(x, 18);
+        ctx.lineTo(x, 34);
+        ctx.stroke();
+      });
+      ctx.beginPath();
+      ctx.moveTo(33, 30);
+      ctx.lineTo(53, 22);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(179,38,30,0.8)";
+      ctx.lineWidth = 2;
+      [[12, 46, 54], [28, 46, 52], [20, 14, 20]].forEach(([x, y0, y1]) => {
+        ctx.beginPath();
+        ctx.moveTo(x, y0);
+        ctx.lineTo(x, y1);
+        ctx.stroke();
+      });
+      ctx.strokeStyle = "rgba(243,238,224,0.85)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(14, 54);
+      ctx.lineTo(50, 50);
+      ctx.stroke();
+      ctx.lineCap = "butt";
+    },
+    /* The stash door: a steel locker door with vents, a hasp and a padlock with a key mark. */
+    stash(ctx, w, h) {
+      ctx.fillStyle = "#3f5a4a";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#56705e";
+      ctx.fillRect(7, 4, w - 14, h - 4);
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(7, 4, w - 14, h - 4);
+      ctx.lineWidth = 2;
+      for (let y = 10; y < 24; y += 4) {
+        ctx.beginPath();
+        ctx.moveTo(18, y);
+        ctx.lineTo(w - 18, y);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#9ea3aa";
+      ctx.fillRect(w - 24, 34, 12, 6);
+      ctx.strokeRect(w - 24, 34, 12, 6);
+      ctx.fillStyle = "#d9a21b";
+      ctx.fillRect(w - 26, 42, 14, 12);
+      ctx.strokeRect(w - 26, 42, 14, 12);
+      ctx.beginPath();
+      ctx.arc(w - 19, 42, 5, Math.PI, 0);
+      ctx.stroke();
+      ctx.fillStyle = INK;
+      ctx.beginPath();
+      ctx.arc(w - 19, 47, 1.8, 0, TAU);
+      ctx.fill();
+      ctx.fillRect(w - 20, 47, 2, 4);
+      // a painted key mark: the key ring
+      ctx.strokeStyle = "#f3eee0";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(19, 42, 4, 0, TAU);
+      ctx.moveTo(23, 42);
+      ctx.lineTo(34, 42);
+      ctx.moveTo(30, 42);
+      ctx.lineTo(30, 46);
+      ctx.moveTo(34, 42);
+      ctx.lineTo(34, 46);
+      ctx.stroke();
+      halftone(ctx, w, h, 0.07);
+      border(ctx, w, h);
+    },
     exit(ctx, w, h) {
       ctx.fillStyle = "#2f3136";
       ctx.fillRect(0, 0, w, h);
@@ -1217,6 +1330,199 @@
       label(ctx, "!", 38, 11, 12);
     });
   }
+  /* A stash key lying on the floor: brass, with a paper tag on a loop of string. */
+  function key() {
+    return cached("key", 48, 32, (ctx, w, h) => {
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.beginPath();
+      ctx.ellipse(w / 2, h - 4, 20, 3.5, 0, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2.5;
+      ctx.fillStyle = "#d9a21b";
+      ctx.beginPath();
+      ctx.arc(12, 17, 7, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#2b2b26";
+      ctx.beginPath();
+      ctx.arc(12, 17, 2.5, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = "#d9a21b";
+      ctx.fillRect(18, 15, 18, 5);
+      ctx.strokeRect(18, 15, 18, 5);
+      ctx.fillRect(28, 20, 3, 5);
+      ctx.strokeRect(28, 20, 3, 5);
+      ctx.fillRect(33, 20, 3, 4);
+      ctx.strokeRect(33, 20, 3, 4);
+      // the tag
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(8, 12);
+      ctx.lineTo(4, 5);
+      ctx.stroke();
+      ctx.fillStyle = "#f3eee0";
+      ctx.save();
+      ctx.translate(6, 6);
+      ctx.rotate(-0.4);
+      ctx.fillRect(-4, -8, 12, 8);
+      ctx.strokeRect(-4, -8, 12, 8);
+      ctx.restore();
+    });
+  }
+
+  /* ---------- Yard lots (80 x 64): an empty lot with a painted sign, then the room as it is built ---------- */
+  function lot(room, level) {
+    return cached("lot:" + room + ":" + level, 80, 64, (ctx, w, h) => {
+      const G = h - 6; // ground line
+      ctx.lineJoin = "round";
+      ctx.fillStyle = "rgba(0,0,0,0.22)";
+      ctx.beginPath();
+      ctx.ellipse(w / 2, G, 36, 5, 0, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2;
+      const rect = (x, y, rw, rh, c) => {
+        ctx.fillStyle = c;
+        ctx.fillRect(x, y, rw, rh);
+        ctx.strokeRect(x, y, rw, rh);
+      };
+      const line = (pts, c, lw) => {
+        ctx.strokeStyle = c || INK;
+        ctx.lineWidth = lw || 2;
+        ctx.beginPath();
+        pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        ctx.stroke();
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 2;
+      };
+      const circle = (x, y, r, c) => {
+        ctx.fillStyle = c;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+      };
+      if (!level) {
+        // stakes and string around bare dirt
+        ctx.fillStyle = "#5a4535";
+        ctx.beginPath();
+        ctx.moveTo(18, G - 2);
+        ctx.lineTo(70, G - 2);
+        ctx.lineTo(62, G - 10);
+        ctx.lineTo(26, G - 10);
+        ctx.closePath();
+        ctx.fill();
+        [[18, G - 2], [70, G - 2], [62, G - 10], [26, G - 10]].forEach(([x, y]) => rect(x - 1.5, y - 8, 3, 8, "#c9b78a"));
+        line([[18, G - 9], [26, G - 17], [62, G - 17], [70, G - 9], [18, G - 9]], "#f3eee0", 1);
+      } else if (room === "garden") {
+        for (let i = 0; i < level; i++) {
+          const x = 24 + i * 18;
+          rect(x, G - 9, 15, 7, "#8a5a2e");
+          for (let j = 0; j < 3; j++) line([[x + 3 + j * 4.5, G - 9], [x + 3 + j * 4.5, G - 15 - (j % 2) * 3]], "#7a9a3c", 2.5);
+        }
+      } else if (room === "farm") {
+        for (let i = 0; i < 6; i++) line([[24 + i * 4, G - 2], [24 + i * 4, G - 24 + (i % 2) * 3]], "#7a9a3c", 2.5);
+        if (level >= 2) {
+          rect(50, G - 18, 16, 16, "#b3261e");
+          ctx.fillStyle = "#6b4a3a";
+          ctx.beginPath();
+          ctx.moveTo(47, G - 18);
+          ctx.lineTo(58, G - 27);
+          ctx.lineTo(69, G - 18);
+          ctx.closePath();
+          ctx.fill();
+          ctx.stroke();
+          circle(44, G - 4, 3, "#f3eee0");
+        }
+        if (level >= 3) {
+          line([[16, G - 10], [72, G - 10]], "#8a5a2e", 2);
+          line([[16, G - 4], [72, G - 4]], "#8a5a2e", 2);
+          rect(66, G - 14, 9, 6, "#e6dfcc");
+          circle(76, G - 15, 2.5, "#e6dfcc");
+        }
+      } else if (room === "well") {
+        rect(28, G - 14, 24, 12, "#9ea3aa");
+        line([[28, G - 8], [52, G - 8]], "rgba(15,16,18,0.5)", 1);
+        line([[30, G - 14], [30, G - 34]], "#8a5a2e", 3);
+        line([[50, G - 14], [50, G - 34]], "#8a5a2e", 3);
+        ctx.fillStyle = "#6b4a3a";
+        ctx.beginPath();
+        ctx.moveTo(24, G - 32);
+        ctx.lineTo(40, G - 42);
+        ctx.lineTo(56, G - 32);
+        ctx.closePath();
+        ctx.fill();
+        ctx.stroke();
+        if (level >= 2) {
+          line([[30, G - 24], [50, G - 24]], INK, 2);
+          rect(37, G - 22, 6, 6, "#8a5a2e");
+        }
+        if (level >= 3) {
+          rect(56, G - 18, 5, 16, "#4b5057");
+          line([[58, G - 18], [64, G - 24]], "#4b5057", 3);
+        }
+      } else if (room === "water") {
+        const tanks = level >= 3 ? 2 : 1;
+        for (let i = 0; i < tanks; i++) {
+          const x = 26 + i * 22;
+          line([[x + 2, G - 2], [x + 2, G - 12]], "#4b5057", 2);
+          line([[x + 14, G - 2], [x + 14, G - 12]], "#4b5057", 2);
+          rect(x, G - 30 - (level >= 2 ? 4 : 0), 16, 18 + (level >= 2 ? 4 : 0), "#2b7a8a");
+        }
+        if (level >= 2) rect(60, G - 12, 10, 10, "#3aa0c0");
+      } else if (room === "power") {
+        line([[20, G - 2], [20, G - 34]], "#8a5a2e", 3);
+        line([[64, G - 2], [64, G - 34]], "#8a5a2e", 3);
+        ctx.strokeStyle = INK;
+        ctx.beginPath();
+        ctx.moveTo(20, G - 32);
+        ctx.quadraticCurveTo(42, G - 22, 64, G - 32);
+        ctx.stroke();
+        ["#d9a21b", "#f3eee0", "#d9a21b", "#f3eee0"].forEach((c, i) => circle(28 + i * 9, G - 27 + Math.abs(i - 1.5) * -1.5, 2.2, c));
+        if (level >= 2) rect(34, G - 14, 18, 12, "#2f3136");
+        if (level >= 3) {
+          rect(60, G - 42, 10, 7, "#f3eee0");
+          line([[64, G - 35], [64, G - 34]], INK, 2);
+        }
+      } else if (room === "radio") {
+        const top = G - 30 - level * 8;
+        line([[34, G - 2], [40, top], [46, G - 2]], "#9ea3aa", 2.5);
+        for (let y = G - 8; y > top + 4; y -= 7) line([[36 + (G - y) * 0.12, y], [44 - (G - y) * 0.12, y]], "#9ea3aa", 1.5);
+        line([[40, top], [40, top - 8]], INK, 2);
+        circle(40, top - 9, 2.5, "#b3261e");
+        if (level >= 3) {
+          ctx.fillStyle = "#e6dfcc";
+          ctx.beginPath();
+          ctx.ellipse(50, top + 14, 3, 6, 0.4, 0, TAU);
+          ctx.fill();
+          ctx.stroke();
+        }
+      } else if (room === "lab") {
+        rect(22, G - 8, 8, 6, "#8a5a2e");
+        line([[24, G - 8], [24, G - 14]], "#7a9a3c", 2.5);
+        line([[28, G - 8], [28, G - 12]], "#7a9a3c", 2.5);
+        circle(40, G - 9, 6, "#c08f1a");
+        line([[44, G - 14], [50, G - 22], [54, G - 10]], "#c08f1a", 2);
+        if (level >= 2) {
+          rect(56, G - 14, 18, 3, "#f3eee0");
+          line([[58, G - 11], [58, G - 2]], INK, 2);
+          line([[72, G - 11], [72, G - 2]], INK, 2);
+        }
+        if (level >= 3) {
+          rect(26, G - 34, 30, 18, "#e6dfcc");
+          line([[41, G - 31], [41, G - 21]], "#b3261e", 3);
+          line([[36, G - 26], [46, G - 26]], "#b3261e", 3);
+        }
+      }
+      // the hand-painted sign on a post, every lot
+      line([[10, G], [10, G - 30]], "#8a5a2e", 3);
+      rect(2, G - 42, 18, 13, level ? "#e6dfcc" : "#f3eee0");
+      line([[5, G - 37], [17, G - 37]], "rgba(15,16,18,0.65)", 1.5);
+      line([[5, G - 33], [14, G - 33]], "rgba(15,16,18,0.65)", 1.5);
+    });
+  }
+
   function scrap() {
     return cached("scrap", 64, 48, (ctx, w, h) => {
       ctx.fillStyle = "rgba(0,0,0,0.25)";
@@ -2196,5 +2502,5 @@
     ctx.restore();
   }
 
-  ZSR.Draw3 = { texture, walker, item, note, scrap, trap, gun, weaponIcon, crosshair, shade, POSES };
+  ZSR.Draw3 = { texture, walker, item, note, key, lot, scrap, trap, gun, weaponIcon, crosshair, shade, POSES };
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -57,6 +57,10 @@
       known: W().LOCATIONS.filter((l) => l.known).map((l) => l.id),
       loc: {}, // per location: { taken: {spot: dayTaken}, cacheOpened, cacheTaken: {spot: true}, visits }
       backpack: [], // [{ noteId, locId, found, day }]
+      keys: {}, // stash keys found: { [locId where it was found]: { day } }; KEYS says which stash each opens
+      tagsSeen: [], // item keys whose tags have been read (kept in the backpack)
+      log: [], // one entry per day at home: { day, journal, radio, recap }; the words come from the reading level
+      radioHeard: 0, // broadcasts heard so far (the next one plays the day after)
       kits: 0, // medical kits packed in the backpack (heal to full)
       fence: {}, // "x,y" -> health; 0 is a hole. Holes never close on their own.
       traps, // crafted traps in stock, by type
@@ -162,6 +166,7 @@
       write(KEYS.slots, idx);
       this.save = freshSave(name);
       this.trip = null;
+      this.logDay(null); // Day 1 in June's journal: the night the crew finds the cabin
       this.commit();
       return this.save;
     },
@@ -248,6 +253,9 @@
         revealed: [], // locations revealed this trip
         revived: false,
         visited: [],
+        keys: [], // stash keys picked up this trip (yours once you get home)
+        tags: [], // item tags read this trip
+        signs: [], // wall signs read this trip (counted once for words read)
         walkers: 0,
         wordsRead: 0,
         items: 0,
@@ -256,17 +264,19 @@
     },
     /** Location state as seen right now: committed save plus this trip's overlay. */
     locState(id) {
-      const base = this.save.loc[id] || { taken: {}, cacheOpened: false, cacheTaken: {}, visits: 0 };
-      const over = (this.trip && this.trip.loc[id]) || { taken: {}, cacheTaken: {}, cacheOpened: false, visits: 0 };
+      const base = this.save.loc[id] || {};
+      const over = (this.trip && this.trip.loc[id]) || {};
       return {
         taken: Object.assign({}, base.taken, over.taken),
-        cacheOpened: base.cacheOpened || over.cacheOpened,
+        cacheOpened: !!(base.cacheOpened || over.cacheOpened),
         cacheTaken: Object.assign({}, base.cacheTaken, over.cacheTaken),
+        stashOpened: !!(base.stashOpened || over.stashOpened),
+        stashTaken: Object.assign({}, base.stashTaken, over.stashTaken),
         visits: (base.visits || 0) + (over.visits || 0),
       };
     },
     tripLoc(id) {
-      if (!this.trip.loc[id]) this.trip.loc[id] = { taken: {}, cacheTaken: {}, cacheOpened: false, visits: 0 };
+      if (!this.trip.loc[id]) this.trip.loc[id] = { taken: {}, cacheTaken: {}, cacheOpened: false, stashTaken: {}, stashOpened: false, visits: 0 };
       return this.trip.loc[id];
     },
     itemAvailable(id, spot) {
@@ -274,11 +284,58 @@
       const when = st.taken[spot];
       return when == null || this.save.day - when >= W().SETTINGS.restockDays;
     },
-    takeItem(id, spot, fromCache) {
+    /** source: false for a shelf or floor item, true (or "cache") for the cache, "stash" for the stash. */
+    takeItem(id, spot, source) {
       const tl = this.tripLoc(id);
-      if (fromCache) tl.cacheTaken[spot] = true;
+      if (source === "stash") tl.stashTaken[spot] = true;
+      else if (source) tl.cacheTaken[spot] = true;
       else tl.taken[spot] = this.save.day;
       this.trip.items += 1;
+    },
+
+    /* ---------- Stash keys (the key ring) ---------- */
+    /** Holding the key found at `fromId` (saved, or picked up this trip). */
+    hasKeyFrom(fromId) {
+      return !!(this.save.keys && this.save.keys[fromId]) || (!!this.trip && (this.trip.keys || []).includes(fromId));
+    },
+    /** Where the key to this location's stash is hidden. */
+    keySourceFor(stashId) {
+      return Object.keys(W().KEYS || {}).find((from) => W().KEYS[from] === stashId) || null;
+    },
+    canOpenStash(stashId) {
+      const from = this.keySourceFor(stashId);
+      return !!from && this.hasKeyFrom(from);
+    },
+    takeKey(fromId) {
+      if (this.hasKeyFrom(fromId)) return false;
+      if (this.trip) this.trip.keys.push(fromId);
+      else this.save.keys[fromId] = { day: this.save.day };
+      return true;
+    },
+    /** Keys held right now: [{ from, opens, day, trip }]. */
+    keysHeld() {
+      const out = Object.entries(this.save.keys || {}).map(([from, k]) => ({ from, opens: W().KEYS[from], day: k.day, trip: false }));
+      ((this.trip && this.trip.keys) || []).forEach((from) => out.push({ from, opens: W().KEYS[from], day: this.save.day, trip: true }));
+      return out;
+    },
+
+    /* ---------- Item tags ---------- */
+    tagSeen(item) {
+      return (this.save.tagsSeen || []).includes(item) || (!!this.trip && (this.trip.tags || []).includes(item));
+    },
+    /** Mark an item's tag read; true the first time (for the words-read count). */
+    seeTag(item) {
+      if (this.tagSeen(item)) return false;
+      if (this.trip) this.trip.tags.push(item);
+      else this.save.tagsSeen.push(item);
+      return true;
+    },
+    /** A wall sign read up close: counted once per trip. */
+    seeSign(signId, words) {
+      if (!this.trip || (this.trip.signs || []).includes(signId)) return false;
+      this.trip.signs.push(signId);
+      this.trip.wordsRead += words || 0;
+      return true;
     },
     noteRead(noteId) {
       return this.save.backpack.some((n) => n.noteId === noteId) || (!!this.trip && this.trip.notes.some((n) => n.noteId === noteId));
@@ -319,6 +376,8 @@
           Object.assign(base.taken, over.taken);
           Object.assign(base.cacheTaken, over.cacheTaken);
           base.cacheOpened = base.cacheOpened || over.cacheOpened;
+          base.stashTaken = Object.assign(base.stashTaken || {}, over.stashTaken);
+          base.stashOpened = !!(base.stashOpened || over.stashOpened);
           base.visits += over.visits || 0;
         });
         t.notes.forEach((n) => {
@@ -329,6 +388,12 @@
         });
         (t.weapons || []).forEach((id) => {
           if (!s.weapons.owned.includes(id)) s.weapons.owned.push(id);
+        });
+        (t.keys || []).forEach((from) => {
+          if (!s.keys[from]) s.keys[from] = { day: s.day };
+        });
+        (t.tags || []).forEach((item) => {
+          if (!s.tagsSeen.includes(item)) s.tagsSeen.push(item);
         });
         // the crew patches the worst of it overnight, so a near-dead van is never saved as a trap;
         // a hungry trip ran on a lower ceiling, so scale its health back before saving it as damage
@@ -349,10 +414,46 @@
           s.labAcc -= 1;
           s.inventory.meds = (s.inventory.meds || 0) + 1;
         }
+        this.logDay({ items: Object.values(t.cargo).reduce((a, b) => a + b, 0), scrap: t.scrap, notes: t.notes.length, keys: (t.keys || []).length });
       }
       this.trip = null;
       if (this.effects().freeRepair) s.vanHp = this.vanMaxHp();
       this.commit();
+    },
+
+    /* ---------- The day log: June's journal, the radio, and a recap of the day ---------- */
+    /** Entry n of a list of len: in order, then the later part repeats (the early days are a one-time story). */
+    cycleIndex(n, len) {
+      if (!len) return null;
+      if (n < len) return n;
+      const loop = Math.max(1, Math.min(len, Math.floor(len / 3)));
+      return len - loop + ((n - len) % loop);
+    },
+    /** Write today's entry (called when a day passes, and on Day 1). `trip` is null on Day 1. */
+    logDay(trip) {
+      const s = this.save;
+      const J = W().JOURNAL || [];
+      const R = W().RADIO || [];
+      const entry = { day: s.day, journal: this.cycleIndex(s.day - 1, J.length), radio: null, recap: null };
+      if (s.rooms.radio > 0 && R.length) {
+        entry.radio = this.cycleIndex(s.radioHeard || 0, R.length);
+        s.radioHeard = (s.radioHeard || 0) + 1;
+      }
+      if (trip) entry.recap = Object.assign({ food: s.food, hungry: s.food <= 0, next: this.nextBuild() }, trip);
+      s.log.push(entry);
+      if (s.log.length > 120) s.log.splice(0, s.log.length - 120);
+      return entry;
+    },
+    /** The room closest to buildable (fewest things missing, not locked): { room, missing: {item: n}, scrap }. */
+    nextBuild() {
+      let best = null;
+      Object.keys(W().BASE_ROOMS).forEach((room) => {
+        const c = this.canUpgradeRoom(room);
+        if (c.maxed || c.locked.length) return;
+        const short = Object.values(c.missing).reduce((a, b) => a + b, 0) + (c.scrapShort ? 1 : 0);
+        if (!best || short < best.short) best = { room, short, missing: c.missing, scrap: c.scrapShort, ready: c.ok };
+      });
+      return best && { room: best.room, missing: best.missing, scrap: best.scrap, ready: best.ready };
     },
 
     /** Death: throw the trip away. The save on disk is untouched. */
@@ -560,16 +661,112 @@
     const avail = Object.keys(T).map(Number).sort((a, b) => Math.abs(a - want) - Math.abs(b - want));
     return avail.length ? T[avail[0]] : null;
   };
+  /** Look something up at the current reading level; if that level lacks it (a note only the
+      higher levels place), the nearest level that has it. `pick(levelText)` returns it or null. */
+  ZSR.textAt = function textAt(pick) {
+    const T = ZSR.TEXT || {};
+    const want = State.settings.level;
+    const order = Object.keys(T).map(Number).sort((a, b) => Math.abs(a - want) - Math.abs(b - want) || b - a);
+    for (const lv of order) {
+      let v = null;
+      try {
+        v = pick(T[lv]);
+      } catch (e) {
+        v = null;
+      }
+      if (v != null) return v;
+    }
+    return null;
+  };
   /** Note text at the current level; falls back to the facts so the game never shows nothing. */
   ZSR.noteText = function noteText(locId, noteId) {
-    const t = ZSR.text();
-    const L = t && t.locations && t.locations[locId];
     const N = ZSR.WORLD.NOTES[locId];
     const isDoor = N && N.door.id === noteId;
-    const entry = L && (isDoor ? L.door : L.notes && L.notes[noteId]);
-    if (entry && entry.text) return { title: entry.title || "Note", text: entry.text };
+    const entry = ZSR.textAt((t) => {
+      const L = t.locations && t.locations[locId];
+      const e = L && (isDoor ? L.door : L.notes && L.notes[noteId]);
+      return e && e.text ? e : null;
+    });
+    if (entry) return { title: entry.title || "Note", text: entry.text };
     const facts = isDoor ? N.door.facts : (N.notes.find((n) => n.id === noteId) || {}).facts || [];
     return { title: isDoor ? "At the door" : "A note", text: facts.join(" ") };
+  };
+  /** A wall sign or graffiti inside a building. */
+  ZSR.signText = function signText(locId, signId) {
+    const e = ZSR.textAt((t) => {
+      const s = t.locations && t.locations[locId] && t.locations[locId].signs && t.locations[locId].signs[signId];
+      return s && s.text ? s : null;
+    });
+    if (e) return { title: e.title || "Sign", text: e.text };
+    const sg = ((ZSR.WORLD.NOTES[locId] || {}).signs || []).find((x) => x.id === signId);
+    return { title: sg && sg.kind === "graffiti" ? "Spray paint" : "Sign", text: sg ? sg.facts.join(" ") : "" };
+  };
+  /** The stash key hidden at `fromId`: { name, tag }. */
+  ZSR.keyText = function keyText(fromId) {
+    const e = ZSR.textAt((t) => {
+      const k = t.locations && t.locations[fromId] && t.locations[fromId].key;
+      return k && k.name ? k : null;
+    });
+    if (e) return { name: e.name, tag: e.tag || "" };
+    const K = (ZSR.WORLD.NOTES[fromId] || {}).key;
+    return { name: "A stash key", tag: K ? K.facts.join(" ") : "" };
+  };
+  /** One of an item's tags (variant 0 or 1). */
+  ZSR.tagText = function tagText(item, variant) {
+    const e = ZSR.textAt((t) => {
+      const list = t.tags && t.tags[item];
+      return list && list.length ? list : null;
+    });
+    if (e) return e[(variant || 0) % e.length];
+    const f = ((ZSR.WORLD.ITEM_TAGS || {})[item] || [])[variant || 0];
+    return f ? f.join(" ") : "";
+  };
+  /** The sign on a yard lot: level 0 is the empty lot. */
+  ZSR.lotText = function lotText(room, level) {
+    const e = ZSR.textAt((t) => {
+      const l = t.yard && t.yard.lots && t.yard.lots[room];
+      return l && l.empty ? l : null;
+    });
+    const name = ZSR.WORLD.BASE_ROOMS[room] ? ZSR.WORLD.BASE_ROOMS[room].name : room;
+    if (e) return { title: e.title || name, text: level > 0 ? e.built[Math.min(level, 3) - 1] : e.empty };
+    const f = (ZSR.WORLD.YARD_LOTS || {})[room];
+    return { title: name, text: f ? (level > 0 ? f.built[Math.min(level, 3) - 1] : f.empty).join(" ") : "" };
+  };
+  /** A journal entry or a radio broadcast by index. */
+  ZSR.dayText = function dayText(kind, idx) {
+    const e = ZSR.textAt((t) => {
+      const list = t[kind];
+      return list && list[idx] && list[idx].text ? list[idx] : null;
+    });
+    if (e) return { title: e.title || "", text: e.text };
+    const f = ((kind === "journal" ? ZSR.WORLD.JOURNAL : ZSR.WORLD.RADIO) || [])[idx];
+    return { title: "", text: f ? f.facts.join(" ") : "" };
+  };
+  /** The recap of a day, from the level's templates: {items} {scrap} {notes} {food} {room} {needs} {keys}. */
+  ZSR.recapText = function recapText(r) {
+    if (!r) return "";
+    const tpl = ZSR.textAt((t) => (t.recap && t.recap.haul ? t.recap : null)) || {
+      haul: "We brought home {items} items and {scrap} scrap.",
+      nothing: "We came home with nothing this time.",
+      notes: "You read {notes} new notes.",
+      keys: "You found {keys} stash keys.",
+      food: "We have {food} food left.",
+      hungry: "We are out of food. The van will be weak tomorrow.",
+      next: "Next build: the {room}. It still needs {needs}.",
+      ready: "We have everything to build the {room}.",
+    };
+    const W2 = ZSR.WORLD;
+    const fill = (s, o) => String(s || "").replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ? o[k] : m));
+    const nb = r.next;
+    const needs = nb ? Object.entries(nb.missing || {}).map(([k, n]) => n + " " + W2.ITEMS[k].name).concat(nb.scrap ? [nb.scrap + " scrap"] : []).join(", ") : "";
+    const o = Object.assign({}, r, { room: nb ? W2.BASE_ROOMS[nb.room].name : "", needs });
+    const out = [];
+    out.push(fill(r.items || r.scrap ? tpl.haul : tpl.nothing, o));
+    if (r.notes) out.push(fill(tpl.notes, o));
+    if (r.keys) out.push(fill(tpl.keys, o));
+    out.push(fill(r.hungry ? tpl.hungry : tpl.food, o));
+    if (nb) out.push(fill(nb.ready ? tpl.ready : tpl.next, o));
+    return out.join(" ");
   };
 
   ZSR.State = State;

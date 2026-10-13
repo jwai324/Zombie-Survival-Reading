@@ -74,6 +74,32 @@ a bow and arrow, and double pistols.
   model twice (the left one mirrored, firing in turn), the long guns are posed close and to
   the right so their sides show, and the bow bends and its string comes back as you draw.
 
+## Reading expansion (2026-10-13)
+
+The owner asked for at least four times the reading at every level, through more notes and
+more hunting, notes that carry keys and clues for other places, and descriptions of the yard's
+places. Answers to the questions put to the owner: longer notes plus new ones plus dead ends
+scaled by grade; stashes opened by a physical key found elsewhere; clue-chain notes and wall
+signs for hunting; a pop-up on approach for the yard lots that says why a room is locked;
+keys tracked in the backpack and at the base; radio transcripts, a daily journal, item tags and
+character arcs all in; one drop.
+
+- **Why a stash, not a change to the caches.** The caches and their notes were proven; a second
+  locked room per building adds the cross-town hunt without touching what works.
+- **Why the key appears only after the clue is read.** A key lying in the open would reward
+  wandering, not reading. The clue note is what makes it visible, as reading the main note is
+  what opens the cache.
+- **Why a ring of keys.** Every key points onward, so the hunt never dead-ends and every place
+  matters twice: for its own stash and for the next one.
+- **Why dead ends scale with grade.** Level 1 readers get one extra note to sort; level 6
+  readers get four, including decoys. Judging which note matters is the reading skill.
+  **Assumption:** the counts (1, 2, 2, 3, 3, 4) can move cheaply via `minLevel` in `js/story.js`.
+- **Why signs and lot signs need no key press.** They are short and should read like the world
+  around you; a panel on approach keeps the player moving and needs no new control.
+- **Why the journal never assumes a build.** The journal is written once per level for every
+  player; the game writes the recap line around it from the real day.
+- **Assumption:** after day 30, the last ten journal entries and broadcasts repeat.
+
 ## Not in this drop
 
 - Touch controls for first person (the map and road already work on touch).
