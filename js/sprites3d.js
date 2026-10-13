@@ -1237,7 +1237,8 @@
      The pistol is a small 3D model (metres; x right, y up, z forward; origin at the top
      of the slide's rear) projected in perspective and turned in toward the crosshair.
      Prism faces are back-face culled and lit from over the left shoulder. The gloved
-     hand is shaped panels laid on the grip; wrist and sleeve are tubes. */
+     hand is two leather shapes laid on the grip (palm and thumb, then the fingers);
+     wrist and sleeve are tubes. */
   const GUN_LIGHT = (() => {
     const v = [-0.45, 0.8, -0.4];
     const m = Math.hypot(v[0], v[1], v[2]);
@@ -1245,7 +1246,8 @@
   })();
   const STEEL = [54, 57, 62];
   const POLYMER = [40, 41, 44];
-  const GLOVE = [52, 50, 46];
+  const GLOVE = [50, 45, 40];
+  const CUFF = [33, 31, 29];
   const SLEEVE = [74, 82, 50];
 
   function rgb(c, k) {
@@ -1260,6 +1262,9 @@
   function dot(a, b) {
     return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
   }
+
+  // muzzle smoke outlives the 80 ms kick, so it keeps its own clock between frames
+  const muzzle = { last: 0, shots: 0, puffs: [] };
 
   function gun(ctx, W, H, opts) {
     const bob = opts.bob || 0;
@@ -1376,6 +1381,7 @@
     // the shooting arm comes up from the bottom right: jacket sleeve, then the glove's cuff
     limbs([[[[0.1, -0.36, -0.12], [0.035, -0.205, -0.07]], 0.036]], SLEEVE);
     limbs([[[[0.04, -0.215, -0.072], [0.006, -0.125, -0.04]], 0.024]], GLOVE);
+    limbs([[[[0.042, -0.22, -0.074], [0.03, -0.19, -0.064]], 0.027]], CUFF);
 
     // grip, raked back 18 degrees, with stippled panels
     const rake = [0, -Math.cos(0.31), -Math.sin(0.31)];
@@ -1389,42 +1395,87 @@
       }
     }
 
-    // shooting hand, seen from its left: heel and web round the backstrap, fingertips
-    // curled onto the left panel (the thumb goes on last, over the frame)
+    // shooting hand, seen from its left: the fingers curl round the front strap onto the
+    // left panel; palm, web and thumb go on last as one piece, over the frame
     const rearZ = (y) => ((y + 0.048) / 0.95) * 0.31;
     const frontZ = (y) => 0.053 + rearZ(y);
-    const glove = (pts, x, light) => {
-      const sp3 = pts.map(([y, z]) => P(x, y, z));
+    const GX = -0.016; // the glove sits just proud of the left grip panel
+    const G = (y, z) => P(GX, y, z);
+    const thick = (m) => (m * F) / (off[2] + 0.03); // a size in metres, in pixels on the glove
+    const smooth = (pts) => {
+      const sp3 = pts.map(([y, z]) => G(y, z));
       const n = sp3.length;
-      ctx.beginPath();
       const mid = (i) => [(sp3[i][0] + sp3[(i + 1) % n][0]) / 2, (sp3[i][1] + sp3[(i + 1) % n][1]) / 2];
+      ctx.beginPath();
       ctx.moveTo(...mid(n - 1));
       sp3.forEach((p, i) => ctx.quadraticCurveTo(p[0], p[1], ...mid(i)));
       ctx.closePath();
+      return sp3;
+    };
+    const seg = (y0, z0, y1, z1, width, color, dash) => {
+      const p0 = G(y0, z0);
+      const p1 = G(y1, z1);
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(1, width);
+      ctx.lineCap = "round";
+      if (dash) ctx.setLineDash([dash, dash * 0.9]);
+      ctx.beginPath();
+      ctx.moveTo(p0[0], p0[1]);
+      ctx.lineTo(p1[0], p1[1]);
+      ctx.stroke();
+      if (dash) ctx.setLineDash([]);
+    };
+    /* A leather piece: lit from above, grain, then detail painted inside its outline. */
+    const leather = (pts, detail) => {
+      const sp3 = smooth(pts);
       const ys = sp3.map((p) => p[1]);
+      const xs = sp3.map((p) => p[0]);
       const g = ctx.createLinearGradient(0, Math.min(...ys), 0, Math.max(...ys));
-      g.addColorStop(0, rgb(GLOVE, 1.35 * (light || 1)));
-      g.addColorStop(0.45, rgb(GLOVE, 1 * (light || 1)));
-      g.addColorStop(1, rgb(GLOVE, 0.62 * (light || 1)));
+      g.addColorStop(0, rgb(GLOVE, 1.25));
+      g.addColorStop(0.35, rgb(GLOVE, 0.92));
+      g.addColorStop(1, rgb(GLOVE, 0.48));
       ctx.fillStyle = g;
       ctx.fill();
+      ctx.save();
+      ctx.clip();
+      const rnd = seededRng(5);
+      const x0 = Math.min(...xs);
+      const y0 = Math.min(...ys);
+      const bw = Math.max(...xs) - x0;
+      const bh = Math.max(...ys) - y0;
+      for (let i = 0; i < 90; i++) {
+        ctx.fillStyle = i % 3 ? "rgba(0,0,0,0.16)" : "rgba(255,240,220,0.07)";
+        ctx.fillRect(x0 + rnd() * bw, y0 + rnd() * bh, 1.3 * s, 1.3 * s);
+      }
+      detail();
+      ctx.restore();
+      smooth(pts);
       ctx.strokeStyle = "#0d0e10";
       ctx.lineWidth = Math.max(1, 1.6 * s);
       ctx.stroke();
     };
-    glove([[-0.047, rearZ(-0.047) - 0.012], [-0.046, rearZ(-0.046) + 0.014], [-0.058, rearZ(-0.058) + 0.02], [-0.1, rearZ(-0.1) + 0.017], [-0.138, rearZ(-0.138) + 0.02], [-0.152, rearZ(-0.152) + 0.002], [-0.146, rearZ(-0.146) - 0.03], [-0.1, rearZ(-0.1) - 0.03], [-0.06, rearZ(-0.06) - 0.026]], -0.0155, 0.95);
-    [[-0.106, 0.0074], [-0.088, 0.0082], [-0.069, 0.0086]].forEach(([y, h]) => {
-      const fz = frontZ(y);
-      glove([[y + h, fz + 0.005], [y + h * 0.95, fz - 0.016], [y + h * 0.4, fz - 0.025], [y - h * 0.5, fz - 0.025], [y - h, fz - 0.015], [y - h, fz + 0.005]], -0.016);
-      // knuckle seam on the glove
-      const k0 = P(-0.016, y + h * 0.7, fz - 0.006);
-      const k1 = P(-0.016, y - h * 0.7, fz - 0.007);
-      ctx.strokeStyle = "rgba(0,0,0,0.45)";
-      ctx.lineWidth = Math.max(1, 1.1 * s);
-      ctx.beginPath();
-      ctx.moveTo(k0[0], k0[1]);
-      ctx.lineTo(k1[0], k1[1]);
-      ctx.stroke();
+    // fingers: middle, ring, little; [centre y, half height]
+    const fingers = [[-0.069, 0.0086], [-0.088, 0.0082], [-0.106, 0.0074]];
+    const tipZ = (y, depth) => frontZ(y) - depth;
+    const fingerOutline = [[fingers[0][0] + fingers[0][1], frontZ(-0.06) + 0.005], [-0.087, frontZ(-0.087) + 0.007], [-0.114, frontZ(-0.114) + 0.005]];
+    for (let i = fingers.length - 1; i >= 0; i--) {
+      const [y, h] = fingers[i];
+      fingerOutline.push([y - h * 0.95, tipZ(y - h, 0.013)], [y - h * 0.45, tipZ(y, 0.024)], [y + h * 0.45, tipZ(y, 0.024)]);
+      if (i > 0) fingerOutline.push([y + h, tipZ(y + h, 0.015)]);
+    }
+    fingerOutline.push([fingers[0][0] + fingers[0][1] * 0.95, tipZ(-0.06, 0.012)]);
+    leather(fingerOutline, () => {
+      fingers.forEach(([y, h], i) => {
+        const fz = frontZ(y);
+        // round each finger: sheen along the top, shadow along the bottom
+        seg(y + h * 0.42, fz + 0.006, y + h * 0.42, fz - 0.02, thick(h * 0.55), "rgba(255,235,210,0.13)");
+        seg(y - h * 0.8, fz + 0.006, y - h * 0.8, fz - 0.019, thick(h * 0.6), "rgba(0,0,0,0.38)");
+        // a fold at the middle joint
+        seg(y + h * 0.5, fz - 0.006, y - h * 0.3, fz - 0.0075, 1.1 * s, "rgba(0,0,0,0.4)");
+        seg(y + h * 0.45, fz - 0.0074, y - h * 0.25, fz - 0.0089, 1 * s, "rgba(255,235,210,0.1)");
+        // the crease to the next finger down
+        if (i < fingers.length - 1) seg(y - h, fz + 0.008, y - h, tipZ(y - h, 0.014), 1.5 * s, "rgba(0,0,0,0.75)");
+      });
     });
 
     // trigger guard and the trigger behind it
@@ -1501,47 +1552,115 @@
     dot3(0.0064, 0.0034, back + 0.0118, 0.0011);
     dot3(0, 0.0036, back + 0.1738, 0.0009);
 
-    // thumb along the frame, pointing at the target
-    glove([[-0.04, rearZ(-0.05) - 0.004], [-0.0365, 0.022], [-0.0375, 0.05], [-0.042, 0.06], [-0.0485, 0.056], [-0.05, 0.022], [-0.058, rearZ(-0.058) + 0.004]], -0.016, 1.1);
-    const nail = [P(-0.0162, -0.0395, 0.046), P(-0.0162, -0.0395, 0.056), P(-0.0162, -0.046, 0.056), P(-0.0162, -0.046, 0.046)];
-    ctx.strokeStyle = "rgba(0,0,0,0.4)";
-    ctx.lineWidth = Math.max(1, 1.1 * s);
-    ctx.beginPath();
-    ctx.moveTo(nail[0][0], nail[0][1]);
-    ctx.lineTo(nail[3][0], nail[3][1]);
-    ctx.stroke();
+    // palm, web and thumb in one piece: heel round the backstrap, the thumb's mound over
+    // the top of the panel, the thumb along the frame pointing at the target
+    const R = rearZ;
+    leather(
+      [[-0.046, R(-0.046) - 0.012], [-0.0405, -0.001], [-0.0366, 0.022], [-0.0372, 0.048], [-0.0392, 0.0605], [-0.0445, 0.063], [-0.049, 0.057], [-0.0505, 0.032], [-0.06, R(-0.06) + 0.024], [-0.085, R(-0.085) + 0.02], [-0.12, R(-0.12) + 0.018], [-0.14, R(-0.14) + 0.021], [-0.153, R(-0.153) + 0.004], [-0.148, R(-0.148) - 0.03], [-0.1, R(-0.1) - 0.03], [-0.062, R(-0.062) - 0.026]],
+      () => {
+        // thumb: sheen on top, shadow underneath, folds at the knuckle, a stitched seam
+        seg(-0.0392, 0.002, -0.0388, 0.056, thick(0.0035), "rgba(255,235,210,0.16)");
+        seg(-0.0485, 0.0, -0.0482, 0.054, thick(0.004), "rgba(0,0,0,0.4)");
+        seg(-0.0385, 0.029, -0.0465, 0.031, 1.1 * s, "rgba(0,0,0,0.35)");
+        seg(-0.0388, 0.0305, -0.0462, 0.0325, 1 * s, "rgba(255,235,210,0.1)");
+        seg(-0.0435, 0.004, -0.0438, 0.05, 1.1 * s, "rgba(205,190,165,0.4)", 3 * s);
+        // the mound at the base of the thumb catches the light
+        const c = G(-0.066, R(-0.066) + 0.006);
+        const rad = thick(0.03);
+        const mound = ctx.createRadialGradient(c[0], c[1], 0, c[0], c[1], rad);
+        mound.addColorStop(0, "rgba(255,235,210,0.14)");
+        mound.addColorStop(1, "rgba(255,235,210,0)");
+        ctx.fillStyle = mound;
+        ctx.fillRect(c[0] - rad, c[1] - rad, rad * 2, rad * 2);
+      }
+    );
 
-    // muzzle flash: a short forward flame, side jets, and a warm glow on everything near it
+    // muzzle flash: brief and hot. A white core, a short plume along the bore, a few
+    // ragged petals and sparks that differ shot to shot, and a warm glow nearby.
+    const m = P(0, -0.014, back + 0.192);
+    const ahead = P(0, -0.014, back + 0.32);
+    const ang = Math.atan2(ahead[1] - m[1], ahead[0] - m[0]);
+    const now = performance.now();
+    if (kick > muzzle.last + 0.05) {
+      muzzle.shots++;
+      muzzle.puffs.push({ t0: now, seed: muzzle.shots });
+      if (muzzle.puffs.length > 6) muzzle.puffs.shift();
+    }
+    muzzle.last = kick;
+    const r = 30 * s;
     if (kick > 0) {
-      const m = P(0, -0.014, back + 0.192);
-      const tip = P(0, -0.014, back + 0.192 + 0.09 * kick);
-      const r = (12 + kick * 16) * s;
-      const g = ctx.createRadialGradient(m[0], m[1], 0, m[0], m[1], r * 6);
-      g.addColorStop(0, "rgba(255,214,140," + (0.5 * kick).toFixed(2) + ")");
-      g.addColorStop(1, "rgba(255,150,60,0)");
-      ctx.fillStyle = g;
-      ctx.fillRect(m[0] - r * 6, m[1] - r * 6, r * 12, r * 12);
-      const ang = Math.atan2(tip[1] - m[1], tip[0] - m[0]);
-      const len = Math.max(r * 1.6, Math.hypot(tip[0] - m[0], tip[1] - m[1]));
-      const flame = (l, wdt, a, color) => {
-        ctx.fillStyle = color;
+      const glow = ctx.createRadialGradient(m[0], m[1], 0, m[0], m[1], r * 4);
+      glow.addColorStop(0, "rgba(255,205,130," + (0.32 * kick).toFixed(3) + ")");
+      glow.addColorStop(1, "rgba(255,160,70,0)");
+      ctx.fillStyle = glow;
+      ctx.fillRect(m[0] - r * 4, m[1] - r * 4, r * 8, r * 8);
+    }
+    const hot = Math.max(0, (kick - 0.4) / 0.6); // the flame itself lasts about half the kick
+    if (hot > 0) {
+      const rnd = seededRng(muzzle.shots * 7 + 3);
+      const lobe = (a, len, wdt, inner, outer) => {
+        const ex = m[0] + Math.cos(a) * len;
+        const ey = m[1] + Math.sin(a) * len;
+        const g = ctx.createLinearGradient(m[0], m[1], ex, ey);
+        g.addColorStop(0, inner);
+        g.addColorStop(1, outer);
+        ctx.fillStyle = g;
         ctx.beginPath();
         ctx.moveTo(m[0] + Math.cos(a + 1.57) * wdt, m[1] + Math.sin(a + 1.57) * wdt);
-        ctx.quadraticCurveTo(m[0] + Math.cos(a + 0.25) * l * 0.6, m[1] + Math.sin(a + 0.25) * l * 0.6, m[0] + Math.cos(a) * l, m[1] + Math.sin(a) * l);
-        ctx.quadraticCurveTo(m[0] + Math.cos(a - 0.25) * l * 0.6, m[1] + Math.sin(a - 0.25) * l * 0.6, m[0] + Math.cos(a - 1.57) * wdt, m[1] + Math.sin(a - 1.57) * wdt);
+        ctx.quadraticCurveTo(m[0] + Math.cos(a + 0.3) * len * 0.55, m[1] + Math.sin(a + 0.3) * len * 0.55, ex, ey);
+        ctx.quadraticCurveTo(m[0] + Math.cos(a - 0.3) * len * 0.55, m[1] + Math.sin(a - 0.3) * len * 0.55, m[0] + Math.cos(a - 1.57) * wdt, m[1] + Math.sin(a - 1.57) * wdt);
         ctx.closePath();
         ctx.fill();
       };
-      const alpha = kick.toFixed(2);
-      flame(len * 1.1, r * 0.55, ang, "rgba(255,170,70," + alpha + ")");
-      flame(r * 1.3, r * 0.3, ang + 1.25, "rgba(255,190,90," + alpha + ")");
-      flame(r * 1.3, r * 0.3, ang - 1.25, "rgba(255,190,90," + alpha + ")");
-      flame(len * 0.7, r * 0.32, ang, "rgba(255,240,200," + alpha + ")");
-      ctx.fillStyle = "rgba(255,252,235," + alpha + ")";
+      const al = (v) => (v * hot).toFixed(3);
+      // ragged petals round the muzzle
+      for (let i = 0; i < 5; i++) {
+        const a = ang + (i / 5) * TAU + rnd() * 0.6;
+        lobe(a, r * (0.45 + rnd() * 0.55), r * 0.17, "rgba(255,225,160," + al(0.9) + ")", "rgba(255,140,40,0)");
+      }
+      // the plume along the bore: orange outside, near white inside
+      const len = r * (1.8 + rnd() * 0.8);
+      lobe(ang + (rnd() - 0.5) * 0.15, len, r * 0.5, "rgba(255,200,110," + al(0.95) + ")", "rgba(255,120,30,0)");
+      lobe(ang, len * 0.6, r * 0.22, "rgba(255,250,225," + al(1) + ")", "rgba(255,210,140,0)");
+      // sparks thrown forward
+      ctx.strokeStyle = "rgba(255,228,170," + al(0.9) + ")";
+      ctx.lineWidth = Math.max(1, 1.2 * s);
+      ctx.lineCap = "round";
+      for (let i = 0; i < 4; i++) {
+        const a = ang + (rnd() - 0.5) * 0.9;
+        const d0 = r * (0.8 + rnd() * 0.8);
+        const d1 = d0 + r * (0.15 + rnd() * 0.25);
+        ctx.beginPath();
+        ctx.moveTo(m[0] + Math.cos(a) * d0, m[1] + Math.sin(a) * d0);
+        ctx.lineTo(m[0] + Math.cos(a) * d1, m[1] + Math.sin(a) * d1);
+        ctx.stroke();
+      }
+      const core = ctx.createRadialGradient(m[0], m[1], 0, m[0], m[1], r * 0.45);
+      core.addColorStop(0, "rgba(255,255,245," + al(1) + ")");
+      core.addColorStop(1, "rgba(255,240,200,0)");
+      ctx.fillStyle = core;
       ctx.beginPath();
-      ctx.arc(m[0], m[1], r * 0.4, 0, TAU);
+      ctx.arc(m[0], m[1], r * 0.45, 0, TAU);
       ctx.fill();
     }
+    // smoke: a grey puff per shot that drifts up and forward and thins out over 0.7 s
+    muzzle.puffs = muzzle.puffs.filter((puff) => now - puff.t0 < 700);
+    muzzle.puffs.forEach((puff) => {
+      const age = (now - puff.t0) / 700;
+      const rnd = seededRng(puff.seed * 13 + 1);
+      for (let i = 0; i < 3; i++) {
+        const drift = r * (0.6 + rnd() * 0.8) * age * 2;
+        const x = m[0] + Math.cos(ang) * drift + (rnd() - 0.5) * r * 0.8 * age;
+        const y = m[1] + Math.sin(ang) * drift - r * 1.6 * age * (0.6 + rnd() * 0.6);
+        const rad = r * (0.35 + age * (1.2 + rnd() * 0.8));
+        const a = 0.26 * Math.pow(1 - age, 1.6) * Math.min(1, age * 8);
+        const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
+        g.addColorStop(0, "rgba(205,203,198," + a.toFixed(3) + ")");
+        g.addColorStop(1, "rgba(205,203,198,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+      }
+    });
     ctx.restore();
   }
   function crosshair(ctx, cx, cy, hot) {
