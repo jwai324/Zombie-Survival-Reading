@@ -69,6 +69,21 @@
       noise(0.06, 0.25, 2400, 400);
       tone(520, 0.06, "square", 0.12, 180);
     },
+    heavy() {
+      const now = performance.now();
+      if (now - lastShot < 40) return;
+      lastShot = now;
+      noise(0.12, 0.4, 1400, 120);
+      tone(150, 0.12, "sawtooth", 0.18, 50);
+    },
+    bow() {
+      tone(220, 0.16, "triangle", 0.22, 110); // the string
+      noise(0.18, 0.12, 3000, 600); // the arrow
+    },
+    equip() {
+      tone(1200, 0.03, "square", 0.08);
+      setTimeout(() => tone(700, 0.05, "square", 0.1), 60);
+    },
     hit() {
       tone(240, 0.05, "triangle", 0.2, 120);
     },

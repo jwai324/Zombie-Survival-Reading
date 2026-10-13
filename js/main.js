@@ -150,7 +150,7 @@
     };
     loop();
   }
-  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D or the arrows slide the van.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, P or Esc pauses.", "E does it all: reads notes, opens and closes doors, opens a cache once you have read its note, leaves a building, enters the cabin, starts the van, and rebuilds a hole in the fence for 1 scrap.", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
+  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D or the arrows slide the van.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, P or Esc pauses.", "E does it all: reads notes, opens and closes doors, opens a cache once you have read its note, leaves a building, enters the cabin, starts the van, and rebuilds a hole in the fence for 1 scrap.", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Guns: more guns are hidden in buildings around town. Walk over one to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns. Hold to draw the bow, let go to shoot. Mod guns with scrap in the cabin's Weapons tab.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
   function renderHowto() {
     const t = ZSR.text();
     const body = $("howto-body");
@@ -175,7 +175,7 @@
       }
       const rest = parts.join(":");
       // single capital letters and known key names become key caps
-      rest.split(/(\b(?:W|A|S|D|E|B|P|T|R|Esc|Shift)\b)/).forEach((piece, i) => {
+      rest.split(/(\b(?:W|A|S|D|E|B|P|T|R|Q|Esc|Shift)\b)/).forEach((piece, i) => {
         if (i % 2) {
           const k = document.createElement("kbd");
           k.textContent = piece;

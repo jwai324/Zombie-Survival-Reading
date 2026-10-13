@@ -49,6 +49,31 @@ marked **Assumption** can be changed cheaply.
   drawn in perspective gets proportions, foreshortening and recoil right with no image
   assets and no dependencies.
 
+## Guns (2026-10-13)
+
+The owner asked for guns found at random in different places, each modded with scrap for
+better damage, range and so on, each with its own look: a machine gun, a heavy machine gun,
+a bow and arrow, and double pistols.
+
+- **Random per save, fixed within it.** Each gun's building is rolled when the save is made
+  (within a danger band, so the heavy machine gun is only in the worst places) and its floor
+  tile comes from a seed. Re-rolling on every visit would make the map unreadable; fixing it
+  per save keeps "where did I see it" meaningful and still differs between players.
+- **A trip item, like everything else.** Picking one up puts it in your hands at once (the
+  fun part), but it only becomes yours at home. Death taking it back keeps the trip a bet.
+- **No ammo.** Not asked for, and it would add a resource to balance and a screen to manage.
+  The guns are balanced by range, spread, noise, walking speed and pierce instead: the heavy
+  machine gun is strongest but slow and wakes the block; the bow is silent and long but slow.
+- **The van's gun is its own thing.** The old "gun" upgrades drove both the van turret and
+  the pistol. With five guns on foot each having mods, that double counted, so the Garage
+  upgrades now apply to the road only. **Migration:** an older save's pistol gets Damage and
+  Fire rate mods equal to its old gun upgrades (capped at 3), so nobody loses power.
+- **Mods go through the workbench** like every other build, for consistency with the spec.
+  **Assumption:** three tiers per mod; prices in `js/weapons.js` can move cheaply.
+- **Every gun is a projected 3D model**, like the pistol: the double pistols are the pistol
+  model twice (the left one mirrored, firing in turn), the long guns are posed close and to
+  the right so their sides show, and the bow bends and its string comes back as you draw.
+
 ## Not in this drop
 
 - Touch controls for first person (the map and road already work on touch).

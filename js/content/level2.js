@@ -19,6 +19,7 @@
       "Inside and in the yard: W A S D move, the mouse looks, and a click fires. Shift runs. B opens the backpack. P or Esc pauses.",
       "E does it all: E reads notes, opens and closes doors, and opens a cache once you read its note. E leaves a building, enters the cabin, and starts the van. E also fixes a fence hole for 1 scrap.",
       "Traps in the yard: T sets a spike trap and R sets a blast trap, on the ground in front of you or just past the fence.",
+      "Guns: More guns are hidden in buildings around town. Walk over one to pick it up, then bring it home to keep it. Press 1 to 5 or Q to switch guns. Hold the mouse to pull back the bow, and let go to shoot. Spend scrap at the cabin to make your guns better.",
       "Backpack: The notes you have read, and your medical kits. Use a kit to heal to full.",
       "Workbench: Building and upgrading is a short typing round. Type what is on the screen before the timer runs out. Out of time just means try again.",
       "Map: Tap a place, then Drive. At a place you can go back inside.",

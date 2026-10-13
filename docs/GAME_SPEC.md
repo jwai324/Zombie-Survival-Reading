@@ -103,9 +103,32 @@ Food and medicine from different rooms add up; every other effect takes the best
 - From the map, the place you are parked at offers "Go in" / "Go back in" (the door note is
   shown only the first time).
 
+## Guns
+
+| Key | Gun | What sets it apart | Hidden at danger |
+|-----|-----|--------------------|------------------|
+| 1 | Pistol | Carried from day one. Steady, cheap to mod | (start) |
+| 2 | Double pistols | One in each hand, fired left and right in turn: twice the rate, a little wilder | 1 to 2 |
+| 3 | Machine gun | Hold to keep firing; loud | 2 to 3 |
+| 4 | Heavy machine gun | Belt-fed; every round goes through two walkers; you walk 20% slower; the whole block hears it | 4 to 5 |
+| 5 | Bow and arrow | Hold to draw, let go to shoot; a full draw hits hardest; silent; longest range | 2 to 4 |
+
+- A new save hides each found gun in a random building within its danger range, no two in
+  the same building. Inside, it lies on a floor tile well away from the door, the same tile
+  on every visit. Walk over it to pick it up: it goes straight into your hands.
+- A gun picked up on a trip is a trip item: it is yours once you get home, and a death
+  puts it back where it was. Switching guns: 1 to 5, Q, or the mouse wheel.
+- Every gun has a range (nothing farther is hit), a spread (random aim error, wider while
+  moving), and a noise radius (walkers that close hear the shot; the bow makes none).
+- **Mods**, in the cabin's Weapons tab: Damage (+25% a tier), Range (+25%), Fire rate (12%
+  less time between shots; the bow draws and nocks faster), Accuracy (30% less spread).
+  Three tiers each, paid in scrap (dearer for the bigger guns), each one a typing round at
+  the workbench. Only guns you own can be modded.
+- The van's turret on the road is a separate gun, upgraded in the Garage tab.
+
 ## The workbench (typing)
 
-Room builds, van and gun upgrades, and trap crafting open the workbench: a garage scene
+Room builds, van and van-gun upgrades, gun mods, and trap crafting open the workbench: a garage scene
 with a typing round in front. The first time, a lesson shows traditional home-row finger
 placement. Stages progress one per finished round: single home-row keys, home-row runs,
 the top row, the bottom row, short words, longer words, phrases, sentences, then faster
@@ -143,9 +166,11 @@ menus, HUD. Layouts collapse to one column.
 ## Save format
 
 `zs.slots` is the slot index (active slot, labels); `zs.save.<n>` holds one base save: day,
-scrap, food, inventory, room levels, van and gun upgrades, known locations, per-location
-state (items taken, cache opened), backpack notes, packed kits, fence health per segment,
-trap stock and set traps, typing progress, best score. Only written at the base.
+scrap, food, inventory, room levels, van and van-gun upgrades, guns (owned, in hand, mods,
+where each unfound gun is hidden, and the seed that picks its floor tile), known locations,
+per-location state (items taken, cache opened), backpack notes, packed kits, fence health
+per segment, trap stock and set traps, typing progress, best score. Only written at the base.
+An older save gets guns on load: the pistol, with mods carried over from its gun upgrades.
 
 ## Content files
 

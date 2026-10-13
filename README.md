@@ -37,8 +37,12 @@ road also work on touch.
    Items sit on shelves and floors. The locked cache room holds the best items and opens
    only once you have read the note that says how. Go back in from the map and the
    building is exactly as you left it.
+   Four more guns lie on the floor of four buildings, different ones in every save:
+   double pistols, a machine gun, a heavy machine gun, and a bow and arrow. Walk over one
+   to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns.
 5. **Home again.** Cargo is unloaded, a day passes, the crew eats one food, the game
-   saves. Build rooms with items plus scrap, upgrade the van and the gun, craft traps:
+   saves. Build rooms with items plus scrap, upgrade the van and its gun, mod your guns
+   (damage, range, fire rate, accuracy) in the Weapons tab, craft traps:
    each one is a short typing round at the garage workbench (the first time teaches
    home-row finger placement; stages progress from single keys to sentences). Repairs
    are instant and bring the van back to full.
@@ -55,7 +59,7 @@ js/world.js             THE FACTS: items, base rooms, interior templates, the ya
 js/content/levelN.js    THE WORDS: all in-world text at reading level N (1..6)
 js/state.js             settings, the base save, the in-memory trip, room effects
 js/interior.js          first person: raycaster, walkers, items, notes, caches, the yard and its waves
-js/sprites3d.js         textures and sprites for first person
+js/sprites3d.js         textures and sprites for first person, and the 3D guns in hand
 js/game.js              the road (top-down drive between map locations)
 js/map.js               the city map and route finding
 js/base.js              the cabin build menu (rooms, garage, traps, stock, fence repair, hover tips)
@@ -63,7 +67,8 @@ js/typing.js            the workbench typing game (finger lesson, stages, timer,
 js/bench.js             the garage workbench scene behind the typing game
 js/backpack.js          the backpack (medical kits, notes) and the note reader
 js/sprites.js           road drawing (van, walkers, scenery)
-js/upgrades.js          van and gun upgrades
+js/upgrades.js          van and van-gun upgrades (the road)
+js/weapons.js           guns carried on foot: stats, mods, where each one is hidden
 js/audio.js             synthesized sound effects
 js/main.js              screen flow
 docs/GAME_SPEC.md       the design as agreed
@@ -87,7 +92,10 @@ tests/                  world validator, text validator, script syntax check
 - Waves at the base: `DEFENSE` in `js/world.js` (fence strength, calm length, wave mix, counts).
 - Road difficulty: `DIFF` and `ZOMBIE_TYPES` in `js/game.js`.
 - Base rooms, recipes, and effects: `BASE_ROOMS` in `js/world.js`.
-- Van and gun upgrades: `js/upgrades.js`.
+- Van and van-gun upgrades: `js/upgrades.js`.
+- Guns on foot (damage, fire rate, range, spread, noise, pierce, mod prices, which danger
+  levels each one can be hidden at): `js/weapons.js`. How each sits in your hands:
+  `POSES` in `js/sprites3d.js`.
 
 ## Privacy
 
