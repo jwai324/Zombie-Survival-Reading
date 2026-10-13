@@ -16,12 +16,21 @@
   const W = () => ZSR.WORLD;
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  /** The list in a random order (in place). */
+  const shuffle = (list) => {
+    for (let i = list.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [list[i], list[j]] = [list[j], list[i]];
+    }
+    return list;
+  };
   // the cabin's walls stop at the eave; the roof peaks at the ridge
   const CABIN_ROOF = { eave: 1.0, ridge: 1.7, roofTex: "roof", gableTex: "gable" };
   // where a wave comes from, as the toast says it (the yard's north is the back fence, far from the cabin door)
   const SIDE_NAMES = { n: "the back fence", s: "the fence behind the cabin", w: "the fence by the garage", e: "the fence by the farm" };
-  // name signs grow with the text size setting, so Huge text can still read them from the cabin door
-  const SIGN_SCALE = { normal: 1, large: 1.2, huge: 1.45 };
+  // name signs and plaques grow with the text size setting like all text the player must read (building.js
+  // does the same), so Large and Huge can still read them from the cabin door
+  const SIGN_SCALE = { normal: 1, large: 1.3, huge: 2 };
   const OPP = { n: "s", s: "n", e: "w", w: "e" };
   const LEFT = { s: "w", n: "e", e: "s", w: "n" }; // your left hand as you face a plot's front from outside
   const SIDE_BIT = { n: 1, e: 2, s: 4, w: 8 };
@@ -269,7 +278,7 @@
       (b) => {
         b.floor(0, 0, b.W, b.D, "dirt");
         b.low(0, 1, b.W, 1, { h: 0.3, tex: "yCrops", top: "#6f8a3a" });
-        b.low(0, 3, 3, 1, { h: 0.3, tex: "yCrops", top: "#6f8a3a" });
+        b.low(0, 3, 2, 1, { h: 0.3, tex: "yCrops", top: "#6f8a3a" });
         b.prop(1.5, 2.5, "yScarecrow", null, { scale: 1.3, solid: true, cover: false });
         b.box(3, 3, 2, 2, { h: 0.8, tex: wall("coop"), front: (iu) => wall("coop", null, iu === 0 ? "hatch" : "win"), roof: { ridge: 1.25, tex: "yRoofTinRed", gable: "yGableRed" } });
         b.low(3, 2, 2, 1, { h: 0.42, tex: "yWire" });
@@ -412,7 +421,7 @@
     },
 
     /** The cabin's walls by Walls level (more boards, metal shutters, steel plates); windows either side of
-        the door, on the back wall and in each gable end. Its roof gets tin patches from level 2. */
+        the door, on the back wall and in each gable end. Its roof is done over in tin from level 2. */
     dressCabin(walls) {
       const c = this.cabin;
       const d = this.door;
@@ -434,11 +443,13 @@
     },
 
     /** The fence's look by Walls level: the core draws "fence" / "fenceCracked", so this scene's texture memo
-        is pointed at the level's drawings (refreshScene clears the memo: yardUpdate puts them back). */
+        is pointed at the level's drawings. refreshScene clears the memo, and a frame drawn before the next
+        update memoizes the plain pickets there: yardUpdate checks the entry is still this one and puts it back. */
     yardFenceLook(walls) {
       this.yardFenceLvl = walls;
       if (walls > 0) {
-        this.texMemo.set("fence", D3().texture("yFence", this.palette, { lvl: walls }));
+        this.yardFenceTex = D3().texture("yFence", this.palette, { lvl: walls });
+        this.texMemo.set("fence", this.yardFenceTex);
         this.texMemo.set("fenceCracked", D3().texture("yFence", this.palette, { lvl: walls, cracked: 1 }));
       } else {
         this.texMemo.delete("fence");
@@ -463,14 +474,16 @@
             b.floor(u, v, 1, 1, "yLot" + m);
           }
         }
-        [[0.14, 0.14], [b.W - 0.14, 0.14], [0.14, b.D - 0.14], [b.W - 0.14, b.D - 0.14]].forEach(([U, V]) => b.prop(U, V, "yStake", null, { scale: 0.3 }));
+        // stakes at the front corners only: the back ones are hardly seen, and every sprite costs a little each frame
+        [[0.14, 0.14], [b.W - 0.14, 0.14]].forEach(([U, V]) => b.prop(U, V, "yStake", null, { scale: 0.3 }));
         b.prop(Math.floor(b.W / 2) + 0.5, 0.5, "ySign", { t: name.toUpperCase() }, { scale: 1.2 * k, solid: true });
         return;
       }
       b.floor(0, 0, b.W, b.D, "dirt");
       BUILDS[room][Math.min(lvl, 3) - 1].call(this, b);
+      // the plaque carries the name once the lot sign is gone (painted wall signs blur at a distance)
       const [pu, pv] = b.plaque || [0.5, 0.5];
-      b.prop(pu, pv, "yPlaque", { t: name.toUpperCase(), n: lvl }, { scale: 0.64 * k, solid: true, cover: false });
+      b.prop(pu, pv, "yPlaque", { t: name.toUpperCase(), n: lvl }, { scale: 0.8 * k, solid: true, cover: false });
     },
 
     /** A plot's local frame (see BUILDS): u left to right as you face its front, v from the front row back. */
@@ -794,12 +807,43 @@
     /* ---------- Waves ---------- */
     /** `n` different sides of the yard, at random. */
     pickSides(n) {
-      const all = ["n", "e", "s", "w"].filter((s) => this.spawns.some((p) => p[2] === s));
-      for (let i = all.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [all[i], all[j]] = [all[j], all[i]];
-      }
+      const all = shuffle(["n", "e", "s", "w"].filter((s) => this.spawns.some((p) => p[2] === s)));
       return all.slice(0, clamp(n, 1, all.length));
+    },
+    /** Walkers queue at a gap. Two that keep pushing against each other without getting anywhere (both making
+        for the same one-tile hole, say) sort it out: the one farther from its next step backs off for a moment
+        and the other goes through. The core steers each walker on its own; this is the yard's crowd, where
+        a breach can draw a whole side's walkers. Uses the walkers' path / pathT (the core re-paths when
+        pathT runs out). */
+    yardUnjam(dt) {
+      const p = this.player;
+      const stalled = [];
+      for (const z of this.walkers) {
+        // only walkers on their way somewhere: not clawing at the fence, not already at the player
+        if (!z.awake || z.fenceTarget || !z.path || !z.path.length || Math.hypot(z.x - p.x, z.y - p.y) < 1.5) {
+          z.yardJam = null;
+          continue;
+        }
+        const j = z.yardJam || (z.yardJam = { x: z.x, y: z.y, t: 0 });
+        if (Math.hypot(z.x - j.x, z.y - j.y) > 0.3) Object.assign(j, { x: z.x, y: z.y, t: 0 });
+        else if ((j.t += dt) > 1.2) stalled.push(z);
+      }
+      const gap = (w) => Math.hypot(w.path[0][0] - w.x, w.path[0][1] - w.y);
+      for (const z of stalled) {
+        if (z.yardJam.t <= 1.2) continue; // already sorted out with another this frame
+        const o = this.walkers.find((w) => w !== z && Math.hypot(w.x - z.x, w.y - z.y) < z.r + w.r + 0.35);
+        // stuck alone (on a corner): the core's steering sorts that out; behind one at the player: that is a queue
+        if (!o || Math.hypot(o.x - p.x, o.y - p.y) < 1.5) continue;
+        // both stuck: the one farther from its next step gives way; else the stuck one does
+        const both = o.yardJam && o.yardJam.t > 1.2;
+        const back = both && gap(z) <= gap(o) ? o : z;
+        const d = gap(back) || 1;
+        const [tx, ty] = back.path[0];
+        back.path = [[back.x - ((tx - back.x) / d) * 1.2, back.y - ((ty - back.y) / d) * 1.2]];
+        back.pathT = 1.1;
+        z.yardJam.t = 0;
+        if (o.yardJam) o.yardJam.t = 0;
+      }
     },
     updateYard(dt) {
       const ph = this.phase;
@@ -819,11 +863,13 @@
             this.waveIndex += 1;
             S.save.wave = this.waveIndex;
             const total = size === "some" ? D.someCount(S.save.day, this.waveIndex) : D.manyCount(S.save.day, this.waveIndex);
-            // a wave comes out of the trees on one side (a heavy one on more), and the toast says where
+            // a wave comes out of the trees on some sides (a heavy one on every side), and the toast says where
             const sides = this.pickSides((D.waveSides && D.waveSides[size]) || 4);
+            const every = sides.length >= 4;
             const where = sides.map((s) => SIDE_NAMES[s]).join(" and ");
             this.phase = { kind: "wave", size, total, spawned: 0, spawnT: 0, t: 0, sides };
-            this.toast(size === "many" ? "A lot of them: " + where + ". Hold the fence!" : "Walkers at " + where + ".", 3.5);
+            if (size === "many") this.toast(every ? "A lot of them, from every side. Hold the fence!" : "A lot of them: " + where + ". Hold the fence!", 3.5);
+            else this.toast(every ? "Walkers on every side." : "Walkers at " + where + ".", 3.5);
             Audio().play("haven");
           }
           this.updateHud();
@@ -833,10 +879,13 @@
         ph.spawnT -= dt;
         if (ph.spawned < ph.total && ph.spawnT <= 0) {
           ph.spawnT = D.spawnInterval * (ph.size === "many" ? 0.7 : 1);
-          // take turns between the wave's sides; any spot along that side
+          // take turns between the wave's sides; a side deals out its spots in a random order, so its walkers
+          // spread along it and claw at different fence segments
           const side = ph.sides ? ph.sides[ph.spawned % ph.sides.length] : null;
-          const pool = side ? this.spawns.filter((p) => p[2] === side) : this.spawns;
-          const [x, y] = pool[Math.floor(Math.random() * pool.length)];
+          const decks = (ph.decks = ph.decks || {});
+          const key = side || "all";
+          if (!decks[key] || !decks[key].length) decks[key] = shuffle(this.spawns.filter((p) => !side || p[2] === side));
+          const [x, y] = decks[key].pop();
           const day = S.save.day;
           const type = ph.size === "many" && ph.spawned % 5 === 4 ? "brute" : ph.spawned % 3 === 2 && day >= 2 ? "runner" : "walker";
           const z = this.makeWalker(type, x + rand(-0.3, 0.3), y + rand(-0.3, 0.3), 1 + 0.08 * (day - 1));
@@ -864,9 +913,10 @@
     yardUpdate(dt) {
       this.updateYard(dt);
       this.updateTraps(dt);
+      this.yardUnjam(dt);
       this.yardAnimate(dt);
       // the fence's look lives in the texture memo, which a scene refresh clears; the signs follow the text size
-      if (this.yardFenceLvl > 0 && !this.texMemo.has("fence")) this.yardFenceLook(this.yardFenceLvl);
+      if (this.yardFenceLvl > 0 && this.texMemo.get("fence") !== this.yardFenceTex) this.yardFenceLook(this.yardFenceLvl);
       const de = root.document && root.document.documentElement;
       if (de && de.getAttribute("data-size") !== this.yardSize) this.dressYard();
     },

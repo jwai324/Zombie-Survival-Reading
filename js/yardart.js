@@ -519,17 +519,19 @@
       halftone(ctx, w, h, 0.1);
     },
     yCabinRoof(ctx, w, h) {
-      // shingles patched with sheets of tin (Walls 2 and up)
-      for (let y = 0; y < h; y += 10) {
-        ctx.fillStyle = (y / 10) % 2 ? "#7a4536" : "#62342a";
-        ctx.fillRect(0, y, w, 10);
-        ctx.fillStyle = INK;
-        ctx.fillRect(0, y + 9, w, 1.5);
-      }
-      ribs(ctx, 6, 0, 26, h, "#8f969c", 6);
-      ink(ctx, 2.5);
-      ctx.strokeRect(6, -2, 26, h + 4);
-      rivets(ctx, [[10, 6], [28, 6], [10, 56], [28, 56]]);
+      // re-roofed in corrugated tin (Walls 2 and up): ribs down the slope, two sheets a tile, a rusty band
+      // along the eave. The core repeats a roof texture on every tile, so nothing here may look like a
+      // one-off patch: a patch on every tile reads as stripes.
+      ribs(ctx, 0, 0, w, h, "#8f969c", 8);
+      ctx.fillStyle = "rgba(150,72,30,0.5)";
+      ctx.fillRect(0, h - 9, w, 9);
+      ctx.fillStyle = INK;
+      ctx.fillRect(0, 0, 2, h);
+      ctx.fillRect(w / 2 - 1, 0, 2, h);
+      ctx.fillRect(0, h - 10, w, 1.5);
+      const row = [];
+      for (let x = 6; x < w; x += 8) row.push([x, 5], [x, h - 14]);
+      rivets(ctx, row);
       halftone(ctx, w, h, 0.1);
     },
   };
@@ -948,20 +950,20 @@
     fitText(ctx, String(o.t || ""), w / 2, 62, w - 40, 62, INK);
     rivets(ctx, [[18, 16], [w - 18, 16]]);
   });
-  /* A built room's plaque: its name and how many levels are built. */
-  sprite("yPlaque", 160, 136, (ctx, w, h, o) => {
-    shadow(ctx, w / 2, h - 3, 26);
-    box(ctx, w / 2 - 7, 50, 14, h - 52, "#6b5034", 3.5);
-    box(ctx, 6, 6, w - 12, 64, "#f1e8d0", 5);
-    fitText(ctx, String(o.t || ""), w / 2, 28, w - 28, 34, INK);
+  /* A built room's plaque: its name, big, and how many levels are built. */
+  sprite("yPlaque", 208, 156, (ctx, w, h, o) => {
+    shadow(ctx, w / 2, h - 3, 30);
+    box(ctx, w / 2 - 8, 84, 16, h - 86, "#6b5034", 3.5);
+    box(ctx, 5, 5, w - 10, 84, "#f1e8d0", 5);
+    fitText(ctx, String(o.t || ""), w / 2, 34, w - 24, 48, INK);
     const n = Math.max(0, Math.min(3, o.n | 0));
     for (let i = 0; i < 3; i++) {
-      const x = w / 2 + (i - 1) * 26;
+      const x = w / 2 + (i - 1) * 28;
       ctx.beginPath();
       for (let k = 0; k < 10; k++) {
         const a = -Math.PI / 2 + (k * Math.PI) / 5;
         const rr = k % 2 ? 4.5 : 10;
-        ctx[k ? "lineTo" : "moveTo"](x + Math.cos(a) * rr, 56 + Math.sin(a) * rr);
+        ctx[k ? "lineTo" : "moveTo"](x + Math.cos(a) * rr, 72 + Math.sin(a) * rr);
       }
       ctx.closePath();
       fillInk(ctx, i < n ? "#d9a21b" : "#cfc6b0", 2.5);
@@ -1051,10 +1053,10 @@
     circle(ctx, w / 2, 6, 4, "#c0302a", 2);
   });
   /* A tall mast on guy wires with antennas at the top. */
-  sprite("yMast", 176, 352, (ctx, w, h) => {
-    shadow(ctx, w / 2, h - 4, 70);
+  sprite("yMast", 112, 352, (ctx, w, h) => {
+    shadow(ctx, w / 2, h - 4, 44);
     const cx = w / 2;
-    [[4, h - 6], [w - 4, h - 6], [30, h - 2], [w - 30, h - 2]].forEach(([x, y], i) => line(ctx, [[cx, 40 + (i % 2) * 120], [x, y]], "rgba(30,30,30,0.7)", 1.5));
+    [[4, h - 6], [w - 4, h - 6], [20, h - 2], [w - 20, h - 2]].forEach(([x, y], i) => line(ctx, [[cx, 40 + (i % 2) * 120], [x, y]], "rgba(30,30,30,0.7)", 1.5));
     box(ctx, cx - 6, 30, 12, h - 36, "#c9cdd0", 3);
     for (let y = 40; y < h - 10; y += 22) line(ctx, [[cx - 6, y], [cx + 6, y + 11]], INK, 1.5);
     [[48, 30], [86, 22]].forEach(([y, len]) => line(ctx, [[cx - len, y], [cx + len, y]], INK, 3.5));
@@ -1162,21 +1164,41 @@
     wellRing(ctx, w / 2, 26, 60, h - 32);
     box(ctx, w / 2 + 36, 12, 18, 16, "#8a6a46", 2.5);
   });
+  /* The well with a round, pointed shingle roof on two posts and a windlass. A sprite always faces you,
+     so everything here looks the same from every side: no gable end that would turn as you walk round. */
   sprite("yWellRoof", 160, 208, (ctx, w, h) => {
     const cx = w / 2;
     box(ctx, cx - 54, 50, 10, h - 90, "#6b5034", 3);
     box(ctx, cx + 44, 50, 10, h - 90, "#6b5034", 3);
-    // crank axle, rope, bucket
-    line(ctx, [[cx - 50, 82], [cx + 62, 82]], INK, 6);
-    line(ctx, [[cx - 50, 82], [cx + 62, 82]], "#8a6a46", 3);
-    line(ctx, [[cx + 62, 82], [cx + 62, 100], [cx + 72, 100]], INK, 4);
-    line(ctx, [[cx, 82], [cx, 122]], "#c9a27a", 2.5);
+    // the windlass across the posts, rope and bucket in the middle
+    line(ctx, [[cx - 48, 84], [cx + 48, 84]], INK, 9);
+    line(ctx, [[cx - 48, 84], [cx + 48, 84]], "#8a6a46", 5);
+    line(ctx, [[cx - 6, 84], [cx + 6, 84]], "#c9a27a", 5);
+    line(ctx, [[cx, 86], [cx, 122]], "#c9a27a", 2.5);
     poly(ctx, [[cx - 10, 120], [cx + 10, 120], [cx + 8, 138], [cx - 8, 138]], "#8a6a46", 2.5);
     wellRing(ctx, cx, h - 74, 62, 68);
-    // the little roof
-    poly(ctx, [[cx - 72, 58], [cx, 6], [cx + 72, 58]], "#7a4536", 4);
-    poly(ctx, [[cx - 54, 52], [cx, 16], [cx + 54, 52]], "#62342a", 2);
-    line(ctx, [[cx - 36, 40], [cx + 36, 40]], "rgba(0,0,0,0.35)", 2);
+    // the roof: its dark underside, then the cone with rings of shingles and a knob on top
+    oval(ctx, cx, 56, 70, 9, "#3a2420", 3);
+    ctx.beginPath();
+    ctx.moveTo(cx, 6);
+    ctx.lineTo(cx + 74, 54);
+    ctx.ellipse(cx, 54, 74, 10, 0, 0, Math.PI);
+    ctx.closePath();
+    fillInk(ctx, "#7a4536", 4);
+    ctx.save();
+    ctx.clip();
+    [20, 32, 44].forEach((y) => {
+      const k = (y - 6) / 48; // the cone's width at this height, as a share of the eave's
+      ctx.beginPath();
+      ctx.ellipse(cx, y, 74 * k, 10 * k, 0, 0, Math.PI);
+      ctx.strokeStyle = "rgba(15,16,18,0.55)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(cx - 30, 0, 14, 70);
+    ctx.restore();
+    circle(ctx, cx, 7, 5, "#62342a", 2.5);
   });
   sprite("yBucket", 40, 40, (ctx, w, h) => {
     poly(ctx, [[6, 10], [34, 10], [30, h - 2], [10, h - 2]], "#8a6a46", 3);

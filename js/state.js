@@ -96,6 +96,7 @@
       fence: {}, // "x,y" -> health; 0 is a hole. Holes never close on their own.
       traps, // crafted traps in stock, by type
       yardTraps: [], // traps set in the yard: [{ x, y, type, uses }]
+      yardV: (W().YARD && W().YARD.version) || 1, // the yard grid the fence keys and trap spots belong to
       typing: { stage: 0, rounds: 0, tutorialSeen: false }, // the workbench typing game
       labAcc: 0, // partial medical kits brewing in the Lab
       stats: { trips: 0, walkers: 0, notesRead: 0, wordsRead: 0, items: 0 },
@@ -107,6 +108,17 @@
   /** Fill in anything an older save lacks, so every field the game reads exists. */
   function upgradeSave(s) {
     const fresh = freshSave(s.label);
+    // a save from an older yard grid: its fence keys and trap spots point at the wrong tiles, so the
+    // fence comes back whole and every set trap goes back into stock (checked before the fill-in below)
+    if ((s.yardV || 1) !== fresh.yardV) {
+      s.fence = {};
+      s.traps = s.traps || {};
+      (s.yardTraps || []).forEach((t) => {
+        if (t && t.type) s.traps[t.type] = (s.traps[t.type] || 0) + 1;
+      });
+      s.yardTraps = [];
+      s.yardV = fresh.yardV;
+    }
     Object.keys(fresh).forEach((k) => {
       if (s[k] == null) s[k] = fresh[k];
     });

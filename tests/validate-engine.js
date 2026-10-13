@@ -3,7 +3,9 @@
    draws nothing, enters every layout and the yard, and checks what the engine makes of them:
    four landmarks with their defs, solid landmarks and their footprints blocked (and cover),
    a walkable start facing in, every decor entry applied to a face you can see, walkers on floor
-   the player can reach, and frames that render without throwing.
+   the player can reach, and frames that render without throwing; the M map opens, draws and
+   closes cleanly, and what you have explored is kept in the trip, joins the save at home and is
+   lost with a dead trip.
    validate-world.js checks the layout data itself; this checks the engine reads it the same way. */
 "use strict";
 const fs = require("fs");
@@ -82,7 +84,7 @@ sb.window = sb;
 vm.createContext(sb);
 pixels = vm.runInContext("(w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) })", sb);
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const WANT = ["layouts.js", "world.js", "upgrades.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "yardart.js", "interior.js", "building.js", "yard.js"];
+const WANT = ["layouts.js", "world.js", "upgrades.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "landmarks1.js", "landmarks2.js", "yardart.js", "interior.js", "building.js", "yard.js"];
 const scripts = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]).filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -234,19 +236,463 @@ W.LOCATIONS.filter((l) => l.id !== "base").forEach((loc) => {
   }
 
   renderAround(ctx);
+
+  // the M map: M opens it and pauses, it draws, M / Esc close it and play goes on; P leaves the game
+  // paused for the pause menu; it never opens while something else has paused the game
+  const count = (a) => a.reduce((n, v) => n + (v ? 1 : 0), 0);
+  const seenNow = count(I.seen);
+  if (!seenNow) err(`${ctx}: rendering marked no tile seen (the map would be empty)`);
+  try {
+    I.startLoop();
+    if (!I.modeKey("m", false) || !I.mapOpen || !I.paused) err(`${ctx}: M did not open the map and pause`);
+    I.drawOverlay(I.ctx, I.W, I.H);
+    if (!I.mapImg) err(`${ctx}: the open map drew nothing`);
+    if (!I.modeKey("m", true) || I.mapOpen || I.paused) err(`${ctx}: M did not close the map and resume`);
+    I.modeKey("m", false);
+    if (!I.modeKey("escape", true) || I.mapOpen || I.paused) err(`${ctx}: Esc did not close the map and resume`);
+    I.modeKey("m", false);
+    if (!I.modeKey("p", true) || I.mapOpen || !I.paused) err(`${ctx}: P on the map should close it and stay paused for the pause menu`);
+    if (I.modeKey("m", true) || I.mapOpen) err(`${ctx}: M opened the map over another pause`);
+    I.resume();
+    I.modeKey("m", false);
+    I.resume(); // resumed from elsewhere (the pause menu): the map must not stay up over play
+    I.drawOverlay(I.ctx, I.W, I.H);
+    if (I.mapOpen) err(`${ctx}: the map stayed open after the game resumed`);
+  } catch (e) {
+    err(`${ctx}: the map threw ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+  }
+  // exploring is kept: leaving puts it in the trip (snapshot and overlay); coming back restores it
+  const before = Uint8Array.from(I.seen);
+  I.leave();
+  const tl = S.trip.loc[loc.id];
+  const fromTrip = tl && S.unpackSeen(tl.seen, gw, gh);
+  if (!fromTrip || count(fromTrip) !== seenNow) err(`${ctx}: leaving kept ${fromTrip ? count(fromTrip) : "no"} seen tiles in the trip, want ${seenNow}`);
+  if (!S.trip.rooms[loc.id] || !S.trip.rooms[loc.id].seen) err(`${ctx}: the trip snapshot has no explored map`);
+  const overlay = tl && tl.seen;
+  if (tl) delete tl.seen; // the snapshot alone must bring it back too
+  I.enter(loc);
+  I.stop();
+  if (before.some((v, i) => v && !I.seen[i])) err(`${ctx}: coming back on the same trip lost explored tiles`);
+  if (tl) tl.seen = overlay;
 });
 
-// the yard: enters, renders, and the fence stays see-through (and shoot-over)
-S.trip = null; // home: no trip running
+// exploring joins the save at home; a death on the next trip loses only that trip's exploring;
+// a save without explored maps, or with one for an older layout size, still loads
 try {
-  I.enterYard({ firstCalm: 999 });
+  const trip = Object.assign({}, S.trip.loc); // the last building's trip (each building above started its own)
+  const id0 = Object.keys(trip)[0];
+  if (!id0) throw new Error("no building in the trip");
+  S.returnHome();
+  Object.keys(trip).forEach((id) => {
+    const lay = ZSR.LAYOUTS[id];
+    const want = S.unpackSeen(trip[id].seen, lay.grid[0].length, lay.grid.length);
+    const got = S.save.loc[id] && S.unpackSeen(S.save.loc[id].seen, lay.grid[0].length, lay.grid.length);
+    if (!got || !want || got.some((v, i) => v !== want[i])) err(`${id}: the explored map did not reach the save on the way home`);
+  });
+  const saved = JSON.stringify(S.save.loc);
+  S.startTrip();
+  const loc = W.LOCATIONS.find((l) => l.id === id0);
+  I.enter(loc);
   I.stop();
-  renderAround("yard");
+  const home = S.unpackSeen(S.save.loc[id0].seen, I.gw, I.gh);
+  if (!home || home.some((v, i) => v !== I.seen[i])) err(`${id0}: the next trip in did not start from the saved explored map`);
+  I.seen.fill(1);
+  I.leave();
+  S.abandonTrip(); // death: back to the save on disk
+  if (JSON.stringify(S.save.loc) !== saved) err("death kept the dead trip's exploring in the save");
+  // an old save: no explored maps at all, then one for a layout of another size
+  Object.values(S.save.loc).forEach((l) => delete l.seen);
+  S.startTrip();
+  I.enter(loc);
+  I.stop();
+  S.save.loc[id0].seen = "3x3:/w";
+  I.enter(loc);
+  I.stop();
+  if (I.seen.some((v) => v)) err(`${id0}: an explored map for another layout size was applied`);
+} catch (e) {
+  err(`explored map in the save: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+}
+
+/* ---------- The yard: every room level builds on its plot, and nobody gets boxed in ----------
+   For all rooms at 0, 1, 2 and 3 and a few mixes: the player, the cabin door, the van and every fence
+   segment can be reached; there are no closed-off pockets; what a plot builds stays on the plot; every
+   art name is drawn; the fence stays shoot-over and wears its Walls look. Then a build goes up at once
+   (and a trap under it comes back), and two heavy waves are played out against the biggest yard. */
+S.trip = null; // home: no trip running
+const Y = W.YARD;
+const ROOMS = Object.keys(S.save.rooms);
+const N8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
+const inPlot = (x, y) => Object.values(Y.plots).some((p) => x >= p.x && y >= p.y && x < p.x + p.w && y < p.y + p.h);
+function setRooms(lv) {
+  ROOMS.forEach((k) => (S.save.rooms[k] = typeof lv === "number" ? lv : lv[k] || 0));
+  S.save.fence = {};
+  S.save.yardTraps = [];
+}
+function yardCheck(ctx) {
+  const gw = I.gw;
+  const gh = I.gh;
+  const m = I.solidMask();
+  const p = I.player;
+  const sx = Math.floor(p.x);
+  const sy = Math.floor(p.y);
+  if (I.solidForPlayer(p.x, p.y)) err(`${ctx}: the player starts inside something at ${sx},${sy}`);
+  const reach = I.reachable(sx, sy, false);
+  const near = (x, y) => N8.some(([dx, dy]) => reach.has(x + dx + "," + (y + dy)));
+  if (!I.door || !near(I.door.x, I.door.y)) err(`${ctx}: nobody can get to the cabin door`);
+  if (!I.van || !(near(I.van.x, I.van.y) || near(I.van.x + 1, I.van.y))) err(`${ctx}: nobody can get to the van`);
+  // inside the fence (ignoring what is built), every open tile is reachable and every segment can be repaired
+  const inside = new Set([sx + "," + sy]);
+  const q = [[sx, sy]];
+  while (q.length) {
+    const [x, y] = q.pop();
+    for (const [dx, dy] of N8.slice(0, 4)) {
+      const nx = x + dx;
+      const ny = y + dy;
+      const k = nx + "," + ny;
+      if (nx < 0 || ny < 0 || nx >= gw || ny >= gh || inside.has(k) || "FT".includes(Y.grid[ny][nx])) continue;
+      inside.add(k);
+      q.push([nx, ny]);
+    }
+  }
+  let pockets = 0;
+  inside.forEach((k) => {
+    const [x, y] = k.split(",").map(Number);
+    if (Y.grid[y][x] === "z") err(`${ctx}: a walker spawn at ${k} is inside the fence`);
+    if (!m[y * gw + x] && !reach.has(k) && pockets++ < 3) err(`${ctx}: ${k} is open ground nobody can get to (a pocket)`);
+  });
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) if (Y.grid[y][x] === "F" && !near(x, y)) err(`${ctx}: the fence at ${x},${y} cannot be reached to repair it`);
+  // what the plots build stays on the plots (the cabin's own tiles aside)
+  const cabin = (k) => "HB".includes((Y.grid[+k.split(",")[1]] || "")[+k.split(",")[0]]);
+  const off = (what, k) => !cabin(k) && !inPlot(+k.split(",")[0], +k.split(",")[1]) && err(`${ctx}: ${what} at ${k} is outside every plot`);
+  Object.keys(I.tileTex).forEach((k) => off("a wall face", k));
+  Object.keys(I.lowTiles).forEach((k) => off("a low tile", k));
+  I.blockers.forEach((k) => off("a solid prop", k));
+  I.roofs.slice(1).forEach((r) => !(inPlot(r.x0, r.y0) && inPlot(r.x1 - 1, r.y1 - 1)) && err(`${ctx}: a roof at ${r.x0},${r.y0} is outside every plot`));
+  for (let y = 0; y < gh; y++) for (let x = 0; x < gw; x++) if (I.grid[y][x] === "#" && !inPlot(x, y)) err(`${ctx}: a wall at ${x},${y} is outside every plot`);
+  // every name is drawn: sprites, wall faces, roofs and gables
+  I.props.forEach((pr) => pr.art && !D.hasSprite(pr.art) && err(`${ctx}: prop art "${pr.art}" is not registered`));
+  I.roofs.forEach((r) => [r.roofTex, r.gableTex].forEach((t) => t && !D.hasTexture(t) && err(`${ctx}: roof texture "${t}" is not registered`)));
+  // each plot shows its room: a sign with the name before it is built, a plaque after
+  ROOMS.filter((k) => Y.plots[k]).forEach((k) => {
+    const lvl = S.save.rooms[k];
+    const want = W.BASE_ROOMS[k].name.toUpperCase();
+    const sign = I.props.find((pr) => (pr.art === "ySign" || pr.art === "yPlaque") && pr.opts && pr.opts.t === want);
+    if (!sign) err(`${ctx}: plot ${k} has no sign or plaque reading "${want}"`);
+    else if ((sign.art === "ySign") !== !lvl) err(`${ctx}: plot ${k} at level ${lvl} shows a ${sign.art === "ySign" ? "lot sign" : "plaque"}`);
+  });
   const f = Object.keys(I.fence)[0];
-  if (!f) err("yard: no fence segments");
-  else if (I.solidMask() && I.coverMask[I.gw * +f.split(",")[1] + +f.split(",")[0]]) err("yard: the fence stops shots");
+  if (!f) err(`${ctx}: no fence segments`);
+  else if (I.coverMask[gw * +f.split(",")[1] + +f.split(",")[0]]) err(`${ctx}: the fence stops shots`);
+  renderAround(ctx);
+}
+try {
+  if (!Y.plots || !Y.version) err("yard: WORLD.YARD needs plots and a version");
+  const rnd = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(7);
+  const configs = [0, 1, 2, 3].map((l) => ["all " + l, l]);
+  for (let i = 0; i < 6; i++) configs.push(["mix " + (i + 1), Object.fromEntries(ROOMS.map((k) => [k, Math.floor(rnd() * 4)]))]);
+  configs.forEach(([name, lv]) => {
+    setRooms(lv);
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    yardCheck("yard " + name);
+    // the fence wears the Walls level's look (the core asks for "fence" / "fenceCracked")
+    const wl = S.save.rooms.walls;
+    if (wl > 0 && I.tex("fence") !== D.texture("yFence", I.palette, { lvl: wl })) err(`yard ${name}: the fence does not show Walls level ${wl}`);
+  });
+
+  // a build goes up the moment it is made; a trap set where it stands goes back into stock
+  setRooms(0);
+  I.enterYard({ firstCalm: 999 });
+  const g = Y.plots.garage;
+  S.save.traps.spike = 0;
+  S.save.yardTraps = [{ x: g.x + 1.5, y: g.y + 2.5, type: "spike", uses: 3 }];
+  S.save.rooms.garage = 3;
+  I.refreshYard();
+  I.stop();
+  if (I.grid[g.y + 2][g.x + 1] !== "#") err("yard: the garage workshop did not go up at once after the build");
+  if (S.save.traps.spike !== 1 || S.save.yardTraps.length) err("yard: a trap under a new build was not put back in stock");
+  if (!I.props.some((pr) => pr.art === "yPlaque" && pr.opts.n === 3 && pr.opts.t === "GARAGE")) err("yard: the garage plaque did not change after the build");
+
+  // heavy waves against the biggest yard: they come out of the trees on their sides, claw through the
+  // fence, find their way around the builds to the player (who shoots whatever gets close), and none gets
+  // stuck (walkers crowding a one-tile breach sort themselves out: yard.js yardUnjam). Math.random is
+  // seeded here, so every run plays the same waves.
+  setRooms(3);
+  S.save.rooms.walls = 0; // the weakest fence, so the waves get in quickly
+  S.save.day = 4;
+  const ctxMath = vm.runInContext("Math", sb);
+  const realRandom = ctxMath.random;
+  ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(4242);
+  for (const sides of [["n", "e"], ["s", "w"], ["n", "e", "s", "w"]]) {
+    S.save.fence = {};
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    const p = I.player;
+    p.maxHp = p.hp = 1e9;
+    I.phase = { kind: "wave", size: "many", total: 16, spawned: 0, spawnT: 0, t: 0, sides };
+    const ctx = "yard wave from " + sides.join("+");
+    const seenSides = new Set();
+    const anchor = new Map();
+    let t = 0;
+    let bit = 0;
+    let killed = 0;
+    let stuck = 0;
+    while (t < 300 && (I.phase.kind === "wave")) {
+      I.update(0.05);
+      t += 0.05;
+      I.walkers.forEach((z) => {
+        if (!anchor.has(z)) {
+          anchor.set(z, { x: z.x, y: z.y, t });
+          const d = { n: z.y, s: I.gh - z.y, w: z.x, e: I.gw - z.x };
+          seenSides.add(Object.keys(d).reduce((a, k) => (d[k] < d[a] ? k : a), "n"));
+        }
+        if (I.solidAt(z.x, z.y)) err(`${ctx}: a walker is inside something solid at ${z.x.toFixed(1)},${z.y.toFixed(1)}`);
+        const a = anchor.get(z);
+        const moved = Math.hypot(z.x - a.x, z.y - a.y) > 0.4;
+        const atFence = z.fenceTarget && Math.hypot(z.fenceTarget[0] - z.x, z.fenceTarget[1] - z.y) < 1.0 && I.fence[Math.floor(z.fenceTarget[0]) + "," + Math.floor(z.fenceTarget[1])] != null;
+        if (moved || atFence) Object.assign(a, { x: z.x, y: z.y, t });
+        else if (t - a.t > 8 && stuck++ < 3) err(`${ctx}: a walker is stuck at ${z.x.toFixed(1)},${z.y.toFixed(1)} (no progress for 8 s)`);
+        if (Math.hypot(z.x - p.x, z.y - p.y) < 1.2) {
+          bit++;
+          I.hurtWalker(z, 1e6); // the player shoots whatever gets this close
+          killed++;
+        }
+      });
+    }
+    const holes = I.fenceHoles().length;
+    if (!holes) err(`${ctx}: the walkers never broke through the fence`);
+    if (!bit) err(`${ctx}: no walker found its way to the player`);
+    if (I.phase.kind === "wave") err(`${ctx}: the wave never ended (${I.walkers.length} walkers left after ${t.toFixed(0)} s)`);
+    if (seenSides.size !== sides.length || sides.some((s) => !seenSides.has(s))) err(`${ctx}: walkers came from ${[...seenSides].join("+")}`);
+    if (killed < 16) err(`${ctx}: only ${killed} of 16 walkers reached the player`);
+  }
+  ctxMath.random = realRandom;
+
+  // a save from before the yard grew: its fence keys and trap spots mean nothing on the new grid, so the
+  // fence comes back whole and the set traps go back into stock; new games and current saves are left alone
+  const old = JSON.parse(JSON.stringify(S.save));
+  delete old.yardV;
+  Object.assign(old, { fence: { "11,3": 0, "12,3": 80 }, traps: { spike: 1, blast: 0 }, yardTraps: [{ x: 9.5, y: 9.5, type: "spike", uses: 2 }, { x: 10.5, y: 9.5, type: "blast", uses: 1 }] });
+  sb.localStorage.setItem("zs.save." + S.activeSlot(), JSON.stringify(old));
+  const ld = S.loadSave(S.activeSlot());
+  if (Object.keys(ld.fence).length || ld.yardTraps.length || ld.traps.spike !== 2 || ld.traps.blast !== 1 || ld.yardV !== Y.version) err(`yard: an older save was not moved onto the new yard (fence ${JSON.stringify(ld.fence)}, traps ${JSON.stringify(ld.traps)}, set ${ld.yardTraps.length}, yardV ${ld.yardV})`);
+  S.save.fence = { "11,4": 0 };
+  S.save.yardTraps = [{ x: 9.5, y: 9.5, type: "spike", uses: 2 }];
+  S.commit();
+  const kept = S.loadSave(S.activeSlot());
+  if (kept.fence["11,4"] !== 0 || kept.yardTraps.length !== 1) err("yard: a current save lost its fence or its set traps on loading");
+  S.newGame(S.activeSlot(), "Test");
+  if (S.save.yardV !== Y.version) err("yard: a new game does not record the yard version");
 } catch (e) {
   err(`yard: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+}
+
+/* ---------- Every upgrade step shows on the gun and the van ----------
+   The gun and the van faces are drawn on a tiny rasterizer that keeps, for every pixel, the color painted
+   there last (fills and strokes; text is skipped), and each level is compared with the one below it: a
+   step that changes almost nothing (a part drawn, then covered by the next one) fails. The van's faces
+   must also be painted up to their top row, gear or not: the core shades and inks a face from the tile's
+   top, so an empty band there shows as a hollow box over the roof. */
+function raster(w, h) {
+  const px = new Int32Array(w * h); // 0: nothing painted; else a color id
+  const ids = new Map();
+  const id = (c) => {
+    const k = typeof c === "string" ? c : "gradient";
+    if (!ids.has(k)) ids.set(k, ids.size + 1);
+    return ids.get(k);
+  };
+  let m = [1, 1, 0, 0]; // scale x, scale y, then translate (enough for these drawings)
+  const stack = [];
+  let subs = [];
+  let cur = null;
+  const at = (x, y) => [m[0] * x + m[2], m[1] * y + m[3]];
+  const each = (pts, pad, fn) => {
+    const xs = pts.map((q) => q[0]);
+    const ys = pts.map((q) => q[1]);
+    const x0 = Math.max(0, Math.floor(Math.min(...xs) - pad));
+    const x1 = Math.min(w - 1, Math.ceil(Math.max(...xs) + pad));
+    const y0 = Math.max(0, Math.floor(Math.min(...ys) - pad));
+    const y1 = Math.min(h - 1, Math.ceil(Math.max(...ys) + pad));
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (fn(x + 0.5, y + 0.5)) px[y * w + x] = fn.c;
+  };
+  const curve = (cx, cy, rx, ry, a0, a1, ccw) => {
+    let span = a1 - a0;
+    if (!ccw && span < 0) span += Math.PI * 2;
+    if (ccw && span > 0) span -= Math.PI * 2;
+    if (Math.abs(a1 - a0) >= Math.PI * 2) span = ccw ? -Math.PI * 2 : Math.PI * 2;
+    if (!cur) subs.push((cur = []));
+    for (let i = 0; i <= 24; i++) {
+      const a = a0 + (span * i) / 24;
+      cur.push(at(cx + Math.cos(a) * rx, cy + Math.sin(a) * ry));
+    }
+  };
+  const c = {
+    fillStyle: "#000", strokeStyle: "#000", lineWidth: 1, globalAlpha: 1, font: "", textAlign: "", textBaseline: "", lineJoin: "", lineCap: "",
+    px,
+    save() {
+      stack.push([m.slice(), this.fillStyle, this.strokeStyle, this.lineWidth]);
+    },
+    restore() {
+      const s = stack.pop();
+      if (s) [m, this.fillStyle, this.strokeStyle, this.lineWidth] = s;
+    },
+    translate(x, y) {
+      m[2] += m[0] * x;
+      m[3] += m[1] * y;
+    },
+    scale(x, y) {
+      m[0] *= x;
+      m[1] *= y;
+    },
+    beginPath() {
+      subs = [];
+      cur = null;
+    },
+    moveTo(x, y) {
+      subs.push((cur = [at(x, y)]));
+    },
+    lineTo(x, y) {
+      if (cur) cur.push(at(x, y));
+      else this.moveTo(x, y);
+    },
+    closePath() {
+      if (cur) cur.closed = true;
+      cur = null;
+    },
+    rect(x, y, rw, rh) {
+      subs.push(Object.assign([at(x, y), at(x + rw, y), at(x + rw, y + rh), at(x, y + rh)], { closed: true }));
+      cur = null;
+    },
+    arc(x, y, r, a0, a1, ccw) {
+      curve(x, y, r, r, a0, a1, ccw);
+    },
+    ellipse(x, y, rx, ry, rot, a0, a1, ccw) {
+      curve(x, y, rx, ry, a0, a1, ccw);
+    },
+    fill() {
+      const all = subs.filter((s) => s.length > 2);
+      if (!all.length) return;
+      // nonzero winding, every subpath closed
+      const inside = (x, y) => {
+        let wn = 0;
+        for (const s of all) for (let i = 0; i < s.length; i++) {
+          const [ax, ay] = s[i];
+          const [bx, by] = s[(i + 1) % s.length];
+          const cross = (bx - ax) * (y - ay) - (x - ax) * (by - ay);
+          if (ay <= y && by > y && cross > 0) wn++;
+          else if (ay > y && by <= y && cross < 0) wn--;
+        }
+        return wn !== 0;
+      };
+      inside.c = id(this.fillStyle);
+      each([].concat(...all), 0, inside);
+    },
+    stroke() {
+      const hw = (this.lineWidth * Math.abs(m[0])) / 2;
+      const col = id(this.strokeStyle);
+      subs.forEach((s) => {
+        const n = s.closed ? s.length : s.length - 1;
+        for (let i = 0; i < n; i++) {
+          const [ax, ay] = s[i];
+          const [bx, by] = s[(i + 1) % s.length];
+          const len2 = (bx - ax) ** 2 + (by - ay) ** 2 || 1e-9;
+          const near = (x, y) => {
+            const t = Math.max(0, Math.min(1, ((x - ax) * (bx - ax) + (y - ay) * (by - ay)) / len2));
+            return Math.hypot(x - ax - t * (bx - ax), y - ay - t * (by - ay)) <= hw;
+          };
+          near.c = col;
+          each([s[i], s[(i + 1) % s.length]], hw, near);
+        }
+      });
+    },
+    fillRect(x, y, rw, rh) {
+      this.beginPath();
+      this.rect(x, y, rw, rh);
+      this.fill();
+    },
+    strokeRect(x, y, rw, rh) {
+      this.beginPath();
+      this.rect(x, y, rw, rh);
+      this.stroke();
+    },
+    clearRect(x, y, rw, rh) {
+      const clear = () => true;
+      clear.c = 0;
+      each([at(x, y), at(x + rw, y + rh)], -0.5, clear);
+    },
+    measureText: (t) => ({ width: String(t).length * 6 }),
+    createLinearGradient: () => ({ addColorStop: noop }),
+    createRadialGradient: () => ({ addColorStop: noop }),
+  };
+  return new Proxy(c, { get: (o, k) => (k in o ? o[k] : noop) }); // text, clip, drawImage ...: nothing
+}
+try {
+  // the art caches every drawing: each one here gets a canvas of its own, drawn on a rasterizer
+  const realCreate = sb.document.createElement;
+  let drawn = null;
+  sb.document.createElement = (tag) => {
+    const el = realCreate(tag);
+    if (String(tag).toLowerCase() === "canvas") el.getContext = () => el.ctx || (el.ctx = drawn = raster(el.width, el.height));
+    return el;
+  };
+  const differ = (a, b) => a.reduce((n, v, i) => n + (v !== b[i] ? 1 : 0), 0);
+  // the gun at 420 x 420 (one unit of its art a pixel; a size the game never caches), one upgrade at a time
+  const guns = new Map();
+  const gunAt = (gear) => {
+    const key = gear.dmg + "," + gear.rof + "," + gear.spr;
+    if (!guns.has(key)) {
+      drawn = null;
+      D.gun(element("canvas").getContext("2d"), 420, 420, { gear });
+      guns.set(key, drawn && drawn.px);
+    }
+    return guns.get(key);
+  };
+  const GUN_MAX = { dmg: 5, rof: 5, spr: 3 };
+  const NAME = { dmg: "damage", rof: "fire rate", spr: "spread" };
+  if (!gunAt({ dmg: 0, rof: 0, spr: 0 })) err("upgrades: the gun is not drawn on a canvas of its own");
+  else {
+    for (const k of Object.keys(GUN_MAX)) for (const o of [0, 2, 5]) {
+      const base = { dmg: Math.min(o, 5), rof: Math.min(o, 5), spr: Math.min(o, 3) };
+      for (let lv = 1; lv <= GUN_MAX[k]; lv++) {
+        const n = differ(gunAt(Object.assign({}, base, { [k]: lv - 1 })), gunAt(Object.assign({}, base, { [k]: lv })));
+        if (n < 150) err(`upgrades: the gun at ${NAME[k]} ${lv} looks like ${NAME[k]} ${lv - 1} (${n} px change; the others at ${o})`);
+      }
+    }
+  }
+  // the van: its five faces, one upgrade at a time from nothing and from the middle
+  const FACES = ["vanCab", "vanBody", "vanBodyR", "vanFront", "vanBack"];
+  let n = 0;
+  const vanAt = (gear) => {
+    Object.assign(S.save.upgrades, gear);
+    return FACES.map((f) => {
+      drawn = null;
+      D.texture(f, { wallStyle: "upgradeCheck" + n++ });
+      return drawn.px;
+    });
+  };
+  for (const k of ["armor", "bumper", "engine", "paint"]) for (const o of [0, 3]) {
+    const base = { armor: o, bumper: o, engine: o, paint: o };
+    for (let lv = 1; lv <= 5; lv++) {
+      const a = vanAt(Object.assign({}, base, { [k]: lv - 1 }));
+      const b = vanAt(Object.assign({}, base, { [k]: lv }));
+      const d = a.reduce((sum, f, i) => sum + differ(f, b[i]), 0);
+      if (d < 40) err(`upgrades: the van at ${k} ${lv} looks like ${k} ${lv - 1} (${d} px change over its faces; the others at ${o})`);
+    }
+  }
+  for (const lv of [0, 5]) {
+    vanAt({ armor: lv, bumper: lv, engine: lv, paint: lv }).forEach((f, i) => {
+      for (let y = 0; y < 10; y++) for (let x = 0; x < 64; x++) {
+        if (f[y * 64 + x]) continue;
+        err(`upgrades: ${FACES[i]} (all at ${lv}) is empty at ${x},${y}: its top band must be painted solid`);
+        y = 10;
+        break;
+      }
+    });
+  }
+  sb.document.createElement = realCreate;
+  Object.assign(S.save.upgrades, { armor: 0, bumper: 0, engine: 0, paint: 0 });
+} catch (e) {
+  err(`upgrades: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
 }
 
 if (errors.length) {
@@ -254,4 +700,4 @@ if (errors.length) {
   console.log(`\n${errors.length} engine problem(s).`);
   process.exit(1);
 }
-console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames.`);
+console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept.`);

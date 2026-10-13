@@ -237,6 +237,88 @@ if (W.TRAPS) {
   const keys = Object.values(W.TRAPS).map((t) => t.key);
   if (new Set(keys).size !== keys.length) err("traps: two traps share a placement key");
 }
+// the home base yard: treeline, fence ring, cabin, van, spawns on every side, and one plot per room
+{
+  const Y = W.YARD;
+  const g = Y.grid;
+  const gh = g.length;
+  const gw = g[0].length;
+  const at = (x, y) => (x < 0 || y < 0 || x >= gw || y >= gh ? "T" : g[y][x]);
+  if (!g.every((r) => r.length === gw)) err("yard: rows differ in length");
+  if (!(Y.version >= 1)) err("yard: needs a version (older saves are migrated when it changes)");
+  g.forEach((r, y) => [...r].forEach((ch, x) => { if (!"TFHBVPz.".includes(ch)) err(`yard: unknown "${ch}" at ${x},${y}`); }));
+  for (let x = 0; x < gw; x++) if (at(x, 0) !== "T" || at(x, gh - 1) !== "T") err(`yard: the treeline is open at column ${x}`);
+  for (let y = 0; y < gh; y++) if (at(0, y) !== "T" || at(gw - 1, y) !== "T") err(`yard: the treeline is open at row ${y}`);
+  const find = (ch) => { const out = []; g.forEach((r, y) => [...r].forEach((c, x) => c === ch && out.push([x, y]))); return out; };
+  const P = find("P");
+  const B = find("B");
+  const V = find("V");
+  if (P.length !== 1 || B.length !== 1) err("yard: needs exactly one player start P and one cabin door B");
+  if (V.length !== 2 || V[0][1] !== V[1][1] || V[1][0] !== V[0][0] + 1) err("yard: the van is two V side by side");
+  // inside the fence (from the start, not crossing F or T): the cabin and the van; no spawn
+  const inside = new Set();
+  if (P.length) {
+    const st = [P[0]];
+    inside.add(P[0].join(","));
+    while (st.length) {
+      const [x, y] = st.pop();
+      for (const [dx, dy] of STEPS) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if ("FT".includes(at(nx, ny)) || inside.has(nx + "," + ny)) continue;
+        if (nx <= 0 || ny <= 0 || nx >= gw - 1 || ny >= gh - 1) { err("yard: the fence ring is open (the inside reaches the treeline)"); st.length = 0; break; }
+        inside.add(nx + "," + ny);
+        st.push([nx, ny]);
+      }
+    }
+  }
+  B.concat(V).forEach(([x, y]) => { if (!inside.has(x + "," + y)) err(`yard: ${at(x, y)} at ${x},${y} is outside the fence`); });
+  if (B.length && at(B[0][0], B[0][1] - 1) !== "P" && at(B[0][0], B[0][1] - 1) !== ".") err("yard: the cabin door opens onto something");
+  const sides = new Set();
+  find("z").forEach(([x, y]) => {
+    if (inside.has(x + "," + y)) err(`yard: walker spawn ${x},${y} is inside the fence`);
+    const d = { n: y, s: gh - 1 - y, w: x, e: gw - 1 - x };
+    sides.add(Object.keys(d).reduce((a, k) => (d[k] < d[a] ? k : a), "n"));
+  });
+  if (sides.size !== 4) err(`yard: walkers spawn on ${sides.size} sides, want all four`);
+  Object.entries(W.DEFENSE.waveSides || {}).forEach(([k, n]) => { if (!(n >= 1 && n <= 4)) err(`defense: waveSides.${k} must be 1..4`); });
+  // plots: one per room but the Walls, 3..5 tiles a side, on open ground inside the fence, two tiles clear
+  // of the fence line (room to walk and to repair it), clear of the cabin, the van and the door, not touching each other
+  const plots = Y.plots || {};
+  Object.keys(W.BASE_ROOMS).forEach((k) => { if (k !== "walls" && !plots[k]) err(`yard: room ${k} has no plot`); });
+  const taken = new Map();
+  Object.entries(plots).forEach(([k, p]) => {
+    const ctx = `yard plot ${k}`;
+    if (!W.BASE_ROOMS[k] || k === "walls") err(`${ctx}: no such room (the Walls are the fence)`);
+    if (!"nesw".includes(p.face) || p.face.length !== 1) err(`${ctx}: face must be n, e, s or w`);
+    if (!(p.w >= 3 && p.w <= 5 && p.h >= 3 && p.h <= 5)) err(`${ctx}: ${p.w}x${p.h}, want 3..5 a side`);
+    for (let y = p.y - 2; y < p.y + p.h + 2; y++) {
+      for (let x = p.x - 2; x < p.x + p.w + 2; x++) {
+        const on = x >= p.x && y >= p.y && x < p.x + p.w && y < p.y + p.h;
+        const ch = at(x, y);
+        if (on && (ch !== "." || !inside.has(x + "," + y))) err(`${ctx}: ${x},${y} is "${ch}"${inside.has(x + "," + y) ? "" : " outside the fence"}`);
+        if (!on && ch === "F") err(`${ctx}: closer than two tiles to the fence at ${x},${y}`);
+        const near = Math.max(x < p.x ? p.x - x : x - (p.x + p.w - 1), y < p.y ? p.y - y : y - (p.y + p.h - 1)) <= 1;
+        if (near && !on && "HBVP".includes(ch)) err(`${ctx}: right up against the ${ch === "V" ? "van" : ch === "P" ? "player start" : "cabin"} at ${x},${y}`);
+        if (on) {
+          if (taken.has(x + "," + y)) err(`${ctx}: overlaps plot ${taken.get(x + "," + y)} at ${x},${y}`);
+          taken.set(x + "," + y, k);
+        }
+      }
+    }
+  });
+  Object.entries(plots).forEach(([k, p]) => {
+    for (let y = p.y - 1; y <= p.y + p.h; y++) for (let x = p.x - 1; x <= p.x + p.w; x++) {
+      const o = taken.get(x + "," + y);
+      if (o && o !== k && k < o) err(`yard plots ${k} and ${o} touch at ${x},${y}: leave a path between them`);
+    }
+  });
+  (Y.paths || []).forEach(([x0, y0, x1, y1]) => {
+    for (let y = Math.min(y0, y1); y <= Math.max(y0, y1); y++) for (let x = Math.min(x0, x1); x <= Math.max(x0, x1); x++) {
+      if (!inside.has(x + "," + y) || taken.has(x + "," + y)) err(`yard: the path at ${x},${y} runs ${taken.has(x + "," + y) ? "over plot " + taken.get(x + "," + y) : "outside the fence"}`);
+    }
+  });
+}
 // every item is obtainable somewhere
 const available = new Set();
 W.LOCATIONS.forEach((l) => (l.items || []).concat(l.cache || []).forEach((it) => available.add(it)));

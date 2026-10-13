@@ -17,6 +17,7 @@
   const W = () => ZSR.WORLD;
 
   const FOV = 1.22; // ~70 degrees
+  const STRETCH = 2 * Math.tan(FOV / 2); // the view is this many times taller than wide: one tile of floor spans H / (STRETCH * d) pixels
   const COL = 2; // pixels per ray
   const PLANE_RES = 2; // floor and ceiling are cast at 1/PLANE_RES of the screen, then scaled up
   const SOLID = "#WSCXGLETHBVFOKR"; // blocks movement (O is a closed door)
@@ -1335,7 +1336,8 @@
         // under a ceiling a big prop never pokes through it: it shrinks and keeps its shape,
         // unless it asks for a width in tiles (`span`, a landmark's footprint), which it keeps
         const scale = Math.max(0.05, Math.min(pr.scale || 1, ceil - lift));
-        const wide = pr.span ? pr.span / scale : pr.wide || img.width / img.height;
+        // a tile of floor is STRETCH times narrower on screen than a wall is tall, so `span` is measured in those
+        const wide = pr.span ? pr.span / (scale * STRETCH) : pr.wide || img.width / img.height;
         sprites.push({ x: pr.x, y: pr.y, img, scale, lift, wide, dim: pr.dim || 0 });
       });
       const invDet = 1 / (planeX * dirY - dirX * planeY);

@@ -313,12 +313,13 @@
     },
   };
   const ICON_COLOR = { star: C.gold, burst: C.red, heart: C.red, sun: C.gold, drop: "#5aa0d8", bolt: C.gold, leaf: C.olive, book: C.blue, face: "#6e7278", flame: "#e0592a", note: C.purple, cup: C.cream, wheel: "#2b2d31", tooth: "#fbfaf4", paw: C.tan, bee: C.gold, phone: "#2b2d31", camera: "#6e7278", cross: C.red, shield: C.blue };
+  // whole words only (PHOTO is not HOT); the first match wins
   const ICON_WORDS = [
-    [/SALE|2 FOR 1|LOTTO|DEAL/, "burst"], [/COFFEE|CAFE|MENU/, "cup"], [/TIRE|OIL|PARTS|CAR\b/, "wheel"], [/FIRE|HOT/, "flame"],
-    [/DOG/, "paw"], [/BEE|HONEY/, "bee"], [/PLANT|GROWN|MULCH|GARDEN|SEED/, "leaf"], [/PHOTO/, "camera"],
-    [/PHONE|CALL|911/, "phone"], [/READ|STORY|BOOK|QUIET|COMPUTER/, "book"], [/BAND|CONCERT|MUSIC|HEADPHONE/, "note"],
-    [/SMILE|WIDE|TOOTH/, "tooth"], [/FLU|WELL|WASH|VISIT|AID/, "cross"], [/SAFE|REPORT|PROTECT|DRILL|GATE/, "shield"],
-    [/MISSING|KIND|CLUB|LOOK/, "face"], [/LIGHT|CABLE|POWER/, "bolt"], [/ICE|COLD|WATER/, "drop"], [/LOVE|HEART/, "heart"],
+    [/\b(SALE|LOTTO|DEAL)\b|2 FOR 1/, "burst"], [/\b(COFFEE|CAFE|MENU)\b/, "cup"], [/\bPHOTOS?\b/, "camera"], [/\b(TIRES?|OIL|PARTS|CARS?)\b/, "wheel"],
+    [/\b(FIRE|HOT)\b/, "flame"], [/\bDOGS?\b/, "paw"], [/\b(BEES?|HONEY)\b/, "bee"], [/\b(PLANTS|GROWN|MULCH|GARDEN|SEEDS?)\b/, "leaf"],
+    [/\b(HEADPHONES|BAND|CONCERT|MUSIC)\b/, "note"], [/\b(PHONES?|CALL|911)\b/, "phone"], [/\b(READ|STORY|BOOKS?|QUIET|COMPUTERS)\b/, "book"],
+    [/\b(SMILE|WIDE|TOOTH)\b/, "tooth"], [/\b(FLU|WELL|WASH|VISIT|AID)\b/, "cross"], [/\b(SAFE|SAFETY|REPORT|PROTECT|DRILL|GATE)\b/, "shield"],
+    [/\b(MISSING|KIND|CLUB|LOOK)\b/, "face"], [/\b(LIGHTS?|CABLES|POWER)\b/, "bolt"], [/\b(ICE|COLD|WATER)\b/, "drop"], [/\b(LOVE|HEART)\b/, "heart"],
   ];
   function iconFor(text, h) {
     const t = String(text || "").toUpperCase();
@@ -755,12 +756,17 @@
       ctx.fillRect(45.5, 29, 1.6, 35);
       seg(ctx, 44, 29, 44, 64, INK, 2);
       seg(ctx, 52, 29, 52, 64, INK, 2);
+      // the valve wheel: a red rim on five spokes
+      for (let i = 0; i < 5; i++) {
+        const a = (i * TAU) / 5 - Math.PI / 2;
+        seg(ctx, 48, 41, 48 + Math.cos(a) * 9, 41 + Math.sin(a) * 9, INK, 3.4);
+        seg(ctx, 48, 41, 48 + Math.cos(a) * 9, 41 + Math.sin(a) * 9, "#d4322a", 1.6);
+      }
       ctx.beginPath();
-      ctx.arc(48, 41, 8, 0, TAU);
-      stroke(ctx, 5, INK);
-      stroke(ctx, 3, "#d4322a");
-      for (let i = 0; i < 4; i++) seg(ctx, 48, 41, 48 + Math.cos((i * TAU) / 4 + 0.4) * 7, 41 + Math.sin((i * TAU) / 4 + 0.4) * 7, INK, 1.6);
-      disc(ctx, 48, 41, 2.2, "#d4322a", 1.2);
+      ctx.arc(48, 41, 9.5, 0, TAU);
+      stroke(ctx, 6, INK);
+      stroke(ctx, 3.4, "#d4322a");
+      disc(ctx, 48, 41, 2.6, "#e8e4da", 1.4);
       // the gauge on a short stem
       box(ctx, 17, 29, 3, 7, "#8f969c", 1.2);
       disc(ctx, 18.5, 43, 8, C.cream, 2.4);

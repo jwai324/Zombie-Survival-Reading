@@ -207,9 +207,10 @@
     someCount: (day, wave) => 3 + Math.floor(day / 2) + Math.floor(wave / 2),
     manyCount: (day, wave) => 7 + day + wave,
     spawnInterval: 1.6, // seconds between walkers during a wave
-    // a wave comes out of the trees on this many sides of the yard (picked at random, told in the toast),
-    // so on a fence twice as long the player can still be where the walkers are
-    waveSides: { some: 1, many: 2 },
+    // a wave comes out of the trees on this many sides of the yard (picked at random, told in the toast):
+    // a small one on two, so on a fence twice as long the player can still be where the walkers are; a
+    // heavy one on all four, spread out so no single breach takes them all
+    waveSides: { some: 2, many: 4 },
   };
 
   /* ---------- Locations on the city map (1000 x 700 units) ---------- */

@@ -34,6 +34,7 @@
   /** Canvas text the player must read scales with the text size setting (Huge is about twice Normal). */
   const textScale = () => ({ large: 1.3, huge: 2 }[root.document && document.documentElement.getAttribute("data-size")] || 1);
   let floorColors = null; // Draw3 floor id -> map color
+  let fogTile = null; // the fog's dots, one pattern tile (mapFog)
 
   Object.assign(ZSR.Interior, {
     /** The layout of a place: its own in ZSR.LAYOUTS (by id), else WORLD.TEMPLATES by its template. */
@@ -143,7 +144,34 @@
       this.hud.place.textContent = loc.name;
       this.hud.phase.classList.add("hidden");
       this.startLoop();
-      this.toast(snap ? "Back inside. It is just as you left it. M is the map." : "Walkers inside. E reads notes and opens doors. B is the backpack. M is the map.", 4.5);
+      this.syncMapBtn();
+      const tips = snap ? ["Back inside. It is just as you left it. M is the map.", "Back inside. M is the map."] : ["Walkers inside. E reads notes and opens doors. B is the backpack. M is the map.", "Walkers inside. M is the map."];
+      this.toastFit(tips.concat("M is the map."), 4.5);
+    },
+    /** A toast with the longest of `texts` that fits on the screen: Huge text on a small screen gets a short one. */
+    toastFit(texts, secs) {
+      const el = this.hud.toast;
+      for (const t of texts) {
+        this.toast(t, secs);
+        if (!(el.offsetTop < 0)) return; // its layout box, before the pop animation's scale
+      }
+    },
+    /** The HUD's Map button: shown in buildings only. Checked every frame (drawOverlay), so the yard hides it too. */
+    syncMapBtn() {
+      const btn = this.mapBtn || (this.mapBtn = document.getElementById("int-btn-map"));
+      if (!btn) return;
+      if (!this.mapBtnWired) {
+        this.mapBtnWired = true;
+        btn.addEventListener("click", () => {
+          if (btn.blur) btn.blur(); // so Enter or Space cannot press it again later
+          this.openMap();
+        });
+      }
+      const on = this.mode === "building";
+      if (this.mapBtnOn !== on) {
+        this.mapBtnOn = on;
+        btn.classList.toggle("hidden", !on);
+      }
     },
     /** Mark tiles seen from a packed map (State.packSeen); a map for another layout size is ignored. */
     markSeen(packed) {
@@ -345,7 +373,7 @@
       return true;
     },
     openMap() {
-      if (!this.running || this.mode !== "building") return;
+      if (!this.running || this.mode !== "building" || this.paused) return; // never over another pause
       this.pause();
       this.mapOpen = true;
       this.mapImg = null;
@@ -372,6 +400,7 @@
     },
     /** Called by the core after every frame: the map, drawn once per opening and kept while paused. */
     drawOverlay(ctx, Wd, H) {
+      this.syncMapBtn();
       if (!this.mapOpen) return;
       if (!this.paused || this.mode !== "building") return this.closeMap(false);
       const key = Wd + "x" + H + "x" + textScale();
@@ -422,9 +451,14 @@
       const sideH = Math.round(fs * 1.7); // the BACK label strip above the map, the EXIT strip below it
       g.fillStyle = "rgba(15,16,18,0.74)";
       g.fillRect(0, 0, Wd, H);
+      const show = this.mapShown();
 
       // the legend, laid out beside the map or under it, whichever leaves the bigger map
-      const LEGEND = [["you", "you"], ["door", "door"], ["open", "open door"], ["locked", "locked door"], ["exit", "exit"], ["note", "note"], ["read", "note you read"], ["fog", "not seen yet"], ["key", "close map"]];
+      // (the red open door of a cache room you unlocked gets a row once it is on the map)
+      const cd = this.cacheDoor;
+      const LEGEND = [["you", "you"], ["door", "door"], ["open", "open door"], ["locked", "locked door"]];
+      if (cd && cd.open && show[cd.y * gw + cd.x]) LEGEND.push(["opened", "unlocked door"]);
+      LEGEND.push(["exit", "exit"], ["note", "note"], ["read", "note you read"], ["fog", "not seen yet"], ["key", "close map"]);
       g.font = "700 " + fs + "px " + HEAD;
       const sw = Math.round(fs * 1.25);
       const items = LEGEND.map(([kind, text]) => ({ kind, text: text.toUpperCase(), w: sw + fs * 0.5 + g.measureText(text.toUpperCase()).width }));
@@ -472,7 +506,7 @@
       g.lineWidth = 4;
       g.strokeRect(px, py, pw, ph);
 
-      const show = this.drawMapTiles(g, ox, oy, T, fs);
+      this.drawMapTiles(g, ox, oy, T, fs, show);
       // where the legend goes (drawn last)
       const lx = ox + mapW + pad * 1.5;
       const ly = oy - sideH + Math.max(0, (mapH + 2 * sideH - items.length * rowH) / 2);
@@ -500,8 +534,8 @@
         if (!seen) return;
         const cx = ox + (lm.x + 0.5) * T;
         const cy = oy + (lm.y + 0.5) * T;
-        const bw = Math.max(f[0] * T, fs * (f[0] > 1 ? 3.8 : 2.2));
-        const bh = Math.max(f[1] * T, fs * 2.2);
+        const bw = Math.max(f[0] * T * (f[0] > 1 ? 1 : 1.5), fs * (f[0] > 1 ? 3.8 : 2.2));
+        const bh = Math.max(f[1] * T * (f[1] > 1 ? 1 : 1.5), fs * 2.2);
         const r = [cx - bw / 2, cy - bh / 2, cx + bw / 2, cy + bh / 2];
         badges.push({ lm, r });
         rects.push(r);
@@ -615,12 +649,11 @@
       return c;
     },
 
-    /** The map's tiles: fog, floors (tinted by kind), ink walls, fixtures as blocks, doors, the exit. */
-    drawMapTiles(g, ox, oy, T, fs) {
+    /** The map's tiles (`show` from mapShown): fog, floors (tinted by kind), ink walls, fixtures as blocks, doors, the exit. */
+    drawMapTiles(g, ox, oy, T, fs, show) {
       const gw = this.gw;
       const gh = this.gh;
       const grid = this.grid;
-      const show = this.mapShown();
       const D = D3();
       if (!floorColors) {
         floorColors = {};
@@ -630,10 +663,7 @@
         });
       }
       // not seen yet: darker paper with dots
-      g.fillStyle = MAP.fog;
-      g.fillRect(ox, oy, T * gw, T * gh);
-      g.fillStyle = "rgba(15,16,18,0.2)";
-      for (let y = oy + 3; y < oy + T * gh; y += 7) for (let x = ox + 3 + (((y - oy) / 7) & 1) * 3.5; x < ox + T * gw; x += 7) g.fillRect(x, y, 2, 2);
+      this.mapFog(g, ox, oy, T * gw, T * gh);
       const at = (x, y) => (x < 0 || y < 0 || x >= gw || y >= gh ? "#" : grid[y][x]);
       const isWall = (x, y) => "#W".includes(at(x, y));
       const shown = (x, y) => x >= 0 && y >= 0 && x < gw && y < gh && show[y * gw + x];
@@ -697,7 +727,28 @@
       g.strokeRect(ox, oy, T * gw, T * gh);
       // the padlock and the exit stay big enough to spot at any text size, even over the walls beside them
       icons.forEach((f) => f());
-      return show;
+    },
+    /** Fog over a w x h box: darker paper with a half-drop grid of dots, one pattern fill. */
+    mapFog(g, x, y, w, h) {
+      if (!fogTile) {
+        // one 8 x 14 tile of the grid: a dot in each row, the second row's shifted half a step
+        fogTile = document.createElement("canvas");
+        fogTile.width = 8;
+        fogTile.height = 14;
+        const t = fogTile.getContext("2d");
+        t.fillStyle = "rgba(15,16,18,0.22)";
+        t.fillRect(2, 2, 2, 2);
+        t.fillRect(6, 9, 2, 2);
+      }
+      g.fillStyle = MAP.fog;
+      g.fillRect(x, y, w, h);
+      const dots = g.createPattern(fogTile, "repeat");
+      if (!dots) return;
+      g.save();
+      g.translate(x, y); // the pattern starts at the box's corner
+      g.fillStyle = dots;
+      g.fillRect(0, 0, w, h);
+      g.restore();
     },
 
     /** A door on the map in a T x T cell. kind: door (closed), open, locked (the cache door), opened (cache, open). */
@@ -861,19 +912,21 @@
         g.fillText("M", cx, cy + s * 0.04);
         return;
       }
-      if (kind === "fog") {
-        g.fillStyle = MAP.fog;
-        g.fillRect(x, y, s, s);
-        g.fillStyle = "rgba(15,16,18,0.25)";
-        for (let yy = 3; yy < s; yy += 6) for (let xx = 3 + ((yy / 6) & 1) * 3; xx < s; xx += 6) g.fillRect(x + xx, y + yy, 2, 2);
-      } else {
-        // a door between two bits of wall
+      if (kind === "fog") this.mapFog(g, x, y, s, s);
+      else {
+        // a door between two bits of wall, kept inside its box: an open one sits low, its leaf swung up into the room
+        const dy = kind === "open" || kind === "opened" ? s * 0.2 : 0;
+        g.save();
+        g.beginPath();
+        g.rect(x - s * 0.25, y, s * 1.5, s);
+        g.clip();
         g.fillStyle = MAP_FLOOR.tile;
         g.fillRect(x, y, s, s);
         g.fillStyle = INK;
-        g.fillRect(x - s * 0.25, y, s * 0.25, s);
-        g.fillRect(x + s, y, s * 0.25, s);
-        this.mapDoor(g, x, y, s, kind, true);
+        g.fillRect(x - s * 0.25, y + dy * 2, s * 0.25, s - dy * 2); // level with the open door's jambs
+        g.fillRect(x + s, y + dy * 2, s * 0.25, s - dy * 2);
+        this.mapDoor(g, x, y + dy, s, kind, true);
+        g.restore();
         if (kind === "locked") this.mapLock(g, cx, cy, s * 0.95);
       }
       g.strokeStyle = INK;

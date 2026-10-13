@@ -255,22 +255,23 @@
     const g = vanGear();
     return vanLook().body + g.armor + g.bumper + g.engine + g.paint;
   }
-  // the side faces: roof gear above y 8, the body from 8 down to the wheels' ink line at h - 8
+  /* The side faces: a high roof band above y 8, where the roof rack, light bar and snorkel cap sit when
+     fitted, the body from 8 down to the wheels' ink line at h - 8. The band is always painted solid: the
+     core shades and inks a face from the tile's top, so an empty band would show as a hollow box. */
   const VAN_TOP = 8;
   function vanSideBase(ctx, w, h) {
     const look = vanLook();
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = look.body;
-    ctx.fillRect(0, VAN_TOP, w, h - 8 - VAN_TOP);
+    ctx.fillRect(0, 0, w, h - 8);
     ctx.fillStyle = look.roof;
-    ctx.fillRect(0, VAN_TOP, w, 5);
+    ctx.fillRect(0, 0, w, VAN_TOP + 5);
     ctx.fillStyle = "rgba(0,0,0,0.22)";
     ctx.fillRect(0, h - 16, w, 8);
+    ctx.fillRect(0, VAN_TOP - 1, w, 2); // the roof's edge
     ctx.strokeStyle = INK;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(0, VAN_TOP);
-    ctx.lineTo(w, VAN_TOP);
     ctx.moveTo(0, h - 8);
     ctx.lineTo(w, h - 8);
     ctx.stroke();
@@ -280,19 +281,21 @@
     const look = vanLook();
     ctx.clearRect(0, 0, w, h);
     ctx.fillStyle = look.body;
-    ctx.fillRect(2, VAN_TOP, w - 4, h - 6 - VAN_TOP);
+    ctx.fillRect(2, 0, w - 4, h - 6);
     ctx.fillStyle = look.roof;
-    ctx.fillRect(2, VAN_TOP, w - 4, 4);
+    ctx.fillRect(2, 0, w - 4, VAN_TOP + 4);
+    ctx.fillStyle = "rgba(0,0,0,0.22)";
+    ctx.fillRect(2, VAN_TOP - 1, w - 4, 2);
     ctx.strokeStyle = INK;
     ctx.lineWidth = 2;
-    ctx.strokeRect(2, VAN_TOP, w - 4, h - 6 - VAN_TOP);
+    ctx.strokeRect(2, 0, w - 4, h - 6);
     halftone(ctx, w, h - 6, 0.07);
   }
-  /** Ink around the van's body only (the roof gear above it stays loose). */
+  /** Ink around the whole face. */
   function vanBorder(ctx, w, h) {
     ctx.strokeStyle = INK;
     ctx.lineWidth = 4;
-    ctx.strokeRect(0, VAN_TOP, w, h - VAN_TOP);
+    ctx.strokeRect(0, 0, w, h);
   }
   function vanRect(ctx, x, y, w, h, fill, lw) {
     ctx.fillStyle = fill;
@@ -1654,38 +1657,84 @@
   }
 
   /* ---------- Weapon and crosshair, drawn directly ---------- */
-  function gun(ctx, W, H, opts) {
-    const bob = opts.bob || 0;
-    const flash = opts.flash || 0;
-    const s = Math.min(W, H) / 420;
-    ctx.save();
-    ctx.translate(W * 0.68 + Math.sin(bob) * 6 * s, H + Math.abs(Math.cos(bob)) * 8 * s - flash * 10);
-    ctx.scale(s, s);
+  /* The gun shows its upgrades, every level a change you can see: damage makes the barrel longer and
+     heavier, then adds a muzzle ring (1), a brake with side ports (3), a red stripe on the slide (4) and a
+     compensator (5); fire rate adds a ventilated barrel jacket (1), a drum magazine under the grip (2),
+     cooling fins on the jacket (3), a bigger drum (4) and a copper heat sleeve (5); spread adds barrels
+     side by side (1 + spread), each one slimmer, so the gun keeps about the pistol's footprint. */
+  function gunGear() {
+    const S = ZSR.State;
+    const u = (S && S.save && S.save.upgrades) || {};
+    return { dmg: Math.min(5, u.damage | 0), rof: Math.min(5, u.fireRate | 0), spr: Math.min(3, u.spread | 0) };
+  }
+  /** Where the barrels are, in the gun's own units (the hand at about 96, -135; up is forward). */
+  function gunBarrels(g) {
+    const n = 1 + g.spr;
+    const bw = (13 + g.dmg * 1.6) * [1, 0.8, 0.66, 0.56][n - 1]; // barrel width: heavier rounds, slimmer when side by side
+    const gap = bw + 2;
+    const base = -232; // top of the slide
+    const top = -262 - g.dmg * 4; // the muzzle
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const k = i - (n - 1) / 2;
+      out.push({ x: 84 + k * gap, top: top + Math.abs(k) * 3, base, w: bw, lean: k * 3 });
+    }
+    return out;
+  }
+  /** How far the muzzle device reaches past the barrel's end. */
+  const gunLift = (g) => (g.dmg >= 5 ? 22 : g.dmg >= 3 ? 14 : g.dmg >= 1 ? 5 : 0);
+  function gunArt(ctx, g) {
+    const fill = (c, lw) => {
+      ctx.fillStyle = c;
+      ctx.fill();
+      ctx.lineWidth = lw || 5;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+    };
+    const rect = (x, y, w, h, c, lw) => {
+      ctx.beginPath();
+      ctx.rect(x, y, w, h);
+      fill(c, lw);
+    };
     ctx.lineJoin = "round";
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = 5;
     // forearm
-    ctx.fillStyle = "#c9a27a";
     ctx.beginPath();
     ctx.moveTo(40, 0);
     ctx.lineTo(100, -90);
     ctx.lineTo(150, -70);
     ctx.lineTo(130, 0);
     ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    fill("#c9a27a");
     // sleeve
-    ctx.fillStyle = "#5f6b3c";
     ctx.beginPath();
     ctx.moveTo(30, 0);
     ctx.lineTo(70, -50);
     ctx.lineTo(140, -20);
     ctx.lineTo(140, 0);
     ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
+    fill("#5f6b3c");
+    // a drum magazine under the grip, round under the hand (fire rate 2; bigger, with a bolt ring, at 4)
+    if (g.rof >= 2) {
+      const big = g.rof >= 4;
+      const r = big ? 33 : 26;
+      const cx = 92;
+      const cy = -100;
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, TAU);
+      fill(big ? "#3a3d42" : "#5d636b");
+      ctx.beginPath();
+      ctx.arc(cx, cy, r * 0.42, 0, TAU);
+      fill("#2f3136", 3);
+      if (big) {
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * TAU;
+          ctx.beginPath();
+          ctx.arc(cx + Math.cos(a) * r * 0.74, cy + Math.sin(a) * r * 0.74, 3, 0, TAU);
+          fill("#d9a21b", 2);
+        }
+      }
+    }
     // pistol body
-    ctx.fillStyle = "#2f3136";
     ctx.beginPath();
     ctx.moveTo(70, -120);
     ctx.lineTo(70, -220);
@@ -1694,29 +1743,103 @@
     ctx.lineTo(120, -150);
     ctx.lineTo(120, -120);
     ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-    // slide
-    ctx.fillStyle = "#4b5057";
-    ctx.fillRect(62, -236, 44, 24);
-    ctx.strokeRect(62, -236, 44, 24);
+    fill("#2f3136");
+    const bars = gunBarrels(g);
+    const x0 = Math.min(...bars.map((b) => b.x - b.w / 2)) - 6;
+    const x1 = Math.max(...bars.map((b) => b.x + b.w / 2)) + 6;
+    // barrels, from the slide forward (a little apart at the muzzles when there are several)
+    bars.forEach((b) => {
+      ctx.beginPath();
+      ctx.moveTo(b.x - b.w / 2, b.base);
+      ctx.lineTo(b.x - b.w / 2 + 2 + b.lean, b.top);
+      ctx.lineTo(b.x + b.w / 2 - 2 + b.lean, b.top);
+      ctx.lineTo(b.x + b.w / 2, b.base);
+      ctx.closePath();
+      fill("#3a3d42", 4);
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillRect(b.x - b.w / 2 + 3 + b.lean / 2, b.top + 4, 3, b.base - b.top - 8);
+    });
+    // a ventilated jacket around the barrels (fire rate 1), cooling fins out to both sides (3), a copper
+    // heat sleeve (5); all of it above the slide, which covers everything below -236
+    if (g.rof >= 1) {
+      const jt = -252 - g.dmg * 3;
+      const hot = g.rof >= 5;
+      rect(x0 + 2, jt, x1 - x0 - 4, -230 - jt, hot ? "#b8733a" : "#4b5057", 4);
+      ctx.fillStyle = hot ? "#5a2a12" : INK;
+      for (let x = x0 + 8; x < x1 - 8; x += 8) ctx.fillRect(x, jt + 4, 4, 5);
+      if (g.rof >= 3) {
+        for (let k = 0; k < 3; k++) {
+          const y = jt + 2 + k * ((-240 - jt) / 2.6);
+          rect(x0 - 9, y, 11, 4, hot ? "#e0a066" : "#9ea3aa", 2);
+          rect(x1 - 2, y, 11, 4, hot ? "#e0a066" : "#9ea3aa", 2);
+        }
+      }
+    }
+    // the slide, wider with every barrel; a red stripe once the rounds are heavy
+    const sx = Math.min(62, x0);
+    const sw = Math.max(44, x1 - x0);
+    rect(sx, -236, sw, 24, "#4b5057", 5);
+    if (g.dmg >= 4) {
+      ctx.fillStyle = "#b3261e";
+      ctx.fillRect(sx + 4, -228, sw - 8, 5);
+    }
+    // rear sight
+    rect(78, -244, 5, 8, "#2f3136", 2);
+    rect(86, -244, 5, 8, "#2f3136", 2);
+    // muzzles: a ring, a brake with side ports (3), a compensator (5); side by side they only just touch
+    const lift = gunLift(g);
+    const flare = bars.length > 1 ? 1 : 4;
+    bars.forEach((b) => {
+      const mx = b.x + b.lean;
+      if (g.dmg >= 3) {
+        rect(mx - b.w / 2 - flare, b.top - lift, b.w + flare * 2, lift + 4, g.dmg >= 5 ? "#2f3136" : "#4b5057", 4);
+        ctx.fillStyle = INK;
+        for (let y = b.top - lift + 4; y < b.top; y += 6) {
+          ctx.fillRect(mx - b.w / 2 - flare, y, 2 + flare, 3);
+          ctx.fillRect(mx + b.w / 2 - 2, y, 2 + flare, 3);
+        }
+      } else if (g.dmg >= 1) rect(mx - b.w / 2 - 1, b.top - lift, b.w + 2, 8, "#4b5057", 3);
+      ctx.beginPath();
+      ctx.ellipse(mx, b.top - lift, b.w * 0.3, 3, 0, 0, TAU);
+      ctx.fillStyle = "#0f1012";
+      ctx.fill();
+    });
     // hand on grip
-    ctx.fillStyle = "#c9a27a";
     ctx.beginPath();
     ctx.arc(96, -135, 26, 0, TAU);
-    ctx.fill();
-    ctx.stroke();
+    fill("#c9a27a");
+  }
+  /** The gun, drawn once per look and screen size, then placed with the bob; the muzzle flash on top. */
+  function gun(ctx, W, H, opts) {
+    const bob = opts.bob || 0;
+    const flash = opts.flash || 0;
+    const s = Math.min(W, H) / 420;
+    const g = opts.gear || gunGear();
+    // the art spans x -40..200 and y -330..0 in its own units
+    const img = cached("gun:" + g.dmg + g.rof + g.spr + ":" + s.toFixed(3), Math.ceil(240 * s), Math.ceil(336 * s), (c) => {
+      c.scale(s, s);
+      c.translate(40, 334);
+      gunArt(c, g);
+    });
+    const tx = W * 0.68 + Math.sin(bob) * 6 * s;
+    const ty = H + Math.abs(Math.cos(bob)) * 8 * s - flash * 10;
+    ctx.drawImage(img, tx - 40 * s, ty - 334 * s);
     if (flash > 0) {
+      ctx.save();
+      ctx.translate(tx, ty);
+      ctx.scale(s, s);
       ctx.globalAlpha = Math.min(1, flash * 10);
-      ZSR.Draw.star(ctx, 84, -262, 8, 30 + flash * 100, 12, flash * 40);
-      ctx.fillStyle = "#ffe9a6";
-      ctx.fill();
-      ctx.strokeStyle = "#d9a21b";
-      ctx.lineWidth = 3;
-      ctx.stroke();
-      ctx.globalAlpha = 1;
+      const lift = gunLift(g);
+      gunBarrels(g).forEach((b) => {
+        ZSR.Draw.star(ctx, b.x + b.lean, b.top - lift - 8, 8, (30 + flash * 100) * (g.spr ? 0.8 : 1), 12, flash * 40);
+        ctx.fillStyle = "#ffe9a6";
+        ctx.fill();
+        ctx.strokeStyle = "#d9a21b";
+        ctx.lineWidth = 3;
+        ctx.stroke();
+      });
+      ctx.restore();
     }
-    ctx.restore();
   }
   function crosshair(ctx, cx, cy, hot) {
     ctx.save();
