@@ -442,19 +442,10 @@
       c.roofTex = walls >= 2 ? "yCabinRoof" : CABIN_ROOF.roofTex;
     },
 
-    /** The fence's look by Walls level: the core draws "fence" / "fenceCracked", so this scene's texture memo
-        is pointed at the level's drawings. refreshScene clears the memo, and a frame drawn before the next
-        update memoizes the plain pickets there: yardUpdate checks the entry is still this one and puts it back. */
+    /** The fence's look by Walls level: the core draws this.fenceTex for every segment (whole, or cracked
+        below half strength); at level 0 it is left unset and the core draws its plain pickets. */
     yardFenceLook(walls) {
-      this.yardFenceLvl = walls;
-      if (walls > 0) {
-        this.yardFenceTex = D3().texture("yFence", this.palette, { lvl: walls });
-        this.texMemo.set("fence", this.yardFenceTex);
-        this.texMemo.set("fenceCracked", D3().texture("yFence", this.palette, { lvl: walls, cracked: 1 }));
-      } else {
-        this.texMemo.delete("fence");
-        this.texMemo.delete("fenceCracked");
-      }
+      this.fenceTex = walls > 0 ? { whole: D3().texture("yFence", this.palette, { lvl: walls }), cracked: D3().texture("yFence", this.palette, { lvl: walls, cracked: 1 }) } : null;
     },
 
     /** One plot at one level: the staked lot and its sign at 0, else the level's structure and a name plaque. */
@@ -915,8 +906,7 @@
       this.updateTraps(dt);
       this.yardUnjam(dt);
       this.yardAnimate(dt);
-      // the fence's look lives in the texture memo, which a scene refresh clears; the signs follow the text size
-      if (this.yardFenceLvl > 0 && this.texMemo.get("fence") !== this.yardFenceTex) this.yardFenceLook(this.yardFenceLvl);
+      // the signs follow the text size
       const de = root.document && root.document.documentElement;
       if (de && de.getAttribute("data-size") !== this.yardSize) this.dressYard();
     },

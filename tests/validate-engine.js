@@ -395,9 +395,9 @@ try {
     I.enterYard({ firstCalm: 999 });
     I.stop();
     yardCheck("yard " + name);
-    // the fence wears the Walls level's look (the core asks for "fence" / "fenceCracked")
+    // the fence wears the Walls level's look (the core draws what the yard put in I.fenceTex)
     const wl = S.save.rooms.walls;
-    if (wl > 0 && I.tex("fence") !== D.texture("yFence", I.palette, { lvl: wl })) err(`yard ${name}: the fence does not show Walls level ${wl}`);
+    if (wl > 0 && (I.fenceLook(false) !== D.texture("yFence", I.palette, { lvl: wl }) || I.fenceLook(true) !== D.texture("yFence", I.palette, { lvl: wl, cracked: 1 }))) err(`yard ${name}: the fence does not show Walls level ${wl}`);
   });
 
   // a build goes up the moment it is made; a trap set where it stands goes back into stock

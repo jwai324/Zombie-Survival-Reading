@@ -376,6 +376,7 @@
       if (!this.running || this.mode !== "building" || this.paused) return; // never over another pause
       this.pause();
       this.mapOpen = true;
+      this.holdFrame = true; // the scene under the map is still: the core draws it once, not every frame
       this.mapImg = null;
       this.hud.root.classList.add("hidden");
       if (this.canvas.style) this.canvas.style.cursor = "pointer";
@@ -393,12 +394,14 @@
     closeMap(resume) {
       if (!this.mapOpen) return;
       this.mapOpen = false;
+      this.holdFrame = false;
       this.mapImg = null;
       if (this.canvas.style) this.canvas.style.cursor = "";
       if (this.running) this.hud.root.classList.remove("hidden");
       if (resume) this.resume();
     },
-    /** Called by the core after every frame: the map, drawn once per opening and kept while paused. */
+    /** Called by the core after each frame it draws: the map, drawn once per opening and kept while paused
+        (while it is open the core draws one frame and holds it: holdFrame). */
     drawOverlay(ctx, Wd, H) {
       this.syncMapBtn();
       if (!this.mapOpen) return;

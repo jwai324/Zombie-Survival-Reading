@@ -895,6 +895,34 @@
       }
       return t;
     },
+    /** The fence segment's face: the mode's own drawings (this.fenceTex) when it set them, else the plain pickets. */
+    fenceLook(cracked) {
+      const own = this.fenceTex;
+      const t = own ? (cracked ? own.cracked : own.whole) || own.whole : null;
+      if (!t) return this.tex(cracked ? "fenceCracked" : "fence");
+      return typeof t === "string" ? this.tex(t) : t;
+    },
+    /** A darker copy of one of this scene's own pictures (a prop, a low tile's face), level 1..8 = 10%..80%
+        darker, drawn as Draw3.dim draws it. Kept in this scene's memo, not Draw3's, so leaving the scene
+        lets them go: Draw3 keeps its pictures for good, and with them every darker copy it made. */
+    dimOwn(img, level) {
+      const k = Math.max(0, Math.min(8, level | 0));
+      if (!k) return img;
+      let set = this.dimMemo.get(img);
+      if (!set) this.dimMemo.set(img, (set = []));
+      let c = set[k];
+      if (!c) {
+        c = set[k] = document.createElement("canvas");
+        c.width = img.width;
+        c.height = img.height;
+        const g = c.getContext("2d");
+        g.drawImage(img, 0, 0);
+        g.globalCompositeOperation = "source-atop";
+        g.fillStyle = "rgba(0,0,0," + (k * 0.1).toFixed(2) + ")";
+        g.fillRect(0, 0, img.width, img.height);
+      }
+      return c;
+    },
 
     /** Per-frame lookups from the scene lists (roofs, low tiles, heights, textures, floor kinds). */
     prepScene() {
@@ -1424,20 +1452,54 @@
         ctx.fillRect(s.screenX - s.sw * 0.35, s.top - 9, s.sw * 0.7 * s.hp, 5);
       });
     },
-    drawSpriteCol(ctx, s, col) {
-      const clip = this.clipAt(col, s.ty);
-      if (clip <= s.top) return;
+    /** One sprite over its columns c0..c1: each run of whole columns (inside the picture, and no nearer
+        opaque face cutting into it) goes up in a single draw; a column a wall cuts, or one the picture's
+        edge passes through, is drawn on its own. Both map screen x to picture x the same straight way, so a
+        run and the cut column beside it meet without a seam. */
+    drawSprite(ctx, s) {
+      const img = s.im;
+      const iw = img.width;
+      const k = iw / s.sw; // picture pixels per screen pixel
+      const bottom = s.top + s.sh;
+      const c1 = s.c1;
+      if (s.dim) ctx.globalAlpha = 1 - s.dim;
+      let run = -1;
+      let clip = 0;
+      for (let col = s.c0; col <= c1 + 1; col++) {
+        if (col <= c1) {
+          clip = this.clipAt(col, s.ty);
+          const u0 = (col * COL - s.left) * k;
+          if (clip >= bottom && u0 >= 0 && u0 + COL * k <= iw) {
+            if (run < 0) run = col;
+            continue;
+          }
+        }
+        if (run >= 0) {
+          const x0 = run * COL;
+          const w = (col - run) * COL;
+          ctx.drawImage(img, (x0 - s.left) * k, 0, w * k, img.height, x0, s.top, w, s.sh);
+          run = -1;
+        }
+        if (col <= c1 && clip > s.top) this.drawSpriteCol(ctx, s, col, k, clip);
+      }
+      if (s.dim) ctx.globalAlpha = 1;
+    },
+    /** One column of a sprite, cut off at `clip` (clipAt: the first nearer opaque face that rises over it). */
+    drawSpriteCol(ctx, s, col, k, clip) {
       const img = s.im;
       const iw = img.width;
       const x0 = col * COL;
-      const u0 = ((x0 - s.left) / s.sw) * iw;
-      const u1 = ((x0 + COL - s.left) / s.sw) * iw;
+      const u0 = (x0 - s.left) * k;
+      const u1 = u0 + COL * k;
       if (u1 <= 0 || u0 >= iw) return;
-      const a = u0 > 0 ? u0 : 0;
       const visH = clip < s.top + s.sh ? clip - s.top : s.sh;
-      if (s.dim) ctx.globalAlpha = 1 - s.dim;
-      ctx.drawImage(img, a, 0, Math.max(1, Math.min(iw, u1) - a), (img.height * visH) / s.sh, x0, s.top, COL, visH);
-      if (s.dim) ctx.globalAlpha = 1;
+      const sh = (img.height * visH) / s.sh;
+      if (u0 >= 0 && u1 <= iw) ctx.drawImage(img, u0, 0, u1 - u0, sh, x0, s.top, COL, visH);
+      else {
+        // the picture's left or right edge is in this column: what is left of it fills the column
+        const a = u0 > 0 ? u0 : 0;
+        ctx.drawImage(img, a, 0, Math.max(1, Math.min(iw, u1) - a), sh, x0, s.top, COL, visH);
+      }
     },
     /** One low run in one column: the lit top face (when below eye level), then the front face. */
     drawLow(ctx, col, li, sc) {
@@ -1469,10 +1531,10 @@
         // the fence shows its damage: cracked below half strength
         const idx = this.lowIdx[o];
         const hp = this.fence[(idx % this.gw) + "," + ((idx / this.gw) | 0)];
-        tex = this.tex(hp != null && hp < this.fenceMax * 0.5 ? "fenceCracked" : "fence");
+        tex = this.fenceLook(hp != null && hp < this.fenceMax * 0.5);
       } else if (typeof tex === "string" || !tex) tex = this.tex(tex || "crate");
       const lvl = Math.round((fog + (this.lowSide[o] === 1 ? 0.1 : 0)) * 10);
-      if (lvl > 0) tex = D3().dim(tex, lvl);
+      if (lvl > 0) tex = this.dimOwn(tex, lvl);
       const yE = yB < clip ? yB : clip;
       const th = tex.height;
       const tx = tex.width === 64 ? this.lowTX[o] : Math.floor((this.lowTX[o] * tex.width) / 64);
