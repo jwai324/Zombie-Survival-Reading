@@ -23,7 +23,8 @@ never a picture book, never talking down. No gore, no on-page deaths, no profani
 | 5 | 130 to 180 | 22 | figurative language, cause and effect |
 | 6 | 160 to 220 | 26 | sophisticated vocabulary, voice, subtext |
 
-Door notes may run shorter (about 60 percent of the range). How it works paragraphs
+Door notes may run shorter (about 75 percent of the range); inside notes may run up to
+20 percent over it, since they now carry a route by landmark. How it works paragraphs
 follow the same sentence limits; three to six paragraphs at every level, and the
 `controls` list (one line per control group, "Head: text") is written at the level too.
 

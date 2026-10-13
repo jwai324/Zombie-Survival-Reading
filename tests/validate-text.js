@@ -66,6 +66,13 @@ function checkText(ctx, text, spec, scale, facts) {
     });
   });
 }
+/* Landmarks steer the player inside a building, so the notes must name them:
+   a door note at least two, an inside note at least one (the leading "the" is optional). */
+const landmarkNames = (loc) => {
+  const lay = WORLD.TEMPLATES[loc.template] || {};
+  return Object.values(lay.landmarks || {}).map((d) => String(d.name || "").toLowerCase().replace(/^the\s+/, "")).filter(Boolean);
+};
+const landmarksIn = (text, names) => names.filter((n) => String(text || "").toLowerCase().includes(n));
 const NUM_WORDS = { 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten" };
 function numberWord(num, text) {
   const w = NUM_WORDS[num];
@@ -86,6 +93,8 @@ const HOWTO_MUST = [
   [/\bwell\b/i, "the Well (late game: water)"],
   [/\bfarm/i, "the Farm (late game: crops and animals for food)"],
   [/\blab\b/i, "the Lab (late game: medicine made at home)"],
+  [/\blanes?\b/i, "lanes on the road (be in the right lane before the stop line)"],
+  [/\bsigns?\b/i, "the road signs (they say where each lane goes)"],
 ];
 /* numbers the How it works text must carry, straight from the world file */
 const HOWTO_NUMBERS = () => [
@@ -103,6 +112,8 @@ const CONTROLS_MUST = [
   [/\bP\b/, "the P key (pause)"],
   [/typ/i, "typing at the workbench"],
   [/map/i, "the map"],
+  [/\bM\b/, "the M key (the map of a building)"],
+  [/\blanes?\b/i, "lanes on the road"],
 ];
 /* typing.fingers: home-row placement must be taught in so many words */
 const FINGERS_MUST = [
@@ -275,12 +286,16 @@ function checkLevel(n) {
     const N = WORLD.NOTES[loc.id];
     if (!L.door || !isStr(L.door.title)) err(lctx + " door", "title missing");
     else if (words(L.door.title).length > 7) warn(lctx + " door", "title is long");
-    checkText(lctx + " door", L.door && L.door.text, spec, 0.6, N.door.facts);
+    checkText(lctx + " door", L.door && L.door.text, spec, 0.75, N.door.facts);
+    const marks = landmarkNames(loc);
+    const doorMarks = landmarksIn(L.door && L.door.text, marks);
+    if (marks.length && doorMarks.length < 2) err(lctx + " door", `must name at least two landmarks (${marks.join(", ")}); names ${doorMarks.length ? doorMarks.join(", ") : "none"}`);
     N.notes.forEach((note) => {
       const T = L.notes && L.notes[note.id];
       if (!T) return err(`${lctx} ${note.id}`, "missing");
       if (!isStr(T.title)) err(`${lctx} ${note.id}`, "title missing");
-      checkText(`${lctx} ${note.id}`, T.text, spec, 1, note.facts);
+      checkText(`${lctx} ${note.id}`, T.text, spec, 1.2, note.facts);
+      if (marks.length && !landmarksIn(T.text, marks).length) err(`${lctx} ${note.id}`, `must name at least one landmark (${marks.join(", ")})`);
       if (note.unlocks && !/open|unlock|key|code|latch|bolt|badge|combination|handle|hatch|lift|twist/i.test(T.text || "")) warn(`${lctx} ${note.id}`, "note unlocks a cache but the text never says how to open it");
       (note.reveals || []).forEach((rid) => {
         const target = WORLD.LOCATIONS.find((l) => l.id === rid);
