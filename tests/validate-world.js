@@ -6,7 +6,7 @@ const path = require("path");
 const vm = require("vm");
 const sb = {};
 sb.globalThis = sb;
-["world.js", "story.js"].forEach((f) => {
+["world.js", "story.js", "story-home.js"].forEach((f) => {
   const file = path.join(__dirname, "..", "js", f);
   if (fs.existsSync(file)) vm.runInNewContext(fs.readFileSync(file, "utf8"), sb, { filename: f });
 });
@@ -222,8 +222,10 @@ Object.entries(yardLots).forEach(([room, [x, y]]) => {
   if (ch !== ".") err(`yard lot ${room}: tile ${x},${y} is "${ch}", needs open ground`);
   if (lotTiles.has(x + "," + y)) err(`yard lot ${room}: shares a tile`);
   lotTiles.add(x + "," + y);
-  const fence = W.YARD.grid.map((r) => r.indexOf("F")).filter((i) => i >= 0);
-  if (x <= Math.min(...fence)) err(`yard lot ${room}: outside the fence`);
+  // strictly inside the fence's bounding box
+  const fx = [], fy = [];
+  W.YARD.grid.forEach((r, gy) => [...r].forEach((c, gx) => { if (c === "F") { fx.push(gx); fy.push(gy); } }));
+  if (x <= Math.min(...fx) || x >= Math.max(...fx) || y <= Math.min(...fy) || y >= Math.max(...fy)) err(`yard lot ${room}: outside the fence`);
   if (W.YARD_LOTS && !W.YARD_LOTS[room]) err(`yard lot ${room}: no facts in story-home.js`);
 });
 // home story facts

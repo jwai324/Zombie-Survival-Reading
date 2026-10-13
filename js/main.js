@@ -96,7 +96,7 @@
         go.addEventListener("click", () => {
           Audio.unlock();
           Audio.play("click");
-          if (State.loadSave(slot.id)) goYard();
+          if (State.loadSave(slot.id)) goYardWithDay(); // an unread day page (closed mid-read) comes first
         });
         const del = document.createElement("button");
         del.className = "btn del";

@@ -875,16 +875,35 @@
     nearReadable() {
       const p = this.player;
       let best = null;
-      const consider = (x, y, make) => {
+      // (sx, sy): the point to see. A sign is a wall tile, so that is the point of its face nearest the player.
+      const consider = (x, y, sx, sy, target) => {
         const d = Math.hypot(x - p.x, y - p.y);
         if (d > READ_REACH) return;
         const diff = Math.abs(normAngle(Math.atan2(y - p.y, x - p.x) - p.a));
         if (diff > 0.8 && d > 1.1) return;
-        if (!best || d < best.d) best = { d, make };
+        if (!this.lineClear(p.x, p.y, sx, sy)) return; // never through a wall, a shelf or a closed door
+        if (!best || d < best.d) best = { d, target };
       };
-      this.signs.forEach((sg) => consider(sg.x + 0.5, sg.y + 0.5, () => this.signPanel(sg)));
-      this.lots.forEach((lot) => consider(lot.x, lot.y, () => this.lotPanel(lot)));
-      return best ? best.make() : null;
+      this.signs.forEach((sg) => {
+        // seen across a corner, one of the two faces at that corner must open onto something see-through
+        const offX = p.x < sg.x ? -1 : p.x > sg.x + 1 ? 1 : 0;
+        const offY = p.y < sg.y ? -1 : p.y > sg.y + 1 ? 1 : 0;
+        if (offX && offY && this.opaqueAt(sg.x + offX + 0.5, sg.y + 0.5) && this.opaqueAt(sg.x + 0.5, sg.y + offY + 0.5)) return;
+        const fx = clamp(p.x, sg.x - 0.02, sg.x + 1.02);
+        const fy = clamp(p.y, sg.y - 0.02, sg.y + 1.02);
+        consider(sg.x + 0.5, sg.y + 0.5, fx, fy, { sign: sg });
+      });
+      this.lots.forEach((lot) => consider(lot.x, lot.y, lot.x, lot.y, { lot }));
+      return best ? best.target : null;
+    },
+    /** A cheap identity for what the panel would show, so the panel is rebuilt only when it changes. */
+    readableKey(t) {
+      const S = State();
+      if (t.sign) return "sign:" + t.sign.id + ":" + S.settings.level;
+      const lvl = S.save.rooms[t.lot.room] || 0;
+      const def = W().BASE_ROOMS[t.lot.room].levels[lvl];
+      const have = def ? Object.keys(def.needs).map((k) => S.save.inventory[k] || 0).join(",") + "," + S.save.scrap : "";
+      return "lot:" + t.lot.room + ":" + lvl + ":" + S.settings.level + ":" + have;
     },
     signPanel(sg) {
       const t = ZSR.signText(this.loc.id, sg.id);
@@ -922,11 +941,12 @@
       this.tagPanel = { key: "tag:" + item + ":" + variant + ":" + this.time, kind: "tag", title: title || W().ITEMS[item].name, status: "The tag says", text, until: this.time + 7 };
     },
     updatePanel() {
-      let show = this.nearReadable();
-      if (!show && this.tagPanel && this.time < this.tagPanel.until) show = this.tagPanel;
-      const key = show ? show.key : null;
+      const near = this.nearReadable();
+      const tag = !near && this.tagPanel && this.time < this.tagPanel.until ? this.tagPanel : null;
+      const key = near ? this.readableKey(near) : tag ? tag.key : null;
       if (key === this.panelKey) return;
       this.panelKey = key;
+      const show = near ? (near.sign ? this.signPanel(near.sign) : this.lotPanel(near.lot)) : tag;
       const el = this.hud.read;
       if (!el) return;
       if (!show) {
