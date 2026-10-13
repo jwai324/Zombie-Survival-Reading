@@ -97,6 +97,16 @@
       return wrap;
     },
 
+    /** The backpack open at June's journal and the radio (the radio shelf in the cabin's living room). */
+    openDays(onClose) {
+      this.open(onClose);
+      const det = document.querySelector("#backpack-days details");
+      if (det) {
+        det.open = true;
+        if (det.scrollIntoView) det.scrollIntoView({ block: "start" });
+      }
+    },
+
     /** June's journal and the radio, one entry per day, newest first. */
     renderDays(onClose) {
       const box = document.getElementById("backpack-days");

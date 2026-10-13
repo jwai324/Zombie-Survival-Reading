@@ -87,7 +87,7 @@
     },
     {
       title: "The Cabin by Day",
-      text: "In daylight the cabin is small. But the roof is sound. An old fence circles the yard. Some boards are loose. The back dirt is dark and good. I see it first. I want to plant. Rule one goes inside the door. Say where you go. Then go. Nobody argues.\n\n—June",
+      text: "In daylight the cabin looks bigger. It is a whole family house. It has a porch. The roof is sound. An old fence circles the yard. Some boards are loose. The back dirt is dark and good. I see it first. Rule one goes inside the door. Say where you go.\n\n—June",
     },
     {
       title: "Old but Honest",
@@ -410,5 +410,89 @@
     hungry: "No food, so the van runs weak.",
     next: "Next up: the {room} still needs {needs}.",
     ready: "You can build the {room} now.",
+  };
+  // The cabin inside: what the Hollis family left on the walls, one note per room (facts: W.HOUSE_NOTES),
+  // and the computer's House tab (facts: W.HOUSE_UPGRADE_FACTS).
+  T.house = {
+    notes: {
+      porch: {
+        title: "The Dinner Bell",
+        text: "A carved sign says THE CABIN. Under it: THE HOLLIS FAMILY. Dan Hollis hung this big iron bell. The kids heard it in the woods. A note says: ring for supper. June adds in chalk: it rings far. Walkers come to it. Ready to fight? Then ring it.",
+      },
+      foyer: {
+        title: "Five Hooks by the Door",
+        text: "Five hooks hang by the door. Names are over them. Kate. Dan. Gus. Finn. A low one says Lucy. Lucy's hook has a tag. Tag: last one out locks the door. The hooks are empty now. The Hollis family took their keys. They left.",
+      },
+      office: {
+        title: "Kate's Map Desk",
+        text: "Kate Hollis worked at this desk. She drew maps for the county. A sticky note is on the screen. The computer runs on a big battery. The battery is in the closet. June keeps base plans on it now. Rooms, van, guns, and traps.",
+      },
+      dining: {
+        title: "The Chore Chart",
+        text: "A chore chart has gold stars. Gus washed the dishes. Finn took out the trash. Lucy fed Biscuit the dog. Lucy has the most stars. One of Gus's stars is crossed out. Pip adds a pencil row. Pip feeds our dog. We do not have one yet.",
+      },
+      kitchen: {
+        title: "Kate's Note on the Fridge",
+        text: "A fish magnet holds this note. Kate wrote it the morning they left. We go north with the River Convoy. We ride Sergeant Vega's trucks. We take Biscuit and our go bags. We take the last peaches. Are you kind? Our cabin is yours. Keep the garden going.",
+      },
+      pantry: {
+        title: "Labels on the Shelves",
+        text: "Dan Hollis labeled each shelf. Beans. Rice. Peaches. Flour. Most shelves are bare now. The labels are still there. The crew counts the food in here. Everything in storage is counted here too.",
+      },
+      pingpong: {
+        title: "The Ping Pong Score",
+        text: "This is the ping pong room. A chalk score board hangs over the table. The last game: Finn 21, Dad 19. Dan wrote under it: rematch on Sunday. Tomas and Pip play here now. Pip says the table leans left.",
+      },
+      masterBath: {
+        title: "A Heart on the Mirror",
+        text: "Someone drew a heart on the mirror. Three names are in it. Gus. Finn. Lucy. A list is taped by the sink. It says: Lucy, brush your teeth. Brush for two whole minutes. June leaves the list up.",
+      },
+      master: {
+        title: "The Photo Over the Bed",
+        text: "A photo hangs over the big bed. It shows Kate and Dan Hollis. It is their wedding day. The river is behind them. June gives this bed to the most hurt. Sleep here to heal all the way. But it takes time. Walkers keep coming while you sleep.",
+      },
+      living: {
+        title: "Lines on the Door Frame",
+        text: "Each year the kids grew. Pencil lines on the frame show it. Gus has the top line. Lucy's low line says age 3. Pip's line falls between Finn and Gus. The radio sits by the couch. So does June's green ledger. Anyone can read old days again.",
+      },
+      gusRoom: {
+        title: "Keep Out",
+        text: "The door sign says: Gus's Room. Keep out. This means you, Finn. Gus is sixteen. He left his guitar here. It has two broken strings. Tomas sleeps here now. He says the sign still counts. It counts for Pip.",
+      },
+      finnRoom: {
+        title: "Finn's Treehouse Plan",
+        text: "Finn drew a plan for a treehouse. The tree is past the fence. The plan has a rope ladder. It has a lookout. It has a bucket on a pulley. Pip wants to build it someday. First the fence must be strong.",
+      },
+      lucyRoom: {
+        title: "My Dog Biscuit",
+        text: "Lucy drew a dog in crayon. It has floppy ears. It says: MY DOG BISCUIT. Lucy wrote more under it. Biscuit can sit. Biscuit can shake. Biscuit can roll over. Pip pins up a second drawing. It is a dog with no name yet.",
+      },
+      playroom: {
+        title: "The Typing Board",
+        text: "This play room has a little desk. An old typewriter sits on it. There is a chalkboard too. Kate wrote: practice typing ten minutes a day. Keep your fingers on the home row. Lucy wrote her name ten times below.",
+      },
+      coatCloset: {
+        title: "The Go Bag List",
+        text: "A list is taped inside the closet door. It says: the go bag. Water. A flashlight. Batteries. Biscuit's leash. The photo album. At the bottom it says this. Split up? Meet at the river dock. Meet by the convoy trucks.",
+      },
+    },
+    upgrades: {
+      doors: {
+        desc: "Two doors lead to the yard. The front door is on the porch. The back door is in the play room. A shut door? Walkers pound it till it breaks. An open door? They walk right in. A door starts at 150 strength.",
+        next: [
+          "Each door gets a thick wood bar. Door strength rises to 260.",
+          "Steel sheets get bolted on both doors. Door strength rises to 400.",
+          "Steel security doors replace the old ones. Door strength rises to 560.",
+        ],
+      },
+      windows: {
+        desc: "The cabin has lots of windows. Walkers smash the glass fast. Then they climb in. You cannot climb out a broken window. Glass starts at 50 strength.",
+        next: [
+          "Boards go up over the glass. Window strength rises to 140.",
+          "Metal shutters go on every window. Window strength rises to 240.",
+          "Steel plates cover every window. Each has a thin slot. Window strength rises to 380.",
+        ],
+      },
+    },
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

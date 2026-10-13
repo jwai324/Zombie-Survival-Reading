@@ -3,7 +3,8 @@
    Covers howto, base rooms (incl. late rooms and what they require), traps, the
    workbench blurb, the typing drills (fingers, words, phrases, sentences), the notes
    (facts, landmarks, revealed places, and street names that must lie on the way there),
-   wall signs, keys, and the home texts (plot signs, journal, radio, item tags, recap).
+   wall signs, keys, and the home texts (plot signs, journal, radio, item tags, recap, and the
+   house: the Hollis family's notes on the cabin walls and the House tab's doors and windows).
    Usage: node tests/validate-text.js [level]. Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -26,7 +27,7 @@ const LEVELS = {
 };
 const READING_FLOOR = 4;
 // people from docs/STORY.md: a fact that names one must be carried by the text that names them too
-const PEOPLE = ["Ruby", "Dev", "Lin", "Ada", "Jo", "Max", "Mia", "Adler", "Greer", "Vega", "Dunn", "Luis", "Theo", "Rosa", "Reyes", "Hana", "Okafor", "Priya", "Ortiz", "Carla", "June", "Tomas", "Pip"];
+const PEOPLE = ["Ruby", "Dev", "Lin", "Ada", "Jo", "Max", "Mia", "Adler", "Greer", "Vega", "Dunn", "Luis", "Theo", "Rosa", "Reyes", "Hana", "Okafor", "Priya", "Ortiz", "Carla", "June", "Tomas", "Pip", "Kate", "Dan", "Gus", "Finn", "Lucy", "Biscuit", "Hollis"];
 const errors = [];
 const warnings = [];
 const err = (c, m) => errors.push(c + ": " + m);
@@ -68,7 +69,7 @@ function checkText(ctx, text, spec, scale, facts, range) {
   if (wc < lo || wc > hi) warn(ctx, `${wc} words, target ${lo}..${hi}`);
   const longest = sentences(text).reduce((m, s) => Math.max(m, words(s).length), 0);
   if (longest > spec.sentence + 3) warn(ctx, `longest sentence ${longest} words, max ${spec.sentence}`);
-  if (/Biscuit|Shambler|poof/i.test(text)) err(ctx, "old-world term");
+  if (/Shambler|poof/i.test(text)) err(ctx, "old-world term");
   // numbers and codes from the facts must survive verbatim
   (facts || []).forEach((f) => {
     (f.match(/\b\d[\d-]*\b/g) || []).forEach((num) => {
@@ -127,8 +128,17 @@ const hasNumber = (num, text) => new RegExp("\\b" + String(num).replace(/[.*+?^$
    lane per road in the order of the sign's arrows, so the player's own lane may be the one that turns. */
 const JUNCTION_LANES = /\bmay (well )?(be the one that )?turns?\b/i;
 const HOWTO_BANNED = /patched|patch the fence|fence is fixed between/i;
+/* The cabin is the Hollis family's house now: no menu at the door, its doors are not locked in a wave
+   (walkers break a shut one), and the Walls room is the fence only. Checked in howto, controls, typing. */
+const CABIN_BANNED = [
+  [/cabin door[^.]*\block|door and the van are locked|door is locked\. So is the van/i, "says the cabin door locks in a wave (it does not: walkers break a shut door, and only the van stays put)"],
+  [/cabin menu/i, "names the cabin menu (building is at the office computer)"],
+];
 const HOWTO_MUST = [
-  [/door/i, "the cabin door (E opens and closes it, walkers cannot)"],
+  [/door/i, "the cabin's doors (E opens and shuts them; walkers break a shut one, walk through an open one)"],
+  [/window/i, "the cabin's windows (walkers smash them and climb in; you cannot climb out)"],
+  [/computer/i, "the office computer (E there opens the build menu)"],
+  [/\bbell\b/i, "the dinner bell (it brings the next wave)"],
   [/trap/i, "traps (crafted at the bench, placed in the yard)"],
   [/kit/i, "medical kits (the backpack carries them, one heals to full)"],
   [/typ/i, "typing (how you build, upgrade, and craft)"],
@@ -148,6 +158,7 @@ const HOWTO_MUST = [
 /* numbers the How it works text must carry, straight from the world file */
 const HOWTO_NUMBERS = () => [
   [WORLD.SETTINGS.fenceRepairScrap, "the scrap a fence hole costs"],
+  [WORLD.SETTINGS.houseRepairScrap, "the scrap a broken door or window costs"],
   [WORLD.SETTINGS.kitsMax, "how many kits the backpack holds"],
   [WORLD.SETTINGS.saveSlots, "how many saves there are"],
   [WORLD.SETTINGS.restockDays, "the days until shelf items come back"],
@@ -163,6 +174,8 @@ const CONTROLS_MUST = [
   [/\bP\b/, "the P key (pause)"],
   [/typ/i, "typing at the workbench"],
   [/map/i, "the map"],
+  [/computer/i, "the computer (E uses it)"],
+  [/\bbell\b/i, "the dinner bell (E rings it)"],
   [/\bM\b/, "the M key (the map of a building)"],
   [/\blanes?\b/i, "lanes on the road"],
   [JUNCTION_LANES, "that where roads meet your own lane may turn"],
@@ -228,6 +241,7 @@ function checkTyping(ctx, ty, spec) {
     if (S.length < 16) err(sctx, `${S.length} sentences, needs 16+`);
     const bad = S.filter((s) => !SENTENCE_RE.test(s));
     if (bad.length) err(sctx, `must start with a capital, end with a period, and use only letters, spaces, commas: ${list(bad)}`);
+    CABIN_BANNED.forEach(([re, what]) => { const bad2 = S.filter((x) => re.test(x)); if (bad2.length) err(sctx, `${what}: ${list(bad2)}`); });
     const dbl = S.filter((s) => /  /.test(s));
     if (dbl.length) err(sctx, `double space: ${list(dbl)}`);
     const gap = S.filter((s) => / ,/.test(s));
@@ -240,7 +254,8 @@ function checkTyping(ctx, ty, spec) {
   }
 }
 
-/* Home: yard lot signs, June's journal, the radio, item tags, and the day recap templates. */
+/* Home: yard lot signs, June's journal, the radio, item tags, the day recap templates, and the house
+   (the Hollis family's notes on the cabin walls, and the House tab's doors and windows). */
 const RECAP_MUST = { haul: ["items", "scrap"], nothing: [], notes: ["notes"], keys: ["keys"], food: ["food"], hungry: [], next: ["room", "needs"], ready: ["room"] };
 function checkHome(ctx, t, spec) {
   const lots = (t.yard && t.yard.lots) || {};
@@ -276,6 +291,34 @@ function checkHome(ctx, t, spec) {
     if (!Array.isArray(list) || list.length !== 2) return err(ictx, "needs 2 tags");
     list.forEach((x, i) => checkText(`${ictx}[${i}]`, x, spec, 1, F[i], spec.tag));
   });
+  // the house: what the Hollis family left on the walls, one note per room, read up close
+  const house = t.house || {};
+  const hnotes = house.notes || {};
+  Object.entries(WORLD.HOUSE_NOTES || {}).forEach(([id, facts]) => {
+    const hctx = `${ctx} house.notes.${id}`;
+    const H = hnotes[id];
+    if (!H) return err(hctx, "missing");
+    if (!isStr(H.title)) err(hctx, "title missing");
+    else if (words(H.title).length > 7) warn(hctx, "title is long");
+    checkText(hctx, H.text, spec, 1, facts, spec.lot);
+  });
+  Object.keys(hnotes).forEach((id) => { if (!(WORLD.HOUSE_NOTES || {})[id]) err(`${ctx} house.notes`, `unknown note id ${id}`); });
+  // the computer's House tab: doors and windows, a desc and one text per level, short like the base rooms
+  const ups = house.upgrades || {};
+  Object.entries(WORLD.HOUSE_UPGRADE_FACTS || {}).forEach(([key, F]) => {
+    const uctx = `${ctx} house.upgrades.${key}`;
+    const U = ups[key];
+    const hp = ((WORLD.HOUSE_UPGRADES || {})[key] || {}).hp || [];
+    if (!U) return err(uctx, "missing");
+    checkText(uctx + " desc", U.desc, spec, 1, F.desc, [spec.tag[0], spec.lot[1]]);
+    if (hp.length && isStr(U.desc) && !hasNumber(hp[0], U.desc)) err(uctx + " desc", `must give the starting strength ${hp[0]}`);
+    if (!Array.isArray(U.next) || U.next.length !== F.next.length || !U.next.every((x) => isStr(x))) return err(uctx, `next needs ${F.next.length} strings`);
+    U.next.forEach((x, i) => {
+      checkText(`${uctx} next[${i}]`, x, spec, 1, F.next[i], [4, spec.tag[1]]);
+      if (hp[i + 1] != null && !hasNumber(hp[i + 1], x)) err(`${uctx} next[${i}]`, `must give the new strength ${hp[i + 1]}`);
+    });
+  });
+  Object.keys(ups).forEach((k) => { if (!(WORLD.HOUSE_UPGRADE_FACTS || {})[k]) err(`${ctx} house.upgrades`, `unknown key ${k}`); });
   const rc = t.recap || {};
   Object.entries(RECAP_MUST).forEach(([k, slots]) => {
     if (!isStr(rc[k])) return err(`${ctx} recap.${k}`, "missing");
@@ -318,6 +361,7 @@ function checkLevel(n) {
     const all = t.howto.join(" ");
     if (HOWTO_BANNED.test(all)) err(ctx, "howto still says the fence is patched between waves (holes stay until repaired, 1 scrap each)");
     HOWTO_MUST.forEach(([re, what]) => { if (!re.test(all)) err(ctx, `howto must mention ${what}`); });
+    CABIN_BANNED.forEach(([re, what]) => { if (re.test(all)) err(ctx, `howto ${what}`); });
     HOWTO_NUMBERS().forEach(([num, what]) => { if (!hasNumber(num, all)) err(ctx, `howto must give ${what} (${num})`); });
   }
   // controls: the key list under How it works, at this level too
@@ -329,6 +373,7 @@ function checkLevel(n) {
     });
     const allC = t.controls.join(" ");
     CONTROLS_MUST.forEach(([re, what]) => { if (!re.test(allC)) err(ctx, `controls must mention ${what}`); });
+    CABIN_BANNED.forEach(([re, what]) => { if (re.test(allC)) err(ctx, `controls ${what}`); });
     if (!hasNumber(WORLD.SETTINGS.fenceRepairScrap, allC)) warn(ctx, "controls: the fence repair cost is not given");
   }
   const base = t.base || {};
@@ -338,6 +383,7 @@ function checkLevel(n) {
     const r = base.rooms && base.rooms[room];
     if (!r) return err(rctx, "missing");
     if (!isStr(r.desc)) err(rctx, "desc missing");
+    else if (room === "walls" && /\b(house|cabin)\b/i.test(r.desc)) err(rctx, "desc puts the Walls on the cabin (Walls is the fence only; the House tab does the doors and windows)");
     if (!Array.isArray(r.next) || r.next.length !== 3 || !r.next.every((x) => isStr(x))) return err(rctx, "next needs 3 strings");
     // a level that requires other rooms must name them, so the player knows what to build first
     const late = R.levels.some((lv) => lv.requires);

@@ -184,12 +184,12 @@
     };
     loop();
   }
-  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D, the arrow keys or the side buttons change lanes. Your left lane goes straight past side streets and lots. For a lot on the right, use the right lane; for one on the left, the turn lane that opens on the far left. Where roads meet there is one lane per road and yours may turn: match the arrow on the sign and be in that lane before the white stop line.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, M opens the map of a building, P or Esc pauses.", "E does it all: reads notes, opens and closes doors, opens a cache once you have read its note, leaves a building, enters the cabin, starts the van, and rebuilds a hole in the fence for 1 scrap.", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Guns: more guns are hidden in buildings around town. Walk over one to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns. Hold to draw the bow, let go to shoot. Mod guns with scrap in the cabin's Weapons tab.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
+  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D, the arrow keys or the side buttons change lanes. Your left lane goes straight past side streets and lots. For a lot on the right, use the right lane; for one on the left, the turn lane that opens on the far left. Where roads meet there is one lane per road and yours may turn: match the arrow on the sign and be in that lane before the white stop line.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, M opens the map of a building, P or Esc pauses.", "E does it all: reads notes, opens and closes doors (the cabin's too), opens a cache once you have read its note, leaves a building, uses the computer and the things in the cabin, rings the dinner bell, starts the van, and fixes a hole in the fence (1 scrap) or a broken door or window (2 scrap).", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Guns: more guns are hidden in buildings around town. Walk over one to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns. Hold to draw the bow, let go to shoot. Mod guns with scrap in the cabin's Weapons tab.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
   function renderHowto() {
     const t = ZSR.text();
     const body = $("howto-body");
     body.innerHTML = "";
-    const paras = (t && t.howto) || ["You run the last van out of a cabin at the edge of town. Drive to the places on the map, read the notes people left, clear the walkers, bring back what the base needs.", "Inside every building a note tells you how to open the locked room and where to go next. Back at the cabin, build between waves and hold the fence when they come.", "The game saves only at the cabin. If you go down, you are back at your last save."];
+    const paras = (t && t.howto) || ["You run the last van out of a cabin at the edge of town. Drive to the places on the map, read the notes people left, clear the walkers, bring back what the base needs.", "Inside every building a note tells you how to open the locked room and where to go next. Back at the cabin, build at the computer between waves and hold the fence when they come.", "The game saves only at the cabin. If you go down, you are back at your last save."];
     paras.forEach((p) => {
       const e = document.createElement("p");
       e.textContent = p;
@@ -234,10 +234,12 @@
     if (Interior.phase && Interior.phase.kind === "wave") return;
     State.save.fence = Interior.fenceState();
     State.save.yardTraps = Interior.traps.filter((t) => t.uses > 0).map((t) => ({ x: t.x, y: t.y, type: t.type, uses: t.uses }));
+    State.save.house.hp = Interior.houseState();
     State.commit();
   }
   const yardHooks = {
-    onDoor() {
+    /** The office computer in the cabin: the build menu. The yard waits while it is open. */
+    onComputer() {
       Interior.pause();
       Base.open({
         onClose() {
@@ -246,7 +248,7 @@
         },
         onChanged(key) {
           Interior.refreshYard({ rebuildFence: key === "walls" });
-          if (key === "walls") syncYard();
+          if (key === "walls" || key === "doors" || key === "windows") syncYard();
         },
         fenceHoles: () => Interior.fenceHoles().length,
         onRepairFence() {
@@ -254,7 +256,23 @@
           syncYard();
           return n;
         },
+        houseDamage: () => Interior.houseDamage(),
+        onRepairHouse() {
+          const n = Interior.repairHouse();
+          syncYard();
+          return n;
+        },
       });
+    },
+    /** The radio shelf in the living room: June's journal and the radio, every day so far. */
+    onJournal() {
+      Interior.pause();
+      Backpack.openDays(() => Interior.resume());
+    },
+    /** The typewriter in the play room: a free typing round. */
+    onPractice() {
+      Interior.pause();
+      Base.practice(() => Interior.resume());
     },
     onVan() {
       syncYard();
@@ -580,7 +598,9 @@
   document.addEventListener("DOMContentLoaded", () => {
     Game.init($("game"), { onArrive, onDeath, onPause, onPauseKey });
     Interior.init($("fp"), {
-      onDoor: () => yardHooks.onDoor(),
+      onComputer: () => yardHooks.onComputer(),
+      onJournal: () => yardHooks.onJournal(),
+      onPractice: () => yardHooks.onPractice(),
       onVan: () => yardHooks.onVan(),
       onWaveCleared: () => yardHooks.onWaveCleared(),
       onYardChanged: () => yardHooks.onYardChanged(),

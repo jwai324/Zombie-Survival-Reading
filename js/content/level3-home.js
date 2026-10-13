@@ -79,8 +79,8 @@
       text: "This is the first page of my green ledger. I am writing by candlelight, so forgive the wobbly lines. The van rolled into the yard on its last drops of fuel. Tomas talked to the engine the whole way, and I think it listened. The cabin at the south end of town was empty and dry. It has a woodstove, and the door still locks. Pip fell asleep on the bench before the bags were even inside. You took the first watch at the window. Nothing came. Good night, from June.",
     },
     {
-      title: "Day 2: Small but Sound",
-      text: "In daylight the cabin is small. Still, the roof is sound, and that counts for a lot. An old fence circles the yard. Some of its boards are loose, and they rattle in the wind. Behind the cabin, the dirt is dark and good. I noticed it first, of course. Old gardeners always look down. Tonight I wrote our first rule on the inside of the door. Say where you are going before you go. Pip read it twice and asked, “Even to the outhouse?” Yes, Pip. Even there. — June",
+      title: "Day 2: Bigger than It Looked",
+      text: "In daylight the cabin is bigger than it looked last night. It is a whole family house with a porch, and the roof is sound. An old fence circles the yard. Some of its boards are loose. Behind the cabin, the dirt is dark and good. I noticed it first, of course. Old gardeners always look down. Tonight I wrote our first rule on the inside of the door. Say where you are going before you go. Pip read it twice and asked, “Even to the bathroom?” Yes, Pip. Even there. — June",
     },
     {
       title: "Day 3: The Old Mule",
@@ -402,6 +402,91 @@
     food: "We have {food} food left in storage after supper.",
     hungry: "We are out of food, so the van is weaker on the next trip.",
     next: "The next build is the {room}, and it still needs {needs}.",
-    ready: "Everything is here to build the {room}, so head to the workbench.",
+    ready: "Everything is here to build the {room}, so head to the computer.",
+  };
+
+  // The cabin inside: what the Hollis family left on the walls, one note per room (facts: W.HOUSE_NOTES),
+  // and the computer's House tab (facts: W.HOUSE_UPGRADE_FACTS).
+  T.house = {
+    notes: {
+      porch: {
+        title: "The Bell on the Porch",
+        text: "A carved wooden sign by the front door says THE CABIN. Under it, smaller, it says THE HOLLIS FAMILY. Dan Hollis hung a big iron dinner bell on the porch. The kids could hear it all the way from the woods. A note under the bell says: ring for supper. June added her own line in chalk. The bell carries far, and walkers come to it. Ring it only when you are ready to fight.",
+      },
+      foyer: {
+        title: "Five Hooks by the Door",
+        text: "Five hooks line the wall by the door. Each has a name painted over it. The names are Kate, Dan, Gus, and Finn, and a low hook says Lucy. A paper tag hangs on the last hook. It says: last one out locks the door. Every hook is empty now. The Hollis family took their keys with them when they left.",
+      },
+      office: {
+        title: "Kate's Map Desk",
+        text: "Kate Hollis worked at this desk. She drew maps for the county. Rolled-up maps still lean in the corner. A sticky note on the screen says the computer runs off a big battery. The battery sits in the closet. Now June keeps the base plans on it. The rooms, the van, the guns, and the traps are all in there. If you want to build something, start here.",
+      },
+      dining: {
+        title: "The Chore Chart",
+        text: "A chore chart hangs on the dining room wall, dotted with gold stars. Gus washed the dishes, and Finn took out the trash. Lucy fed Biscuit, the dog. Lucy has the most stars by far. Someone crossed out one of Gus's stars, and nobody wrote down why. Pip added a new row at the bottom in pencil. It says: Pip feeds the dog we do not have yet.",
+      },
+      kitchen: {
+        title: "Kate's Note on the Fridge",
+        text: "A magnet shaped like a fish holds a note on the fridge. Kate wrote it the morning the family left. We are going north with the River Convoy, on Sergeant Vega's trucks. We took Biscuit, our go bags, and the last of the canned peaches. If you find our cabin and you are kind, it is yours now. Please keep the garden going. —Kate",
+      },
+      pantry: {
+        title: "Dan's Shelf Labels",
+        text: "Dan Hollis put a label on every shelf: beans, rice, peaches, flour. He used a label maker, and the letters are perfectly straight. Most of the shelves are bare now. The labels are still there, waiting. The crew keeps count of the food in here. Everything else in storage gets counted here too, item by item.",
+      },
+      pingpong: {
+        title: "The Ping Pong Scoreboard",
+        text: "A chalk scoreboard hangs over the ping pong table. The last game reads Finn 21, Dad 19. Under it, in Dan's writing, it says: rematch on Sunday. The rematch is still waiting. Tomas and Pip play here now, and they keep score on the same board. Pip says the table leans to the left, which is why Pip loses.",
+      },
+      masterBath: {
+        title: "A Heart on the Mirror",
+        text: "Someone drew a heart on the bathroom mirror in red marker. Three names are inside it: Gus, Finn, and Lucy. A list is taped by the sink. It says: brush your teeth for two whole minutes, Lucy. June left the list up. She says some rules are worth keeping, even in a house full of strangers.",
+      },
+      master: {
+        title: "The Wedding Photo",
+        text: "A photo hangs over the big bed. It shows Kate and Dan Hollis on their wedding day by the river. They are laughing at something. June says whoever is hurt the most gets this bed. A nap here heals you all the way. But it takes time, and the walkers keep coming while you sleep.",
+      },
+      living: {
+        title: "Lines on the Door Frame",
+        text: "Pencil lines on the door frame show how tall the kids grew each year. Gus has the top line, near the very top of the frame. Lucy's lowest line says age 3. Pip stood against the frame for a new mark. It came up between Finn and Gus. The radio and June's green ledger sit on the shelf by the couch. Anyone can sit here and read the past days again.",
+      },
+      gusRoom: {
+        title: "Gus's Keep Out Sign",
+        text: "A sign on the door says: Gus's Room. Keep Out. This Means You, Finn. Gus is sixteen. He left behind a guitar with two broken strings. It still leans against the bed. Tomas sleeps in here now. He says the sign still counts, only now it means Pip.",
+      },
+      finnRoom: {
+        title: "Finn's Treehouse Plan",
+        text: "Finn drew a plan for a treehouse and taped it over his desk. It goes in the woods past the fence. The plan has a rope ladder and a lookout at the top. A bucket on a pulley hauls things up. Every part has a label in careful letters. Pip wants to build it someday, after the fence is strong.",
+      },
+      lucyRoom: {
+        title: "Lucy's Dog Drawing",
+        text: "A crayon drawing is taped above the bed. It shows a dog with big floppy ears. The top says: MY DOG BISCUIT. Under it, Lucy wrote that Biscuit can sit, shake, and roll over. Pip pinned a second drawing right next to it. It is a dog too, but it has no name yet.",
+      },
+      playroom: {
+        title: "The Chalkboard Rule",
+        text: "The play room has a little desk with an old typewriter on it. A chalkboard hangs on the wall. On the board Kate wrote: practice your typing for ten minutes a day. Keep your fingers on the home row. Lucy wrote her name ten times under it, bigger each time. The typewriter still works if you press hard.",
+      },
+      coatCloset: {
+        title: "The Go Bag List",
+        text: "A list is taped inside the coat closet door. At the top it says: the go bag. Below that: water, a flashlight, batteries, Biscuit's leash, and the photo album. At the bottom, underlined twice, is one more line. If we get split up, meet at the river dock by the convoy trucks.",
+      },
+    },
+    upgrades: {
+      doors: {
+        desc: "The cabin has two doors to the yard. One is the front door on the porch. The other is the back door in the play room. Walkers pound on a closed door until it breaks. An open door lets them walk right in. A door starts with 150 strength.",
+        next: [
+          "A thick wooden bar goes across each door. Door strength rises from 150 to 260.",
+          "Steel sheets are bolted onto both doors. Door strength rises to 400.",
+          "Steel security doors replace the old ones. Door strength rises to 560.",
+        ],
+      },
+      windows: {
+        desc: "The cabin has many windows. Walkers smash the glass fast and climb in. You cannot climb out through a broken window. Glass starts with 50 strength.",
+        next: [
+          "Boards go up over the glass. Window strength rises from 50 to 140.",
+          "Metal shutters go up over every window. Window strength rises to 240.",
+          "Steel plates with a narrow slot cover every window. Window strength rises to 380.",
+        ],
+      },
+    },
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

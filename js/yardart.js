@@ -1,7 +1,7 @@
 /* Art for the home base yard, drawn in the comic style (flat fills, thick ink, halftone) and
    registered with ZSR.Draw3 (sprites3d.js) for yard.js to use by name:
    - "yWall" (a wall face from a material and a feature, with an optional slice of a sign),
-     roofs and gables, the cabin's armor by Walls level, the fence by Walls level ("yFence");
+     roofs and gables, the fence by Walls level ("yFence");
    - see-through low faces (beds, crop rows, pens, wire runs, the lattice tower, solar panels,
      string lights, pipes, the car lift);
    - "yLot0".."yLot15" ground (a staked lot: string along the edges given by the bit mask n1 e2 s4 w8);
@@ -518,22 +518,6 @@
       }
       halftone(ctx, w, h, 0.1);
     },
-    yCabinRoof(ctx, w, h) {
-      // re-roofed in corrugated tin (Walls 2 and up): ribs down the slope, two sheets a tile, a rusty band
-      // along the eave. The core repeats a roof texture on every tile, so nothing here may look like a
-      // one-off patch: a patch on every tile reads as stripes.
-      ribs(ctx, 0, 0, w, h, "#8f969c", 8);
-      ctx.fillStyle = "rgba(150,72,30,0.5)";
-      ctx.fillRect(0, h - 9, w, 9);
-      ctx.fillStyle = INK;
-      ctx.fillRect(0, 0, 2, h);
-      ctx.fillRect(w / 2 - 1, 0, 2, h);
-      ctx.fillRect(0, h - 10, w, 1.5);
-      const row = [];
-      for (let x = 6; x < w; x += 8) row.push([x, 5], [x, h - 14]);
-      rivets(ctx, row);
-      halftone(ctx, w, h, 0.1);
-    },
   };
   const GABLES = {
     yGablePlank: "#7a6248",
@@ -560,91 +544,6 @@
       ctx.fillRect(w - 2, 0, 2, h);
     })
   );
-
-  /* ---------- The cabin by Walls level (0 boards over the windows, 1 more boards, 2 metal shutters, 3 steel plates) ---------- */
-  function plank(ctx, x, y, len, ang, c) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(ang);
-    box(ctx, -len / 2, -4, len, 8, c || "#8a6a46", 2);
-    rivets(ctx, [[-len / 2 + 4, 0], [len / 2 - 4, 0]], "#2f3136");
-    ctx.restore();
-  }
-  function plate(ctx, x, y, w, h) {
-    box(ctx, x, y, w, h, "#8f969c", 2.5);
-    ctx.fillStyle = "rgba(255,255,255,0.2)";
-    ctx.fillRect(x + 3, y + 3, w - 6, 3);
-    rivets(ctx, [[x + 4, y + 4], [x + w - 4, y + 4], [x + 4, y + h - 4], [x + w - 4, y + h - 4]]);
-  }
-  function shutter(ctx, x, y, w, h) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.rect(x, y, w, h);
-    ctx.clip();
-    ribs(ctx, x, y, w, h, "#7d8790", 6);
-    ctx.restore();
-    ink(ctx, 2.5);
-    ctx.strokeRect(x, y, w, h);
-  }
-  D.registerTexture("yCabinWall", (ctx, w, h, p, o) => {
-    ctx.drawImage(D.texture("house", p), 0, 0);
-    const lvl = o.lvl | 0;
-    if (lvl === 1) {
-      plank(ctx, 32, 44, 70, -0.06, "#9a7650");
-      plank(ctx, 32, 54, 70, 0.04, "#8a6a46");
-    } else if (lvl === 2) {
-      shutter(ctx, 0, 36, w, 26);
-      rivets(ctx, [[6, 40], [30, 40], [56, 40], [6, 58], [30, 58], [56, 58]]);
-    } else if (lvl >= 3) {
-      plate(ctx, 1, 22, 31, 40);
-      plate(ctx, 32, 22, 31, 40);
-    }
-    D.border(ctx, w, h);
-  });
-  D.registerTexture("yCabinWindow", (ctx, w, h, p, o) => {
-    const lvl = o.lvl | 0;
-    ctx.drawImage(D.texture(lvl ? "house" : "houseWindow", p), 0, 0);
-    if (lvl === 0) return;
-    // the window opening and its shutters
-    box(ctx, 16, 14, 32, 26, "#2b3540", 2.5);
-    if (lvl === 1) {
-      plank(ctx, 32, 21, 42, -0.25, "#9a7650");
-      plank(ctx, 32, 33, 42, 0.22, "#8a6a46");
-      plank(ctx, 32, 27, 40, 0, "#a07a4a");
-    } else if (lvl === 2) {
-      shutter(ctx, 12, 12, 40, 30);
-      box(ctx, 18, 25, 28, 4, INK, 0);
-    } else {
-      plate(ctx, 9, 9, 46, 36);
-      box(ctx, 22, 24, 20, 5, INK, 0); // a firing slot
-    }
-    if (lvl >= 2) {
-      if (lvl === 2) plank(ctx, 32, 54, 70, 0, "#8a6a46");
-      else {
-        plate(ctx, 1, 48, 31, 15);
-        plate(ctx, 32, 48, 31, 15);
-      }
-    }
-    D.border(ctx, w, h);
-  });
-  D.registerTexture("yCabinDoor", (ctx, w, h, p, o) => {
-    ctx.drawImage(D.texture("door", p), 0, 0);
-    const lvl = o.lvl | 0;
-    if (lvl === 1) {
-      plank(ctx, 32, 36, 40, 0, "#9a7650");
-      plank(ctx, 32, 52, 40, 0, "#9a7650");
-      plank(ctx, 32, 44, 44, -0.4, "#8a6a46");
-    } else if (lvl === 2) {
-      shutter(ctx, 12, 30, 40, 32);
-      line(ctx, [[12, 40], [52, 40]], INK, 2.5);
-      line(ctx, [[12, 52], [52, 52]], INK, 2.5);
-    } else if (lvl >= 3) {
-      plate(ctx, 10, 26, 44, 36);
-      line(ctx, [[10, 44], [54, 44]], INK, 2);
-      box(ctx, 44, 40, 6, 8, "#d9a21b", 1.5);
-    }
-    D.border(ctx, w, h);
-  });
 
   /* ---------- The fence by Walls level (1 braced planks, 2 corrugated metal with spikes, 3 concrete blocks and razor wire) ---------- */
   D.registerTexture("yFence", (ctx, w, h, p, o) => {

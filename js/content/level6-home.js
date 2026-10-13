@@ -80,7 +80,7 @@
     },
     {
       title: "Day 2: The First Rule",
-      text: "Daylight is less generous than candlelight. The cabin is small, smaller than it felt last night, but the roof is sound. After the places we have slept, a sound roof is a luxury. An old fence circles the yard. Some of its boards are loose, and Tomas walked the whole line pushing on each one, frowning like a doctor.\n\nI noticed the dirt first. Behind the cabin it is dark and good, the kind you can crumble in one hand, the kind that wants to grow something. Tomas said, only June would inspect the soil before the locks. He is not wrong. This afternoon I wrote the first rule on the inside of the door, in large pencil letters: say where you are going before you go. It seems obvious. Obvious rules are the ones people forget when they are frightened, which is exactly why they belong on the door.",
+      text: "Daylight is more generous than candlelight, for once. The cabin is bigger than it looked last night: a whole family house, with a porch out front and rooms we have barely opened. Better still, the roof is sound. After the places we have slept, a sound roof is a luxury. An old fence circles the yard. Some of its boards are loose, and Tomas walked the whole line pushing on each one, frowning like a doctor.\n\nI noticed the dirt first. Behind the cabin it is dark and good, the kind you can crumble in one hand, the kind that wants to grow something. Tomas said, only June would inspect the soil before the locks. He is not wrong. This afternoon I wrote the first rule on the inside of the door, in large pencil letters: say where you are going before you go. It seems obvious. Obvious rules are the ones people forget when they are frightened, which is exactly why they belong on the door.",
     },
     {
       title: "Day 3: Watching the Road",
@@ -402,6 +402,91 @@
     food: "After supper the pantry holds {food} food, and June wrote that number in the right-hand column of her ledger.",
     hungry: "The pantry is empty, so the crew goes to bed hungry, and the van will be weaker on the road tomorrow.",
     next: "The next build is the {room} room, which still needs {needs} before the workbench can do anything with it.",
-    ready: "Everything is here to build the {room} room, so the workbench in the garage is waiting for you.",
+    ready: "Everything is here to build the {room} room, so the computer in the office is waiting for you.",
+  };
+
+  // The cabin inside: what the Hollis family left on the walls, one note per room (facts: W.HOUSE_NOTES),
+  // and the computer's House tab (facts: W.HOUSE_UPGRADE_FACTS).
+  T.house = {
+    notes: {
+      porch: {
+        title: "The Dinner Bell",
+        text: "A carved sign hangs beside the front door, the letters burned deep into cedar: THE CABIN, and beneath it, THE HOLLIS FAMILY. Only a certain kind of family names a house this size a cabin, and you can feel it in every room. Dan Hollis hung a big iron dinner bell on the porch so the kids could hear it from the woods. A weathered note under it still says: ring for supper.\n\nJune's addition, in chalk, is less nostalgic. The bell carries far, and walkers come to it. Ring it only when you are ready to fight, because whatever answers will not be coming for supper.",
+      },
+      foyer: {
+        title: "Five Hooks by the Door",
+        text: "Five hooks are screwed into the wall beside the door, and over each one someone painted a name. Kate, Dan, Gus, Finn, and, set low enough for a small arm to reach, Lucy. A luggage tag hangs from that lowest hook with the household's one unbreakable rule: last one out locks the door. The handwriting is an adult's, but the tag is soft from handling, as if a seven-year-old took the job very seriously.\n\nEvery hook is empty. The Hollis family took their keys when they left, which is what people do when they intend to return. June does not hang anything on them.",
+      },
+      office: {
+        title: "Kate's Drafting Desk",
+        text: "Kate Hollis sat at this desk and drew maps for the county. It still looks like the desk of someone who measured twice: pencils sorted by hardness, a ruler worn shiny, survey maps rolled in the corner. A sticky note on the computer screen, in her compact print, explains that it runs off the big battery in the closet. That is why the screen still lights when the rest of the town has gone dark.\n\nJune keeps the base plans on it now: the rooms, the van, the guns, and the traps. Kate charted roads across a county; June charts survival across a single yard. The precision is the same.",
+      },
+      dining: {
+        title: "The Chore Chart",
+        text: "A chore chart is pinned to the dining room wall, its grid crowded with gold foil stars. The assignments are written in a parent's patient capitals: Gus washed the dishes, Finn took out the trash, and Lucy fed Biscuit, the family dog. Lucy leads by a wide margin, a fact she presumably mentioned often. Someone crossed out one of Gus's stars in heavy marker, a small family scandal with no surviving explanation.\n\nAt the bottom, Pip has added a row in pencil: Pip feeds the dog we do not have yet. The square beside it is still blank, and Pip seems content to wait.",
+      },
+      kitchen: {
+        title: "Kate's Note on the Fridge",
+        text: "A note is fixed to the fridge with a magnet shaped like a fish. Kate wrote it the morning the family left, quickly, and the letters lean forward as if they were in a hurry too.\n\n“We are going north with the River Convoy, on Sergeant Vega's trucks. We took Biscuit, our go bags, and the last of the canned peaches. If you find our cabin and you are kind, it is yours now. Please keep the garden going. —Kate”\n\nJune has read it more times than she will admit. She says it is less a note than a handover, and the garden behind the house is her side of the bargain.",
+      },
+      pantry: {
+        title: "Dan's Labeled Shelves",
+        text: "Dan Hollis put a label on every shelf in the pantry: beans, rice, peaches, flour. The strips are printed, perfectly level, and spaced with a care that suggests Dan found real peace in an organized room. Most of the shelves are bare now. The labels have become a kind of inventory of absence, a record of what a well-fed household used to take for granted.\n\nThis is where the crew keeps count, of the food and of everything else in storage, from spools of wire to medical kits. June says you cannot plan with what you have not counted. Dan, judging by his shelves, would have agreed.",
+      },
+      pingpong: {
+        title: "Finn 21, Dad 19",
+        text: "A chalk scoreboard hangs above the ping pong table, and the last game is preserved there like a museum exhibit: Finn 21, Dad 19. Beneath it, in Dan's writing, is the promise every losing parent makes: rematch on Sunday. Nobody can say which Sunday that was meant to be.\n\nTomas and Pip play here now, keeping their own tally on the lower half of the board and leaving the top half untouched. Pip maintains that the table leans to the left, a theory that conveniently accounts for every lost point. Tomas has tested it with a marble and declines to comment.",
+      },
+      masterBath: {
+        title: "The Heart on the Mirror",
+        text: "Someone drew a heart on the bathroom mirror in red marker and wrote three names inside it: Gus, Finn, and Lucy. It is the sort of thing a parent does on an ordinary Tuesday, never imagining it would outlast the household. Beside the sink, a list is taped at a seven-year-old's eye level: brush your teeth for two whole minutes, Lucy. The word whole is underlined, which suggests a history of negotiation.\n\nJune left the list where it was. She does not explain why, and nobody asks; some things in this house are not theirs to take down.",
+      },
+      master: {
+        title: "The Wedding Photo",
+        text: "A framed photograph hangs above the big bed: Kate and Dan Hollis on their wedding day by the river. They are laughing at something outside the frame. They look impossibly young, and entirely unaware of what the years would ask of them.\n\nJune assigns this bed by a simple rule: whoever is hurt the most gets it. A nap here heals you all the way, which makes it the most valuable furniture in the house. The catch is time. Healing here is slow, and the walkers keep coming while you sleep, so every rest is a calculated risk.",
+      },
+      living: {
+        title: "The Door Frame and the Ledger",
+        text: "Pencil lines climb the living room door frame, one for each year, recording how tall the Hollis kids grew. Gus has the top line, high enough that someone surely teased him about it. Lucy's lowest line says age 3, a mark so close to the floor it is hard to believe anyone was ever that small. When Pip stood against the frame for a mark, it landed between Finn and Gus. Pip has mentioned this more than once.\n\nThe radio and June's green ledger sit on the shelf by the couch, so anyone can sit down and read the past days again.",
+      },
+      gusRoom: {
+        title: "Keep Out, Finn",
+        text: "The sign on this door was clearly made in a temper: Gus's Room. Keep Out. This Means You, Finn. Gus is sixteen, old enough that a door with a sign on it counts as a border. He left behind a guitar with two broken strings, leaning in the corner as though he meant to restring it next week.\n\nTomas sleeps here now. He has not touched the guitar. He maintains that the sign remains in force; only the enemy has changed, and these days it means Pip. Pip regards this as an unfriendly policy and visits anyway.",
+      },
+      finnRoom: {
+        title: "Finn's Treehouse Plan",
+        text: "Above Finn's desk hangs a plan for a treehouse, drawn on graph paper with the seriousness of an engineer twice his age. It belongs in the woods past the fence, in an oak he marked with a circle. Every feature is labeled: a rope ladder, a lookout with a railing, and a bucket on a pulley for hauling up supplies. Finn even listed the materials, though his estimate for nails is wildly optimistic.\n\nPip studies the plan most evenings and wants to build it someday, after the fence is strong. It is a reasonable condition, and Pip treats it like a promise rather than a delay.",
+      },
+      lucyRoom: {
+        title: "My Dog Biscuit",
+        text: "Beside Lucy's bed, at exactly the height a seven-year-old would choose, hangs a crayon drawing of a dog with tremendous floppy ears. Across the top, in letters that wobble and then recover: MY DOG BISCUIT. Underneath, Lucy listed the dog's accomplishments: Biscuit can sit, shake, and roll over. The crayon is pressed so hard it gleams.\n\nPip pinned a second drawing next to it, a dog with no name yet. The two hang side by side: one dog who went north with its family, and one still waiting to be found.",
+      },
+      playroom: {
+        title: "The Chalkboard and the Typewriter",
+        text: "The rear play room holds a little desk with an old typewriter on it, a heavy machine that clacks like hail on a tin roof. Above it hangs a chalkboard. On it Kate wrote the room's one rule: practice your typing for ten minutes a day, with your fingers on the home row. Beneath that, Lucy wrote her name ten times, each attempt a little steadier than the one before.\n\nThe typewriter still works. Anyone in the crew can sit here and practice. June says ten honest minutes at these keys beat an hour of good intentions.",
+      },
+      coatCloset: {
+        title: "The Go Bag List",
+        text: "Taped inside the coat closet door is a list headed THE GO BAG: water, a flashlight, batteries, Biscuit's leash, and the photo album. Every item is practical except the last, and the last is the one that tells you who these people were. Someone had thought carefully about what a family could not afford to lose.\n\nAt the bottom, underlined twice, is the plan for the moment nobody wants to imagine. If we get split up, meet at the river dock by the convoy trucks. It is the calmest sentence in the house, and the hardest to read.",
+      },
+    },
+    upgrades: {
+      doors: {
+        desc: "The cabin has two doors to the yard: the front door, which opens onto the porch, and the back door in the play room. Walkers pound on a closed door until it breaks, and an open door simply lets them walk right in. Each door starts with 150 strength, about what you would expect from a family home built for weather, not sieges.",
+        next: [
+          "A thick wooden bar drops across each door, and door strength rises from 150 to 260.",
+          "Steel sheets are bolted onto both doors, raising door strength to 400.",
+          "Steel security doors replace the old wooden ones entirely, raising door strength to 560.",
+        ],
+      },
+      windows: {
+        desc: "The cabin has many windows, and each one is a liability: walkers smash the glass fast and climb straight in. The traffic only runs one way, since you cannot climb out through a broken window. Bare glass starts with 50 strength.",
+        next: [
+          "Boards go up over the glass, nailed edge to edge, and window strength rises from 50 to 140.",
+          "Metal shutters go up over every window, raising window strength to 240.",
+          "Steel plates with a narrow slot cover every window, raising window strength to 380.",
+        ],
+      },
+    },
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);

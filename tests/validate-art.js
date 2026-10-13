@@ -7,7 +7,10 @@
      numbers, no negative radius, color stops inside 0..1, real colors and fonts;
    - a decor face starts by painting its whole tile opaque (the engine never draws behind a wall),
      and the page loads the art files;
-   - every gun in hand draws cleanly at every mod tier, at rest and in motion, with its icon and view.
+   - every gun in hand draws cleanly at every mod tier, at rest and in motion, with its icon and view;
+   - the walk-in house's art (js/houseart.js, loaded by the page after sprites3d.js): every texture,
+     sprite and floor listed in ZSR.HOUSE_ART draws cleanly with every opts set listed for it, at its
+     size; its wall faces, floors and ceiling start by painting the whole tile opaque.
    validate-world.js checks the layout data, validate-engine.js what the engine makes of it. */
 "use strict";
 const fs = require("fs");
@@ -15,6 +18,7 @@ const path = require("path");
 const vm = require("vm");
 const ROOT = path.join(__dirname, "..");
 const ART_FILES = ["decor.js", "landmarks1.js", "landmarks2.js"];
+const HOUSE_FILE = "houseart.js";
 
 const errors = [];
 const warnings = [];
@@ -98,12 +102,14 @@ function context2d(canvas) {
     },
   });
 }
+let lastCanvas = null; // the canvas made most recently (a floor's canvas is not handed back, only its pixels)
 function element(tag) {
   const el = { tagName: String(tag).toUpperCase(), style: {}, classList: { add() {}, remove() {}, contains: () => false }, addEventListener() {}, setAttribute() {}, getAttribute: () => null };
   if (el.tagName === "CANVAS") {
     el.width = 300;
     el.height = 150;
     el.getContext = () => el.ctx || (el.ctx = context2d(el));
+    lastCanvas = el;
   }
   return el;
 }
@@ -137,6 +143,13 @@ present.forEach((f) => {
   else if (at < pageScripts.indexOf("sprites3d.js")) err(`index.html loads js/${f} before sprites3d.js (it needs Draw3)`);
 });
 ART_FILES.filter((f) => !present.includes(f)).forEach((f) => warn(`js/${f} is not there yet`));
+if (!fs.existsSync(path.join(ROOT, "js", HOUSE_FILE))) err(`js/${HOUSE_FILE} is missing`);
+else {
+  load(HOUSE_FILE);
+  const at = pageScripts.indexOf(HOUSE_FILE);
+  if (at < 0) err(`index.html does not load js/${HOUSE_FILE}`);
+  else if (at < pageScripts.indexOf("sprites3d.js")) err(`index.html loads js/${HOUSE_FILE} before sprites3d.js (it needs Draw3)`);
+}
 
 const { ZSR } = sb;
 const D = ZSR.Draw3;
@@ -157,6 +170,11 @@ if (!Dec || typeof Dec.optsFor !== "function") err("js/decor.js does not export 
 
 /* ---------- Draw them: decor as the layouts use it ---------- */
 const optsFor = (d) => (Dec && Dec.optsFor ? Dec.optsFor(d) : d.text ? { text: d.text } : undefined);
+/** The first thing drawn covers the whole 64 x 64 tile in a solid color at full alpha. */
+function startsOpaque(ops) {
+  const first = ops.find((o) => o.k !== "save" && o.k !== "scale");
+  return !!first && first.k === "fillRect" && first.args[0] <= 0 && first.args[1] <= 0 && first.args[0] + first.args[2] >= 64 && first.args[1] + first.args[3] >= 64 && first.globalAlpha === 1 && typeof first.fillStyle === "string" && !/^rgba\(.*,\s*(0?\.\d+|0)\s*\)$/.test(first.fillStyle) && first.fillStyle.length !== 9;
+}
 let faces = 0;
 function face(name, palette, opts, what) {
   if (!D.hasTexture(name)) return;
@@ -171,9 +189,7 @@ function face(name, palette, opts, what) {
   if (!c.ops) return; // drawn earlier with the same palette and opts
   faces++;
   // opaque: the first thing drawn covers the whole tile in a solid color at full alpha
-  const first = c.ops.find((o) => o.k !== "save" && o.k !== "scale");
-  const solid = first && first.k === "fillRect" && first.args[0] <= 0 && first.args[1] <= 0 && first.args[0] + first.args[2] >= 64 && first.args[1] + first.args[3] >= 64 && first.globalAlpha === 1 && typeof first.fillStyle === "string" && !/^rgba\(.*,\s*(0?\.\d+|0)\s*\)$/.test(first.fillStyle) && first.fillStyle.length !== 9;
-  if (!solid) err(`${what}: does not start by filling the whole tile with a solid color (faces must be opaque)`);
+  if (!startsOpaque(c.ops)) err(`${what}: does not start by filling the whole tile with a solid color (faces must be opaque)`);
   if (c.ops.length < 12) err(`${what}: draws almost nothing (${c.ops.length} calls)`);
   delete c.ops;
 }
@@ -237,6 +253,80 @@ Object.entries(LAYOUTS).forEach(([id, lay]) => {
   });
 });
 
+/* ---------- The walk-in house (js/houseart.js): everything ZSR.HOUSE_ART lists, with every opts set ---------- */
+const HOUSE = ZSR.HOUSE_ART;
+let houseDrawn = 0;
+const optsSets = (list, what) => {
+  if (!Array.isArray(list) || !list.length) {
+    err(`HOUSE_ART ${what}: no opts sets (list [{}] for none)`);
+    return [];
+  }
+  return list.filter((o) => (o && typeof o === "object" && !Array.isArray(o)) || (err(`HOUSE_ART ${what}: opts ${JSON.stringify(o)} is not an object`), false));
+};
+if (!HOUSE) err(`js/${HOUSE_FILE} does not export ZSR.HOUSE_ART { textures, sprites, floors }`);
+else {
+  const low = new Set(HOUSE.low || []);
+  const pal = { wall: "#7a7468", shelf: "#5a4a3a", counter: "#4b5057", floor: "#55565a", ceiling: "#2a2a2e", wallStyle: "drywall" };
+  Object.entries(HOUSE.textures || {}).forEach(([name, list]) => {
+    if (!D.hasTexture(name)) return err(`house texture "${name}" is listed but not registered (Draw3.registerTexture)`);
+    optsSets(list, `texture ${name}`).forEach((o) => {
+      const what = (current = `house texture ${name} ${JSON.stringify(o)}`);
+      let c;
+      try {
+        c = D.texture(name, pal, o);
+      } catch (e) {
+        return err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+      }
+      if (!c || c.width !== 64 || c.height !== 64) return err(`${what}: not a 64 x 64 face`);
+      if (!c.ops) return; // drawn already
+      houseDrawn++;
+      if (!low.has(name) && !startsOpaque(c.ops)) err(`${what}: does not start by filling the whole tile with a solid color (wall faces must be opaque)`);
+      if (c.ops.length < 12) err(`${what}: draws almost nothing (${c.ops.length} calls)`);
+      delete c.ops;
+    });
+  });
+  (HOUSE.low || []).forEach((name) => (HOUSE.textures || {})[name] || err(`HOUSE_ART.low names "${name}", which is not in its textures`));
+  Object.entries(HOUSE.sprites || {}).forEach(([name, list]) => {
+    if (!D.hasSprite(name)) return err(`house sprite "${name}" is listed but not registered (Draw3.registerSprite)`);
+    optsSets(list, `sprite ${name}`).forEach((o) => {
+      const what = (current = `house sprite ${name} ${JSON.stringify(o)}`);
+      let c;
+      try {
+        c = D.sprite(name, o);
+      } catch (e) {
+        return err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+      }
+      if (!c || !(c.width > 0) || !(c.height > 0)) return err(`${what}: no image`);
+      if (!c.ops) return;
+      houseDrawn++;
+      if (c.ops.length < 12) err(`${what}: draws almost nothing (${c.ops.length} calls)`);
+      delete c.ops;
+    });
+  });
+  if (!Array.isArray(HOUSE.floors) || !HOUSE.floors.length) err("HOUSE_ART.floors lists no floors");
+  (HOUSE.floors || []).forEach((name) => {
+    if (D.floorId(name) < 0) return err(`house floor "${name}" is listed but not registered (Draw3.registerFloor)`);
+    [false, true].forEach((ceiling) => {
+      const what = (current = `house ${ceiling ? "ceiling" : "floor"} ${name}`);
+      lastCanvas = null;
+      let t;
+      try {
+        t = D.floorTexels(name, pal, ceiling);
+      } catch (e) {
+        return err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+      }
+      if (!Array.isArray(t) || t.length !== D.SHADES || !t.every((a) => a && a.length === 4096)) err(`${what}: not ${D.SHADES} shades of 64 x 64 pixels`);
+      const c = lastCanvas;
+      if (!c || !c.ops) return err(`${what}: drew on no canvas`);
+      houseDrawn++;
+      if (c.width !== 64 || c.height !== 64) err(`${what}: not 64 x 64`);
+      if (!startsOpaque(c.ops)) err(`${what}: does not start by filling the whole tile with a solid color (floors are cast as raw pixels)`);
+      if (c.ops.length < 12) err(`${what}: draws almost nothing (${c.ops.length} calls)`);
+      delete c.ops;
+    });
+  });
+}
+
 /* ---------- The guns in hand with their mods (live and at rest), their floor icons and tab views ---------- */
 let guns = 0;
 const MOD_SETS = [0, 1, 2, 3].map((n) => ({ damage: n, range: n, rate: n, aim: n })).concat([{ damage: 3 }, { range: 2, aim: 1 }, { rate: 3, aim: 3 }]);
@@ -290,4 +380,4 @@ if (errors.length) {
   console.log(`\n${errors.length} art problem(s).`);
   process.exit(1);
 }
-console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, every call checked.`);
+console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), every call checked.`);
