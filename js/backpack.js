@@ -109,7 +109,8 @@
       log.forEach((entry) => {
         const j = entry.journal != null ? ZSR.dayText("journal", entry.journal) : null;
         const card = el("button", "note-card");
-        card.appendChild(el("span", "note-title", "Day " + entry.day + (j && j.title ? ": " + esc(j.title) : "")));
+        const jt = j && j.title ? j.title : "";
+        card.appendChild(el("span", "note-title", /^day\s*\d/i.test(jt) ? esc(jt) : "Day " + entry.day + (jt ? ": " + esc(jt) : "")));
         card.appendChild(el("span", "note-found", entry.radio != null ? "Journal and a radio broadcast" : "Journal"));
         card.addEventListener("click", () => {
           document.getElementById("screen-backpack").classList.add("hidden");

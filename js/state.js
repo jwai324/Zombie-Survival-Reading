@@ -766,7 +766,8 @@
     if (r.keys) out.push(fill(tpl.keys, o));
     out.push(fill(r.hungry ? tpl.hungry : tpl.food, o));
     if (nb) out.push(fill(nb.ready ? tpl.ready : tpl.next, o));
-    return out.join(" ");
+    // templates are written for any number: "1 items" reads "1 item"
+    return out.join(" ").replace(/\b1 ((?:stash |new )?)(item|note|key|walker)s\b/g, "1 $1$2");
   };
 
   ZSR.State = State;
