@@ -670,7 +670,7 @@
         const n = stats.bullets;
         const tw = this.toWorld(turret.x, turret.y);
         for (let i = 0; i < n; i++) {
-          const a = toWorldAngle(aim + (i - (n - 1) / 2) * 0.14);
+          const a = toWorldAngle(aim + (i - (n - 1) / 2) * ZSR.Upgrades.SPREAD);
           this.bullets.push({ x: tw.x + Math.cos(a) * 24, y: tw.y + Math.sin(a) * 24, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, dmg: stats.damage });
         }
         van.flash = 0.07;

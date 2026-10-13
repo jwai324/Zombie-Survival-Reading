@@ -85,7 +85,7 @@ Food and medicine from different rooms add up; every other effect takes the best
 
 ## The yard shows the base
 
-Every room except Walls has its own plot in the yard (41 x 33 tiles, 112 fence segments).
+Every room except Walls has its own plot in the yard (55 x 43 tiles, 160 fence segments).
 Level 0 is a staked lot with the room's name on a big sign; levels 1 to 3 are distinct,
 bigger builds made of walls, roofs, see-over low tiles and props, with a name plaque and
 stars. They go up the moment the room is built. Builds are solid: walkers path around them
@@ -221,7 +221,7 @@ the game and none of it is quizzed.
 - **Item tags.** Every item has two tags (label, sticky note). The tag shows for a few seconds
   on pickup and is kept in the backpack.
 - **Plot signs.** Every room's plot in the yard has a sign (a plaque once it is built). Walk
-  up to one and a panel says what it is, what the next level needs, and why it is locked (the
+  up to one and press E, and a panel says what it is, what the next level needs, and why it is locked (the
   same facts as the cabin's build menu); the outdoor rooms (Garden, Farm, Well, Water, Power,
   Radio, Lab) also have a hand-painted text for the empty lot and each built level.
 - **The day page.** Day 1 and every arrival home show a page: a recap of the trip (items,
@@ -233,9 +233,13 @@ the game and none of it is quizzed.
 
 Room builds, van and van-gun upgrades, gun mods, and trap crafting open the workbench: a garage scene
 with a typing round in front. The first time, a lesson shows traditional home-row finger
-placement. Stages progress one per finished round: single home-row keys, home-row runs,
-the top row, the bottom row, short words, longer words, phrases, sentences, then faster
-sentences. Each round has a timer; running out offers a retry with new targets. Nothing is
+placement. Every round starts after a five-second countdown. There are 28 stages: F and J,
+D and K, S and L, A and ;, the home row, home-row runs, home-row words, G and H, words with G
+and H, a home-row check, the top row a pair at a time (E I, R U, T Y, W O, Q P), a top-row
+check, home and top row words, the bottom row a pair at a time (V M, C comma, X period, B N,
+Z), all the rows, short words, longer words, phrases, sentences, then faster sentences. A
+stage moves up after 3 or 4 good rounds (90% accuracy or better); a sloppy round still builds
+but does not count. Typing practice in the cabin is free and counts. Each round has a timer; running out offers a retry with new targets. Nothing is
 spent until the round is finished. Repairs need no typing. Word, phrase and sentence pools
 come from the reading-level text files.
 

@@ -557,14 +557,17 @@
         }
       }
     }
+    // the barrels fan out from the mount, each along the line its bullet flies (Upgrades.SPREAD apart)
     for (let i = 0; i < barrels; i++) {
-      const off = (i - (barrels - 1) / 2) * 7;
-      rr(ctx, 8, off - 3, len, 6, 1.5);
+      ctx.save();
+      ctx.rotate((i - (barrels - 1) / 2) * ZSR.Upgrades.SPREAD);
+      rr(ctx, 8, -3, len, 6, 1.5);
       fillStroke(ctx, "#3b3d44", 2.5);
       if (u.damage >= 3) {
-        rr(ctx, 8 + len - 6, off - 4.5, 7, 9, 1.5);
+        rr(ctx, 8 + len - 6, -4.5, 7, 9, 1.5);
         fillStroke(ctx, "#5a5d66", 2);
       }
+      ctx.restore();
     }
     if (rof >= 1) {
       const half = ((barrels - 1) / 2) * 7 + 4.5;

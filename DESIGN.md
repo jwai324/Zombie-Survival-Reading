@@ -170,8 +170,10 @@ character arcs all in; one drop.
 - **Why dead ends scale with grade.** Level 1 readers get one extra note to sort; level 6
   readers get four, including decoys. Judging which note matters is the reading skill.
   **Assumption:** the counts (1, 2, 2, 3, 3, 4) can move cheaply via `minLevel` in `js/story.js`.
-- **Why signs and lot signs need no key press.** They are short and should read like the world
-  around you; a panel on approach keeps the player moving and needs no new control.
+- **Why wall signs need no key press, and yard lot signs do.** A wall sign is short and should read
+  like the world around you. A lot sign's panel is long (what it is, what it needs, why it is
+  locked) and the yard is where you walk and fight between plots, so it opens with E and closes
+  with E or by walking off; it never covers the view uninvited.
 - **Why the journal never assumes a build.** The journal is written once per level for every
   player; the game writes the recap line around it from the real day.
 - **Assumption:** after day 30, the last ten journal entries and broadcasts repeat.
@@ -218,3 +220,24 @@ won; the reading expansion was moved into them.
 - Music and ambient sound.
 - Sentence-level highlighting for read-aloud (read-aloud itself was removed at the
   owner's request).
+
+## Typing goes slowly, the barrels point at the crosshair, a bigger yard
+
+- **Why the typing stages need good rounds.** One stage per finished round moved a player off the
+  home row after two builds. Now there are 28 stages: the home row a pair of keys at a time (F J,
+  D K, S L, A ;), all eight, runs, home-row words, G and H, a home-row check, then the top and
+  bottom rows a pair at a time, and words, phrases and sentences last. Each stage needs 3 or 4
+  good rounds (90% accuracy or better). A sloppy round still builds (the game is never blocked);
+  it just does not count. The cabin's Typing practice button gives free rounds that count, so a
+  player is never short of practice for want of scrap. Old saves past the first stage restart at
+  the eight-key home row stage. **Assumption:** 90% and 3 to 4 rounds are tunable in
+  `js/typing.js` (PASS, each stage's need).
+- **Why a countdown.** Five seconds before every round to put the fingers home; keys pressed
+  during it are never mistakes, and the round's clock waits for it.
+- **Why the guns point straight ahead.** The shot goes to the crosshair. A bore parallel to the
+  view vanishes at the screen's centre, so it points at the crosshair wherever the gun sits; the
+  old inward yaw pointed every barrel well left of it. The cabin's Weapons tab keeps the turned
+  view so the mods still show. The road gun's barrels fan out along their bullets' lines.
+- **Why the yard grew.** 45 x 33 tiles inside the fence (was 31 x 23), the same plots in the same
+  places relative to each other, more open grass between them; the yard's haze thinned to match.
+

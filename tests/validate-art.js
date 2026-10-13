@@ -268,6 +268,20 @@ Object.keys(D.POSES || {}).forEach((id) => {
   }
 });
 if (!guns) err("js/sprites3d.js: no guns to draw (Draw3.POSES)");
+// the barrel in hand points at the crosshair: the line from the muzzle along the bore passes through the
+// screen's centre (the shot goes there), on a wide and a tall view
+Object.keys(D.POSES || {}).forEach((id) => {
+  [[1280, 720], [720, 1280]].forEach(([w, h]) => {
+    (D.muzzleLine ? D.muzzleLine(id, w, h) : []).forEach(({ m, ahead }) => {
+      const dx = ahead[0] - m[0];
+      const dy = ahead[1] - m[1];
+      const len = Math.hypot(dx, dy) || 1;
+      const miss = Math.abs(dx * (h / 2 - m[1]) - dy * (w / 2 - m[0])) / len; // centre's distance from the bore's line
+      const toward = dx * (w / 2 - m[0]) + dy * (h / 2 - m[1]) > 0;
+      if (miss > 1.5 || !toward) err(`gun ${id} on ${w} x ${h}: the barrel points ${Math.round(miss)} px off the crosshair`);
+    });
+  });
+});
 
 warnings.forEach((w) => console.log("warn  " + w));
 if (errors.length) {

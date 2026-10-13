@@ -408,7 +408,8 @@
       this.covers.clear();
       this.floorKind.fill(this.floorDefault);
       this.yardAnims = [];
-      this.lots = []; // each plot's sign or plaque, read up close (the core's read panel)
+      this.lots = []; // each plot's sign or plaque, read up close with E (the core's read panel)
+      this.readLot = null;
       this.yardGround();
       this.dressCabin(walls);
       Object.entries(Y.plots).forEach(([room, plot]) => this.buildPlot(room, plot, (S.save.rooms[room] || 0) | 0));
@@ -927,6 +928,10 @@
       const p = this.player;
       if (this.door) cand.push({ kind: "door", obj: this.door, x: this.door.x + 0.5, y: this.door.y + 0.5 });
       if (this.van) cand.push({ kind: "van", obj: this.van, x: this.van.x + 1, y: this.van.y + 0.5 });
+      // the lot signs and plaques in plain sight: E reads one
+      this.lots.forEach((lot) => {
+        if (Math.hypot(lot.x - p.x, lot.y - p.y) < 2.5 && this.lineClear(p.x, p.y, lot.x, lot.y)) cand.push({ kind: "lot", obj: lot, x: lot.x, y: lot.y });
+      });
       // fence segments near the player: holes to rebuild, cracks to brace
       const Y = W().YARD.grid;
       for (let gy = Math.floor(p.y) - 2; gy <= Math.floor(p.y) + 2; gy++) for (let gx = Math.floor(p.x) - 2; gx <= Math.floor(p.x) + 2; gx++) {
@@ -938,7 +943,10 @@
     },
     yardInteract(f) {
       const inWave = this.phase && this.phase.kind === "wave";
-      if (f.kind === "hole" || f.kind === "crack") {
+      if (f.kind === "lot") {
+        this.readLot = this.readLot === f.obj ? null : f.obj; // E again puts it away
+        Audio().play("click");
+      } else if (f.kind === "hole" || f.kind === "crack") {
         this.repairFence(f.obj[0], f.obj[1]);
       } else if (f.kind === "door" || f.kind === "van") {
         if (inWave) {
@@ -951,6 +959,7 @@
     yardHint(f) {
       const inWave = this.phase && this.phase.kind === "wave";
       const fix = W().SETTINGS.fenceRepairScrap + " scrap";
+      if (f.kind === "lot") return this.readLot === f.obj ? "Press E to put the sign away" : (State().save.rooms[f.obj.room] ? "Press E to read the plaque" : "Press E to read the sign");
       if (f.kind === "hole") return "Press E to rebuild the fence (" + fix + ")";
       if (f.kind === "crack") return "Press E to brace the fence (" + fix + ")";
       if (f.kind === "door") return inWave ? "Cabin door (clear the wave first)" : "Press E to go inside and build";

@@ -31,8 +31,8 @@ road also work on touch.
    **What you build is what you see:** every room has its own plot in the yard, a staked lot
    with its name on a sign until it is built, then a bigger build at each level (a carport,
    then a shed, then a workshop; rain barrels, then a tank on a stand, then a water tower).
-   Walk up to a plot's sign (or its plaque once built) to read what it is, what the next
-   level needs and what must be built first. The Walls level is the fence itself (pickets, braced planks, corrugated metal, concrete
+   Walk up to a plot's sign (or its plaque once built) and press E to read what it is, what the
+   next level needs and what must be built first. The Walls level is the fence itself (pickets, braced planks, corrugated metal, concrete
    and razor wire) and the armor on the cabin. The van in the driveway shows its armor,
    plow, engine gear and paint, and its roof gun shows heavier rounds, rate of fire and
    spread. The gun in your hands shows its own mods: a heavier muzzle, a longer barrel and
@@ -72,10 +72,13 @@ road also work on touch.
    saves, and you read the day's page: a recap, June's journal, and (once the Radio room is
    built) a broadcast from Jo or one of the town's voices. In the yard, each outdoor room
    (Garden, Farm, Well, Water, Power, Radio, Lab) has a lot with a painted sign: walk up to
-   it to read what it is, what the next level needs, and why it is locked. Build rooms with items plus scrap, upgrade the van and its gun, mod your guns
+   it and press E to read what it is, what the next level needs, and why it is locked. Build rooms with items plus scrap, upgrade the van and its gun, mod your guns
    (damage, range, fire rate, accuracy) in the Weapons tab, craft traps:
-   each one is a short typing round at the garage workbench (the first time teaches
-   home-row finger placement; stages progress from single keys to sentences). Repairs
+   each one is a short typing round at the garage workbench, after a five-second countdown
+   (the first time teaches home-row finger placement). The stages go slowly: the home row a
+   pair of keys at a time, its runs and words, a home-row check, then the top and bottom rows
+   a pair at a time, and only then words, phrases and sentences. A stage moves up after 3 or 4
+   good rounds (90% accuracy or better); free practice rounds in the cabin count too. Repairs
    are instant and bring the van back to full.
 
 Death (wrecked van, down inside a building, overrun in the yard) reloads the last save.
@@ -110,7 +113,7 @@ js/yardart.js           yard art: every plot at every level, fence and cabin by 
 js/game.js              the road: world-space drive, lanes, signs, turns, wrong-way restarts, minimap
 js/map.js               the city map, street names, side streets, "The way there"
 js/base.js              the cabin build menu (rooms, garage, traps, stock, fence repair, hover tips)
-js/typing.js            the workbench typing game (finger lesson, stages, timer, retry)
+js/typing.js            the workbench typing game (finger lesson, stages, countdown, timer, retry, practice)
 js/bench.js             the garage workbench scene behind the typing game
 js/backpack.js          the backpack (medical kits, notes) and the note reader
 js/sprites.js           road drawing (van and its gun, walkers, scenery, lanes, signs, lots)

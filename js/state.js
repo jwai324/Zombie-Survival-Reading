@@ -102,7 +102,7 @@
       traps, // crafted traps in stock, by type
       yardTraps: [], // traps set in the yard: [{ x, y, type, uses }]
       yardV: (W().YARD && W().YARD.version) || 1, // the yard grid the fence keys and trap spots belong to
-      typing: { stage: 0, rounds: 0, tutorialSeen: false }, // the workbench typing game
+      typing: { stage: 0, passes: 0, rounds: 0, tutorialSeen: false, v: 2 }, // the workbench typing game: stage, good rounds at it
       labAcc: 0, // partial medical kits brewing in the Lab
       stats: { trips: 0, walkers: 0, notesRead: 0, wordsRead: 0, items: 0 },
       wave: 0, // waves survived during this stay at the base (escalation)
@@ -124,6 +124,12 @@
       });
       s.yardTraps = [];
       s.yardV = fresh.yardV;
+    }
+    // a save from the old, fast typing stages (one round each): the stage maps onto the slower ones
+    if (s.typing && s.typing.v !== fresh.typing.v) {
+      s.typing.stage = ZSR.Typing && ZSR.Typing.migrate ? ZSR.Typing.migrate(s.typing.stage) : 0;
+      s.typing.passes = 0;
+      s.typing.v = fresh.typing.v;
     }
     Object.keys(fresh).forEach((k) => {
       if (s[k] == null) s[k] = fresh[k];
@@ -725,9 +731,13 @@
     },
 
     /* ---------- The workbench typing game ---------- */
+    /** A finished round (a build or practice): a good one counts toward the stage; enough of them move it up. */
     typingDone(result) {
       const t = this.save.typing;
-      t.stage = Math.min(t.stage + 1, 20); // every finished round moves up; the last stages repeat
+      const T = ZSR.Typing;
+      const next = T && T.progress ? T.progress(t.stage, t.passes, result && result.accuracy != null ? result.accuracy : 0) : { stage: t.stage, passes: t.passes };
+      t.stage = next.stage;
+      t.passes = next.passes;
       t.rounds += 1;
       t.tutorialSeen = true;
       if (result && result.accuracy != null) t.lastAccuracy = result.accuracy;

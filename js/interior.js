@@ -46,8 +46,8 @@
   const IS_SOLID = flags(SOLID);
   const IS_OPAQUE = flags(OPAQUE);
   const TEX_OF = { S: "shelf", X: "crate", G: "glass", L: "locked", E: "exit", T: "tree", H: "house", B: "door", V: "van", O: "doorClosed", W: "window", Q: "stash" };
-  const REACH = { note: 1.4, van: 2.0, hole: 1.8, crack: 1.8 }; // how close E works; everything else 1.6
   const READ_REACH = 2.3; // how close a wall sign or a yard lot's sign must be to read it
+  const REACH = { note: 1.4, van: 2.0, hole: 1.8, crack: 1.8, lot: READ_REACH }; // how close E works; everything else 1.6
   const words = (t) => String(t || "").trim().split(/\s+/).filter(Boolean).length;
   ZSR.wordCount = words;
   /** "x,y" -> index into a gw-wide array, or -1 off the grid. */
@@ -245,6 +245,7 @@
       this.keyPickup = null; // this building's key on its y spot: { x, y, from, taken }
       this.signs = []; // wall signs and graffiti read up close: { x, y, face, id, kind }
       this.lots = []; // the yard plots' signs, read up close: { room, x, y } (yard.js)
+      this.readLot = null; // the lot sign opened with E; it stays up until E again or you walk away
       this.panelKey = null; // what the read-up-close panel shows now
       this.tagPanel = null; // an item tag shown for a few seconds after a pickup: { key, title, text, until }
       this.gunPickup = null; // a gun lying in this building: { x, y, id, taken } (building.js places it)
@@ -405,6 +406,7 @@
       this.hud.root.classList.add("hidden");
       if (this.hud.read) this.hud.read.classList.add("hidden");
       this.panelKey = null;
+      this.readLot = null;
       this.tagPanel = null;
       this.releasing = true;
       this.holdFrame = false;
@@ -687,7 +689,8 @@
     },
 
     /* ---------- Reading up close: wall signs inside, plot signs in the yard, item tags ---------- */
-    /** The sign or lot the player is looking at, close enough to read. */
+    /** The wall sign the player is looking at, close enough to read (it shows on its own), or the yard lot
+        sign opened with E while it is still in reach (it shows only when asked for). */
     nearReadable() {
       const p = this.player;
       let best = null;
@@ -714,8 +717,11 @@
         const fy = clamp(p.y, sg.y - 0.02, sg.y + 1.02);
         consider(sg.x + 0.5, sg.y + 0.5, fx, fy, { sign: sg });
       });
-      this.lots.forEach((lot) => consider(lot.x, lot.y, lot.x, lot.y, { lot }));
-      return best ? best.target : null;
+      if (best) return best.target;
+      const lot = this.readLot;
+      if (lot && this.lots.includes(lot) && Math.hypot(lot.x - p.x, lot.y - p.y) <= READ_REACH + 0.4 && this.lineClear(p.x, p.y, lot.x, lot.y)) return { lot };
+      this.readLot = null; // walked off (or the lot was rebuilt): it closes
+      return null;
     },
     /** A cheap identity for what the panel would show, so the panel is rebuilt only when it changes. */
     readableKey(t) {
@@ -1163,8 +1169,9 @@
       }
       sc.maxH = maxH;
       sc.ceilH = this.sky ? Infinity : 1; // under a ceiling a full-height wall hides everything behind it
-      // daylight in the yard; inside, palette.light sets how fast it gets dark (0.5 keeps the old falloff)
-      sc.fogK = 1 / (this.mode === "yard" ? 22 : 5 + 17 * this.light);
+      // daylight in the yard (thin haze: the back row of plots still reads from the cabin door); inside,
+      // palette.light sets how fast it gets dark (0.5 keeps the old falloff)
+      sc.fogK = 1 / (this.mode === "yard" ? 32 : 5 + 17 * this.light);
       sc.fogMax = this.mode === "yard" ? 0.8 : 0.8 + Math.max(0, 0.5 - this.light) * 0.2;
       // floor kinds in use (other modules may repaint tiles at any time)
       const fk = this.floorKind;
