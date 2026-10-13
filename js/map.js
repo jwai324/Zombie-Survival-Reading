@@ -142,7 +142,8 @@
         }
         if (this.at !== "base") {
           const here = W().LOCATIONS.find((l) => l.id === this.at);
-          const back = el("button", "btn", "Back into " + esc(here ? here.name : "the building"));
+          const been = S.trip && S.trip.rooms && S.trip.rooms[this.at];
+          const back = el("button", "btn", (been ? "Back into " : "Go into ") + esc(here ? here.name : "the building"));
           back.addEventListener("click", () => this.hooks.onEnter && this.hooks.onEnter(this.at));
           info.appendChild(back);
           const home = el("button", "btn big go", "Drive home");

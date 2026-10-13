@@ -56,9 +56,11 @@
     $("opt-sens").value = State.settings.mouseSens || 1;
     refreshTitle();
   }
+  // first person needs a keyboard and mouse; on a touch-only device say so instead of leading into a dead end
+  const touchOnly = !!(root.matchMedia && root.matchMedia("(pointer: coarse) and (hover: none)").matches);
   /** The title screen: one row per save slot. Display only; never reloads the save while a trip runs. */
   function refreshTitle() {
-    $("title-grade").textContent = "Reading level: " + ORDINAL[State.settings.level] + " grade. Change it in Settings.";
+    $("title-grade").textContent = touchOnly ? "This game needs a keyboard and mouse. Open it on a laptop or desktop." : "Reading level: " + ORDINAL[State.settings.level] + " grade. Change it in Settings.";
     const list = $("slot-list");
     list.innerHTML = "";
     State.listSlots().forEach((slot) => {
@@ -108,6 +110,7 @@
       row.appendChild(acts);
       list.appendChild(row);
     });
+    if (touchOnly) list.querySelectorAll(".btn").forEach((b) => (b.disabled = true));
   }
   function startNewGame() {
     const name = $("newsave-name").value;
@@ -132,6 +135,7 @@
     };
     loop();
   }
+  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D or the arrows slide the van.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, P or Esc pauses.", "E does it all: reads notes, opens and closes doors, opens a cache once you have read its note, leaves a building, enters the cabin, starts the van, and rebuilds a hole in the fence for 1 scrap.", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
   function renderHowto() {
     const t = ZSR.text();
     const body = $("howto-body");
@@ -142,6 +146,29 @@
       e.textContent = p;
       body.appendChild(e);
     });
+    // the controls list is in-world text too: it comes at the reading level, keys shown as <kbd>
+    const list = $("howto-controls");
+    list.innerHTML = "";
+    ((t && t.controls) || CONTROLS_FALLBACK).forEach((line) => {
+      const li = document.createElement("li");
+      const parts = String(line).split(":");
+      const head = parts.length > 1 ? parts.shift() : null;
+      if (head) {
+        const b = document.createElement("strong");
+        b.textContent = head + ":";
+        li.appendChild(b);
+      }
+      const rest = parts.join(":");
+      // single capital letters and known key names become key caps
+      rest.split(/(\b(?:W|A|S|D|E|B|P|T|R|Esc|Shift)\b)/).forEach((piece, i) => {
+        if (i % 2) {
+          const k = document.createElement("kbd");
+          k.textContent = piece;
+          li.appendChild(k);
+        } else li.appendChild(document.createTextNode(piece));
+      });
+      list.appendChild(li);
+    });
   }
 
   /* ---------- Yard (home base) ---------- */
@@ -151,9 +178,11 @@
     showCanvas("fp");
     Interior.enterYard(opts);
   }
-  /** Copy the yard's fence and traps into the save and write it. */
+  /** Copy the yard's fence and traps into the save and write it. Never in the middle of a wave:
+      a wave is saved only once it is cleared, so dying in it reloads the state before it began. */
   function syncYard() {
-    if (Interior.mode !== "yard") return;
+    if (Interior.mode !== "yard" || !State.save) return;
+    if (Interior.phase && Interior.phase.kind === "wave") return;
     State.save.fence = Interior.fenceState();
     State.save.yardTraps = Interior.traps.filter((t) => t.uses > 0).map((t) => ({ x: t.x, y: t.y, type: t.type, uses: t.uses }));
     State.commit();
@@ -226,7 +255,9 @@
       Interior.toast("Home. " + cargo + " item" + (cargo === 1 ? "" : "s") + " unloaded. Day " + State.save.day + ". Saved.", 4);
       return;
     }
-    showDoor(destId);
+    // back at a place already entered this trip: straight in, as you left it
+    if (State.trip.rooms && State.trip.rooms[destId]) enterBuilding(W.LOCATIONS.find((l) => l.id === destId));
+    else showDoor(destId);
   }
   /** The note at the door; parked outside until the player goes in or drives off. */
   function showDoor(destId) {
@@ -297,6 +328,10 @@
     show("screen-pause");
   }
   function onPauseKey() {
+    if (!$("screen-confirm").classList.contains("hidden")) {
+      $("screen-confirm").classList.add("hidden"); // Esc answers "No"
+      return;
+    }
     if (!$("screen-pause").classList.contains("hidden")) resumeActive();
     else onPause();
   }
@@ -447,6 +482,7 @@
       onExit: () => buildingHooks.onExit(),
       onDeath,
       onPause,
+      onPauseKey,
       onBackpack,
     });
     Map.init($("map-canvas"), { onDrive: drive, onEnter: reenter });
@@ -454,11 +490,6 @@
     wire();
     State.loadSave();
     applySettings();
-    // first person needs a keyboard and mouse; on a touch-only device say so instead of leading into a dead end
-    if (root.matchMedia && root.matchMedia("(pointer: coarse) and (hover: none)").matches) {
-      document.querySelectorAll("#slot-list .btn").forEach((b) => (b.disabled = true));
-      $("title-grade").textContent = "This game needs a keyboard and mouse. Open it on a laptop or desktop.";
-    }
     show("screen-title");
   });
 

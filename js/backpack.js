@@ -24,6 +24,7 @@
     open(onClose) {
       this.onClose = onClose;
       const screen = document.getElementById("screen-backpack");
+      if (ZSR.Tip) ZSR.Tip.init();
       this.renderKits();
       const body = document.getElementById("backpack-body");
       body.innerHTML = "";
@@ -70,29 +71,38 @@
       wrap.appendChild(el("h3", null, "Medical kits " + pips));
       wrap.appendChild(el("p", "small", "<strong>" + k.packed + " of " + max + "</strong> packed. One kit heals you to full." + (inside ? " You: " + Math.round(I.player.hp) + " / " + I.player.maxHp + " health." : "") + (atHome ? " In storage: " + k.storage + "." : k.cargo ? " In the van's cargo: " + k.cargo + "." : "")));
       const row = el("div", "row");
+      const tip = (node, html) => {
+        node.setAttribute("data-tip", html);
+        return node;
+      };
       const heal = (from) => {
         if (!hurt) return;
         if (S.useKit(from)) {
           I.heal();
           ZSR.Audio.play("correct");
           I.toast("Patched up. Full health.", 2.5);
+          if (atHome && ZSR.Main) ZSR.Main.syncYard(); // saved at the base, never mid-wave
           this.renderKits();
         }
       };
       const use = el("button", "btn" + (hurt && k.packed ? " go" : ""), "Use a kit");
       use.disabled = !hurt || !k.packed;
-      use.title = !inside ? "Kits are used in the yard or inside a building." : !hurt ? "You are at full health." : !k.packed ? "No kits packed." : "Heal to full.";
+      const why = !inside ? "Kits are used in the yard or inside a building." : !hurt ? "You are at full health." : !k.packed ? "No kits packed." : "Heals you to full, right now.";
+      use.title = why;
+      tip(use, "<strong>Use a kit</strong><span class='t-line'>" + why + "</span>");
       use.addEventListener("click", () => heal("pack"));
       row.appendChild(use);
       if (!atHome && k.cargo) {
         const useCargo = el("button", "btn" + (hurt ? " go" : ""), "Use one from the cargo (" + k.cargo + ")");
         useCargo.disabled = !hurt;
+        tip(useCargo, "<strong>Kit from the van</strong><span class='t-line'>A medical kit you picked up this trip. Using it here means one less to bring home.</span>");
         useCargo.addEventListener("click", () => heal("cargo"));
         row.appendChild(useCargo);
       }
       if (atHome) {
         const pack = el("button", "btn", "Pack a kit from storage");
         pack.disabled = !(k.storage > 0 && k.packed < max);
+        tip(pack, "<strong>Pack a kit</strong><span class='t-line'>Moves one Medical kit from storage into the backpack (up to " + max + "). Rooms that need kits cannot use packed ones.</span>");
         pack.addEventListener("click", () => {
           if (S.packKit()) {
             ZSR.Audio.play("pickup");
@@ -102,6 +112,7 @@
         row.appendChild(pack);
         const unpack = el("button", "btn alt", "Put one back");
         unpack.disabled = !(k.packed > 0);
+        tip(unpack, "<strong>Put one back</strong><span class='t-line'>Returns a packed kit to storage for building the Medbay or the Lab.</span>");
         unpack.addEventListener("click", () => {
           if (S.unpackKit()) {
             ZSR.Audio.play("click");

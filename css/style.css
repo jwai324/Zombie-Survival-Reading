@@ -244,6 +244,10 @@ button[data-tip] { cursor: pointer; }
 :root[data-size="huge"] .tip { display: none !important; }
 :root[data-size="huge"] .slot { grid-template-columns: 1fr; }
 :root[data-size="huge"] .slot .sum { display: none; }
+:root[data-size="huge"] .rooms, :root[data-size="huge"] .upgrade-groups, :root[data-size="huge"] .upgrade { grid-template-columns: 1fr; }
+:root[data-size="huge"] .upgrade .btn, :root[data-size="huge"] .btn { white-space: normal; max-width: 100%; }
+:root[data-size="huge"] .btn-row, :root[data-size="huge"] .slot .acts, :root[data-size="huge"] .kits .row, :root[data-size="huge"] .fence-row { justify-content: flex-start; }
+:root[data-size="huge"] .logo { font-size: 1.6rem; }
 
 @media (max-width: 480px) {
   .panel { padding: 2.5rem .9rem 1rem; }

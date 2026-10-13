@@ -324,8 +324,10 @@
         t.revealed.forEach((id) => {
           if (!s.known.includes(id)) s.known.push(id);
         });
-        // the crew patches the worst of it overnight, so a near-dead van is never saved as a trap
-        s.vanHp = Math.max(Math.round(this.vanMaxHp() * 0.4), Math.round(t.vanHp));
+        // the crew patches the worst of it overnight, so a near-dead van is never saved as a trap;
+        // a hungry trip ran on a lower ceiling, so scale its health back before saving it as damage
+        const hp = t.hungry ? t.vanHp / W().SETTINGS.hungryVanPenalty : t.vanHp;
+        s.vanHp = Math.min(this.vanMaxHp(), Math.max(Math.round(this.vanMaxHp() * 0.4), Math.round(hp)));
         s.stats.trips += 1;
         s.stats.walkers += t.walkers;
         s.stats.notesRead += t.notes.length;
@@ -381,8 +383,7 @@
         return true;
       }
       if (!(this.save.kits > 0)) return false;
-      this.save.kits -= 1;
-      if (!this.trip) this.commit();
+      this.save.kits -= 1; // at home the yard sync commits it, never in the middle of a wave
       return true;
     },
 
@@ -488,7 +489,7 @@
     /* ---------- The workbench typing game ---------- */
     typingDone(result) {
       const t = this.save.typing;
-      t.stage += 1;
+      t.stage = Math.min(t.stage + 1, 20); // every finished round moves up; the last stages repeat
       t.rounds += 1;
       t.tutorialSeen = true;
       if (result && result.accuracy != null) t.lastAccuracy = result.accuracy;

@@ -104,6 +104,11 @@
         stage: typing.stage,
         tutorialSeen: !!typing.tutorialSeen,
         upgrades: S.save.upgrades,
+        onLessonDone: () => {
+          // the finger lesson is read once; the Finger guide button brings it back on demand
+          S.save.typing.tutorialSeen = true;
+          S.commit();
+        },
         onSuccess: (result) => {
           if (apply()) {
             built = true;
@@ -162,7 +167,7 @@
         this.close();
       });
       const pack = tip(el("button", "btn alt", "Backpack"), "Your notes and medical kits. Pack kits from storage here at the cabin.");
-      pack.addEventListener("click", () => ZSR.Backpack.open());
+      pack.addEventListener("click", () => ZSR.Backpack.open(() => this.render()));
       row.appendChild(back);
       row.appendChild(pack);
       body.appendChild(row);

@@ -104,8 +104,13 @@
       const CODE = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyE: "e", KeyB: "b", KeyP: "p", KeyT: "t", KeyR: "r", Space: " ", ShiftLeft: "shift", ShiftRight: "shift", ArrowUp: "arrowup", ArrowDown: "arrowdown", ArrowLeft: "arrowleft", ArrowRight: "arrowright", Escape: "escape" };
       const keyOf = (e) => CODE[e.code] || e.key.toLowerCase();
       root.addEventListener("keydown", (e) => {
-        if (!this.running || this.paused) return; // paused: menus and the workbench own the keyboard
+        if (!this.running) return;
         const k = keyOf(e);
+        if (this.paused) {
+          // menus and the workbench own the keyboard; P and Esc still close the pause menu
+          if ((k === "p" || k === "escape") && this.hooks.onPauseKey) this.hooks.onPauseKey();
+          return;
+        }
         if (["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright", " ", "e", "shift", "b", "t", "r"].includes(k)) e.preventDefault();
         if (e.repeat) return;
         this.keys[k] = true;
@@ -269,7 +274,7 @@
       return {
         walkers: this.walkers.map((z) => ({ type: z.type, x: z.x, y: z.y, hp: z.hp, maxHp: z.maxHp })),
         piles: this.piles.map((pl) => pl.taken),
-        doors: this.doors.map((d) => d.open),
+        doors: this.doors.map((d) => ({ x: d.x, y: d.y, open: d.open })), // by position: the cache door joins the list late
       };
     },
     restore(snap) {
@@ -283,11 +288,11 @@
       snap.piles.forEach((taken, i) => {
         if (this.piles[i]) this.piles[i].taken = taken;
       });
-      snap.doors.forEach((open, i) => {
-        const d = this.doors[i];
+      snap.doors.forEach((s) => {
+        const d = this.doors.find((o) => o.x === s.x && o.y === s.y);
         if (!d) return;
-        d.open = open;
-        this.grid[d.y][d.x] = open ? "D" : "O";
+        d.open = s.open;
+        this.grid[d.y][d.x] = s.open ? "D" : "O";
       });
     },
 
@@ -415,7 +420,7 @@
         const gy = Math.floor(p.y + Math.sin(p.a) * d);
         if (gx < 0 || gy < 0 || gx >= this.gw || gy >= this.gh) break;
         const ch = this.grid[gy][gx];
-        if (ch === "F") continue; // over the fence
+        if (ch === "F" || W().YARD.grid[gy][gx] === "F") continue; // over the fence line (a hole is still the fence line)
         if (ch !== ".") break;
         if (gx === Math.floor(p.x) && gy === Math.floor(p.y)) continue;
         if (this.traps.some((t) => t.x === gx + 0.5 && t.y === gy + 0.5)) {
@@ -446,7 +451,8 @@
         if (tr.uses <= 0) return;
         tr.flash = Math.max(0, (tr.flash || 0) - dt);
         const def = TR[tr.type];
-        const stepped = this.walkers.find((z) => z.hp > 0 && !(z.trapT > 0) && Math.hypot(z.x - tr.x, z.y - tr.y) < 0.55);
+        // a spike trap bites each walker once: "lasts 3 walkers", not 3 seconds of one walker standing on it
+        const stepped = this.walkers.find((z) => z.hp > 0 && !(tr.hit && tr.hit.has(z)) && Math.hypot(z.x - tr.x, z.y - tr.y) < 0.55);
         if (!stepped) return;
         if (def.radius > 0.6) {
           this.walkers.forEach((z) => {
@@ -456,7 +462,7 @@
           this.shake = State().settings.shake ? 10 : 0;
         } else {
           this.hurtWalker(stepped, def.damage);
-          stepped.trapT = 1.2;
+          (tr.hit = tr.hit || new Set()).add(stepped);
           tr.uses -= 1;
         }
         tr.flash = 0.4;
@@ -523,8 +529,10 @@
       if (grew || (opts && opts.rebuildFence)) this.patchFence();
       this.gun = ZSR.Upgrades.stats(S.save.upgrades);
       this.fx = S.effects();
+      // no free heal for stepping inside: health carries over, and a bigger maximum adds the difference
+      const oldMax = this.player.maxHp;
       this.player.maxHp = S.footMaxHp();
-      this.player.hp = this.player.maxHp;
+      this.player.hp = clamp(this.player.hp + (this.player.maxHp - oldMax), 1, this.player.maxHp);
       this.traps = (S.save.yardTraps || []).map((t) => Object.assign({}, t));
       this.updateHud();
     },
@@ -1177,31 +1185,47 @@
         let zTop = HEIGHT[tile] || 1;
         let texName = this.tileTex[mapX + "," + mapY] || TEX_OF[tile] || "wall";
         if (tile === "V" && side === 0) texName = rdx > 0 ? "vanFront" : "vanBack";
-        else if (tile === "V") texName = this.van && mapX === this.van.x ? "vanCab" : "vanBody";
+        else if (tile === "V") {
+          // the van's two sides share one body: wheels and doors stay put in the world, only the lettering is redrawn to read
+          texName = this.van && mapX === this.van.x ? "vanCab" : "vanBody";
+          if (flip) {
+            texX = Math.floor(wallX * 64);
+            if (texName === "vanBody") texName = "vanBodyR";
+          }
+        }
         let roof = null; // [yTop, yEave] screen span of the roof slope above an eave wall
         let gableY = null; // screen y of the eave on a gable end wall
         if (isCabin) {
           const eaveSide = cab.alongX ? side === 1 : side === 0; // the long walls carry the eave, the ends the gable
+          const hx = p.x + perp * rdx;
+          const hy = p.y + perp * rdy;
+          const along = cab.alongX ? rdy : rdx; // travel across the cabin's depth (toward or away from the ridge)
+          const across = cab.alongX ? rdx : rdy; // travel along its length
+          const lo = cab.alongX ? cab.x0 : cab.y0;
+          const hi = cab.alongX ? cab.x1 : cab.y1;
+          const at = cab.alongX ? hx : hy; // position along the length
+          const w = cab.alongX ? hy : hx; // position across the depth
+          const slope = (z) => CABIN.eave + (CABIN.ridge - CABIN.eave) * clamp(1 - Math.abs(z - cab.ridge) / cab.half, 0, 1);
           if (eaveSide) {
             zTop = CABIN.eave;
             // the roof rises from the eave to the ridge (or to the end of the cabin if the ray leaves it first)
-            const hx = p.x + perp * rdx;
-            const hy = p.y + perp * rdy;
-            const along = cab.alongX ? rdy : rdx; // travel across the cabin's depth
-            const across = cab.alongX ? rdx : rdy; // travel along its length
-            const lo = cab.alongX ? cab.x0 : cab.y0;
-            const hi = cab.alongX ? cab.x1 : cab.y1;
-            const at = cab.alongX ? hx : hy;
             const tEdge = across !== 0 ? Math.abs(((across > 0 ? hi : lo) - at) / across) * Math.abs(along) : Infinity;
             const t = Math.min(cab.half, tEdge);
             const sTop = perp + t / Math.max(1e-6, Math.abs(along));
             const zRoof = CABIN.eave + (CABIN.ridge - CABIN.eave) * (t / cab.half);
             roof = [H / 2 - (zRoof - 0.5) * (H / sTop), H / 2 - (CABIN.eave - 0.5) * unit];
           } else {
-            const w = cab.alongX ? p.y + perp * rdy : p.x + perp * rdx;
-            const f = clamp(1 - Math.abs(w - cab.ridge) / cab.half, 0, 1);
-            zTop = CABIN.eave + (CABIN.ridge - CABIN.eave) * f;
+            zTop = slope(w);
             gableY = H / 2 - (CABIN.eave - 0.5) * unit;
+            // the slope behind the gable climbs toward the ridge and can show above the triangle at the corners
+            const toRidge = (cab.ridge - w) * along > 0 ? (cab.ridge - w) / along : 0;
+            const toExit = across !== 0 ? Math.abs(((across > 0 ? hi : lo) - at) / across) : Infinity;
+            const s = Math.min(toRidge, toExit);
+            if (s > 0) {
+              const yR = H / 2 - (slope(w + s * along) - 0.5) * (H / (perp + s));
+              const yG = H / 2 - (zTop - 0.5) * unit;
+              if (yR < yG) roof = [yR, yG];
+            }
           }
         }
         let top = H / 2 - (zTop - 0.5) * unit;
@@ -1214,7 +1238,7 @@
           ctx.drawImage(D3().texture("roof", pal), texX, 0, 1, 64, x, roof[0], COL, roof[1] - roof[0]);
           ctx.fillStyle = "#0f1012";
           ctx.fillRect(x, roof[1] - 1, COL, 2.5);
-          top = roof[0];
+          top = Math.min(top, roof[0]);
         }
         const dark = Math.min(0.8, dist / (pal.sky ? 22 : 13) + (side === 1 ? 0.12 : 0));
         if (dark > 0.02) {

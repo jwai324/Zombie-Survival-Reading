@@ -81,6 +81,26 @@ const HOWTO_MUST = [
   [/typ/i, "typing (how you build, upgrade, and craft)"],
   [/scrap/i, "scrap (fence holes and van repair cost scrap)"],
   [/save/i, "saving (the base is the only place the game saves)"],
+  [/\bwell\b/i, "the Well (late game: water)"],
+  [/\bfarm/i, "the Farm (late game: crops and animals for food)"],
+  [/\blab\b/i, "the Lab (late game: medicine made at home)"],
+];
+/* numbers the How it works text must carry, straight from the world file */
+const HOWTO_NUMBERS = () => [
+  [WORLD.SETTINGS.fenceRepairScrap, "the scrap a fence hole costs"],
+  [WORLD.SETTINGS.kitsMax, "how many kits the backpack holds"],
+  [WORLD.SETTINGS.saveSlots, "how many saves there are"],
+  [WORLD.SETTINGS.restockDays, "the days until shelf items come back"],
+];
+/* the controls list: one "Head: text" line per group, keys named as capitals */
+const CONTROLS_MUST = [
+  [/\bE\b/, "the E key"],
+  [/\bT\b/, "the T key (spike trap)"],
+  [/\bR\b/, "the R key (blast trap)"],
+  [/\bB\b/, "the B key (backpack)"],
+  [/\bP\b/, "the P key (pause)"],
+  [/typ/i, "typing at the workbench"],
+  [/map/i, "the map"],
 ];
 /* typing.fingers: home-row placement must be taught in so many words */
 const FINGERS_MUST = [
@@ -180,6 +200,18 @@ function checkLevel(n) {
     const all = t.howto.join(" ");
     if (HOWTO_BANNED.test(all)) err(ctx, "howto still says the fence is patched between waves (holes stay until repaired, 1 scrap each)");
     HOWTO_MUST.forEach(([re, what]) => { if (!re.test(all)) err(ctx, `howto must mention ${what}`); });
+    HOWTO_NUMBERS().forEach(([num, what]) => { if (!hasNumber(num, all)) err(ctx, `howto must give ${what} (${num})`); });
+  }
+  // controls: the key list under How it works, at this level too
+  if (!Array.isArray(t.controls) || t.controls.length < 5) err(ctx, "controls needs 5+ lines (Road, Inside and in the yard, E, Traps, Backpack, Workbench, Map)");
+  else {
+    t.controls.forEach((c, i) => {
+      if (!isStr(c, 10)) err(`${ctx} controls[${i}]`, "empty");
+      else if (!/^[^:]{2,40}:\s*\S/.test(c)) err(`${ctx} controls[${i}]`, 'must read "Head: text"');
+    });
+    const allC = t.controls.join(" ");
+    CONTROLS_MUST.forEach(([re, what]) => { if (!re.test(allC)) err(ctx, `controls must mention ${what}`); });
+    if (!hasNumber(WORLD.SETTINGS.fenceRepairScrap, allC)) warn(ctx, "controls: the fence repair cost is not given");
   }
   const base = t.base || {};
   if (!isStr(base.intro)) err(ctx, "base.intro missing");
@@ -190,13 +222,25 @@ function checkLevel(n) {
     if (!isStr(r.desc)) err(rctx, "desc missing");
     if (!Array.isArray(r.next) || r.next.length !== 3 || !r.next.every((x) => isStr(x))) return err(rctx, "next needs 3 strings");
     // a level that requires other rooms must name them, so the player knows what to build first
+    const late = R.levels.some((lv) => lv.requires);
     R.levels.forEach((lv, i) => {
       Object.entries(lv.requires || {}).forEach(([other, lvl]) => {
         const name = WORLD.BASE_ROOMS[other].name;
         if (!r.next[i].includes(name)) err(`${rctx} next[${i}]`, `must name "${name}" (requires ${name} ${lvl})`);
         else if (lvl > 1 && !hasNumber(lvl, r.next[i])) warn(`${rctx} next[${i}]`, `names "${name}" but not level ${lvl}`);
       });
+      // the late rooms spell out their price: scrap and every item, with the right counts
+      if (late) {
+        if (!hasNumber(lv.scrap, r.next[i])) err(`${rctx} next[${i}]`, `must give the scrap cost ${lv.scrap}`);
+        Object.entries(lv.needs).forEach(([item, n]) => {
+          const iname = WORLD.ITEMS[item].name;
+          if (!r.next[i].includes(iname)) err(`${rctx} next[${i}]`, `must name "${iname}" (needs ${n})`);
+          else if (!hasNumber(n, r.next[i])) err(`${rctx} next[${i}]`, `must give the count for "${iname}" (${n})`);
+        });
+      }
     });
+    // the garage text carries the repair price
+    if (room === "garage" && (!hasNumber(WORLD.SETTINGS.repairScrapPerHp, r.desc) || !hasNumber(WORLD.SETTINGS.repairMinScrap, r.desc))) err(rctx, `desc must give the repair price (1 scrap per ${WORLD.SETTINGS.repairScrapPerHp} health, at least ${WORLD.SETTINGS.repairMinScrap})`);
   });
   // traps: key letter, damage, uses, and the Walls level that unlocks each
   const traps = base.traps || {};
@@ -207,6 +251,11 @@ function checkLevel(n) {
     if (!new RegExp("\\b" + tr.key + "\\b").test(d)) err(tctx, `desc must give the placement key as a capital ${tr.key}`);
     if (!hasNumber(tr.damage, d)) err(tctx, `desc must give the damage number ${tr.damage}`);
     if (!hasNumber(tr.uses, d)) err(tctx, `desc must say how many walkers it lasts (${tr.uses})`);
+    if (!hasNumber(tr.scrap, d)) err(tctx, `desc must give the scrap cost ${tr.scrap}`);
+    Object.entries(tr.needs).forEach(([item, n]) => {
+      const iname = WORLD.ITEMS[item].name;
+      if (!d.includes(iname)) err(tctx, `desc must name "${iname}" (needs ${n})`);
+    });
     Object.entries(tr.requires || {}).forEach(([other, lvl]) => {
       const name = WORLD.BASE_ROOMS[other].name;
       if (!d.includes(name)) err(tctx, `desc must name "${name}" (unlocked by ${name} ${lvl})`);

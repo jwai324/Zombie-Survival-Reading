@@ -82,10 +82,14 @@
     ctx.arc(x, y, 2.5, 0, TAU);
     ctx.fill();
   }
+  const DEFAULT_LOOK = { body: "#5b6b3a", roof: "#4e5c32" };
   function vanLook() {
+    // the paint job, looked up without building a stats object for every screen column
     const S = ZSR.State;
     const u = S && S.save && S.save.upgrades;
-    return u && ZSR.Upgrades ? ZSR.Upgrades.stats(u).look : { body: "#5b6b3a", roof: "#4e5c32" };
+    const looks = ZSR.Upgrades && ZSR.Upgrades.PAINT_LOOKS;
+    if (!u || !looks) return DEFAULT_LOOK;
+    return looks[Math.min(u.paint || 0, looks.length - 1)] || DEFAULT_LOOK;
   }
   function vanSideBase(ctx, w, h) {
     const look = vanLook();
@@ -409,6 +413,20 @@
       label(ctx, "B-66", 50, 30, 9);
       wheel(ctx, 44, h - 7);
       border(ctx, w, h);
+    },
+    /* The same body seen from the other side: geometry unmirrored, lettering redrawn so it reads. */
+    vanBodyR(ctx, w, h) {
+      TEX.vanBody(ctx, w, h);
+      ctx.fillStyle = "#f3eee0";
+      ctx.fillRect(40, 24, 20, 12);
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(40, 24, 20, 12);
+      ctx.save();
+      ctx.translate(50, 0);
+      ctx.scale(-1, 1);
+      label(ctx, "B-66", 0, 30, 9);
+      ctx.restore();
     },
     vanFront(ctx, w, h) {
       vanEndBase(ctx, w, h);

@@ -24,7 +24,8 @@ never a picture book, never talking down. No gore, no on-page deaths, no profani
 | 6 | 160 to 220 | 26 | sophisticated vocabulary, voice, subtext |
 
 Door notes may run shorter (about 60 percent of the range). How it works paragraphs
-follow the same sentence limits; three to four paragraphs at every level.
+follow the same sentence limits; three to six paragraphs at every level, and the
+`controls` list (one line per control group, "Head: text") is written at the level too.
 
 ## What every note must do
 
@@ -50,6 +51,7 @@ Door notes also give the walker count and rough positions. Keep numbers exact.
   root.ZSR.TEXT[3] = {
     level: 3,
     howto: ["paragraph", "paragraph", "paragraph"],
+    controls: ["Road: ...", "Inside and in the yard: ...", "E does it all: ...", "Traps in the yard: ...", "Backpack: ...", "Workbench: ...", "Map: ..."],
     base: {
       intro: "One or two sentences shown at the top of the base screen.",
       rooms: {

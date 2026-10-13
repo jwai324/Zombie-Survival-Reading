@@ -14,6 +14,15 @@
       "Hurt? A Medical kit heals you to full, and the backpack carries up to 3 of them, packed from storage at the cabin. Inside a building you can also use a kit from the van's cargo, one you picked up earlier on the same trip. Drive home with your cargo. At base it moves into storage, you eat one food, and the day counter climbs. The Garden and the Farm add whatever they grew, and the Lab adds whatever it brewed. The garage repairs the van back to full for scrap: 1 scrap for every 3 health missing, and never less than 5. Once the Garage room is built, repairs are free. Spend items and scrap to raise the rooms, eight to begin with and three more late in the game: a Well, a Farm, and a Lab. Re-read every note you have found in the backpack, which opens at base, on the map, or inside a building.",
       "Building a room, upgrading the van or the gun, and crafting a trap all happen at the workbench in the garage. Each one is a short typing round. The words to type are shown on the screen beside a timer. Run out of time and you simply try again; nothing is spent until you finish, so the only thing a failed round costs you is pride. The first time, the bench teaches you where your fingers belong on the home row. Every finished round moves you to the next typing stage: single home-row keys first, then the other rows, then words, phrases, and sentences. Repairs need no typing. If you go down on the road, in a building, or in the yard, the game reloads your last base save. Everything since that save is gone. That is the whole tension. The van only counts when it comes home.",
     ],
+    controls: [
+      "Road: Aim with the mouse and hold to fire; A and D, or the arrow keys, slide the van across the lanes.",
+      "Inside and in the yard: W A S D move, the mouse looks, and a click fires. Shift makes you run, B opens the backpack, and P or Esc pauses the game.",
+      "E does it all: E reads notes, opens and closes doors, and opens a cache once you have read the note that explains how. E leaves a building, enters the cabin, starts the van, and rebuilds a hole in the fence for 1 scrap.",
+      "Traps in the yard: T sets a spike trap and R sets a blast trap, on the ground in front of you or just past the fence line, where the walkers come through.",
+      "Backpack: Every note you have read, kept with where you found it, plus your medical kits. Use a kit to heal back to full.",
+      "Workbench: Building, upgrading, and crafting are short typing rounds. Type what is on the screen before the timer runs out; running out only means you try again, and nothing is spent until you finish.",
+      "Map: Tap a place, then Drive. At the place where you are parked, you can go back inside, and it will be exactly as you left it.",
+    ],
     base: {
       intro: "Home base: a boarded-up house at the south end of town, a fence that holds for now, and the last van anyone has seen running. Nothing is saved anywhere else, so build here, breathe here, and go back out.",
       rooms: {
@@ -82,7 +91,7 @@
           ],
         },
         well: {
-          desc: "A hand-dug well beside the cabin, lined with lumber and rigged to a pump. Its water comes up clean without a single filter, so you heal faster on foot. The Farm and the Lab both wait on the Well before they can be built.",
+          desc: "A hand-dug well beside the cabin, lined with lumber and rigged to a pump. Its water comes up cold and clean from deep underground, so you heal faster on foot. The Farm and the Lab both wait on the Well before they can be built.",
           next: [
             "Needs the Water room first. Costs Lumber 2, Tool kit 1, and 60 scrap. You heal on foot at rate 2.",
             "Costs Lumber 2, Engine parts 1, Water filter 1, and 100 scrap. You heal on foot at rate 3.",
@@ -175,7 +184,7 @@
         "The garage repairs the van for one scrap per three health.",
         "Once the Garage room is built, every repair is free.",
         "Repairs never need typing, but building and crafting always do.",
-        "The well brings up clean water without a single filter.",
+        "The well brings up cold, clean water from deep underground.",
         "The Farm and the Lab both wait on the Well first.",
         "Corn and beans in the crop field add two food a day.",
         "Chickens in the coop mean four food every single day.",

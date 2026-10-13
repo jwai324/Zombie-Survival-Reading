@@ -8,11 +8,20 @@
     level: 1,
     howto: [
       "You have one van. It runs from home base. Pick a place on the map. Then drive there. The road has walkers. Keep moving. The Radio room finds new places. They show up on the map.",
-      "A note waits at the door. Read it. It says how many walkers wait. It says where the items are. Then go in. Each doorway is a real door. Press E to open it. Press E to shut it. Walkers cannot open doors. Fight them. Grab what you find. Scrap piles give scrap. Shelf stuff comes back in 3 days. Caches never do.",
-      "Find the note inside. Read it. It tells how to open the cache. The cache has the best stuff. The note also names a new place. Every note goes in your backpack. Read them again any time. Want back in? Open the map. Pick the place you are parked at. It stays as you left it. Downed walkers stay down. Taken scrap stays gone. Doors stay as you set them. Drive home, and it all resets. Hurt? Use a Medical kit. One kit heals you to full. The backpack holds up to 3 kits. Pack them from cabin storage. In a building, the van helps too. Use a kit from its cargo.",
-      "Back home, you stand in the yard. Time runs in two parts. Calm means no walkers at the fence. Go in the cabin and build. Or leave in the van. A wave means walkers at the fence. They claw holes in it. Some waves are small. Some are big. Some bring no walkers at all. In a wave, the cabin door locks. The van locks too. Hold the fence till it ends. The fence does not fix itself. Each hole stays till you fix it. Stand at the hole and press E. Or use the cabin menu. Each hole costs 1 scrap. Brace a cracked part for 1 scrap. Build Walls up. That remakes the whole fence. Set traps in the yard too. Or along the fence line. Make them at the bench. A walker steps on one. It gets hurt.",
-      "The garage has a workbench. Build rooms there. Upgrade the van and gun there. Craft traps there. Each one is a typing round. The words show on screen. A timer runs. Out of time? Just try again. Nothing is spent till you finish. First time? The bench shows where your fingers go. That is the home row. Each round you finish moves you up. First come single home row keys. Then the other rows. Then words, phrases, and sentences. Repairs need no typing. The garage fixes the van with scrap. It goes back to full health. Each 3 health lost costs 1 scrap. It costs at least 5 scrap. Build the Garage room. Then repairs are free.",
-      "Each player has their own save. Up to 4 saves. Pick yours on the title screen. The game saves at base only. It saves when you get home. It saves after each build. It saves after each wave. Wreck the van? You lose the trip. Go down inside? Same thing. Lose the yard at home? Same thing. You start from your last save. So pick when to head home.",
+      "A note waits at the door. Read it. It says how many walkers wait. It says where the items are. Then go in. Each doorway is a real door. Press E to open it. Press E to shut it. Walkers cannot open doors. Grab what you find. Shelf stuff comes back in 3 days. Caches never do.",
+      "Find the note inside. It tells how to open the cache. The cache has the best stuff. It names a new place too. Notes go in your backpack. Want back in? Open the map. Pick the place you are at. It stays as you left it. Hurt? Use a Medical kit. One kit heals you to full. The backpack holds 3 kits. Pack them at the cabin.",
+      "At home you stand in the yard. Calm means no walkers. Build, or leave in the van. A wave means walkers at the fence. They claw holes in it. The fence does not fix itself. Stand at a hole and press E. Each hole costs 1 scrap. Build Walls up to remake it all. Set traps too. Press T or R. A walker steps on one and gets hurt.",
+      "Build at the workbench in the garage. Each build is a typing round. Type the words on the screen. A timer runs. Out of time? Try again. Nothing is spent till you finish. First the bench shows where your fingers go. Each round moves you up. Repairs need no typing. Scrap fixes the van to full.",
+      "Later, dig a Well for water. Build a Farm for food. Build a Lab to make Medical kits. Each player has a save. Up to 4 saves. Pick yours on the title screen. The game saves at base only. Go down, and you start from your last save.",
+    ],
+    controls: [
+      "Road: Aim with the mouse. Hold to shoot. A and D move the van.",
+      "Inside and in the yard: W A S D move. The mouse looks. Click shoots. Shift runs. B opens the backpack. P stops the game.",
+      "E does it all: E reads notes. E opens and shuts doors. E opens a cache. E leaves a building. E goes in the cabin. E starts the van. E fixes a fence hole for 1 scrap.",
+      "Traps in the yard: T sets a spike trap. R sets a blast trap. It goes in front of you, or just past the fence.",
+      "Backpack: Your notes and your kits. Use a kit to heal to full.",
+      "Workbench: Building is a typing round. Type what you see. Beat the timer. Out of time? Try again.",
+      "Map: Tap a place. Then Drive. At a place, you can go back in.",
     ],
     base: {
       intro: "Home base. The game saves here, and only here. Hold the fence when walkers come.",
@@ -26,7 +35,7 @@
           ],
         },
         garage: {
-          desc: "A work bay for van and gun.",
+          desc: "A work bay for the van and the gun. Fixing the van costs 1 scrap per 3 health lost. It costs at least 5 scrap. Build the Garage and fixes are free.",
           next: [
             "Van and gun reach tier 3. Repairs at base are free.",
             "Van and gun reach tier 4. Repairs at base are free.",
@@ -82,7 +91,7 @@
           ],
         },
         well: {
-          desc: "A hand-dug well by the cabin. Clean water, no filters. You heal faster on foot. The Farm and the Lab need it.",
+          desc: "A hand-dug well by the cabin. Clean water from deep down. You heal faster on foot. The Farm and the Lab need it.",
           next: [
             "Needs the Water room first. Costs 60 scrap. Plus Lumber 2, Tool kit 1. You heal on foot at rate 2.",
             "Costs 100 scrap. Plus Lumber 2, Engine parts 1, Water filter 1. Heal rate goes up to 3.",
@@ -100,7 +109,7 @@
         lab: {
           desc: "Make meds at home. Kits go to storage each new day.",
           next: [
-            "Herb beds and a still. Needs Medbay 1 and the Well. Costs 80 scrap. Plus Medical kit 1, Box of books 1, Seed packets 1. Makes 1 Medical kit every 2 days.",
+            "Herb beds and a still. A still is a pot that cooks herbs into medicine. Needs Medbay 1 and the Well. Costs 80 scrap. Plus Medical kit 1, Box of books 1, Seed packets 1. Makes 1 Medical kit every 2 days.",
             "A clean bench. Needs Well 2. Costs 120 scrap. Plus Water filter 1, Box of books 1, Spool of wire 1. Makes 1 Medical kit a day.",
             "A powered lab. Needs Medbay 2. Costs 180 scrap. Plus Generator 1, Medical kit 2, Box of books 1. Makes 2 Medical kits a day.",
           ],
@@ -132,7 +141,7 @@
         "hole", "home", "base", "shed", "road", "hill", "town", "mall", "shop", "lock",
         "code", "dark", "dusk", "rust", "bolt", "goat", "hen", "corn", "bean", "herb",
         "tool", "part", "box", "bag", "pack", "aim", "read", "sign", "gate", "wall",
-        "roof", "step", "tile", "dock", "kiln", "tape", "help", "safe", "save", "wait",
+        "roof", "step", "tile", "dock", "rope", "tape", "help", "safe", "save", "wait",
         "keep", "fix", "dig",
       ],
       phrases: [

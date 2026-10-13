@@ -217,7 +217,11 @@
     side.appendChild(legend());
     lesson.appendChild(side);
     const lrow = el("div", "bench-actions");
-    D.btnStart = button("big go", "Start", () => (S.guideFrom ? resumeFromGuide() : startRound()));
+    D.btnStart = button("big go", "Start", () => {
+      if (S.guideFrom) return resumeFromGuide();
+      if (typeof S.opts.onLessonDone === "function") S.opts.onLessonDone(); // the lesson counts as read once it is dismissed
+      startRound();
+    });
     D.btnStart.id = "bench-start";
     lrow.appendChild(D.btnStart);
     lrow.appendChild(button("alt", "Leave the bench", () => leave(false)));
@@ -339,7 +343,12 @@
     S.pos = 0;
     S.correct = 0;
     S.wrong = 0;
-    S.left = S.opts._seconds > 0 ? S.opts._seconds : def.seconds;
+    // the clock follows what was drawn: a beginner's pace (0.9 keys a second) that tightens slowly
+    // to about 19 words a minute, so long sentences at high reading levels never wall a player off
+    const chars = S.items.reduce((a, s) => a + s.length, 0);
+    const rate = Math.min(1.6, 0.9 + 0.07 * Math.max(0, (S.opts.stage | 0) - 4));
+    const budget = def.kind === "keys" ? def.seconds : Math.max(def.seconds, Math.ceil(chars / rate));
+    S.left = S.opts._seconds > 0 ? S.opts._seconds : budget;
     S.total = S.left;
     S.elapsed = 0;
     S.paused = false;
@@ -490,6 +499,7 @@
     if (!S.succeeded) {
       S.succeeded = true;
       if (typeof S.opts.onSuccess === "function") S.opts.onSuccess(result);
+      sizeCanvas(); // a fresh paint job shows on the van right away
     }
   }
   function showGuide() {
