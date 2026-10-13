@@ -65,7 +65,7 @@
       notes: {
         "grocery-counter": {
           title: "Hana's Cooler Trick",
-          text: "This is Hana. I run this store. I still do, sort of.\n\nThe cooler latch sticks. Do not yank it. Lift the latch up. Pull at the same time. It opens. You can open the cooler now. Food is inside. So is one med kit.\n\nLeave this office. Go down the back hall, toward the forklift. The cooler is the next door. Shut it when you go.\n\nNeed more meds? Try Mile 9 Pharmacy. It is west of here. Last week, its shelves had meds.\n\n—Hana, manager",
+          text: "This is Hana. I run this store. I still do, sort of.\n\nThe cooler latch sticks. Do not yank it. Lift the latch up. Pull at the same time. It opens. You can open the cooler now. Food is inside. So is one med kit.\n\nLeave this office. Go down the back hall, toward the forklift. The cooler is the next door. Look for the COOLER sign. Shut it when you go.\n\nNeed more meds? Try Mile 9 Pharmacy. It is west of here. Last week, its shelves had meds.\n\n—Hana, manager",
         },
         "grocery-trail1": {
           title: "Doc Lin's Route",
@@ -140,7 +140,7 @@
         },
         "hardware-sign3": {
           title: "Keys Cut Here",
-          text: "Keys cut here. An arrow points to the paint vault. It is in the paint room. Beside it, a key in a circle.",
+          text: "Keys cut here. An arrow points to the paint vault. It is in the paint room. Beside it, a circled key.",
         },
         "hardware-sign4": {
           title: "Marker on the Door",
