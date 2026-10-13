@@ -80,8 +80,8 @@ Every building has, besides its door note and its main note (spot 1, opens the c
 | `<loc>-dead4` | dead or decoy | 2 to 7 | reading level 6 | Same. |
 
 Plus four **signs** (printed signs and graffiti on the walls, read up close, in the order of
-the `W` tiles: top-left to bottom-right) and one **key** (hidden on the `y` tile, visible once
-`trail2` has been read).
+the layout's `signs` list) and one **key** (hidden on the layout's `y` tile, visible once
+`trail2` has been read). The spot numbers are the layout's `spots` (`n` is spot 1).
 
 Decoys never lie about how the game works in a way the player cannot recover from: a code
 "that was changed last week", a room "already emptied", a key "lost", a prank. The real
@@ -111,161 +111,24 @@ note always wins.
 
 ## Directions in the texts
 
-The entrance is the **front**. The top row of a map is the **back**. **Left** and **right**
-are as seen walking in from the entrance (low x is left). Use landmarks: the counter, the
-shelves, the crates, the cache door, the stash door, inner doors, side rooms, corners.
+The entrance is the **front**; the far wall is the **back**. Every building is its own floor
+plan in `js/layouts.js` with four **landmarks**, one per corner (the tire tower, the fish tank,
+the fire truck ...), rooms with their own wall signs (BREAK ROOM, STAFF LOCKER, PHARMACY), and
+the stash room behind its `Q` door. Door notes may use left and right as seen walking in.
+Inside, a reader can face any way, so notes steer by landmarks, rooms and signs ("beside the
+tire tower", "in the K9 room", "under the SEAFOOD sign"), never "left of" or "right of". The
+main note and both trail notes name at least one landmark (`npm test` checks).
 
 ## The building maps
 
-Legend: `#` wall, `.` floor, `D` door, `S` shelf, `C` counter, `X` crates, `W` wall with a
-sign or graffiti, `E` entrance, `L` cache door, `c` cache item, `K` stash door, `k` stash
-item, `y` key, `1`-`7` note spots (1 is the main note), `i` item, `z` walker, `$` scrap.
-Columns are x (0 at the left), rows are y (0 at the back).
+The maps are the layouts themselves (`js/layouts.js`): each one's grid, its landmarks, its
+decor, and its story places (`spots` for notes 2 to 7, `signs` for the four wall signs, the
+stash door `Q`, the stash spots `k` and the key spot `y`). Each building's stash is a small
+room of its own, usually one of the building's side rooms given a lock (the gas station's old
+restroom, the precinct's evidence room, the hospital's supply room, a corner of the library's
+periodicals room). In the game, M shows the map of what you have seen.
 
-### Template `gas` (used by: gasngo)
-
-```
-    0123456789012345
-  0 ####W###########
-  1 #S.S.S..4.C..1.#
-  2 #S.S.S....C..5.#
-  3 #7.....z.......W
-  4 #S.S.S.....$...#
-  5 #S2S.S.......6.#
-  6 ###Wz......W####
-  7 #kkK....i..Lc.c#
-  8 #..#.i.....#.z.#
-  9 ####..3..y.#.c.#
- 10 #######E########
-```
-
-### Template `storeSmall` (used by: grocery, pharmacy, radioshack)
-
-```
-    012345678901234567
-  0 #########W########
-  1 #C.C...1........2#
-  2 #......SSSS..SSSS#
-  3 W..z........7....#
-  4 #SSSS..SSSS..SSSS#
-  5 #5.........z.....W
-  6 #SSSS..SSSS..i..$#
-  7 #z...i.3....4...y#
-  8 #SSSS..SSSS..W####
-  9 #kkK.........Lc.c#
- 10 #.k#.......6.#.c.#
- 11 ########E#########
-```
-
-### Template `storeLarge` (used by: hardware, lumberyard, mall)
-
-```
-    01234567890123456789
-  0 ##########W#########
-  1 #3.......4......Kkk#
-  2 #.SS..SS..SS..SS#k.#
-  3 #.SS..SS..SS..SS####
-  4 #.SS..SS..SS..SS.i.#
-  5 W....z.......z.....#
-  6 #.SS..SS..SS..SS...W
-  7 #.SS..SS..SS..SS.$.#
-  8 #.SS1.SS..SS..SS.5.#
-  9 #..........i......2#
- 10 #XX..XX.........W###
- 11 #XX..XX.........Lcc#
- 12 #Cz...6.....i...#c.#
- 13 #C..y.........7.#zc#
- 14 #########E##########
-```
-
-### Template `station` (used by: police, firehouse)
-
-```
-    012345678901234567
-  0 ##################
-  1 #2.......#..z.Kkk#
-  2 #..i...z.#..X.X###
-  3 #..z.....D.......W
-  4 #y.......#..X.X.3#
-  5 #####D####...i...#
-  6 #C.C.1..W.......7#
-  7 #.$.....####D#####
-  8 W......5#..6.W####
-  9 #.......#....Lc.c#
- 10 #.......#4.z.#.c.#
- 11 ####E#############
-```
-
-### Template `school` (used by: school, library)
-
-```
-    01234567890123456789
-  0 ####################
-  1 #SSSS.1..W..SSSS..2#
-  2 #y.......#.....7...#
-  3 #..z.....D....z..i.#
-  4 #SSSS....#..SSSS...#
-  5 ####D#####D#########
-  6 #3..............z..W
-  7 W.z....$.....z...4.#
-  8 ####D#####D###WL####
-  9 #kkK....#..6..#.cc.#
- 10 ###i...5#...i.#..c.#
- 11 #########E##########
-```
-
-### Template `hospital` (used by: hospital)
-
-```
-    01234567890123456789
-  0 ####################
-  1 #Xkk#..y#..1.#.z..2#
-  2 #.K#D...D....D.....#
-  3 #z..#...#....#.i...#
-  4 ##D###D#####W###D###
-  5 #3.................W
-  6 W..z.....$....z...4#
-  7 ##D###D###WL####D###
-  8 #...#....#c.c#..i..#
-  9 #.i.#.z..#.c.#.....#
- 10 #..5#..6.#.z.#....7#
- 11 ################E###
-```
-
-### Template `shop` (used by: autoshop)
-
-```
-    0123456789012345
-  0 #######W########
-  1 #XX7.........1.#
-  2 #XX....z.......#
-  3 W......####...3#
-  4 #2.i...#k.#..$.#
-  5 #......#.k#.z..W
-  6 #.z....##K#..i.#
-  7 #y.........W####
-  8 #....4.....Lc.c#
-  9 #5........6#.c.#
- 10 #######E########
-```
-
-### Template `utility` (used by: garden, watertower)
-
-```
-    01234567890123
-  0 #########W####
-  1 #kk#.X.X7...2#
-  2 #K#z.......1.#
-  3 #.....XXX....W
-  4 W..i.....$..6#
-  5 #3.........z.#
-  6 #......W######
-  7 #.....4Lc..z.#
-  8 #y.i.5.#.c.c.#
-  9 ######E#######
-```
-
-## Home: journal, radio, item tags, yard lots (facts in `js/story-home.js`)
+## Home: journal, radio, item tags, plot signs (facts in `js/story-home.js`)
 
 - **Journal**: June's green ledger. One entry per day (Day 1 is the night the crew finds
   the cabin). Crew life, the town, worries, small wins. Never assumes what the player has
@@ -275,6 +138,7 @@ Columns are x (0 at the left), rows are y (0 at the back).
   threads above, and now and then a true tip about the key ring.
 - **Item tags**: two tags per item (the label, a sticky note, writing on the side). Shown
   when the item is picked up, kept in the backpack.
-- **Yard lots**: the outdoor rooms (Garden, Farm, Well, Water, Power, Radio, Lab) each have a
-  lot in the yard with a hand-painted sign. Empty, the sign says what could go there; built,
-  it says what stands there now at that level. Facts follow `BASE_ROOMS` in `js/world.js`.
+- **Plot signs**: every room has a plot in the yard (`YARD.plots`) with a sign, a plaque once
+  built, read up close. The outdoor rooms (Garden, Farm, Well, Water, Power, Radio, Lab) also
+  have hand-painted words: empty, what could go there; built, what stands there now at that
+  level. Facts follow `BASE_ROOMS` in `js/world.js`.

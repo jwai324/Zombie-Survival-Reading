@@ -357,11 +357,20 @@
         const head = el("div", "room-head");
         head.appendChild(el("h3", null, w.slot + " · " + esc(w.name)));
         card.appendChild(head);
-        const icon = el("canvas", "weapon-icon");
-        icon.width = 128;
-        icon.height = 64;
-        icon.getContext("2d").drawImage(ZSR.Draw3.weaponIcon(id), 0, 0);
-        card.appendChild(icon);
+        if (owned) {
+          // as you hold it: every mod you bought shows on it
+          const view = el("canvas", "weapon-view");
+          view.width = 320;
+          view.height = 180;
+          view.getContext("2d").drawImage(ZSR.Draw3.weaponView(id, s.weapons.mods[id], 320, 180), 0, 0);
+          card.appendChild(view);
+        } else {
+          const icon = el("canvas", "weapon-icon");
+          icon.width = 128;
+          icon.height = 64;
+          icon.getContext("2d").drawImage(ZSR.Draw3.weaponIcon(id), 0, 0);
+          card.appendChild(icon);
+        }
         card.appendChild(el("p", "room-desc", esc(w.desc)));
         if (!owned) {
           card.appendChild(el("p", "small", "<strong>Not found yet.</strong> " + esc(where(w))));

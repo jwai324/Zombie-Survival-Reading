@@ -37,6 +37,42 @@
   function clone(o) {
     return JSON.parse(JSON.stringify(o));
   }
+  /* The explored map of a building: one bit per tile, kept as "<w>x<h>:" + base64 (about 230
+     characters for the biggest building). Plain base64 by hand: no atob/btoa needed. */
+  const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  function toB64(bytes) {
+    let s = "";
+    for (let i = 0; i < bytes.length; i += 3) {
+      const n = (bytes[i] << 16) | ((bytes[i + 1] || 0) << 8) | (bytes[i + 2] || 0);
+      s += B64[(n >> 18) & 63] + B64[(n >> 12) & 63] + (i + 1 < bytes.length ? B64[(n >> 6) & 63] : "") + (i + 2 < bytes.length ? B64[n & 63] : "");
+    }
+    return s;
+  }
+  function fromB64(s, len) {
+    const out = new Uint8Array(len);
+    let acc = 0;
+    let bits = 0;
+    let o = 0;
+    for (let i = 0; i < s.length && o < len; i++) {
+      const v = B64.indexOf(s[i]);
+      if (v < 0) continue;
+      acc = ((acc << 6) | v) & 0xffffff;
+      bits += 6;
+      if (bits >= 8) {
+        bits -= 8;
+        out[o++] = (acc >> bits) & 255;
+      }
+    }
+    return out;
+  }
+  /** "<w>x<h>:..." -> { dims, bytes } or null. */
+  function seenBytes(str) {
+    if (typeof str !== "string") return null;
+    const c = str.indexOf(":");
+    const m = /^(\d+)x(\d+)$/.exec(str.slice(0, c));
+    if (c < 0 || !m) return null;
+    return { dims: str.slice(0, c), bytes: fromB64(str.slice(c + 1), Math.ceil((m[1] * m[2]) / 8)) };
+  }
 
   function freshSave(label) {
     const rooms = {};
@@ -65,6 +101,7 @@
       fence: {}, // "x,y" -> health; 0 is a hole. Holes never close on their own.
       traps, // crafted traps in stock, by type
       yardTraps: [], // traps set in the yard: [{ x, y, type, uses }]
+      yardV: (W().YARD && W().YARD.version) || 1, // the yard grid the fence keys and trap spots belong to
       typing: { stage: 0, rounds: 0, tutorialSeen: false }, // the workbench typing game
       labAcc: 0, // partial medical kits brewing in the Lab
       stats: { trips: 0, walkers: 0, notesRead: 0, wordsRead: 0, items: 0 },
@@ -77,6 +114,17 @@
   function upgradeSave(s) {
     ZSR.Weapons.upgradeSave(s, W().LOCATIONS); // before the fill-in below, so an old pistol keeps its gun upgrades
     const fresh = freshSave(s.label);
+    // a save from an older yard grid: its fence keys and trap spots point at the wrong tiles, so the
+    // fence comes back whole and every set trap goes back into stock (checked before the fill-in below)
+    if ((s.yardV || 1) !== fresh.yardV) {
+      s.fence = {};
+      s.traps = s.traps || {};
+      (s.yardTraps || []).forEach((t) => {
+        if (t && t.type) s.traps[t.type] = (s.traps[t.type] || 0) + 1;
+      });
+      s.yardTraps = [];
+      s.yardV = fresh.yardV;
+    }
     Object.keys(fresh).forEach((k) => {
       if (s[k] == null) s[k] = fresh[k];
     });
@@ -88,6 +136,12 @@
     });
     Object.keys(fresh.typing).forEach((k) => {
       if (s.typing[k] == null) s.typing[k] = fresh.typing[k];
+    });
+    // where a note was found comes from the facts: a note that has moved since it was read says where it is now
+    (Array.isArray(s.backpack) ? s.backpack : []).forEach((n) => {
+      const N = n && W().NOTES[n.locId];
+      const note = N && (N.door.id === n.noteId ? N.door : (N.notes || []).find((x) => x.id === n.noteId));
+      if (note && note.found) n.found = note.found;
     });
     s.version = 3;
     return s;
@@ -273,7 +327,34 @@
         stashOpened: !!(base.stashOpened || over.stashOpened),
         stashTaken: Object.assign({}, base.stashTaken, over.stashTaken),
         visits: (base.visits || 0) + (over.visits || 0),
+        seen: this.mergeSeen(base.seen, over.seen), // the explored map (packSeen), saved plus this trip
       };
+    },
+    /* ---------- Explored map of a building (the M map) ---------- */
+    /** Pack a Uint8Array of gw * gh tiles (non-zero = seen) into the compact string kept in the save. */
+    packSeen(tiles, gw, gh) {
+      const n = gw * gh;
+      const bytes = new Uint8Array(Math.ceil(n / 8));
+      for (let i = 0; i < n; i++) if (tiles[i]) bytes[i >> 3] |= 1 << (i & 7);
+      return gw + "x" + gh + ":" + toB64(bytes);
+    },
+    /** The tiles of a packed map as a Uint8Array of 0 / 1, or null when there is none or it was
+        packed for a layout of another size (a changed building starts unexplored). */
+    unpackSeen(str, gw, gh) {
+      const s = seenBytes(str);
+      if (!s || s.dims !== gw + "x" + gh) return null;
+      const out = new Uint8Array(gw * gh);
+      for (let i = 0; i < out.length; i++) out[i] = (s.bytes[i >> 3] >> (i & 7)) & 1;
+      return out;
+    },
+    /** Both explored maps together (the later one alone if their sizes differ). */
+    mergeSeen(a, b) {
+      const sa = seenBytes(a);
+      const sb = seenBytes(b);
+      if (!sb) return sa ? a : undefined;
+      if (!sa || sa.dims !== sb.dims) return b;
+      for (let i = 0; i < sb.bytes.length; i++) sb.bytes[i] |= sa.bytes[i];
+      return sb.dims + ":" + toB64(sb.bytes);
     },
     tripLoc(id) {
       if (!this.trip.loc[id]) this.trip.loc[id] = { taken: {}, cacheTaken: {}, cacheOpened: false, stashTaken: {}, stashOpened: false, visits: 0 };
@@ -379,6 +460,7 @@
           base.stashTaken = Object.assign(base.stashTaken || {}, over.stashTaken);
           base.stashOpened = !!(base.stashOpened || over.stashOpened);
           base.visits += over.visits || 0;
+          if (over.seen) base.seen = this.mergeSeen(base.seen, over.seen);
         });
         t.notes.forEach((n) => {
           if (!s.backpack.some((x) => x.noteId === n.noteId)) s.backpack.push(n);

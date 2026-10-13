@@ -41,7 +41,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); f
 .hud-top, .hud-bottom { position: absolute; left: 0; right: 0; display: flex; gap: .5rem; padding: .6rem; align-items: center; flex-wrap: wrap; }
 .hud-top { top: 0; }
 .hud-bottom { bottom: 0; justify-content: center; padding-bottom: .9rem; }
-.hud-place { position: absolute; left: .6rem; top: 3.6rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+.hud-place { position: absolute; left: .6rem; top: 3.6rem; display: flex; gap: .5rem; flex-wrap: wrap; max-width: calc(100% - 16rem); } /* clear of the Backpack, Map and pause buttons when they wrap to this row */
 .hud-box { pointer-events: auto; display: flex; align-items: center; gap: .5rem; background: var(--paper); border: var(--border); box-shadow: .25rem .25rem 0 var(--ink); padding: .25rem .6rem; font-family: var(--font-head); font-size: 1.1rem; letter-spacing: .06em; text-transform: uppercase; transform: rotate(-.6deg); }
 .hud-box:nth-child(even) { transform: rotate(.6deg); }
 .hud-box.phase { background: var(--olive); }
@@ -79,6 +79,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); f
 .rp-meta { list-style: none; margin: .4rem 0 0; padding: .35rem 0 0; border-top: .125rem dashed rgba(15,16,18,.35); font-size: .9rem; }
 .rp-meta li { margin: .15rem 0; }
 .toast { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); background: var(--paper); border: var(--border); box-shadow: var(--shadow); padding: .5rem 1rem; font-weight: 700; font-size: 1.05rem; max-width: min(90vw, 36rem); text-align: center; pointer-events: none; animation: pop .3s cubic-bezier(.2,1.6,.4,1); }
+/* Road: the minimap hangs top left under the HUD row (js/game.js sets --mini-top), off our lanes; heading up, never the route */
+#minimap { position: absolute; top: var(--mini-top, 3.6rem); left: .6rem; transform: rotate(-.4deg); width: min(15rem, 30vw); height: min(10.6rem, 25vh); background: var(--paper); border: min(.22rem, 5px) solid var(--ink); box-shadow: min(.25rem, 6px) min(.25rem, 6px) 0 var(--ink); pointer-events: none; }
+/* Map: written directions for the picked route */
+.route-head { font-family: var(--font-head); font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; margin: .7rem 0 0; }
+.route-steps { margin: .3rem 0 .6rem; padding-left: 1.5rem; }
+.route-steps li { margin: .25rem 0; line-height: 1.4; }
+.route-steps li.last { font-weight: 700; }
 
 /* Screens and panels */
 .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: .75rem; overflow: auto; background: var(--bg); background-image: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.07), transparent 60%), repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 2px, transparent 2px 14px); z-index: 5; }
@@ -250,13 +257,19 @@ button[data-tip] { cursor: pointer; }
 :root[data-size="huge"] .hud-box { padding: .1rem .3rem; background: rgba(230,223,204,.9); }
 :root[data-size="huge"] .hp-box { min-width: 6rem; }
 :root[data-size="huge"] .bar { min-width: 3rem; height: .5rem; }
-:root[data-size="huge"] .hud-btn { width: 1.2rem; height: 1.2rem; font-size: 1rem; }
+:root[data-size="huge"] .hud-btn { width: 1.2rem; height: 1.2rem; font-size: 1rem; border-width: .08rem; } /* a thinner ink edge, so the 1 in letter fits inside */
 :root[data-size="huge"] .hud-btn.wide { padding: 0 .3rem; font-size: 1rem; }
 :root[data-size="huge"] .hud-btn.wide span { display: none; }
-:root[data-size="huge"] .hint { font-size: 1rem; bottom: 1.4rem; max-width: 95vw; }
+:root[data-size="huge"] .hud-actions { gap: .25rem; } /* B, M and pause stay on one row at 800 px */
+:root[data-size="huge"] .hint { font-size: 1rem; bottom: 1.4rem; left: 2.5vw; right: 2.5vw; width: fit-content; margin: 0 auto; transform: none; max-width: 95vw; } /* centered by margins like the toast: one line where it fits, low and clear of the HUD buttons */
+/* first person at Huge: HP, then B, M and pause on one row down to 1024 px (cargo goes the way of scrap and walkers), so the buttons never sit in the hint's band */
+:root[data-size="huge"] #int-hud .hud-top { gap: .25rem; }
+:root[data-size="huge"] #int-hud .hp-box { min-width: 0; }
+:root[data-size="huge"] #int-hud .bar { min-width: 1.6rem; }
+:root[data-size="huge"] #int-hud .hud-box:has(#int-cargo) { display: none; }
+:root[data-size="huge"] .toast { top: auto; bottom: 2.6rem; left: 2.5vw; right: 2.5vw; width: fit-content; margin: 0 auto; transform: none; animation-name: popc; font-size: 1rem; padding: .2rem .4rem; max-width: 95vw; background: rgba(230,223,204,.92); } /* centered by margins, so it can use the full width */
 :root[data-size="huge"] .read-panel { bottom: 2.6rem; width: 96vw; max-height: 62vh; padding: .2rem .4rem; }
 :root[data-size="huge"] .rp-title, :root[data-size="huge"] .rp-text, :root[data-size="huge"] .rp-meta, :root[data-size="huge"] .rp-status { font-size: 1rem; }
-:root[data-size="huge"] .toast { top: auto; bottom: 2.6rem; font-size: 1rem; padding: .2rem .4rem; max-width: 95vw; background: rgba(230,223,204,.92); }
 :root[data-size="huge"] .banner { font-size: 1.6rem; }
 :root[data-size="huge"] .touch-btn { width: 2rem; height: 2rem; font-size: 1rem; }
 :root[data-size="huge"] .panel { padding: 1.4rem .6rem .6rem; }
@@ -266,6 +279,14 @@ button[data-tip] { cursor: pointer; }
 :root[data-size="huge"] .map-layout { grid-template-columns: minmax(0, 1fr); }
 :root[data-size="huge"] .map-board { display: none; }
 :root[data-size="huge"] .road-box { min-width: 0; }
+:root[data-size="huge"] #minimap { left: .15rem; transform: none; width: min(3.3rem, 28vw); height: min(2.4rem, 34vh); }
+:root[data-size="huge"] #hud .hud-bottom { display: none; } /* only a bar at this size; the signs need the room */
+/* the road's top row stays one short row at this size (the letters stay one inch), so the signs and the minimap fit under it */
+:root[data-size="huge"] #hud .hud-top { padding: .12rem; gap: .2rem; }
+:root[data-size="huge"] #hud .hud-box { line-height: 1; border-width: .08rem; box-shadow: .1rem .1rem 0 var(--ink); gap: .2rem; }
+:root[data-size="huge"] #hud .hp-box { min-width: 0; }
+:root[data-size="huge"] #hud .bar { min-width: 1.6rem; }
+@media (max-width: 999px) { :root[data-size="huge"] #hud-box-scrap { display: none; } } /* van health and pause only, on one row */
 :root[data-size="huge"] .tip { display: none !important; }
 :root[data-size="huge"] .slot { grid-template-columns: 1fr; }
 :root[data-size="huge"] .slot .sum { display: none; }
@@ -283,9 +304,11 @@ button[data-tip] { cursor: pointer; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 @keyframes pop { 0% { transform: translateX(-50%) scale(.96); } 60% { transform: translateX(-50%) scale(1.05); } 100% { transform: translateX(-50%) scale(1); } }
+@keyframes popc { 0% { transform: scale(.96); } 60% { transform: scale(1.05); } 100% { transform: scale(1); } }
 
 /* Weapons tab: one card per gun, its side view, then its mods */
 .weapon .weapon-icon { width: 8rem; height: 4rem; align-self: center; image-rendering: auto; }
+.weapon .weapon-view { width: 100%; max-width: 16rem; height: auto; aspect-ratio: 16 / 9; align-self: center; background: linear-gradient(#9fb3c6 0 55%, #7d9460 55%); border: .12rem solid var(--ink, #0f1012); }
 .weapon.on { background: #f1e3b5; }
 .weapon.missing { opacity: .7; }
 .weapon.missing .weapon-icon { filter: grayscale(1) brightness(.35); }

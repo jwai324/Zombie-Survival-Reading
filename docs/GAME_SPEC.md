@@ -1,6 +1,8 @@
-# Zombie Survival: Game Spec (v2)
+# Zombie Survival: Game Spec (v3)
 
-Decisions confirmed with the owner on 2026-10-12. This replaces the haven-and-quiz loop.
+Decisions confirmed with the owner on 2026-10-12 (v2: map, cabin defense, first-person
+buildings) and 2026-10-13 (v3: the world shows every upgrade, unique buildings with
+landmarks and a map, driving by lanes and signs).
 
 ## Pitch
 
@@ -22,18 +24,21 @@ useful.
    the build menu pauses the yard: upgrade rooms with items plus scrap, upgrade the
    van and gun in the garage, re-read notes in the backpack. The base is the only
    place the game saves: on arrival, after every build action, and after every wave.
-2. **Map.** A fixed, hand-drawn city of 15 locations plus the base. Only some are known
-   at first; notes and the Radio room reveal the rest. Pick a known destination; the
-   route is drawn; drive.
-3. **Road.** The existing top-down drive, with length set by map distance and walker
-   density set by the destination's danger and the day count. No pop-ups.
+2. **Map.** A fixed, hand-drawn city of 15 locations plus the base, with named streets and
+   side streets. Only some are known at first; notes and the Radio room reveal the rest.
+   Pick a known destination; the route is drawn and listed in words ("The way there").
+3. **Road.** Top-down driving in world space, the camera turned so the van always heads up.
+   Length is set by map distance, walker density by the destination's danger and the day
+   count. The road never shows the route: the player navigates by lanes and signs (see
+   Driving below).
 4. **Location.** A door note is shown first (added to the backpack). Then free-roam
-   first person inside: WASD to move, mouse to look, click to fire, E to interact.
-   Walkers inside come for you. Items sit on shelves and floors; a locked cache room
-   holds the best items and only opens once you have read the note that explains how.
-   Scrap piles give scrap. Press E at the entrance to leave. Shelf and floor items come
-   back three days after they are taken; scrap piles are back every visit; cache items
-   never come back.
+   first person inside a building with its own floor plan: WASD to move, mouse to look,
+   click to fire, E to interact, M for the map of what you have seen. Four landmarks, one
+   per corner, are what the notes steer by. Walkers inside come for you. Items sit on
+   shelves and floors; a locked cache room holds the best items and only opens once you
+   have read the note that explains how. Scrap piles give scrap. Press E at the entrance
+   to leave. Shelf and floor items come back three days after they are taken; scrap piles
+   are back every visit; cache items never come back.
 5. **Map again.** Chain more locations or head home. Cargo rides in the van.
 6. **Back at base.** Cargo moves to base inventory, one food is eaten, the Garden adds
    food, the day counter goes up, and the game saves.
@@ -52,10 +57,12 @@ tension.
 - No questions anywhere.
 - **Backpack**: every note read is kept with its title, the location, and where in the
   building it was found. Opens from the base, the map, and inside a building (pauses).
-- **Why read**: the door note says how many walkers and where the items are; the inside
-  note says how to open the cache (reading it is what unlocks the door), what is in
-  the cache, and which other location to try next (reading it reveals that location on
-  the map).
+- **Why read**: the door note says how many walkers and where the items are, by landmark;
+  the inside note says how to open the cache (reading it is what unlocks the door), what is
+  in the cache, the way from the note to the cache door, and often which other location to
+  try next (reading it reveals that location on the map). On the road, the street signs
+  say where each lane goes, and the city map lists the way there in words.
+- Landmark names are plain words, the same at every level and on the building map.
 
 ## Home base rooms (3 levels each; recipes in `js/world.js`)
 
@@ -76,6 +83,21 @@ tension.
 A level can carry `requires: { room: level }`; the build button says which room to build first.
 Food and medicine from different rooms add up; every other effect takes the best level.
 
+## The yard shows the base
+
+Every room except Walls has its own plot in the yard (41 x 33 tiles, 112 fence segments).
+Level 0 is a staked lot with the room's name on a big sign; levels 1 to 3 are distinct,
+bigger builds made of walls, roofs, see-over low tiles and props, with a name plaque and
+stars. They go up the moment the room is built. Builds are solid: walkers path around them
+and they are cover. Walls levels 0 to 3 change the fence (pickets, braced planks,
+corrugated metal with spikes, concrete blocks with razor wire, each with a cracked look) and
+the cabin's armor (boards, more boards, metal shutters, steel plates). The van in the
+driveway shows armor plates, the ram plow, engine gear (rack, exhaust, snorkel, light bar)
+and the paint. The van's roof gun on the road shows Heavier Rounds (longer barrels, a brake
+from tier 3), Rate of Fire (vented jacket, drum, cooling fins, a bigger drum, copper at the
+top tier) and Spread Shot (one barrel per round). The gun in your hands shows its own mods
+(see Guns). A light wave comes from two sides, a heavy one from every side.
+
 ## The fence, traps and kits
 
 - **The fence never patches itself.** Every hole a wave claws open stays until the player
@@ -92,6 +114,42 @@ Food and medicine from different rooms add up; every other effect takes the best
   (at least 5), free once the Garage room is built. Do it in the cabin's Garage tab, or at
   the van: starting it with less than full health asks "Fix the van?" first (Fix it / Go as
   is; Esc stays in the yard). Short on scrap, the fix button is greyed out.
+
+## Driving: lanes, signs, side streets
+
+- The van drives in the left of its two lanes; past side streets and parking lots that lane
+  goes straight. A turn to the right uses the right lane; a turn to the left uses a turn lane
+  that opens on the far left. At a junction there is one lane per road out, left to right in
+  the order the roads turn, each with a painted arrow, and the sign says where each lane goes.
+  There is no straight-on lane there: the right lane takes the road furthest right, extra
+  lanes open to the left, and the van's own left lane takes whatever road it points at (with
+  two roads out, the left one).
+- Decision points along a route, in order: the junction of the place the drive sets out from
+  (the van starts on that place's own short drive, with one lane per road out; a place with one
+  road starts on it), then side streets (dead ends, no through roads, closed roads), the
+  parking lots of places the route passes (Home Base too), real junctions, and the
+  destination's lot. Signs name a place only when the player knows it; otherwise the street.
+- At Huge text the road's top row keeps to one line (van health and pause, plus scrap from
+  1000 px wide), and signs shrink to fit under it.
+- The lane the van is in when it crosses the white stop line decides. A wrong lane drives a
+  little way down the wrong road, then a card says what went wrong ("Wrong way! That road goes
+  to ...", "You drove past ...") and the drive restarts from where it set out. Damage, scrap,
+  kills and miles stay.
+- The minimap (top left, under the HUD's top row) turns with the van, shows known roads, side
+  streets and places, and flags the destination. It never draws the route.
+
+## Buildings: floor plans, landmarks, the map
+
+- Each of the 15 places has its own floor plan in `js/layouts.js` (30 x 22 up to 42 x 32
+  tiles): rooms, halls, dead ends, at least one loop, interior doors, wall decor and signs.
+  That is 3.7 to 6.5 times the old walkable floor; the owner asked for about 2 to 3 times,
+  so the bigger size is still to be confirmed (see `DESIGN.md`).
+- Four landmarks per building, one per corner, each unique in its building (the ice machine,
+  the fire truck, the giant teddy bear). Big ones cover a footprint of tiles.
+- M (or the Map button) pauses and shows the tiles seen so far: walls, shelves, counters,
+  doors open or closed, the cache door (locked until opened), the exit, landmarks by name and
+  notes found. Walkers and items are not shown. What you explore is kept for the trip and
+  saved once you are home; death loses this trip's exploring.
 
 ## Doors, re-entry, and the map
 
@@ -124,6 +182,21 @@ Food and medicine from different rooms add up; every other effect takes the best
   less time between shots; the bow draws and nocks faster), Accuracy (30% less spread).
   Three tiers each, paid in scrap (dearer for the bigger guns), each one a typing round at
   the workbench. Only guns you own can be modded.
+- **Every mod tier shows on the gun in your hands**, and on its picture in the Weapons tab:
+  - Pistol and double pistols: Damage adds a compensator (longer, more ports, then a gold
+    barrel); Range the barrel's crown and fiber-optic sights, a long slide, a red-dot sight;
+    Fire rate windows in the slide, front serrations and top cuts, a red slide release and
+    trigger; Accuracy a laser under the frame, a light, the laser on (a beam to the crosshair).
+  - Machine gun: Damage a ported brake, a fluted heavy barrel, a boxy brake; Range a longer
+    barrel, a scope, a longer barrel and sunshade; Fire rate a see-through magazine, two
+    clamped together, a drum; Accuracy a tan handguard and foregrip, a laser, the laser on.
+  - Heavy machine gun: Damage a longer flash hider, a brake, a bigger brake and red-tipped
+    rounds; Range a longer barrel, a scope, both longer; Fire rate a bigger ammo box, a heat
+    shield on the shroud, copper shield and cooling rings; Accuracy as the machine gun.
+  - Bow: Broadheads a three-blade head and a cresting wrap, a carbon shaft, a big head on a
+    brass collar with long vanes; Stronger limbs a laminate stripe, thicker dark limbs, black
+    limbs with white tips; Draw speed string silencers, a quiver of three, five and a brass
+    nocking point; Sight pins a sight ring with one pin, three, five and a stabilizer.
 - The van's turret on the road is a separate gun, upgraded in the Garage tab.
 
 ## Reading expansion (2026-10-13)
@@ -135,20 +208,22 @@ the game and none of it is quizzed.
   (`trail1` says where `trail2` is; `trail2` appears once `trail1` is read and says where the
   key is) and dead-end notes placed by reading level (1 at levels 1, 2 at levels 2 and 3, 3 at
   levels 4 and 5, 4 at level 6). Some dead ends are decoys: wrong codes, emptied rooms.
-- **Stashes and the key ring.** Every building has a small locked stash room (`K` door, `k`
-  spots, two good items that never come back). Its key is hidden in another building (`y`
-  spot), visible once that building's `trail2` is read. `KEYS` in `js/world.js` is a ring
+- **Stashes and the key ring.** Every building has a small locked stash room (`Q` door, `k`
+  spots in its floor plan, two good items that never come back). Its key is hidden in another
+  building (`y` spot), visible once that building's `trail2` is read. The notes say where by
+  that building's landmarks and rooms, like every other note inside. `KEYS` in `js/world.js` is a ring
   through all fifteen places. A key picked up is a trip item: yours once home, lost on death.
   Keys are listed in the backpack and the cabin's stock tab (what each opens, where it was
   found, its tag, the clue note); the map shows a stash once you hold its key.
-- **Wall signs and graffiti.** Four per building (`W` tiles). Walk up and look at one and a
-  panel shows it; no key press, no pause.
+- **Wall signs and graffiti.** Four per building (the layout's `signs`: a wall tile and the
+  face they are painted on). Walk up and look at one and a panel shows it; no key press, no
+  pause. Extra notes stand on the layout's numbered `spots`.
 - **Item tags.** Every item has two tags (label, sticky note). The tag shows for a few seconds
   on pickup and is kept in the backpack.
-- **Yard lots.** Garden, Farm, Well, Water, Power, Radio and Lab each have a lot in the yard
-  (`YARD.lots`). Empty, it is stakes, string and a painted sign; built, it shows the room at
-  its level. Walk up to one and a panel says what it is, what the next level needs, and why
-  it is locked (the same facts as the cabin's build menu).
+- **Plot signs.** Every room's plot in the yard has a sign (a plaque once it is built). Walk
+  up to one and a panel says what it is, what the next level needs, and why it is locked (the
+  same facts as the cabin's build menu); the outdoor rooms (Garden, Farm, Well, Water, Power,
+  Radio, Lab) also have a hand-painted text for the empty lot and each built level.
 - **The day page.** Day 1 and every arrival home show a page: a recap of the trip (items,
   scrap, notes, keys, food, the nearest build), June's journal entry, and, once the Radio room
   is built, one broadcast. Thirty of each are written; after day 30 the last ten repeat. Every
@@ -173,18 +248,25 @@ only place the game saves.
 ## Rendering notes
 
 Wall texture columns are sampled left to right as seen from each face, so signs read
-correctly from any side. The cabin has log walls, boarded windows, a plank gable and a
-shingled roof that rises to a ridge; the van is a low two-tile model with a cab, a sliding
-door, a nose and a tail; the treeline is taller than the walls.
+correctly from any side. Counters, tables, beds, crop beds and the fence are low see-over
+tiles with a lit top face, drawn in depth order with sprites. Roofs (the cabin's gable,
+the yard sheds) come from a list of roofed blocks. Floors and ceilings are cast at reduced
+resolution with a texture per tile kind; buildings have a wall style and a light level.
+Landmarks and yard props are sprites; a footprint landmark is spread over its tiles of
+floor (the view is 2 tan(FOV / 2) times taller than wide). Art registers through
+`ZSR.Draw3` (`registerTexture`, `registerSprite`, `registerFloor`).
 
 ## First person (desktop)
 
 Raycast renderer on canvas, no engine, no dependencies. Grid interiors from
-`js/world.js` templates, comic shading (flat colors, ink edges, halftone). Mouse look
+`js/layouts.js`, comic shading (flat colors, ink edges, halftone). Mouse look
 via pointer lock, with arrow keys as a fallback for turning. Walkers are billboard
-sprites in the same style as the road; they path to the player. Hits are tested in
-screen space against the crosshair. Touch-only devices are not supported yet: the
-title screen says so and does not start a game.
+sprites (gaunt, grimy, no gore); they path to the player. Hits are tested along the
+crosshair line within the gun's range: walls and cover (tall solid props, landmark
+footprints) stop a shot, counters and the fence do not. The gun in hand is a small 3D
+model drawn in perspective; at rest it is drawn once per look and screen size and moved
+with the walk bob, and a shot, the bow's draw or a switch draws it live. Touch-only
+devices are not supported yet: the title screen says so and does not start a game.
 
 ## Text size
 
@@ -196,14 +278,22 @@ menus, HUD. Layouts collapse to one column.
 `zs.slots` is the slot index (active slot, labels); `zs.save.<n>` holds one base save: day,
 scrap, food, inventory, room levels, van and van-gun upgrades, guns (owned, in hand, mods,
 where each unfound gun is hidden, and the seed that picks its floor tile), known locations,
-per-location state (items taken, cache opened, stash opened and taken), stash keys found,
-item tags read, the day log (journal and radio entries by index, recap numbers), broadcasts
-heard, backpack notes, packed kits, fence health
-per segment, trap stock and set traps, typing progress, best score. Only written at the base.
-An older save gets guns on load: the pistol, with mods carried over from its gun upgrades.
+per-location state (items taken, cache opened, stash opened and taken, explored tiles as a
+packed bitset), stash keys found, item tags read, the day log (journal and radio entries by
+index, recap numbers), broadcasts heard, backpack notes, packed kits, fence health per segment,
+trap stock and set traps, the yard grid version (`yardV`: an older yard's fence is rebuilt whole
+and its set traps return to stock), typing progress, best score. Only written at the base. An
+older save gets guns on load: the pistol, with mods carried over from its gun upgrades.
 
 ## Content files
 
-`js/world.js` holds the facts (item names included). `js/content/level1.js` to
-`level6.js` hold the words: How it works, base room texts, door notes, inside notes. `npm test` checks
-that every level has the same keys as the world and that lengths match the level.
+`js/world.js` holds the facts (item names included); `js/layouts.js` holds the floor plans,
+the landmarks the facts point at, and the story places (note spots, signs, stash, key);
+`js/story.js` and `js/story-home.js` hold the story facts; `js/streets.js` holds street names
+and side streets. `js/content/levelN*.js` hold the words at each level: How it works,
+controls, base room texts, road signs and cards (`levelN.js`), every building's notes, signs
+and key (`levelN-places1.js`, `levelN-places2.js`), and the journal, radio, tags and plot
+signs (`levelN-home.js`). `npm test` checks that every level has the same keys as the world,
+that lengths match the level, that notes name their building's landmarks, that every story
+note, key, stash and sign works in every building, that every route drives correctly, and
+that every piece of art exists.

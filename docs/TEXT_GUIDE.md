@@ -31,7 +31,9 @@ Vocabulary: level 1 one or two syllables, sight words, present tense; level 2 si
 fine; level 3 a few compound sentences; level 4 richer vocabulary, paragraphs; level 5
 figurative language, cause and effect; level 6 sophisticated vocabulary, voice, subtext.
 
-Door notes run about 60 percent of the note range. "Sign" covers wall signs and graffiti;
+Door notes run about 75 percent of the note range; the main note (the one that opens the
+cache) may run up to 20 percent over it, since it also carries a route by landmark. "Sign"
+covers wall signs and graffiti;
 "Tag" covers item tags and key tags. How it works paragraphs follow the same sentence limits;
 three to six paragraphs at every level, and the `controls` list (one line per control group,
 "Head: text") is written at the level too.
@@ -50,8 +52,13 @@ at every level, in words a reader at that level can use. `npm test` checks numbe
 (see `PEOPLE` in `tests/validate-text.js`) and place names against the facts.
 
 - Who wrote it (name), because the player meets these people across notes.
-- Where things are, in words that match the building (front, back, left, right,
-  near the counter, in the storeroom), since the player will walk there.
+- Where things are, in words that match the building, since the player will walk there.
+  Every building has four landmarks (named in `js/layouts.js`, one per corner), rooms with
+  their own signs, and walls with readable signs. Door notes name at least two landmarks and
+  may use left and right as seen walking in. Inside a building a reader may be facing any
+  way, so the main note and the trail notes steer by landmarks, rooms and signs ("beside the
+  tire tower", "in the break room", "under the PHARMACY sign"), never "left of" or "right of";
+  each names at least one landmark (`npm test` checks).
 - How to open the cache, when the note has `unlocks`. The text must make clear that
   the reader can now open that door (a code, a key location, a trick).
 - Which other place to try, when the note has `reveals`, with a direction (north,
@@ -62,7 +69,8 @@ at every level, in words a reader at that level can use. `npm test` checks numbe
 
 Door notes also give the walker count and rough positions. Keep numbers exact.
 
-See `docs/STORY.md` for the people, the five story threads and the building maps.
+See `docs/STORY.md` for the people and the five story threads, and `js/layouts.js` for the
+building maps (landmarks, rooms, note spots, signs, the stash and the key).
 
 ## Schema
 

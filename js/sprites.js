@@ -485,18 +485,27 @@
       });
     }
 
-    // engine: roof rack gear, exhaust smoke
+    // engine: roof rack gear (clear of the tail lights), an exhaust stack, the light bar, then twin stacks
     if (u.engine >= 1) {
-      rr(ctx, -w * 0.4, h * 0.4, 14, 8, 2);
+      rr(ctx, -w * 0.4, h * 0.4 - 8, 16, 10, 2);
       fillStroke(ctx, "#5f6b3c", 2.5);
       if (u.engine >= 2) {
-        rr(ctx, w * 0.4 - 14, h * 0.4, 14, 8, 2);
+        rr(ctx, w * 0.4 - 16, h * 0.4 - 8, 16, 10, 2);
         fillStroke(ctx, "#5f6b3c", 2.5);
       }
-      if (u.engine >= 3) circle(ctx, w * 0.26, h * 0.34, 7, "#1f2023", 2.5);
+      const stack = (sx) => {
+        circle(ctx, sx, h * 0.27, 7, "#1f2023", 2.5);
+        circle(ctx, sx, h * 0.27, 3, "#9ea3aa", 1.5);
+      };
+      if (u.engine >= 3) stack(w * 0.26);
       if (u.engine >= 4) {
         rr(ctx, -12, -h * 0.47, 24, 8, 2);
         fillStroke(ctx, "#2b2d31", 2.5);
+      }
+      if (u.engine >= 5) {
+        stack(-w * 0.26);
+        ctx.fillStyle = "#ffd36b";
+        [-8, -2, 4].forEach((lx) => ctx.fillRect(lx, -h * 0.47 + 2, 4, 4));
       }
     }
     if (opts.moving !== false) {
@@ -505,6 +514,14 @@
       ctx.beginPath();
       ctx.arc(-w * 0.3, h / 2 + 6 + puff * 20, 4 + puff * 9 + u.engine * 0.8, 0, TAU);
       ctx.fill();
+      if (u.engine >= 5) {
+        // the second stack puffs out of step with the first
+        const p2 = (puff + 0.5) % 1;
+        ctx.fillStyle = "rgba(90,90,95," + (0.5 - p2 * 0.45) + ")";
+        ctx.beginPath();
+        ctx.arc(w * 0.3, h / 2 + 6 + p2 * 20, 4 + p2 * 9 + u.engine * 0.8, 0, TAU);
+        ctx.fill();
+      }
     }
 
     // lights
@@ -521,8 +538,25 @@
     ctx.save();
     ctx.translate(0, ty);
     ctx.rotate(aim);
+    // every gun upgrade shows: Heavier Rounds lengthen the barrels (a brake from 3), Spread Shot adds
+    // barrels, Rate of Fire adds a vented jacket (1), a drum magazine (2), cooling fins (3), a bigger drum
+    // with a brass ring (4) and a copper jacket (5)
     const barrels = 1 + (u.spread || 0);
     const len = 24 + (u.damage || 0) * 3;
+    const rof = u.fireRate || 0;
+    if (rof >= 2) {
+      const big = rof >= 4;
+      const r = big ? 9.5 : 7;
+      circle(ctx, -3, 14 + (big ? 2 : 0), r, big ? "#3a3d42" : "#5d636b", 2.5);
+      circle(ctx, -3, 14 + (big ? 2 : 0), r * 0.4, "#2f3136", 2);
+      if (big) {
+        for (let k = 0; k < 8; k++) {
+          const a = (k / 8) * Math.PI * 2;
+          ctx.fillStyle = "#d9a21b";
+          ctx.fillRect(-3 + Math.cos(a) * r * 0.72 - 1, 16 + Math.sin(a) * r * 0.72 - 1, 2.2, 2.2);
+        }
+      }
+    }
     for (let i = 0; i < barrels; i++) {
       const off = (i - (barrels - 1) / 2) * 7;
       rr(ctx, 8, off - 3, len, 6, 1.5);
@@ -531,6 +565,21 @@
         rr(ctx, 8 + len - 6, off - 4.5, 7, 9, 1.5);
         fillStroke(ctx, "#5a5d66", 2);
       }
+    }
+    if (rof >= 1) {
+      const half = ((barrels - 1) / 2) * 7 + 4.5;
+      const jl = Math.min(len - 8, 14 + rof);
+      if (rof >= 3) {
+        ctx.fillStyle = rof >= 5 ? "#e0a066" : "#9ea3aa";
+        for (let k = 0; k < 3; k++) {
+          ctx.fillRect(12 + k * (jl / 3), -half - 3.5, 3, 3.5);
+          ctx.fillRect(12 + k * (jl / 3), half, 3, 3.5);
+        }
+      }
+      rr(ctx, 9, -half, jl, half * 2, 2);
+      fillStroke(ctx, rof >= 5 ? "#b8733a" : "#4b5057", 2);
+      ctx.fillStyle = rof >= 5 ? "#5a2a12" : "#0f1012";
+      for (let x = 12; x < 9 + jl - 3; x += 4.5) ctx.fillRect(x, -1.2, 2.2, 2.4);
     }
     if (opts.flash > 0) {
       star(ctx, 8 + len + 6, 0, 6, 12 + opts.flash * 60, 5, t * 20);
@@ -858,5 +907,581 @@
     ctx.drawImage(l, 0, 0, W, H);
   }
 
-  ZSR.Draw = { road, prop, van, zombie, bullet, particle, burst, vignette, fog, night, rr, circle, star, fillStroke, INK };
+  /* ---------- The city road, drawn in world space (js/game.js sets the camera) ---------- */
+
+  const ROOF = { base: "#5b6b3a", gas: "#b3261e", store: "#3f5a8a", shop: "#4b5057", station: "#8a3a30", school: "#8a6a2e", hospital: "#9aa39a", utility: "#5f6b6e", industrial: "#6e6a60", mall: "#6b3f8a", library: "#3f7a6a" };
+  /** Dead ground around the view: a flat fill plus patches and tufts pinned to the world, so the land slides by. */
+  function ground(ctx, view, theme) {
+    const t = theme || {};
+    const R = view.r * 1.25;
+    ctx.fillStyle = t.grass || "#5d5a3e";
+    ctx.fillRect(view.x - R, view.y - R, R * 2, R * 2);
+    const cell = 360;
+    const x0 = Math.floor((view.x - R) / cell);
+    const x1 = Math.floor((view.x + R) / cell);
+    const y0 = Math.floor((view.y - R) / cell);
+    const y1 = Math.floor((view.y + R) / cell);
+    ctx.strokeStyle = "rgba(20,22,16,0.3)";
+    ctx.lineWidth = 2;
+    for (let cx = x0; cx <= x1; cx++) {
+      for (let cy = y0; cy <= y1; cy++) {
+        const r = seeded(((cx * 73856093) ^ (cy * 19349663)) >>> 0);
+        for (let i = 0; i < 2; i++) {
+          const rad = 22 + r() * 46;
+          ctx.fillStyle = i ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.075)";
+          ctx.beginPath();
+          ctx.ellipse(cx * cell + r() * cell, cy * cell + r() * cell, rad, rad * (0.45 + r() * 0.4), r() * 3, 0, TAU);
+          ctx.fill();
+        }
+        ctx.beginPath();
+        for (let i = 0; i < 5; i++) {
+          const x = cx * cell + r() * cell;
+          const y = cy * cell + r() * cell;
+          ctx.moveTo(x - 3, y - 6);
+          ctx.lineTo(x, y);
+          ctx.lineTo(x + 3, y - 6);
+        }
+        ctx.stroke();
+      }
+    }
+  }
+
+  function distSeg(px, py, x0, y0, x1, y1) {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / l2));
+    return Math.hypot(px - x0 - dx * t, py - y0 - dy * t);
+  }
+  function line(ctx, x0, y0, x1, y1) {
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.lineTo(x1, y1);
+    ctx.stroke();
+  }
+
+  /**
+   * Every road, side street and junction near the view, in passes so crossings merge:
+   * ink, gravel shoulder, asphalt, then paint. world: { roads, sides, nodes } from ZSR.Streets;
+   * G: Streets.GEOM; view: { x, y, r } in world px.
+   */
+  function cityRoads(ctx, world, G, theme, view) {
+    const t = theme || {};
+    const near = (s, pad) => distSeg(view.x, view.y, s.x0, s.y0, s.x1, s.y1) < view.r + pad;
+    const roads = world.roads.filter((r) => near(r, G.half + 80));
+    const sides = world.sides.filter((s) => near(s, G.sideHalf + 200));
+    const nodes = world.nodes.filter((n) => n.deg > 0 && Math.hypot(n.x - view.x, n.y - view.y) < view.r + G.boxR + 80);
+    const ends = sides.filter((s) => s.kind === "deadEnd");
+    ctx.lineCap = "butt";
+    ctx.lineJoin = "round";
+    const pass = (color, grow, nodeR, endR) => {
+      ctx.strokeStyle = color;
+      ctx.fillStyle = color;
+      ctx.lineWidth = 2 * G.half + grow;
+      roads.forEach((r) => line(ctx, r.x0, r.y0, r.x1, r.y1));
+      ctx.lineWidth = 2 * G.sideHalf + grow;
+      sides.forEach((s) => line(ctx, s.x0, s.y0, s.x1, s.y1));
+      nodes.forEach((n) => {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, nodeR, 0, TAU);
+        ctx.fill();
+      });
+      ends.forEach((s) => {
+        ctx.beginPath();
+        ctx.arc(s.x1, s.y1, endR, 0, TAU);
+        ctx.fill();
+      });
+    };
+    pass(INK, 2 * G.shoulder + 8, G.boxR + 14, G.sideHalf + G.shoulder + 44);
+    pass(t.shoulder || "#78736a", 2 * G.shoulder, G.boxR + 10, G.sideHalf + G.shoulder + 40);
+    pass(t.asphalt || "#35363b", 0, G.boxR - 16, G.sideHalf + 40);
+    // worn lane bands, then paint
+    roads.forEach((r) => {
+      const len = Math.hypot(r.x1 - r.x0, r.y1 - r.y0);
+      const ux = (r.x1 - r.x0) / len;
+      const uy = (r.y1 - r.y0) / len;
+      const nx = -uy;
+      const ny = ux;
+      const a = G.boxR - 10;
+      const b = len - G.boxR + 10;
+      if (b <= a) return;
+      const ln = (off) => line(ctx, r.x0 + ux * a + nx * off, r.y0 + uy * a + ny * off, r.x0 + ux * b + nx * off, r.y0 + uy * b + ny * off);
+      ctx.setLineDash([]);
+      ctx.strokeStyle = "rgba(255,255,255,0.035)";
+      ctx.lineWidth = 60;
+      [-G.lane * 1.45, -G.lane * 0.55, G.lane * 0.55, G.lane * 1.45].forEach(ln);
+      ctx.strokeStyle = "rgba(225,220,205,0.55)";
+      ctx.lineWidth = 4;
+      ctx.setLineDash([120, 18]);
+      ln(G.half - 12);
+      ln(-G.half + 12);
+      ctx.strokeStyle = "rgba(225,220,205,0.6)";
+      ctx.lineWidth = 5;
+      ctx.setLineDash([40, 50]);
+      ln(G.lane);
+      ln(-G.lane);
+      ctx.setLineDash([]);
+      ctx.strokeStyle = "rgba(214,176,60,0.75)";
+      ctx.lineWidth = 4;
+      ln(5);
+      ln(-5);
+    });
+    sides.forEach((s) => {
+      const len = Math.hypot(s.x1 - s.x0, s.y1 - s.y0);
+      const ux = (s.x1 - s.x0) / len;
+      const uy = (s.y1 - s.y0) / len;
+      ctx.strokeStyle = "rgba(214,176,60,0.65)";
+      ctx.lineWidth = 4;
+      ctx.setLineDash([30, 30]);
+      line(ctx, s.x0 + ux * (G.half + 30), s.y0 + uy * (G.half + 30), s.x1 - ux * 60, s.y1 - uy * 60);
+      ctx.setLineDash([]);
+    });
+    sides.forEach((s) => sideEnd(ctx, s, G));
+  }
+
+  /** What blocks the end of a side street: a dead end's rail, a closed road's barricade, a gate. */
+  function sideEnd(ctx, s, G) {
+    const len = Math.hypot(s.x1 - s.x0, s.y1 - s.y0);
+    const ux = (s.x1 - s.x0) / len;
+    const uy = (s.y1 - s.y0) / len;
+    ctx.save();
+    ctx.translate(s.x1, s.y1);
+    ctx.rotate(Math.atan2(uy, ux) + Math.PI / 2); // local -y points out the street's end
+    const w = G.sideHalf * 2;
+    if (s.kind === "deadEnd") {
+      ctx.translate(0, -G.sideHalf - 20);
+      rr(ctx, -w * 0.6, -12, w * 1.2, 24, 4);
+      fillStroke(ctx, "#e6dfcc", 3.5);
+      ctx.fillStyle = INK;
+      for (let x = -w * 0.6 + 8; x < w * 0.6 - 12; x += 30) {
+        ctx.beginPath();
+        ctx.moveTo(x, -12);
+        ctx.lineTo(x + 14, -12);
+        ctx.lineTo(x + 4, 12);
+        ctx.lineTo(x - 10, 12);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 3.5;
+      ctx.strokeRect(-w * 0.6, -12, w * 1.2, 24);
+    } else if (s.kind === "closed") {
+      ctx.translate(0, 40);
+      for (const row of [-18, 18]) {
+        rr(ctx, -w * 0.48, row - 10, w * 0.96, 20, 3);
+        fillStroke(ctx, "#f3eee0", 3);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(-w * 0.48, row - 10, w * 0.96, 20);
+        ctx.clip();
+        ctx.fillStyle = "#d4621e";
+        for (let x = -w * 0.5; x < w * 0.5; x += 32) {
+          ctx.beginPath();
+          ctx.moveTo(x, row - 10);
+          ctx.lineTo(x + 16, row - 10);
+          ctx.lineTo(x + 6, row + 10);
+          ctx.lineTo(x - 10, row + 10);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+      }
+      [-w * 0.6, w * 0.6].forEach((cx) => {
+        ctx.beginPath();
+        ctx.moveTo(cx, -16);
+        ctx.lineTo(cx + 13, 14);
+        ctx.lineTo(cx - 13, 14);
+        ctx.closePath();
+        fillStroke(ctx, "#d4621e", 3);
+      });
+    } else {
+      // no through road: a heavy gate rail
+      ctx.translate(0, -10);
+      rr(ctx, -w * 0.55, -9, w * 1.1, 18, 4);
+      fillStroke(ctx, "#8d8a84", 3.5);
+      [-w * 0.55, w * 0.55].forEach((cx) => circle(ctx, cx, 0, 12, "#4b5057", 3));
+    }
+    ctx.restore();
+  }
+
+  /** Painted lane arrow in a lane-local frame (forward is -y): straight, or bending by `rel` radians. */
+  function laneArrow(ctx, x, y, rel, len) {
+    const L = len || 90;
+    const pts = [[x, y]];
+    let hx;
+    let hy;
+    let ha;
+    if (Math.abs(rel) < 0.3) {
+      hx = x + Math.sin(rel) * L;
+      hy = y - Math.cos(rel) * L;
+      ha = rel;
+    } else {
+      const a = Math.max(-2.3, Math.min(2.3, rel));
+      pts.push([x, y - L * 0.5]);
+      hx = x + Math.sin(a) * L * 0.5;
+      hy = y - L * 0.5 - Math.cos(a) * L * 0.5;
+      ha = a;
+    }
+    pts.push([hx, hy]);
+    const shaft = () => {
+      ctx.beginPath();
+      pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+      ctx.stroke();
+    };
+    const head = () => {
+      ctx.save();
+      ctx.translate(hx, hy);
+      ctx.rotate(ha);
+      ctx.beginPath();
+      ctx.moveTo(0, -L * 0.3);
+      ctx.lineTo(L * 0.22, 0);
+      ctx.lineTo(-L * 0.22, 0);
+      ctx.closePath();
+      ctx.restore();
+    };
+    ctx.lineJoin = "round";
+    ctx.lineCap = "butt";
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = L * 0.2 + 6;
+    shaft();
+    head();
+    ctx.fillStyle = "#ece6d4";
+    ctx.lineWidth = 6;
+    ctx.stroke();
+    ctx.fill();
+    ctx.strokeStyle = "#ece6d4";
+    ctx.lineWidth = L * 0.2;
+    shaft();
+  }
+
+  /**
+   * The lanes before a decision, in a frame where (0,0) is the stop line at the road's center,
+   * +x is right and +y is back toward the van. zone: { len (px of lanes), n, ourLeft, rels: [turn per lane],
+   * ways: [which way each lane goes] } (lanes that go the same way are split by a dashed line, others by a solid one).
+   */
+  function laneZone(ctx, z, G, theme) {
+    const t = theme || {};
+    const taper = 180;
+    ctx.fillStyle = t.asphalt || "#35363b";
+    ctx.fillRect(-G.half + 16, -2, 2 * G.half - 32, z.len + taper + 4);
+    ctx.fillStyle = "rgba(255,255,255,0.035)";
+    [-1.45, -0.55, 0.55, 1.45].forEach((f) => ctx.fillRect(G.lane * f - 30, -2, 60, z.len + taper + 4));
+    ctx.lineCap = "butt";
+    // the oncoming side: two lanes, or one where ours took a turn bay
+    ctx.strokeStyle = "rgba(225,220,205,0.6)";
+    ctx.lineWidth = 5;
+    ctx.setLineDash([40, 50]);
+    if (z.ourLeft >= 0) line(ctx, -G.lane, 0, -G.lane, z.len + taper);
+    else line(ctx, -G.lane, z.len + 40, -G.lane, z.len + taper);
+    ctx.setLineDash([]);
+    // center line, shifted over where the road gives us a third lane
+    ctx.strokeStyle = "rgba(214,176,60,0.85)";
+    ctx.lineWidth = 4;
+    [-5, 5].forEach((o) => {
+      ctx.beginPath();
+      ctx.moveTo(z.ourLeft + o, 0);
+      ctx.lineTo(z.ourLeft + o, z.len);
+      ctx.lineTo(o, z.len + taper);
+      ctx.stroke();
+    });
+    // lane dividers (solid between ways, dashed within one), the stop line, and the arrows
+    ctx.strokeStyle = "#ece6d4";
+    for (let k = 1; k < z.n; k++) {
+      const same = z.ways && z.ways[k] === z.ways[k - 1];
+      ctx.lineWidth = same ? 5 : 7;
+      ctx.setLineDash(same ? [40, 50] : []);
+      line(ctx, z.ourLeft + k * G.lane, 0, z.ourLeft + k * G.lane, z.len);
+    }
+    ctx.lineWidth = 7;
+    ctx.setLineDash([24, 26]);
+    line(ctx, G.lane, z.len, G.lane, z.len + taper);
+    ctx.setLineDash([]);
+    ctx.lineWidth = 14;
+    line(ctx, z.ourLeft + 2, 6, G.half - 14, 6);
+    const rows = [];
+    for (let y = 130; y < z.len - 60 || !rows.length; y += 340) rows.push(y);
+    z.rels.forEach((rel, k) => {
+      const x = z.ourLeft + G.lane * (k + 0.5);
+      rows.forEach((y) => laneArrow(ctx, x, y, rel, 86));
+    });
+  }
+
+  /** A parking lot beside the road with its building. lot: { qx, qy, ux, uy, side }; look: { type }. */
+  function lot(ctx, L, G, look) {
+    const nx = -L.uy * L.side;
+    const ny = L.ux * L.side;
+    const v0 = G.half + G.shoulder + G.lotGap;
+    const v1 = v0 + G.lotDepth;
+    ctx.save();
+    ctx.transform(L.ux, L.uy, nx, ny, L.qx, L.qy); // x along the road, y away from it toward the lot
+    // driveway apron across the shoulder
+    ctx.fillStyle = "#3b3c41";
+    ctx.fillRect(-84, G.half - 14, 168, v0 - G.half + 30);
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 4;
+    line(ctx, -84, G.half + 4, -84, v0);
+    line(ctx, 84, G.half + 4, 84, v0);
+    // the lot
+    rr(ctx, -G.lotHalf, v0, G.lotHalf * 2, G.lotDepth, 10);
+    fillStroke(ctx, "#68665f", 4);
+    ctx.strokeStyle = "rgba(236,230,212,0.7)";
+    ctx.lineWidth = 4;
+    for (let x = -G.lotHalf + 30; x <= G.lotHalf - 30; x += 52) {
+      if (Math.abs(x) < 80) continue;
+      line(ctx, x, v0 + 24, x, v0 + 120);
+    }
+    // the building, seen from above
+    const bx = -G.lotHalf + 22;
+    const by = v0 + 168;
+    const bw = G.lotHalf * 2 - 44;
+    const bh = v1 - by - 18;
+    const roof = ROOF[look && look.type] || "#4b5057";
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.fillRect(bx + 10, by + 10, bw, bh);
+    rr(ctx, bx, by, bw, bh, 4);
+    fillStroke(ctx, roof, 4);
+    ctx.strokeStyle = "rgba(0,0,0,0.3)";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(bx + 12, by + 12, bw - 24, bh - 24);
+    rr(ctx, bx + bw * 0.62, by + bh * 0.3, 46, 34, 3);
+    fillStroke(ctx, "#8d8a84", 3);
+    rr(ctx, bx + bw * 0.2, by + bh * 0.4, 30, 30, 3);
+    fillStroke(ctx, "#4b5057", 3);
+    if (look && look.type === "gas") {
+      // pump canopy out front
+      rr(ctx, -G.lotHalf + 50, v0 + 20, 150, 100, 4);
+      fillStroke(ctx, "#e6dfcc", 3.5);
+      ctx.fillStyle = "#b3261e";
+      ctx.fillRect(-G.lotHalf + 50, v0 + 20, 150, 16);
+    }
+    // the door, facing the road
+    ctx.fillStyle = INK;
+    ctx.fillRect(-26, by - 4, 52, 10);
+    ctx.restore();
+  }
+
+  /* ---------- Signs and cards: screen space, readable at any text size ---------- */
+
+  /** Arrow glyph for a sign: straight up, or bending by `rel` radians. Centered at (x, y), size s. */
+  function signArrow(ctx, x, y, rel, s, color) {
+    const a = Math.max(-2.4, Math.min(2.4, rel));
+    ctx.save();
+    ctx.translate(x, y + s * 0.38);
+    ctx.strokeStyle = color;
+    ctx.fillStyle = color;
+    ctx.lineWidth = s * 0.17;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    let hx;
+    let hy;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    if (Math.abs(a) < 0.3) {
+      hx = Math.sin(a) * s * 0.62;
+      hy = -Math.cos(a) * s * 0.62;
+      ctx.lineTo(hx, hy);
+    } else {
+      ctx.lineTo(0, -s * 0.36);
+      hx = Math.sin(a) * s * 0.42;
+      hy = -s * 0.36 - Math.cos(a) * s * 0.42;
+      ctx.lineTo(hx, hy);
+    }
+    ctx.stroke();
+    ctx.translate(hx, hy);
+    ctx.rotate(a);
+    ctx.beginPath();
+    ctx.moveTo(0, -s * 0.3);
+    ctx.lineTo(s * 0.24, 0);
+    ctx.lineTo(-s * 0.24, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+  }
+
+  const SIGN_LOOK = {
+    guide: { bg: "#1f6b3f", fg: "#f3eee0", rule: "#f3eee0" },
+    street: { bg: "#1f6b3f", fg: "#f3eee0", rule: "#f3eee0" },
+    place: { bg: "#f3eee0", fg: "#0f1012", rule: "#0f1012" },
+  };
+  const BADGE = { deadEnd: ["#f0c247", INK], noThrough: ["#f3eee0", INK], closed: ["#d4621e", "#f3eee0"] };
+  function wrapText(ctx, text, maxW) {
+    const words = String(text).split(/\s+/).filter(Boolean);
+    const lines = [];
+    let cur = "";
+    words.forEach((w) => {
+      const tryLine = cur ? cur + " " + w : w;
+      if (cur && ctx.measureText(tryLine).width > maxW) {
+        lines.push(cur);
+        cur = w;
+      } else cur = tryLine;
+    });
+    if (cur) lines.push(cur);
+    return lines.length ? lines : [""];
+  }
+  /** Lay out a sign: { style, rows: [{ rel, text, badge, badgeKind }] } at size k, no wider than maxW
+      (fits: false when a word is too long for that and would run past its edge). */
+  function layoutSign(ctx, sign, k, maxW) {
+    const pad = 12 * k;
+    const fs = Math.round(25 * k);
+    const bs = Math.round(17 * k);
+    const arrow = 40 * k;
+    const lineH = fs * 1.12;
+    const textMax = Math.max(60 * k, maxW - arrow - pad * 3);
+    ctx.font = "700 " + fs + "px Oswald, Impact, sans-serif";
+    let w = 0;
+    let h = pad;
+    const rows = sign.rows.map((r) => {
+      ctx.font = "700 " + fs + "px Oswald, Impact, sans-serif";
+      const lines = wrapText(ctx, String(r.text).toUpperCase(), textMax);
+      let tw = Math.max(...lines.map((l) => ctx.measureText(l).width));
+      let rh = Math.max(arrow, lines.length * lineH);
+      let badge = null;
+      if (r.badge) {
+        ctx.font = "700 " + bs + "px Oswald, Impact, sans-serif";
+        const bl = wrapText(ctx, String(r.badge).toUpperCase(), textMax - 12 * k);
+        const bw = Math.max(...bl.map((l) => ctx.measureText(l).width)) + 14 * k;
+        badge = { lines: bl, w: bw, h: bl.length * bs * 1.15 + 8 * k };
+        tw = Math.max(tw, bw);
+        rh = Math.max(arrow, lines.length * lineH + 6 * k + badge.h);
+      }
+      const row = { r, lines, y: h, h: rh, badge };
+      w = Math.max(w, arrow + pad * 3 + tw);
+      h += rh + pad;
+      return row;
+    });
+    return { w: Math.min(maxW, w), h, rows, k, fs, bs, lineH, pad, arrow, fits: w <= maxW + 0.5 };
+  }
+  /** Draw a laid-out sign with its top-left at (x, y). alpha fades it. */
+  function roadSign(ctx, x, y, sign, lay, alpha) {
+    const look = SIGN_LOOK[sign.style] || SIGN_LOOK.guide;
+    const k = lay.k;
+    ctx.save();
+    ctx.globalAlpha = alpha == null ? 1 : alpha;
+    ctx.fillStyle = INK;
+    ctx.fillRect(x + 6 * k, y + 6 * k, lay.w, lay.h);
+    rr(ctx, x, y, lay.w, lay.h, 8 * k);
+    fillStroke(ctx, look.bg, 4);
+    rr(ctx, x + 5 * k, y + 5 * k, lay.w - 10 * k, lay.h - 10 * k, 5 * k);
+    ctx.strokeStyle = look.rule;
+    ctx.lineWidth = 2 * k;
+    ctx.stroke();
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    lay.rows.forEach((row, i) => {
+      const ry = y + row.y;
+      if (i > 0) {
+        ctx.strokeStyle = look.rule;
+        ctx.globalAlpha = (alpha == null ? 1 : alpha) * 0.5;
+        ctx.lineWidth = 2 * k;
+        line(ctx, x + lay.pad, ry - lay.pad / 2, x + lay.w - lay.pad, ry - lay.pad / 2);
+        ctx.globalAlpha = alpha == null ? 1 : alpha;
+      }
+      signArrow(ctx, x + lay.pad + lay.arrow / 2, ry + lay.arrow / 2 - 2 * k, row.r.rel, lay.arrow, look.fg);
+      ctx.fillStyle = look.fg;
+      ctx.font = "700 " + lay.fs + "px Oswald, Impact, sans-serif";
+      const tx = x + lay.pad * 2 + lay.arrow;
+      const textH = row.lines.length * lay.lineH + (row.badge ? 6 * k + row.badge.h : 0);
+      let ty = ry + Math.max(0, (row.h - textH) / 2) + lay.lineH / 2;
+      row.lines.forEach((l) => {
+        ctx.fillText(l, tx, ty);
+        ty += lay.lineH;
+      });
+      if (row.badge) {
+        const [bg, fg] = BADGE[row.r.badgeKind] || BADGE.deadEnd;
+        const by = ty - lay.lineH / 2 + 6 * k;
+        rr(ctx, tx, by, row.badge.w, row.badge.h, 3 * k);
+        fillStroke(ctx, bg, 2.5);
+        ctx.fillStyle = fg;
+        ctx.font = "700 " + lay.bs + "px Oswald, Impact, sans-serif";
+        row.badge.lines.forEach((l, j) => ctx.fillText(l, tx + 7 * k, by + 4 * k + lay.bs * 1.15 * (j + 0.5)));
+      }
+    });
+    ctx.restore();
+  }
+  /** A paper strip under a sign with a line of help, at most w wide; draws at (x, y) and returns its height (measure only when draw is false). */
+  function signNote(ctx, x, y, w, text, k, alpha, draw) {
+    const fs = Math.round(17 * k);
+    const pad = 8 * k;
+    ctx.save();
+    ctx.font = "700 " + fs + "px Oswald, Impact, sans-serif";
+    const lines = wrapText(ctx, String(text), w - pad * 2); // sentence case: easier to read than the signs' capitals
+    const h = lines.length * fs * 1.2 + pad * 2;
+    if (draw !== false) {
+      ctx.globalAlpha = alpha == null ? 1 : alpha;
+      const bw = Math.min(w, Math.max(...lines.map((l) => ctx.measureText(l).width)) + pad * 2);
+      rr(ctx, x, y, bw, h, 4 * k);
+      fillStroke(ctx, "#f0c247", 3);
+      ctx.fillStyle = INK;
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      lines.forEach((l, i) => ctx.fillText(l, x + pad, y + pad + fs * 1.2 * (i + 0.5)));
+    }
+    ctx.restore();
+    return h;
+  }
+  /** A small board with a place's name, centered on (x, y). */
+  function nameBoard(ctx, x, y, text, k, hot) {
+    const fs = Math.round(15 * k);
+    ctx.save();
+    ctx.font = "700 " + fs + "px Oswald, Impact, sans-serif";
+    const w = ctx.measureText(text).width + 16 * k;
+    const h = fs + 10 * k;
+    rr(ctx, x - w / 2, y - h / 2, w, h, 3 * k);
+    fillStroke(ctx, hot ? "#f0c247" : "#f3eee0", 3);
+    ctx.fillStyle = INK;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(text, x, y + 1);
+    ctx.restore();
+  }
+  /** Full-screen card over a fade: a message and a smaller line under it, centered below `top`. a: 0..1 */
+  function card(ctx, W, H, msg, sub, a, k, top) {
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, a) * 0.94;
+    ctx.fillStyle = "#0b0c0e";
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = Math.max(0, Math.min(1, a * 1.6 - 0.3));
+    if (msg) {
+      const fs = Math.round(36 * k);
+      const ss = Math.round(24 * k);
+      const maxW = Math.min(W - 40, 760 * Math.max(1, k * 0.8));
+      ctx.font = "700 " + fs + "px Oswald, Impact, sans-serif";
+      const lines = wrapText(ctx, msg, maxW - 48 * k);
+      ctx.font = "600 " + ss + "px Inter, Segoe UI, sans-serif";
+      const sl = sub ? wrapText(ctx, sub, maxW - 48 * k) : [];
+      const w = Math.min(maxW, Math.max(...lines.map((l) => (ctx.font = "700 " + fs + "px Oswald, Impact, sans-serif", ctx.measureText(l).width)), ...sl.map((l) => (ctx.font = "600 " + ss + "px Inter, Segoe UI, sans-serif", ctx.measureText(l).width))) + 48 * k);
+      const h = lines.length * fs * 1.15 + (sl.length ? 16 * k + sl.length * ss * 1.3 : 0) + 40 * k;
+      const x = (W - w) / 2;
+      const y = Math.max((H - h) / 2, Math.min(H - h - 8, (top || 0) + (H - (top || 0) - h) / 2));
+      ctx.fillStyle = INK;
+      ctx.fillRect(x + 8 * k, y + 8 * k, w, h);
+      ctx.save();
+      ctx.translate(W / 2, y + h / 2);
+      ctx.rotate(-0.012);
+      ctx.translate(-W / 2, -y - h / 2);
+      rr(ctx, x, y, w, h, 4);
+      fillStroke(ctx, "#f0c247", 5);
+      ctx.fillStyle = INK;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.font = "700 " + fs + "px Oswald, Impact, sans-serif";
+      let ty = y + 20 * k + fs * 0.58;
+      lines.forEach((l) => {
+        ctx.fillText(l, W / 2, ty);
+        ty += fs * 1.15;
+      });
+      if (sl.length) {
+        ty += 16 * k - fs * 0.58 + ss * 0.65;
+        ctx.font = "600 " + ss + "px Inter, Segoe UI, sans-serif";
+        sl.forEach((l) => {
+          ctx.fillText(l, W / 2, ty);
+          ty += ss * 1.3;
+        });
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
+  ZSR.Draw = { road, prop, van, zombie, bullet, particle, burst, vignette, fog, night, rr, circle, star, fillStroke, INK, ROOF, ground, cityRoads, laneZone, laneArrow, lot, signArrow, layoutSign, roadSign, signNote, nameBoard, card, wrapText };
 })(typeof globalThis !== "undefined" ? globalThis : this);

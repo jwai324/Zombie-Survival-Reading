@@ -20,7 +20,7 @@
   <div id="hud" class="hidden">
     <div class="hud-top">
       <div class="hud-box hp-box" title="Van health"><span class="hud-label">VAN</span><div class="bar"><div id="hp-fill" class="bar-fill"></div></div><span id="hp-text" class="hud-value">100</span></div>
-      <div class="hud-box" title="Scrap"><span class="hud-label">SCRAP</span><span id="scrap-text" class="hud-value">0</span></div>
+      <div class="hud-box" id="hud-box-scrap" title="Scrap"><span class="hud-label">SCRAP</span><span id="scrap-text" class="hud-value">0</span></div>
       <div class="hud-box" id="hud-box-miles" title="Miles"><span class="hud-label">MILES</span><span id="miles-text" class="hud-value">0.0</span></div>
       <div class="hud-box" id="hud-box-downed" title="Walkers put down"><span class="hud-label">DOWNED</span><span id="kills-text" class="hud-value">0</span></div>
       <div class="hud-actions"><button id="btn-pause" class="hud-btn" title="Pause (P or Esc)" aria-label="Pause">II</button></div>
@@ -32,6 +32,7 @@
       <button class="touch-btn" id="touch-left">&#9664;</button>
       <button class="touch-btn" id="touch-right">&#9654;</button>
     </div>
+    <canvas id="minimap" aria-label="Minimap: where the van is, heading up"></canvas>
     <div id="banner" class="banner hidden"></div>
   </div>
 
@@ -43,13 +44,13 @@
       <div class="hud-box" id="int-box-scrap" title="Scrap"><span class="hud-label">SCRAP</span><span id="int-scrap" class="hud-value">0</span></div>
       <div class="hud-box" title="Cargo in the van"><span class="hud-label">CARGO</span><span id="int-cargo" class="hud-value">0</span></div>
       <div class="hud-box" id="int-box-walkers" title="Walkers near you"><span class="hud-label">WALKERS</span><span id="int-walkers" class="hud-value">0</span></div>
-      <div class="hud-box" id="int-box-gun" title="Your gun: 1 to 5, Q or the mouse wheel switches"><span class="hud-label">GUN</span><span id="int-gun" class="hud-value">1 Pistol</span></div>
       <div class="hud-actions">
         <button id="int-btn-backpack" class="hud-btn wide" title="Backpack (B)">B<span>ackpack</span></button>
+        <button id="int-btn-map" class="hud-btn wide hidden" title="Map (M)">M<span>ap</span></button>
         <button id="int-btn-pause" class="hud-btn" title="Pause (P or Esc)" aria-label="Pause">II</button>
       </div>
     </div>
-    <div class="hud-place"><span id="int-place" class="hud-box">Gas-N-Go</span><span id="int-phase" class="hud-box phase hidden">QUIET</span></div>
+    <div class="hud-place"><span id="int-place" class="hud-box">Gas-N-Go</span><span id="int-phase" class="hud-box phase hidden">QUIET</span><div class="hud-box" id="int-box-gun" title="Your gun: 1 to 5, Q or the mouse wheel switches"><span class="hud-label">GUN</span><span id="int-gun" class="hud-value">1 Pistol</span></div></div>
     <div class="hud-bottom">
       <div class="hud-box goal-box"><span id="int-goal">2 items on the floor · the storeroom: locked</span></div>
     </div>
@@ -234,6 +235,7 @@
 </div>
 <div id="tip" class="tip hidden" role="tooltip"></div>
 
+<script src="js/layouts.js"></script>
 <script src="js/world.js"></script>
 <script src="js/story.js"></script>
 <script src="js/story-home.js"></script>
@@ -267,8 +269,15 @@
 <script src="js/audio.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/sprites3d.js"></script>
+<script src="js/landmarks1.js"></script>
+<script src="js/landmarks2.js"></script>
+<script src="js/yardart.js"></script>
+<script src="js/decor.js"></script>
+<script src="js/streets.js"></script>
 <script src="js/game.js"></script>
 <script src="js/interior.js"></script>
+<script src="js/building.js"></script>
+<script src="js/yard.js"></script>
 <script src="js/map.js"></script>
 <script src="js/backpack.js"></script>
 <script src="js/base.js"></script>
