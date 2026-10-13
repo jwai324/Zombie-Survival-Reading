@@ -21,8 +21,34 @@
       "Traps in the yard: T sets a spike trap. R sets a blast trap. It goes in front of you, or just past the fence.",
       "Backpack: Your notes and your kits. Use a kit to heal to full.",
       "Workbench: Building is a typing round. Type what you see. Beat the timer. Out of time? Try again.",
-      "Map: Tap a place. Then Drive. At a place, you can go back in.",
+      "Map: Tap a place. Read the way there. Then Drive. At a place, you can go back in.",
     ],
+    road: {
+      to: "To {dest}",
+      here: "You are here",
+      home: "Home",
+      fog: "Fog",
+      night: "Night",
+      hungry: "Hungry",
+      deadEnd: "Dead end",
+      noThrough: "No way through",
+      closed: "Road closed",
+      lot: "Parking lot",
+      hint: "Read the sign. Pick a lane with A and D. The arrow keys and side buttons work too.",
+      wrongWay: "Wrong way! That road goes to {place}.",
+      wrongStreet: "Wrong way! That is {street}.",
+      wrongSide: "Wrong way! {street} is a dead end.",
+      wrongPlace: "That is {place}, not {dest}.",
+      wrongLot: "Wrong lot. This is not {dest}.",
+      missed: "You went past {dest}.",
+      restart: "Back to {origin}. Try again.",
+      routeHead: "The way there",
+      routeTake: "Take {street} to {place}.",
+      routeTakeStreet: "Take {street}.",
+      routeStraight: "Go straight on past side streets and lots.",
+      routeLeft: "{dest} is on the left. Get in the left lane.",
+      routeRight: "{dest} is on the right. Get in the right lane.",
+    },
     base: {
       intro: "Home base. The game saves here, and only here. Hold the fence when walkers come.",
       rooms: {
@@ -182,12 +208,12 @@
         blurb: "Fuel cans on a gas station floor.",
         door: {
           title: "Ruby's Warning",
-          text: "At least two walkers. One: back wall. One: by the pumps. More come each day.\n\nFuel: floor. Storeroom: right side, next to the door. Locked. Clerk's note: counter.\n\n—Ruby",
+          text: "At least three walkers. More come each day. One is in the garage, by the car lift.\n\nFuel: by the slushie machine. More in the garage, by the tire tower.\n\nStoreroom: locked. Clerk's note: front counter.\n\n—Ruby",
         },
         notes: {
           "gasngo-counter": {
             title: "Dev's Counter Note",
-            text: "The storeroom key hangs under the counter. You can open the storeroom now. More fuel is in there. Wire too.\n\nI go east to Ortiz Auto. It still stands. Rosa has seeds and soil. She is at Greenhouse Row. Go west, past the gas station.\n\n—Dev, the clerk",
+            text: "Key: on the hook under this counter. Now you can open the storeroom. It has more fuel and wire.\n\nTake the back hall. Go away from the ice machine. Last door before the garage.\n\nI head east to Ortiz Auto. It still stands. Rosa is west, at Greenhouse Row. She has seeds and soil.\n\n—Dev, the clerk",
           },
         },
       },
@@ -195,12 +221,12 @@
         blurb: "Small store, food on the floor.",
         door: {
           title: "Marker on the Glass",
-          text: "Front shelves: bare. Food: on the floor, far aisle. Walkers use the back loading door. At least two.\n\nCooler is cold and locked. Manager's note: counter, back wall.\n\n—Doc Lin",
+          text: "Shelves: bare. Food: on the floor, by the fish tank. More by the freezers, on the right.\n\nAt least three walkers. They use the loading door, back by the forklift.\n\nCooler: locked. Manager's note: office, back left.\n\n—Doc Lin",
         },
         notes: {
           "grocery-counter": {
             title: "Hana's Cooler Trick",
-            text: "I run this store. The cooler latch sticks. Lift it as you pull. Then it opens. Food is inside. One med kit too.\n\nNeed more meds? Mile 9 Pharmacy is west of here. Meds sit on its shelves. As of last week.\n\n—Hana, manager",
+            text: "I run this store. The cooler latch sticks. Lift it as you pull. Then it opens. Food is inside. One med kit too.\n\nLeave this office. Go toward the forklift. The cooler is the next door.\n\nNeed meds? Mile 9 Pharmacy is west of here. Its shelves had meds last week.\n\n—Hana, manager",
           },
         },
       },
@@ -208,25 +234,25 @@
         blurb: "Nails, tools, and lumber under one roof.",
         door: {
           title: "Nailed to the Door",
-          text: "At least three walkers. Two: mid aisles. One: front door. Nails up front. Tools mid aisle. Lumber: back.\n\nBack room is locked. Note by the paint shelves.\n\n—Mr. Reyes, owner",
+          text: "At least five walkers. Two are in the middle aisles.\n\nNails: by the toilet display. Tools: middle aisle. Lumber: in the back racks.\n\nBack room: locked. My note: by the paint mixer, back left.\n\n—Mr. Reyes, owner",
         },
         notes: {
           "hardware-paint": {
             title: "The Sticky Door",
-            text: "The back room door sticks. Lift the handle and push. Then it opens. A water filter is inside. A second tool kit and lumber too.\n\nRidge Lumber is on the east ridge. It has stacks of lumber. The Water Tower: west side. Its pump house has more filters.\n\n—Mr. Reyes",
+            text: "The back room door sticks. Lift the handle, then push. It opens. Inside: a water filter. A tool kit. Lumber too.\n\nTake the side door by the paint mixer. The back room is past the lumber racks.\n\nRidge Lumber is on the east ridge. It has stacks of lumber. The Water Tower is west. Its pump house has filters.\n\n—Mr. Reyes",
           },
         },
       },
       pharmacy: {
-        blurb: "Med kits, behind three walkers.",
+        blurb: "Med kits, behind five walkers.",
         door: {
           title: "Under the Tape",
-          text: "Med kits: low shelves, mid store. At least three walkers. Most are near the back.\n\nCabinet room is locked. My counter note has the code.\n\n—Mr. Okafor, pharmacist",
+          text: "At least five walkers. Most are in back.\n\nMed kits: by the giant toothbrush. One more where the aisles cross.\n\nCabinet room: locked. Code: behind the counter. Go in on the right, by the wheelchairs.\n\n—Mr. Okafor",
         },
         notes: {
           "pharmacy-counter": {
             title: "The Cabinet Code",
-            text: "The cabinet room code is 4471. Punch it in. The door opens. Two more med kits are inside. And a water filter.\n\nThe hospital is St. Anne Annex. It is in the north hills. It still has meds. A generator too. It is the worst place in town.\n\n—Mr. Okafor",
+            text: "Cabinet room code: 4471. Punch it in. It opens. Two more med kits are inside. And a water filter.\n\nIts door is behind this counter. Corner by the wheelchairs.\n\nSt. Anne Annex is the hospital. It is in the north hills. It still has meds. A generator too. It is the worst place in town.\n\n—Mr. Okafor",
           },
         },
       },
@@ -234,12 +260,12 @@
         blurb: "Engine parts up top, generator below.",
         door: {
           title: "Chalk on the Bay Door",
-          text: "Engine parts: two benches. Left wall, back right. At least three walkers. One by the crates, back left.\n\nPit hatch is locked. Mr. Ortiz's note: by the office.\n\n—Dev, Gas-N-Go",
+          text: "At least five walkers. One roams by the engine crane.\n\nEngine parts: on the benches. Back right, by the red tool chest. Left bay too.\n\nPit hatch: locked. Ortiz's note: office, behind the waiting room.\n\n—Dev, Gas-N-Go",
         },
         notes: {
           "autoshop-office": {
             title: "The Hatch Bolt",
-            text: "The hatch has one bolt. Twist it left. It comes out. Then the pit opens. The generator is down there. Spare parts too. And a fuel can.\n\nSignal Electronics is downtown. It still has wire. And radio parts. But the walker crowds are close. Be fast.\n\n—Mr. Ortiz",
+            text: "Twist the hatch bolt left. It comes out. Now the pit opens. The generator is down there. Spare parts too. And a fuel can.\n\nThe pit room is in the middle. Hatch: front side, toward the oil drums.\n\nSignal Electronics is downtown. It still has wire and radio parts. But the walker crowds are close.\n\n—Mr. Ortiz",
           },
         },
       },
@@ -247,12 +273,12 @@
         blurb: "Wire and radio parts near downtown crowds.",
         door: {
           title: "Cardboard in the Window",
-          text: "Wire spools are on the shelves. Middle rows. At least four walkers. One near the back counter.\n\nThe manager's office is locked. Manager's note: back counter.\n\n—Jo",
+          text: "Wire: between the long middle shelves. One spool on the TV wall side. One on the robot side.\n\nAt least six walkers. One by the robot, at the counter's right end.\n\nOffice: locked. Manager's note: back counter.\n\n—Jo",
         },
         notes: {
           "radioshack-counter": {
             title: "Priya's Office Key",
-            text: "The office key is under the register. Taped there. You can open my office now. Two boxes of radio parts are inside. And wire.\n\nGo north of downtown. The 4th Precinct police station is there. It has gun parts. Lincoln Middle School is there too. It has books.\n\n—Priya, manager",
+            text: "Key: taped under the register. Now you can open my office. Two boxes of radio parts are inside. More wire too.\n\nThe office door is in the back wall. It is just left of the robot.\n\nGo north of downtown. The 4th Precinct has gun parts. That is the police station. Lincoln Middle School has books.\n\n—Priya, manager",
           },
         },
       },
@@ -260,25 +286,25 @@
         blurb: "Seeds and soil at Rosa's greenhouses.",
         door: {
           title: "Paint on the Gate",
-          text: "Seed packets: front bench. Soil bags: stacked mid-room. At least three walkers. One in back.\n\nPotting shed is locked. My note: potting bench, back right.\n\n—Rosa, who ran the greenhouse",
+          text: "Soil: in my big greenhouse, by the scarecrow. Seeds: by the big gnome, in the shop by the gate.\n\nAt least five walkers. One in back of the big greenhouse.\n\nPotting shed: locked. My note: by the palm tree, back right.\n\n—Rosa",
         },
         notes: {
           "garden-bench": {
             title: "Rosa's Shed Key",
-            text: "The shed has a padlock. The key is in the watering can. Fish it out. Now you can open the shed. More seeds are in there. A water tank too.\n\nStation 12 is the fire station. It is north of here. Its equipment bay has tools. And water tanks.\n\n—Rosa",
+            text: "The shed has a padlock. The key is in the watering can. Fish it out. Now you can open the potting shed. More seeds are in there. A water tank too.\n\nWalk the path from the palm tree house. It goes down to the beehives. The shed door is on it.\n\nStation 12 is the fire station, north of here. Its equipment bay has tools and water tanks.\n\n—Rosa",
           },
         },
       },
       police: {
-        blurb: "Gun parts and armor, five walkers deep.",
+        blurb: "Gun parts and armor, eight walkers deep.",
         door: {
           title: "Notice Board",
-          text: "Gun parts: squad room. Armor plate: garage room, right side. At least five walkers. Big one: garage room.\n\nArmory is locked. My front desk note has the code.\n\n—Sergeant Vega",
+          text: "At least eight walkers. Gun parts: squad room, left of the long hall.\n\nGarage: on the right. A big walker is by the police bike. Armor plate: by the riot shields.\n\nArmory: locked. Code: my note, front desk.\n\n—Sergeant Vega",
         },
         notes: {
           "police-desk": {
             title: "The Armory Code",
-            text: "The armory lock is a dial. The code is 19-4-33. Spin it. The door opens. Gun parts are inside. An armor plate too.\n\nThe Public Library is north of downtown. It has books in its archive room. The librarian is still there.\n\n—Sergeant Vega",
+            text: "The armory lock is a dial. The code is 19-4-33. Spin it. The door opens. Inside: gun parts and an armor plate.\n\nGo to the back hall. Turn right, toward the police bike. The armory is at the end.\n\nThe Public Library is north of downtown. Its archive room has books. The librarian is still there.\n\n—Sergeant Vega",
           },
         },
       },
@@ -286,12 +312,12 @@
         blurb: "Classrooms of books, maps in the closet.",
         door: {
           title: "Max and Mia's Note",
-          text: "Books: back right classroom, bottom left room. At least four walkers. One in the hall.\n\nLibrary closet is locked. Key: in the teacher's note. Back left classroom.\n\n—Max and Mia",
+          text: "Books: music room, by the drum set. And the front office, behind the lion statue.\n\nAt least six walkers. One in the main hall.\n\nLibrary closet: locked. Key: teacher's note, by the big brain.\n\n—Max and Mia",
         },
         notes: {
           "school-classroom": {
             title: "Ms. Adler's Desk Drawer",
-            text: "The closet key is in my desk. Top drawer. Now you can open the library closet. Books are inside. And a folder of city maps.\n\nNorthgate Mall is north of here. It has food, meds, and wire. But the crowds there are the worst. Worst in town.\n\n—Ms. Adler, teacher",
+            text: "Key: my top desk drawer. Now you can open the library closet. It has books and a folder of city maps.\n\nThe library is by the drum set room. Its closet: back right corner.\n\nNorthgate Mall is to the north. It has food, meds, and wire. But its crowds are the worst in town.\n\n—Ms. Adler, teacher",
           },
         },
       },
@@ -299,12 +325,12 @@
         blurb: "Tools and water tanks at Station 12.",
         door: {
           title: "Chief Dunn's Bay Door",
-          text: "Tool kit: back office. Door behind the desk. Water tank: truck bay, right side. At least four walkers. One: truck bay.\n\nEquipment bay: locked. My note: front desk.\n\n—Chief Dunn",
+          text: "Tool kit: office, behind the watch desk. Water tank: truck bay, right wall, past the gear racks.\n\nAt least six walkers. Two are in the truck bay.\n\nEquipment bay: locked. My note: watch desk, by the spotted dog.\n\n—Chief Dunn",
         },
         notes: {
           "firehouse-desk": {
             title: "The Red Key",
-            text: "The red key is on the board. It opens the equipment bay. Go open it now. A water tank is in there. Lumber too. And tools.\n\nThe Water Tower: west side. Filters are in its pump house. Get some.\n\n—Chief Dunn",
+            text: "The red key is on the board. It opens the equipment bay. Go open it now. A water tank is in there. Lumber and tools too.\n\nGo to the back of the truck bay. The equipment bay is right of the fire truck.\n\nThe Water Tower is on the west side. Its pump house has filters.\n\n—Chief Dunn",
           },
         },
       },
@@ -312,12 +338,12 @@
         blurb: "Meds and a generator, worst in town.",
         door: {
           title: "On the Ambulance Doors",
-          text: "Med kits: top hall rooms, bottom left. Generator: bottom right room. At least six walkers. They wait in dark rooms.\n\nStock room: locked. Nurse's note: top hall.\n\n—Doc Lin",
+          text: "Med kits: room next to the x-ray machine. And by the giant teddy bear. Generator: utility room, on the right.\n\nAt least nine walkers. They wait in dark rooms.\n\nStock room: locked. Nurse's note: nurses' station, in the middle.\n\n—Doc Lin",
         },
         notes: {
           "hospital-hall": {
             title: "Nurse Ada's Badge",
-            text: "I am still here. The stock room needs a badge. Look in the drawer under this station. Swipe it and the door opens. Three med kits are in there.\n\nStay quiet. The walkers here follow sound. Not light. Do not shout.\n\n—Nurse Ada",
+            text: "I am still here. The stock room needs a badge. Badge: in the drawer under this station. Swipe it. The door opens. Three med kits are inside.\n\nThe stock room door is across the hall. It is on the angel statue side.\n\nStay quiet. They follow sound more than light. Do not shout.\n\n—Nurse Ada",
           },
         },
       },
@@ -325,12 +351,12 @@
         blurb: "Water filters, out on the west side.",
         door: {
           title: "On the Fence Gate",
-          text: "Water filters: floor, by the crates. At least four walkers. In the pump building.\n\nPump house is locked. My note is on the panel inside.\n\n—Theo, I tend the pumps",
+          text: "Filters: by the crates near the big red wheel. And in the boat shop, by the rowboat.\n\nAt least six walkers, in the pump building.\n\nPump house: locked. My note: control panel, back right room.\n\n—Theo, I tend the pumps",
         },
         notes: {
           "watertower-panel": {
             title: "Theo's Panel Note",
-            text: "Pump house key: in the breaker box. Grab it. Now you can open the pump house. Filters are in there. A water tank too. And wire.\n\nSt. Anne Annex is the hospital. Go north on the river road. It still has meds. It is the worst place in town.\n\n—Theo",
+            text: "Key: in the breaker box. Now you can open the pump house. It has filters, a water tank, and wire.\n\nIt is at the back of the pump hall. It is right of the big red wheel.\n\nSt. Anne Annex, the hospital, is north. Take the river road. It still has meds. It is the worst place in town.\n\n—Theo",
           },
         },
       },
@@ -338,12 +364,12 @@
         blurb: "Lumber stacks, a dock full of walkers.",
         door: {
           title: "Spray Paint on the Gate",
-          text: "Lumber is in the racks. Middle and back. At least five walkers. They gather by the loading dock.\n\nKiln shed is locked. Yard boss's note: on the paint rack.\n\n—Ruby",
+          text: "Lumber: long racks in the middle. More out back, by the log pile.\n\nAt least eight walkers. They wait by the loading dock and the flatbed truck.\n\nKiln shed: locked. Boss's note: clipboard by the band saw.\n\n—Ruby",
         },
         notes: {
           "lumberyard-rack": {
             title: "Carla's Kiln Code",
-            text: "I run this yard. The kiln shed has a padlock. The code is 2218. Punch it in. The shed opens. Dry lumber is in there. Nails too.\n\nDo not run the saws. The noise brings the dock crowd. All of them.\n\n—Carla, yard boss",
+            text: "I run this yard. The kiln shed has a padlock. The code is 2218. Punch it in. The shed opens. Dry lumber is in there. Nails too.\n\nIts door: back wall of the rack hall. Right of the band saw shop.\n\nDo not run the saws. The noise brings the dock crowd. All of them.\n\n—Carla, yard boss",
           },
         },
       },
@@ -351,12 +377,12 @@
         blurb: "Food, meds, wire, and the biggest crowd.",
         door: {
           title: "Jo's Mall Warning",
-          text: "Food, meds, wire: all over the floor. At least six walkers. They move as one group.\n\nSecurity office is locked. Guard's note is by the paint display.\n\n—Jo",
+          text: "Food: food court, in back. Meds: pharmacy, on the left. Wire: gadget store, by the orange tent.\n\nAt least nine walkers. They walk the main hall as a group.\n\nOffice: locked. Guard's note: by the green dino.\n\n—Jo",
         },
         notes: {
           "mall-guard": {
             title: "The Guard's Code",
-            text: "I guard this mall. The office code is 0912. Punch it in. It opens. Gun parts are inside. Radio parts too. And a tool kit.\n\nRun, and the walkers here come running. Walk, and most of them stay put.\n\n—Luis, mall security",
+            text: "I guard this mall. The office code is 0912. Punch it in. It opens. Inside: gun parts, radio parts, a tool kit.\n\nGo to the back of the food court. Take the kitchen door. Turn right. The office is behind the green dino.\n\nRun, and the walkers here come running. Walk, and most of them stay put.\n\n—Luis, mall security",
           },
         },
       },
@@ -364,12 +390,12 @@
         blurb: "Books both sides, maps in the archive.",
         door: {
           title: "On the Book Drop",
-          text: "Book boxes are in the reading rooms. Both sides. At least five walkers. Two in the main hall.\n\nArchive room: locked. My note: back left reading room.\n\n—Mrs. Greer, librarian",
+          text: "Books: stacks on both sides of the main hall. And the kids' room, by the toy castle.\n\nAt least eight walkers. Two in the main hall.\n\nArchive: locked. My note: by the giant globe, back left.\n\n—Mrs. Greer, librarian",
         },
         notes: {
           "library-desk": {
             title: "The Dictionary Key",
-            text: "The archive key is in a book. The big dictionary on this desk. Open it. Now the archive room opens. Books are in there. And a folder of city maps.\n\nReading keeps this building safe. The walls are stacked with books. The ones no one wanted.\n\n—Mrs. Greer",
+            text: "Key: in the big dictionary on this desk. Now the archive room opens. It has books and a folder of city maps.\n\nThe archive door is at the back of the main hall. The giant globe is to its left. The tall clock is to its right.\n\nReading saved this place. The walls are stacks of books no one wanted.\n\n—Mrs. Greer",
           },
         },
       },
