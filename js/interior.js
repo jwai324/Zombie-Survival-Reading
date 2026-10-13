@@ -7,6 +7,9 @@
    the core calls the active mode's hooks by name: buildingUpdate / yardUpdate, and
    likewise Facing, Interact, Hint, Goal, Key and Leave.
    Free slots for other modules: modeKey(k, paused) and drawOverlay(ctx, W, H).
+   Fields a mode may set: fenceTex = { whole, cracked } (its own fence drawings, canvases or texture
+   names; null draws the plain pickets) and holdFrame (true while a still overlay covers the paused
+   scene: the frame drawn when it was set stays on the canvas until it is cleared or the view resizes).
    Everything reads and writes the trip through ZSR.State. */
 (function (root) {
   "use strict";
@@ -104,6 +107,7 @@
       this.lowSide = new Uint8Array(cols * MAX_LOW);
       this.lowIdx = new Int32Array(cols * MAX_LOW);
       this.lowDef = new Array(cols * MAX_LOW);
+      this.lowNext = new Int8Array(cols); // drawScene: the farthest low run of each column not drawn yet
       this.hitStore = Array.from({ length: cols * MAX_HITS }, () => ({}));
       this.edges = [];
       // floor and ceiling: a small image, cast per pixel each frame
@@ -117,6 +121,7 @@
       this.planeBuf = new Uint32Array(this.planeImg.data.buffer);
       this.covLo = new Int16Array(this.planeW); // low-res rows hidden behind a full-height wall, per low-res column
       this.covHi = new Int16Array(this.planeW);
+      this.frameHeld = false; // a new canvas is blank: a held frame must be drawn again
     },
 
     /* ---------- Input ---------- */
@@ -249,6 +254,9 @@
       this.charMaxH = 1;
       for (const row of this.grid) for (const ch of row) if (HEIGHT[ch] > this.charMaxH) this.charMaxH = HEIGHT[ch];
       this.texMemo = new Map();
+      this.dimMemo = new Map(); // darker copies of this scene's own pictures (props, low tiles): see dimOwn
+      this.fenceTex = null;
+      this.holdFrame = false;
       this.sc = null;
       this.maskDirty = true;
       if (this.planeBuf) this.planeBuf.fill(0);
@@ -258,7 +266,15 @@
     refreshScene() {
       this.sc = null;
       this.texMemo.clear();
+      this.dimMemo.clear();
       this.maskDirty = true;
+    },
+    /** Let go of what only this scene drew with (the darker copies of its props and low tiles, its texture
+        and scene lookups), so memory does not pile up from building to building. Rebuilt if it draws again. */
+    dropSceneCaches() {
+      if (this.dimMemo) this.dimMemo.clear();
+      if (this.texMemo) this.texMemo.clear();
+      this.sc = null;
     },
     /** Paint one tile's floor (a Draw3 floor kind name). */
     setFloor(x, y, kind) {
@@ -326,6 +342,8 @@
       cancelAnimationFrame(this.raf);
       this.hud.root.classList.add("hidden");
       this.releasing = true;
+      this.holdFrame = false;
+      this.dropSceneCaches();
       if (document.pointerLockElement === this.canvas && document.exitPointerLock) document.exitPointerLock();
     },
     leave() {
@@ -503,6 +521,14 @@
       const dt = Math.min(0.05, gap / 1000);
       this.last = ts;
       if (!this.paused) this.update(dt);
+      if (!this.running) return; // died this frame: the scene is over (and its caches are gone)
+      // a still overlay over the paused scene (the building map): draw it once, then leave the canvas be
+      if (this.paused && this.holdFrame) {
+        if (!this.frameHeld) this.render();
+        this.frameHeld = true;
+        return;
+      }
+      this.frameHeld = false;
       const t0 = performance.now();
       this.render();
       this.adaptQuality(performance.now() - t0, gap);
@@ -1338,7 +1364,7 @@
         const scale = Math.max(0.05, Math.min(pr.scale || 1, ceil - lift));
         // a tile of floor is STRETCH times narrower on screen than a wall is tall, so `span` is measured in those
         const wide = pr.span ? pr.span / (scale * STRETCH) : pr.wide || img.width / img.height;
-        sprites.push({ x: pr.x, y: pr.y, img, scale, lift, wide, dim: pr.dim || 0 });
+        sprites.push({ x: pr.x, y: pr.y, img, scale, lift, wide, dim: pr.dim || 0, own: true });
       });
       const invDet = 1 / (planeX * dirY - dirX * planeY);
       const list = [];
@@ -1357,26 +1383,36 @@
         s.c1 = Math.min(cols - 1, Math.ceil((s.left + s.sw) / COL));
         if (s.c0 > s.c1) return;
         // sprites darken with distance too, a little less than walls so walkers stay readable
+        // (a prop's darker copies belong to this scene; walkers, items and notes are shared by every scene)
         const lvl = Math.round(Math.min(sc.fogMax, s.ty * sc.fogK) * 7.5);
-        s.im = lvl > 0 ? D.dim(s.img, lvl) : s.img;
+        s.im = lvl > 0 ? (s.own ? this.dimOwn(s.img, lvl) : D.dim(s.img, lvl)) : s.img;
         list.push(s);
       });
       list.sort((a, b) => b.ty - a.ty);
+      // Painter's order, far to near, per column. Every draw stays inside its own 2-px column, so the order
+      // only matters within a column: each sprite (far to near) first draws, in each of its columns, the
+      // low runs behind it that are not drawn yet, then itself (see drawSprite); the low runs left over
+      // (nearer than every sprite in their column) go last. Within any one column that is the same order
+      // as walking the column through: the runs behind a sprite, the sprite, the runs behind the next one.
       const n = list.length;
       const lowN = this.lowN;
       const lowD1 = this.lowD1;
-      for (let col = 0; col < cols; col++) {
-        let li = lowN[col] - 1;
-        if (li < 0 && !n) continue;
-        const lb = col * MAX_LOW;
-        for (let k = 0; k < n; k++) {
-          const s = list[k];
-          if (col < s.c0 || col > s.c1) continue;
-          while (li >= 0 && lowD1[lb + li] > s.ty) this.drawLow(ctx, col, li--, sc);
-          this.drawSpriteCol(ctx, s, col);
+      const next = this.lowNext;
+      for (let col = 0; col < cols; col++) next[col] = lowN[col] - 1;
+      for (let k = 0; k < n; k++) {
+        const s = list[k];
+        for (let col = s.c0; col <= s.c1; col++) {
+          let li = next[col];
+          if (li < 0) continue;
+          const lb = col * MAX_LOW;
+          if (!(lowD1[lb + li] > s.ty)) continue;
+          do this.drawLow(ctx, col, li--, sc);
+          while (li >= 0 && lowD1[lb + li] > s.ty);
+          next[col] = li;
         }
-        while (li >= 0) this.drawLow(ctx, col, li--, sc);
+        this.drawSprite(ctx, s);
       }
+      for (let col = 0; col < cols; col++) for (let li = next[col]; li >= 0; li--) this.drawLow(ctx, col, li, sc);
       // health bars over the walkers you can see
       list.forEach((s) => {
         if (s.hp == null || s.hp >= 1) return;
