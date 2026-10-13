@@ -1,5 +1,6 @@
-/* The city map: a hand-drawn board of streets and known locations.
-   Pick a destination, see the route, drive. */
+/* The city map: a hand-drawn board of streets, side streets and known locations, with
+   street names. Pick a destination, see the route, drive (the road itself shows no route:
+   plan it here, then read the signs). Names and side streets come from js/streets.js. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -64,8 +65,9 @@
       });
       return adj;
     },
-    /** Shortest road route (Dijkstra). Returns { path: [ids], dist }. */
+    /** Shortest road route (Dijkstra). Returns { path: [ids], dist }. The road drives this same path. */
     route(from, to) {
+      if (ZSR.Streets) return ZSR.Streets.route(from, to);
       const dist = {};
       const prev = {};
       const done = new Set();
@@ -186,8 +188,20 @@
         info.appendChild(go);
       } else if (this.at === id) info.appendChild(el("p", "small muted", "You are here."));
       else if (r) {
-        const secs = Math.round(Math.min(W().SETTINGS.tripMaxSeconds, Math.max(W().SETTINGS.tripMinSeconds, r.dist * W().SETTINGS.tripSecondsPerUnit)));
+        // long routes are never squeezed below the road's minimum scale (lanes need time to read), so they can run past tripMaxSeconds
+        const secs0 = Math.min(W().SETTINGS.tripMaxSeconds, Math.max(W().SETTINGS.tripMinSeconds, r.dist * W().SETTINGS.tripSecondsPerUnit));
+        const secs = Math.round(ZSR.Streets ? Math.max(secs0, (r.dist * ZSR.Streets.GEOM.minScale) / ZSR.Streets.GEOM.baseSpeed) : secs0);
         info.appendChild(el("p", "small muted", "Drive: about " + secs + " seconds by road" + (loc.id === "base" ? ". Cargo is unloaded and the day ends." : ".")));
+        // the way in words: the road shows no route, so the player reads this here, then the signs out there
+        if (ZSR.Streets) {
+          const St = ZSR.Streets;
+          const name = (pid) => W().LOCATIONS.find((l) => l.id === pid).name;
+          info.appendChild(el("h4", "route-head", esc(St.text("routeHead"))));
+          const ol = el("ol", "route-steps");
+          const steps = St.directions(r.path, (pid) => S.isKnown(pid), name);
+          steps.forEach((line, i) => ol.appendChild(el("li", i === steps.length - 1 ? "last" : null, esc(line))));
+          info.appendChild(ol);
+        }
         const go = el("button", "btn big go", loc.id === "base" ? "Drive home" : "Drive there");
         go.addEventListener("click", () => this.hooks.onDrive && this.hooks.onDrive(id));
         info.appendChild(go);
@@ -271,6 +285,45 @@
           ctx.setLineDash([]);
         }
       });
+      // side streets: short stubs that go nowhere, drawn like the roads they leave. The roads of the
+      // picked route are drawn and named whether the player knows their places or not (the signs name them).
+      const St = ZSR.Streets;
+      const route = this.selected && this.selected !== this.at ? this.route(this.at, this.selected) : null;
+      const onRoute = new Set();
+      if (route && St) for (let i = 0; i < route.path.length - 1; i++) onRoute.add(St.roadKey(route.path[i], route.path[i + 1]));
+      const known = (a, b) => (S.isKnown(a) && S.isKnown(b)) || onRoute.has(a + "|" + b);
+      if (St) {
+        St.SIDE_STREETS.forEach((ss) => {
+          const [a, b] = ss.road.split("|");
+          const st = St.sideStub(ss);
+          const kn = known(a, b);
+          ctx.strokeStyle = kn ? "#5d636b" : "rgba(75,80,87,0.16)";
+          ctx.lineWidth = kn ? 6 : 4;
+          ctx.lineCap = "butt";
+          ctx.beginPath();
+          ctx.moveTo(st.x0, st.y0);
+          ctx.lineTo(st.x1, st.y1);
+          ctx.stroke();
+          if (!kn) return;
+          // the end: a bar for a dead end or a gate, a red cross for a closed road
+          const ux = (st.x1 - st.x0) / St.GEOM.sideLen;
+          const uy = (st.y1 - st.y0) / St.GEOM.sideLen;
+          ctx.strokeStyle = ss.kind === "closed" ? "#b3261e" : INK;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          if (ss.kind === "closed") {
+            ctx.moveTo(st.x1 - 5, st.y1 - 5);
+            ctx.lineTo(st.x1 + 5, st.y1 + 5);
+            ctx.moveTo(st.x1 + 5, st.y1 - 5);
+            ctx.lineTo(st.x1 - 5, st.y1 + 5);
+          } else {
+            ctx.moveTo(st.x1 - uy * 7, st.y1 + ux * 7);
+            ctx.lineTo(st.x1 + uy * 7, st.y1 - ux * 7);
+          }
+          ctx.stroke();
+        });
+        ctx.lineCap = "round";
+      }
       // route highlight
       if (this.selected && this.selected !== this.at) {
         const r = this.route(this.at, this.selected);
@@ -284,6 +337,132 @@
           ctx.stroke();
           ctx.setLineDash([]);
         }
+      }
+      // street names along the known roads and side streets, upright, on a paper halo,
+      // each where it overlaps the fewest place icons, place names and other street names
+      if (St) {
+        const boxes = [];
+        ctx.font = "700 15px Oswald, Impact, sans-serif";
+        W().LOCATIONS.forEach((l) => {
+          if (!S.isKnown(l.id)) return;
+          const nw = ctx.measureText(l.name.toUpperCase()).width / 2 + 4;
+          boxes.push([l.x - 28, l.y - 28, l.x + 28, l.y + 24], [l.x - nw, l.y + 28, l.x + nw, l.y + 48]);
+        });
+        const vanAt = pos[this.at];
+        boxes.push([vanAt.x + 8, vanAt.y - 50, vanAt.x + 52, vanAt.y - 2]); // the van on the map
+        const placed = [];
+        const pts = (x, y, ang, w) => {
+          const out = [];
+          for (let i = 0; i <= 6; i++) out.push([x + Math.cos(ang) * (-w / 2 + (w * i) / 6), y + Math.sin(ang) * (-w / 2 + (w * i) / 6)]);
+          return out;
+        };
+        const stubs = [];
+        const segD = (x, y, s0) => {
+          const dx = s0.x1 - s0.x0;
+          const dy = s0.y1 - s0.y0;
+          const t = Math.max(0, Math.min(1, ((x - s0.x0) * dx + (y - s0.y0) * dy) / (dx * dx + dy * dy)));
+          return Math.hypot(x - s0.x0 - dx * t, y - s0.y0 - dy * t);
+        };
+        const cost = (ps, r, own) => {
+          let c = 0;
+          ps.forEach(([x, y]) => {
+            boxes.forEach(([x0, y0, x1, y1]) => {
+              if (x > x0 - r && x < x1 + r && y > y0 - r && y < y1 + r) c += 1;
+            });
+            stubs.forEach((st) => {
+              if (st !== own && segD(x, y, st) < r + 3) c += 1;
+            });
+            placed.forEach(([px, py]) => {
+              if (Math.hypot(px - x, py - y) < r * 2 + 2) c += 1;
+            });
+          });
+          return c;
+        };
+        // label sizes follow the text size setting and how big the board is on screen (about 12 CSS px at normal)
+        const kSize = { large: 1.3, huge: 2 }[document.documentElement.getAttribute("data-size")] || 1;
+        const shown = this.canvas.getBoundingClientRect().width / 1000 || 0.8;
+        const roadFs = Math.round(Math.max(13, Math.min(26, (12 * kSize) / shown)));
+        const sideFs = Math.round(Math.max(12, Math.min(24, (11 * kSize) / shown)));
+        const label = (text, cands, size, own, must) => {
+          ctx.font = "700 " + size + "px Oswald, Impact, sans-serif";
+          const w = ctx.measureText(text).width;
+          let best = null;
+          cands.forEach((c, i) => {
+            const k = cost(pts(c.x, c.y, c.ang, w), size * 0.45, own) + i * 0.01;
+            if (!best || k < best.k) best = { k, c };
+          });
+          if (!best || (best.k >= 3 && !must)) return false; // nowhere clear: leave it to the minimap and the signs (never for the route)
+          let { x, y, ang } = best.c;
+          placed.push(...pts(x, y, ang, w));
+          if (ang > Math.PI / 2) ang -= Math.PI;
+          if (ang < -Math.PI / 2) ang += Math.PI;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(ang);
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.lineJoin = "round";
+          ctx.lineWidth = 4;
+          ctx.strokeStyle = "rgba(230,223,204,0.95)";
+          ctx.strokeText(text, 0, 0);
+          ctx.fillStyle = "#3a3d42";
+          ctx.fillText(text, 0, 0);
+          ctx.restore();
+          return true;
+        };
+        St.SIDE_STREETS.forEach((ss) => {
+          const [a, b] = ss.road.split("|");
+          if (!known(a, b)) return;
+          stubs.push(Object.assign(St.sideStub(ss), { ss }));
+        });
+        // the route's names first (always drawn), then the rest where they fit
+        const roads = W().ROADS.filter(([a, b]) => known(a, b));
+        const sides = stubs;
+        const roadLabel = ([a, b]) => {
+          const ang = Math.atan2(pos[b].y - pos[a].y, pos[b].x - pos[a].x);
+          // where it fits along the road, a size smaller if it fits nowhere
+          for (const size of [roadFs, roadFs - 2, roadFs - 4]) {
+            const off0 = size * 0.6 + 6;
+            const cands = [];
+            [0.5, 0.44, 0.56, 0.38, 0.62, 0.32, 0.68, 0.26, 0.74, 0.2, 0.8].forEach((t) =>
+              [off0, -off0, off0 + 6, -off0 - 6].forEach((off) => {
+                const mx = pos[a].x + (pos[b].x - pos[a].x) * t;
+                const my = pos[a].y + (pos[b].y - pos[a].y) * t;
+                cands.push({ x: mx - Math.sin(ang) * off, y: my + Math.cos(ang) * off, ang });
+              })
+            );
+            if (label(St.STREET_NAMES[a + "|" + b], cands, size, null, onRoute.has(a + "|" + b) && size === roadFs - 4)) return;
+          }
+        };
+        const sideLabel = (st) => {
+          const ss = st.ss;
+          const ang = Math.atan2(st.y1 - st.y0, st.x1 - st.x0);
+          const len = Math.hypot(st.x1 - st.x0, st.y1 - st.y0);
+          const ux = (st.x1 - st.x0) / len;
+          const uy = (st.y1 - st.y0) / len;
+          const [a, b] = ss.road.split("|");
+          const rx = pos[b].x - pos[a].x;
+          const ry = pos[b].y - pos[a].y;
+          const rl = Math.hypot(rx, ry);
+          const rang = Math.atan2(ry, rx);
+          for (const size of [sideFs, sideFs - 2, sideFs - 3]) {
+            ctx.font = "700 " + size + "px Oswald, Impact, sans-serif";
+            const w = ctx.measureText(ss.name).width;
+            const off = size * 0.55 + 4;
+            // beside the stub, then running on past its end, then along the road it leaves on that side
+            const cands = [off, -off].map((o) => ({ x: (st.x0 + st.x1) / 2 - uy * o, y: (st.y0 + st.y1) / 2 + ux * o, ang }));
+            cands.push({ x: st.x1 + ux * (w / 2 + 6), y: st.y1 + uy * (w / 2 + 6), ang });
+            [1, -1].forEach((dir) => {
+              const along = dir * (w / 2 + 8);
+              cands.push({ x: st.x0 + (rx / rl) * along + ux * (off + 4), y: st.y0 + (ry / rl) * along + uy * (off + 4), ang: rang });
+            });
+            if (label(ss.name, cands, size, st, onRoute.has(ss.road) && size === sideFs - 3)) return;
+          }
+        };
+        roads.filter(([a, b]) => onRoute.has(a + "|" + b)).forEach(roadLabel);
+        sides.filter((st) => onRoute.has(st.ss.road)).forEach(sideLabel);
+        roads.filter(([a, b]) => !onRoute.has(a + "|" + b)).forEach(roadLabel);
+        sides.filter((st) => !onRoute.has(st.ss.road)).forEach(sideLabel);
       }
       // locations
       const fx = S.effects();

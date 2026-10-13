@@ -65,6 +65,13 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); f
 @keyframes bannerPop { from { transform: translate(-50%,-50%) rotate(-3deg) scale(0); } to { transform: translate(-50%,-50%) rotate(-3deg) scale(1); } }
 .hint { position: absolute; left: 50%; bottom: 4.5rem; transform: translateX(-50%); font-family: var(--font-head); font-size: 1.2rem; letter-spacing: .05em; text-transform: uppercase; color: var(--paper-3); text-shadow: 0 0 .25rem var(--ink), .125rem .125rem 0 var(--ink); pointer-events: none; text-align: center; }
 .toast { position: absolute; left: 50%; top: 22%; transform: translateX(-50%); background: var(--paper); border: var(--border); box-shadow: var(--shadow); padding: .5rem 1rem; font-weight: 700; font-size: 1.05rem; max-width: min(90vw, 36rem); text-align: center; pointer-events: none; animation: pop .3s cubic-bezier(.2,1.6,.4,1); }
+/* Road: the minimap hangs top left under the HUD row (js/game.js sets --mini-top), off our lanes; heading up, never the route */
+#minimap { position: absolute; top: var(--mini-top, 3.6rem); left: .6rem; transform: rotate(-.4deg); width: min(15rem, 30vw); height: min(10.6rem, 25vh); background: var(--paper); border: min(.22rem, 5px) solid var(--ink); box-shadow: min(.25rem, 6px) min(.25rem, 6px) 0 var(--ink); pointer-events: none; }
+/* Map: written directions for the picked route */
+.route-head { font-family: var(--font-head); font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; margin: .7rem 0 0; }
+.route-steps { margin: .3rem 0 .6rem; padding-left: 1.5rem; }
+.route-steps li { margin: .25rem 0; line-height: 1.4; }
+.route-steps li.last { font-weight: 700; }
 
 /* Screens and panels */
 .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: .75rem; overflow: auto; background: var(--bg); background-image: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.07), transparent 60%), repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 2px, transparent 2px 14px); z-index: 5; }
@@ -241,6 +248,8 @@ button[data-tip] { cursor: pointer; }
 :root[data-size="huge"] .map-layout { grid-template-columns: minmax(0, 1fr); }
 :root[data-size="huge"] .map-board { display: none; }
 :root[data-size="huge"] .road-box { min-width: 0; }
+:root[data-size="huge"] #minimap { top: auto; bottom: .15rem; left: .15rem; transform: none; width: min(3.3rem, 28vw); height: min(2.4rem, 34vh); }
+:root[data-size="huge"] #hud .hud-bottom { display: none; } /* only a bar at this size; the signs need the room */
 :root[data-size="huge"] .tip { display: none !important; }
 :root[data-size="huge"] .slot { grid-template-columns: 1fr; }
 :root[data-size="huge"] .slot .sum { display: none; }

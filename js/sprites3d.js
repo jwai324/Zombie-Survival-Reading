@@ -45,6 +45,159 @@
     ctx.fillStyle = color || INK;
     ctx.fillText(text, x, y);
   }
+  function mix(a, b, t) {
+    const x = parseInt(a.slice(1), 16);
+    const y = parseInt(b.slice(1), 16);
+    const ch = (s) => Math.round(((x >> s) & 255) * (1 - t) + ((y >> s) & 255) * t);
+    return "#" + ((ch(16) << 16) | (ch(8) << 8) | ch(0)).toString(16).padStart(6, "0");
+  }
+  /** Seeded random, so procedural textures look the same every time. */
+  function rng(seed) {
+    let s = seed >>> 0 || 1;
+    return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296;
+  }
+
+  /* ---------- Wall styles (palette.wallStyle): the face of every plain wall tile ---------- */
+  const WALL_STYLES = {
+    /* Painted drywall with a faint panel line and a baseboard (the original look). */
+    drywall(ctx, w, h, c) {
+      ctx.fillStyle = c;
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = "rgba(0,0,0,0.25)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(6, 6, w - 12, h - 12);
+      ctx.fillStyle = "rgba(0,0,0,0.12)";
+      ctx.fillRect(0, h - 10, w, 10);
+      halftone(ctx, w, h, 0.08);
+    },
+    /* Cinder blocks in offset courses. */
+    block(ctx, w, h, c) {
+      const r = rng(7);
+      ctx.fillStyle = shade(c, -34);
+      ctx.fillRect(0, 0, w, h);
+      for (let row = 0; row < 4; row++) {
+        for (let x = row % 2 ? -16 : 0; x < w; x += 32) {
+          ctx.fillStyle = shade(c, Math.round(r() * 16 - 8));
+          ctx.fillRect(x + 1.5, row * 16 + 1.5, 29, 13);
+          ctx.fillStyle = "rgba(255,255,255,0.12)";
+          ctx.fillRect(x + 1.5, row * 16 + 1.5, 29, 2);
+        }
+      }
+      halftone(ctx, w, h, 0.08);
+    },
+    /* Red brick, mortar in the wall color. */
+    brick(ctx, w, h, c) {
+      const r = rng(11);
+      const b = mix(c, "#8e4a34", 0.6);
+      ctx.fillStyle = mix(c, "#cfc6b2", 0.45);
+      ctx.fillRect(0, 0, w, h);
+      for (let row = 0; row < 8; row++) {
+        for (let x = row % 2 ? -8 : 0; x < w; x += 16) {
+          ctx.fillStyle = shade(b, Math.round(r() * 26 - 13));
+          ctx.fillRect(x + 1, row * 8 + 1, 14, 6);
+        }
+      }
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.fillRect(0, h - 8, w, 8);
+      halftone(ctx, w, h, 0.09);
+    },
+    /* Glazed square tiles with light grout and a dark band at hip height. */
+    tile(ctx, w, h, c) {
+      const t = shade(c, 34);
+      ctx.fillStyle = shade(c, -8);
+      ctx.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 16) for (let x = 0; x < w; x += 16) {
+        ctx.fillStyle = y === 32 ? shade(c, -30) : t;
+        ctx.fillRect(x + 1, y + 1, 14, 14);
+        ctx.fillStyle = "rgba(255,255,255,0.35)";
+        ctx.fillRect(x + 2, y + 2, 5, 2);
+      }
+      halftone(ctx, w, h, 0.05);
+    },
+    /* Corrugated sheet metal with a seam, rivets and a rust streak. */
+    metal(ctx, w, h, c) {
+      const m = mix(c, "#8f969c", 0.5);
+      for (let x = 0; x < w; x += 8) {
+        ctx.fillStyle = shade(m, 22);
+        ctx.fillRect(x, 0, 4, h);
+        ctx.fillStyle = shade(m, -18);
+        ctx.fillRect(x + 4, 0, 4, h);
+      }
+      ctx.fillStyle = INK;
+      ctx.fillRect(0, 31, w, 2);
+      ctx.fillStyle = "#3a3d42";
+      for (let x = 4; x < w; x += 16) {
+        ctx.fillRect(x, 26, 2, 2);
+        ctx.fillRect(x, 36, 2, 2);
+      }
+      ctx.fillStyle = "rgba(140,70,30,0.35)";
+      ctx.fillRect(41, 33, 5, 26);
+      ctx.fillRect(43, 4, 3, 20);
+      halftone(ctx, w, h, 0.06);
+    },
+    /* Vertical boards with grain and dark gaps. */
+    wood(ctx, w, h, c) {
+      const r = rng(23);
+      const b = mix(c, "#7a5636", 0.6);
+      for (let x = 0; x < w; x += 16) {
+        ctx.fillStyle = shade(b, Math.round(r() * 24 - 12));
+        ctx.fillRect(x, 0, 16, h);
+        ctx.strokeStyle = "rgba(0,0,0,0.22)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x + 5 + r() * 3, 0);
+        ctx.lineTo(x + 6 + r() * 3, h);
+        ctx.moveTo(x + 11, 0);
+        ctx.lineTo(x + 10 + r() * 3, h);
+        ctx.stroke();
+        ctx.fillStyle = INK;
+        ctx.fillRect(x, 0, 1.5, h);
+      }
+      halftone(ctx, w, h, 0.08);
+    },
+    /* Poured concrete: form-tie holes, a pour line and stains. */
+    concrete(ctx, w, h, c) {
+      const b = mix(c, "#8a8a84", 0.35);
+      ctx.fillStyle = b;
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "rgba(0,0,0,0.13)";
+      [[18, 44, 12], [46, 20, 9]].forEach(([x, y, rr]) => {
+        ctx.beginPath();
+        ctx.ellipse(x, y, rr, rr * 1.6, 0, 0, TAU);
+        ctx.fill();
+      });
+      ctx.fillStyle = "rgba(0,0,0,0.35)";
+      [[16, 16], [48, 16], [16, 48], [48, 48]].forEach(([x, y]) => {
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, TAU);
+        ctx.fill();
+      });
+      ctx.fillStyle = "rgba(0,0,0,0.15)";
+      ctx.fillRect(0, 31, w, 2);
+      halftone(ctx, w, h, 0.1);
+    },
+    /* Glass blocks: pale squares with a bright center, light mortar. */
+    glassbrick(ctx, w, h, c) {
+      const b = mix(c, "#9fc4cc", 0.55);
+      ctx.fillStyle = mix(c, "#d8d4c8", 0.5);
+      ctx.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 16) for (let x = 0; x < w; x += 16) {
+        ctx.fillStyle = shade(b, -14);
+        ctx.fillRect(x + 1.5, y + 1.5, 13, 13);
+        ctx.fillStyle = shade(b, 26);
+        ctx.fillRect(x + 4.5, y + 4.5, 7, 7);
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        ctx.fillRect(x + 3, y + 3, 3, 2);
+      }
+      halftone(ctx, w, h, 0.05);
+    },
+  };
+  /** A plain wall in the given style (or the palette's), ink border included: a base for decor textures. */
+  function wallBase(ctx, w, h, palette, style) {
+    const p = palette || {};
+    (WALL_STYLES[style || p.wallStyle] || WALL_STYLES.drywall)(ctx, w, h, p.wall || "#777777");
+    border(ctx, w, h);
+  }
 
   /* Stacked logs with chinking, the cabin's siding. */
   function logs(ctx, w, h) {
@@ -123,16 +276,43 @@
 
   /* ---------- Wall textures (64 x 64) ---------- */
   const TEX = {
-    wall(ctx, w, h, p) {
-      ctx.fillStyle = p.wall;
-      ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = "rgba(0,0,0,0.25)";
+    /* Plain wall: palette.wallStyle, or opts.style for a per-tile style. */
+    wall(ctx, w, h, p, o) {
+      wallBase(ctx, w, h, p, o && o.style);
+    },
+    /* W: a wall with a window (opaque): dark glass, a cross bar, one board nailed across. */
+    window(ctx, w, h, p, o) {
+      wallBase(ctx, w, h, p, o && o.style);
+      ctx.fillStyle = "#24303a";
+      ctx.fillRect(12, 10, 40, 30);
+      ctx.fillStyle = "rgba(190,215,230,0.35)";
+      ctx.beginPath();
+      ctx.moveTo(14, 38);
+      ctx.lineTo(30, 12);
+      ctx.lineTo(38, 12);
+      ctx.lineTo(22, 38);
+      ctx.closePath();
+      ctx.fill();
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(12, 10, 40, 30);
       ctx.lineWidth = 2;
-      ctx.strokeRect(6, 6, w - 12, h - 12);
-      ctx.fillStyle = "rgba(0,0,0,0.12)";
-      ctx.fillRect(0, h - 10, w, 10);
-      halftone(ctx, w, h, 0.08);
-      border(ctx, w, h);
+      ctx.beginPath();
+      ctx.moveTo(32, 10);
+      ctx.lineTo(32, 40);
+      ctx.moveTo(12, 25);
+      ctx.lineTo(52, 25);
+      ctx.stroke();
+      ctx.fillStyle = shade(p.wall || "#777777", 30);
+      ctx.fillRect(9, 40, 46, 5);
+      ctx.strokeRect(9, 40, 46, 5);
+      ctx.fillStyle = "#8a6a46";
+      ctx.save();
+      ctx.translate(32, 24);
+      ctx.rotate(0.22);
+      ctx.fillRect(-25, -4, 50, 8);
+      ctx.strokeRect(-25, -4, 50, 8);
+      ctx.restore();
     },
     shelf(ctx, w, h, p) {
       ctx.fillStyle = shade(p.shelf, -25);
@@ -167,6 +347,51 @@
       ctx.fillStyle = "rgba(0,0,0,0.2)";
       ctx.fillRect(10, 24, w - 20, h - 34);
       border(ctx, w, h);
+    },
+    /* K (low): a table or desk seen from the side: a thick top, legs, open space under it. */
+    table(ctx, w, h, p) {
+      const wood = (p && p.table) || "#8a6a46";
+      ctx.clearRect(0, 0, w, h);
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 3;
+      ctx.fillStyle = shade(wood, -30);
+      [5, w - 15].forEach((x) => {
+        ctx.fillRect(x, 14, 10, h - 14);
+        ctx.strokeRect(x, 14, 10, h - 16);
+      });
+      ctx.fillRect(15, 34, w - 30, 6);
+      ctx.strokeRect(15, 34, w - 30, 6);
+      ctx.fillStyle = wood;
+      ctx.fillRect(1.5, 1.5, w - 3, 14);
+      ctx.strokeRect(1.5, 1.5, w - 3, 14);
+      ctx.fillStyle = "rgba(255,255,255,0.18)";
+      ctx.fillRect(4, 4, w - 8, 3);
+    },
+    /* R (low): a bed, gurney or bench: mattress, metal frame, legs with casters. */
+    bed(ctx, w, h) {
+      ctx.clearRect(0, 0, w, h);
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 3;
+      ctx.fillStyle = "#6e7278";
+      [6, w - 12].forEach((x) => {
+        ctx.fillRect(x, 26, 6, h - 34);
+        ctx.strokeRect(x, 26, 6, h - 34);
+        ctx.beginPath();
+        ctx.arc(x + 3, h - 5, 4, 0, TAU);
+        ctx.fillStyle = "#2f3136";
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#6e7278";
+      });
+      ctx.fillStyle = "#9ea3aa";
+      ctx.fillRect(1.5, 22, w - 3, 8);
+      ctx.strokeRect(1.5, 22, w - 3, 8);
+      ctx.fillStyle = "#e6dfcc";
+      ctx.fillRect(1.5, 1.5, w - 3, 21);
+      ctx.strokeRect(1.5, 1.5, w - 3, 21);
+      ctx.fillStyle = "#7d9cb0";
+      ctx.fillRect(1.5, 13, w - 3, 9);
+      ctx.strokeRect(1.5, 13, w - 3, 9);
     },
     crate(ctx, w, h) {
       ctx.fillStyle = "#8a5a2e";
@@ -555,11 +780,348 @@
     },
   };
 
-  function texture(kind, palette) {
+  /** A 64 x 64 wall face. `opts` (optional, plain data) reaches the drawing function and is part of the cache key. */
+  function texture(kind, palette, opts) {
     // the van textures take their colors from the current paint job
     const paint = kind.startsWith("van") ? ":" + vanLook().body : "";
-    const key = "tex:" + kind + ":" + (palette ? palette.wall + palette.shelf + palette.counter : "") + paint;
-    return cached(key, 64, 64, (ctx, w, h) => TEX[kind](ctx, w, h, palette || {}));
+    const p = palette || {};
+    const key = "tex:" + kind + ":" + p.wall + p.shelf + p.counter + p.wallStyle + p.table + paint + (opts ? JSON.stringify(opts) : "");
+    return cached(key, 64, 64, (ctx, w, h) => (TEX[kind] || TEX.wall)(ctx, w, h, p, opts || {}));
+  }
+  /** Add a wall face: fn(ctx, w, h, palette, opts) draws into 64 x 64. Replaces one of the same name. */
+  function registerTexture(name, fn) {
+    TEX[name] = fn;
+    for (const k of cache.keys()) if (k.startsWith("tex:" + name + ":")) cache.delete(k);
+  }
+  function hasTexture(name) {
+    return Object.prototype.hasOwnProperty.call(TEX, name);
+  }
+
+  /* ---------- Floors and ceilings: 64 x 64 per tile, cast as raw pixels ----------
+     Each kind draws with palette.floor as its base, or palette.ceiling when opts.ceiling is set,
+     so the same catalog dresses every building in its own colors. */
+  const FLOORS = {};
+  const FLOOR_IDS = [];
+  function speckle(ctx, w, h, seed, n, colors, size) {
+    const r = rng(seed);
+    for (let i = 0; i < n; i++) {
+      ctx.fillStyle = colors[i % colors.length];
+      ctx.fillRect(Math.floor(r() * w), Math.floor(r() * h), size, size);
+    }
+  }
+  const FLOOR_KINDS = {
+    /* Big square tiles with grout. */
+    tile(ctx, w, h, b) {
+      ctx.fillStyle = shade(b, -30);
+      ctx.fillRect(0, 0, w, h);
+      for (let y = 0; y < h; y += 32) for (let x = 0; x < w; x += 32) {
+        ctx.fillStyle = shade(b, (x + y) % 64 ? 6 : 14);
+        ctx.fillRect(x + 1.5, y + 1.5, 29, 29);
+        ctx.fillStyle = "rgba(255,255,255,0.14)";
+        ctx.fillRect(x + 3, y + 3, 12, 2);
+      }
+      halftone(ctx, w, h, 0.06);
+    },
+    /* Black and white diner checks, tinted toward the floor color. */
+    checker(ctx, w, h, b) {
+      for (let y = 0; y < h; y += 16) for (let x = 0; x < w; x += 16) {
+        ctx.fillStyle = (x + y) % 32 ? mix(b, "#1c1d20", 0.6) : mix(b, "#e8e2d2", 0.6);
+        ctx.fillRect(x, y, 16, 16);
+      }
+      halftone(ctx, w, h, 0.05);
+    },
+    /* Sheet flooring: flecks and one seam. */
+    linoleum(ctx, w, h, b) {
+      ctx.fillStyle = b;
+      ctx.fillRect(0, 0, w, h);
+      speckle(ctx, w, h, 3, 90, [shade(b, 22), shade(b, -22), shade(b, 12)], 2);
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.fillRect(0, 0, w, 1.5);
+      halftone(ctx, w, h, 0.05);
+    },
+    /* Office carpet: dense flecks and a small repeating diamond. */
+    carpet(ctx, w, h, b) {
+      ctx.fillStyle = b;
+      ctx.fillRect(0, 0, w, h);
+      speckle(ctx, w, h, 5, 400, [shade(b, 12), shade(b, -14)], 1);
+      ctx.fillStyle = shade(b, -22);
+      for (let y = 8; y < h; y += 16) for (let x = 8; x < w; x += 16) {
+        ctx.beginPath();
+        ctx.moveTo(x, y - 4);
+        ctx.lineTo(x + 4, y);
+        ctx.lineTo(x, y + 4);
+        ctx.lineTo(x - 4, y);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.fillStyle = shade(b, 18);
+      for (let y = 0; y < h; y += 16) for (let x = 0; x < w; x += 16) ctx.fillRect(x, y, 2, 2);
+    },
+    /* Narrow hardwood boards with staggered joints. */
+    wood(ctx, w, h, b) {
+      const r = rng(31);
+      const base = mix(b, "#8a6240", 0.65);
+      for (let y = 0; y < h; y += 8) {
+        ctx.fillStyle = shade(base, Math.round(r() * 22 - 11));
+        ctx.fillRect(0, y, w, 8);
+        ctx.fillStyle = "rgba(0,0,0,0.45)";
+        ctx.fillRect(0, y + 7, w, 1);
+        const j = Math.floor(r() * 48) + 8;
+        ctx.fillRect(j, y, 1.5, 8);
+        ctx.fillStyle = "rgba(0,0,0,0.12)";
+        ctx.fillRect(Math.floor(r() * w), y + 3, 14, 1);
+      }
+      halftone(ctx, w, h, 0.05);
+    },
+    /* Poured slab: stains, an expansion joint and a crack. */
+    concrete(ctx, w, h, b) {
+      ctx.fillStyle = mix(b, "#7d7c76", 0.3);
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "rgba(0,0,0,0.12)";
+      ctx.beginPath();
+      ctx.ellipse(40, 22, 14, 9, 0.4, 0, TAU);
+      ctx.fill();
+      speckle(ctx, w, h, 9, 50, ["rgba(0,0,0,0.18)", "rgba(255,255,255,0.12)"], 2);
+      ctx.fillStyle = "rgba(0,0,0,0.4)";
+      ctx.fillRect(0, 0, w, 1.5);
+      ctx.fillRect(0, 0, 1.5, h);
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(10, 50);
+      ctx.lineTo(20, 44);
+      ctx.lineTo(24, 52);
+      ctx.lineTo(34, 47);
+      ctx.stroke();
+    },
+    /* Packed dirt with pebbles. */
+    dirt(ctx, w, h, b) {
+      ctx.fillStyle = mix(b, "#6e5236", 0.7);
+      ctx.fillRect(0, 0, w, h);
+      speckle(ctx, w, h, 13, 70, ["#4f3b27", "#8a6c4a", "#5e4630"], 3);
+      speckle(ctx, w, h, 17, 12, ["#a39a88"], 2);
+      halftone(ctx, w, h, 0.08);
+    },
+    /* Steel floor grate: diamond mesh over a dark pit. */
+    grate(ctx, w, h, b) {
+      ctx.fillStyle = "#1a1c1e";
+      ctx.fillRect(0, 0, w, h);
+      ctx.strokeStyle = mix(b, "#8f969c", 0.6);
+      ctx.lineWidth = 3;
+      for (let k = -64; k < 128; k += 16) {
+        ctx.beginPath();
+        ctx.moveTo(k, 0);
+        ctx.lineTo(k + 64, 64);
+        ctx.moveTo(k + 64, 0);
+        ctx.lineTo(k, 64);
+        ctx.stroke();
+      }
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(0, 0, w, h);
+    },
+    /* Grass: tufts of blades in two greens. */
+    grass(ctx, w, h, b) {
+      const r = rng(41);
+      ctx.fillStyle = mix(b, "#5f7a3a", 0.7);
+      ctx.fillRect(0, 0, w, h);
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 70; i++) {
+        const x = r() * w;
+        const y = r() * h;
+        ctx.strokeStyle = i % 3 ? "#4a6230" : "#7f9a4c";
+        ctx.beginPath();
+        ctx.moveTo(x, y);
+        ctx.lineTo(x + r() * 3 - 1.5, y - 4);
+        ctx.stroke();
+      }
+      halftone(ctx, w, h, 0.06);
+    },
+    /* Gravel: packed small stones. */
+    gravel(ctx, w, h, b) {
+      const r = rng(43);
+      ctx.fillStyle = mix(b, "#77746c", 0.6);
+      ctx.fillRect(0, 0, w, h);
+      for (let i = 0; i < 260; i++) {
+        ctx.fillStyle = ["#9a968c", "#4e4b46", "#b3aea2", "#6f6b62"][i % 4];
+        ctx.beginPath();
+        ctx.ellipse(r() * w, r() * h, 1 + r() * 1.4, 0.8 + r(), r() * 3, 0, TAU);
+        ctx.fill();
+      }
+      halftone(ctx, w, h, 0.08);
+    },
+    /* Wide rough boards with nail heads (decks, walkways, barns). */
+    planks(ctx, w, h, b) {
+      const r = rng(47);
+      const base = mix(b, "#8a6a46", 0.7);
+      for (let x = 0; x < w; x += 16) {
+        ctx.fillStyle = shade(base, Math.round(r() * 26 - 13));
+        ctx.fillRect(x, 0, 16, h);
+        ctx.fillStyle = INK;
+        ctx.fillRect(x, 0, 2, h);
+        ctx.fillStyle = "#2f3136";
+        ctx.fillRect(x + 7, 4, 2, 2);
+        ctx.fillRect(x + 7, 58, 2, 2);
+      }
+      halftone(ctx, w, h, 0.07);
+    },
+    /* Ceiling: drop-ceiling panels in a metal grid. */
+    panels(ctx, w, h, b) {
+      ctx.fillStyle = shade(b, 34);
+      ctx.fillRect(0, 0, w, h);
+      speckle(ctx, w, h, 19, 60, ["rgba(0,0,0,0.25)"], 1);
+      ctx.fillStyle = shade(b, 8);
+      ctx.fillRect(0, 0, w, 3);
+      ctx.fillRect(0, 0, 3, h);
+      ctx.fillRect(0, 31, w, 2);
+      ctx.fillStyle = "rgba(0,0,0,0.3)";
+      ctx.fillRect(40, 8, 10, 6);
+    },
+    /* Ceiling: heavy dark beams over boards. */
+    beams(ctx, w, h, b) {
+      ctx.fillStyle = shade(b, 18);
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "rgba(0,0,0,0.2)";
+      for (let y = 8; y < h; y += 8) ctx.fillRect(0, y, w, 1);
+      ctx.fillStyle = "#3d2f22";
+      ctx.fillRect(0, 22, w, 20);
+      ctx.fillStyle = INK;
+      ctx.fillRect(0, 21, w, 2);
+      ctx.fillRect(0, 41, w, 2);
+    },
+    /* Ceiling: exposed pipes and conduit. */
+    pipes(ctx, w, h, b) {
+      ctx.fillStyle = shade(b, 10);
+      ctx.fillRect(0, 0, w, h);
+      [[12, 6, "#8f969c"], [40, 9, "#7a5a3c"], [54, 4, "#b3261e"]].forEach(([y, r, c]) => {
+        ctx.fillStyle = INK;
+        ctx.fillRect(0, y - r - 1, w, r * 2 + 2);
+        ctx.fillStyle = c;
+        ctx.fillRect(0, y - r, w, r * 2);
+        ctx.fillStyle = "rgba(255,255,255,0.3)";
+        ctx.fillRect(0, y - r + 1, w, 2);
+      });
+      ctx.fillStyle = INK;
+      ctx.fillRect(30, 2, 4, 50);
+    },
+  };
+  /** Add a floor or ceiling kind: fn(ctx, w, h, palette, { ceiling }) draws into 64 x 64. */
+  function registerFloor(name, fn) {
+    if (!Object.prototype.hasOwnProperty.call(FLOORS, name)) FLOOR_IDS.push(name);
+    FLOORS[name] = fn;
+    for (const k of texels.keys()) if (k.startsWith(name + "|")) texels.delete(k);
+  }
+  /** Stable small number for a floor kind (what `floorKind` arrays hold); -1 when unknown. */
+  function floorId(name) {
+    return FLOOR_IDS.indexOf(name);
+  }
+  const SHADES = 16; // pre-darkened copies per kind
+  const SHADE_MAX = 0.9; // darkness of the last copy
+  const texels = new Map();
+  /** A floor kind (by id or name) as pixels: SHADES Uint32Arrays of 64 x 64, from full light to SHADE_MAX dark. */
+  function floorTexels(kind, palette, ceiling) {
+    const name = typeof kind === "number" ? FLOOR_IDS[kind] : kind;
+    const p = palette || {};
+    const key = name + "|" + (ceiling ? "c" : "f") + p.floor + p.ceiling;
+    let t = texels.get(key);
+    if (t) return t;
+    const fn = FLOORS[name] || FLOORS.concrete;
+    const c = make(64, 64, (ctx, w, h) => fn(ctx, w, h, p, { ceiling: !!ceiling }));
+    const src = new Uint32Array(c.getContext("2d").getImageData(0, 0, 64, 64).data.buffer.slice(0));
+    t = [];
+    for (let k = 0; k < SHADES; k++) {
+      const f = 1 - (k / (SHADES - 1)) * SHADE_MAX;
+      const out = new Uint32Array(4096);
+      for (let i = 0; i < 4096; i++) {
+        const v = src[i];
+        out[i] = 0xff000000 | ((((v >> 16) & 255) * f) << 16) | ((((v >> 8) & 255) * f) << 8) | ((v & 255) * f);
+      }
+      t.push(out);
+    }
+    texels.set(key, t);
+    return t;
+  }
+  Object.keys(FLOOR_KINDS).forEach((name) =>
+    registerFloor(name, (ctx, w, h, p, o) => FLOOR_KINDS[name](ctx, w, h, (o.ceiling ? p.ceiling : p.floor) || "#55565a"))
+  );
+
+  /* ---------- Named sprites (props, landmarks): registered by other modules ---------- */
+  const SPRITES = {};
+  /** Add a sprite: fn(ctx, w, h, opts) draws into w x h (bottom edge = the ground). */
+  function registerSprite(name, w, h, fn) {
+    SPRITES[name] = { w, h, fn };
+    for (const k of cache.keys()) if (k.startsWith("spr:" + name + ":")) cache.delete(k);
+  }
+  function hasSprite(name) {
+    return Object.prototype.hasOwnProperty.call(SPRITES, name);
+  }
+  /** A registered sprite, cached by name and options; null when the name is unknown. */
+  function sprite(name, opts) {
+    const s = SPRITES[name];
+    if (!s) return null;
+    return cached("spr:" + name + ":" + (opts ? JSON.stringify(opts) : ""), s.w, s.h, (ctx, w, h) => s.fn(ctx, w, h, opts || {}));
+  }
+  /* Stand-in for a landmark whose art is not drawn yet: a crate stack with a sign naming it
+     (placeholderWide: a row of crates, for a big landmark drawn across its footprint). */
+  function placeholder(ctx, w, h, o) {
+    const c = o.color || "#d9a21b";
+    ctx.lineJoin = "round";
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 4;
+    ctx.fillStyle = "rgba(0,0,0,0.25)";
+    ctx.beginPath();
+    ctx.ellipse(w / 2, h - 5, w / 2 - 8, 6, 0, 0, TAU);
+    ctx.fill();
+    ctx.fillStyle = shade(c, -40);
+    for (let x0 = 14; x0 + 100 <= w - 14 + 0.5; x0 += w > 128 ? (w - 128) / 2 : 1e9) {
+      ctx.fillRect(x0, 70, 100, 54);
+      ctx.strokeRect(x0, 70, 100, 54);
+      ctx.beginPath();
+      ctx.moveTo(x0, 70);
+      ctx.lineTo(x0 + 100, 124);
+      ctx.moveTo(x0 + 100, 70);
+      ctx.lineTo(x0, 124);
+      ctx.stroke();
+    }
+    const sw = Math.min(w - 8, 200);
+    const sx = (w - sw) / 2;
+    ctx.fillStyle = "#f3eee0";
+    ctx.fillRect(sx, 8, sw, 56);
+    ctx.strokeRect(sx, 8, sw, 56);
+    ctx.fillStyle = c;
+    ctx.fillRect(sx, 8, sw, 10);
+    ctx.strokeRect(sx, 8, sw, 10);
+    const per = w > 128 ? 20 : 12; // letters per sign line
+    const words = String(o.name || "?").toUpperCase().split(/\s+/);
+    const lines = [""];
+    words.forEach((wd) => {
+      const cur = lines[lines.length - 1];
+      if (cur && (cur + " " + wd).length > per) lines.push(wd);
+      else lines[lines.length - 1] = cur ? cur + " " + wd : wd;
+    });
+    const n = Math.min(3, lines.length);
+    const size = n > 2 ? 12 : 15;
+    for (let i = 0; i < n; i++) label(ctx, lines[i], w / 2, 41 + (i - (n - 1) / 2) * (size + 2), size);
+  }
+  registerSprite("placeholder", 128, 128, placeholder);
+  registerSprite("placeholderWide", 384, 128, placeholder);
+
+  /** A darker copy of a sprite or texture (alpha kept), level 1..8 = 10%..80% darker. Cached per image. */
+  const dimmed = new WeakMap();
+  function dim(img, level) {
+    const k = Math.max(0, Math.min(8, level | 0));
+    if (!k) return img;
+    let set = dimmed.get(img);
+    if (!set) dimmed.set(img, (set = []));
+    if (!set[k]) {
+      set[k] = make(img.width, img.height, (ctx) => {
+        ctx.drawImage(img, 0, 0);
+        ctx.globalCompositeOperation = "source-atop";
+        ctx.fillStyle = "rgba(0,0,0," + (k * 0.1).toFixed(2) + ")";
+        ctx.fillRect(0, 0, img.width, img.height);
+      });
+    }
+    return set[k];
   }
 
   /* ---------- Traps on the ground (64 x 40) ---------- */
@@ -897,5 +1459,10 @@
     ctx.restore();
   }
 
-  ZSR.Draw3 = { texture, walker, item, note, scrap, trap, gun, crosshair, shade };
+  ZSR.Draw3 = {
+    texture, walker, item, note, scrap, trap, gun, crosshair, shade, mix, rng, label, halftone, border,
+    // registration API for other modules (decor, landmarks, yard builds)
+    registerTexture, hasTexture, registerSprite, hasSprite, sprite, registerFloor, floorId, floorTexels, wallBase, dim,
+    WALL_STYLES: Object.keys(WALL_STYLES), SHADES, SHADE_MAX, INK,
+  };
 })(typeof globalThis !== "undefined" ? globalThis : this);

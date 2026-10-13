@@ -1,102 +1,193 @@
 #!/usr/bin/env node
-/* Sanity checks for js/world.js: grids, spots, reachability, and reveal chains. */
+/* Sanity checks for js/world.js and js/layouts.js: interior layouts (legend v2, landmarks,
+   decor, reachability), notes that name the landmarks, and reveal chains. */
 "use strict";
 const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 const sb = {};
 sb.globalThis = sb;
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "js", "world.js"), "utf8"), sb);
+vm.createContext(sb);
+// layouts.js defines ZSR.LAYOUTS (the interiors); world.js uses them as its TEMPLATES
+["layouts.js", "world.js"].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8"), sb, { filename: f }));
 const W = sb.ZSR.WORLD;
+const ART = sb.ZSR.LAYOUT_ART || {};
+const DECOR = sb.ZSR.LAYOUT_DECOR || {};
 const errors = [];
 const err = (m) => errors.push(m);
 const count = (grid, ch) => grid.join("").split(ch).length - 1;
 
-// templates
+// interiors: one layout per location (js/layouts.js, legend v2)
+const ids = new Set(W.LOCATIONS.map((l) => l.id));
+const LEGEND = "#W.DLESXGCKR1234incz$";
+const BORDER = "#WSXGE"; // full-height tiles (and the entrance) may sit on the outer wall
+const WALLISH = "#WSXGDLE"; // full-height tiles: a wall face behind them is never seen
+const WALL_STYLES = ["block", "drywall", "brick", "tile", "metal", "wood", "concrete", "glassbrick"];
+const FLOOR_KINDS = ["tile", "checker", "linoleum", "carpet", "wood", "concrete", "dirt", "grate", "grass", "gravel", "planks"];
+const CEILING_KINDS = ["panels", "beams", "concrete", "pipes", "sky"];
+const QUADRANT = { 1: "back left (NW)", 2: "back right (NE)", 3: "front left (SW)", 4: "front right (SE)" };
+const SIDES = { n: [0, -1], s: [0, 1], w: [-1, 0], e: [1, 0] };
+const STEPS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+const NUMBER = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14 };
+Object.keys(W.TEMPLATES).forEach((name) => { if (!ids.has(name) || name === "base") err(`layout ${name}: no location has this id`); });
 Object.entries(W.TEMPLATES).forEach(([name, t]) => {
-  const w = t.grid[0].length;
-  if (!t.grid.every((r) => r.length === w)) err(`template ${name}: rows differ in length`);
-  if (count(t.grid, "E") !== 1) err(`template ${name}: needs exactly one E`);
-  if (count(t.grid, "L") < 1) err(`template ${name}: needs a locked door L`);
-  if (count(t.grid, "n") < 1) err(`template ${name}: needs a note spot n`);
-  if (count(t.grid, "z") < 2) err(`template ${name}: needs 2+ walker spawns`);
-  // border must be solid
-  const solid = (c) => "#SCXGL".includes(c) || c === "E";
-  if (![...t.grid[0]].every(solid) || ![...t.grid[t.grid.length - 1]].every(solid)) err(`template ${name}: top/bottom border not solid`);
-  if (!t.grid.every((r) => solid(r[0]) && solid(r[w - 1]))) err(`template ${name}: side border not solid`);
-  // flood fill from E over passable tiles (not through L): cache spots must be unreachable; others reachable
-  const H = t.grid.length;
-  const seen = new Set();
-  const start = (() => { for (let y = 0; y < H; y++) { const x = t.grid[y].indexOf("E"); if (x >= 0) return [x, y]; } })();
-  const pass = (c) => ".inz$DE".includes(c);
-  const stack = [start];
-  while (stack.length) {
-    const [x, y] = stack.pop();
-    const k = x + "," + y;
-    if (seen.has(k)) continue;
-    seen.add(k);
-    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
-      const nx = x + dx, ny = y + dy;
-      if (ny < 0 || ny >= H || nx < 0 || nx >= w) return;
-      if (pass(t.grid[ny][nx])) stack.push([nx, ny]);
-    });
+  const ctx = `layout ${name}`;
+  const loc = W.LOCATIONS.find((l) => l.id === name);
+  const g = t.grid;
+  const H = g.length;
+  const w = g[0].length;
+  if (!g.every((r) => r.length === w)) return err(`${ctx}: rows differ in length (${g.map((r) => r.length).join(" ")})`);
+  const at = (x, y) => (x < 0 || y < 0 || x >= w || y >= H ? "#" : g[y][x]);
+  for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) if (!LEGEND.includes(g[y][x])) err(`${ctx}: unknown tile "${g[y][x]}" at ${x},${y}`);
+  // palette: colors plus the engine's catalogs
+  const P = t.palette || {};
+  ["wall", "shelf", "counter", "floor", "ceiling"].forEach((k) => { if (!/^#[0-9a-f]{6}$/i.test(P[k] || "")) err(`${ctx}: palette.${k} must be a #rrggbb color`); });
+  if (!WALL_STYLES.includes(P.wallStyle)) err(`${ctx}: palette.wallStyle "${P.wallStyle}" not in ${WALL_STYLES.join(", ")}`);
+  if (!FLOOR_KINDS.includes(P.floorKind)) err(`${ctx}: palette.floorKind "${P.floorKind}" not in ${FLOOR_KINDS.join(", ")}`);
+  if (!CEILING_KINDS.includes(P.ceilingKind)) err(`${ctx}: palette.ceilingKind "${P.ceilingKind}" not in ${CEILING_KINDS.join(", ")}`);
+  if (!(P.light >= 0 && P.light <= 1)) err(`${ctx}: palette.light must be 0..1`);
+  // solid border, one entrance on the front (bottom) wall with plain floor inside it, one locked door
+  for (let x = 0; x < w; x++) if (!BORDER.includes(g[0][x]) || !BORDER.includes(g[H - 1][x])) err(`${ctx}: border open at x ${x}`);
+  for (let y = 0; y < H; y++) if (!BORDER.includes(g[y][0]) || !BORDER.includes(g[y][w - 1])) err(`${ctx}: border open at y ${y}`);
+  if (count(g, "E") !== 1) return err(`${ctx}: needs exactly one E`);
+  const ex = g[H - 1].indexOf("E");
+  if (ex < 0) return err(`${ctx}: the entrance E must be on the bottom (front) wall; the notes count left/right from it`);
+  if (g[H - 2][ex] !== ".") err(`${ctx}: the tile inside the entrance must be plain floor`);
+  if (count(g, "L") !== 1) err(`${ctx}: needs exactly one locked door L`);
+  // landmarks: one per corner quadrant and near its corner, with a def; big ones cover a footprint of plain floor
+  const marks = t.landmarks || {};
+  const blocked = new Set(); // solid landmark tiles and their footprints
+  const names = [];
+  const inQuadrant = (d, x, y) => x < w / 2 === (d === "1" || d === "3") && y < H / 2 === (d === "1" || d === "2");
+  ["1", "2", "3", "4"].forEach((d) => {
+    const def = marks[d];
+    if (count(g, d) !== 1) return err(`${ctx}: landmark ${d} must appear exactly once (found ${count(g, d)})`);
+    const y = g.findIndex((r) => r.includes(d));
+    const x = g[y].indexOf(d);
+    if (!inQuadrant(d, x, y)) err(`${ctx}: landmark ${d} at ${x},${y} must be in the ${QUADRANT[d]} quadrant`);
+    // not hugging the middle lines: within 80% of the half width and half height of its own corner
+    const fx = (d === "1" || d === "3" ? x : w - 1 - x) / (w / 2);
+    const fy = (d === "1" || d === "2" ? y : H - 1 - y) / (H / 2);
+    if (fx > 0.8 || fy > 0.8) err(`${ctx}: landmark ${d} at ${x},${y} is too far from its corner (${Math.round(fx * 100)}% across, ${Math.round(fy * 100)}% down its quadrant; keep both at 80% or less)`);
+    if (!def || !def.name || !def.art) return err(`${ctx}: landmark ${d} needs a def with a name and art`);
+    if (!ART[def.art]) err(`${ctx}: landmark ${d} art "${def.art}" is not in LAYOUT_ART`);
+    if (names.includes(def.name.toLowerCase())) err(`${ctx}: two landmarks are called "${def.name}"`);
+    names.push(def.name.toLowerCase());
+    // size is the height in tiles; under a ceiling the engine draws nothing taller than 0.98
+    const tallest = P.ceilingKind === "sky" ? 2.6 : 0.98;
+    if (!(def.size >= 0.3 && def.size <= tallest)) err(`${ctx}: landmark ${d} size ${def.size} must be 0.3..${tallest} (its height in tiles${P.ceilingKind === "sky" ? "" : "; the ceiling caps it at 0.98"})`);
+    // the art stream draws from the LAYOUT_ART line: tints, labels and footprints must be announced there
+    if (def.color && !/color =/.test(ART[def.art] || "")) err(`${ctx}: landmark ${d} passes a color, but LAYOUT_ART.${def.art} does not say "(color = ...)"`);
+    if (def.label && !/label/.test(ART[def.art] || "")) err(`${ctx}: landmark ${d} passes a label, but LAYOUT_ART.${def.art} does not say "(label)"`);
+    if (def.solid) blocked.add(x + "," + y);
+    if (def.foot) {
+      const [fw, fh] = def.foot;
+      if (!(fw % 2 === 1 && fh % 2 === 1)) err(`${ctx}: landmark ${d} foot must be odd sizes`);
+      if (!(ART[def.art] || "").includes(`foot ${fw} x ${fh}`)) err(`${ctx}: landmark ${d} has foot ${fw} x ${fh}, but LAYOUT_ART.${def.art} does not say "foot ${fw} x ${fh}"`);
+      for (let yy = y - (fh >> 1); yy <= y + (fh >> 1); yy++) {
+        for (let xx = x - (fw >> 1); xx <= x + (fw >> 1); xx++) {
+          if (!inQuadrant(d, xx, yy)) err(`${ctx}: landmark ${d} footprint tile ${xx},${yy} is outside the ${QUADRANT[d]} quadrant`);
+          if (xx === x && yy === y) continue;
+          if (at(xx, yy) !== ".") err(`${ctx}: landmark ${d} footprint tile ${xx},${yy} must be plain floor`);
+          blocked.add(xx + "," + yy);
+        }
+      }
+    }
+  });
+  // doors (D, and the locked L): walls on one axis, a walkable tile on both sides of the other,
+  // so a door never opens into a shelf, a counter, a table or a landmark
+  const walkable = (x, y) => ".inz$c1234".includes(at(x, y)) && !blocked.has(x + "," + y);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < w; x++) {
+      if (!"DL".includes(g[y][x])) continue;
+      const wall = (ax, ay, bx, by) => "#W".includes(at(ax, ay)) && "#W".includes(at(bx, by));
+      const ok = (wall(x - 1, y, x + 1, y) && walkable(x, y - 1) && walkable(x, y + 1)) || (wall(x, y - 1, x, y + 1) && walkable(x - 1, y) && walkable(x + 1, y));
+      if (!ok) err(`${ctx}: door ${g[y][x]} at ${x},${y} needs wall on two opposite sides and open floor on the other two (it opens into ${at(x, y - 1)} ${at(x + 1, y)} ${at(x, y + 1)} ${at(x - 1, y)}, n e s w)`);
+    }
   }
-  for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) {
-    const c = t.grid[y][x];
-    if ("in$".includes(c) && !seen.has(x + "," + y)) err(`template ${name}: ${c} at ${x},${y} unreachable from the entrance`);
-    if (c === "c" && seen.has(x + "," + y)) err(`template ${name}: cache spot at ${x},${y} reachable without the locked door`);
+  Object.keys(marks).forEach((k) => { if (!"1234".includes(k) || k.length !== 1) err(`${ctx}: landmark key "${k}" (use 1 to 4)`); });
+  // reachability from the entrance (closed cache door: blocks; open: passes). Low tiles (C K R) block movement.
+  const pass = (x, y) => ".inz$DE1234".includes(at(x, y)) && !blocked.has(x + "," + y);
+  const flood = (open) => {
+    const dist = new Map([[ex + "," + (H - 1), 0]]);
+    const q = [[ex, H - 1]];
+    while (q.length) {
+      const [x, y] = q.shift();
+      STEPS.forEach(([dx, dy]) => {
+        const nx = x + dx;
+        const ny = y + dy;
+        const k = nx + "," + ny;
+        if (dist.has(k) || !(pass(nx, ny) || (open && "Lc".includes(at(nx, ny))))) return;
+        dist.set(k, dist.get(x + "," + y) + 1);
+        q.push([nx, ny]);
+      });
+    }
+    return dist;
+  };
+  const shut = flood(false);
+  const open = flood(true);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < w; x++) {
+      const c = g[y][x];
+      const k = x + "," + y;
+      if ("inz$".includes(c) && !shut.has(k)) err(`${ctx}: ${c} at ${k} unreachable from the entrance`);
+      if (c === "c" && STEPS.some(([dx, dy]) => shut.has(x + dx + "," + (y + dy)))) err(`${ctx}: cache spot at ${k} reachable without the locked door`);
+      if (c === "c" && !open.has(k)) err(`${ctx}: cache spot at ${k} unreachable even with the door open`);
+      // walkers start at least 6 steps from the player's start tile (one step in from E)
+      if (c === "z" && shut.has(k) && shut.get(k) - 1 < 6) err(`${ctx}: walker spawn at ${k} is only ${shut.get(k) - 1} steps from the entrance (need 6+)`);
+    }
   }
-  // walkers must start at least 6 steps from the player's start tile (the tile above E), and no item may sit on it
-  const startTile = [start[0], start[1] - 1];
-  const dist = new Map([[startTile.join(","), 0]]);
-  const q = [startTile];
-  while (q.length) {
-    const [x, y] = q.shift();
-    const d = dist.get(x + "," + y);
-    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
-      const nx = x + dx, ny = y + dy;
-      if (ny < 0 || ny >= H || nx < 0 || nx >= w) return;
-      if (!pass(t.grid[ny][nx]) || dist.has(nx + "," + ny)) return;
-      dist.set(nx + "," + ny, d + 1);
-      q.push([nx, ny]);
-    });
-  }
-  if (!pass(t.grid[startTile[1]][startTile[0]]) || t.grid[startTile[1]][startTile[0]] === "i") err(`template ${name}: the tile above E must be plain floor`);
-  for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) {
-    if (t.grid[y][x] === "z" && dist.has(x + "," + y) && dist.get(x + "," + y) < 6) err(`template ${name}: walker spawn at ${x},${y} is only ${dist.get(x + "," + y)} steps from the entrance (need 6+)`);
-  }
-  // cache spots reachable once L is open
-  const seen2 = new Set();
-  const stack2 = [start];
-  while (stack2.length) {
-    const [x, y] = stack2.pop();
-    const k = x + "," + y;
-    if (seen2.has(k)) continue;
-    seen2.add(k);
-    [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
-      const nx = x + dx, ny = y + dy;
-      if (ny < 0 || ny >= H || nx < 0 || nx >= w) return;
-      if (pass(t.grid[ny][nx]) || t.grid[ny][nx] === "L" || t.grid[ny][nx] === "c") stack2.push([nx, ny]);
-    });
-  }
-  for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) {
-    if (t.grid[y][x] === "c" && !seen2.has(x + "," + y)) err(`template ${name}: cache spot at ${x},${y} unreachable even with the door open`);
+  if (count(g, "z") < 2) err(`${ctx}: needs 2+ walker spawns`);
+  if (loc && count(g, "z") > W.SETTINGS.walkersPerLocation(loc.danger, 1)) err(`${ctx}: ${count(g, "z")} walker spawns but only ${W.SETTINGS.walkersPerLocation(loc.danger, 1)} walkers on day 1 (a spawn the notes mention could stay empty)`);
+  if (count(g, "$") < 2 || count(g, "$") > 4) err(`${ctx}: needs 2 to 4 scrap piles (has ${count(g, "$")})`);
+  // decor: wall tiles that face the room, known keys, one per tile
+  const taken = new Set();
+  (t.decor || []).forEach((d) => {
+    const k = d.x + "," + d.y;
+    if (at(d.x, d.y) !== "#") err(`${ctx}: decor ${d.tex} at ${k} is not on a wall tile`);
+    const sides = Object.keys(SIDES).filter((s) => !WALLISH.includes(at(d.x + SIDES[s][0], d.y + SIDES[s][1])));
+    if (!sides.length) err(`${ctx}: decor ${d.tex} at ${k} faces no open tile`);
+    if (d.face && !sides.includes(d.face)) err(`${ctx}: decor ${d.tex} at ${k} faces "${d.face}", which is not open`);
+    if (!DECOR[d.tex]) err(`${ctx}: decor key "${d.tex}" is not in LAYOUT_DECOR`);
+    else if (d.text != null && !/uses text/.test(DECOR[d.tex])) err(`${ctx}: decor ${d.tex} at ${k} has text, but LAYOUT_DECOR.${d.tex} does not say it "uses text"`);
+    // one 64 x 64 wall tile: short words only (the notes carry what the player must read)
+    if (d.text != null && !(typeof d.text === "string" && d.text.length >= 1 && d.text.length <= 12)) err(`${ctx}: decor text "${d.text}" at ${k} must be 1 to 12 characters`);
+    if (taken.has(k)) err(`${ctx}: two decor entries on ${k}`);
+    taken.add(k);
+  });
+  // per-tile floor kinds
+  if (t.floors) {
+    if (t.floors.length !== H || !t.floors.every((r) => r.length === w)) err(`${ctx}: floors must be the same size as the grid`);
+    else t.floors.join("").split("").forEach((ch) => { if (!t.floorKey || !FLOOR_KINDS.includes(t.floorKey[ch])) err(`${ctx}: floor char "${ch}" has no floor kind`); });
   }
 });
 
 // locations
-const ids = new Set(W.LOCATIONS.map((l) => l.id));
 W.LOCATIONS.filter((l) => l.id !== "base").forEach((l) => {
+  if (l.template !== l.id) err(`${l.id}: template must be its own id (is ${l.template})`);
   const t = W.TEMPLATES[l.template];
-  if (!t) return err(`${l.id}: unknown template ${l.template}`);
-  if (count(t.grid, "i") < l.items.length) err(`${l.id}: template has ${count(t.grid, "i")} item spots, needs ${l.items.length}`);
-  if (count(t.grid, "c") < l.cache.length) err(`${l.id}: template has ${count(t.grid, "c")} cache spots, needs ${l.cache.length}`);
+  if (!t) return err(`${l.id}: no layout ${l.template} in js/layouts.js`);
+  if (count(t.grid, "i") < l.items.length) err(`${l.id}: layout has ${count(t.grid, "i")} item spots, needs ${l.items.length}`);
+  if (count(t.grid, "c") < l.cache.length) err(`${l.id}: layout has ${count(t.grid, "c")} cache spots, needs ${l.cache.length}`);
   l.items.concat(l.cache).forEach((it) => { if (!W.ITEMS[it]) err(`${l.id}: unknown item ${it}`); });
   const N = W.NOTES[l.id];
   if (!N) return err(`${l.id}: no notes`);
-  if (count(t.grid, "n") < N.notes.length) err(`${l.id}: template has ${count(t.grid, "n")} note spots, needs ${N.notes.length}`);
+  if (count(t.grid, "n") < N.notes.length) err(`${l.id}: layout has ${count(t.grid, "n")} note spots, needs ${N.notes.length}`);
   if (!N.notes.some((n) => n.unlocks === l.id)) err(`${l.id}: no note unlocks its cache`);
   N.notes.forEach((n) => (n.reveals || []).forEach((r) => { if (!ids.has(r)) err(`${l.id}: reveals unknown ${r}`); }));
+  // the notes steer by the landmarks, so text and layout cannot drift apart
+  const marks = Object.values(t.landmarks || {}).map((m) => m.name.toLowerCase());
+  const named = (facts) => marks.filter((m) => facts.join(" ").toLowerCase().includes(m));
+  if (named(N.door.facts).length < 2) err(`${l.id}: the door note must name at least two landmarks (${marks.join(", ")}); it names ${named(N.door.facts).join(", ") || "none"}`);
+  N.notes.forEach((n) => { if (!named(n.facts).length) err(`${l.id}: note ${n.id} must name at least one landmark (${marks.join(", ")})`); });
+  // "at least N walkers" must hold on day 1
+  const m = (N.door.facts.find((f) => /walker/i.test(f) && /at least \w+/i.test(f)) || "").match(/at least (\w+)/i);
+  if (!m) err(`${l.id}: the door note must give the walker count as "at least N"`);
+  else {
+    const n = NUMBER[m[1].toLowerCase()] || Number(m[1]);
+    const day1 = W.SETTINGS.walkersPerLocation(l.danger, 1);
+    if (!(n <= day1)) err(`${l.id}: the door note promises at least ${m[1]} walkers, day 1 has ${day1}`);
+  }
 });
 // reveal chain reaches everything
 const known = new Set(W.LOCATIONS.filter((l) => l.known).map((l) => l.id));
@@ -160,4 +251,4 @@ while (st.length) { const a = st.pop(); (adj[a] || []).forEach((b) => { if (!rea
 W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches it`); });
 
 if (errors.length) { errors.forEach((e) => console.log("ERROR " + e)); process.exit(1); }
-console.log(`OK: world has ${W.LOCATIONS.length} locations, ${Object.keys(W.TEMPLATES).length} templates, ${Object.keys(W.ITEMS).length} items, ${Object.keys(W.BASE_ROOMS).length} rooms.`);
+console.log(`OK: world has ${W.LOCATIONS.length} locations, ${Object.keys(W.TEMPLATES).length} layouts (${Object.keys(ART).length} landmark arts, ${Object.keys(DECOR).length} decor kinds), ${Object.keys(W.ITEMS).length} items, ${Object.keys(W.BASE_ROOMS).length} rooms.`);

@@ -1,6 +1,14 @@
-/* The road: a top-down drive from one map location to another. Walkers come
-   from ahead and from both shoulders; the player aims and shoots. The trip's
-   van health, scrap, and walker count live in ZSR.State.trip.
+/* The road: a top-down drive through the city along the route picked on the map.
+   The van drives itself; A and D (or the arrows, or the touch buttons) change lanes. Before every
+   decision point (a side street, a driveway, a junction, the destination's driveway) the road
+   splits into lanes with arrows and a sign says where each lane goes; the lane the van is in at
+   the stop line is the way it takes, and the van then drives its own arc through the turn.
+   Left alone the van keeps to the left lane, which always goes straight on past side streets and
+   driveways. A wrong way or a missed driveway: a banner, a fade, and the drive starts over from
+   where it set out (van damage, scrap, walkers and miles stay).
+   The camera follows the van with its heading up; a minimap tracks it but never shows the route.
+   Route geometry lives in js/streets.js. Walkers come from ahead and from both shoulders; the
+   player aims and shoots. The trip's van health, scrap and walker count live in ZSR.State.trip.
    All tuning lives in DIFF and ZOMBIE_TYPES. */
 (function (root) {
   "use strict";
@@ -9,6 +17,8 @@
   const State = () => ZSR.State;
   const Upgrades = () => ZSR.Upgrades;
   const Audio = () => ZSR.Audio;
+  const Streets = () => ZSR.Streets;
+  const World = () => ZSR.WORLD;
 
   const DIFF = {
     baseInterval: 1.5,
@@ -21,11 +31,16 @@
     runnerStep: 0.05,
     bruteBase: 0.05,
     bruteStep: 0.04,
-    roadScroll: 240,
+    roadScroll: 240, // van speed in px/s before engine upgrades
     milesPerSecond: 0.11,
     sideSpawnChance: 0.45,
     crateScrap: 15,
     fogChanceAfterDay: 5,
+    chase: 0.65, // walkers keep up with this share of the van's speed (as the old scrolling road did)
+    wrongDrive: 1.25, // seconds driven down a wrong road before the fade
+    fadeOut: 0.6,
+    fadeIn: 0.6,
+    parkWait: 1.6, // seconds parked before the place opens
   };
   const ZOMBIE_TYPES = {
     walker: { hp: 30, speed: 55, r: 18, dmg: 8, scrap: 1 },
@@ -33,9 +48,20 @@
     brute: { hp: 90, speed: 40, r: 26, dmg: 18, scrap: 4 },
   };
   const HIT_WORDS = ["BLAM!", "KRAK!", "THUD!"];
+  const SIZE = { normal: 1, large: 1.3, huge: 2 };
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const normAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  const smooth = (x) => x * x * (3 - 2 * x);
+  const textSize = () => SIZE[document.documentElement.getAttribute("data-size")] || 1;
+  function seeded(seed) {
+    let s = seed >>> 0 || 1;
+    return () => {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
+  }
+  const loc = (id) => World().LOCATIONS.find((l) => l.id === id);
 
   const Game = {
     canvas: null,
@@ -51,7 +77,8 @@
       this.keys = {};
       this.pointer = { x: 0, y: 0, down: false, seen: false };
       const $ = (id) => document.getElementById(id);
-      this.hud = { root: $("hud"), hpFill: $("hp-fill"), hpText: $("hp-text"), scrap: $("scrap-text"), miles: $("miles-text"), kills: $("kills-text"), road: $("road-text"), segFill: $("segment-fill"), banner: $("banner") };
+      this.hud = { root: $("hud"), top: document.querySelector("#hud .hud-top"), hpFill: $("hp-fill"), hpText: $("hp-text"), scrap: $("scrap-text"), miles: $("miles-text"), kills: $("kills-text"), road: $("road-text"), segFill: $("segment-fill"), banner: $("banner"), mini: $("minimap") };
+      this.mini = this.hud.mini ? this.hud.mini.getContext("2d") : null;
       this.bindInput();
       root.addEventListener("resize", () => this.resize());
       this.resize();
@@ -68,12 +95,10 @@
       this.canvas.width = Math.round(this.W * dpr);
       this.canvas.height = Math.round(this.H * dpr);
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      this.roadW = clamp(this.W * 0.62, 240, 520);
-      this.roadX = (this.W - this.roadW) / 2;
-      if (this.van) {
-        this.van.y = this.H * 0.72;
-        this.van.x = clamp(this.van.x, this.roadX - 10, this.roadX + this.roadW + 10);
-      }
+      // the camera: the van sits low in the middle; small screens see a little more of the road
+      this.zoomBase = clamp(Math.min(this.W / 1000, this.H / 640), 0.55, 1);
+      this.zoom = this.zoomBase;
+      this.anchorY = this.H * 0.72;
     },
 
     bindInput() {
@@ -89,6 +114,7 @@
         Audio().unlock();
         setAim(e);
         this.pointer.down = true;
+        if (this.fade) this.fade.skip = true;
         try {
           c.setPointerCapture(e.pointerId);
         } catch (err) {
@@ -101,7 +127,7 @@
       c.addEventListener("pointerup", up);
       c.addEventListener("pointercancel", up);
       c.addEventListener("contextmenu", (e) => e.preventDefault());
-      const CODE = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyP: "p", Space: " ", ArrowUp: "arrowup", ArrowDown: "arrowdown", ArrowLeft: "arrowleft", ArrowRight: "arrowright", Escape: "escape" };
+      const CODE = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyP: "p", Space: " ", Enter: "enter", ArrowUp: "arrowup", ArrowDown: "arrowdown", ArrowLeft: "arrowleft", ArrowRight: "arrowright", Escape: "escape" };
       const keyOf = (e) => CODE[e.code] || e.key.toLowerCase();
       root.addEventListener("blur", () => {
         this.keys = {};
@@ -118,6 +144,7 @@
           this.keys.fire = true;
           e.preventDefault();
         }
+        if ((k === " " || k === "enter") && this.fade && !this.paused) this.fade.skip = true;
         if ((k === "p" || k === "escape") && this.hooks.onPauseKey) this.hooks.onPauseKey();
       });
       root.addEventListener("keyup", (e) => {
@@ -143,11 +170,12 @@
       bindTouch("touch-right", "right");
     },
 
-    /** Drive to `trip.to` for `trip.seconds`; danger and day set the walkers. */
+    /** Drive from the trip's place to `opts.to` along `opts.path` (from Map.route); about `opts.seconds`; danger and day set the walkers. */
     startTrip(opts) {
       const S = State();
       const t = S.trip;
       const fx = S.effects();
+      const St = Streets();
       const n = opts.danger * 1.3 + (S.save.day - 1) * 0.5;
       this.stats = Upgrades().stats(S.save.upgrades);
       this.opts = opts;
@@ -155,35 +183,171 @@
       this.mods = { fog: !fx.headlights && day >= DIFF.fogChanceAfterDay && Math.random() < 0.25, night: !fx.headlights && day >= 4 && day % 3 === 0, crates: fx.crates };
       const interval = Math.max(DIFF.minInterval, DIFF.baseInterval - DIFF.intervalStep * n) * (this.mods.night ? 0.85 : 1);
       this.diff = { interval, hpMult: 1 + DIFF.hpStep * n, speedMult: Math.min(DIFF.maxSpeedMult, 1 + DIFF.speedStep * n), runnerW: DIFF.runnerBase + DIFF.runnerStep * n, bruteW: DIFF.bruteBase + DIFF.bruteStep * n };
-      const duration = opts.seconds;
-      this.seg = { duration, elapsed: 0, ending: false, endAt: null, crateTimes: [] };
-      for (let i = 0; i < (this.mods.crates || 0); i++) this.seg.crateTimes.push(rand(5, Math.max(6, duration - 8)));
-      this.seg.crateTimes.sort((a, b) => a - b);
-      this.van = { x: this.roadX + this.roadW / 2, y: this.H * 0.72, w: 66, h: 118, aim: -Math.PI / 2, hurt: 0, cooldown: 0, vx: 0, flash: 0 };
-      this.zombies = [];
-      this.bullets = [];
-      this.particles = [];
-      this.bursts = [];
-      this.crates = [];
-      this.props = [];
-      this.fallen = [];
-      this.scroll = 0;
-      this.spawnTimer = 2.2;
-      this.shake = 0;
+      // the route: the path the map planned, or the shortest one from where the van is
+      const r = opts.path && opts.path.length > 1 ? { path: opts.path } : St.route((t && t.at) || "base", opts.to);
+      const path = r.path;
+      let dist = 0;
+      for (let i = 0; i < path.length - 1; i++) dist += Math.hypot(loc(path[i]).x - loc(path[i + 1]).x, loc(path[i]).y - loc(path[i + 1]).y);
+      this.speed = DIFF.roadScroll * this.stats.speed;
+      const secs = opts.seconds || clamp(dist * World().SETTINGS.tripSecondsPerUnit, World().SETTINGS.tripMinSeconds, World().SETTINGS.tripMaxSeconds);
+      this.drive = St.buildDrive(path, { scale: St.scaleFor(dist, secs, this.speed), speed: this.speed });
+      this.origin = path[0];
+      this.van = { s: 0, d: 0, x: 0, y: 0, heading: 0, vd: 0, w: 66, h: 118, aim: -Math.PI / 2, hurt: 0, cooldown: 0, flash: 0 };
+      this.cam = { x: 0, y: 0, th: 0, d: 110, rel: 0 };
       this.time = 0;
+      this.attempt = 0;
       this.gameOverAt = null;
       this.pointer.down = false;
       this.keys = {};
+      this.fade = null;
       t.miles = t.miles || 0;
-      for (let i = 0; i < 10; i++) this.spawnProp(rand(-this.H, this.H));
+      this.buildScenery();
+      this.resetDrive();
       this.hud.root.classList.remove("hidden");
-      this.hud.road.textContent = "TO: " + opts.name.toUpperCase();
-      this.banner(opts.name.toUpperCase() + (this.mods.fog ? "  FOG" : "") + (this.mods.night ? "  NIGHT" : "") + (t.hungry ? "  HUNGRY" : ""), 1800);
+      this.hud.road.textContent = St.text("to", { dest: opts.name }).toUpperCase();
+      const tags = [this.mods.fog && "fog", this.mods.night && "night", t.hungry && "hungry"].filter(Boolean).map((k) => St.text(k).toUpperCase());
+      this.banner([opts.name.toUpperCase()].concat(tags).join("  "), 1800);
       this.running = true;
       this.paused = false;
       this.last = 0;
       cancelAnimationFrame(this.raf);
       this.raf = requestAnimationFrame((ts) => this.frame(ts));
+    },
+
+    /** Back to the start of the route: the van, the decisions and the walkers reset; the trip's tallies stay. */
+    resetDrive() {
+      const G = Streets().GEOM;
+      this.track = this.drive.track;
+      this.onMain = true;
+      this.van.s = this.drive.startS;
+      this.van.d = Streets().laneCenter(0, 2); // the left lane: it goes straight on past every side street and driveway
+      this.van.vd = 0;
+      this.van.hurt = 0;
+      this.next = 0;
+      this.turn = null;
+      this.fail = null;
+      this.arrive = null;
+      this.hintDone = false;
+      this.zombies = [];
+      this.bullets = [];
+      this.particles = [];
+      this.bursts = [];
+      this.fallen = [];
+      this.spawnTimer = 2.2;
+      this.shake = 0;
+      this.placeVan(0);
+      this.cam.th = Math.atan2(this.vanP.uy, this.vanP.ux);
+      this.cam.d = (Streets().ourLeft(2) + G.half) / 2;
+      this.placeCam(1);
+    },
+
+    /** Trees, wrecks and junk along every road near the route, and the supply crates on it. */
+    buildScenery() {
+      const D = this.drive;
+      const G = Streets().GEOM;
+      const r = seeded(Streets().hash(D.path.join(">")) + 7);
+      // a quick box test first: most of the city is far from any one spot
+      const box = (s, m) => [Math.min(s.x0, s.x1) - m, Math.min(s.y0, s.y1) - m, Math.max(s.x0, s.x1) + m, Math.max(s.y0, s.y1) + m];
+      const roads = D.roads.map((rd) => [box(rd, G.half + G.shoulder + 60), rd]);
+      const sides = D.sides.map((s) => [box(s, G.sideHalf + G.shoulder + 120), s]);
+      const inBox = (b, x, y) => x > b[0] && y > b[1] && x < b[2] && y < b[3];
+      const near = (x, y, pad) => {
+        for (const [b, rd] of roads) if (inBox(b, x, y) && distSeg(x, y, rd.x0, rd.y0, rd.x1, rd.y1) < G.half + G.shoulder + pad) return true;
+        for (const [b, s] of sides) if (inBox(b, x, y) && distSeg(x, y, s.x0, s.y0, s.x1, s.y1) < G.sideHalf + G.shoulder + pad + (s.kind === "deadEnd" ? 60 : 0)) return true;
+        for (const n of D.nodes) if (Math.hypot(n.x - x, n.y - y) < G.boxR + pad) return true;
+        for (const l of D.lots) if (Math.hypot(l.qx - x, l.qy - y) < G.half + G.lotDepth + G.lotHalf + pad) return true;
+        return false;
+      };
+      const onRoute = new Set();
+      for (let i = 0; i < D.path.length - 1; i++) onRoute.add(Streets().roadKey(D.path[i], D.path[i + 1]));
+      const zones = D.decisions.map((d) => [d.zoneStart - 200, d.stop + 200]);
+      const zoneLines = D.decisions.map((d) => {
+        const a = Streets().at(D.track, d.zoneStart - 200);
+        const b = Streets().at(D.track, d.stop + 200);
+        return [a.x, a.y, b.x, b.y];
+      });
+      // props face the way the route runs past them (the nearest road of the route), so their words read upright
+      const legs = [];
+      for (let i = 0; i < D.path.length - 1; i++) {
+        const a = D.nodes.find((n) => n.id === D.path[i]);
+        const b = D.nodes.find((n) => n.id === D.path[i + 1]);
+        legs.push([a.x, a.y, b.x, b.y, Math.atan2(b.y - a.y, b.x - a.x) + Math.PI / 2]);
+      }
+      const faceAt = (x, y) => {
+        let best = legs[0];
+        let bd = Infinity;
+        legs.forEach((l) => {
+          const dd = distSeg(x, y, l[0], l[1], l[2], l[3]);
+          if (dd < bd) {
+            bd = dd;
+            best = l;
+          }
+        });
+        return best[4];
+      };
+      this.props = [];
+      D.roads.forEach((rd) => {
+        // the roads the route uses get the full roadside; the rest get a sparser one
+        const len = Math.hypot(rd.x1 - rd.x0, rd.y1 - rd.y0);
+        const ux = (rd.x1 - rd.x0) / len;
+        const uy = (rd.y1 - rd.y0) / len;
+        const face = Math.atan2(uy, ux) + Math.PI / 2;
+        const step = onRoute.has(rd.key) ? 85 : 170;
+        for (let a = G.boxR; a < len - G.boxR; a += step * (0.6 + r() * 0.8)) {
+          for (const sg of [-1, 1]) {
+            if (r() < 0.45) continue;
+            const off = sg * (G.half + G.shoulder + 40 + r() * 420);
+            const x = rd.x0 + ux * a - uy * off;
+            const y = rd.y0 + uy * a + ux * off;
+            if (near(x, y, 25)) continue;
+            this.props.push(this.makeProp(r, x, y, faceAt(x, y)));
+          }
+          // wrecks left on the oncoming side, never where lanes split or turns are made
+          if (onRoute.has(rd.key) && r() < 0.12) {
+            const x = rd.x0 + ux * a;
+            const y = rd.y0 + uy * a;
+            if (D.nodes.some((n) => Math.hypot(n.x - x, n.y - y) < G.boxR + 500)) continue;
+            if (D.lots.some((l) => Math.hypot(l.qx - x, l.qy - y) < 700)) continue;
+            if (D.sides.some((s) => Math.hypot(s.x0 - x, s.y0 - y) < 500)) continue;
+            if (zoneLines.some((z) => distSeg(x, y, z[0], z[1], z[2], z[3]) < 300)) continue;
+            // which side is oncoming depends on the way the route runs this road
+            const i = D.path.indexOf(rd.a);
+            const fwd = i >= 0 && D.path[i + 1] === rd.b;
+            const sgn = fwd ? -1 : 1;
+            const off = sgn * (G.lane * 0.5 + r() * G.lane * 0.9);
+            this.props.push({ kind: r() < 0.7 ? "wreck" : "barrier", x: x - uy * off, y: y + ux * off, face, rot: (fwd ? Math.PI : 0) + r() - 0.5, color: ["#5a4538", "#3f4a55", "#6b6b6b", "#7a3a30"][Math.floor(r() * 4)] });
+          }
+        }
+      });
+      // supply crates sit in our lanes on the route, between the decision points
+      this.crates = [];
+      const n = this.mods.crates || 0;
+      const lo = D.startS + 4 * this.speed;
+      const hi = D.endS - 8 * this.speed;
+      for (let i = 0, tries = 0; i < n && tries < 80 && hi > lo; tries++) {
+        const s = lo + r() * (hi - lo);
+        if (zones.some(([a, b]) => s > a && s < b)) continue;
+        const p = Streets().at(D.track, s);
+        const dd = Streets().laneCenter(r() < 0.5 ? 0 : 1, 2);
+        this.crates.push({ x: p.x - p.uy * dd, y: p.y + p.ux * dd, t: r() * 3, face: Math.atan2(p.uy, p.ux) + Math.PI / 2 });
+        i++;
+      }
+    },
+    makeProp(r, x, y, face) {
+      const roll = r();
+      const seed = Math.floor(r() * 1e6);
+      let p;
+      if (roll < 0.36) p = { kind: "tree", size: 22 + r() * 14, seed };
+      else if (roll < 0.47) p = { kind: "barrel", color: ["#7a4a2a", "#5f6b3c", "#4d4f55"][Math.floor(r() * 3)] };
+      else if (roll < 0.56) p = { kind: "tire" };
+      else if (roll < 0.68) p = { kind: "rubble", seed };
+      else if (roll < 0.76) p = { kind: "barrier", rot: r() * 0.6 - 0.3 };
+      else if (roll < 0.84) p = { kind: "sign", text: ["KEEP OUT", "NO ENTRY", "DETOUR", "QUIET", "SLOW"][Math.floor(r() * 5)], color: ["#d9a21b", "#b3261e", "#e6dfcc"][Math.floor(r() * 3)] };
+      else p = { kind: "wreck", rot: r() * 1.2 - 0.6, color: ["#5a4538", "#3f4a55", "#6b6b6b", "#7a3a30"][Math.floor(r() * 4)] };
+      p.x = x;
+      p.y = y;
+      p.face = face;
+      return p;
     },
 
     pause() {
@@ -215,6 +379,72 @@
       this.bannerT = setTimeout(() => b.classList.add("hidden"), ms || 1500);
     },
 
+    /* ---------- Where things are ---------- */
+    /** Put the van at its (s, d) on the current track, or on its own path through a turn. */
+    placeVan(dt) {
+      const tn = this.turn;
+      const p = tn ? Streets().at(tn.track, this.turnS()) : Streets().at(this.track, this.van.s);
+      this.vanP = p;
+      const v = this.van;
+      const d = tn ? 0 : v.d;
+      v.x = p.x - p.uy * d;
+      v.y = p.y + p.ux * d;
+      const lean = clamp(Math.atan2(v.vd, Math.max(60, this.curSpeed || this.speed)), -0.35, 0.35);
+      const want = Math.atan2(p.uy, p.ux) + lean;
+      v.heading = dt ? v.heading + normAngle(want - v.heading) * Math.min(1, dt * 12) : want;
+    },
+    /** How far along its turn path the van is: on the route its place (s) runs on underneath and maps onto the path. */
+    turnS() {
+      const tn = this.turn;
+      return tn.main ? (this.van.s - tn.s0) * tn.k : this.van.s;
+    },
+    /** The camera rides the road at the van, heading up, centered on our side of it (through a turn: off the van's path, easing over). */
+    placeCam(k) {
+      const c = this.cam;
+      const p = this.vanP;
+      c.th += normAngle(Math.atan2(p.uy, p.ux) - c.th) * k;
+      let off;
+      if (this.turn) {
+        const tn = this.turn;
+        off = c.rel = tn.cam0 + (tn.cam1 - tn.cam0) * smooth(clamp(this.turnS() / Math.min(tn.track.len, 700), 0, 1));
+      } else {
+        const want = (this.laneRange()[0] - 33 + Streets().GEOM.half) / 2;
+        c.d += (want - c.d) * Math.min(1, k * 0.6);
+        off = c.d;
+        c.rel = c.d - this.van.d;
+      }
+      c.x = p.x - p.uy * off;
+      c.y = p.y + p.ux * off;
+    },
+    /** World -> screen (CSS px). */
+    toScreen(x, y) {
+      const c = this.cam;
+      const a = -Math.PI / 2 - c.th;
+      const dx = x - c.x;
+      const dy = y - c.y;
+      return { x: this.W / 2 + (dx * Math.cos(a) - dy * Math.sin(a)) * this.zoom, y: this.anchorY + (dx * Math.sin(a) + dy * Math.cos(a)) * this.zoom };
+    },
+    /** Screen -> world. */
+    toWorld(sx, sy) {
+      const c = this.cam;
+      const a = Math.PI / 2 + c.th;
+      const dx = (sx - this.W / 2) / this.zoom;
+      const dy = (sy - this.anchorY) / this.zoom;
+      return { x: c.x + dx * Math.cos(a) - dy * Math.sin(a), y: c.y + dx * Math.sin(a) + dy * Math.cos(a) };
+    },
+    /** The decision whose lanes or sign are coming up (main track only). */
+    upcoming() {
+      return this.onMain && !this.arrive ? this.drive.decisions[this.next] || null : null;
+    },
+    /** Where the van may slide: our two lanes, or every lane of the split ahead. */
+    laneRange() {
+      const G = Streets().GEOM;
+      const d = this.upcoming();
+      const n = d && this.van.s >= d.zoneStart - 120 ? d.n : 2;
+      return [Streets().ourLeft(n) + 33, G.half - 33];
+    },
+
+    /* ---------- Walkers ---------- */
     pickType() {
       const w = { walker: 1, runner: this.diff.runnerW, brute: this.diff.bruteW };
       let r = Math.random() * (w.walker + w.runner + w.brute);
@@ -227,40 +457,21 @@
     spawnZombie() {
       const type = this.pickType();
       const base = ZOMBIE_TYPES[type];
+      const G = Streets().GEOM;
       const side = Math.random() < DIFF.sideSpawnChance ? (Math.random() < 0.5 ? "left" : "right") : "top";
-      let x;
-      let y;
+      let sx;
+      let sy;
       if (side === "top") {
-        x = rand(this.roadX - 30, this.roadX + this.roadW + 30);
-        y = -40;
+        const cx = this.W / 2 - (this.turn ? this.cam.rel : this.cam.d) * this.zoom;
+        sx = rand(cx - (G.half + 30) * this.zoom, cx + (G.half + 30) * this.zoom);
+        sy = -40;
       } else {
-        x = side === "left" ? -40 : this.W + 40;
-        y = rand(this.H * 0.05, this.H * 0.6);
+        sx = side === "left" ? -40 : this.W + 40;
+        sy = rand(this.H * 0.05, this.H * 0.6);
       }
+      const w = this.toWorld(sx, sy);
       const hp = Math.round(base.hp * this.diff.hpMult);
-      this.zombies.push({ type, x, y, r: base.r, hp, maxHp: hp, speed: base.speed * this.diff.speedMult * rand(0.85, 1.15), dmg: base.dmg, scrap: base.scrap, angle: Math.PI / 2, phase: Math.random() * 6.28, hit: 0, cool: 0, kx: 0, ky: 0 });
-    },
-    spawnProp(y) {
-      const left = Math.random() < 0.5;
-      const margin = 30;
-      const x = left ? rand(margin, Math.max(margin + 1, this.roadX - 50)) : rand(Math.min(this.W - margin - 1, this.roadX + this.roadW + 50), this.W - margin);
-      const roll = Math.random();
-      const seed = Math.floor(Math.random() * 1e6);
-      let p;
-      if (roll < 0.3) p = { kind: "tree", size: rand(22, 34), seed };
-      else if (roll < 0.42) p = { kind: "barrel", color: ["#7a4a2a", "#5f6b3c", "#4d4f55"][Math.floor(Math.random() * 3)] };
-      else if (roll < 0.52) p = { kind: "tire" };
-      else if (roll < 0.64) p = { kind: "rubble", seed };
-      else if (roll < 0.74) p = { kind: "barrier", rot: rand(-0.3, 0.3) };
-      else if (roll < 0.84) p = { kind: "sign", text: ["KEEP OUT", "NO ENTRY", "MILE 9", "DETOUR", "QUIET"][Math.floor(Math.random() * 5)], color: ["#d9a21b", "#b3261e", "#e6dfcc"][Math.floor(Math.random() * 3)] };
-      else p = { kind: "wreck", rot: rand(-0.6, 0.6), color: ["#5a4538", "#3f4a55", "#6b6b6b", "#7a3a30"][Math.floor(Math.random() * 4)] };
-      p.x = x;
-      p.y = y == null ? -80 : y;
-      this.props.push(p);
-      if (Math.random() < 0.35) this.props.push({ kind: "crack", seed: seed + 1, x: rand(this.roadX + 30, this.roadX + this.roadW - 30), y: p.y - 40 });
-    },
-    spawnCrate() {
-      this.crates.push({ x: rand(this.roadX + 40, this.roadX + this.roadW - 40), y: -40, t: 0 });
+      this.zombies.push({ type, x: w.x, y: w.y, r: base.r, hp, maxHp: hp, speed: base.speed * this.diff.speedMult * rand(0.85, 1.15), dmg: base.dmg, scrap: base.scrap, angle: this.cam.th + Math.PI, phase: Math.random() * 6.28, hit: 0, cool: 0, kx: 0, ky: 0 });
     },
 
     burst(text, x, y, color, bg, size) {
@@ -271,7 +482,7 @@
       for (let i = 0; i < 7; i++) {
         const a = Math.random() * 6.28;
         const s = rand(20, 90);
-        this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s - 10, life: 0.5, maxLife: 0.5, size: r * rand(0.25, 0.45), color: i % 2 === 0 ? "#6b675c" : "#4a473f", grow: true });
+        this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.5, maxLife: 0.5, size: r * rand(0.25, 0.45), color: i % 2 === 0 ? "#6b675c" : "#4a473f", grow: true });
       }
     },
     sparks(x, y, color) {
@@ -288,15 +499,74 @@
       if (!this.last) this.last = ts;
       const dt = Math.min(0.05, (ts - this.last) / 1000);
       this.last = ts;
+      // Huge text needs room beside the road for its signs: pull the camera back a little
+      this.zoom = this.zoomBase * (textSize() >= 2 ? 0.85 : 1);
       if (!this.paused) this.update(dt);
       this.draw();
+    },
+
+    /* ---------- Decisions ---------- */
+    /** The van crossed a stop line: the lane it is in is the way it goes. */
+    commit(dec) {
+      const St = Streets();
+      const lane = St.laneOf(this.van.d, dec.n);
+      const opt = dec.options[dec.lanes[lane]];
+      this.next += 1;
+      if (opt.correct) this.hintDone = true;
+      if (opt.correct && opt.kind === "through") return;
+      // the van drives its own path from the lane it is in: one smooth arc, whichever lane (streets.js turnPath)
+      const tp = St.turnPath(this.drive, dec, opt, this.van.d);
+      const cam0 = this.cam.d - this.van.d; // the camera's offset from the van, kept as the turn begins
+      if (opt.correct) {
+        // a junction or the destination: the van's place on the route runs on underneath (signs, progress) and maps onto the path
+        const s1 = dec.kind === "dest" ? this.drive.endS : tp.rejoin;
+        const cam1 = dec.kind === "dest" ? 0 : (St.ourLeft(2) + St.GEOM.half) / 2 - tp.d1;
+        this.turn = { track: tp.track, main: true, s0: dec.stop, s1, k: tp.track.len / Math.max(1, s1 - dec.stop), d1: tp.d1, cam0, cam1 };
+        if (dec.kind === "dest") this.arrive = { t: 0, parked: false };
+        return;
+      }
+      // the wrong way: drive into it for a moment, then fade and start over
+      this.track = tp.track;
+      this.onMain = false;
+      this.van.s = Math.max(0, this.van.s - dec.stop);
+      this.van.d = 0;
+      this.turn = { track: tp.track, main: false, cam0, cam1: 0 };
+      this.fail = { t: 0, msg: this.failText(opt) };
+      Audio().play("wrong");
+    },
+    placeName(id) {
+      const l = loc(id);
+      return l ? l.name : id;
+    },
+    failText(opt) {
+      const St = Streets();
+      const S = State();
+      const dest = this.opts.name;
+      if (opt.kind === "road") return S.isKnown(opt.to) ? St.text("wrongWay", { place: this.placeName(opt.to), dest }) : St.text("wrongStreet", { street: opt.street, dest });
+      if (opt.kind === "side") return St.text("wrongSide", { street: opt.street, dest });
+      if (opt.kind === "lot") return S.isKnown(opt.to) ? St.text("wrongPlace", { place: this.placeName(opt.to), dest }) : St.text("wrongLot", { dest });
+      return St.text("missed", { dest });
+    },
+    /** What the sign for a decision says: one row per lane, left to right (only the turn for a driveway or side street). */
+    signFor(dec) {
+      const St = Streets();
+      const S = State();
+      if (dec.kind === "junction") return { style: "guide", rows: dec.options.map((o) => ({ rel: o.rel, text: S.isKnown(o.to) ? this.placeName(o.to) : o.street })) };
+      const turn = dec.options.find((o) => o.kind !== "through" && o.kind !== "miss");
+      if (dec.kind === "side") return { style: "street", rows: [{ rel: turn.rel, text: turn.street, badge: St.text(turn.sideKind), badgeKind: turn.sideKind }] };
+      return { style: "place", rows: [{ rel: turn.rel, text: S.isKnown(dec.node) ? this.placeName(dec.node) : St.text("lot") }] };
+    },
+    startFade(msg) {
+      const words = String(msg).split(/\s+/).length + 5;
+      this.fade = { phase: "out", t: 0, msg, sub: Streets().text("restart", { origin: this.placeName(this.origin) }), hold: clamp(1.2 + words * 0.25, 2.4, 5.5), skip: false };
+      this.pointer.down = false;
     },
 
     update(dt) {
       const t = State().trip;
       const stats = this.stats;
       const van = this.van;
-      const seg = this.seg;
+      const St = Streets();
       this.time += dt;
       if (this.gameOverAt != null) {
         this.gameOverAt -= dt;
@@ -308,41 +578,97 @@
         }
         return;
       }
-      seg.elapsed += dt;
-      if (!seg.ending && seg.elapsed >= seg.duration) {
-        seg.ending = true;
-        seg.endAt = seg.elapsed + 2.5;
-        this.banner(this.opts.to === "base" ? "HOME" : "YOU'RE HERE", 2500);
+      // a wrong turn: dark, a card to read, then back to the start
+      if (this.fade) {
+        const f = this.fade;
+        f.t += dt;
+        if (f.phase === "out" && f.t >= DIFF.fadeOut) {
+          f.phase = "hold";
+          f.t = 0;
+          f.skip = false;
+        } else if (f.phase === "hold" && (f.t >= f.hold || (f.skip && f.t >= 1))) {
+          this.attempt += 1;
+          this.resetDrive();
+          f.phase = "in";
+          f.t = 0;
+        } else if (f.phase === "in" && f.t >= DIFF.fadeIn) this.fade = null;
+        if (this.fade && this.fade.phase !== "in") {
+          this.updateHud();
+          return;
+        }
       }
-      if (seg.ending && seg.elapsed >= seg.endAt) {
-        this.stop();
-        if (this.hooks.onArrive) this.hooks.onArrive(this.opts.to);
-        return;
-      }
-      while (seg.crateTimes.length && seg.elapsed >= seg.crateTimes[0]) {
-        seg.crateTimes.shift();
-        this.spawnCrate();
-      }
-      const scrollSpeed = DIFF.roadScroll * stats.speed;
-      this.scroll += scrollSpeed * dt;
-      t.miles += DIFF.milesPerSecond * stats.speed * dt;
 
-      let dir = 0;
-      if (this.keys.left) dir -= 1;
-      if (this.keys.right) dir += 1;
-      van.vx = dir * stats.laneSpeed;
-      van.x = clamp(van.x + van.vx * dt, this.roadX - 10, this.roadX + this.roadW + 10);
+      // drive: the van follows its track; it brakes into a parking spot or a dead end
+      const left = this.track.len - van.s;
+      const brake = this.arrive || !this.onMain ? clamp(Math.sqrt(Math.max(0, left) / 260), 0, 1) : 1;
+      this.curSpeed = this.speed * brake;
+      // through a turn on the route, s runs at the rate that keeps the van's own speed on its path
+      van.s = Math.min(this.track.len, van.s + (this.curSpeed * dt) / (this.turn && this.turn.main ? this.turn.k : 1));
+      t.miles += DIFF.milesPerSecond * stats.speed * dt * brake;
+      while (this.onMain && !this.arrive && this.next < this.drive.decisions.length && van.s >= this.drive.decisions[this.next].stop) this.commit(this.drive.decisions[this.next]);
+      // lanes: the player slides, or the van drives its turn
+      van.vd = 0;
+      if (this.turn) {
+        const tn = this.turn;
+        if (tn.main && !this.arrive && van.s >= tn.s1) {
+          // back on the route's road, in the lane the turn ended in
+          van.d = tn.d1;
+          this.cam.d = tn.cam1 + tn.d1;
+          this.turn = null;
+        }
+      } else {
+        let dir = 0;
+        if (this.keys.left) dir -= 1;
+        if (this.keys.right) dir += 1;
+        const [lo, hi] = this.laneRange();
+        const d0 = van.d;
+        let nd = van.d + dir * stats.laneSpeed * dt;
+        // a lane that ends (a bay after its stop line) eases the van back over instead of jumping it
+        const ease = Math.max(stats.laneSpeed, 320) * dt;
+        if (nd < lo) nd = Math.min(lo, Math.max(nd, d0) + ease);
+        if (nd > hi) nd = Math.max(hi, Math.min(nd, d0) - ease);
+        van.d = nd;
+        van.vd = dt > 0 ? (van.d - d0) / dt : 0;
+      }
+      this.placeVan(dt);
+      this.placeCam(Math.min(1, dt * 5));
+      if (this.fail) {
+        this.fail.t += dt;
+        if (this.fail.t >= DIFF.wrongDrive && !this.fade) this.startFade(this.fail.msg);
+      }
+      if (this.arrive) {
+        if (van.s >= this.track.len - 3) {
+          if (!this.arrive.parked) {
+            this.arrive.parked = true;
+            this.banner(St.text(this.opts.to === "base" ? "home" : "here").toUpperCase(), 2500);
+          }
+          this.arrive.t += dt;
+          if (this.arrive.t >= DIFF.parkWait) {
+            this.stop();
+            if (this.hooks.onArrive) this.hooks.onArrive(this.opts.to);
+            return;
+          }
+        }
+      }
+
+      // the gun
       van.hurt = Math.max(0, van.hurt - dt * 2);
       van.cooldown -= dt;
-      if (this.pointer.seen) van.aim = Math.atan2(this.pointer.y - (van.y + 11), this.pointer.x - van.x);
+      const vs = this.toScreen(van.x, van.y);
+      const rot = van.heading - this.cam.th;
+      const turret = { x: vs.x - Math.sin(rot) * 11 * this.zoom, y: vs.y + Math.cos(rot) * 11 * this.zoom };
+      if (this.pointer.seen) van.aim = Math.atan2(this.pointer.y - turret.y, this.pointer.x - turret.x);
       let aim = van.aim;
-      if (State().settings.aimAssist) aim = this.assist(aim);
-      if ((this.pointer.down || this.keys.fire) && van.cooldown <= 0) {
+      const toWorldAngle = (a) => a + this.cam.th + Math.PI / 2;
+      if (State().settings.aimAssist) aim = this.assist(aim, turret);
+      const firing = (this.pointer.down || this.keys.fire) && !this.fade;
+      if (firing && van.cooldown <= 0) {
         van.cooldown = stats.fireInterval;
         const n = stats.bullets;
+        const tw = this.toWorld(turret.x, turret.y);
         for (let i = 0; i < n; i++) {
-          const a = aim + (i - (n - 1) / 2) * 0.14;
-          this.bullets.push({ x: van.x + Math.cos(a) * 24, y: van.y + 11 + Math.sin(a) * 24, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, dmg: stats.damage });
+          const a = toWorldAngle(aim + (i - (n - 1) / 2) * 0.14);
+          this.bullets.push({ x: tw.x + Math.cos(a) * 24, y: tw.y + Math.sin(a) * 24, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, dmg: stats.damage });
         }
         van.flash = 0.07;
         Audio().play("shoot");
@@ -350,7 +676,7 @@
       van.flash = Math.max(0, van.flash - dt);
       van.drawAim = aim;
 
-      if (!seg.ending) {
+      if (!this.arrive) {
         this.spawnTimer -= dt;
         if (this.spawnTimer <= 0) {
           this.spawnZombie();
@@ -361,7 +687,7 @@
         const b = this.bullets[i];
         b.x += b.vx * dt;
         b.y += b.vy * dt;
-        if (b.x < -40 || b.x > this.W + 40 || b.y < -40 || b.y > this.H + 40) {
+        if (Math.hypot(b.x - van.x, b.y - van.y) > 1300) {
           this.bullets.splice(i, 1);
           continue;
         }
@@ -377,21 +703,26 @@
             this.sparks(b.x, b.y);
             Audio().play("hit");
             if (z.hp <= 0) this.killZombie(j);
-            else if (Math.random() < 0.25) this.burst(HIT_WORDS[Math.floor(Math.random() * HIT_WORDS.length)], z.x, z.y - z.r, "#e8392f", "#ffcf40", 0.8);
+            else if (Math.random() < 0.25) this.burst(HIT_WORDS[Math.floor(Math.random() * HIT_WORDS.length)], z.x, z.y, "#e8392f", "#ffcf40", 0.8);
             this.bullets.splice(i, 1);
             break;
           }
         }
       }
-      const drift = scrollSpeed * 0.35;
+      // walkers home in on the van and keep up with it, as on the old scrolling road
+      const fx = Math.cos(van.heading);
+      const fy = Math.sin(van.heading);
+      const rx = -fy;
+      const ry = fx;
+      const chase = this.curSpeed * DIFF.chase;
       for (let i = this.zombies.length - 1; i >= 0; i--) {
         const z = this.zombies[i];
         const dx = van.x - z.x;
         const dy = van.y - z.y;
         const dist = Math.hypot(dx, dy) || 1;
         z.angle = Math.atan2(dy, dx);
-        let vx = (dx / dist) * z.speed + z.kx;
-        let vy = (dy / dist) * z.speed + drift + z.ky;
+        let vx = (dx / dist) * z.speed + fx * chase + z.kx;
+        let vy = (dy / dist) * z.speed + fy * chase + z.ky;
         for (let j = 0; j < this.zombies.length; j++) {
           if (i === j) continue;
           const o = this.zombies[j];
@@ -411,58 +742,59 @@
         z.ky *= 0.85;
         z.hit = Math.max(0, z.hit - dt);
         z.cool = Math.max(0, z.cool - dt);
-        const nx = (z.x - van.x) / (van.w / 2 + z.r * 0.8);
-        const ny = (z.y - van.y) / (van.h / 2 + z.r * 0.8);
-        if (nx * nx + ny * ny < 1 && z.cool <= 0) {
+        // touching the van: in the van's own frame, an ellipse around its body
+        const lx = (z.x - van.x) * rx + (z.y - van.y) * ry;
+        const ly = (z.x - van.x) * fx + (z.y - van.y) * fy;
+        const nx = lx / (van.w / 2 + z.r * 0.8);
+        const ny = ly / (van.h / 2 + z.r * 0.8);
+        if (nx * nx + ny * ny < 1 && z.cool <= 0 && !this.fade) {
           z.cool = 1.0;
           z.hp -= stats.ram;
           const push = stats.ramKnock;
-          z.kx = ((z.x - van.x) / Math.max(1, Math.abs(z.x - van.x))) * push;
-          z.ky = -push * 0.8;
+          const side = lx / Math.max(1, Math.abs(lx));
+          z.kx = rx * side * push + fx * push * 0.8;
+          z.ky = ry * side * push + fy * push * 0.8;
           if (z.hp <= 0) {
             this.killZombie(i);
-            this.burst("THUD!", van.x, van.y - 60, "#e6dfcc", "#4b5057", 1.1);
+            this.burst("THUD!", van.x + fx * 60, van.y + fy * 60, "#e6dfcc", "#4b5057", 1.1);
             continue;
           }
           this.hurtVan(z.dmg, z.x, z.y);
+          if (this.gameOverAt != null) return;
         }
-        if (z.y > this.H + 80 || z.x < -160 || z.x > this.W + 160) this.zombies.splice(i, 1);
+        const zs = this.toScreen(z.x, z.y);
+        if (zs.y > this.H + 120 || zs.x < -220 || zs.x > this.W + 220 || zs.y < -900) this.zombies.splice(i, 1);
       }
       for (let i = this.crates.length - 1; i >= 0; i--) {
         const c = this.crates[i];
-        c.y += scrollSpeed * dt;
         c.t += dt;
-        if (Math.abs(c.x - van.x) < van.w / 2 + 14 && Math.abs(c.y - van.y) < van.h / 2 + 14) {
+        const lx = (c.x - van.x) * rx + (c.y - van.y) * ry;
+        const ly = (c.x - van.x) * fx + (c.y - van.y) * fy;
+        if (Math.abs(lx) < van.w / 2 + 14 && Math.abs(ly) < van.h / 2 + 14) {
           t.scrap += DIFF.crateScrap;
-          this.burst("+" + DIFF.crateScrap + " SCRAP", c.x, c.y - 20, "#0f1012", "#d9a21b", 0.9);
+          this.burst("+" + DIFF.crateScrap + " SCRAP", c.x, c.y, "#0f1012", "#d9a21b", 0.9);
           this.sparks(c.x, c.y, "#e6dfcc");
           Audio().play("pickup");
           this.crates.splice(i, 1);
-        } else if (c.y > this.H + 60) this.crates.splice(i, 1);
-      }
-      for (let i = this.props.length - 1; i >= 0; i--) {
-        this.props[i].y += scrollSpeed * dt;
-        if (this.props[i].y > this.H + 100) this.props.splice(i, 1);
+        }
       }
       for (let i = this.fallen.length - 1; i >= 0; i--) {
         const f = this.fallen[i];
-        f.y += scrollSpeed * dt;
         f.life -= dt;
-        if (f.life <= 0 || f.y > this.H + 100) this.fallen.splice(i, 1);
+        if (f.life <= 0) this.fallen.splice(i, 1);
       }
-      if (this.props.length < 14 && Math.random() < dt * 1.6) this.spawnProp();
       this.updateParticles(dt);
       this.shake *= Math.pow(0.02, dt);
       this.updateHud();
     },
 
-    assist(aim) {
-      const van = this.van;
+    assist(aim, from) {
       let best = null;
       let bestDiff = 0.42;
       for (const z of this.zombies) {
-        const dx = z.x - van.x;
-        const dy = z.y - (van.y + 11);
+        const p = this.toScreen(z.x, z.y);
+        const dx = p.x - from.x;
+        const dy = p.y - from.y;
         if (dx * dx + dy * dy > 650 * 650) continue;
         const a = Math.atan2(dy, dx);
         const d = Math.abs(normAngle(a - aim));
@@ -487,22 +819,24 @@
     hurtVan(dmg, x, y) {
       const S = State();
       const t = S.trip;
+      const v = this.van;
       t.vanHp -= Math.round(dmg * S.effects().vanDamage);
-      this.van.hurt = 1;
+      v.hurt = 1;
       if (S.settings.shake) this.shake = 10;
-      this.burst("SLAM!", this.van.x, this.van.y - 70, "#e6dfcc", "#b3261e", 1.1);
+      this.burst("SLAM!", v.x + Math.cos(v.heading) * 70, v.y + Math.sin(v.heading) * 70, "#e6dfcc", "#b3261e", 1.1);
       this.sparks(x, y, "#9ea3aa");
       Audio().play("crunch");
       if (t.vanHp <= 0) {
         t.vanHp = 0;
         this.gameOverAt = 1.4;
         this.shake = 18;
+        this.fade = null;
         for (let k = 0; k < 24; k++) {
           const a = Math.random() * 6.28;
           const s = rand(60, 260);
-          this.particles.push({ x: this.van.x, y: this.van.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1.2, maxLife: 1.2, size: rand(6, 16), color: k % 2 ? "#4a473f" : "#d9a21b", grow: true });
+          this.particles.push({ x: v.x, y: v.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 1.2, maxLife: 1.2, size: rand(6, 16), color: k % 2 ? "#4a473f" : "#d9a21b", grow: true });
         }
-        this.burst("WRECKED!", this.van.x, this.van.y - 40, "#b3261e", "#d9a21b", 1.8);
+        this.burst("WRECKED!", v.x + Math.cos(v.heading) * 40, v.y + Math.sin(v.heading) * 40, "#b3261e", "#d9a21b", 1.8);
         Audio().play("gameover");
       }
     },
@@ -532,30 +866,432 @@
       h.scrap.textContent = S.save.scrap + t.scrap;
       h.miles.textContent = t.miles.toFixed(1);
       h.kills.textContent = t.walkers;
-      h.segFill.style.width = clamp((this.seg.elapsed / this.seg.duration) * 100, 0, 100) + "%";
+      const D = this.drive;
+      const s = this.onMain ? this.van.s : D.decisions[Math.max(0, this.next - 1)].stop;
+      h.segFill.style.width = clamp(((s - D.startS) / (D.endS - D.startS)) * 100, 0, 100) + "%";
     },
 
+    /* ---------- Drawing ---------- */
     draw() {
       const ctx = this.ctx;
       const D = Draw();
+      const St = Streets();
+      const G = St.GEOM;
       const van = this.van;
-      if (!van) return;
+      if (!van || !this.drive) return;
+      const W = this.W;
+      const H = this.H;
+      const k = textSize();
+      const theme = this.mods.night ? { grass: "#3f3e2c", asphalt: "#2b2c30" } : this.mods.fog ? { grass: "#67654a" } : null;
+      const viewR = Math.hypot(W, H) / this.zoom;
+      const center = this.toWorld(W / 2, H / 2);
+      const view = { x: center.x, y: center.y, r: viewR * 0.6 };
       ctx.save();
       if (this.shake > 0.5) ctx.translate(rand(-this.shake, this.shake), rand(-this.shake, this.shake));
-      D.road(ctx, this.W, this.H, this.roadX, this.roadW, this.scroll, this.mods.night ? { grass: "#3f3e2c", asphalt: "#2b2c30" } : this.mods.fog ? { grass: "#67654a" } : null);
-      for (const p of this.props) D.prop(ctx, p);
+      ctx.save();
+      ctx.translate(W / 2, this.anchorY);
+      ctx.scale(this.zoom, this.zoom);
+      ctx.rotate(-Math.PI / 2 - this.cam.th);
+      ctx.translate(-this.cam.x, -this.cam.y);
+      D.ground(ctx, view, theme);
+      D.cityRoads(ctx, this.drive, G, theme, view);
+      // lanes before each decision near the view
+      this.drive.decisions.forEach((d, i) => {
+        if (i < this.next - 1) return;
+        const a = St.at(this.drive.track, d.stop);
+        if (Math.hypot(a.x - view.x, a.y - view.y) > view.r + (d.stop - d.zoneStart) + 400) return;
+        ctx.save();
+        ctx.transform(-a.uy, a.ux, -a.ux, -a.uy, a.x, a.y);
+        D.laneZone(ctx, { len: d.stop - d.zoneStart, n: d.n, ourLeft: St.ourLeft(d.n), rels: d.lanes.map((w) => d.options[w].rel), ways: d.lanes }, G, theme);
+        ctx.restore();
+      });
+      this.drive.lots.forEach((l) => {
+        if (Math.hypot(l.qx - view.x, l.qy - view.y) < view.r + 800) D.lot(ctx, l, G, loc(l.node));
+      });
+      const drawFaced = (p, fn) => {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(p.face || 0);
+        fn();
+        ctx.restore();
+      };
+      const pr = view.r + 120;
+      const onScreen = (p, m) => {
+        const q = this.toScreen(p.x, p.y);
+        return q.x > -m && q.x < W + m && q.y > -m && q.y < H + m;
+      };
+      for (const p of this.props) if (Math.abs(p.x - view.x) < pr && Math.abs(p.y - view.y) < pr && onScreen(p, 90)) drawFaced(p, () => D.prop(ctx, Object.assign({}, p, { x: 0, y: 0 })));
       for (const f of this.fallen) D.prop(ctx, f);
-      for (const c of this.crates) D.prop(ctx, { kind: "crate", x: c.x, y: c.y, t: c.t });
-      const sorted = this.zombies.slice().sort((a, b) => a.y - b.y);
-      for (const z of sorted) D.zombie(ctx, z, this.time);
+      for (const c of this.crates) drawFaced(c, () => D.prop(ctx, { kind: "crate", x: 0, y: 0, t: c.t }));
+      for (const z of this.zombies) D.zombie(ctx, z, this.time);
       for (const b of this.bullets) D.bullet(ctx, b);
-      if (this.gameOverAt == null || this.gameOverAt > 0.9) D.van(ctx, van.x, van.y, { upgrades: State().save.upgrades, aim: van.drawAim == null ? van.aim : van.drawAim, t: this.time, hurt: van.hurt, flash: van.flash });
       for (const p of this.particles) D.particle(ctx, p);
-      for (const b of this.bursts) D.burst(ctx, b);
-      if (this.mods.fog) D.fog(ctx, this.W, this.H, this.dpr, van.x, van.y, 300);
-      if (this.mods.night) D.night(ctx, this.W, this.H, this.dpr, van.x, van.y + 11, van.drawAim == null ? van.aim : van.drawAim);
       ctx.restore();
-      D.vignette(ctx, this.W, this.H);
+      // the van, upright on screen at its place on the road
+      const vs = this.toScreen(van.x, van.y);
+      const rot = van.heading - this.cam.th;
+      if (this.gameOverAt == null || this.gameOverAt > 0.9) {
+        ctx.save();
+        ctx.translate(vs.x, vs.y);
+        ctx.rotate(rot);
+        D.van(ctx, 0, 0, { upgrades: State().save.upgrades, aim: (van.drawAim == null ? van.aim : van.drawAim) - rot, t: this.time, hurt: van.hurt, flash: van.flash, scale: this.zoom, moving: !(this.arrive && this.arrive.parked) });
+        ctx.restore();
+      }
+      // names on the buildings, upright
+      this.drive.lots.forEach((l) => {
+        const v0 = G.half + G.shoulder + G.lotGap + 168;
+        const nx = -l.uy * l.side;
+        const ny = l.ux * l.side;
+        const p = this.toScreen(l.qx + nx * v0, l.qy + ny * v0);
+        if (p.x < -200 || p.x > W + 200 || p.y < -60 || p.y > H + 60) return;
+        D.nameBoard(ctx, p.x, p.y, State().isKnown(l.node) ? this.placeName(l.node).toUpperCase() : "?", Math.max(this.zoom, k * 0.8), false);
+      });
+      for (const b of this.bursts) {
+        const p = this.toScreen(b.x, b.y);
+        D.burst(ctx, Object.assign({}, b, { x: p.x, y: p.y }));
+      }
+      if (this.mods.fog) D.fog(ctx, W, H, this.dpr, vs.x, vs.y, 300 * this.zoom);
+      if (this.mods.night) D.night(ctx, W, H, this.dpr, vs.x, vs.y, van.drawAim == null ? van.aim : van.drawAim);
+      ctx.restore();
+      D.vignette(ctx, W, H);
+      const signRects = this.drawSign(ctx, k);
+      if (signRects && this.gameOverAt == null) this.drawOverSign(ctx, signRects);
+      let dim = 0;
+      if (this.fade) {
+        const f = this.fade;
+        dim = clamp(f.phase === "out" ? f.t / DIFF.fadeOut : f.phase === "hold" ? 1 : 1 - f.t / DIFF.fadeIn, 0, 1);
+        const hudTop = this.hudRects().top;
+        D.card(ctx, W, H, f.phase === "in" ? null : f.msg, f.sub, dim, k, hudTop ? hudTop.bottom + 8 : 0);
+      }
+      const op = String(Math.round((1 - dim) * 100) / 100);
+      if (this.hud.mini && this.hud.mini.style.opacity !== op) this.hud.mini.style.opacity = op;
+      this.drawMinimap(k);
+    },
+
+    /** The sign for the next decision: it comes down the road on the right and holds there until the stop line.
+        Returns the screen boxes it covers (with its help note), or null. */
+    drawSign(ctx, k) {
+      const D = Draw();
+      const St = Streets();
+      const G = St.GEOM;
+      const up = this.upcoming();
+      let dec = null;
+      let after = 0;
+      if (up && this.van.s >= up.signAt) dec = up;
+      else if (this.next > 0) {
+        // just past a stop line, the last sign slides away (on a wrong road, s counts from that stop line)
+        const prev = this.drive.decisions[this.next - 1];
+        const past = this.onMain ? this.van.s - prev.stop : this.van.s;
+        if (past >= 0 && past < 260) {
+          dec = prev;
+          after = past;
+        }
+      }
+      if (!dec) return null;
+      const sign = this.signFor(dec);
+      // on the right of the road under the HUD (the minimap sits on the left, off the road)
+      const rects = this.hudRects();
+      const top = rects.top ? rects.top.bottom + 10 : 70;
+      const left = this.W / 2 + (G.half + G.shoulder + 14 - this.cam.d) * this.zoom;
+      let maxW = this.W - left - 12;
+      let x = left;
+      if (maxW < 160) {
+        // a narrow screen: across the top, under the minimap
+        x = 8;
+        maxW = this.W - 16;
+      }
+      const lay = D.layoutSign(ctx, sign, Math.min(k, 1.8), maxW);
+      x = Math.min(x, this.W - lay.w - 12);
+      let y = top;
+      const mb = rects.mini;
+      if (mb && mb.width && x < mb.right + 6 && x + lay.w > mb.left - 6 && y < mb.bottom + 6 && y + lay.h > mb.top - 6) y = mb.bottom + 10;
+      // slide in from above as it comes into view, slide down and fade once passed
+      const lead = (dec.zoneStart - dec.signAt) || 1;
+      const into = clamp((this.van.s - dec.signAt) / Math.min(lead, 0.5 * this.speed), 0, 1);
+      const yy = after ? y + after * this.zoom * 0.9 : y - (1 - smooth(into)) * (lay.h + y + 20);
+      const alpha = after ? 1 - after / 260 : 1;
+      D.roadSign(ctx, x, yy, sign, lay, alpha);
+      const boxes = [{ x, y: yy, w: lay.w + 6 * lay.k, h: lay.h + 6 * lay.k }];
+      // until the van has taken a way right, the sign carries a line on how lanes work: under it, or
+      // when that runs off the screen (huge text), on the grass left of the road under the HUD row
+      if (!this.hintDone && !this.fade) {
+        const nk = Math.min(k, 1.5);
+        const text = St.text("hint");
+        let nw = Math.max(lay.w, Math.min(maxW, 300 * lay.k));
+        let nx = Math.min(x, this.W - nw - 12);
+        let ny = yy + lay.h + 8 * lay.k + 4;
+        if (y + lay.h + 8 * lay.k + 4 + D.signNote(ctx, 0, 0, nw, text, nk, 1, false) > this.H - 8) {
+          nw = this.W / 2 - (G.half + G.shoulder + 14 + this.cam.d) * this.zoom - 20;
+          nx = 10;
+          ny = top;
+          if (mb && mb.width && mb.top < ny + 40) ny = mb.bottom + 10;
+        }
+        if (nw >= 160) boxes.push({ x: nx, y: ny, w: nw + 4, h: D.signNote(ctx, nx, ny, nw, text, nk, alpha) + 4 });
+      }
+      return boxes;
+    },
+    /** Walkers behind the sign are drawn again on top of it, so the sign never hides one coming at the van. */
+    drawOverSign(ctx, rects) {
+      const D = Draw();
+      const hit = this.zombies.filter((z) => {
+        const p = this.toScreen(z.x, z.y);
+        const m = z.r * 1.6 * this.zoom;
+        return rects.some((r) => p.x > r.x - m && p.x < r.x + r.w + m && p.y > r.y - m && p.y < r.y + r.h + m);
+      });
+      if (!hit.length) return;
+      ctx.save();
+      ctx.beginPath();
+      rects.forEach((r) => ctx.rect(r.x, r.y, r.w, r.h));
+      ctx.clip();
+      ctx.translate(this.W / 2, this.anchorY);
+      ctx.scale(this.zoom, this.zoom);
+      ctx.rotate(-Math.PI / 2 - this.cam.th);
+      ctx.translate(-this.cam.x, -this.cam.y);
+      for (const z of hit) D.zombie(ctx, z, this.time);
+      ctx.restore();
+    },
+
+    /** Where the HUD's top row and the minimap sit; measured again only when the screen or the text size changes. */
+    hudRects() {
+      const key = this.W + "x" + this.H + ":" + document.documentElement.getAttribute("data-size");
+      if (this.rectKey !== key || !this.rects || !this.rects.mini || !this.rects.mini.width) {
+        this.rectKey = key;
+        const top = this.hud.top ? this.hud.top.getBoundingClientRect() : null;
+        if (top) {
+          // the minimap hangs on the left just under the HUD's top row (it wraps on narrow screens), off our lanes
+          let b = top.top;
+          for (const el of this.hud.top.children) {
+            const r = el.getBoundingClientRect();
+            if (r.height) b = Math.max(b, r.bottom);
+          }
+          this.hud.root.style.setProperty("--mini-top", Math.round(b + 10) + "px");
+        }
+        this.rects = { top, mini: this.hud.mini ? this.hud.mini.getBoundingClientRect() : null };
+      }
+      return this.rects;
+    },
+    /** Minimap: heading-up, known roads and side streets, known places, the destination flagged, the van's true place. Never the route. */
+    drawMinimap(k) {
+      const c = this.hud.mini;
+      const ctx = this.mini;
+      if (!c || !ctx) return;
+      const r = this.hudRects().mini;
+      if (!r || !r.width) return;
+      const dpr = this.dpr || 1;
+      const w = Math.round(r.width);
+      const h = Math.round(r.height);
+      if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
+        c.width = Math.round(w * dpr);
+        c.height = Math.round(h * dpr);
+      }
+      const S = State();
+      const St = Streets();
+      const D = Draw();
+      const Wd = World();
+      const scale = this.drive.scale;
+      const mx = this.van.x / scale;
+      const my = this.van.y / scale;
+      const th = this.van.heading;
+      const zoom = w / 300; // px per map unit: about 300 map units across
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = "#e6dfcc";
+      ctx.fillRect(0, 0, w, h);
+      const cx = w / 2;
+      const cy = h * 0.64;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.scale(zoom, zoom);
+      ctx.rotate(-Math.PI / 2 - th);
+      ctx.translate(-mx, -my);
+      const pos = {};
+      Wd.LOCATIONS.forEach((l) => (pos[l.id] = l));
+      // a road is known when both its ends are; the road the van is on and every road out of the next
+      // junction are always shown and named (the junction's sign may name them), whichever is the route
+      const here = this.onMain ? this.roadHere() : null;
+      const nextJ = this.onMain ? this.drive.decisions.slice(this.next).find((d) => d.kind === "junction") : null;
+      const jn = nextJ ? nextJ.node : null;
+      const known = (a, b) => (S.isKnown(a) && S.isKnown(b)) || here === St.roadKey(a, b) || a === jn || b === jn;
+      ctx.lineCap = "round";
+      Wd.ROADS.forEach(([a, b]) => {
+        const kn = known(a, b);
+        ctx.strokeStyle = kn ? "#4b5057" : "rgba(75,80,87,0.22)";
+        ctx.lineWidth = (kn ? 9 : 6) / zoom;
+        ctx.beginPath();
+        ctx.moveTo(pos[a].x, pos[a].y);
+        ctx.lineTo(pos[b].x, pos[b].y);
+        ctx.stroke();
+      });
+      St.SIDE_STREETS.forEach((s) => {
+        const [a, b] = s.road.split("|");
+        const st = St.sideStub(s);
+        const kn = known(a, b);
+        ctx.strokeStyle = kn ? "#6b6f76" : "rgba(75,80,87,0.18)";
+        ctx.lineWidth = (kn ? 5 : 4) / zoom;
+        ctx.beginPath();
+        ctx.moveTo(st.x0, st.y0);
+        ctx.lineTo(st.x1, st.y1);
+        ctx.stroke();
+        if (kn) {
+          // the end bar: these go nowhere
+          const ux = (st.x1 - st.x0) / St.GEOM.sideLen;
+          const uy = (st.y1 - st.y0) / St.GEOM.sideLen;
+          ctx.strokeStyle = s.kind === "closed" ? "#d4621e" : "#0f1012";
+          ctx.lineWidth = 3 / zoom;
+          ctx.beginPath();
+          ctx.moveTo(st.x1 - uy * 5, st.y1 + ux * 5);
+          ctx.lineTo(st.x1 + uy * 5, st.y1 - ux * 5);
+          ctx.stroke();
+        }
+      });
+      ctx.restore();
+      // labels and icons are drawn upright: transform points, not the text
+      const a = -Math.PI / 2 - th;
+      const ca = Math.cos(a);
+      const sa = Math.sin(a);
+      const P = (x, y) => ({ x: cx + ((x - mx) * ca - (y - my) * sa) * zoom, y: cy + ((x - mx) * sa + (y - my) * ca) * zoom });
+      const inside = (p, m) => p.x > m && p.x < w - m && p.y > m && p.y < h - m;
+      const fs = Math.round(10 * k);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      // street names along known roads, at the point nearest the van, kept upright and apart
+      ctx.font = "700 " + fs + "px Oswald, Impact, sans-serif";
+      const placed = []; // points along each label drawn so far
+      const isOut = (ra, rb) => here !== St.roadKey(ra, rb) && (ra === jn || rb === jn);
+      const order = Wd.ROADS.filter(([ra, rb]) => known(ra, rb)).sort((p, q) => (isOut(q[0], q[1]) ? 1 : 0) - (isOut(p[0], p[1]) ? 1 : 0));
+      order.forEach(([ra, rb]) => {
+        const A = pos[ra];
+        const B = pos[rb];
+        const dx = B.x - A.x;
+        const dy = B.y - A.y;
+        const l2 = dx * dx + dy * dy;
+        const len = Math.sqrt(l2);
+        // a road out of the next junction is named just past the junction (the sign may name it); others nearest the van
+        const name = St.STREET_NAMES[ra + "|" + rb];
+        const half = ctx.measureText(name).width / 2 + 3;
+        const m0 = half / zoom + 8; // clear of the junction itself
+        const tts = isOut(ra, rb) ? [0, 25, 55, 85].map((m) => clamp((ra === jn ? m0 + m : len - m0 - m) / len, 0.08, 0.92)) : [clamp(((mx - A.x) * dx + (my - A.y) * dy) / l2, 0.2, 0.8)];
+        const p2 = P(B.x, B.y);
+        const p1 = P(A.x, A.y);
+        let ang = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+        if (ang > Math.PI / 2) ang -= Math.PI;
+        if (ang < -Math.PI / 2) ang += Math.PI;
+        let p = null;
+        let pts = null;
+        for (const tt of tts) {
+          const c = P(A.x + dx * tt, A.y + dy * tt);
+          if (!inside(c, fs * 2)) continue;
+          const lx = c.x + Math.sin(ang) * fs * 0.9; // where (0, -0.9 fs) lands once rotated by ang
+          const ly = c.y - Math.cos(ang) * fs * 0.9;
+          const mine = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1].map((f) => [lx + Math.cos(ang) * half * f, ly + Math.sin(ang) * half * f]);
+          if (placed.some(([qx, qy]) => mine.some(([x, y]) => Math.hypot(qx - x, qy - y) < fs * 1.2))) continue;
+          p = c;
+          pts = mine;
+          break;
+        }
+        if (!p) return;
+        placed.push(...pts);
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.rotate(ang);
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = "#e6dfcc";
+        ctx.strokeText(name, 0, -fs * 0.9);
+        ctx.fillStyle = "#0f1012";
+        ctx.fillText(name, 0, -fs * 0.9);
+        ctx.restore();
+      });
+      // known places, and the destination's flag (pinned to the edge when it is out of view)
+      Wd.LOCATIONS.forEach((l) => {
+        if (!S.isKnown(l.id)) return;
+        const p = P(l.x, l.y);
+        const isDest = l.id === this.opts.to;
+        if (!inside(p, 4) && !isDest) return;
+        if (isDest) {
+          const q = { x: clamp(p.x, 14 * k, w - 14 * k), y: clamp(p.y, 16 * k, h - 10 * k) };
+          const off = q.x !== p.x || q.y !== p.y;
+          if (!off) {
+            ctx.beginPath();
+            ctx.arc(q.x, q.y, 9 * k, 0, Math.PI * 2);
+            ctx.fillStyle = "rgba(179,38,30,0.25)";
+            ctx.fill();
+          }
+          this.flag(ctx, q.x, q.y, k, off ? Math.atan2(p.y - q.y, p.x - q.x) : null);
+          return;
+        }
+        D.rr(ctx, p.x - 5 * k, p.y - 4 * k, 10 * k, 8 * k, 1.5);
+        D.fillStroke(ctx, D.ROOF[l.type] || "#4b5057", 1.5);
+      });
+      // the van: an arrow at the true place, pointing the way it faces
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(this.van.heading - this.cam.th);
+      ctx.beginPath();
+      ctx.moveTo(0, -9 * k);
+      ctx.lineTo(7 * k, 7 * k);
+      ctx.lineTo(0, 3.5 * k);
+      ctx.lineTo(-7 * k, 7 * k);
+      ctx.closePath();
+      D.fillStroke(ctx, "#d9a21b", 2);
+      ctx.restore();
+      // north, on the rim
+      const m = 11 * k;
+      const vx = Math.sin(a);
+      const vy = -Math.cos(a);
+      const reach = Math.min(vx > 1e-3 ? (w - m - cx) / vx : vx < -1e-3 ? (m - cx) / vx : Infinity, vy > 1e-3 ? (h - m - cy) / vy : vy < -1e-3 ? (m - cy) / vy : Infinity);
+      const nx = cx + vx * reach;
+      const ny = cy + vy * reach;
+      ctx.beginPath();
+      ctx.arc(nx, ny, 8 * k, 0, Math.PI * 2);
+      D.fillStroke(ctx, "#f3eee0", 2);
+      ctx.fillStyle = "#0f1012";
+      ctx.font = "700 " + Math.round(10 * k) + "px Oswald, Impact, sans-serif";
+      ctx.fillText("N", nx, ny + 0.5);
+    },
+    /** The map road under the van right now (main track only), as a ROADS key. */
+    roadHere() {
+      const D = this.drive;
+      let best = null;
+      let bd = Infinity;
+      for (let i = 0; i < D.path.length - 1; i++) {
+        const a = D.nodes.find((n) => n.id === D.path[i]);
+        const b = D.nodes.find((n) => n.id === D.path[i + 1]);
+        const d = distSeg(this.van.x, this.van.y, a.x, a.y, b.x, b.y);
+        if (d < bd) {
+          bd = d;
+          best = Streets().roadKey(a.id, b.id);
+        }
+      }
+      return best;
+    },
+    flag(ctx, x, y, k, pointTo) {
+      const D = Draw();
+      ctx.save();
+      ctx.translate(x, y);
+      if (pointTo != null) {
+        // an edge arrow toward the destination
+        ctx.save();
+        ctx.rotate(pointTo);
+        ctx.beginPath();
+        ctx.moveTo(12 * k, 0);
+        ctx.lineTo(3 * k, -6 * k);
+        ctx.lineTo(3 * k, 6 * k);
+        ctx.closePath();
+        D.fillStroke(ctx, "#b3261e", 1.5);
+        ctx.restore();
+      }
+      ctx.strokeStyle = "#0f1012";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, 6 * k);
+      ctx.lineTo(0, -12 * k);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(0, -12 * k);
+      ctx.lineTo(11 * k, -8 * k);
+      ctx.lineTo(0, -4 * k);
+      ctx.closePath();
+      D.fillStroke(ctx, "#b3261e", 1.5);
+      ctx.restore();
     },
 
     showcase(canvas, upgrades, t) {
@@ -576,6 +1312,13 @@
     DIFF,
     ZOMBIE_TYPES,
   };
+  function distSeg(px, py, x0, y0, x1, y1) {
+    const dx = x1 - x0;
+    const dy = y1 - y0;
+    const l2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((px - x0) * dx + (py - y0) * dy) / l2));
+    return Math.hypot(px - x0 - dx * t, py - y0 - dy * t);
+  }
 
   ZSR.Game = Game;
 })(typeof globalThis !== "undefined" ? globalThis : this);

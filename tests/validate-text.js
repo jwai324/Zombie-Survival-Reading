@@ -36,13 +36,15 @@ const dupes = (arr) => {
   return out;
 };
 
-function load(file, key) {
+function load(file, key, before) {
   const sb = {};
   sb.globalThis = sb;
-  vm.runInNewContext(fs.readFileSync(file, "utf8"), sb, { filename: file });
+  vm.createContext(sb);
+  (before || []).concat(file).forEach((f) => vm.runInContext(fs.readFileSync(f, "utf8"), sb, { filename: f }));
   return sb.ZSR && sb.ZSR[key];
 }
-const WORLD = load(path.join(ROOT, "js", "world.js"), "WORLD");
+// world.js takes its interiors from layouts.js, so that loads first
+const WORLD = load(path.join(ROOT, "js", "world.js"), "WORLD", [path.join(ROOT, "js", "layouts.js")]);
 if (!WORLD) {
   console.log("ERROR js/world.js did not define ZSR.WORLD");
   process.exit(1);
