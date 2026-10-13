@@ -185,7 +185,7 @@
         "watertower-sign1": { title: "City Sign", text: "CITY WATER WORKS. STAFF ONLY. Below it, in red: DANGER. Pumps start without warning. Keep hands clear." },
         "watertower-sign2": { title: "Big Chalk Letters", text: "Big chalk letters across the wall: Ruby, I am here. It is signed with a D. The D is underlined twice." },
         "watertower-sign3": { title: "Chalk Circle", text: "A chalk circle with a key inside. It is by the tool crib door, in the boat workshop. Under it: Key not here. Read the notes." },
-        "watertower-sign4": { title: "Pump House Door", text: "PUMP HOUSE. KEEP LOCKED AT ALL TIMES. Next to it is a smaller sign: BREAKER BOX. DANGER. Do not touch." },
+        "watertower-sign4": { title: "Pump House Door", text: "PUMP HOUSE. KEEP LOCKED AT ALL TIMES. Under it, Theo wrote in pen: Key in the breaker box. It is by the control panel." },
       },
       key: { name: "Brass key, purple school lanyard", tag: "A small brass key on a purple school lanyard. The tag says: Principal's closet. Go Lions. A little lion is drawn on it." },
     },

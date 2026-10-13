@@ -612,7 +612,7 @@
         { id: "watertower-sign1", kind: "sign", facts: ["A city sign: water works, staff only.", "Below it: danger, pumps start without warning."] },
         { id: "watertower-sign2", kind: "graffiti", facts: ["In big chalk letters: Ruby, I am here.", "It is signed with a D."] },
         { id: "watertower-sign3", kind: "graffiti", facts: ["A chalk circle with a key inside, by the tool crib door in the boat workshop.", "Under it: the key is not here, read the notes."] },
-        { id: "watertower-sign4", kind: "sign", facts: ["A sign on the door: pump house, keep locked.", "Next to it, a small sign: breaker box, danger."] },
+        { id: "watertower-sign4", kind: "sign", facts: ["A sign on the door: pump house, keep locked.", "Under it, in Theo's writing: the key is in the breaker box, by the control panel."] },
       ],
       key: { id: "key-watertower", opens: "school", after: "watertower-trail2", facts: ["What it looks like: a small brass key on a purple school lanyard.", "Its tag says: \"Principal's closet. Go Lions.\""] },
     },

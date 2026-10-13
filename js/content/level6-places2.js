@@ -233,7 +233,7 @@
         "watertower-sign1": { title: "Water Works Sign", text: "CITY WATER WORKS. STAFF ONLY. A dented metal sign, city blue with white letters. Below it hangs a smaller red sign with a lightning bolt: DANGER, PUMPS START WITHOUT WARNING. Theo has added in pencil: they really do." },
         "watertower-sign2": { title: "Big Chalk Letters", text: "In big chalk letters, each one taller than a hand, written high on the wall where nobody could smudge it by accident: Ruby, I am here. It is signed with a single D, underlined twice, the way he signs everything." },
         "watertower-sign3": { title: "Chalk Circle", text: "A chalk circle with a small key drawn inside it, chalked by the tool crib door in the boat workshop. Under it, in neat block letters: THE KEY IS NOT HERE. READ THE NOTES." },
-        "watertower-sign4": { title: "PUMP HOUSE", text: "PUMP HOUSE. KEEP LOCKED. Stenciled in black on the door, the paint chipped where a hundred shoulders have leaned. Beside it, a small yellow sign on a gray box: BREAKER BOX. DANGER. Someone has drawn a tiny smiling face on the yellow." },
+        "watertower-sign4": { title: "PUMP HOUSE", text: "PUMP HOUSE. KEEP LOCKED. Stenciled in black on the door, the paint chipped where a hundred shoulders have leaned. Beneath it, in Theo's small, careful hand: the key lives in the breaker box, the gray one on the wall by the control panel. Someone has drawn a tiny smiling face beside his words." },
       },
       key: {
         name: "Brass key, purple lanyard",

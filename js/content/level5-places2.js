@@ -243,7 +243,7 @@
       notes: {
         "watertower-panel": {
           title: "Theo's Breaker Box",
-          text: "Theo again. This is the control panel. Do not touch the red switches. The big pump would start with a bang that every walker in the valley can hear.\n\nThe pump house key is in the breaker box. The box is gray metal, on the wall right beside the pump house door. It has a small sign that says danger. It is not dangerous unless you poke the wires, which you will not. Open the little door, and the key hangs on a nail inside, next to the main switch. I put it there because nobody steals from a breaker box. People are scared of them, and fear makes a better lock than any padlock. Take the key, and you can open the pump house now.\n\nHere is the way. Step out of this room and edge past the blue pump, then take the door that leads into the pump hall. The pump house door is at the back of the hall, at the blue pump end, far from the big red wheel. A sign beside it says PUMP HOUSE. Inside are filters, a water tank, and a coil of wire.\n\nOne more thing, and it may matter more than the filters. If you need medicine, St. Anne Annex is the hospital, north up Hill Road. It still has medicine, more than any place left standing. But it is the most dangerous place in town. The walkers there wait in the dark rooms like a held breath. Go in daylight. Go rested. Go quietly. Hill Road is quiet, but the hospital is not.",
+          text: "Theo again. This is the control panel. Do not touch the red switches. The big pump would start with a bang that every walker in the valley can hear.\n\nThe pump house key is in the breaker box. The box is gray metal, on the wall right beside this panel. It has a small sign that says danger. It is not dangerous unless you poke the wires, which you will not. Open the little door, and the key hangs on a nail inside, next to the main switch. I put it there because nobody steals from a breaker box. People are scared of them, and fear makes a better lock than any padlock. Take the key, and you can open the pump house now.\n\nHere is the way. Step out of this room and edge past the blue pump, then take the door that leads into the pump hall. The pump house door is at the back of the hall, at the blue pump end, far from the big red wheel. A sign beside it says PUMP HOUSE. Inside are filters, a water tank, and a coil of wire.\n\nOne more thing, and it may matter more than the filters. If you need medicine, St. Anne Annex is the hospital, north up Hill Road. It still has medicine, more than any place left standing. But it is the most dangerous place in town. The walkers there wait in the dark rooms like a held breath. Go in daylight. Go rested. Go quietly. Hill Road is quiet, but the hospital is not.",
         },
         "watertower-trail1": {
           title: "Ruby, It Is Me",
@@ -281,7 +281,7 @@
         },
         "watertower-sign4": {
           title: "PUMP HOUSE",
-          text: "A stenciled sign on the door: PUMP HOUSE. KEEP LOCKED. Next to it, on a small gray box, a red sign with a lightning bolt: BREAKER BOX. DANGER. Someone added a second lightning bolt in chalk, for good measure.",
+          text: "A stenciled sign on the door: PUMP HOUSE. KEEP LOCKED. Under it, in Theo's tidy pen: the key is in the breaker box, the gray one by the control panel. Someone added a lightning bolt in chalk, for good measure.",
         },
       },
       key: {

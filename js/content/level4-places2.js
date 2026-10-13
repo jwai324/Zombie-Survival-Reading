@@ -183,7 +183,7 @@
       notes: {
         "watertower-panel": {
           title: "Theo's Breaker Box",
-          text: "Theo again. You made it to the panel, so you have dealt with the worst of them. Sit for a minute if you need to. Breathe.\n\nThe pump house key is in the breaker box. That is the gray metal box on the wall by the pump house door. It has a yellow danger sign. Do not let the sign scare you, because the power to it is off. Open the lid, and the key hangs on a nail inside. With it, you can open the pump house now.\n\nThe pump house sits at the back of the pump hall, at the blue pump end. That is the far end from the big red wheel. Look for the PUMP HOUSE sign. Inside are filters, a water tank, and a spool of wire. Take what you need, and leave a filter if you can spare one.\n\nOne more thing, in case you run short of medicine. St. Anne Annex, the hospital, is north up Hill Road. It still has medicine on its shelves, and a nurse who stayed. But it is the most dangerous place in town, worse than anywhere I have walked. Go in daylight, go rested, and keep your way out in mind.",
+          text: "Theo again. You made it to the panel, so you have dealt with the worst of them. Sit for a minute if you need to. Breathe.\n\nThe pump house key is in the breaker box. That is the gray metal box on the wall by this panel. It has a yellow danger sign. Do not let the sign scare you, because the power to it is off. Open the lid, and the key hangs on a nail inside. With it, you can open the pump house now.\n\nThe pump house sits at the back of the pump hall, at the blue pump end. That is the far end from the big red wheel. Look for the PUMP HOUSE sign. Inside are filters, a water tank, and a spool of wire. Take what you need, and leave a filter if you can spare one.\n\nOne more thing, in case you run short of medicine. St. Anne Annex, the hospital, is north up Hill Road. It still has medicine on its shelves, and a nurse who stayed. But it is the most dangerous place in town, worse than anywhere I have walked. Go in daylight, go rested, and keep your way out in mind.",
         },
         "watertower-trail1": {
           title: "Ruby, I Made It",
@@ -210,7 +210,7 @@
         "watertower-sign1": { title: "City Water Works", text: "CITY WATER WORKS. STAFF ONLY. Below it, on a yellow metal plate: DANGER. PUMPS START WITHOUT WARNING. Keep hands and loose clothing clear of all moving parts." },
         "watertower-sign2": { title: "Big Chalk Letters", text: "In big chalk letters, as tall as a kid: Ruby, I am here. It is signed with a single D, underlined twice. Someone traces over it whenever the rain fades it." },
         "watertower-sign3": { title: "Chalk Circle and Arrow", text: "A chalk circle with a small key drawn inside it, by the tool crib door in the boat workshop. Under it: The key is not here. Read the notes." },
-        "watertower-sign4": { title: "PUMP HOUSE", text: "PUMP HOUSE. KEEP LOCKED AT ALL TIMES. Next to it hangs a smaller sign with a yellow lightning bolt: BREAKER BOX. DANGER. Authorized staff only. Do not open with wet hands." },
+        "watertower-sign4": { title: "PUMP HOUSE", text: "PUMP HOUSE. KEEP LOCKED AT ALL TIMES. Under it, in careful pen, Theo added: the key is in the breaker box by the control panel. Do not open it with wet hands." },
       },
       key: { name: "Brass key, purple school lanyard", tag: "Principal's closet. Go Lions. The words are printed in faded gold on a purple school lanyard. The key itself is small and brass, worn smooth at the edges from riding in a pocket." },
     },
