@@ -7,16 +7,16 @@
   root.ZSR.TEXT[1] = {
     level: 1,
     howto: [
-      "You have one van. It runs from home base. Pick a place on the map. Then drive there. The road has walkers. Keep moving. The Radio room finds new places. They show up on the map.",
-      "A note waits at the door. Read it. It says how many walkers wait. It says where the items are. Then go in. Each doorway is a real door. Press E to open it. Press E to shut it. Walkers cannot open doors. Grab what you find. Shelf stuff comes back in 3 days. Caches never do.",
+      "You have one van. It leaves from home base. Pick a place on the map. The map tells the way there, in words. Read it, then drive. The road does not show the way. Walkers fill the road. Keep moving. A small map at the top shows you. A flag marks where you are going. The Radio room finds new places. They show up on the map.",
+      "A sign comes before each turn. It tells where each lane goes. Pick a lane with A and D. The arrow keys work too. So do the side buttons. Be in your lane before the white line. The left lane goes straight on. It goes past side streets and lots. Side streets are dead ends. At the end, turn into the right lot. Wrong turn? Missed the lot? You go back to the start. The van keeps its damage. You keep your scrap and kills.",
+      "A note waits at each door. Read it. It says how many walkers wait. It says where the items are. Buildings are big inside. Each corner has a landmark. The notes name them. Use them to find your way. Press M for a map. It shows the parts you have seen. Each doorway is a real door. Press E to open or shut it. Walkers cannot open doors. Shelf stuff comes back in 3 days. Caches never do.",
       "Find the note inside. It tells how to open the cache. The cache has the best stuff. It names a new place too. Notes go in your backpack. Want back in? Open the map. Pick the place you are at. It stays as you left it. Hurt? Use a Medical kit. One kit heals you to full. The backpack holds 3 kits. Pack them at the cabin.",
-      "At home you stand in the yard. Calm means no walkers. Build, or leave in the van. A wave means walkers at the fence. They claw holes in it. The fence does not fix itself. Stand at a hole and press E. Each hole costs 1 scrap. Build Walls up to remake it all. Set traps too. Press T or R. A walker steps on one and gets hurt.",
-      "Build at the workbench in the garage. Each build is a typing round. Type the words on the screen. A timer runs. Out of time? Try again. Nothing is spent till you finish. First the bench shows where your fingers go. Each round moves you up. Repairs need no typing. Scrap fixes the van to full.",
-      "Later, dig a Well for water. Build a Farm for food. Build a Lab to make Medical kits. Each player has a save. Up to 4 saves. Pick yours on the title screen. The game saves at base only. Go down, and you start from your last save.",
+      "At home you stand in the yard. Calm means no walkers. Build, or leave in the van. A wave means walkers at the fence. They claw holes in it. The fence does not fix itself. Stand at a hole and press E. Each hole costs 1 scrap. Set traps too. Press T or R. A walker steps on one and gets hurt. What you build shows up in the yard. Each level makes it bigger and stronger. The Walls room changes the fence itself. Later, dig a Well for water. Build a Farm for food. Build a Lab to make Medical kits.",
+      "Build at the workbench in the garage. Each build is a typing round. Type the words on the screen. A timer runs. Out of time? Try again. Nothing is spent till you finish. First the bench shows where your fingers go. Repairs need no typing. Scrap fixes the van to full. Each player has a save. Up to 4 saves. Pick yours on the title screen. The game saves at base only. Go down, and you start from your last save.",
     ],
     controls: [
-      "Road: Aim with the mouse. Hold to shoot. A and D move the van.",
-      "Inside and in the yard: W A S D move. The mouse looks. Click shoots. Shift runs. B opens the backpack. P stops the game.",
+      "Road: Aim with the mouse. Hold to shoot. A and D change lanes. So do the arrow keys and side buttons. Read the sign. Be in your lane before the white line.",
+      "Inside and in the yard: W A S D move. The mouse looks. Click shoots. Shift runs. B opens the backpack. M shows a map of the building. P stops the game.",
       "E does it all: E reads notes. E opens and shuts doors. E opens a cache. E leaves a building. E goes in the cabin. E starts the van. E fixes a fence hole for 1 scrap.",
       "Traps in the yard: T sets a spike trap. R sets a blast trap. It goes in front of you, or just past the fence.",
       "Backpack: Your notes and your kits. Use a kit to heal to full.",
