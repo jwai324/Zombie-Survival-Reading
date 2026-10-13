@@ -150,6 +150,64 @@ a bow and arrow, and double pistols.
   1.4 times taller than wide; measuring a footprint in floor tiles keeps a fire truck on its
   tiles instead of reaching into the walls.
 
+## Reading expansion (2026-10-13)
+
+The owner asked for at least four times the reading at every level, through more notes and
+more hunting, notes that carry keys and clues for other places, and descriptions of the yard's
+places. Answers to the questions put to the owner: longer notes plus new ones plus dead ends
+scaled by grade; stashes opened by a physical key found elsewhere; clue-chain notes and wall
+signs for hunting; a pop-up on approach for the yard lots that says why a room is locked;
+keys tracked in the backpack and at the base; radio transcripts, a daily journal, item tags and
+character arcs all in; one drop.
+
+- **Why a stash, not a change to the caches.** The caches and their notes were proven; a second
+  locked room per building adds the cross-town hunt without touching what works.
+- **Why the key appears only after the clue is read.** A key lying in the open would reward
+  wandering, not reading. The clue note is what makes it visible, as reading the main note is
+  what opens the cache.
+- **Why a ring of keys.** Every key points onward, so the hunt never dead-ends and every place
+  matters twice: for its own stash and for the next one.
+- **Why dead ends scale with grade.** Level 1 readers get one extra note to sort; level 6
+  readers get four, including decoys. Judging which note matters is the reading skill.
+  **Assumption:** the counts (1, 2, 2, 3, 3, 4) can move cheaply via `minLevel` in `js/story.js`.
+- **Why signs and lot signs need no key press.** They are short and should read like the world
+  around you; a panel on approach keeps the player moving and needs no new control.
+- **Why the journal never assumes a build.** The journal is written once per level for every
+  player; the game writes the recap line around it from the real day.
+- **Assumption:** after day 30, the last ten journal entries and broadcasts repeat.
+
+## Merging the bigger buildings with the reading expansion (2026-10-13)
+
+The two drops of 2026-10-13 rebuilt the same things twice: one gave every place its own
+bigger floor plan with landmarks, the other added notes, signs and a stash to the old shared
+plans and wrote their words at six levels. The owner chose to keep both. The new floor plans
+won; the reading expansion was moved into them.
+
+- **Where each stash went.** Into a side room each plan already had, given a lock (the gas
+  station's men's room, the precinct's evidence room, the hospital's supply room, the
+  station's locker room), or a small room walled off a corner where none fit (the hardware's
+  paint vault, the mall's jewelry vault inside the gadget store). Nothing a door note or a
+  main note pointed at was walled in. Room signs moved with them ("SAFE ROOM", "STAFF LOCKER").
+- **Why `Q` for the stash door.** The new legend already uses `K` for tables and `W` for
+  windows, so the stash door is `Q`; stash spots stay `k` and the key `y`. Note spots 2 to 7 and
+  the four wall signs are listed beside each grid (`spots`, `signs`: a wall tile and the face
+  it is painted on) instead of being letters in it, because the digits 1 to 4 are landmarks.
+- **Where keys and notes went.** Each key lies beside one of its building's landmarks, so the
+  note that points to it can name one. The trail notes and dead ends stand in rooms the plan
+  names or by its signs. Every "where it is" in `js/story.js` was rewritten to match, at all
+  six levels, under the bigger buildings' rule: steer by landmarks, rooms and signs, never
+  "left of" inside.
+- **Some room signs became readable signs.** Where a plan had a second plain sign beside a
+  locked door ("STAFF ONLY", "NO ENTRY", "KEEP CLEAR"), the readable sign about that door took
+  its place.
+- **Counts follow the bigger buildings.** Ruby's graffiti now counts the walkers the door notes
+  promise there (three to nine), not the old counts.
+- **Yard lots became plot signs.** The bigger yard already gives every room a plot with a sign
+  and a plaque; walking up to one opens the same panel the old lots had, for all ten plots.
+- **No street names in the story notes.** The new road names streets, and a note may only
+  name one on the way to a place it reveals; "the river road" and "the hill road" in the story
+  became "along the river" and "the road up the hill".
+
 ## Not in this drop
 
 - Touch controls for first person (the map and road already work on touch).

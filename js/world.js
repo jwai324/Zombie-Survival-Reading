@@ -217,40 +217,52 @@
   const LOCATIONS = [
     { id: "base", name: "Home Base", type: "base", x: 500, y: 610, danger: 0, known: true },
     { id: "gasngo", name: "Gas-N-Go", type: "gas", x: 380, y: 545, danger: 1, known: true, template: "gasngo",
-      items: ["fuel", "fuel"], cache: ["fuel", "fuel", "wire"], cacheName: "the storeroom" },
+      items: ["fuel", "fuel"], cache: ["fuel", "fuel", "wire"], cacheName: "the storeroom", stash: ["generator", "fuel"], stashName: "the old safe room" },
     { id: "grocery", name: "Corner Grocery", type: "store", x: 630, y: 560, danger: 1, known: true, template: "grocery",
-      items: ["food", "food"], cache: ["food", "food", "meds"], cacheName: "the walk-in cooler" },
+      items: ["food", "food"], cache: ["food", "food", "meds"], cacheName: "the walk-in cooler", stash: ["meds", "food"], stashName: "the staff locker" },
     { id: "hardware", name: "Reyes Hardware", type: "store", x: 730, y: 470, danger: 2, known: true, template: "hardware",
-      items: ["lumber", "tools", "nails"], cache: ["waterFilter", "tools", "lumber"], cacheName: "the back room" },
+      items: ["lumber", "tools", "nails"], cache: ["waterFilter", "tools", "lumber"], cacheName: "the back room", stash: ["armorPlate", "nails"], stashName: "the paint vault" },
     { id: "pharmacy", name: "Mile 9 Pharmacy", type: "store", x: 300, y: 430, danger: 2, template: "pharmacy",
-      items: ["meds", "meds"], cache: ["meds", "meds", "waterFilter"], cacheName: "the locked cabinet room" },
+      items: ["meds", "meds"], cache: ["meds", "meds", "waterFilter"], cacheName: "the locked cabinet room", stash: ["meds", "waterTank"], stashName: "the narcotics safe" },
     { id: "autoshop", name: "Ortiz Auto", type: "shop", x: 830, y: 565, danger: 2, template: "autoshop",
-      items: ["parts", "parts"], cache: ["generator", "parts", "fuel"], cacheName: "the service pit" },
+      items: ["parts", "parts"], cache: ["generator", "parts", "fuel"], cacheName: "the service pit", stash: ["gunParts", "parts"], stashName: "the parts cage" },
     { id: "radioshack", name: "Signal Electronics", type: "store", x: 560, y: 390, danger: 3, template: "radioshack",
-      items: ["wire", "wire"], cache: ["radioParts", "radioParts", "wire"], cacheName: "the manager's office" },
+      items: ["wire", "wire"], cache: ["radioParts", "radioParts", "wire"], cacheName: "the manager's office", stash: ["generator", "radioParts"], stashName: "the repair locker" },
     { id: "garden", name: "Greenhouse Row", type: "store", x: 180, y: 525, danger: 2, template: "garden",
-      items: ["soil", "seeds"], cache: ["seeds", "seeds", "waterTank"], cacheName: "the potting shed" },
+      items: ["soil", "seeds"], cache: ["seeds", "seeds", "waterTank"], cacheName: "the potting shed", stash: ["waterTank", "soil"], stashName: "the seed vault" },
     { id: "police", name: "4th Precinct", type: "station", x: 480, y: 280, danger: 4, template: "police",
-      items: ["gunParts", "armorPlate"], cache: ["gunParts", "gunParts", "armorPlate"], cacheName: "the armory" },
+      items: ["gunParts", "armorPlate"], cache: ["gunParts", "gunParts", "armorPlate"], cacheName: "the armory", stash: ["armorPlate", "gunParts"], stashName: "the evidence locker" },
     { id: "school", name: "Lincoln Middle School", type: "school", x: 690, y: 300, danger: 3, template: "school",
-      items: ["books", "books"], cache: ["books", "maps", "books"], cacheName: "the library closet" },
+      items: ["books", "books"], cache: ["books", "maps", "books"], cacheName: "the library closet", stash: ["maps", "radioParts"], stashName: "the principal's closet" },
     { id: "firehouse", name: "Station 12", type: "station", x: 370, y: 330, danger: 3, template: "firehouse",
-      items: ["tools", "waterTank"], cache: ["waterTank", "lumber", "tools"], cacheName: "the equipment bay" },
+      items: ["tools", "waterTank"], cache: ["waterTank", "lumber", "tools"], cacheName: "the equipment bay", stash: ["generator", "armorPlate"], stashName: "the chief's locker" },
     { id: "hospital", name: "St. Anne Annex", type: "hospital", x: 250, y: 215, danger: 5, template: "hospital",
-      items: ["meds", "generator", "meds"], cache: ["meds", "meds", "meds"], cacheName: "the pharmacy stock room" },
+      items: ["meds", "generator", "meds"], cache: ["meds", "meds", "meds"], cacheName: "the pharmacy stock room", stash: ["generator", "meds"], stashName: "the supply cupboard" },
     { id: "watertower", name: "Water Tower", type: "utility", x: 120, y: 350, danger: 3, template: "watertower",
-      items: ["waterFilter", "waterFilter"], cache: ["waterFilter", "waterTank", "wire"], cacheName: "the pump house" },
+      items: ["waterFilter", "waterFilter"], cache: ["waterFilter", "waterTank", "wire"], cacheName: "the pump house", stash: ["gunParts", "wire"], stashName: "the tool crib" },
     { id: "lumberyard", name: "Ridge Lumber", type: "industrial", x: 880, y: 380, danger: 4, template: "lumberyard",
-      items: ["lumber", "lumber", "lumber"], cache: ["lumber", "lumber", "nails"], cacheName: "the kiln shed" },
+      items: ["lumber", "lumber", "lumber"], cache: ["lumber", "lumber", "nails"], cacheName: "the kiln shed", stash: ["generator", "tools"], stashName: "the foreman's lockbox" },
     { id: "mall", name: "Northgate Mall", type: "mall", x: 800, y: 180, danger: 5, template: "mall",
-      items: ["food", "meds", "wire"], cache: ["gunParts", "radioParts", "tools"], cacheName: "the security office" },
+      items: ["food", "meds", "wire"], cache: ["gunParts", "radioParts", "tools"], cacheName: "the security office", stash: ["armorPlate", "maps"], stashName: "the jewelry vault" },
     { id: "library", name: "Public Library", type: "library", x: 560, y: 180, danger: 4, template: "library",
-      items: ["books", "books", "books"], cache: ["books", "maps", "books"], cacheName: "the archive room" },
+      items: ["books", "books", "books"], cache: ["books", "maps", "books"], cacheName: "the archive room", stash: ["gunParts", "meds"], stashName: "the rare book room" },
   ];
 
+  /* ---------- Keys and stashes ----------
+     Every building hides one key (on its y spot, shown once its key note has been read) and
+     has one stash room (Q door, k spots) that only another building's key opens. The keys
+     run in a ring, so each one points the player onward. Stash items never come back.
+     KEYS[where the key is found] = the location whose stash it opens. */
+  const KEYS = {
+    gasngo: "grocery", grocery: "pharmacy", pharmacy: "hardware", hardware: "garden", garden: "autoshop",
+    autoshop: "firehouse", firehouse: "radioshack", radioshack: "watertower", watertower: "school", school: "police",
+    police: "lumberyard", lumberyard: "library", library: "mall", mall: "hospital", hospital: "gasngo",
+  };
+
   /* ---------- Notes: the facts each text must carry ----------
-     Every location has a door note (read on arrival, before entering) and the
-     notes placed at its `n` spot(s). `unlocks` names the cache this note opens:
+     Every location has a door note (read on arrival, before entering) and its main note on
+     the layout's `n` spot (spot 1); js/story.js adds the trail and dead-end notes (on the
+     layout's numbered `spots`), the wall signs and the stash key. `unlocks` names the cache this note opens:
      reading the note is what lets the player open that locked door.
      `reveals` adds locations to the map when the note is read.
      Positions are true in js/layouts.js: "front" is the entrance wall, "back" the far wall,
@@ -293,7 +305,7 @@
     radioshack: {
       door: { id: "radioshack-door", found: "on a cardboard sign in the window", facts: ["Written by Jo.", "Spools of wire are between the two long middle shelves: one on the TV wall side, one on the robot side.", "At least six walkers inside; one near the right end of the counter, by the robot.", "The manager's office is locked; the manager left a note on the counter at the back."] },
       notes: [
-        { id: "radioshack-counter", found: "under the register on the back counter", unlocks: "radioshack", reveals: ["police", "school"], facts: ["Written by the manager, Priya.", "The office key is taped under the register, so the manager's office can be opened now.", "The office has two boxes of radio parts and more wire.", "The office door is in the back wall, just left of the robot.", "The 4th Precinct police station and Lincoln Middle School are both north of downtown; the school has books and the station has gun parts."] },
+        { id: "radioshack-counter", found: "under the register on the back counter", unlocks: "radioshack", reveals: ["police", "school"], facts: ["Written by the manager, Priya.", "The office key is taped under the register, so the manager's office can be opened now.", "The office has two boxes of radio parts and more wire.", "The office door is in the back wall near the robot, beside the MANAGER sign.", "The 4th Precinct police station and Lincoln Middle School are both north of downtown; the school has books and the station has gun parts."] },
       ],
     },
     garden: {
@@ -387,5 +399,5 @@
     },
   };
 
-  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TEMPLATES, YARD, DEFENSE, LOCATIONS, NOTES, ROADS, SETTINGS };
+  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TEMPLATES, YARD, DEFENSE, LOCATIONS, KEYS, NOTES, ROADS, SETTINGS };
 })(typeof globalThis !== "undefined" ? globalThis : this);

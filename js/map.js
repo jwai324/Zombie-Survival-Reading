@@ -169,6 +169,11 @@
         } else if (fx.mapShowsCaches) {
           info.appendChild(el("p", "small", "<strong>" + esc(loc.cacheName) + ":</strong> " + (st.cacheOpened ? (cacheLeft.length ? cacheLeft.length + " items left" : "emptied") : "locked")));
         }
+        // the stash: worth a trip once you hold its key
+        if (loc.stash && (S.canOpenStash(id) || st.stashOpened)) {
+          const stashLeft = loc.stash.filter((_, i) => !st.stashTaken["k" + i]);
+          info.appendChild(el("p", "small", "<strong>" + esc(loc.stashName) + ":</strong> " + (st.stashOpened ? (stashLeft.length ? stashLeft.length + " item" + (stashLeft.length > 1 ? "s" : "") + " left" : "emptied") : "locked, and you have its key")));
+        }
         if (st.visits) info.appendChild(el("p", "small muted", "Visited " + st.visits + " time" + (st.visits > 1 ? "s" : "") + "."));
       }
       const r = this.at === id ? null : this.route(this.at, id);

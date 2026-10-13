@@ -408,6 +408,7 @@
       this.covers.clear();
       this.floorKind.fill(this.floorDefault);
       this.yardAnims = [];
+      this.lots = []; // each plot's sign or plaque, read up close (the core's read panel)
       this.yardGround();
       this.dressCabin(walls);
       Object.entries(Y.plots).forEach(([room, plot]) => this.buildPlot(room, plot, (S.save.rooms[room] || 0) | 0));
@@ -472,14 +473,16 @@
         }
         // stakes at the front corners only: the back ones are hardly seen, and every sprite costs a little each frame
         [[0.14, 0.14], [b.W - 0.14, 0.14]].forEach(([U, V]) => b.prop(U, V, "yStake", null, { scale: 0.3 }));
-        b.prop(Math.floor(b.W / 2) + 0.5, 0.5, "ySign", { t: name.toUpperCase() }, { scale: 1.2 * k, solid: true });
+        const sign = b.prop(Math.floor(b.W / 2) + 0.5, 0.5, "ySign", { t: name.toUpperCase() }, { scale: 1.2 * k, solid: true });
+        this.lots.push({ room, x: sign.x, y: sign.y });
         return;
       }
       b.floor(0, 0, b.W, b.D, "dirt");
       BUILDS[room][Math.min(lvl, 3) - 1].call(this, b);
       // the plaque carries the name once the lot sign is gone (painted wall signs blur at a distance)
       const [pu, pv] = b.plaque || [0.5, 0.5];
-      b.prop(pu, pv, "yPlaque", { t: name.toUpperCase(), n: lvl }, { scale: 0.8 * k, solid: true, cover: false });
+      const plaque = b.prop(pu, pv, "yPlaque", { t: name.toUpperCase(), n: lvl }, { scale: 0.8 * k, solid: true, cover: false });
+      this.lots.push({ room, x: plaque.x, y: plaque.y });
     },
 
     /** A plot's local frame (see BUILDS): u left to right as you face its front, v from the front row back. */

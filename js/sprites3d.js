@@ -595,6 +595,119 @@
       ctx.stroke();
       border(ctx, w, h);
     },
+    /* A printed sign on the wall: a board with a red header and lines of text (read it up close). */
+    readSign(ctx, w, h, p) {
+      TEX.wall(ctx, w, h, p);
+      ctx.fillStyle = "#f3eee0";
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2.5;
+      ctx.fillRect(10, 12, w - 20, 34);
+      ctx.strokeRect(10, 12, w - 20, 34);
+      ctx.fillStyle = "#b3261e";
+      ctx.fillRect(10, 12, w - 20, 9);
+      ctx.strokeRect(10, 12, w - 20, 9);
+      ctx.strokeStyle = "rgba(15,16,18,0.7)";
+      ctx.lineWidth = 2;
+      [26, 32, 38].forEach((y, i) => {
+        ctx.beginPath();
+        ctx.moveTo(15, y);
+        ctx.lineTo(w - 15 - i * 7, y);
+        ctx.stroke();
+      });
+      // two screws
+      ctx.fillStyle = "#9ea3aa";
+      [[13, 43], [w - 13, 43]].forEach(([x, y]) => {
+        ctx.beginPath();
+        ctx.arc(x, y, 1.6, 0, TAU);
+        ctx.fill();
+      });
+    },
+    /* Survivor graffiti: a red R mark, a slashed count and drips. */
+    readGraffiti(ctx, w, h, p) {
+      TEX.wall(ctx, w, h, p);
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#b3261e";
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(12, 46);
+      ctx.lineTo(12, 14);
+      ctx.quadraticCurveTo(30, 12, 26, 26);
+      ctx.quadraticCurveTo(22, 32, 13, 30);
+      ctx.lineTo(28, 46);
+      ctx.stroke();
+      ctx.strokeStyle = "#f3eee0";
+      ctx.lineWidth = 3;
+      [36, 42, 48].forEach((x) => {
+        ctx.beginPath();
+        ctx.moveTo(x, 18);
+        ctx.lineTo(x, 34);
+        ctx.stroke();
+      });
+      ctx.beginPath();
+      ctx.moveTo(33, 30);
+      ctx.lineTo(53, 22);
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(179,38,30,0.8)";
+      ctx.lineWidth = 2;
+      [[12, 46, 54], [28, 46, 52], [20, 14, 20]].forEach(([x, y0, y1]) => {
+        ctx.beginPath();
+        ctx.moveTo(x, y0);
+        ctx.lineTo(x, y1);
+        ctx.stroke();
+      });
+      ctx.strokeStyle = "rgba(243,238,224,0.85)";
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(14, 54);
+      ctx.lineTo(50, 50);
+      ctx.stroke();
+      ctx.lineCap = "butt";
+    },
+    /* The stash door: a steel locker door with vents, a hasp and a padlock with a key mark. */
+    stash(ctx, w, h) {
+      ctx.fillStyle = "#3f5a4a";
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = "#56705e";
+      ctx.fillRect(7, 4, w - 14, h - 4);
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 3;
+      ctx.strokeRect(7, 4, w - 14, h - 4);
+      ctx.lineWidth = 2;
+      for (let y = 10; y < 24; y += 4) {
+        ctx.beginPath();
+        ctx.moveTo(18, y);
+        ctx.lineTo(w - 18, y);
+        ctx.stroke();
+      }
+      ctx.fillStyle = "#9ea3aa";
+      ctx.fillRect(w - 24, 34, 12, 6);
+      ctx.strokeRect(w - 24, 34, 12, 6);
+      ctx.fillStyle = "#d9a21b";
+      ctx.fillRect(w - 26, 42, 14, 12);
+      ctx.strokeRect(w - 26, 42, 14, 12);
+      ctx.beginPath();
+      ctx.arc(w - 19, 42, 5, Math.PI, 0);
+      ctx.stroke();
+      ctx.fillStyle = INK;
+      ctx.beginPath();
+      ctx.arc(w - 19, 47, 1.8, 0, TAU);
+      ctx.fill();
+      ctx.fillRect(w - 20, 47, 2, 4);
+      // a painted key mark: the key ring
+      ctx.strokeStyle = "#f3eee0";
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(19, 42, 4, 0, TAU);
+      ctx.moveTo(23, 42);
+      ctx.lineTo(34, 42);
+      ctx.moveTo(30, 42);
+      ctx.lineTo(30, 46);
+      ctx.moveTo(34, 42);
+      ctx.lineTo(34, 46);
+      ctx.stroke();
+      halftone(ctx, w, h, 0.07);
+      border(ctx, w, h);
+    },
     exit(ctx, w, h) {
       ctx.fillStyle = "#2f3136";
       ctx.fillRect(0, 0, w, h);
@@ -2061,6 +2174,47 @@
       label(ctx, "!", 38, 11, 12);
     });
   }
+  /* A stash key lying on the floor: brass, with a paper tag on a loop of string. */
+  function key() {
+    return cached("key", 48, 32, (ctx, w, h) => {
+      ctx.fillStyle = "rgba(0,0,0,0.25)";
+      ctx.beginPath();
+      ctx.ellipse(w / 2, h - 4, 20, 3.5, 0, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 2.5;
+      ctx.fillStyle = "#d9a21b";
+      ctx.beginPath();
+      ctx.arc(12, 17, 7, 0, TAU);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = "#2b2b26";
+      ctx.beginPath();
+      ctx.arc(12, 17, 2.5, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = "#d9a21b";
+      ctx.fillRect(18, 15, 18, 5);
+      ctx.strokeRect(18, 15, 18, 5);
+      ctx.fillRect(28, 20, 3, 5);
+      ctx.strokeRect(28, 20, 3, 5);
+      ctx.fillRect(33, 20, 3, 4);
+      ctx.strokeRect(33, 20, 3, 4);
+      // the tag
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(8, 12);
+      ctx.lineTo(4, 5);
+      ctx.stroke();
+      ctx.fillStyle = "#f3eee0";
+      ctx.save();
+      ctx.translate(6, 6);
+      ctx.rotate(-0.4);
+      ctx.fillRect(-4, -8, 12, 8);
+      ctx.strokeRect(-4, -8, 12, 8);
+      ctx.restore();
+    });
+  }
+
   function scrap() {
     return cached("scrap", 64, 48, (ctx, w, h) => {
       ctx.fillStyle = "rgba(0,0,0,0.25)";
@@ -3535,7 +3689,7 @@
   }
 
   ZSR.Draw3 = {
-    texture, walker, item, note, scrap, trap, gun, weaponView, weaponIcon, crosshair, shade, mix, rng, label, halftone, border, POSES,
+    texture, walker, item, note, key, scrap, trap, gun, weaponView, weaponIcon, crosshair, shade, mix, rng, label, halftone, border, POSES,
     // registration API for other modules (decor, landmarks, yard builds)
     registerTexture, hasTexture, registerSprite, hasSprite, sprite, registerFloor, floorId, floorTexels, wallBase, dim,
     WALL_STYLES: Object.keys(WALL_STYLES), SHADES, SHADE_MAX, INK,

@@ -199,6 +199,36 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
     nocking point; Sight pins a sight ring with one pin, three, five and a stabilizer.
 - The van's turret on the road is a separate gun, upgraded in the Garage tab.
 
+## Reading expansion (2026-10-13)
+
+Every level carries at least four times the reading it had before. All of it is native to
+the game and none of it is quizzed.
+
+- **More notes per building.** Besides the door note and the main note: a two-note trail
+  (`trail1` says where `trail2` is; `trail2` appears once `trail1` is read and says where the
+  key is) and dead-end notes placed by reading level (1 at levels 1, 2 at levels 2 and 3, 3 at
+  levels 4 and 5, 4 at level 6). Some dead ends are decoys: wrong codes, emptied rooms.
+- **Stashes and the key ring.** Every building has a small locked stash room (`Q` door, `k`
+  spots in its floor plan, two good items that never come back). Its key is hidden in another
+  building (`y` spot), visible once that building's `trail2` is read. The notes say where by
+  that building's landmarks and rooms, like every other note inside. `KEYS` in `js/world.js` is a ring
+  through all fifteen places. A key picked up is a trip item: yours once home, lost on death.
+  Keys are listed in the backpack and the cabin's stock tab (what each opens, where it was
+  found, its tag, the clue note); the map shows a stash once you hold its key.
+- **Wall signs and graffiti.** Four per building (the layout's `signs`: a wall tile and the
+  face they are painted on). Walk up and look at one and a panel shows it; no key press, no
+  pause. Extra notes stand on the layout's numbered `spots`.
+- **Item tags.** Every item has two tags (label, sticky note). The tag shows for a few seconds
+  on pickup and is kept in the backpack.
+- **Plot signs.** Every room's plot in the yard has a sign (a plaque once it is built). Walk
+  up to one and a panel says what it is, what the next level needs, and why it is locked (the
+  same facts as the cabin's build menu); the outdoor rooms (Garden, Farm, Well, Water, Power,
+  Radio, Lab) also have a hand-painted text for the empty lot and each built level.
+- **The day page.** Day 1 and every arrival home show a page: a recap of the trip (items,
+  scrap, notes, keys, food, the nearest build), June's journal entry, and, once the Radio room
+  is built, one broadcast. Thirty of each are written; after day 30 the last ten repeat. Every
+  page is kept in the backpack.
+
 ## The workbench (typing)
 
 Room builds, van and van-gun upgrades, gun mods, and trap crafting open the workbench: a garage scene
@@ -248,17 +278,22 @@ menus, HUD. Layouts collapse to one column.
 `zs.slots` is the slot index (active slot, labels); `zs.save.<n>` holds one base save: day,
 scrap, food, inventory, room levels, van and van-gun upgrades, guns (owned, in hand, mods,
 where each unfound gun is hidden, and the seed that picks its floor tile), known locations,
-per-location state (items taken, cache opened, explored tiles as a packed bitset), backpack
-notes, packed kits, fence health per segment, trap stock and set traps, the yard grid version
-(`yardV`: an older yard's fence is rebuilt whole and its set traps return to stock), typing
-progress, best score. Only written at the base. An older save gets guns on load: the pistol,
-with mods carried over from its gun upgrades.
+per-location state (items taken, cache opened, stash opened and taken, explored tiles as a
+packed bitset), stash keys found, item tags read, the day log (journal and radio entries by
+index, recap numbers), broadcasts heard, backpack notes, packed kits, fence health per segment,
+trap stock and set traps, the yard grid version (`yardV`: an older yard's fence is rebuilt whole
+and its set traps return to stock), typing progress, best score. Only written at the base. An
+older save gets guns on load: the pistol, with mods carried over from its gun upgrades.
 
 ## Content files
 
-`js/world.js` holds the facts (item names included); `js/layouts.js` holds the floor plans
-and landmarks the facts point at; `js/streets.js` holds street names and side streets.
-`js/content/level1.js` to `level6.js` hold the words: How it works, controls, base room
-texts, door notes, inside notes, road signs and cards. `npm test` checks that every level
-has the same keys as the world, that lengths match the level, that notes name their
-building's landmarks, that every route drives correctly, and that every piece of art exists.
+`js/world.js` holds the facts (item names included); `js/layouts.js` holds the floor plans,
+the landmarks the facts point at, and the story places (note spots, signs, stash, key);
+`js/story.js` and `js/story-home.js` hold the story facts; `js/streets.js` holds street names
+and side streets. `js/content/levelN*.js` hold the words at each level: How it works,
+controls, base room texts, road signs and cards (`levelN.js`), every building's notes, signs
+and key (`levelN-places1.js`, `levelN-places2.js`), and the journal, radio, tags and plot
+signs (`levelN-home.js`). `npm test` checks that every level has the same keys as the world,
+that lengths match the level, that notes name their building's landmarks, that every story
+note, key, stash and sign works in every building, that every route drives correctly, and
+that every piece of art exists.

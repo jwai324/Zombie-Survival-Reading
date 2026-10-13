@@ -1,6 +1,7 @@
 #!/usr/bin/env node
-/* Sanity checks for js/world.js and js/layouts.js: interior layouts (legend v2, landmarks,
-   decor, reachability), notes that name the landmarks, and reveal chains. */
+/* Sanity checks for js/world.js, js/layouts.js and the story facts (js/story.js, js/story-home.js):
+   interior layouts (legend v2, landmarks, decor, reachability), the stash and key in every building,
+   note spots and wall signs, notes that name the landmarks, the key ring, and reveal chains. */
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -9,7 +10,7 @@ const sb = {};
 sb.globalThis = sb;
 vm.createContext(sb);
 // layouts.js defines ZSR.LAYOUTS (the interiors); world.js uses them as its TEMPLATES
-["layouts.js", "world.js"].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8"), sb, { filename: f }));
+["layouts.js", "world.js", "story.js", "story-home.js"].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8"), sb, { filename: f }));
 const W = sb.ZSR.WORLD;
 const ART = sb.ZSR.LAYOUT_ART || {};
 const DECOR = sb.ZSR.LAYOUT_DECOR || {};
@@ -19,9 +20,9 @@ const count = (grid, ch) => grid.join("").split(ch).length - 1;
 
 // interiors: one layout per location (js/layouts.js, legend v2)
 const ids = new Set(W.LOCATIONS.map((l) => l.id));
-const LEGEND = "#W.DLESXGCKR1234incz$";
+const LEGEND = "#W.DLQESXGCKR1234inckyz$";
 const BORDER = "#WSXGE"; // full-height tiles (and the entrance) may sit on the outer wall
-const WALLISH = "#WSXGDLE"; // full-height tiles: a wall face behind them is never seen
+const WALLISH = "#WSXGDLQE"; // full-height tiles: a wall face behind them is never seen
 const WALL_STYLES = ["block", "drywall", "brick", "tile", "metal", "wood", "concrete", "glassbrick"];
 const FLOOR_KINDS = ["tile", "checker", "linoleum", "carpet", "wood", "concrete", "dirt", "grate", "grass", "gravel", "planks"];
 const CEILING_KINDS = ["panels", "beams", "concrete", "pipes", "sky"];
@@ -54,6 +55,10 @@ Object.entries(W.TEMPLATES).forEach(([name, t]) => {
   if (ex < 0) return err(`${ctx}: the entrance E must be on the bottom (front) wall; the notes count left/right from it`);
   if (g[H - 2][ex] !== ".") err(`${ctx}: the tile inside the entrance must be plain floor`);
   if (count(g, "L") !== 1) err(`${ctx}: needs exactly one locked door L`);
+  if (count(g, "Q") !== 1) err(`${ctx}: needs exactly one stash door Q`);
+  if (count(g, "k") < 2) err(`${ctx}: needs 2+ stash item spots k`);
+  if (count(g, "y") !== 1) err(`${ctx}: needs exactly one key spot y`);
+  if (count(g, "n") !== 1) err(`${ctx}: needs exactly one note spot n (spot 1, the main note)`);
   // landmarks: one per corner quadrant and near its corner, with a def; big ones cover a footprint of plain floor
   const marks = t.landmarks || {};
   const blocked = new Set(); // solid landmark tiles and their footprints
@@ -94,12 +99,12 @@ Object.entries(W.TEMPLATES).forEach(([name, t]) => {
       }
     }
   });
-  // doors (D, and the locked L): walls on one axis, a walkable tile on both sides of the other,
+  // doors (D, and the locked L and Q): walls on one axis, a walkable tile on both sides of the other,
   // so a door never opens into a shelf, a counter, a table or a landmark
-  const walkable = (x, y) => ".inz$c1234".includes(at(x, y)) && !blocked.has(x + "," + y);
+  const walkable = (x, y) => ".inz$cky1234".includes(at(x, y)) && !blocked.has(x + "," + y);
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < w; x++) {
-      if (!"DL".includes(g[y][x])) continue;
+      if (!"DLQ".includes(g[y][x])) continue;
       const wall = (ax, ay, bx, by) => "#W".includes(at(ax, ay)) && "#W".includes(at(bx, by));
       const ok = (wall(x - 1, y, x + 1, y) && walkable(x, y - 1) && walkable(x, y + 1)) || (wall(x, y - 1, x, y + 1) && walkable(x - 1, y) && walkable(x + 1, y));
       if (!ok) err(`${ctx}: door ${g[y][x]} at ${x},${y} needs wall on two opposite sides and open floor on the other two (it opens into ${at(x, y - 1)} ${at(x + 1, y)} ${at(x, y + 1)} ${at(x - 1, y)}, n e s w)`);
@@ -107,7 +112,8 @@ Object.entries(W.TEMPLATES).forEach(([name, t]) => {
   }
   Object.keys(marks).forEach((k) => { if (!"1234".includes(k) || k.length !== 1) err(`${ctx}: landmark key "${k}" (use 1 to 4)`); });
   // reachability from the entrance (closed cache door: blocks; open: passes). Low tiles (C K R) block movement.
-  const pass = (x, y) => ".inz$DE1234".includes(at(x, y)) && !blocked.has(x + "," + y);
+  const pass = (x, y) => ".inyz$DE1234".includes(at(x, y)) && !blocked.has(x + "," + y);
+  // open: "Lc" with the cache door open, "Qk" with the stash door open
   const flood = (open) => {
     const dist = new Map([[ex + "," + (H - 1), 0]]);
     const q = [[ex, H - 1]];
@@ -117,20 +123,23 @@ Object.entries(W.TEMPLATES).forEach(([name, t]) => {
         const nx = x + dx;
         const ny = y + dy;
         const k = nx + "," + ny;
-        if (dist.has(k) || !(pass(nx, ny) || (open && "Lc".includes(at(nx, ny))))) return;
+        if (dist.has(k) || !(pass(nx, ny) || (open && open.includes(at(nx, ny))))) return;
         dist.set(k, dist.get(x + "," + y) + 1);
         q.push([nx, ny]);
       });
     }
     return dist;
   };
-  const shut = flood(false);
-  const open = flood(true);
+  const shut = flood("");
+  const open = flood("Lc");
+  const stashOpen = flood("Qk");
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < w; x++) {
       const c = g[y][x];
       const k = x + "," + y;
-      if ("inz$".includes(c) && !shut.has(k)) err(`${ctx}: ${c} at ${k} unreachable from the entrance`);
+      if ("inyz$".includes(c) && !shut.has(k)) err(`${ctx}: ${c} at ${k} unreachable from the entrance`);
+      if (c === "k" && STEPS.some(([dx, dy]) => shut.has(x + dx + "," + (y + dy)))) err(`${ctx}: stash spot at ${k} reachable without the stash door`);
+      if (c === "k" && !stashOpen.has(k)) err(`${ctx}: stash spot at ${k} unreachable even with the stash door open`);
       if (c === "c" && STEPS.some(([dx, dy]) => shut.has(x + dx + "," + (y + dy)))) err(`${ctx}: cache spot at ${k} reachable without the locked door`);
       if (c === "c" && !open.has(k)) err(`${ctx}: cache spot at ${k} unreachable even with the door open`);
       // walkers start at least 6 steps from the player's start tile (one step in from E)
@@ -155,6 +164,29 @@ Object.entries(W.TEMPLATES).forEach(([name, t]) => {
     if (taken.has(k)) err(`${ctx}: two decor entries on ${k}`);
     taken.add(k);
   });
+  // note spots 2 to 7 (spot 1 is the n tile): plain reachable floor, off every landmark and marker
+  const used = new Set();
+  for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) if ("inckyz$".includes(g[y][x])) used.add(x + "," + y);
+  Object.entries(t.spots || {}).forEach(([n, xy]) => {
+    const k = Array.isArray(xy) ? xy.join(",") : "?";
+    if (!/^[2-7]$/.test(n)) err(`${ctx}: note spot "${n}" (use 2 to 7; spot 1 is the n tile)`);
+    if (!Array.isArray(xy) || at(xy[0], xy[1]) !== "." || blocked.has(k)) return err(`${ctx}: note spot ${n} at ${k} must be plain floor, off any landmark`);
+    if (!shut.has(k)) err(`${ctx}: note spot ${n} at ${k} unreachable from the entrance`);
+    if (used.has(k)) err(`${ctx}: note spot ${n} at ${k} shares its tile`);
+    used.add(k);
+  });
+  // wall signs read up close: on a plain wall tile with no decor, facing reachable floor
+  const signAt = new Set();
+  (t.signs || []).forEach(([x, y, face], i) => {
+    const k = x + "," + y;
+    const c = `${ctx}: sign ${i + 1} at ${k}`;
+    if (at(x, y) !== "#") err(`${c} is not on a wall tile`);
+    if (taken.has(k)) err(`${c} shares its tile with decor`);
+    if (signAt.has(k)) err(`${c} shares its tile with another sign`);
+    signAt.add(k);
+    const sides = Object.keys(SIDES).filter((sd) => shut.has(x + SIDES[sd][0] + "," + (y + SIDES[sd][1])));
+    if (face ? !sides.includes(face) : !sides.length) err(`${c} faces ${face || "no side"}, not floor you can reach (open: ${sides.join(" ") || "none"})`);
+  });
   // per-tile floor kinds
   if (t.floors) {
     if (t.floors.length !== H || !t.floors.every((r) => r.length === w)) err(`${ctx}: floors must be the same size as the grid`);
@@ -172,14 +204,47 @@ W.LOCATIONS.filter((l) => l.id !== "base").forEach((l) => {
   l.items.concat(l.cache).forEach((it) => { if (!W.ITEMS[it]) err(`${l.id}: unknown item ${it}`); });
   const N = W.NOTES[l.id];
   if (!N) return err(`${l.id}: no notes`);
-  if (count(t.grid, "n") < N.notes.length) err(`${l.id}: layout has ${count(t.grid, "n")} note spots, needs ${N.notes.length}`);
+  // every note names a spot that exists in its layout, and no two notes share one
+  const spotsUsed = new Set();
+  N.notes.forEach((n) => {
+    const spot = String(n.spot || 1);
+    if (!/^[1-7]$/.test(spot)) return err(`${l.id} ${n.id}: needs a spot 1 to 7`);
+    if (spot !== "1" && !(t.spots || {})[spot]) err(`${l.id} ${n.id}: layout has no note spot ${spot}`);
+    if (spotsUsed.has(spot)) err(`${l.id} ${n.id}: spot ${spot} is used by another note`);
+    spotsUsed.add(spot);
+    if (n.after && !N.notes.some((m) => m.id === n.after)) err(`${l.id} ${n.id}: after names unknown note ${n.after}`);
+    if (n.minLevel != null && !(n.minLevel >= 1 && n.minLevel <= 6)) err(`${l.id} ${n.id}: minLevel must be 1 to 6`);
+    if (!Array.isArray(n.facts) || !n.facts.length) err(`${l.id} ${n.id}: facts missing`);
+  });
+  const noteIds = N.notes.map((n) => n.id).concat([N.door.id]);
+  if (new Set(noteIds).size !== noteIds.length) err(`${l.id}: two notes share an id`);
+  // stash and key
+  if (!Array.isArray(l.stash) || !l.stash.length || !l.stashName) err(`${l.id}: needs stash items and a stashName`);
+  else {
+    if (count(t.grid, "k") < l.stash.length) err(`${l.id}: layout has ${count(t.grid, "k")} stash spots, needs ${l.stash.length}`);
+    l.stash.forEach((it) => { if (!W.ITEMS[it]) err(`${l.id}: unknown stash item ${it}`); });
+  }
+  if (!W.KEYS[l.id]) err(`${l.id}: hides no key (KEYS)`);
+  if (!N.key) err(`${l.id}: no key facts (js/story.js)`);
+  else {
+    if (N.key.opens !== W.KEYS[l.id]) err(`${l.id}: key.opens ${N.key.opens} does not match KEYS (${W.KEYS[l.id]})`);
+    const kn = N.notes.find((n) => n.id === N.key.after);
+    if (!kn) err(`${l.id}: key.after names unknown note ${N.key.after}`);
+    else if (!(kn.reveals || []).includes(N.key.opens)) err(`${l.id}: the key note must reveal ${N.key.opens} (where its stash is)`);
+    if (!Array.isArray(N.key.facts) || !N.key.facts.length) err(`${l.id}: key facts missing`);
+  }
+  if ((N.signs || []).length !== (t.signs || []).length) err(`${l.id}: ${(N.signs || []).length} signs for ${(t.signs || []).length} sign places in its layout`);
+  (N.signs || []).forEach((sg) => {
+    if (!sg.id || !["sign", "graffiti"].includes(sg.kind) || !Array.isArray(sg.facts) || !sg.facts.length) err(`${l.id}: sign ${sg.id} needs an id, kind sign|graffiti, and facts`);
+  });
   if (!N.notes.some((n) => n.unlocks === l.id)) err(`${l.id}: no note unlocks its cache`);
   N.notes.forEach((n) => (n.reveals || []).forEach((r) => { if (!ids.has(r)) err(`${l.id}: reveals unknown ${r}`); }));
   // the notes steer by the landmarks, so text and layout cannot drift apart
   const marks = Object.values(t.landmarks || {}).map((m) => m.name.toLowerCase());
   const named = (facts) => marks.filter((m) => facts.join(" ").toLowerCase().includes(m));
   if (named(N.door.facts).length < 2) err(`${l.id}: the door note must name at least two landmarks (${marks.join(", ")}); it names ${named(N.door.facts).join(", ") || "none"}`);
-  N.notes.forEach((n) => { if (!named(n.facts).length) err(`${l.id}: note ${n.id} must name at least one landmark (${marks.join(", ")})`); });
+  // the main note and the trail notes give a way to something here; dead ends need not
+  N.notes.filter((n) => n.unlocks || n.kind === "trail").forEach((n) => { if (!named(n.facts).length) err(`${l.id}: note ${n.id} must name at least one landmark (${marks.join(", ")})`); });
   // "at least N walkers" must hold on day 1
   const m = (N.door.facts.find((f) => /walker/i.test(f) && /at least \w+/i.test(f)) || "").match(/at least (\w+)/i);
   if (!m) err(`${l.id}: the door note must give the walker count as "at least N"`);
@@ -189,6 +254,15 @@ W.LOCATIONS.filter((l) => l.id !== "base").forEach((l) => {
     if (!(n <= day1)) err(`${l.id}: the door note promises at least ${m[1]} walkers, day 1 has ${day1}`);
   }
 });
+// the key ring: every building hides exactly one key and every stash has exactly one key
+{
+  const targets = Object.values(W.KEYS);
+  Object.entries(W.KEYS).forEach(([from, to]) => {
+    if (!ids.has(from) || !ids.has(to)) err(`KEYS ${from} -> ${to} names an unknown location`);
+    if (from === to) err(`KEYS ${from} opens its own stash`);
+  });
+  if (new Set(targets).size !== targets.length) err("KEYS: two keys open the same stash");
+}
 // reveal chain reaches everything
 const known = new Set(W.LOCATIONS.filter((l) => l.known).map((l) => l.id));
 let grew = true;
@@ -319,6 +393,11 @@ if (W.TRAPS) {
     }
   });
 }
+// home story facts: plot signs, the journal, the radio, item tags
+Object.keys(W.YARD_LOTS || {}).forEach((room) => { if (!(W.YARD.plots || {})[room]) err(`YARD_LOTS ${room}: no plot in the yard`); });
+if (!W.JOURNAL || !W.JOURNAL.length || W.JOURNAL.some((e) => !e.id || !(e.facts || []).length)) err("JOURNAL: every entry needs an id and facts");
+if (!W.RADIO || !W.RADIO.length || W.RADIO.some((e) => !e.id || !e.voice || !(e.facts || []).length)) err("RADIO: every entry needs an id, a voice and facts");
+Object.keys(W.ITEMS).forEach((k) => { if (!Array.isArray((W.ITEM_TAGS || {})[k]) || W.ITEM_TAGS[k].length !== 2) err(`ITEM_TAGS ${k}: needs 2 tags`); });
 // every item is obtainable somewhere
 const available = new Set();
 W.LOCATIONS.forEach((l) => (l.items || []).concat(l.cache || []).forEach((it) => available.add(it)));

@@ -85,7 +85,7 @@ sb.window = sb;
 vm.createContext(sb);
 pixels = vm.runInContext("(w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) })", sb);
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const WANT = ["layouts.js", "world.js", "upgrades.js", "weapons.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "landmarks1.js", "landmarks2.js", "yardart.js", "interior.js", "building.js", "yard.js"];
+const WANT = ["layouts.js", "world.js", "story.js", "story-home.js", "upgrades.js", "weapons.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "landmarks1.js", "landmarks2.js", "yardart.js", "interior.js", "building.js", "yard.js"];
 const scripts = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]).filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -211,7 +211,7 @@ W.LOCATIONS.filter((l) => l.id !== "base").forEach((loc) => {
     for (let x = 0; x < row.length; x++) {
       const ch = row[x];
       const at = `${ctx}: "${ch}" at ${x},${y}`;
-      if ("#WSXGCKRLE".includes(ch) && !solid(x, y)) err(`${at} is walkable in the engine`);
+      if ("#WSXGCKRLQE".includes(ch) && !solid(x, y)) err(`${at} is walkable in the engine`);
       else if (ch === "D" && !I.doors.some((d) => d.x === x && d.y === y)) err(`${at} is not a door in the engine`);
       else if (".inz$1234".includes(ch) && solid(x, y) !== foot.has(x + "," + y)) err(`${at} is ${solid(x, y) ? "solid" : "walkable"} in the engine`);
       if ("CKR".includes(ch) && !I.lowDefs[I.grid[y][x]]) err(`${at} is not drawn as a see-through low tile`);
@@ -778,9 +778,105 @@ try {
   err(`upgrades: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
 }
 
+/* ---------- The story in every building (js/story.js): note spots by reading level, the trail, the key,
+   the stash and the wall signs ---------- */
+try {
+  const levelWas = S.settings.level;
+  [1, 2, 4, 6].forEach((level) => {
+    S.settings.level = level;
+    W.LOCATIONS.filter((l) => l.id !== "base").forEach((loc) => {
+      const ctx = `story ${loc.id} (reading level ${level})`;
+      const N = W.NOTES[loc.id];
+      S.startTrip();
+      I.enter(loc);
+      I.stop();
+      const want = N.notes.filter((n) => (n.minLevel || 1) <= level).map((n) => n.id).sort().join(", ");
+      const got = I.notes.map((n) => n.id).sort().join(", ");
+      if (want !== got) err(`${ctx}: notes placed ${got}, want ${want}`);
+      const start = [Math.floor(I.startPos[0]), Math.floor(I.startPos[1])];
+      const reach = I.reachable(start[0], start[1], true);
+      const tile = (o) => Math.floor(o.x) + "," + Math.floor(o.y);
+      I.notes.forEach((n) => { if (!reach.has(tile(n))) err(`${ctx}: note ${n.id} at ${tile(n)} cannot be reached`); });
+      const sd = I.stashDoor;
+      const kp = I.keyPickup;
+      if (!sd || I.grid[sd.y][sd.x] !== "Q" || !I.solidAt(sd.x + 0.5, sd.y + 0.5)) return err(`${ctx}: no locked stash door`);
+      if (!kp || !reach.has(tile(kp))) return err(`${ctx}: no stash key the player can reach`);
+      if (I.signs.length !== (N.signs || []).length) err(`${ctx}: ${I.signs.length} wall signs, want ${(N.signs || []).length}`);
+      // the trail: the second note and the key show only once the note before them is read
+      const t1 = N.notes.find((n) => n.kind === "trail" && !n.after);
+      const t2 = N.notes.find((n) => n.after === t1.id);
+      const o2 = I.notes.find((n) => n.id === t2.id);
+      if (I.noteVisible(o2) || I.keyVisible()) err(`${ctx}: the second trail note or the key shows before the first note is read`);
+      S.readNote(t1.id, loc.id, t1.found);
+      if (!I.noteVisible(o2) || I.keyVisible()) err(`${ctx}: reading ${t1.id} should show ${t2.id} and not yet the key`);
+      S.readNote(t2.id, loc.id, t2.found);
+      if (!I.keyVisible()) err(`${ctx}: reading ${t2.id} should show the key`);
+      renderAround(ctx);
+      I.player.x = kp.x;
+      I.player.y = kp.y;
+      I.updatePickups();
+      if (!S.hasKeyFrom(loc.id) || I.keyVisible()) err(`${ctx}: walking onto the key did not pick it up`);
+      // the stash: locked without its key (the one hidden in another building), open with it
+      I.buildingInteract({ kind: "stash", obj: sd });
+      if (sd.open) err(`${ctx}: the stash opened without its key`);
+      S.trip.keys.push(S.keySourceFor(loc.id));
+      I.buildingInteract({ kind: "stash", obj: sd });
+      if (!sd.open || I.grid[sd.y][sd.x] !== "D") err(`${ctx}: the stash did not open with its key`);
+      const open = I.reachable(start[0], start[1], true);
+      const stash = I.items.filter((it) => it.source === "stash");
+      if (stash.length !== loc.stash.length) err(`${ctx}: ${stash.length} stash items, want ${loc.stash.length}`);
+      stash.forEach((it) => { if (!open.has(tile(it))) err(`${ctx}: stash item at ${tile(it)} cannot be reached with the stash open`); });
+      // every sign can be read standing in front of it, and the panel shows its words
+      I.signs.forEach((sg) => {
+        const face = sg.face || Object.keys(SIDES).find((k) => !I.solidAt(sg.x + SIDES[k][0] + 0.5, sg.y + SIDES[k][1] + 0.5));
+        const [dx, dy] = SIDES[face];
+        I.player.x = sg.x + dx + 0.5;
+        I.player.y = sg.y + dy + 0.5;
+        I.player.a = Math.atan2(-dy, -dx);
+        const t = I.nearReadable();
+        if (!t || !t.sign || t.sign.id !== sg.id) return err(`${ctx}: sign ${sg.id} cannot be read from in front of it`);
+        I.panelKey = null;
+        I.updatePanel();
+        const text = ZSR.signText(loc.id, sg.id).text;
+        if (!text || !String(I.hud.read.innerHTML || "").includes(text.split(/\s+/).slice(0, 3).join(" ").replace(/&/g, "&amp;").replace(/"/g, "&quot;"))) err(`${ctx}: the panel does not show sign ${sg.id}`);
+      });
+      I.panelKey = null;
+      S.abandonTrip();
+    });
+  });
+  S.settings.level = levelWas;
+} catch (e) {
+  err(`story: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+}
+
+/* ---------- The yard: every plot's sign (or plaque) can be read up close ---------- */
+try {
+  [0, 2].forEach((lv) => {
+    Object.keys(W.BASE_ROOMS).forEach((k) => (S.save.rooms[k] = k === "walls" ? 0 : lv));
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    const plots = W.YARD.plots;
+    if (I.lots.length !== Object.keys(plots).length) err(`yard (rooms at ${lv}): ${I.lots.length} readable plot signs, want ${Object.keys(plots).length}`);
+    I.lots.forEach((lot) => {
+      const [dx, dy] = SIDES[plots[lot.room].face];
+      I.player.x = lot.x + dx * 1.2;
+      I.player.y = lot.y + dy * 1.2;
+      I.player.a = Math.atan2(-dy, -dx);
+      const t = I.nearReadable();
+      if (!t || !t.lot || t.lot.room !== lot.room) return err(`yard (rooms at ${lv}): the ${lot.room} plot's sign cannot be read from in front of it`);
+      I.panelKey = null;
+      I.updatePanel();
+      if (!String(I.hud.read.innerHTML || "").includes(W.BASE_ROOMS[lot.room].name)) err(`yard (rooms at ${lv}): the panel does not name the ${lot.room} plot`);
+    });
+  });
+  Object.keys(W.BASE_ROOMS).forEach((k) => (S.save.rooms[k] = 0));
+} catch (e) {
+  err(`yard signs: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+}
+
 if (errors.length) {
   errors.forEach((e) => console.log("ERROR " + e));
   console.log(`\n${errors.length} engine problem(s).`);
   process.exit(1);
 }
-console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible.`);
+console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, and every yard plot's sign.`);

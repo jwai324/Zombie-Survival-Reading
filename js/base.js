@@ -490,6 +490,7 @@
       });
       if (!any) wrap.appendChild(el("p", "muted", "Nothing yet. Drive out, read the notes, bring things back."));
       wrap.appendChild(grid);
+      if (ZSR.Backpack && ZSR.Backpack.keysBlock) wrap.appendChild(ZSR.Backpack.keysBlock(() => this.open()));
       // what each room still needs, as a shopping list
       const want = {};
       Object.entries(W().BASE_ROOMS).forEach(([key, room]) => {

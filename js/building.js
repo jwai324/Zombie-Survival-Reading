@@ -1,17 +1,21 @@
 /* Building mode for the first-person view, mixed into ZSR.Interior: entering a place
    from its layout (legend v2), the trip snapshot for a return visit, pickups, notes,
-   the locked cache room, decor and landmarks, a gun lying on the floor (when this save hid
-   one here), the building's HUD goal, and the M map (only what you have seen; kept in the
-   trip and, once home, in the save).
+   the locked cache room, the stash (its key is hidden in another building) and this building's
+   own stash key, wall signs read up close, decor and landmarks, a gun lying on the floor (when
+   this save hid one here), the building's HUD goal, and the M map (only what you have seen;
+   kept in the trip and, once home, in the save).
 
    Legend v2 (see js/layouts.js):
      #  wall              W  wall with a window      .  floor
      D  door              L  locked cache door       E  entrance / exit
+     Q  stash door (opens with a key found in another building)
      S  shelf  X  crates  G  glass case (all full height)
      C  counter  K  table / desk  R  bed / bench (low: solid, see-through, shoot over)
      1 2 3 4  landmark anchors (floor + landmark prop)
-     i item  c cache item  n note  z walker spawn  $ scrap pile
-   Any other character is floor. */
+     i item  c cache item  k stash item  y this building's stash key
+     n note spot 1 (the main note)  z walker spawn  $ scrap pile
+   Any other character is floor. The layout's `spots` place note spots 2 to 7 and its `signs`
+   the wall signs (js/layouts.js). */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -20,7 +24,7 @@
   const D3 = () => ZSR.Draw3;
   const W = () => ZSR.WORLD;
   const rand = (a, b) => a + Math.random() * (b - a);
-  const KEEP = "#W.DLESXGCKR"; // tiles that stay as they are; the markers become floor
+  const KEEP = "#W.DLQESXGCKR"; // tiles that stay as they are; the markers become floor
   const DECOR_ON = "#WSXG"; // decor goes on plain wall-like tiles, never on a door, the exit or the cache door
 
   /* The map's look: flat comic fills on paper, ink walls */
@@ -54,10 +58,12 @@
       this.loadGrid(tpl.grid, tpl.palette);
       const st = S.locState(loc.id);
       const snap = S.trip && S.trip.rooms && S.trip.rooms[loc.id]; // this trip's earlier visit: exactly as you left it
-      const notes = W().NOTES[loc.id].notes;
+      const N = W().NOTES[loc.id];
       let itemIdx = 0;
       let cacheIdx = 0;
-      let noteIdx = 0;
+      let stashIdx = 0;
+      const spotAt = {}; // note spot number -> [x, y]
+      Object.entries(tpl.spots || {}).forEach(([n, [x, y]]) => (spotAt[n] = [x + 0.5, y + 0.5]));
       for (let y = 0; y < this.gh; y++) {
         for (let x = 0; x < this.gw; x++) {
           const ch = this.grid[y][x];
@@ -65,18 +71,31 @@
           const cy = y + 0.5;
           if (ch === "i") {
             const key = loc.items[itemIdx];
-            if (key) this.items.push({ spot: "i" + itemIdx, x: cx, y: cy, item: key, fromCache: false, taken: !S.itemAvailable(loc.id, "i" + itemIdx) });
+            if (key) this.items.push({ spot: "i" + itemIdx, x: cx, y: cy, item: key, source: false, taken: !S.itemAvailable(loc.id, "i" + itemIdx) });
             itemIdx++;
             this.grid[y][x] = ".";
           } else if (ch === "c") {
             const key = loc.cache[cacheIdx];
-            if (key) this.items.push({ spot: "c" + cacheIdx, x: cx, y: cy, item: key, fromCache: true, taken: !!st.cacheTaken["c" + cacheIdx] });
+            if (key) this.items.push({ spot: "c" + cacheIdx, x: cx, y: cy, item: key, source: "cache", taken: !!st.cacheTaken["c" + cacheIdx] });
             cacheIdx++;
             this.grid[y][x] = ".";
-          } else if (ch === "n") {
-            const n = notes[noteIdx++];
-            if (n) this.notes.push({ x: cx, y: cy, id: n.id, found: n.found, unlocks: n.unlocks, reveals: n.reveals || [], read: S.noteRead(n.id) });
+          } else if (ch === "k") {
+            const key = (loc.stash || [])[stashIdx];
+            if (key) this.items.push({ spot: "k" + stashIdx, x: cx, y: cy, item: key, source: "stash", taken: !!st.stashTaken["k" + stashIdx] });
+            stashIdx++;
             this.grid[y][x] = ".";
+          } else if (ch === "n") {
+            spotAt["1"] = [cx, cy];
+            this.grid[y][x] = ".";
+          } else if (ch === "y") {
+            if (N.key) this.keyPickup = { x: cx, y: cy, from: loc.id, taken: S.hasKeyFrom(loc.id) };
+            this.grid[y][x] = ".";
+          } else if (ch === "Q") {
+            this.stashDoor = { x, y, open: st.stashOpened };
+            if (st.stashOpened) {
+              this.doors.push({ x, y, open: true, stash: true });
+              this.grid[y][x] = "D";
+            }
           } else if (ch === "$") {
             this.piles.push({ x: cx, y: cy, value: Math.round(rand(W().SETTINGS.scrapPileValue[0], W().SETTINGS.scrapPileValue[1])), taken: false });
             this.grid[y][x] = ".";
@@ -101,7 +120,16 @@
           } else if (!KEEP.includes(ch)) this.grid[y][x] = ".";
         }
       }
+      // notes go on their numbered spots; a dead-end note above this reading level is not placed,
+      // and a note that follows another (`after`) stays hidden until that one has been read
+      const level = S.settings.level;
+      N.notes.forEach((n) => {
+        const at = spotAt[String(n.spot || 1)];
+        if (!at || (n.minLevel || 1) > level) return;
+        this.notes.push({ x: at[0], y: at[1], id: n.id, found: n.found, unlocks: n.unlocks, reveals: n.reveals || [], after: n.after || null, read: S.noteRead(n.id) });
+      });
       this.dressLayout(tpl);
+      this.placeSigns(tpl, N.signs || []);
       this.markSeen(st.seen); // what you saw here before: saved, or earlier this trip
       this.mapOpen = false;
       const mask = this.solidMask();
@@ -230,6 +258,25 @@
       });
     },
 
+    /** The wall signs and graffiti you read up close: the layout's `signs` ([x, y, face]) in order, one per
+        story sign. Drawn over any decor on that face; read from the side it faces. */
+    placeSigns(tpl, list) {
+      (tpl.signs || []).forEach(([x, y, face], i) => {
+        const sg = list[i];
+        if (!sg) return;
+        this.signs.push({ x, y, face: face || null, id: sg.id, kind: sg.kind });
+        const tex = D3().texture(sg.kind === "graffiti" ? "readGraffiti" : "readSign", this.palette);
+        const k = x + "," + y;
+        if (!face) this.tileTex[k] = tex;
+        else {
+          const cur = this.tileTex[k];
+          const faces = cur && typeof cur === "object" && !cur.width ? cur : {};
+          faces[face] = tex;
+          this.tileTex[k] = faces;
+        }
+      });
+    },
+
     /** What this building looks like right now, so a return visit on the same trip finds it unchanged. */
     snapshot() {
       return {
@@ -263,7 +310,7 @@
     /** A gun still lying in this building goes on a floor tile well inside: the same tile on every visit
         of this save (seeded), on open floor you can walk to with every door open, never in the cache room,
         never on a landmark's tiles, an item, a note or a scrap pile. Distances count every door as open,
-        so where doors stand never moves it. */
+        so where doors stand never moves it. Never behind the stash door either. */
     placeGun(loc, start) {
       const S = State();
       const id = S.weaponAt(loc.id);
@@ -271,7 +318,9 @@
       const gw = this.gw;
       const m = this.solidMask();
       const cd = this.cacheDoor;
-      const pass = (x, y) => !(cd && x === cd.x && y === cd.y) && (!m[y * gw + x] || this.grid[y][x] === "O");
+      const sd = this.stashDoor;
+      const shut = (d, x, y) => d && x === d.x && y === d.y;
+      const pass = (x, y) => !shut(cd, x, y) && !shut(sd, x, y) && (!m[y * gw + x] || this.grid[y][x] === "O");
       const sx = Math.floor(start[0]);
       const sy = Math.floor(start[1]);
       const reach = new Map([[sx + "," + sy, 0]]);
@@ -286,7 +335,7 @@
           q.push([nx, ny]);
         }
       }
-      const busy = new Set(this.items.concat(this.notes, this.piles).map((o) => Math.floor(o.x) + "," + Math.floor(o.y)));
+      const busy = new Set(this.items.concat(this.notes, this.piles, this.keyPickup ? [this.keyPickup] : []).map((o) => Math.floor(o.x) + "," + Math.floor(o.y)));
       this.landmarks.forEach((lm) => {
         const f = lm.def && Array.isArray(lm.def.foot) ? lm.def.foot : [1, 1];
         for (let y = lm.y - (f[1] >> 1) - 1; y <= lm.y + (f[1] >> 1) + 1; y++) for (let x = lm.x - (f[0] >> 1) - 1; x <= lm.x + (f[0] >> 1) + 1; x++) busy.add(x + "," + y);
@@ -306,8 +355,25 @@
     noteWasRead(noteObj) {
       noteObj.read = true;
       const added = State().reveal(noteObj.reveals);
-      if (added.length) this.toast("New place on the map: " + added.map((id) => W().LOCATIONS.find((l) => l.id === id).name).join(", "), 4);
+      const followed = this.notes.some((n) => n.after === noteObj.id);
+      const key = W().NOTES[this.loc.id] && W().NOTES[this.loc.id].key;
+      const keyNow = key && key.after === noteObj.id && this.keyPickup && !this.keyPickup.taken;
+      const msgs = [];
+      if (added.length) msgs.push("New place on the map: " + added.map((id) => W().LOCATIONS.find((l) => l.id === id).name).join(", "));
+      if (followed) msgs.push("The note points to another one. Go and find it.");
+      if (keyNow) msgs.push("A key is hidden in here. The note says where.");
+      if (msgs.length) this.toast(msgs.join(" · "), 4.5);
+      this.mapImg = null;
       this.updateHud();
+    },
+    /** A note shows once the note it follows has been read. */
+    noteVisible(n) {
+      return !n.after || State().noteRead(n.after);
+    },
+    keyVisible() {
+      const k = this.keyPickup;
+      const K = this.loc && W().NOTES[this.loc.id] && W().NOTES[this.loc.id].key;
+      return !!k && !k.taken && !!K && State().noteRead(K.after);
     },
 
     updatePickups() {
@@ -318,12 +384,27 @@
         if (Math.hypot(it.x - p.x, it.y - p.y) < 0.6) {
           it.taken = true;
           S.trip.cargo[it.item] = (S.trip.cargo[it.item] || 0) + 1;
-          S.takeItem(this.loc.id, it.spot, it.fromCache);
+          S.takeItem(this.loc.id, it.spot, it.source);
           this.toast("Picked up: " + W().ITEMS[it.item].name, 2);
+          this.showTag(it.item, Number(it.spot.slice(1)) % 2, W().ITEMS[it.item].name);
           Audio().play("pickup");
           this.updateHud();
         }
       });
+      const kp = this.keyPickup;
+      if (kp && this.keyVisible() && Math.hypot(kp.x - p.x, kp.y - p.y) < 0.6) {
+        kp.taken = true;
+        S.takeKey(kp.from);
+        const kt = ZSR.keyText(kp.from);
+        const target = W().LOCATIONS.find((l) => l.id === W().KEYS[kp.from]);
+        this.toastFit(["Found: " + kt.name + ". It opens " + target.stashName + " at " + target.name + ". Get it home to keep it.", "Found: " + kt.name + "."], 5);
+        if (kt.tag) {
+          if (S.trip) S.trip.wordsRead += ZSR.wordCount(kt.tag);
+          this.tagPanel = { key: "key:" + kp.from + ":" + this.time, kind: "tag", title: kt.name, status: "Opens " + target.stashName + " at " + target.name, text: kt.tag, until: this.time + 8 };
+        }
+        Audio().play("buy");
+        this.updateHud();
+      }
       const g = this.gunPickup;
       if (g && !g.taken && Math.hypot(g.x - p.x, g.y - p.y) < 0.6) {
         // straight into your hands; it is yours once you get it home
@@ -351,8 +432,9 @@
       this.updatePickups();
     },
     buildingFacing(cand) {
-      this.notes.forEach((n) => cand.push({ kind: "note", obj: n, x: n.x, y: n.y }));
+      this.notes.forEach((n) => this.noteVisible(n) && cand.push({ kind: "note", obj: n, x: n.x, y: n.y }));
       if (this.cacheDoor && !this.cacheDoor.open) cand.push({ kind: "cache", obj: this.cacheDoor, x: this.cacheDoor.x + 0.5, y: this.cacheDoor.y + 0.5 });
+      if (this.stashDoor && !this.stashDoor.open) cand.push({ kind: "stash", obj: this.stashDoor, x: this.stashDoor.x + 0.5, y: this.stashDoor.y + 0.5 });
       if (this.exit) cand.push({ kind: "exit", obj: this.exit, x: this.exit.x + 0.5, y: this.exit.y + 0.5 });
     },
     buildingInteract(f) {
@@ -374,6 +456,22 @@
           this.toast("Locked. A note here says how.", 3);
           Audio().play("wrong");
         }
+      } else if (f.kind === "stash") {
+        const stashName = this.loc.stashName || "the stash";
+        if (S.canOpenStash(this.loc.id)) {
+          const d = this.stashDoor;
+          d.open = true;
+          this.grid[d.y][d.x] = "D";
+          this.maskDirty = true;
+          this.doors.push({ x: d.x, y: d.y, open: true, stash: true });
+          S.tripLoc(this.loc.id).stashOpened = true;
+          this.toast("Your key fits. Opened: " + stashName + ".", 3);
+          Audio().play("buy");
+          this.updateHud();
+        } else {
+          this.toast("Locked: " + stashName + ". Its key is hidden in another building. Notes say where.", 3.5);
+          Audio().play("wrong");
+        }
       } else if (f.kind === "exit") {
         if (this.hooks.onExit) this.hooks.onExit();
       }
@@ -381,14 +479,17 @@
     buildingHint(f) {
       if (f.kind === "note") return "Press E to read the note";
       if (f.kind === "cache") return "Press E to open " + this.loc.cacheName;
+      if (f.kind === "stash") return State().canOpenStash(this.loc.id) ? "Press E: your key opens " + this.loc.stashName : this.loc.stashName + ": locked (its key is in another building)";
       if (f.kind === "exit") return "Press E to leave for the van";
       return "";
     },
     buildingGoal() {
-      const left = this.items.filter((i) => !i.taken && !i.fromCache).length;
-      const cacheLeft = this.items.filter((i) => !i.taken && i.fromCache).length;
+      const left = this.items.filter((i) => !i.taken && !i.source).length;
+      const cacheLeft = this.items.filter((i) => !i.taken && i.source === "cache").length;
       const cacheState = this.cacheDoor ? (this.cacheDoor.open ? "open" : "locked") : "none";
-      return (left ? left + " item" + (left > 1 ? "s" : "") + " on the floor" : "Floor cleared") + " · " + this.loc.cacheName + ": " + cacheState + (cacheLeft && cacheState === "open" ? ", " + cacheLeft + " left" : "");
+      const sd = this.stashDoor;
+      const stashState = !sd ? "" : sd.open ? "open" : State().canOpenStash(this.loc.id) ? "you have the key" : "locked";
+      return (left ? left + " item" + (left > 1 ? "s" : "") + " on the floor" : "Floor cleared") + " · " + this.loc.cacheName + ": " + cacheState + (cacheLeft && cacheState === "open" ? ", " + cacheLeft + " left" : "") + (sd ? " · " + this.loc.stashName + ": " + stashState : "");
     },
     buildingLeave() {
       const S = State();
@@ -485,7 +586,7 @@
           if (seen[i]) show[i] = 1;
           else if ("#WSXG".includes(grid[y][x])) {
             for (let dy = -1; dy <= 1 && !show[i]; dy++) for (let dx = -1; dx <= 1; dx++) if ((dx || dy) && openSeen(x + dx, y + dy)) show[i] = 1;
-          } else if ("ODLE".includes(grid[y][x])) {
+          } else if ("ODLQE".includes(grid[y][x])) {
             if (openSeen(x - 1, y) || openSeen(x + 1, y) || openSeen(x, y - 1) || openSeen(x, y + 1)) show[i] = 1;
           }
         }
@@ -514,8 +615,9 @@
       // the legend, laid out beside the map or under it, whichever leaves the bigger map
       // (the red open door of a cache room you unlocked gets a row once it is on the map)
       const cd = this.cacheDoor;
+      const sd = this.stashDoor;
       const LEGEND = [["you", "you"], ["door", "door"], ["open", "open door"], ["locked", "locked door"]];
-      if (cd && cd.open && show[cd.y * gw + cd.x]) LEGEND.push(["opened", "unlocked door"]);
+      if ((cd && cd.open && show[cd.y * gw + cd.x]) || (sd && sd.open && show[sd.y * gw + sd.x])) LEGEND.push(["opened", "unlocked door"]);
       LEGEND.push(["exit", "exit"], ["note", "note"], ["read", "note you read"], ["fog", "not seen yet"], ["key", "close map"]);
       g.font = "700 " + fs + "px " + HEAD;
       const sw = Math.round(fs * 1.25);
@@ -576,7 +678,7 @@
       this.notes.forEach((n) => {
         const tx = Math.floor(n.x);
         const ty = Math.floor(n.y);
-        if (!this.seen[ty * gw + tx]) return;
+        if (!this.seen[ty * gw + tx] || !this.noteVisible(n)) return;
         const s = Math.max(T * 0.9, fs * 0.8);
         this.mapNote(g, ox + n.x * T, oy + n.y * T, s, n.read);
         rects.push([ox + n.x * T - s / 2, oy + n.y * T - s / 2, ox + n.x * T + s / 2, oy + n.y * T + s / 2]);
@@ -822,11 +924,12 @@
               g.fillStyle = "rgba(15,16,18,0.45)";
               g.fillRect(sx + T * 0.3, sy + T * 0.3, T * 0.4, T * 0.4);
             }
-          } else if (ch === "O" || ch === "D" || ch === "L") {
+          } else if (ch === "O" || ch === "D" || ch === "L" || ch === "Q") {
             const across = isWall(x - 1, y) || isWall(x + 1, y); // walls left and right: the door spans the tile left to right
-            const kind = ch === "L" ? "locked" : ch === "O" ? "door" : this.cacheDoor && this.cacheDoor.x === x && this.cacheDoor.y === y ? "opened" : "open";
+            const at = (d) => d && d.x === x && d.y === y;
+            const kind = ch === "L" || ch === "Q" ? "locked" : ch === "O" ? "door" : at(this.cacheDoor) || at(this.stashDoor) ? "opened" : "open";
             this.mapDoor(g, sx, sy, T, kind, across);
-            if (ch === "L") icons.push(() => this.mapLock(g, sx + T / 2, sy + T / 2, iconS * 1.1));
+            if (ch === "L" || ch === "Q") icons.push(() => this.mapLock(g, sx + T / 2, sy + T / 2, iconS * 1.1));
           } else if (ch === "E") {
             const out = y === gh - 1 ? Math.PI / 2 : y === 0 ? -Math.PI / 2 : x === 0 ? Math.PI : 0;
             icons.push(() => this.mapExit(g, sx + (T - iconS) / 2, sy + (T - iconS) / 2, iconS, out));
