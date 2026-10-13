@@ -16,8 +16,8 @@
 
   const FOV = 1.22; // ~70 degrees
   const COL = 2; // pixels per ray
-  const SOLID = "#SCXGLETHBVFO"; // blocks movement (O is a closed door)
-  const OPAQUE = "#SCXGLETHBVO"; // blocks sight and rays (fence F is see-through)
+  const SOLID = "#SCXGLETHBVFOKW"; // blocks movement (O is a closed door, K the stash door, W a wall with a sign)
+  const OPAQUE = "#SCXGLETHBVOKW"; // blocks sight and rays (fence F is see-through)
   const HEIGHT = { V: 0.8, T: 1.45 }; // wall heights in tiles; everything else is 1
   const CABIN = { eave: 1.0, ridge: 1.7 }; // the cabin's walls stop at the eave; the roof peaks at the ridge
   const WALKER_TYPES = {
@@ -28,7 +28,9 @@
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const normAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
-  const TEX_OF = { S: "shelf", C: "counter", X: "crate", G: "glass", L: "locked", E: "exit", T: "tree", H: "house", B: "door", V: "van", O: "doorClosed" };
+  const TEX_OF = { S: "shelf", C: "counter", X: "crate", G: "glass", L: "locked", E: "exit", T: "tree", H: "house", B: "door", V: "van", O: "doorClosed", K: "stash", W: "sign" };
+  const READ_REACH = 2.3; // how close a wall sign or a yard lot must be to read it
+  const words = (t) => String(t || "").trim().split(/\s+/).filter(Boolean).length;
 
   const Interior = {
     canvas: null,
@@ -46,7 +48,7 @@
       this.keys = {};
       this.mouseDown = false;
       const $ = (id) => document.getElementById(id);
-      this.hud = { root: $("int-hud"), hpFill: $("int-hp-fill"), hpText: $("int-hp-text"), scrap: $("int-scrap"), cargo: $("int-cargo"), walkers: $("int-walkers"), gun: $("int-gun"), place: $("int-place"), goal: $("int-goal"), hint: $("int-hint"), toast: $("int-toast"), phase: $("int-phase") };
+      this.hud = { root: $("int-hud"), hpFill: $("int-hp-fill"), hpText: $("int-hp-text"), scrap: $("int-scrap"), cargo: $("int-cargo"), walkers: $("int-walkers"), gun: $("int-gun"), place: $("int-place"), goal: $("int-goal"), hint: $("int-hint"), toast: $("int-toast"), phase: $("int-phase"), read: $("int-read") };
       this.bind();
       root.addEventListener("resize", () => this.resize());
       this.resize();
@@ -164,6 +166,12 @@
       this.doors = []; // interior doors: { x, y, open }
       this.traps = []; // yard traps: { x, y, type, uses }
       this.cacheDoor = null;
+      this.stashDoor = null; // { x, y, open } opens with the key from another building
+      this.keyPickup = null; // this building's key on its y spot: { x, y, from, taken }
+      this.signs = []; // wall signs and graffiti: { x, y, id, kind }
+      this.lots = []; // yard lots: { room, x, y }
+      this.panelKey = null; // what the read-up-close panel shows now
+      this.tagPanel = null; // an item tag shown for a few seconds after a pickup: { key, title, text, until }
       this.gunPickup = null; // a weapon lying in this building: { x, y, id, taken }
       this.exit = null;
       this.door = null;
@@ -212,10 +220,14 @@
       this.loadGrid(tpl.grid, tpl.palette);
       const st = S.locState(loc.id);
       const snap = S.trip && S.trip.rooms && S.trip.rooms[loc.id]; // this trip's earlier visit: exactly as you left it
-      const notes = W().NOTES[loc.id].notes;
+      const N = W().NOTES[loc.id];
+      const level = S.settings.level;
+      const signs = N.signs || [];
       let itemIdx = 0;
       let cacheIdx = 0;
-      let noteIdx = 0;
+      let stashIdx = 0;
+      let signIdx = 0;
+      const spotAt = {}; // note spot number -> [x, y]
       for (let y = 0; y < this.gh; y++) {
         for (let x = 0; x < this.gw; x++) {
           const ch = this.grid[y][x];
@@ -223,18 +235,37 @@
           const cy = y + 0.5;
           if (ch === "i") {
             const key = loc.items[itemIdx];
-            if (key) this.items.push({ spot: "i" + itemIdx, x: cx, y: cy, item: key, fromCache: false, taken: !S.itemAvailable(loc.id, "i" + itemIdx) });
+            if (key) this.items.push({ spot: "i" + itemIdx, x: cx, y: cy, item: key, source: false, taken: !S.itemAvailable(loc.id, "i" + itemIdx) });
             itemIdx++;
             this.grid[y][x] = ".";
           } else if (ch === "c") {
             const key = loc.cache[cacheIdx];
-            if (key) this.items.push({ spot: "c" + cacheIdx, x: cx, y: cy, item: key, fromCache: true, taken: !!st.cacheTaken["c" + cacheIdx] });
+            if (key) this.items.push({ spot: "c" + cacheIdx, x: cx, y: cy, item: key, source: "cache", taken: !!st.cacheTaken["c" + cacheIdx] });
             cacheIdx++;
             this.grid[y][x] = ".";
-          } else if (ch === "n") {
-            const n = notes[noteIdx++];
-            if (n) this.notes.push({ x: cx, y: cy, id: n.id, found: n.found, unlocks: n.unlocks, reveals: n.reveals || [], read: S.noteRead(n.id) });
+          } else if (ch === "k") {
+            const key = (loc.stash || [])[stashIdx];
+            if (key) this.items.push({ spot: "k" + stashIdx, x: cx, y: cy, item: key, source: "stash", taken: !!st.stashTaken["k" + stashIdx] });
+            stashIdx++;
             this.grid[y][x] = ".";
+          } else if (ch === "n" || (ch >= "1" && ch <= "7")) {
+            spotAt[ch === "n" ? "1" : ch] = [cx, cy];
+            this.grid[y][x] = ".";
+          } else if (ch === "y") {
+            if (N.key) this.keyPickup = { x: cx, y: cy, from: loc.id, taken: S.hasKeyFrom(loc.id) };
+            this.grid[y][x] = ".";
+          } else if (ch === "W") {
+            const sg = signs[signIdx++];
+            if (sg) {
+              this.signs.push({ x, y, id: sg.id, kind: sg.kind });
+              if (sg.kind === "graffiti") this.tileTex[x + "," + y] = "graffiti";
+            }
+          } else if (ch === "K") {
+            this.stashDoor = { x, y, open: st.stashOpened };
+            if (st.stashOpened) {
+              this.doors.push({ x, y, open: true, stash: true });
+              this.grid[y][x] = "D";
+            }
           } else if (ch === "$") {
             this.piles.push({ x: cx, y: cy, value: Math.round(rand(W().SETTINGS.scrapPileValue[0], W().SETTINGS.scrapPileValue[1])), taken: false });
             this.grid[y][x] = ".";
@@ -257,6 +288,13 @@
           if (this.grid[y][x] === ".") this.floors.push([cx, cy]);
         }
       }
+      // notes go on their numbered spots; a dead-end note above this reading level is not placed,
+      // and a note that follows another (`after`) stays hidden until that one has been read
+      N.notes.forEach((n) => {
+        const at = spotAt[String(n.spot || 1)];
+        if (!at || (n.minLevel || 1) > level) return;
+        this.notes.push({ x: at[0], y: at[1], id: n.id, found: n.found, unlocks: n.unlocks, reveals: n.reveals || [], after: n.after || null, read: S.noteRead(n.id) });
+      });
       const ex = this.exit.x;
       const ey = this.exit.y;
       const g = this.grid;
@@ -324,7 +362,8 @@
       const id = S.weaponAt(loc.id);
       if (!id) return;
       const cd = this.cacheDoor;
-      const pass = (x, y) => !(cd && x === cd.x && y === cd.y) && (this.grid[y][x] === "O" || !SOLID.includes(this.grid[y][x]));
+      const sd = this.stashDoor;
+      const pass = (x, y) => !(cd && x === cd.x && y === cd.y) && !(sd && x === sd.x && y === sd.y) && (this.grid[y][x] === "O" || !SOLID.includes(this.grid[y][x]));
       const sx = Math.floor(start[0]);
       const sy = Math.floor(start[1]);
       const reach = new Map([[sx + "," + sy, 0]]);
@@ -339,7 +378,7 @@
           q.push([nx, ny]);
         }
       }
-      const busy = new Set(this.items.concat(this.notes, this.piles).map((o) => Math.floor(o.x) + "," + Math.floor(o.y)));
+      const busy = new Set(this.items.concat(this.notes, this.piles, this.keyPickup ? [this.keyPickup] : []).map((o) => Math.floor(o.x) + "," + Math.floor(o.y)));
       const ok = (min) => this.floors.filter(([x, y]) => {
         const k = Math.floor(x) + "," + Math.floor(y);
         return (reach.get(k) || 0) >= min && !busy.has(k);
@@ -426,6 +465,7 @@
         }
       }
       this.fenceMax = fenceHp;
+      this.lots = Object.entries(Y.lots || {}).map(([room, [x, y]]) => ({ room, x: x + 0.5, y: y + 0.5 }));
       this.traps = (S.save.yardTraps || []).map((t) => Object.assign({}, t));
       this.makePlayer(start[0], start[1], start[2]);
       this.player.hp = this.player.maxHp; // home: rested
@@ -507,6 +547,7 @@
         const ch = this.grid[gy][gx];
         if (ch === "F" || W().YARD.grid[gy][gx] === "F") continue; // over the fence line (a hole is still the fence line)
         if (ch !== ".") break;
+        if (this.lots.some((l) => Math.floor(l.x) === gx && Math.floor(l.y) === gy)) break; // not on a yard lot
         if (gx === Math.floor(p.x) && gy === Math.floor(p.y)) continue;
         if (this.traps.some((t) => t.x === gx + 0.5 && t.y === gy + 0.5)) {
           this.toast("There is already a trap there.", 2.5);
@@ -569,6 +610,9 @@
       this.mouseDown = false;
       cancelAnimationFrame(this.raf);
       this.hud.root.classList.add("hidden");
+      if (this.hud.read) this.hud.read.classList.add("hidden");
+      this.panelKey = null;
+      this.tagPanel = null;
       this.releasing = true;
       if (document.pointerLockElement === this.canvas && document.exitPointerLock) document.exitPointerLock();
     },
@@ -664,6 +708,7 @@
       if (this.mode !== "yard") return false;
       const gx = Math.floor(x);
       const gy = Math.floor(y);
+      if (this.lots.some((l) => Math.floor(l.x) === gx && Math.floor(l.y) === gy)) return true; // you walk around a lot, not through it
       return W().YARD.grid[gy] && W().YARD.grid[gy][gx] === "F";
     },
     opaqueAt(x, y) {
@@ -691,8 +736,9 @@
     facing() {
       const p = this.player;
       const cand = [];
-      this.notes.forEach((n) => cand.push({ kind: "note", obj: n, x: n.x, y: n.y }));
+      this.notes.forEach((n) => this.noteVisible(n) && cand.push({ kind: "note", obj: n, x: n.x, y: n.y }));
       if (this.cacheDoor && !this.cacheDoor.open) cand.push({ kind: "cache", obj: this.cacheDoor, x: this.cacheDoor.x + 0.5, y: this.cacheDoor.y + 0.5 });
+      if (this.stashDoor && !this.stashDoor.open) cand.push({ kind: "stash", obj: this.stashDoor, x: this.stashDoor.x + 0.5, y: this.stashDoor.y + 0.5 });
       this.doors.forEach((d) => cand.push({ kind: "idoor", obj: d, x: d.x + 0.5, y: d.y + 0.5 }));
       if (this.exit) cand.push({ kind: "exit", obj: this.exit, x: this.exit.x + 0.5, y: this.exit.y + 0.5 });
       if (this.mode === "yard" && this.door) cand.push({ kind: "door", obj: this.door, x: this.door.x + 0.5, y: this.door.y + 0.5 });
@@ -768,6 +814,21 @@
           this.toast("Locked. A note here says how.", 3);
           Audio().play("wrong");
         }
+      } else if (f.kind === "stash") {
+        const stashName = this.loc.stashName || "the stash";
+        if (S.canOpenStash(this.loc.id)) {
+          const d = this.stashDoor;
+          d.open = true;
+          this.grid[d.y][d.x] = "D";
+          this.doors.push({ x: d.x, y: d.y, open: true, stash: true });
+          S.tripLoc(this.loc.id).stashOpened = true;
+          this.toast("Your key fits. Opened: " + stashName + ".", 3);
+          Audio().play("buy");
+          this.updateHud();
+        } else {
+          this.toast("Locked: " + stashName + ". Its key is hidden in another building. Notes say where.", 3.5);
+          Audio().play("wrong");
+        }
       } else if (f.kind === "idoor") {
         this.toggleDoor(f.obj);
       } else if (f.kind === "hole" || f.kind === "crack") {
@@ -789,8 +850,113 @@
     noteWasRead(noteObj) {
       noteObj.read = true;
       const added = State().reveal(noteObj.reveals);
-      if (added.length) this.toast("New place on the map: " + added.map((id) => W().LOCATIONS.find((l) => l.id === id).name).join(", "), 4);
+      const followed = this.notes.some((n) => n.after === noteObj.id);
+      const key = W().NOTES[this.loc.id] && W().NOTES[this.loc.id].key;
+      const keyNow = key && key.after === noteObj.id && this.keyPickup && !this.keyPickup.taken;
+      const msgs = [];
+      if (added.length) msgs.push("New place on the map: " + added.map((id) => W().LOCATIONS.find((l) => l.id === id).name).join(", "));
+      if (followed) msgs.push("The note points to another one. Go and find it.");
+      if (keyNow) msgs.push("A key is hidden in here. The note says where.");
+      if (msgs.length) this.toast(msgs.join(" · "), 4.5);
       this.updateHud();
+    },
+    /** A note shows once the note it follows has been read. */
+    noteVisible(n) {
+      return !n.after || State().noteRead(n.after);
+    },
+    keyVisible() {
+      const k = this.keyPickup;
+      const K = this.loc && W().NOTES[this.loc.id] && W().NOTES[this.loc.id].key;
+      return !!k && !k.taken && !!K && State().noteRead(K.after);
+    },
+
+    /* ---------- Reading up close: wall signs inside, lot signs in the yard, item tags ---------- */
+    /** The sign or lot the player is looking at, close enough to read. */
+    nearReadable() {
+      const p = this.player;
+      let best = null;
+      // (sx, sy): the point to see. A sign is a wall tile, so that is the point of its face nearest the player.
+      const consider = (x, y, sx, sy, target) => {
+        const d = Math.hypot(x - p.x, y - p.y);
+        if (d > READ_REACH) return;
+        const diff = Math.abs(normAngle(Math.atan2(y - p.y, x - p.x) - p.a));
+        if (diff > 0.8 && d > 1.1) return;
+        if (!this.lineClear(p.x, p.y, sx, sy)) return; // never through a wall, a shelf or a closed door
+        if (!best || d < best.d) best = { d, target };
+      };
+      this.signs.forEach((sg) => {
+        // seen across a corner, one of the two faces at that corner must open onto something see-through
+        const offX = p.x < sg.x ? -1 : p.x > sg.x + 1 ? 1 : 0;
+        const offY = p.y < sg.y ? -1 : p.y > sg.y + 1 ? 1 : 0;
+        if (offX && offY && this.opaqueAt(sg.x + offX + 0.5, sg.y + 0.5) && this.opaqueAt(sg.x + 0.5, sg.y + offY + 0.5)) return;
+        const fx = clamp(p.x, sg.x - 0.02, sg.x + 1.02);
+        const fy = clamp(p.y, sg.y - 0.02, sg.y + 1.02);
+        consider(sg.x + 0.5, sg.y + 0.5, fx, fy, { sign: sg });
+      });
+      this.lots.forEach((lot) => consider(lot.x, lot.y, lot.x, lot.y, { lot }));
+      return best ? best.target : null;
+    },
+    /** A cheap identity for what the panel would show, so the panel is rebuilt only when it changes. */
+    readableKey(t) {
+      const S = State();
+      if (t.sign) return "sign:" + t.sign.id + ":" + S.settings.level;
+      const lvl = S.save.rooms[t.lot.room] || 0;
+      const def = W().BASE_ROOMS[t.lot.room].levels[lvl];
+      const have = def ? Object.keys(def.needs).map((k) => S.save.inventory[k] || 0).join(",") + "," + S.save.scrap : "";
+      return "lot:" + t.lot.room + ":" + lvl + ":" + S.settings.level + ":" + have;
+    },
+    signPanel(sg) {
+      const t = ZSR.signText(this.loc.id, sg.id);
+      return { key: "sign:" + sg.id + ":" + State().settings.level, kind: sg.kind, title: t.title, text: t.text, id: sg.id };
+    },
+    /** A yard lot: what it is (or could be), and what the next level needs or why it is locked. */
+    lotPanel(lot) {
+      const S = State();
+      const room = lot.room;
+      const def = W().BASE_ROOMS[room];
+      const lvl = S.save.rooms[room] || 0;
+      const t = ZSR.lotText(room, lvl);
+      const meta = [];
+      const levelText = ZSR.text();
+      const next = levelText && levelText.base && levelText.base.rooms && levelText.base.rooms[room] ? levelText.base.rooms[room].next[lvl] : null;
+      if (lvl >= def.levels.length) meta.push(["Built", def.name + " is fully built."]);
+      else {
+        const c = S.canUpgradeRoom(room);
+        if (next) meta.push(["Next", next]);
+        const needs = Object.entries(c.def.needs).map(([k, n]) => n + " " + W().ITEMS[k].name + " (have " + (S.save.inventory[k] || 0) + ")").concat([c.def.scrap + " scrap (have " + S.save.scrap + ")"]);
+        meta.push(["Needs", needs.join(", ")]);
+        if (c.locked.length) meta.push(["Locked", "Build " + c.locked.map((r) => r.name + " to level " + r.level).join(" and ") + " first."]);
+        else if (c.ok) meta.push(["Ready", "You have everything. Go inside the cabin to build it."]);
+        else meta.push(["Not yet", "Missing: " + Object.entries(c.missing).map(([k, n]) => n + " " + W().ITEMS[k].name).concat(c.scrapShort ? [c.scrapShort + " scrap"] : []).join(", ") + "."]);
+      }
+      const status = lvl ? def.name + " · level " + lvl + " of " + def.levels.length : def.name + " · empty lot";
+      return { key: "lot:" + room + ":" + lvl + ":" + S.settings.level + ":" + meta.map((m) => m[1]).join("|"), kind: "lot", title: t.title, status, text: t.text, meta };
+    },
+    /** Show an item's tag for a few seconds after picking it up. */
+    showTag(item, variant, title) {
+      const S = State();
+      const text = ZSR.tagText(item, variant);
+      if (!text) return;
+      if (S.seeTag(item) && S.trip) S.trip.wordsRead += words(text);
+      this.tagPanel = { key: "tag:" + item + ":" + variant + ":" + this.time, kind: "tag", title: title || W().ITEMS[item].name, status: "The tag says", text, until: this.time + 7 };
+    },
+    updatePanel() {
+      const near = this.nearReadable();
+      const tag = !near && this.tagPanel && this.time < this.tagPanel.until ? this.tagPanel : null;
+      const key = near ? this.readableKey(near) : tag ? tag.key : null;
+      if (key === this.panelKey) return;
+      this.panelKey = key;
+      const show = near ? (near.sign ? this.signPanel(near.sign) : this.lotPanel(near.lot)) : tag;
+      const el = this.hud.read;
+      if (!el) return;
+      if (!show) {
+        el.classList.add("hidden");
+        return;
+      }
+      if (show.kind === "sign" || show.kind === "graffiti") State().seeSign(show.id, words(show.text));
+      const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+      el.className = "read-panel " + show.kind;
+      el.innerHTML = '<div class="rp-head"><span class="rp-title">' + esc(show.title) + "</span>" + (show.status ? '<span class="rp-status">' + esc(show.status) + "</span>" : "") + "</div>" + '<div class="rp-text">' + esc(show.text).split(/\n\s*\n/).map((x) => "<p>" + x + "</p>").join("") + "</div>" + (show.meta && show.meta.length ? '<ul class="rp-meta">' + show.meta.map(([h, v]) => "<li><strong>" + esc(h) + ":</strong> " + esc(v) + "</li>").join("") + "</ul>" : "");
     },
 
     /* ---------- Update ---------- */
@@ -878,8 +1044,9 @@
       const f = this.facing();
       const inWave = this.phase && this.phase.kind === "wave";
       const fix = W().SETTINGS.fenceRepairScrap + " scrap";
-      const hint = !f ? "" : f.kind === "note" ? "Press E to read the note" : f.kind === "cache" ? "Press E to open " + this.loc.cacheName : f.kind === "idoor" ? (f.obj.open ? "Press E to close the door" : "Press E to open the door") : f.kind === "hole" ? "Press E to rebuild the fence (" + fix + ")" : f.kind === "crack" ? "Press E to brace the fence (" + fix + ")" : f.kind === "exit" ? "Press E to leave for the van" : f.kind === "door" ? (inWave ? "Cabin door (clear the wave first)" : "Press E to go inside and build") : inWave ? "The van (clear the wave first)" : "Press E to head out in the van";
+      const hint = !f ? "" : f.kind === "note" ? "Press E to read the note" : f.kind === "cache" ? "Press E to open " + this.loc.cacheName : f.kind === "stash" ? (S.canOpenStash(this.loc.id) ? "Press E: your key opens " + this.loc.stashName : this.loc.stashName + ": locked (its key is in another building)") : f.kind === "idoor" ? (f.obj.open ? "Press E to close the door" : "Press E to open the door") : f.kind === "hole" ? "Press E to rebuild the fence (" + fix + ")" : f.kind === "crack" ? "Press E to brace the fence (" + fix + ")" : f.kind === "exit" ? "Press E to leave for the van" : f.kind === "door" ? (inWave ? "Cabin door (clear the wave first)" : "Press E to go inside and build") : inWave ? "The van (clear the wave first)" : "Press E to head out in the van";
       if (this.hud.hint.textContent !== hint) this.hud.hint.textContent = hint;
+      this.updatePanel();
     },
 
     updatePickups() {
@@ -890,12 +1057,27 @@
         if (Math.hypot(it.x - p.x, it.y - p.y) < 0.6) {
           it.taken = true;
           S.trip.cargo[it.item] = (S.trip.cargo[it.item] || 0) + 1;
-          S.takeItem(this.loc.id, it.spot, it.fromCache);
+          S.takeItem(this.loc.id, it.spot, it.source);
           this.toast("Picked up: " + W().ITEMS[it.item].name, 2);
+          this.showTag(it.item, Number(it.spot.slice(1)) % 2, W().ITEMS[it.item].name);
           Audio().play("pickup");
           this.updateHud();
         }
       });
+      const kp = this.keyPickup;
+      if (kp && this.keyVisible() && Math.hypot(kp.x - p.x, kp.y - p.y) < 0.6) {
+        kp.taken = true;
+        S.takeKey(kp.from);
+        const kt = ZSR.keyText(kp.from);
+        const target = W().LOCATIONS.find((l) => l.id === W().KEYS[kp.from]);
+        this.toast("Found: " + kt.name + ". It opens " + target.stashName + " at " + target.name + ". Get it home to keep it.", 5);
+        if (kt.tag) {
+          if (S.trip) S.trip.wordsRead += words(kt.tag);
+          this.tagPanel = { key: "key:" + kp.from + ":" + this.time, kind: "tag", title: kt.name, status: "Opens " + target.stashName + " at " + target.name, text: kt.tag, until: this.time + 8 };
+        }
+        Audio().play("buy");
+        this.updateHud();
+      }
       const g = this.gunPickup;
       if (g && !g.taken && Math.hypot(g.x - p.x, g.y - p.y) < 0.6) {
         g.taken = true;
@@ -1201,10 +1383,12 @@
       h.walkers.textContent = this.walkers.length;
       if (h.gun && this.gun) h.gun.textContent = this.gun.slot + " " + this.gun.name;
       if (this.mode === "building") {
-        const left = this.items.filter((i) => !i.taken && !i.fromCache).length;
-        const cacheLeft = this.items.filter((i) => !i.taken && i.fromCache).length;
+        const left = this.items.filter((i) => !i.taken && !i.source).length;
+        const cacheLeft = this.items.filter((i) => !i.taken && i.source === "cache").length;
         const cacheState = this.cacheDoor ? (this.cacheDoor.open ? "open" : "locked") : "none";
-        h.goal.textContent = (left ? left + " item" + (left > 1 ? "s" : "") + " on the floor" : "Floor cleared") + " · " + this.loc.cacheName + ": " + cacheState + (cacheLeft && cacheState === "open" ? ", " + cacheLeft + " left" : "");
+        const sd = this.stashDoor;
+        const stashState = !sd ? "" : sd.open ? "open" : S.canOpenStash(this.loc.id) ? "you have the key" : "locked";
+        h.goal.textContent = (left ? left + " item" + (left > 1 ? "s" : "") + " on the floor" : "Floor cleared") + " · " + this.loc.cacheName + ": " + cacheState + (cacheLeft && cacheState === "open" ? ", " + cacheLeft + " left" : "") + (sd ? " · " + this.loc.stashName + ": " + stashState : "");
       } else {
         const broken = this.fenceHoles().length;
         const tr = S.save.traps || {};
@@ -1388,7 +1572,12 @@
       // sprites
       const sprites = [];
       this.items.forEach((it) => !it.taken && sprites.push({ x: it.x, y: it.y, img: D3().item(it.item), scale: 0.5, lift: 0.25 }));
-      this.notes.forEach((n) => sprites.push({ x: n.x, y: n.y, img: D3().note(), scale: 0.42, lift: 0.3, dim: n.read ? 0.5 : 0 }));
+      this.notes.forEach((n) => this.noteVisible(n) && sprites.push({ x: n.x, y: n.y, img: D3().note(), scale: 0.42, lift: 0.3, dim: n.read ? 0.5 : 0 }));
+      if (this.keyVisible()) sprites.push({ x: this.keyPickup.x, y: this.keyPickup.y, img: D3().key(), scale: 0.3, lift: 0.12 + Math.sin(this.time * 3) * 0.03, wide: 1.4 });
+      if (this.lots.length) {
+        const rooms = State().save.rooms;
+        this.lots.forEach((lot) => sprites.push({ x: lot.x, y: lot.y, img: D3().lot(lot.room, rooms[lot.room] || 0), scale: 1.0, lift: 0, wide: 1.25 }));
+      }
       this.piles.forEach((pl) => !pl.taken && sprites.push({ x: pl.x, y: pl.y, img: D3().scrap(), scale: 0.5, lift: 0.25, wide: 1.33 }));
       const gp = this.gunPickup;
       if (gp && !gp.taken) sprites.push({ x: gp.x, y: gp.y, img: D3().weaponIcon(gp.id), scale: 0.36, lift: 0.18 + Math.sin(this.time * 3) * 0.03, wide: 2 });

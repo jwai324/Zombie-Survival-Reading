@@ -53,6 +53,7 @@
     <div class="hud-bottom">
       <div class="hud-box goal-box"><span id="int-goal">2 items on the floor · the storeroom: locked</span></div>
     </div>
+    <div id="int-read" class="read-panel hidden" aria-live="polite"></div>
     <div id="int-hint" class="hint"></div>
     <div id="int-toast" class="toast hidden"></div>
   </div>
@@ -165,8 +166,11 @@
     <div class="panel backpack-panel">
       <div class="caption">Backpack</div>
       <div id="backpack-kits"></div>
+      <div id="backpack-keys"></div>
       <h2>Notes you've read</h2>
       <div id="backpack-body"></div>
+      <div id="backpack-days"></div>
+      <div id="backpack-tags"></div>
       <div class="btn-row"><button id="btn-backpack-close" class="btn big">Close</button></div>
     </div>
   </section>
@@ -231,12 +235,32 @@
 <div id="tip" class="tip hidden" role="tooltip"></div>
 
 <script src="js/world.js"></script>
+<script src="js/story.js"></script>
+<script src="js/story-home.js"></script>
 <script src="js/content/level1.js"></script>
+<script src="js/content/level1-places1.js"></script>
+<script src="js/content/level1-places2.js"></script>
+<script src="js/content/level1-home.js"></script>
 <script src="js/content/level2.js"></script>
+<script src="js/content/level2-places1.js"></script>
+<script src="js/content/level2-places2.js"></script>
+<script src="js/content/level2-home.js"></script>
 <script src="js/content/level3.js"></script>
+<script src="js/content/level3-places1.js"></script>
+<script src="js/content/level3-places2.js"></script>
+<script src="js/content/level3-home.js"></script>
 <script src="js/content/level4.js"></script>
+<script src="js/content/level4-places1.js"></script>
+<script src="js/content/level4-places2.js"></script>
+<script src="js/content/level4-home.js"></script>
 <script src="js/content/level5.js"></script>
+<script src="js/content/level5-places1.js"></script>
+<script src="js/content/level5-places2.js"></script>
+<script src="js/content/level5-home.js"></script>
 <script src="js/content/level6.js"></script>
+<script src="js/content/level6-places1.js"></script>
+<script src="js/content/level6-places2.js"></script>
+<script src="js/content/level6-home.js"></script>
 <script src="js/upgrades.js"></script>
 <script src="js/weapons.js"></script>
 <script src="js/state.js"></script>

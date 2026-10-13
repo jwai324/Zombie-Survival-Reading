@@ -96,7 +96,7 @@
         go.addEventListener("click", () => {
           Audio.unlock();
           Audio.play("click");
-          if (State.loadSave(slot.id)) goYard();
+          if (State.loadSave(slot.id)) goYardWithDay(); // an unread day page (closed mid-read) comes first
         });
         const del = document.createElement("button");
         del.className = "btn del";
@@ -137,7 +137,27 @@
       settingsReturn = "start";
       renderHowto();
       show("screen-howto");
-    } else goYard();
+    } else goYardWithDay();
+  }
+  /** Home with today's page first: the recap, June's journal, the radio. Then the yard. */
+  function goYardWithDay(opts, after) {
+    const log = State.save && State.save.log;
+    const entry = log && log.length ? log[log.length - 1] : null;
+    if (!entry || entry.read) {
+      goYard(opts);
+      if (after) after();
+      return;
+    }
+    hideScreens();
+    showCanvas(null);
+    Backpack.showDay(entry, {
+      primary: "Into the yard",
+      onClose() {
+        State.commit(); // keeps the "read" mark (words read) on the saved day
+        goYard(opts);
+        if (after) after();
+      },
+    });
   }
   function startTitleAnimation() {
     const c = $("title-van");
@@ -292,8 +312,7 @@
       const t = State.trip;
       const cargo = Object.values(t.cargo).reduce((a, b) => a + b, 0);
       State.returnHome();
-      goYard({ firstCalm: W.DEFENSE.firstCalmSeconds });
-      Interior.toast("Home. " + cargo + " item" + (cargo === 1 ? "" : "s") + " unloaded. Day " + State.save.day + ". Saved.", 4);
+      goYardWithDay({ firstCalm: W.DEFENSE.firstCalmSeconds }, () => Interior.toast("Home. " + cargo + " item" + (cargo === 1 ? "" : "s") + " unloaded. Day " + State.save.day + ". Saved.", 4));
       return;
     }
     // back at a place already entered this trip: straight in, as you left it
@@ -441,7 +460,7 @@
     });
     $("btn-howto-back").addEventListener("click", () => {
       Audio.play("click");
-      if (settingsReturn === "start") goYard();
+      if (settingsReturn === "start") goYardWithDay();
       else show(settingsReturn);
     });
     $("btn-settings-back").addEventListener("click", () => {

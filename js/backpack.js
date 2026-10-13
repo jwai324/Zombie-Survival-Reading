@@ -26,6 +26,13 @@
       const screen = document.getElementById("screen-backpack");
       if (ZSR.Tip) ZSR.Tip.init();
       this.renderKits();
+      const keysBox = document.getElementById("backpack-keys");
+      if (keysBox) {
+        keysBox.innerHTML = "";
+        keysBox.appendChild(this.keysBlock(() => this.open(onClose)));
+      }
+      this.renderDays(onClose);
+      this.renderTags();
       const body = document.getElementById("backpack-body");
       body.innerHTML = "";
       const notes = State().allNotes();
@@ -51,6 +58,122 @@
       }
       screen.classList.remove("hidden");
       document.getElementById("btn-backpack-close").onclick = () => this.close();
+    },
+
+    /** Stash keys held: what each opens, where it was found, its tag, and the note that led to it.
+        `reopen` brings this view back after reading the clue. Shared with the cabin's stock tab. */
+    keysBlock(reopen) {
+      const S = State();
+      const wrap = el("div", "keys-block");
+      const held = S.keysHeld();
+      wrap.appendChild(el("h3", null, "Stash keys" + (held.length ? " (" + held.length + ")" : "")));
+      if (!held.length) {
+        wrap.appendChild(el("p", "small muted", "No keys yet. Every building hides the key to another building's stash. Read the notes inside: one of them leads to the key."));
+        return wrap;
+      }
+      held.forEach((k) => {
+        const kt = ZSR.keyText(k.from);
+        const from = W().LOCATIONS.find((l) => l.id === k.from);
+        const to = W().LOCATIONS.find((l) => l.id === k.opens);
+        const st = S.locState(k.opens);
+        const status = st.stashOpened ? (to.stash || []).every((_, i) => st.stashTaken["k" + i]) ? "opened and emptied" : "opened" : "not opened yet";
+        const card = el("div", "key-card");
+        card.appendChild(el("div", "key-name", esc(kt.name)));
+        card.appendChild(el("div", "small", "<strong>Opens:</strong> " + esc(to.stashName) + " at " + esc(to.name) + " (" + status + ")" + (S.isKnown(to.id) ? "" : " · not on your map yet")));
+        card.appendChild(el("div", "small muted", "Found at " + esc(from.name) + (k.trip ? ", this trip: get it home to keep it" : ", day " + k.day)));
+        if (kt.tag) card.appendChild(el("p", "key-tag", esc(kt.tag)));
+        const K = W().NOTES[k.from].key;
+        if (K && S.noteRead(K.after)) {
+          const b = el("button", "btn alt small-btn", "Read the clue again");
+          b.addEventListener("click", () => {
+            const n = W().NOTES[k.from].notes.find((x) => x.id === K.after);
+            document.getElementById("screen-backpack").classList.add("hidden");
+            this.read(k.from, K.after, { found: n ? n.found : "", onClose: () => (reopen ? reopen() : null) });
+          });
+          card.appendChild(b);
+        }
+        wrap.appendChild(card);
+      });
+      return wrap;
+    },
+
+    /** June's journal and the radio, one entry per day, newest first. */
+    renderDays(onClose) {
+      const box = document.getElementById("backpack-days");
+      if (!box) return;
+      box.innerHTML = "";
+      const log = (State().save.log || []).slice().reverse();
+      if (!log.length) return;
+      const det = el("details", "bp-section");
+      det.appendChild(el("summary", null, "June's journal and the radio (" + log.length + " day" + (log.length > 1 ? "s" : "") + ")"));
+      log.forEach((entry) => {
+        const j = entry.journal != null ? ZSR.dayText("journal", entry.journal) : null;
+        const card = el("button", "note-card");
+        const jt = j && j.title ? j.title : "";
+        card.appendChild(el("span", "note-title", /^day\s*\d/i.test(jt) ? esc(jt) : "Day " + entry.day + (jt ? ": " + esc(jt) : "")));
+        card.appendChild(el("span", "note-found", entry.radio != null ? "Journal and a radio broadcast" : "Journal"));
+        card.addEventListener("click", () => {
+          document.getElementById("screen-backpack").classList.add("hidden");
+          this.showDay(entry, { primary: "Back", onClose: () => this.open(onClose) });
+        });
+        det.appendChild(card);
+      });
+      box.appendChild(det);
+    },
+
+    /** Tags of every item picked up so far: both sides of each. */
+    renderTags() {
+      const box = document.getElementById("backpack-tags");
+      if (!box) return;
+      box.innerHTML = "";
+      const S = State();
+      const seen = Object.keys(W().ITEMS).filter((k) => S.tagSeen(k));
+      if (!seen.length) return;
+      const det = el("details", "bp-section");
+      det.appendChild(el("summary", null, "Item tags (" + seen.length + " of " + Object.keys(W().ITEMS).length + ")"));
+      seen.forEach((k) => {
+        const card = el("div", "tag-card");
+        card.appendChild(el("div", "note-title", esc(W().ITEMS[k].name)));
+        [0, 1].forEach((v) => {
+          const t = ZSR.tagText(k, v);
+          if (t) card.appendChild(el("p", "key-tag", esc(t)));
+        });
+        det.appendChild(card);
+      });
+      box.appendChild(det);
+    },
+
+    /** One day: a recap of the trip, June's journal entry, and the radio if the Radio room is built.
+        opts: { primary, onClose }. The first reading counts toward words read. */
+    showDay(entry, opts) {
+      const o = opts || {};
+      const S = State();
+      const screen = document.getElementById("screen-note");
+      const j = entry.journal != null ? ZSR.dayText("journal", entry.journal) : { title: "", text: "" };
+      const r = entry.radio != null ? ZSR.dayText("radio", entry.radio) : null;
+      const recap = ZSR.recapText(entry.recap);
+      document.getElementById("note-caption").textContent = "Day " + entry.day + " · home";
+      document.getElementById("note-title").textContent = j.title || "June's journal";
+      document.getElementById("note-found").textContent = "From June's green ledger" + (r ? ", and the radio" : "");
+      let html = "";
+      if (recap) html += '<p class="recap">' + esc(recap) + "</p>";
+      html += paragraphs(j.text);
+      if (r) html += '<h4 class="radio-head">On the radio' + (r.title ? ": " + esc(r.title) : "") + "</h4>" + paragraphs(r.text);
+      document.getElementById("note-text").innerHTML = html;
+      if (!entry.read) {
+        entry.read = true;
+        S.save.stats.wordsRead += wordCount(recap + " " + j.text + " " + (r ? r.text : ""));
+      }
+      const primary = document.getElementById("btn-note-primary");
+      document.getElementById("btn-note-secondary").classList.add("hidden");
+      primary.textContent = o.primary || "Close";
+      primary.onclick = () => {
+        ZSR.Audio.play("click");
+        screen.classList.add("hidden");
+        if (o.onClose) o.onClose();
+      };
+      screen.classList.remove("hidden");
+      screen.querySelector(".panel").scrollTop = 0;
     },
 
     /** Medical kits: packed in the backpack, in storage at the cabin, or in the van's cargo. One kit heals to full. */

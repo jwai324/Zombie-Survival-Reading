@@ -11,14 +11,20 @@ const vm = require("vm");
 const ROOT = path.join(__dirname, "..");
 // words/sentence: note length and max sentence length (docs/TEXT_GUIDE.md).
 // typeWord: letters per typing word; typePhrase / typeSentence: words per phrase / sentence.
+// sign / tag / lot / day: word ranges for wall signs, item and key tags, yard lot signs, journal and radio.
+// baseline: in-world reading words (everything but the typing drills) before the reading expansion;
+// every level must now carry at least READING_FLOOR times that.
 const LEVELS = {
-  1: { words: [30, 50], sentence: 7, typeWord: [3, 4], typePhrase: [2, 2], typeSentence: [3, 6] },
-  2: { words: [45, 75], sentence: 10, typeWord: [3, 5], typePhrase: [2, 2], typeSentence: [4, 7] },
-  3: { words: [70, 110], sentence: 14, typeWord: [3, 6], typePhrase: [2, 3], typeSentence: [5, 9] },
-  4: { words: [100, 140], sentence: 18, typeWord: [4, 7], typePhrase: [2, 3], typeSentence: [6, 10] },
-  5: { words: [130, 180], sentence: 22, typeWord: [4, 8], typePhrase: [2, 4], typeSentence: [7, 11] },
-  6: { words: [160, 220], sentence: 26, typeWord: [5, 9], typePhrase: [2, 4], typeSentence: [8, 12] },
+  1: { words: [55, 90], sentence: 7, sign: [6, 22], tag: [10, 24], lot: [20, 48], day: [25, 55], baseline: 2600, typeWord: [3, 4], typePhrase: [2, 2], typeSentence: [3, 6] },
+  2: { words: [80, 120], sentence: 10, sign: [8, 26], tag: [14, 30], lot: [30, 62], day: [35, 72], baseline: 3765, typeWord: [3, 5], typePhrase: [2, 2], typeSentence: [4, 7] },
+  3: { words: [110, 160], sentence: 14, sign: [10, 32], tag: [18, 36], lot: [40, 82], day: [50, 95], baseline: 4744, typeWord: [3, 6], typePhrase: [2, 3], typeSentence: [5, 9] },
+  4: { words: [150, 210], sentence: 18, sign: [12, 40], tag: [22, 44], lot: [55, 100], day: [70, 125], baseline: 5502, typeWord: [4, 7], typePhrase: [2, 3], typeSentence: [6, 10] },
+  5: { words: [190, 260], sentence: 22, sign: [15, 46], tag: [26, 52], lot: [70, 120], day: [90, 150], baseline: 6299, typeWord: [4, 8], typePhrase: [2, 4], typeSentence: [7, 11] },
+  6: { words: [230, 320], sentence: 26, sign: [18, 56], tag: [30, 62], lot: [85, 140], day: [110, 185], baseline: 7384, typeWord: [5, 9], typePhrase: [2, 4], typeSentence: [8, 12] },
 };
+const READING_FLOOR = 4;
+// people from docs/STORY.md: a fact that names one must be carried by the text that names them too
+const PEOPLE = ["Ruby", "Dev", "Lin", "Ada", "Jo", "Max", "Mia", "Adler", "Greer", "Vega", "Dunn", "Luis", "Theo", "Rosa", "Reyes", "Hana", "Okafor", "Priya", "Ortiz", "Carla", "June", "Tomas", "Pip"];
 const errors = [];
 const warnings = [];
 const err = (c, m) => errors.push(c + ": " + m);
@@ -42,17 +48,27 @@ function load(file, key) {
   vm.runInNewContext(fs.readFileSync(file, "utf8"), sb, { filename: file });
   return sb.ZSR && sb.ZSR[key];
 }
-const WORLD = load(path.join(ROOT, "js", "world.js"), "WORLD");
+function loadWorld() {
+  const sb = {};
+  sb.globalThis = sb;
+  ["world.js", "story.js", "story-home.js"].forEach((f) => {
+    const file = path.join(ROOT, "js", f);
+    if (fs.existsSync(file)) vm.runInNewContext(fs.readFileSync(file, "utf8"), sb, { filename: file });
+  });
+  return sb.ZSR && sb.ZSR.WORLD;
+}
+const WORLD = loadWorld();
 if (!WORLD) {
   console.log("ERROR js/world.js did not define ZSR.WORLD");
   process.exit(1);
 }
 
-function checkText(ctx, text, spec, scale, facts) {
-  if (!isStr(text, 10)) return err(ctx, "text missing");
+function checkText(ctx, text, spec, scale, facts, range) {
+  if (!isStr(text, 3)) return err(ctx, "text missing");
   const wc = words(text).length;
-  const lo = Math.round(spec.words[0] * scale);
-  const hi = Math.round(spec.words[1] * scale);
+  const r = range || spec.words;
+  const lo = Math.round(r[0] * scale);
+  const hi = Math.round(r[1] * scale);
   if (wc < lo || wc > hi) warn(ctx, `${wc} words, target ${lo}..${hi}`);
   const longest = sentences(text).reduce((m, s) => Math.max(m, words(s).length), 0);
   if (longest > spec.sentence + 3) warn(ctx, `longest sentence ${longest} words, max ${spec.sentence}`);
@@ -63,6 +79,22 @@ function checkText(ctx, text, spec, scale, facts) {
       if (!text.includes(num) && !numberWord(num, text)) err(ctx, `fact number "${num}" missing from text`);
     });
   });
+  // so must the people and the places the facts name
+  const all = (facts || []).join(" ");
+  PEOPLE.forEach((name) => {
+    const re = new RegExp("\\b" + name + "\\b");
+    if (re.test(all) && !re.test(text)) err(ctx, `fact names "${name}" but the text does not`);
+  });
+  WORLD.LOCATIONS.forEach((l) => {
+    if (l.id !== "base" && all.includes(l.name) && !text.includes(l.name)) err(ctx, `fact names "${l.name}" but the text does not`);
+  });
+}
+/** Every string in a level's in-world text, the typing drills aside. */
+function readingWords(o) {
+  if (typeof o === "string") return words(o).length;
+  if (Array.isArray(o)) return o.reduce((n, x) => n + readingWords(x), 0);
+  if (o && typeof o === "object") return Object.entries(o).reduce((n, [k, v]) => n + (k === "typing" || k === "level" ? 0 : readingWords(v)), 0);
+  return 0;
 }
 const NUM_WORDS = { 1: "one", 2: "two", 3: "three", 4: "four", 5: "five", 6: "six", 7: "seven", 8: "eight", 9: "nine", 10: "ten" };
 function numberWord(num, text) {
@@ -84,6 +116,10 @@ const HOWTO_MUST = [
   [/\bwell\b/i, "the Well (late game: water)"],
   [/\bfarm/i, "the Farm (late game: crops and animals for food)"],
   [/\blab\b/i, "the Lab (late game: medicine made at home)"],
+  [/\bstash/i, "stashes (a locked room in every building)"],
+  [/\bkeys?\b/i, "stash keys (hidden in another building, found by reading)"],
+  [/journal/i, "June's journal (a page every day at home)"],
+  [/radio/i, "the radio (broadcasts once the Radio room is built)"],
 ];
 /* numbers the How it works text must carry, straight from the world file */
 const HOWTO_NUMBERS = () => [
@@ -176,6 +212,51 @@ function checkTyping(ctx, ty, spec) {
   }
 }
 
+/* Home: yard lot signs, June's journal, the radio, item tags, and the day recap templates. */
+const RECAP_MUST = { haul: ["items", "scrap"], nothing: [], notes: ["notes"], keys: ["keys"], food: ["food"], hungry: [], next: ["room", "needs"], ready: ["room"] };
+function checkHome(ctx, t, spec) {
+  const lots = (t.yard && t.yard.lots) || {};
+  Object.keys(WORLD.YARD.lots || {}).forEach((room) => {
+    const L = lots[room];
+    const lctx = `${ctx} yard.lots.${room}`;
+    const F = (WORLD.YARD_LOTS || {})[room] || { empty: [], built: [[], [], []] };
+    if (!L) return err(lctx, "missing");
+    if (!isStr(L.title)) err(lctx, "title missing");
+    checkText(lctx + " empty", L.empty, spec, 1, F.empty, spec.lot);
+    if (!Array.isArray(L.built) || L.built.length !== 3) return err(lctx, "built needs 3 texts (levels 1 to 3)");
+    L.built.forEach((b, i) => checkText(`${lctx} built[${i}]`, b, spec, 1, F.built[i], spec.lot));
+  });
+  [["journal", WORLD.JOURNAL], ["radio", WORLD.RADIO]].forEach(([kind, facts]) => {
+    const list = t[kind];
+    const kctx = `${ctx} ${kind}`;
+    if (!facts) return;
+    if (!Array.isArray(list) || list.length !== facts.length) return err(kctx, `needs ${facts.length} entries, has ${Array.isArray(list) ? list.length : 0}`);
+    list.forEach((e, i) => {
+      if (!e || !isStr(e.title)) err(`${kctx}[${i}]`, "title missing");
+      checkText(`${kctx}[${i}]`, e && e.text, spec, 1, facts[i].facts, spec.day);
+      if (kind === "radio" && facts[i].voice && e && e.text) {
+        const v = facts[i].voice.split(" ").pop();
+        if (!e.text.includes(v) && !(e.title || "").includes(v)) err(`${kctx}[${i}]`, `the speaker (${facts[i].voice}) is never named`);
+      }
+    });
+  });
+  const tags = t.tags || {};
+  Object.keys(WORLD.ITEMS).forEach((item) => {
+    const list = tags[item];
+    const ictx = `${ctx} tags.${item}`;
+    const F = (WORLD.ITEM_TAGS || {})[item] || [[], []];
+    if (!Array.isArray(list) || list.length !== 2) return err(ictx, "needs 2 tags");
+    list.forEach((x, i) => checkText(`${ictx}[${i}]`, x, spec, 1, F[i], spec.tag));
+  });
+  const rc = t.recap || {};
+  Object.entries(RECAP_MUST).forEach(([k, slots]) => {
+    if (!isStr(rc[k])) return err(`${ctx} recap.${k}`, "missing");
+    slots.forEach((slot) => { if (!rc[k].includes("{" + slot + "}")) err(`${ctx} recap.${k}`, `must use {${slot}}`); });
+    const longest = longestSentence(rc[k]);
+    if (longest > spec.sentence + 3) warn(`${ctx} recap.${k}`, `longest sentence ${longest}, max ${spec.sentence}`);
+  });
+}
+
 function checkLevel(n) {
   const spec = LEVELS[n];
   const file = path.join(ROOT, "js", "content", `level${n}.js`);
@@ -183,7 +264,15 @@ function checkLevel(n) {
   if (!fs.existsSync(file)) return err(ctx, "missing file");
   let TEXT;
   try {
-    TEXT = load(file, "TEXT");
+    // the level file, then its parts (levelN-places1.js, levelN-places2.js, levelN-home.js ...)
+    const dir = path.join(ROOT, "js", "content");
+    const parts = fs.readdirSync(dir).filter((f) => f.startsWith(`level${n}-`) && f.endsWith(".js")).sort();
+    const sb = {};
+    sb.globalThis = sb;
+    [file].concat(parts.map((f) => path.join(dir, f))).forEach((f) => vm.runInNewContext(fs.readFileSync(f, "utf8"), sb, { filename: f }));
+    TEXT = sb.ZSR && sb.ZSR.TEXT;
+    const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
+    parts.forEach((f) => { if (!html.includes(`js/content/${f}`)) err(ctx, `index.html does not load js/content/${f}`); });
   } catch (e) {
     return err(ctx, "failed to execute: " + e.message);
   }
@@ -277,6 +366,10 @@ function checkLevel(n) {
     checkText(lctx + " door", L.door && L.door.text, spec, 0.6, N.door.facts);
     N.notes.forEach((note) => {
       const T = L.notes && L.notes[note.id];
+      if ((note.minLevel || 1) > n) {
+        if (T) warn(`${lctx} ${note.id}`, `written, but only placed from reading level ${note.minLevel}`);
+        return;
+      }
       if (!T) return err(`${lctx} ${note.id}`, "missing");
       if (!isStr(T.title)) err(`${lctx} ${note.id}`, "title missing");
       checkText(`${lctx} ${note.id}`, T.text, spec, 1, note.facts);
@@ -289,7 +382,36 @@ function checkLevel(n) {
     Object.keys(L.notes || {}).forEach((id) => {
       if (!N.notes.find((x) => x.id === id)) err(lctx, `unknown note id ${id}`);
     });
+    // the note that leads to the key names the stash it opens and where
+    if (N.key) {
+      const target = WORLD.LOCATIONS.find((l) => l.id === N.key.opens);
+      const kn = L.notes && L.notes[N.key.after];
+      const bare = target.stashName.replace(/^the /i, "").toLowerCase();
+      if (kn && !(kn.text || "").toLowerCase().includes(bare)) err(`${lctx} ${N.key.after}`, `must name the stash it opens ("${target.stashName}" at ${target.name})`);
+      const K = L.key;
+      const kctx = `${lctx} key`;
+      if (!K || !isStr(K.name)) err(kctx, "name missing (2 to 6 words: what the key looks like)");
+      else if (words(K.name).length > 7) warn(kctx, "name is long");
+      if (!K || !isStr(K.tag)) err(kctx, "tag missing (what its tag says)");
+      else checkText(kctx, K.tag, spec, 1, N.key.facts, spec.tag);
+    }
+    // wall signs and graffiti
+    (N.signs || []).forEach((sg) => {
+      const S = L.signs && L.signs[sg.id];
+      const sctx = `${lctx} ${sg.id}`;
+      if (!S) return err(sctx, "missing");
+      if (!isStr(S.title)) err(sctx, "title missing");
+      checkText(sctx, S.text, spec, 1, sg.facts, spec.sign);
+    });
+    Object.keys(L.signs || {}).forEach((id) => {
+      if (!(N.signs || []).find((x) => x.id === id)) err(lctx, `unknown sign id ${id}`);
+    });
   });
+  checkHome(ctx, t, spec);
+  const total = readingWords(t);
+  const floor = Math.round(spec.baseline * READING_FLOOR);
+  if (total < floor) err(ctx, `in-world reading is ${total} words; it must be at least ${READING_FLOOR}x the old ${spec.baseline} (${floor})`);
+  else console.log(`level ${n}: in-world reading ${total} words (${(total / spec.baseline).toFixed(1)}x the old ${spec.baseline})`);
   if (!errors.some((e) => e.startsWith(ctx))) {
     const total = WORLD.LOCATIONS.filter((l) => l.id !== "base").reduce((n2, loc) => {
       const L = t.locations[loc.id];

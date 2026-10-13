@@ -6,7 +6,10 @@ const path = require("path");
 const vm = require("vm");
 const sb = {};
 sb.globalThis = sb;
-vm.runInNewContext(fs.readFileSync(path.join(__dirname, "..", "js", "world.js"), "utf8"), sb);
+["world.js", "story.js", "story-home.js"].forEach((f) => {
+  const file = path.join(__dirname, "..", "js", f);
+  if (fs.existsSync(file)) vm.runInNewContext(fs.readFileSync(file, "utf8"), sb, { filename: f });
+});
 const W = sb.ZSR.WORLD;
 const errors = [];
 const err = (m) => errors.push(m);
@@ -18,17 +21,21 @@ Object.entries(W.TEMPLATES).forEach(([name, t]) => {
   if (!t.grid.every((r) => r.length === w)) err(`template ${name}: rows differ in length`);
   if (count(t.grid, "E") !== 1) err(`template ${name}: needs exactly one E`);
   if (count(t.grid, "L") < 1) err(`template ${name}: needs a locked door L`);
-  if (count(t.grid, "n") < 1) err(`template ${name}: needs a note spot n`);
+  if (count(t.grid, "n") + count(t.grid, "1") !== 1) err(`template ${name}: needs exactly one note spot 1 (or n)`);
+  if (count(t.grid, "K") !== 1) err(`template ${name}: needs exactly one stash door K`);
+  if (count(t.grid, "k") < 2) err(`template ${name}: needs 2+ stash item spots k`);
+  if (count(t.grid, "y") !== 1) err(`template ${name}: needs exactly one key spot y`);
+  for (const d of "234567") if (count(t.grid, d) > 1) err(`template ${name}: note spot ${d} appears twice`);
   if (count(t.grid, "z") < 2) err(`template ${name}: needs 2+ walker spawns`);
   // border must be solid
-  const solid = (c) => "#SCXGL".includes(c) || c === "E";
+  const solid = (c) => "#SCXGLKW".includes(c) || c === "E";
   if (![...t.grid[0]].every(solid) || ![...t.grid[t.grid.length - 1]].every(solid)) err(`template ${name}: top/bottom border not solid`);
   if (!t.grid.every((r) => solid(r[0]) && solid(r[w - 1]))) err(`template ${name}: side border not solid`);
   // flood fill from E over passable tiles (not through L): cache spots must be unreachable; others reachable
   const H = t.grid.length;
   const seen = new Set();
   const start = (() => { for (let y = 0; y < H; y++) { const x = t.grid[y].indexOf("E"); if (x >= 0) return [x, y]; } })();
-  const pass = (c) => ".inz$DE".includes(c);
+  const pass = (c) => ".inz$DEy1234567".includes(c);
   const stack = [start];
   while (stack.length) {
     const [x, y] = stack.pop();
@@ -43,8 +50,11 @@ Object.entries(W.TEMPLATES).forEach(([name, t]) => {
   }
   for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) {
     const c = t.grid[y][x];
-    if ("in$".includes(c) && !seen.has(x + "," + y)) err(`template ${name}: ${c} at ${x},${y} unreachable from the entrance`);
+    if ("in$y1234567".includes(c) && !seen.has(x + "," + y)) err(`template ${name}: ${c} at ${x},${y} unreachable from the entrance`);
     if (c === "c" && seen.has(x + "," + y)) err(`template ${name}: cache spot at ${x},${y} reachable without the locked door`);
+    if (c === "k" && seen.has(x + "," + y)) err(`template ${name}: stash spot at ${x},${y} reachable without the stash door`);
+    // a sign must face open floor somewhere, or nobody can read it
+    if (c === "W" && ![[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => seen.has(x + dx + "," + (y + dy)))) err(`template ${name}: sign W at ${x},${y} faces no floor the player can reach`);
   }
   // walkers must start at least 6 steps from the player's start tile (the tile above E), and no item may sit on it
   const startTile = [start[0], start[1] - 1];
@@ -76,11 +86,12 @@ Object.entries(W.TEMPLATES).forEach(([name, t]) => {
     [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
       const nx = x + dx, ny = y + dy;
       if (ny < 0 || ny >= H || nx < 0 || nx >= w) return;
-      if (pass(t.grid[ny][nx]) || t.grid[ny][nx] === "L" || t.grid[ny][nx] === "c") stack2.push([nx, ny]);
+      if (pass(t.grid[ny][nx]) || "LcKk".includes(t.grid[ny][nx])) stack2.push([nx, ny]);
     });
   }
   for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) {
     if (t.grid[y][x] === "c" && !seen2.has(x + "," + y)) err(`template ${name}: cache spot at ${x},${y} unreachable even with the door open`);
+    if (t.grid[y][x] === "k" && !seen2.has(x + "," + y)) err(`template ${name}: stash spot at ${x},${y} unreachable even with the stash door open`);
   }
 });
 
@@ -94,10 +105,53 @@ W.LOCATIONS.filter((l) => l.id !== "base").forEach((l) => {
   l.items.concat(l.cache).forEach((it) => { if (!W.ITEMS[it]) err(`${l.id}: unknown item ${it}`); });
   const N = W.NOTES[l.id];
   if (!N) return err(`${l.id}: no notes`);
-  if (count(t.grid, "n") < N.notes.length) err(`${l.id}: template has ${count(t.grid, "n")} note spots, needs ${N.notes.length}`);
+  // every note names a spot that exists in its template, and no two notes share one
+  const spots = new Set();
+  N.notes.forEach((n) => {
+    const spot = String(n.spot || "");
+    if (!/^[1-7]$/.test(spot)) return err(`${l.id} ${n.id}: needs a spot 1 to 7`);
+    if (!count(t.grid, spot) && !(spot === "1" && count(t.grid, "n"))) err(`${l.id} ${n.id}: template ${l.template} has no note spot ${spot}`);
+    if (spots.has(spot)) err(`${l.id} ${n.id}: spot ${spot} is used by another note`);
+    spots.add(spot);
+    if (n.after && !N.notes.some((m) => m.id === n.after)) err(`${l.id} ${n.id}: after names unknown note ${n.after}`);
+    if (n.minLevel != null && !(n.minLevel >= 1 && n.minLevel <= 6)) err(`${l.id} ${n.id}: minLevel must be 1 to 6`);
+    if (!Array.isArray(n.facts) || !n.facts.length) err(`${l.id} ${n.id}: facts missing`);
+  });
+  const noteIds = N.notes.map((n) => n.id).concat([N.door.id]);
+  if (new Set(noteIds).size !== noteIds.length) err(`${l.id}: two notes share an id`);
+  // stash and key
+  if (!Array.isArray(l.stash) || !l.stash.length || !l.stashName) err(`${l.id}: needs stash items and a stashName`);
+  else {
+    if (count(t.grid, "k") < l.stash.length) err(`${l.id}: template has ${count(t.grid, "k")} stash spots, needs ${l.stash.length}`);
+    l.stash.forEach((it) => { if (!W.ITEMS[it]) err(`${l.id}: unknown stash item ${it}`); });
+  }
+  if (W.KEYS && !W.KEYS[l.id]) err(`${l.id}: hides no key (KEYS)`);
+  if (N.key) {
+    if (N.key.opens !== W.KEYS[l.id]) err(`${l.id}: key.opens ${N.key.opens} does not match KEYS (${W.KEYS[l.id]})`);
+    if (!N.notes.some((n) => n.id === N.key.after)) err(`${l.id}: key.after names unknown note ${N.key.after}`);
+    const kn = N.notes.find((n) => n.id === N.key.after);
+    const target = W.LOCATIONS.find((x) => x.id === N.key.opens);
+    if (kn && target && !(kn.reveals || []).includes(target.id)) err(`${l.id}: the key note must reveal ${target.id} (where its stash is)`);
+    if (!Array.isArray(N.key.facts) || !N.key.facts.length) err(`${l.id}: key facts missing`);
+  }
+  if (N.signs) {
+    if (N.signs.length !== count(t.grid, "W")) err(`${l.id}: ${N.signs.length} signs for ${count(t.grid, "W")} W spots in ${l.template}`);
+    N.signs.forEach((sg) => {
+      if (!sg.id || !["sign", "graffiti"].includes(sg.kind) || !Array.isArray(sg.facts) || !sg.facts.length) err(`${l.id}: sign ${sg.id} needs an id, kind sign|graffiti, and facts`);
+    });
+  }
   if (!N.notes.some((n) => n.unlocks === l.id)) err(`${l.id}: no note unlocks its cache`);
   N.notes.forEach((n) => (n.reveals || []).forEach((r) => { if (!ids.has(r)) err(`${l.id}: reveals unknown ${r}`); }));
 });
+// the key ring: every building hides exactly one key and every stash has exactly one key
+if (W.KEYS) {
+  const targets = Object.values(W.KEYS);
+  Object.entries(W.KEYS).forEach(([from, to]) => {
+    if (!ids.has(from) || !ids.has(to)) err(`KEYS ${from} -> ${to} names an unknown location`);
+    if (from === to) err(`KEYS ${from} opens its own stash`);
+  });
+  if (new Set(targets).size !== targets.length) err("KEYS: two keys open the same stash");
+}
 // reveal chain reaches everything
 const known = new Set(W.LOCATIONS.filter((l) => l.known).map((l) => l.id));
 let grew = true;
@@ -158,6 +212,26 @@ const reach = new Set(["base"]);
 const st = ["base"];
 while (st.length) { const a = st.pop(); (adj[a] || []).forEach((b) => { if (!reach.has(b)) { reach.add(b); st.push(b); } }); }
 W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches it`); });
+
+// yard lots: one per outdoor room, on open ground inside the fence, never on each other
+const yardLots = (W.YARD && W.YARD.lots) || {};
+const lotTiles = new Set();
+Object.entries(yardLots).forEach(([room, [x, y]]) => {
+  if (!W.BASE_ROOMS[room]) err(`yard lot ${room}: no such room`);
+  const ch = W.YARD.grid[y] && W.YARD.grid[y][x];
+  if (ch !== ".") err(`yard lot ${room}: tile ${x},${y} is "${ch}", needs open ground`);
+  if (lotTiles.has(x + "," + y)) err(`yard lot ${room}: shares a tile`);
+  lotTiles.add(x + "," + y);
+  // strictly inside the fence's bounding box
+  const fx = [], fy = [];
+  W.YARD.grid.forEach((r, gy) => [...r].forEach((c, gx) => { if (c === "F") { fx.push(gx); fy.push(gy); } }));
+  if (x <= Math.min(...fx) || x >= Math.max(...fx) || y <= Math.min(...fy) || y >= Math.max(...fy)) err(`yard lot ${room}: outside the fence`);
+  if (W.YARD_LOTS && !W.YARD_LOTS[room]) err(`yard lot ${room}: no facts in story-home.js`);
+});
+// home story facts
+if (W.JOURNAL && (!W.JOURNAL.length || W.JOURNAL.some((e) => !e.id || !(e.facts || []).length))) err("JOURNAL: every entry needs an id and facts");
+if (W.RADIO && (!W.RADIO.length || W.RADIO.some((e) => !e.id || !e.voice || !(e.facts || []).length))) err("RADIO: every entry needs an id, a voice and facts");
+if (W.ITEM_TAGS) Object.keys(W.ITEMS).forEach((k) => { if (!Array.isArray(W.ITEM_TAGS[k]) || W.ITEM_TAGS[k].length !== 2) err(`ITEM_TAGS ${k}: needs 2 tags`); });
 
 if (errors.length) { errors.forEach((e) => console.log("ERROR " + e)); process.exit(1); }
 console.log(`OK: world has ${W.LOCATIONS.length} locations, ${Object.keys(W.TEMPLATES).length} templates, ${Object.keys(W.ITEMS).length} items, ${Object.keys(W.BASE_ROOMS).length} rooms.`);

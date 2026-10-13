@@ -34,14 +34,22 @@ road also work on touch.
 4. **Building.** The note at the door tells you what is inside and where. Inside, first
    person: W A S D to move, mouse to look, click to fire, E to read notes and to open and
    close doors (walkers cannot open them), B for the backpack (notes and medical kits).
-   Items sit on shelves and floors. The locked cache room holds the best items and opens
-   only once you have read the note that says how. Go back in from the map and the
-   building is exactly as you left it.
+   Items sit on shelves and floors, and each has a tag you read as you pick it up. The
+   locked cache room holds the best items and opens only once you have read the note that
+   says how. Every building also has a locked **stash** whose key is hidden in a *different*
+   building: one note leads to a second, and the second says where the key is and which
+   stash it opens (the keys form a ring around the town). Walls carry signs and graffiti you
+   read by walking up to them. Higher reading levels place more notes in each building,
+   some of them wrong or out of date. Go back in from the map and the building is exactly
+   as you left it.
    Four more guns lie on the floor of four buildings, different ones in every save:
    double pistols, a machine gun, a heavy machine gun, and a bow and arrow. Walk over one
    to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns.
 5. **Home again.** Cargo is unloaded, a day passes, the crew eats one food, the game
-   saves. Build rooms with items plus scrap, upgrade the van and its gun, mod your guns
+   saves, and you read the day's page: a recap, June's journal, and (once the Radio room is
+   built) a broadcast from Jo or one of the town's voices. In the yard, each outdoor room
+   (Garden, Farm, Well, Water, Power, Radio, Lab) has a lot with a painted sign: walk up to
+   it to read what it is, what the next level needs, and why it is locked. Build rooms with items plus scrap, upgrade the van and its gun, mod your guns
    (damage, range, fire rate, accuracy) in the Weapons tab, craft traps:
    each one is a short typing round at the garage workbench (the first time teaches
    home-row finger placement; stages progress from single keys to sentences). Repairs
@@ -55,8 +63,11 @@ Up to four players keep their own labeled saves, picked on the title screen.
 ```
 index.html              all screens
 css/style.css           comic-book styling; every size in rem so Huge text (1 inch) scales everything
-js/world.js             THE FACTS: items, base rooms, interior templates, the yard, map locations, notes
-js/content/levelN.js    THE WORDS: all in-world text at reading level N (1..6)
+js/world.js             THE FACTS: items, base rooms, interior templates, the yard, map locations, the key ring, notes
+js/story.js             story facts inside buildings: trail and dead-end notes, wall signs, stash keys
+js/story-home.js        story facts at home: June's journal, the radio, item tags, the yard lot signs
+js/content/levelN*.js   THE WORDS at reading level N (1..6): levelN.js (how it works, rooms, typing),
+                        levelN-places1.js and -places2.js (every building), levelN-home.js (journal, radio, tags, lots)
 js/state.js             settings, the base save, the in-memory trip, room effects
 js/interior.js          first person: raycaster, walkers, items, notes, caches, the yard and its waves
 js/sprites3d.js         textures and sprites for first person, and the 3D guns in hand
@@ -73,7 +84,8 @@ js/audio.js             synthesized sound effects
 js/main.js              screen flow
 docs/GAME_SPEC.md       the design as agreed
 docs/TEXT_GUIDE.md      how to write the six reading levels from the facts
-tests/                  world validator, text validator, script syntax check
+docs/STORY.md           the people, the story threads, the key ring, and every building map
+tests/                  world validator, text validator, script syntax check, word counter
 ```
 
 ## Editing content
@@ -81,8 +93,11 @@ tests/                  world validator, text validator, script syntax check
 - **Change a fact** (where an item is, a code, who wrote a note): edit `js/world.js`, then
   update the six level files so the words still carry the fact. `npm test` checks that
   every level has every note and that numbers and revealed place names survive.
-- **Change the words only:** edit `js/content/levelN.js`. Keep to the calibration table in
-  `docs/TEXT_GUIDE.md`.
+- **Change the words only:** edit the `js/content/levelN*.js` files. Keep to the calibration
+  table in `docs/TEXT_GUIDE.md`. `node tests/count-words.js` shows words per file; every
+  level must keep at least four times its pre-expansion reading (`npm test` checks).
+- **Change a story fact** (a trail note, a sign, a key, a journal day, a broadcast): edit
+  `js/story.js` or `js/story-home.js`, then the six levels. See `docs/STORY.md`.
 - **Add a location:** add it to `LOCATIONS`, `NOTES`, and `ROADS` in `js/world.js`, pick a
   template, then write its texts at all six levels.
 
