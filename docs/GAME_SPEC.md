@@ -277,6 +277,13 @@ devices are not supported yet: the title screen says so and does not start a gam
 Normal, Large (1.3x), Huge (1 inch). Huge applies to everything: reading text, buttons,
 menus, HUD. Layouts collapse to one column.
 
+## Full screen
+
+A full-screen button sits in the top-left corner on every screen while the page is not full
+screen; the HUD's top rows and the menus shift right and down to clear it. It hides once full
+screen and comes back on exit (Esc). Browsers without the Fullscreen API (iPhone Safari)
+never show it.
+
 ## Save format
 
 `zs.slots` is the slot index (active slot, labels); `zs.save.<n>` holds one base save: day,
