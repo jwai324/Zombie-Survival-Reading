@@ -10,6 +10,18 @@ Read `docs/STORY.md` (who the crew are), `docs/TEXT_GUIDE.md` (six reading level
 `docs/SCALING.md` (growth and old saves) first. Pronouns: June "she", Tomas "he", Pip "they/them"
 at every level. The player is "you".
 
+## How they look (art and words agree)
+
+- **June**: in her sixties, grey hair in a bun, round glasses, a green cardigan over a work shirt,
+  canvas gardening gloves, the green ledger under her arm.
+- **Tomas**: seventeen, tall and lanky, dark curly hair, navy coveralls with grease smudges, a red
+  rag in his back pocket, a wrench in hand.
+- **Pip**: eleven, small, short hair, an orange hoodie, a walkie-talkie clipped on, a pencil behind
+  one ear.
+- **The dog**: a scruffy medium-size stray, sandy tan with a dark brown patch over one eye, one ear
+  up and one that flops, a long tail. (Not Peanut from the Gas-N-Go flyer, who is brown with one
+  white ear.)
+
 ## What the player sees
 
 - **Wandering.** In the calm, each crew member walks between their own spots in the yard and the

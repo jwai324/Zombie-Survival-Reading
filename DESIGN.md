@@ -327,3 +327,25 @@ won; the reading expansion was moved into them.
 - **Two drive times.** The road's time on the map now counts the drive in to park too, and the
   validator's ceiling is 150 s.
 
+
+## Owner decisions: the crew at home base (2026-10-14)
+
+June, Tomas and Pip lived only in text (the journal, the cabin's notes, the plot signs). The owner asked
+for them at the base: people you can talk to for important information, who help (fixing the fence and
+the like), and who send you on side quests to recover things in town for rewards. The design and the
+contract between the files is `docs/CREW.md`.
+
+| Question | Answer |
+|----------|--------|
+| Where are they? | They wander between spots in the yard and the cabin during the calm. |
+| In a wave? | They shelter inside. Raiders can harm them, which only costs supplies: 1 medical kit from storage, else 2 food. Nobody dies; nothing is shown. |
+| How do you talk? | A speech bubble on E; the yard keeps running. Quests are accepted in person, on a short pausing Yes / Not now card. |
+| What do they say? | Story and mood that builds their characters, plus new information each time that helps the player. The player reads the bubbles. |
+| What does helping cost? | They do the work and you pay the usual scrap; they tell you about it later. |
+| What quests? | Five hand-written story quests each (15), then repeatable errands. One of Pip's is finding a stray dog and bringing it home. |
+| How do you find a quest's object? | The request's words say where (place, direction, room or sign, landmark). It appears only once accepted. |
+| Rewards? | Supplies, crew perks (lasting help), story payoff. |
+| Extras? | Pip's dog, and trust levels. |
+| The dog? | The stray barking past the trees. You name it: one of Pip's ideas or your own. |
+| Can trust drop? | Yes: when a crew member is hurt in a raid, an errand runs late, or you give up a request. |
+| Delivery? | Everything in one drop. |
