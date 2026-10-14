@@ -994,7 +994,7 @@
       if (dist < 0.85) {
         if (z.cool <= 0) {
           z.cool = 1.1;
-          p.hp -= Math.round(z.dmg * this.fx.footDamage);
+          if (!State().cheat("noDie")) p.hp -= Math.round(z.dmg * this.fx.footDamage); // god mode: the hit lands, no harm
           p.hurt = 1;
           this.shake = State().settings.shake ? 8 : 0;
           Audio().play("crunch");
@@ -1028,10 +1028,11 @@
         const d = Math.hypot(tx, ty) || 1;
         if (d < 0.95) {
           const key = Math.floor(fx) + "," + Math.floor(fy);
+          const harm = State().cheat("noDie") ? 0 : z.dps * dt; // god mode: they claw, nothing gives
           if (z.barrier) {
-            if (!this.modeCall("HitBarrier", key, z.dps * dt)) z.pathT = 0; // gone (or opened): find the way again
+            if (!this.modeCall("HitBarrier", key, harm)) z.pathT = 0; // gone (or opened): find the way again
           } else if (this.fence[key] != null) {
-            this.fence[key] -= z.dps * dt;
+            this.fence[key] -= harm;
             if (this.fence[key] <= 0) {
               delete this.fence[key];
               this.grid[Math.floor(fy)][Math.floor(fx)] = ".";

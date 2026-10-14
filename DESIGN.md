@@ -415,3 +415,33 @@ Judgment calls made while building the crew (each marked **Assumption** can chan
   fence names. While a bubble is open on a wide screen, the yard's toasts move to the other half of
   the view so they never cover it (at Huge there is no room, so a toast may cover it for its few
   seconds).
+
+## Owner decisions: god mode, a test sandbox (2026-10-14)
+
+The owner wants to test any part of the game directly. Code: `js/god.js` (menu and actions), the
+sandbox in `js/state.js`, `godBegin` / `godGo` / `godExit` in `js/main.js`; tests:
+`tests/validate-god.js`.
+
+- **Typing `!godmode` anywhere opens the god menu,** for anyone (no URL flag, no localhost check).
+  Nothing is saved in it, so the only cost of a player finding it is story spoilers. Once the `!`
+  starts the phrase, its next letters never reach the game (no strafing, no map, no E). Typing it
+  again reopens the menu; so does the red GOD MODE badge, bottom right, shown the whole time.
+- **Nothing is saved while it is on.** `write()` in `js/state.js` does nothing (settings included),
+  `commit()` keeps the sandbox in memory, and a death reloads the sandbox, not the disk.
+- **Start:** a copy of the loaded save or a fresh day 1, picked in the menu. **Leave:** the Exit
+  button, quitting to the title, or refreshing the page; the real save comes back from disk as it
+  was. Start over (Sandbox tab) picks a new starting point without leaving the menu.
+- **Travel:** reveal every place; go to any place at its door (door note first) or straight inside;
+  drive from any place to any place (the player picks both ends), or go home to the yard.
+- **Guns:** own, hold and mod any gun; one button for every gun with every mod maxed.
+- **Items:** set scrap, food, kits, crowbars and every item; Unlimited tops them up to 999 after
+  every build.
+- **Crew:** set the day and each crew member's stars; per story quest, Offer now (the giver asks the
+  next time you talk, past its gates and order), Jump to it (accepted, and you stand facing its
+  object), or Reset.
+- **Cheats:** can't die (no harm to you, the van, the fence or the cabin; booby traps only toast),
+  hold the calm, start a wave now, clear all walkers, heal to full.
+- **Not in it, by the owner's choice:** opening caches or stashes (the lock prompt's own "god mode"
+  phrase, js/locks.js, still opens any lock), showing lock answers, and setting room levels.
+- **Judgment call:** a lock prompt must be closed (Esc) before the menu can move you, because the
+  prompt closes only through its own keys.

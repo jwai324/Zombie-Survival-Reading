@@ -55,6 +55,7 @@ ZSR.State = {
   settings: { aimAssist: false, shake: false },
   effects: () => ({ headlights: true, crates: 0, vanDamage: 1 }),
   isKnown: () => true,
+  cheat: () => false, // god mode is off
 };
 ZSR.Audio = { play: noop, unlock: noop };
 let arrived = null;

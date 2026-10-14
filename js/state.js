@@ -36,6 +36,7 @@
     }
   }
   function write(key, value) {
+    if (State.god) return; // god mode (js/god.js): nothing reaches the disk, not even settings
     try {
       if (value == null) root.localStorage.removeItem(key);
       else root.localStorage.setItem(key, JSON.stringify(value));
@@ -186,6 +187,34 @@
     settings: null, // the active slot's settings (set below, and again whenever the active slot changes)
     save: null, // committed base save (loaded or new)
     trip: null, // in-memory: { at, vanHp, footHp, cargo, loc overlay, backpack additions, revived, visited, rooms }
+    // god mode, the owner's test sandbox (js/god.js): null, or { base, cheats, offer, onCommit }. While it is on,
+    // write() does nothing, commit() keeps `base` (a copy of the save) in memory in place of the disk, and
+    // loadSave() with no slot (a death, a reload) goes back to `base`. godEnd() reloads the real save from disk.
+    god: null,
+
+    /** Start god mode on a copy of the current save, or on a fresh one (fresh, or no save is loaded). */
+    godStart(fresh) {
+      const s = !fresh && this.save ? clone(this.save) : null;
+      this.god = { base: null, cheats: {}, offer: {}, onCommit: null };
+      this.trip = null;
+      this.save = s || freshSave("God mode");
+      if (!s) this.logDay(null); // Day 1 in June's journal, as newGame writes it
+      this.god.base = clone(this.save);
+      return this.save;
+    },
+    /** Leave god mode: the sandbox is dropped and the real save and settings come back from disk. */
+    godEnd() {
+      if (!this.god) return;
+      this.god = null;
+      this.save = null;
+      this.trip = null;
+      this.settings = this.settingsFor(this.activeSlot());
+      this.loadSave();
+    },
+    /** Is this god mode cheat on? (false outside god mode) */
+    cheat(name) {
+      return !!(this.god && this.god.cheats[name]);
+    },
 
     /** A slot's own settings. A slot from before settings were per save starts from the shared ones. */
     settingsFor(id) {
@@ -244,6 +273,11 @@
       return s.version ? s : null;
     },
     loadSave(id) {
+      if (this.god && !id) {
+        this.save = clone(this.god.base);
+        this.trip = null;
+        return this.save;
+      }
       const sid = id || this.activeSlot();
       if (!sid) return null;
       const s = read(KEYS.slot(sid), {});
@@ -287,10 +321,15 @@
     commit() {
       if (!this.save) return;
       const sid = this.activeSlot();
-      if (!sid) return;
+      if (!sid && !this.god) return;
       this.save.savedAt = Date.now();
       this.save.best.days = Math.max(this.save.best.days, this.save.day);
       this.save.best.baseLevel = Math.max(this.save.best.baseLevel, this.baseLevel());
+      if (this.god) {
+        if (this.god.onCommit) this.god.onCommit(this.save); // the "unlimited" top-up
+        this.god.base = clone(this.save);
+        return;
+      }
       write(KEYS.slot(sid), this.save);
     },
     wipe() {

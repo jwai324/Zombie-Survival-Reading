@@ -850,7 +850,7 @@
       const S = State();
       const D = W().DEFENSE;
       if (ph.kind === "calm") {
-        ph.t -= dt;
+        if (!S.cheat("holdCalm")) ph.t -= dt; // god mode: the calm waits until it is let go
         if (ph.t <= 0) {
           // what comes next: rolled when the calm began (calmPhase), so it is what Pip called; after the dinner
           // bell there is always a wave
