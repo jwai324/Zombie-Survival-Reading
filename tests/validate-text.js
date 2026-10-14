@@ -375,7 +375,7 @@ function checkHome(ctx, t, spec) {
      with any crew words is checked in full, every missing text an error, its How it works and controls too.
    - strict: every level in full, words or not (the to-do list for a level: node tests/validate-text.js 3 --crew=strict).
    - present: only the texts that are written; what is missing is listed as warnings (for drafting). */
-const CREW_WORDS_REQUIRED = false; // set true once js/content/levelN-crew.js is written at every level: missing crew words fail npm test
+const CREW_WORDS_REQUIRED = true; // the crew words are written at every level: a missing crew text fails npm test
 const ARGS = process.argv.slice(2);
 ARGS.filter((a) => !/^\d+$/.test(a) && !/^--crew=/.test(a)).forEach((a) => {
   console.log(`ERROR unknown argument ${a}. Usage: node tests/validate-text.js [level ...] [--crew=auto|strict|present]`);
