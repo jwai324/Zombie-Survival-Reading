@@ -852,7 +852,8 @@
       const S = State();
       const D = W().DEFENSE;
       if (ph.kind === "calm") {
-        if (!this.yardHold) ph.t -= dt; // the first-run basics hold the calm (js/tutorial.js)
+        // the first-run basics hold the calm (js/tutorial.js); so does god mode's "hold the calm"
+        if (!this.yardHold && !S.cheat("holdCalm")) ph.t -= dt;
         if (ph.t <= 0) {
           // what comes next: rolled when the calm began (calmPhase), so it is what Pip called; after the dinner
           // bell there is always a wave

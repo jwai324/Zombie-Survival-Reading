@@ -1011,8 +1011,9 @@
         if (z.cool <= 0) {
           z.cool = 1.1;
           const bite = Math.round(z.dmg * this.fx.footDamage);
-          // the tutorial's practice walker (floorHp) never takes you below it; already below, it does nothing
-          p.hp -= z.floorHp != null ? Math.max(0, Math.min(bite, p.hp - z.floorHp)) : bite;
+          // the tutorial's practice walker (floorHp) never takes you below it; already below, it does nothing.
+          // God mode's can't die: the hit lands, no harm
+          if (!State().cheat("noDie")) p.hp -= z.floorHp != null ? Math.max(0, Math.min(bite, p.hp - z.floorHp)) : bite;
           p.hurt = 1;
           this.shake = State().settings.shake ? 8 : 0;
           Audio().play("crunch");
@@ -1046,10 +1047,11 @@
         const d = Math.hypot(tx, ty) || 1;
         if (d < 0.95) {
           const key = Math.floor(fx) + "," + Math.floor(fy);
+          const harm = State().cheat("noDie") ? 0 : z.dps * dt; // god mode: they claw, nothing gives
           if (z.barrier) {
-            if (!this.modeCall("HitBarrier", key, z.dps * dt)) z.pathT = 0; // gone (or opened): find the way again
+            if (!this.modeCall("HitBarrier", key, harm)) z.pathT = 0; // gone (or opened): find the way again
           } else if (this.fence[key] != null) {
-            this.fence[key] -= z.dps * dt;
+            this.fence[key] -= harm;
             if (this.fence[key] <= 0) {
               delete this.fence[key];
               this.grid[Math.floor(fy)][Math.floor(fx)] = ".";

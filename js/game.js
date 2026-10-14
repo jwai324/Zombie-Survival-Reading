@@ -870,7 +870,7 @@
       const S = State();
       const t = S.trip;
       const v = this.van;
-      t.vanHp -= Math.round(dmg * S.effects().vanDamage);
+      if (!S.cheat("noDie")) t.vanHp -= Math.round(dmg * S.effects().vanDamage); // god mode: dents, no damage
       v.hurt = 1;
       if (S.settings.shake) this.shake = 10;
       this.burst("SLAM!", v.x + Math.cos(v.heading) * 70, v.y + Math.sin(v.heading) * 70, "#e6dfcc", "#b3261e", 1.1);

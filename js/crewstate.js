@@ -516,6 +516,9 @@
         offered, accepted or open, so a crew member can have one of each. */
     offer(id) {
       if (!roster()[id]) return null;
+      // god mode (js/god.js): a story quest picked in the menu is offered now, whatever its gates and order
+      const forced = this.god && this.god.offer[id] && questDef(this.god.offer[id]);
+      if (forced && forced.giver === id && !this.questState(forced.id)) return { kind: "quest", def: forced };
       const q = this.nextStoryQuest(id);
       const open = this.requests(id).filter((r) => r.kind === "quest").length;
       if (q && open < this.crewPerKind() && this.crewWhen(q.when, id) && this.isKnown(q.at)) return { kind: "quest", def: q };

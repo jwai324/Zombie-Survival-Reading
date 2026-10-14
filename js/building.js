@@ -438,6 +438,10 @@
     },
     /** Down at once (a booby trap): no Medbay kit gets you up from this. */
     dieBy(reason) {
+      if (State().cheat("noDie")) {
+        this.toast("God mode: " + reason, 4);
+        return;
+      }
       this.deathReason = reason;
       Audio().play("poof");
       this.stop();

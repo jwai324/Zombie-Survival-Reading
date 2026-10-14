@@ -770,7 +770,7 @@
   function onPause() {
     if (overlayOpen()) return;
     pauseActive();
-    $("pause-note").textContent = active === "yard" ? "The base is saved after every wave, build and repair." : "Nothing since your last save at the cabin is kept if you quit.";
+    $("pause-note").textContent = State.god ? "God mode: nothing is saved. Type !godmode for the god menu." : active === "yard" ? "The base is saved after every wave, build and repair." : "Nothing since your last save at the cabin is kept if you quit.";
     const can = Tutorial.canReplay(active); // never in a wave: the pause menu is no place to hide from one
     $("btn-pause-tutorial").disabled = !can;
     $("btn-pause-tutorial").title = can ? "" : "Not during a wave";
@@ -825,10 +825,81 @@
     Game.stop();
     Interior.leave();
     showCanvas(null);
+    if (State.god) {
+      // the title is the real game: quitting there ends god mode, and the real save and settings come back
+      State.godEnd();
+      applySettings();
+      if (ZSR.God) ZSR.God.sync();
+    }
     State.loadSave(); // resync memory to the disk save; drops the trip and any uncommitted yard scrap
     active = null;
     show("screen-title");
     refreshTitle();
+  }
+
+  /* ---------- God mode (js/god.js): the owner's test sandbox. Nothing is saved while it is on ---------- */
+  /** Close whatever is up and stop whatever runs: a card or menu, the road, a building, the yard, the map.
+      False, with nothing touched, while a lock prompt is open: it closes only through its own keys (Esc). */
+  function godClear() {
+    if (ZSR.Locks && ZSR.Locks.isOpen()) return false;
+    Tutorial.enter(null); // a tutorial card or "Now you try" is dropped; the next screen shows its own
+    if (ZSR.Typing && ZSR.Typing.isOpen()) ZSR.Typing.close();
+    if (!$("screen-base").classList.contains("hidden")) Base.close();
+    if (!$("screen-backpack").classList.contains("hidden")) Backpack.close();
+    crewCardHide();
+    $("screen-confirm").classList.add("hidden");
+    confirmCancel = null;
+    Game.stop();
+    if (firstPerson()) Interior.leave();
+    Map.hide();
+    hideScreens();
+    showCanvas(null);
+    active = null;
+    return true;
+  }
+  /** Start god mode on a copy of the loaded save (or a fresh one) and go to the yard. */
+  function godBegin(fresh) {
+    if (!godClear()) return false;
+    State.godStart(fresh || !State.save);
+    applySettings();
+    goYard({ firstCalm: W.DEFENSE.firstCalmSeconds });
+    return true;
+  }
+  /** Go anywhere in god mode. where: { kind: "yard" } | { kind: "drive", from, to } (the road, from any place)
+      | { kind: "jump", to } (out of the van at the door) | { kind: "inside", to } (straight in, no door note).
+      Every trip starts fresh from the sandbox's base save. False when it could not go. */
+  function godGo(where) {
+    const w = where || {};
+    if (!State.god || !godClear()) return false;
+    const loc = W.LOCATIONS.find((l) => l.id === w.to);
+    if (w.kind === "yard" || !loc || (w.to === "base" && w.kind !== "drive")) {
+      State.trip = null;
+      goYard({ firstCalm: W.DEFENSE.firstCalmSeconds });
+      return true;
+    }
+    State.startTrip();
+    if (w.kind === "drive") {
+      const from = w.from || "base";
+      State.trip.at = from;
+      if (from === w.to || !Map.route(from, w.to)) {
+        openMap(from);
+        return false;
+      }
+      drive(w.to);
+      return true;
+    }
+    State.trip.at = w.to;
+    if (w.kind === "inside") {
+      if (loc.outdoor) enterRiver(loc);
+      else enterBuilding(loc);
+    } else onArrive(w.to);
+    return true;
+  }
+  /** Leave god mode for the title screen (the sandbox is dropped). */
+  function godExit() {
+    if (!godClear()) return false;
+    quitToTitle();
+    return true;
   }
 
   /* ---------- Full screen ---------- */
@@ -1035,5 +1106,6 @@
 
   // syncYard: js/crew.js and js/backpack.js save the base through it; confirm: the Yes/No dialog (the backpack's
   // "Give it up"); onCrewCard: the crew card, as js/crew.js opens it through the yard's hooks
-  ZSR.Main = { syncYard, confirm, onCrewCard: (id, action) => yardHooks.onCrewCard(id, action) };
+  // god: js/god.js drives the screens through these (begin, go, exit)
+  ZSR.Main = { syncYard, confirm, onCrewCard: (id, action) => yardHooks.onCrewCard(id, action), god: { begin: godBegin, go: godGo, exit: godExit } };
 })(typeof globalThis !== "undefined" ? globalThis : this);
