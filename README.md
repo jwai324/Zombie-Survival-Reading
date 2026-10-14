@@ -7,7 +7,8 @@ needs, and hold the fence when the waves come.
 
 A grounded survival-comic game for teens. Reading is never quizzed; it is useful. The
 reading level is switchable from 1st to 6th grade and changes every note, sign, and
-instruction in the game without changing the facts.
+instruction in the game without changing the facts (June's first-day tutorial is the one
+exception: it is written once, in level 1 words, for everyone).
 
 ## Play it
 
@@ -19,6 +20,11 @@ No install, no build step, no dependencies.
 
 Buildings and the yard are first person and need a keyboard and mouse. The map and the
 road also work on touch.
+
+On your first day June walks you through the yard (walk and look, the backpack, a slow practice
+walker, the crew, the office computer) before the van will leave, and gives one short card the first
+time you reach the map, the road, a door note, a building, a lock and the river. Nothing is skipped;
+Show tutorial again is in the pause menu.
 
 ## The loop
 
@@ -149,6 +155,7 @@ Up to four players keep their own labeled saves, picked on the title screen.
 index.html              all screens
 css/style.css           comic-book styling; every size in rem so Huge text (1 inch) scales everything
 css/crew.css            the crew's speech bubble
+css/tutorial.css        June's tutorial card, the ring on a HUD button, the "Now you try" panel and the arrow
 js/layouts.js           THE BUILDINGS: one floor plan per place, its four landmarks, wall decor, palette,
                         and its story places: note spots, wall signs, the stash room and the key
 js/world.js             THE FACTS: items, base rooms, the yard and its plots, map locations, roads, the key ring, notes
@@ -161,6 +168,7 @@ js/content/levelN*.js   THE WORDS at reading level N (1..6): levelN.js (how it w
                         typing), levelN-places1.js and -places2.js (every building), levelN-home.js (journal,
                         radio, tags, plot signs), levelN-crew.js (the crew's talk, tips, reports, the dog),
                         levelN-quests.js (the crew's story quests and errands)
+js/content/level1-tutorial.js  June's first-run tutorial: level 1 only, read at every reading level
 js/locks.js             the locks: answers rolled per save, the {placeholders} they fill in the notes, the lock
                         prompt (keypad, moves, choices, stash keys, crowbar), god mode, fixture art
 js/state.js             settings, the base save, the in-memory trip, room effects, explored maps, the key ring
@@ -191,6 +199,9 @@ js/game.js              the road: world-space drive, lanes, signs, turns, wrong-
 js/map.js               the city map, street names, side streets, "The way there"
 js/base.js              the build menu at the cabin's computer (rooms, garage, weapons, traps, house, stock, repairs, hover tips)
 js/typing.js            the workbench typing game (finger lesson, stages, countdown, timer, retry, practice)
+js/tutorial.js          June's first-run tutorial, the logic (no DOM): the yard's basics and the hold on waves and
+                        the van, the practice walker, the arrow's target, one card per new screen, progress, replay
+js/tutorial-ui.js       the tutorial you see: the card, the "Now you try" panel, the arrow, the key listener
 js/bench.js             the garage workbench scene behind the typing game
 js/backpack.js          the backpack (medical kits, notes) and the note reader
 js/sprites.js           road drawing (van and its gun, walkers, scenery, lanes, signs, each place's lot at the end of its drive)
@@ -227,6 +238,10 @@ tests/                  world, weapons, text, streets, drive, engine, crew and a
   `js/story-crew.js` or `js/story-quests.js`, then the six levels (`levelN-crew.js`,
   `levelN-quests.js`). `docs/CREW.md` has the shapes and rules; `npm test` checks the spots, each
   quest's object spot beside its landmark, the gates, the rewards and every text at every level.
+- **Change the tutorial's words:** edit `js/content/level1-tutorial.js` only. It is level 1 for every
+  reader (owner decision), so there are no other levels to update; `npm test` holds it to level 1
+  (see `docs/TEXT_GUIDE.md`, "June's tutorial"). Which cards exist, what each pictures and the yard's
+  steps are `CARDS` and `YARD_STEPS` in `js/tutorial.js`; see `docs/SCALING.md` before adding one.
 - **Add a location** (the full checklist and the save rules are in `docs/SCALING.md`): add it to `LOCATIONS`, `NOTES`, `KEYS` and `ROADS` in `js/world.js`, give
   it a street name (and side streets if you like) in `js/streets.js`, draw its floor plan,
   landmarks and story places in `js/layouts.js` (and their art), add its story in
@@ -251,6 +266,8 @@ tests/                  world, weapons, text, streets, drive, engine, crew and a
 - Base rooms, recipes, and effects: `BASE_ROOMS` in `js/world.js`; what each level looks like
   in the yard: `BUILDS` in `js/yard.js`.
 - Van and van-gun upgrades: `js/upgrades.js`.
+- The tutorial: `TUNE` (card timing, the walk step, the arrow) and `PRACTICE` (the practice walker's
+  speed, bite, health floor and distance) in `js/tutorial.js`.
 - Guns on foot (damage, fire rate, range, spread, noise, pierce, mod prices, which danger
   levels each one can be hidden at): `js/weapons.js`. How each sits in your hands and what
   each mod tier adds to it: `POSES` and the gun models in `js/sprites3d.js`.

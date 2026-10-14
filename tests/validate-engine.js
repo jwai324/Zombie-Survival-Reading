@@ -9,6 +9,8 @@
    room and off the landmarks; every gun mod tier and every van-gun step shows.
    The cabin in the yard: every room walked into, every note read, every spot used, frames from every
    room and through open doors, a raid, a siege, and a broken window kept through a save.
+   June's first-run tutorial (js/tutorial.js): the hold, the gate, the practice walker, the cards, replay, and no
+   soft-lock from any state (seeded random histories, then a good player who must get the van out).
    validate-world.js checks the layout data itself; this checks the engine reads it the same way. */
 "use strict";
 const fs = require("fs");
@@ -91,7 +93,7 @@ const PAGE = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m)
 // the fact files: js/layouts.js, js/world.js and every js/story*.js the page loads (a split fact file, story-quests2.js,
 // is run too; tests/validate-world.js reads the same list), then the engine
 const FACT_FILES = ["layouts.js", "world.js"].concat(PAGE.filter((f) => /^story[\w-]*\.js$/.test(f)));
-const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "crew.js", "river.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
+const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
 const scripts = PAGE.filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -1334,10 +1336,12 @@ try {
   const a = S.activeSlot();
   S.settings.level = 2;
   S.settings.textSize = "huge";
+  S.settings.tutorial = ["walk"];
   S.saveSettings();
   S.newGame(a === 2 ? 3 : 2, "Second");
   const b = S.activeSlot();
   if (S.settings.seenHowto) err("settings: a new save skips its player's how-to");
+  if (S.settings.tutorial != null) err("settings: a new save inherits the last player's tutorial");
   S.settings.level = 6;
   S.settings.textSize = "normal";
   S.saveSettings();
@@ -1520,9 +1524,590 @@ try {
   err(`river: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
 }
 
+/* ---------- June's first-run tutorial (js/tutorial.js) ----------
+   Last in the file, so nothing it leaves behind can touch the checks above. The cards go to a stand-in view that
+   records them; the clock is ours (Got it arms after TUNE.armMs). A frame runs only while the scene runs and is not
+   paused, as in the real loop. The yard part: the hold (no wave, no bell, no Pip, no favors, the van waits and June
+   says what is next), the steps (done early counts, the dog does not), the practice walker (slow, hurts a little,
+   never below half, never at the fence or the cabin, no scrap), the release into the normal first calm, progress
+   kept at once per save slot, a quit and a return, the screen cards once each, the gates, replay, the scene
+   boundary, the hooks in the source, and liveness: seeded random histories, then a good player who must get out. */
+{
+  const T = ZSR.Tutorial;
+  const hooks0 = I.hooks;
+  const view0 = T.view;
+  const now0 = T.now;
+  const ctxMath = vm.runInContext("Math", sb);
+  const realRandom = ctxMath.random;
+  let clock = 1e6;
+  let left = 0; // times the van left the yard (hooks.onVan)
+  let open = null; // the card up in the stand-in view
+  let twice = 0; // a card asked of the view while another was up
+  let shown = [];
+  let lastTry = null;
+  let lastArrow = null;
+  // a small seeded generator: the engine's dice (sandbox Math.random) and the random histories play the same every run
+  const mulberry32 = (a) => () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+  try {
+    if (!T) throw new Error("js/tutorial.js did not define ZSR.Tutorial");
+    ctxMath.random = mulberry32(2026);
+    T.now = () => clock;
+    T.view = {
+      card(m) {
+        if (open) twice++;
+        open = m.id;
+        shown.push(m.id);
+        return true;
+      },
+      hideCard() {
+        open = null;
+      },
+      tryPanel(m) {
+        lastTry = m;
+      },
+      arrow(p) {
+        lastArrow = p;
+      },
+      pulse() {},
+    };
+    I.hooks = Object.assign({}, hooks0, { onVan: () => left++, onDeath: undefined });
+    const FIRST = W.DEFENSE.firstCalmSeconds;
+    const frames = (s) => {
+      for (let t = 0; t < s - 1e-9; t += 0.05) {
+        if (!I.running) return; // the scene is over (a death): the real loop stops too
+        if (!I.paused) I.update(0.05);
+      }
+    };
+    const got = (what) => {
+      clock += 1000;
+      if (!T.press()) err(`tutorial: Got it did nothing${what ? " on the " + what + " card" : ""}`);
+    };
+    const crewId = Object.keys(W.CREW)[0];
+    const offerStub = () => ({ kind: "quest", def: { id: "x" } });
+
+    // 1. a new save has done nothing
+    S.newGame(1, "Tutorial");
+    if (S.settings.tutorial != null || T.done("walk")) err(`tutorial: a new save starts with steps done (${JSON.stringify(S.settings.tutorial)})`);
+
+    // 2. home: the hold engages with a fresh calm (not the 30 s a road trip back gives)
+    I.enterYard({ firstCalm: 30 });
+    T.enter("yard");
+    if (!I.yardHold) err("tutorial: the yard part did not hold the waves");
+    if (I.phase.kind !== "calm" || I.phase.t !== FIRST) err(`tutorial: the hold did not start a fresh first calm (${I.phase.kind}, ${I.phase.t} s; want ${FIRST})`);
+
+    // 3. the first card after a moment; Got it does nothing while it arms, then the game runs again
+    frames(1);
+    if (shown[shown.length - 1] !== "walk" || !I.paused) err(`tutorial: the walk card did not come up and pause the yard (shown ${shown.join(",")}, paused ${I.paused})`);
+    clock += 100;
+    if (T.press()) err("tutorial: Got it worked before the card armed");
+    got("walk");
+    if (I.paused || I.eatClick !== true) err(`tutorial: after Got it the yard should run and eat the next click (paused ${I.paused}, eatClick ${I.eatClick})`);
+    // the click after a card: eaten only when it is the one that takes the mouse back (pointer not locked yet)
+    {
+      const heard = {};
+      const cv = element("canvas");
+      cv.addEventListener = (type, fn) => (heard[type] = fn);
+      const c0 = I.canvas;
+      const docAdd = sb.document.addEventListener;
+      sb.document.addEventListener = (type, fn) => (heard["doc:" + type] = fn);
+      I.canvas = cv;
+      I.bind(); // the real handlers, on a canvas (and a document) that hand them to us (window listeners do nothing here)
+      I.canvas = c0;
+      sb.document.addEventListener = docAdd;
+      const down = (locked) => {
+        I.locked = locked;
+        I.mouseDown = false;
+        heard.mousedown({ button: 0, preventDefault: noop });
+        const fired = I.mouseDown;
+        I.mouseDown = false;
+        I.locked = false;
+        return fired;
+      };
+      if (!heard.mousedown) err("tutorial: no mousedown handler on the view");
+      else {
+        I.eatClick = true;
+        if (down(false)) err("tutorial: the click that takes the mouse back after a card fired the gun");
+        if (I.eatClick) err("tutorial: the eaten click did not clear eatClick");
+        I.eatClick = true;
+        if (!down(true)) err("tutorial: with the mouse already taken by Got it, the first click after a card did not fire");
+        if (!down(false)) err("tutorial: a plain click no longer fires");
+      }
+      // Got it asks for the mouse; a P pressed at once pauses before the lock lands. That late lock goes straight back
+      // (the pause menu would have no mouse), and giving it back pauses nothing
+      const lockChange = heard["doc:pointerlockchange"];
+      if (!lockChange) err("tutorial: no pointerlockchange handler on the document");
+      else {
+        let exits = 0;
+        let pauses = 0;
+        const h0 = I.hooks;
+        I.hooks = Object.assign({}, h0, { onPause: () => pauses++ });
+        sb.document.exitPointerLock = () => exits++;
+        I.paused = true;
+        sb.document.pointerLockElement = cv;
+        lockChange();
+        if (exits !== 1) err("tutorial: a pointer lock that landed while paused was kept (the pause menu would have no mouse)");
+        sb.document.pointerLockElement = null;
+        lockChange();
+        I.paused = false;
+        if (pauses || I.locked) err(`tutorial: giving back a late pointer lock paused the game (${pauses}) or left it locked (${I.locked})`);
+        delete sb.document.exitPointerLock;
+        I.hooks = h0;
+        I.releasing = false;
+      }
+    }
+    frames(0.05);
+    if (!lastTry || !lastTry.rows || lastTry.rows.length !== T.YARD_STEPS.length + 1 || lastTry.rows[0].state !== "now") err(`tutorial: the "Now you try" checklist is wrong ${JSON.stringify(lastTry)}`);
+    else if (lastTry.line !== T.words().walk.try) err(`tutorial: the try line is "${lastTry.line}"`);
+
+    // 4. the hold holds: no countdown, no wave, shots and the bell change nothing, Pip never calls it
+    const t0 = I.phase.t;
+    frames(200);
+    if (I.phase.kind !== "calm" || I.phase.t !== t0 || I.walkers.length) err(`tutorial: the held calm moved (${I.phase.kind}, ${I.phase.t} s, ${I.walkers.length} walkers)`);
+    if (I.hud.phase.textContent !== "QUIET") err(`tutorial: the phase box shows "${I.hud.phase.textContent}" in the held calm (no countdown)`);
+    I.yardNoise(20);
+    if (I.phase.t !== t0) err("tutorial: shots shortened the held calm");
+    I.houseInteract({ kind: "spot", obj: "bell", x: 0, y: 0 });
+    if (I.phase.forced || I.phase.t !== t0) err("tutorial: the dinner bell rang during the basics");
+    if (!/after the basics/.test(I.houseHint({ kind: "spot", obj: "bell" })) || !/after the basics/.test(I.yardHint({ kind: "van" }))) err("tutorial: the bell or van hint does not say it waits for the basics");
+    I.phase.next = { size: "some", sides: ["n"] };
+    I.phase.t = 5;
+    I.crewLookout();
+    if (I.phase.called) err("tutorial: Pip called a held wave");
+    I.phase.t = t0;
+
+    // 5. the van waits, and June says what is next
+    I.yardInteract({ kind: "van" });
+    if (left !== 0) err("tutorial: the van left before the basics were done");
+    if (!/: .*Next, /.test(I.hud.toast.textContent)) err(`tutorial: E at the van says "${I.hud.toast.textContent}" (June should say what is next)`);
+
+    // 6. steps done early count; talking to the dog does not
+    T.note("bag");
+    I.talk = { id: "dog", panel: { key: "tutorial-dog" } }; // a bubble as js/crew.js opens it (only what is read here)
+    frames(0.05);
+    I.talk = null;
+    if (T.done("talk")) err("tutorial: talking to the dog counted as talking to the crew");
+    I.talk = { id: crewId, panel: { key: "tutorial-crew" } };
+    frames(0.05);
+    I.talk = null;
+    if (!T.done("bag") || !T.done("talk")) err(`tutorial: steps done early did not count (${T.list().join(",")})`);
+
+    // 7. the crew's favors wait for the basics
+    {
+      const offer0 = S.offer;
+      S.offer = offerStub;
+      const held = I.crewAction(crewId);
+      I.yardHold = false;
+      const free = I.crewAction(crewId);
+      I.yardHold = true;
+      S.offer = offer0;
+      if (held !== null) err("tutorial: a crew card was offered during the basics");
+      if (!free) err("tutorial: the favor stub never showed (the check above proves nothing)");
+    }
+
+    // 8. walk and look: done by walking and turning; the cards for steps already done are skipped
+    for (let i = 0; i < 80; i++) {
+      I.keys.w = true;
+      I.player.a += 0.05;
+      if (!I.paused) I.update(0.05);
+    }
+    I.keys.w = false;
+    if (!T.done("walk")) err("tutorial: walking and turning did not finish the walk step");
+    frames(2);
+    if (shown.join(",") !== "walk,shoot") err(`tutorial: the cards shown were ${shown.join(",")}; want walk,shoot (bag and talk were done early)`);
+
+    // 9. the practice walker: one, slow, a little bite, no scrap, inside the fence on the player's side of the walls
+    got("shoot");
+    const practice = I.walkers.filter((w) => w.practice);
+    const z = practice[0];
+    const F = [];
+    W.YARD.grid.forEach((row, y) => row.split("").forEach((ch, x) => ch === "F" && F.push([x, y])));
+    const inFence = (w) => w.x > Math.min(...F.map((f) => f[0])) && w.x < Math.max(...F.map((f) => f[0])) + 1 && w.y > Math.min(...F.map((f) => f[1])) && w.y < Math.max(...F.map((f) => f[1])) + 1;
+    if (practice.length !== 1) err(`tutorial: ${practice.length} practice walkers after the shoot card; want 1`);
+    else {
+      if (z.speed > 1.25 * 1.1 * T.PRACTICE.speed + 1e-9) err(`tutorial: the practice walker is not slow (${z.speed})`);
+      if (z.dps !== 0 || z.scrap !== 0 || z.dmg !== T.PRACTICE.bite) err(`tutorial: the practice walker claws (${z.dps}), pays scrap (${z.scrap}) or bites too hard (${z.dmg})`);
+      if (I.solidForPlayer(z.x, z.y) || !inFence(z)) err(`tutorial: the practice walker came in at ${z.x},${z.y}, not on open ground inside the fence`);
+      if (I.indoorAt(z.x, z.y) !== I.indoorAt(I.player.x, I.player.y)) err("tutorial: the practice walker came in on the other side of the cabin walls");
+      if (lastTry && lastTry.line !== T.words().shoot.try) err(`tutorial: the shoot try line is "${lastTry && lastTry.line}"`);
+    }
+
+    // 10. it hurts a little, never below half health, and never touches the fence or the cabin
+    if (z) {
+      const fence0 = JSON.stringify(I.fence);
+      const house0 = JSON.stringify(I.houseState());
+      const p = I.player;
+      const floor = Math.ceil(p.maxHp * T.PRACTICE.floor);
+      let low = p.hp;
+      for (let t = 0; t < 60; t += 0.05) {
+        z.x = p.x + 0.5;
+        z.y = p.y;
+        if (!I.paused) I.update(0.05);
+        low = Math.min(low, p.hp);
+      }
+      if (!(low < p.maxHp) || low < floor || !I.running) err(`tutorial: the practice walker's bites took health to ${low} (want under ${p.maxHp}, never under ${floor})`);
+      if (JSON.stringify(I.fence) !== fence0 || JSON.stringify(I.houseState()) !== house0) err("tutorial: the practice walker damaged the fence or the cabin");
+      p.hp = 40;
+      let low2 = p.hp;
+      for (let t = 0; t < 10; t += 0.05) {
+        z.x = p.x + 0.5;
+        z.y = p.y;
+        if (!I.paused) I.update(0.05);
+        low2 = Math.min(low2, p.hp);
+      }
+      if (low2 < 40) err(`tutorial: below half health a practice bite still hurt (${low2})`);
+    }
+
+    // 11. down: the step is done, and it paid nothing
+    const scrap0 = S.save.scrap;
+    if (z) I.hurtWalker(z, 999);
+    frames(0.2);
+    if (!T.done("shoot")) err("tutorial: putting the practice walker down did not finish the shoot step");
+    if (S.save.scrap !== scrap0) err("tutorial: the practice walker paid scrap");
+
+    // 12. the last basic lets the yard go: the normal first calm, the ready card, then the van
+    T.note("computer");
+    if (I.yardHold || I.phase.t !== FIRST) err(`tutorial: the last basic did not end the hold with a fresh first calm (hold ${I.yardHold}, ${I.phase.t} s)`);
+    frames(2);
+    if (shown[shown.length - 1] !== "ready") err(`tutorial: no ready card after the basics (shown ${shown.join(",")})`);
+    got("ready");
+    if (!T.done("ready")) err("tutorial: Got it on the ready card did not mark it");
+    frames(1);
+    if (!(I.phase.t < FIRST)) err("tutorial: the first calm does not count down after the basics");
+    if (!lastTry || lastTry.line !== T.words().ready.try || lastTry.rows[lastTry.rows.length - 1].state !== "now" || lastTry.rows.slice(0, -1).some((r) => r.state !== "done")) err(`tutorial: the van line is wrong after the basics ${JSON.stringify(lastTry)}`);
+    if (lastArrow && lastArrow.label !== T.words().arrow.van) err(`tutorial: the arrow points at "${lastArrow.label}", not the van`);
+    I.yardInteract({ kind: "van" });
+    if (left !== 1) err("tutorial: the van did not leave once the basics were done");
+
+    // 13. kept at once, per save slot; an old slot without the field has done nothing
+    const slot = S.activeSlot();
+    if (!String(sb.localStorage.getItem("zs.settings." + slot)).includes('"ready"')) err("tutorial: progress was not written at once to the slot's settings");
+    S.loadSave(slot);
+    if (!T.done("ready")) err("tutorial: progress was lost on loading the save");
+    S.newGame(2, "Other");
+    if (T.done("walk")) err("tutorial: a second player's new save shares the first one's progress");
+    sb.localStorage.setItem("zs.settings.2", JSON.stringify({ level: 3 }));
+    S.loadSave(2);
+    if (T.done("walk")) err("tutorial: a slot from before the tutorial counts steps as done");
+    S.loadSave(slot);
+    if (!T.done("walk")) err("tutorial: the first player's progress did not come back");
+    S.deleteSlot(2);
+
+    // 14. a quit mid-yard: the steps done stay done; the next stay starts at the first one left, with its card
+    S.settings.tutorial = ["walk", "bag"];
+    S.saveSettings();
+    shown = [];
+    I.enterYard({});
+    T.enter("yard");
+    frames(1);
+    if (shown[shown.length - 1] !== "shoot" || !I.yardHold) err(`tutorial: a return to the yard did not start at the shoot step (shown ${shown.join(",")}, hold ${I.yardHold})`);
+    got("shoot");
+    I.stop();
+    T.enter(null);
+    if (I.yardHold || T.isOpen() || open) err("tutorial: quitting left the hold or a card behind");
+
+    // 15. each screen's card once
+    shown = [];
+    T.enter("map");
+    if (shown[0] !== "map") err(`tutorial: no map card (shown ${shown.join(",")})`);
+    got("map");
+    T.enter("map");
+    T.enter("road");
+    got("road");
+    T.enter("road");
+    if (shown.join(",") !== "map,road") err(`tutorial: the map and road cards showed ${shown.join(",")}; want each once`);
+    const shop = W.LOCATIONS.find((l) => l.id !== "base" && !l.outdoor && ZSR.LAYOUTS[l.id]);
+    S.startTrip();
+    I.enter(shop);
+    T.enter("building");
+    if (shown[shown.length - 1] !== "building" || !I.paused) err("tutorial: the building card did not come up and pause the building");
+    got("building");
+    if (I.paused || !I.eatClick) err("tutorial: after the building card the building should run and eat the next click");
+    I.leave();
+    const river = W.LOCATIONS.find((l) => l.outdoor);
+    if (river) {
+      I.enterRiver(river);
+      T.enter("river");
+      if (shown[shown.length - 1] !== "river" || !I.paused) err("tutorial: the river card did not come up and pause the bank");
+      got("river");
+      I.leave();
+    }
+    S.abandonTrip();
+    T.enter(null);
+    S.startTrip();
+    I.enter(shop);
+    T.enter("building");
+    if (shown.filter((x) => x === "building").length !== 1 || I.paused) err("tutorial: the building card came back on a second visit");
+    I.leave();
+    S.abandonTrip();
+    T.enter(null);
+
+    // 16. the gates: the action waits for Got it the first time, and runs at once after
+    let n = 0;
+    T.first("lock", () => n++);
+    if (n !== 0 || open !== "lock") err("tutorial: the first lock did not wait for its card");
+    got("lock");
+    if (n !== 1) err(`tutorial: the lock opened ${n} times after Got it; want 1`);
+    T.first("lock", () => n++);
+    if (n !== 2 || open) err("tutorial: a later lock waited for a card");
+    let d = 0;
+    T.first("door", () => d++);
+    got("door");
+    T.first("door", () => d++);
+    if (d !== 2) err(`tutorial: the door note opened ${d} times; want 2`);
+
+    // 17. replay: everything starts over (a fresh frozen calm), but never in a wave
+    S.settings.tutorial = T.list().concat(T.YARD_STEPS.filter((s) => !T.done(s)), T.done("ready") ? [] : ["ready"]);
+    S.saveSettings();
+    I.enterYard({});
+    T.enter("yard");
+    if (I.yardHold) err("tutorial: a finished yard part held the waves again");
+    if (!T.replay("yard")) err("tutorial: Show tutorial again did nothing in the yard");
+    if (T.done("walk") || T.done("map") || !I.yardHold || I.phase.t !== FIRST) err(`tutorial: replay did not start over (${T.list().join(",")}, hold ${I.yardHold}, ${I.phase.t} s)`);
+    I.phase = { kind: "wave", size: "some", total: 1, spawned: 1, spawnT: 0, t: 0, sides: [] };
+    if (T.canReplay("yard")) err("tutorial: Show tutorial again works during a wave");
+
+    // 18. the scene boundary: the hold never outlives the yard, and only the tutorial sets it
+    I.yardHold = true;
+    I.stop();
+    if (I.yardHold) err("tutorial: stopping the scene kept the hold");
+    I.enterYard({});
+    if (I.yardHold) err("tutorial: entering the yard without the tutorial held the waves");
+    I.stop();
+    T.enter(null);
+
+    // 19. the hooks are in the source (main.js and the engine are not run here), and the logic stays DOM-free
+    {
+      const src = (f) => fs.readFileSync(path.join(ROOT, "js", f), "utf8");
+      const hooked = src("main.js") + src("building.js");
+      Object.keys(T.CARDS).filter((id) => !T.CARDS[id].yard).forEach((id) => {
+        if (!new RegExp(`Tutorial\\.(enter|first)\\("${id}"`).test(hooked)) err(`tutorial: no Tutorial.enter("${id}") or Tutorial.first("${id}") in js/main.js or js/building.js: its card never shows`);
+      });
+      if (!/kind !== "crowbar"[^\n]*Tutorial\.first\("lock"/.test(src("building.js"))) err("tutorial: js/building.js must show the lock card for every lock but the crowbar prompt");
+      if (!/Tutorial\.tick\(this, dt\)/.test(src("yard.js"))) err("tutorial: js/yard.js yardUpdate does not call Tutorial.tick");
+      if (/\bdocument\./.test(src("tutorial.js"))) err("tutorial: js/tutorial.js touches the DOM (js/tutorial-ui.js does that)");
+    }
+
+    // 20. liveness: from any state the real game allows, no soft-lock. 25 seeded histories of 150 random actions
+    // (each only when the game allows it: a card up takes nothing but Got it), every invariant checked after each;
+    // then a good player, who must get through every step and out in the van.
+    {
+      const MAX_ERR = 12;
+      const e0 = errors.length;
+      const bad = (m) => errors.length - e0 < MAX_ERR && err("tutorial liveness: " + m);
+      const allBasics = () => T.YARD_STEPS.every((s) => T.done(s));
+      let home = null;
+      let open4 = []; // open tiles inside the fence (closed doors passable), for teleports
+      let hpRef = 0;
+      const reenter = (firstCalm) => {
+        I.enterYard(firstCalm ? { firstCalm } : {});
+        T.enter("yard");
+        home = { x: I.player.x, y: I.player.y };
+        hpRef = I.player.hp;
+        if (!open4.length) {
+          const seen = new Set([Math.floor(home.x) + "," + Math.floor(home.y)]);
+          const q = [[Math.floor(home.x), Math.floor(home.y)]];
+          while (q.length) {
+            const [x, y] = q.shift();
+            if (!I.solidForPlayer(x + 0.5, y + 0.5)) open4.push([x + 0.5, y + 0.5]);
+            [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(([dx, dy]) => {
+              const nx = x + dx;
+              const ny = y + dy;
+              const k = nx + "," + ny;
+              if (seen.has(k) || nx < 0 || ny < 0 || nx >= I.gw || ny >= I.gh) return;
+              if (I.solidForPlayer(nx + 0.5, ny + 0.5) && I.grid[ny][nx] !== "O") return;
+              seen.add(k);
+              q.push([nx, ny]);
+            });
+          }
+        }
+      };
+      // the van leaves (the gate is open): the map, its card, and "Back to the yard"
+      const leaveByVan = () => {
+        I.stop();
+        T.enter("map");
+        if (T.isOpen()) {
+          clock += 1000;
+          T.press();
+        }
+      };
+      const talkTo = (c) => {
+        let best = null;
+        open4.forEach(([x, y]) => {
+          const dd = Math.hypot(x - c.x, y - c.y);
+          if (!best || dd < best.d) best = { x, y, d: dd };
+        });
+        if (best) Object.assign(I.player, { x: best.x, y: best.y, a: Math.atan2(c.y - best.y, c.x - best.x) });
+        I.crewOpen(c.id);
+      };
+      let prevHold = false;
+      const inv = (what) => {
+        if (twice) bad(`${what}: the view was asked for a second card while one was up`);
+        twice = 0;
+        if (open && T.CARDS[open] && T.CARDS[open].yard && !I.paused) bad(`${what}: the ${open} card is up but the yard runs`);
+        if (!!open !== T.isOpen()) bad(`${what}: the view and the tutorial disagree on a card being up`);
+        if (I.yardHold && allBasics()) bad(`${what}: the yard is held with every basic done`);
+        if (I.yardHold && !prevHold) hpRef = Math.min(hpRef, I.player.hp);
+        prevHold = !!I.yardHold;
+        if (I.yardHold) {
+          if (I.phase.kind !== "calm" || I.phase.t !== FIRST) bad(`${what}: the held calm is ${I.phase.kind} at ${I.phase.t} s`);
+          if (I.walkers.length > 1 || I.walkers.some((w) => !w.practice)) bad(`${what}: ${I.walkers.length} walkers in the held yard (${I.walkers.filter((w) => !w.practice).length} not the practice one)`);
+          const floor = Math.ceil(I.player.maxHp * T.PRACTICE.floor);
+          if (I.player.hp < Math.min(hpRef, floor) - 1e-6) bad(`${what}: health ${I.player.hp} fell under ${Math.min(hpRef, floor)} in the held yard`);
+          const offer0 = S.offer;
+          S.offer = offerStub;
+          const a = I.crewAction(crewId);
+          S.offer = offer0;
+          if (a !== null) bad(`${what}: a crew card can show while the yard is held`);
+        }
+        const raw = sb.localStorage.getItem("zs.settings." + S.activeSlot());
+        const stored = raw ? JSON.parse(raw).tutorial : null;
+        if (JSON.stringify(Array.isArray(stored) ? stored : []) !== JSON.stringify(T.list())) bad(`${what}: the slot's stored progress ${JSON.stringify(stored)} is not ${JSON.stringify(T.list())}`);
+      };
+      const died = () => {
+        if (I.running) return false;
+        T.enter(null); // the death screen; then "Reload last save" goes home
+        reenter();
+        return true;
+      };
+      let stuck = 0;
+      for (let seed = 1; seed <= 25; seed++) {
+        const rnd = mulberry32(seed * 7919);
+        ctxMath.random = mulberry32(seed * 104729); // the engine's own dice: the same history every run
+        S.newGame(1, "Tutorial");
+        S.settings.tutorial = null;
+        S.saveSettings();
+        open4 = [];
+        shown = [];
+        prevHold = false;
+        reenter();
+        inv(`seed ${seed} start`);
+        for (let k = 0; k < 150; k++) {
+          const what = `seed ${seed} action ${k}`;
+          const wave = I.phase && I.phase.kind === "wave";
+          const r = rnd();
+          if (T.isOpen()) {
+            clock += Math.floor(rnd() * 900);
+            T.press();
+          } else if (r < 0.24) frames(0.05 + rnd() * 2.95);
+          else if (r < 0.28) {
+            clock += Math.floor(rnd() * 900);
+            T.press(); // nothing up: nothing happens
+          } else if (r < 0.35) T.note("bag");
+          else if (r < 0.42) {
+            if (!wave) T.note("computer"); // the computer waits in a wave
+          } else if (r < 0.51) {
+            const [x, y] = open4[Math.floor(rnd() * open4.length)];
+            Object.assign(I.player, { x, y, a: rnd() * Math.PI * 2 });
+          } else if (r < 0.56) {
+            I.keys.w = true; // walk on, turning
+            I.player.a += rnd() - 0.5;
+            frames(0.25);
+            I.keys.w = false;
+          } else if (r < 0.62) {
+            if (!wave && I.crew.length) talkTo(I.crew[Math.floor(rnd() * I.crew.length)]);
+          } else if (r < 0.65) {
+            if (I.talk && I.crewTalkEnd) I.crewTalkEnd(true);
+          } else if (r < 0.75) {
+            const zz = I.walkers.find((w) => w.practice);
+            if (zz) I.hurtWalker(zz, 10);
+          } else if (r < 0.82) {
+            const p = I.player;
+            const zz = I.walkers.filter((w) => Math.hypot(w.x - p.x, w.y - p.y) < 8).sort((a, b) => Math.hypot(a.x - p.x, a.y - p.y) - Math.hypot(b.x - p.x, b.y - p.y))[0];
+            if (zz) I.hurtWalker(zz, 15);
+          } else if (r < 0.86) {
+            I.houseInteract({ kind: "spot", obj: "bell", x: 0, y: 0 }); // held: refused; else the next wave comes now
+          } else if (r < 0.875) {
+            if (T.canReplay("yard")) T.replay("yard");
+          } else if (r < 0.9) {
+            T.enter(null); // quit to the title, then Continue
+            I.stop();
+            reenter();
+          } else if (r < 0.94) frames(0.05 + rnd() * 0.95);
+          else {
+            const l0 = left;
+            I.yardInteract({ kind: "van" });
+            if (left > l0) {
+              if (I.yardHold) bad(`${what}: the van left the held yard`);
+              leaveByVan();
+              reenter(30); // the map's "Back to the yard"
+            }
+          }
+          died();
+          inv(what);
+        }
+        // the good player: Got it on every card; else the step on screen (and the fence held in a wave)
+        let gone = false;
+        let k = 0;
+        for (; k < 4000 && !(gone && allBasics() && T.done("ready")); k++) {
+          if (T.isOpen()) {
+            clock += 1000;
+            T.press();
+          } else if (I.phase.kind === "wave") {
+            I.walkers.slice().forEach((w) => I.hurtWalker(w, 1e6));
+            frames(0.5);
+          } else {
+            const step = T.YARD_STEPS.find((s) => !T.done(s)) || "ready";
+            if (step === "walk") {
+              if (k % 12 === 11) Object.assign(I.player, home); // boxed in somewhere: back out into the yard
+              I.keys.w = true;
+              I.player.a += 0.3;
+              frames(0.25);
+              I.keys.w = false;
+            } else if (step === "bag") T.note("bag");
+            else if (step === "shoot") {
+              const zz = I.walkers.find((w) => w.practice);
+              if (zz) I.hurtWalker(zz, 10);
+              frames(0.1);
+            } else if (step === "talk") {
+              if (I.crew.length) talkTo(I.crew[0]);
+              frames(0.05);
+              if (I.talk) I.crewTalkEnd(true);
+            } else if (step === "computer") T.note("computer");
+            else {
+              const l0 = left;
+              const held = I.yardHold;
+              I.yardInteract({ kind: "van" });
+              if (left > l0) {
+                if (held) bad(`seed ${seed}: the van left the held yard`);
+                gone = true;
+                leaveByVan();
+              } else frames(0.25);
+            }
+          }
+          if (!gone) died();
+          inv(`seed ${seed} good player ${k}`);
+        }
+        if (!(gone && allBasics() && T.done("ready"))) {
+          stuck++;
+          bad(`seed ${seed}: a good player could not finish the yard part in 4000 actions (done ${T.list().join(",")}, hold ${I.yardHold}, phase ${I.phase.kind}, card ${open})`);
+        }
+        I.stop();
+        T.enter(null);
+      }
+      if (stuck) bad(`${stuck} of 25 histories soft-locked`);
+    }
+  } catch (e) {
+    err(`tutorial: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
+  } finally {
+    ctxMath.random = realRandom;
+    I.yardHold = false;
+    I.hooks = hooks0;
+    if (T) {
+      T.view = view0;
+      T.now = now0;
+      T.enter(null);
+    }
+  }
+}
+
 if (errors.length) {
   errors.forEach((e) => console.log("ERROR " + e));
   console.log(`\n${errors.length} engine problem(s).`);
   process.exit(1);
 }
-console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food).`);
+console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock).`);

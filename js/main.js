@@ -11,6 +11,7 @@
   const Backpack = ZSR.Backpack;
   const Audio = ZSR.Audio;
   const W = ZSR.WORLD;
+  const Tutorial = ZSR.Tutorial; // June's first-run tutorial (js/tutorial.js): told of every new screen
 
   const $ = (id) => document.getElementById(id);
   const SCREENS = ["screen-title", "screen-newsave", "screen-settings", "screen-howto", "screen-map", "screen-base", "screen-backpack", "screen-note", "screen-pause", "screen-death", "screen-confirm", "screen-wrong", "screen-crew"];
@@ -462,6 +463,7 @@
     active = "yard";
     showCanvas("fp");
     Interior.enterYard(opts);
+    Tutorial.enter("yard");
   }
   /** Copy the yard's fence and traps into the save and write it. Never in the middle of a wave:
       a wave is saved only once it is cleared, so dying in it reloads the state before it began. */
@@ -481,6 +483,7 @@
         onClose() {
           Interior.refreshYard();
           Interior.resume();
+          Tutorial.note("computer");
         },
         onChanged(key) {
           Interior.refreshYard({ rebuildFence: key === "walls" });
@@ -598,6 +601,7 @@
     $("map-btn-yard").classList.toggle("hidden", at !== "base");
     show("screen-map");
     Map.show(at);
+    Tutorial.enter("map");
   }
   function drive(destId) {
     if (!State.trip) return goYard();
@@ -612,6 +616,7 @@
     active = "road";
     // the road follows the route the map showed; a wrong turn asks what next (onWrongTurn)
     Game.startTrip({ to: destId, name: loc.name, seconds: secs, danger: loc.danger, path: r.path });
+    Tutorial.enter("road");
   }
   /** A wrong turn on the road: try the drive again, open the town map, or go back where the van set out. */
   function onWrongTurn(info) {
@@ -692,13 +697,16 @@
     const door = W.NOTES[destId].door;
     State.trip.atDoor = destId;
     hideScreens();
-    Backpack.read(destId, door.id, {
-      isDoor: true,
-      found: door.found,
-      primary: "Go in",
-      secondary: { label: "Back to the map", action: () => openMap(destId) },
-      onClose: () => enterBuilding(loc),
-    });
+    // the first door: June's card on the door note comes first
+    Tutorial.first("door", () =>
+      Backpack.read(destId, door.id, {
+        isDoor: true,
+        found: door.found,
+        primary: "Go in",
+        secondary: { label: "Back to the map", action: () => openMap(destId) },
+        onClose: () => enterBuilding(loc),
+      })
+    );
   }
   /** From the map, at a place: straight back in once the door note has been read. */
   function reenter(destId) {
@@ -715,6 +723,7 @@
     showCanvas("fp");
     active = "building";
     Interior.enter(loc);
+    Tutorial.enter("building");
   }
   /** River Landing: out of the van on the dirt turnout, the dock and the river ahead. */
   function enterRiver(loc) {
@@ -723,6 +732,7 @@
     showCanvas("fp");
     active = "river";
     Interior.enterRiver(loc);
+    Tutorial.enter("river");
   }
 
   /* ---------- Building hooks ---------- */
@@ -746,7 +756,7 @@
 
   /* ---------- Shared: pause, backpack, death ---------- */
   function overlayOpen() {
-    return ["screen-pause", "screen-note", "screen-backpack", "screen-base", "screen-bench", "screen-confirm", "screen-wrong", "screen-lock", "screen-crew"].some((id) => $(id) && !$(id).classList.contains("hidden"));
+    return ["screen-pause", "screen-note", "screen-backpack", "screen-base", "screen-bench", "screen-confirm", "screen-wrong", "screen-lock", "screen-crew", "screen-tutorial"].some((id) => $(id) && !$(id).classList.contains("hidden"));
   }
   function pauseActive() {
     if (active === "road" && Game.running && !Game.paused) Game.pause();
@@ -761,6 +771,9 @@
     if (overlayOpen()) return;
     pauseActive();
     $("pause-note").textContent = active === "yard" ? "The base is saved after every wave, build and repair." : "Nothing since your last save at the cabin is kept if you quit.";
+    const can = Tutorial.canReplay(active); // never in a wave: the pause menu is no place to hide from one
+    $("btn-pause-tutorial").disabled = !can;
+    $("btn-pause-tutorial").title = can ? "" : "Not during a wave";
     show("screen-pause");
   }
   function onPauseKey() {
@@ -776,12 +789,16 @@
     else onPause();
   }
   function onBackpack() {
-    // never over the crew card (its HUD button sits behind the card): the card is answered first
-    if (crewCardOpen() || !$("screen-backpack").classList.contains("hidden")) return;
+    // never over the crew card or a tutorial card (its HUD button sits behind the card): the card is answered first
+    if (crewCardOpen() || Tutorial.isOpen() || !$("screen-backpack").classList.contains("hidden")) return;
     pauseActive();
-    Backpack.open(() => resumeActive());
+    Backpack.open(() => {
+      resumeActive();
+      Tutorial.note("bag"); // the tutorial's backpack step: B or the HUD button, opened and closed again
+    });
   }
   function onDeath() {
+    Tutorial.enter(null);
     showCanvas(null);
     const t = State.trip;
     const stats = $("death-stats");
@@ -804,6 +821,7 @@
     goYard();
   }
   function quitToTitle() {
+    Tutorial.enter(null);
     Game.stop();
     Interior.leave();
     showCanvas(null);
@@ -916,6 +934,13 @@
       renderHowto();
       show("screen-howto");
     });
+    // June's tutorial from the start: every card and the yard part again (off in a wave, onPause)
+    $("btn-pause-tutorial").addEventListener("click", () => {
+      Audio.play("click");
+      if (!Tutorial.canReplay(active)) return;
+      resumeActive(); // the pause menu goes; the card is not in SCREENS, so nothing hides it after
+      Tutorial.replay(active); // this screen's card shows now (the yard's in a moment)
+    });
     $("btn-pause-settings").addEventListener("click", () => {
       settingsReturn = "screen-pause";
       show("screen-settings");
@@ -999,6 +1024,7 @@
       onPauseKey,
       onBackpack,
     });
+    if (ZSR.TutorialUI) ZSR.TutorialUI.init(); // June's card, panel and arrow; while a card is up it holds every key
     Map.init($("map-canvas"), { onDrive: drive, onEnter: reenter });
     if (ZSR.Typing && ZSR.Typing.init) ZSR.Typing.init();
     wire();

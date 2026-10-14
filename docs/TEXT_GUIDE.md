@@ -1,7 +1,8 @@
 # Text Guide (six reading levels)
 
-Every player-facing in-world text exists at six reading levels in `js/content/` (five
-files per level, see Schema). The facts come from `js/world.js` (`NOTES`, `BASE_ROOMS`,
+Every player-facing in-world text exists at six reading levels in `js/content/` (six
+files per level; level 1 has a seventh, `level1-tutorial.js`; see Schema). The one exception is
+June's first-run tutorial: one level-1 text for every reader (see "June's tutorial" below). The facts come from `js/world.js` (`NOTES`, `BASE_ROOMS`,
 `ITEMS`, `LOCATIONS`, `KEYS`), `js/story.js` (extra notes, signs, keys),
 `js/story-home.js` (`JOURNAL`, `RADIO`, `ITEM_TAGS`, `YARD_LOTS`), `js/story-crew.js`
 (`CREW_TALK`, `CREW_TIPS`, `CREW_REPORTS`, `ERRANDS`) and `js/story-quests.js` (`QUESTS`, `DOG`).
@@ -226,9 +227,54 @@ and so are the How it works and E-line rules. `node tests/validate-text.js 3 --c
 everything level 3 still needs; `--crew=present` checks only what is written (for drafting).
 `CREW_STRICT=1`, or `CREW_WORDS_REQUIRED` in the validator, makes every level strict.
 
+## June's tutorial (level 1 only)
+
+June's first-run tutorial (`js/tutorial.js`, design in `docs/GAME_SPEC.md`) is written ONCE, at level 1,
+and every player reads it whatever their level: an owner decision (2026-10-14, `DESIGN.md`), the one
+exception to the six-level rule. Its words are `T.tutorial` in `js/content/level1-tutorial.js`; no other
+level may define `T.tutorial` (an error). The cards that exist, the keys and mouse each pictures and
+the yard's steps are `CARDS` and `YARD_STEPS` in `js/tutorial.js`; `Tutorial.textKeys()` lists every
+text the game shows, and the validator wants exactly those keys.
+
+| Key | Kind | Shows |
+|-----|------|-------|
+| `<card>.title` | label | the card's heading, under June's name |
+| `<card>.text` | lines | the card, June speaking ("I", "us"); it must name every key the card pictures |
+| `<yard card>.try` | lines | the "Now you try" panel while the game runs |
+| `<yard card>.item` | label | a row of the yard checklist; also inside `vanWait` |
+| `shoot.bow` | lines | the try line when the bow is in hand |
+| `nowTry` | label | the panel's heading |
+| `vanWait` | lines | the toast at the van too early: "June: " + it, `{next}` filled with the next item, first letter lowercased |
+| `arrow.van`, `arrow.computer`, `arrow.walker` | label | the yard arrow's label (a crew member's shows their name) |
+
+`checkTutorial` (`node tests/validate-text.js 1`) holds it to these rules as ERRORS, not warnings:
+
+- **Lines** are whole sentences (see "Level 1: whole thoughts") of 2 to 9 words, each starting with a
+  capital and ending with a period or an exclamation mark. **Labels** are 1 to 6 words with no end
+  mark. A card's text over 55 words gets a warning.
+- **No questions, no quizzes, no digits.** Counts come from data and would go stale as the game grows.
+- **Keys as capitals.** Every key a card pictures is named in its text as the key's own word: W, A,
+  S, D, B, E, M, P, Space. Never parse or picture anything from the words: the pictures come from
+  `CARDS`.
+- **Placeholders:** only `{next}`, only in `vanWait`. A lock placeholder anywhere is an error, as is
+  any other brace or bracket (the game shows it as it is).
+- **The crew rules** (see "The crew's words"): no place name, no stash, no lock answer, no gore, Pip
+  "they". By writing rule, also no crew name and no crew count ("one of us"), so a fourth crew member
+  or a bigger city never makes a card false. Old-world terms and a "patched" fence are banned here too.
+- **An item** runs inside `vanWait` with its first letter lowercased ("Next, talk to the crew."), so it
+  does not start with a name or a word in capitals.
+
+Beyond the validator: every control and button name must be the game's own, checked against the code
+and the level-1 How it works and controls ("Drive there" on the map, "Step away" at the computer, "Step
+back" at a lock, "stop the game" for pause), and a card must be true for every save, a veteran's too
+(the computer card says rooms need things from town, never "you cannot build yet"). The lock card is a
+hint only: read the note, do just what it says, a wrong try can cost a lot. Read every card aloud like
+any level-1 text, in June's dry, grown-up voice: level 1 words for teens, never cute. The tutorial's
+words count toward level 1's reading floor but not toward a player's words read.
+
 ## Schema
 
-Each level is five files, loaded in this order (`index.html`):
+Each level is six files, loaded in this order (`index.html`):
 
 - `js/content/levelN.js`: `level`, `howto`, `controls`, `base` (rooms, traps, bench), `typing`.
 - `js/content/levelN-places1.js`: locations gasngo, grocery, hardware, pharmacy, autoshop,
@@ -238,6 +284,8 @@ Each level is five files, loaded in this order (`index.html`):
 - `js/content/levelN-home.js`: `yard`, `journal`, `radio`, `tags`, `recap`.
 - `js/content/levelN-crew.js`: `crew` talk, tips, reports and dog.
 - `js/content/levelN-quests.js`: `crew` quests and errands.
+- `js/content/level1-tutorial.js` (level 1 only, read at every reading level): `tutorial`, June's
+  first-run tutorial. It merges into `ZSR.TEXT[1]` and loads after `level1.js`.
 
 More words for the same level go in a new part file (`levelN-places3.js`), loaded by `index.html`
 after the others; the validator reads every `levelN-*.js` part it finds. A second crew part

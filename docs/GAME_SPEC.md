@@ -63,7 +63,8 @@ tension.
 
 - Every note, sign, door note, room description, and the How it works text exists at
   six reading levels (1st to 6th grade). The level is a setting and can be changed
-  anytime; it changes words, never facts.
+  anytime; it changes words, never facts. The one exception is June's first-run tutorial:
+  one level-1 text for every reader (owner decision, 2026-10-14).
 - No questions anywhere.
 - **Backpack**: every note read is kept with its title, the location, and where in the
   building it was found. Opens from the base, the map, and inside a building (pauses).
@@ -319,6 +320,47 @@ June, Tomas and Pip live at the cabin. The full design and the contract between 
   finished quests), the day page (June's ledger line, the day after the hand-over), the city map (a marker where an object
   waits), the building's goal line.
 
+## The first-run tutorial (2026-10-14)
+
+June talks the player through the controls the first time. The owner's answers are in `DESIGN.md`
+("Owner decisions: the first-run tutorial"); the logic is `js/tutorial.js` (no DOM), the card, panel and
+arrow `js/tutorial-ui.js` and `css/tutorial.css`, the words `js/content/level1-tutorial.js`.
+
+- **A card, then try it.** A card (June's face, name and words, the keys and the mouse it pictures)
+  freezes the game until Got it (or Enter; it arms after half a second). Esc, P, Space and every game
+  key do nothing while it is up; nothing is skippable. Then a "Now you try" panel under the HUD's top
+  row says what to do, with the yard checklist, while the game runs. A card that closes in first person
+  takes the mouse back; only the click that takes it back (when Got it could not) never fires.
+- **The yard part**, on every stay at home until it is done (new saves after How it works, old saves
+  on their next Continue): walk and look around (W A S D and the mouse), open and close the backpack
+  (B, or the HUD button, which the card rings), stop a slow practice walker (click or Space), talk to a
+  crew member (E; not the dog), use the office computer (E, then Step away), then the ready card (P
+  pauses, the Pause button ringed; walk to the van). A step done early is ticked and its card skipped.
+  In the try steps an arrow points the way to the walker, the nearest crew member, the computer (along
+  the walkable way, through the cabin's doors) or the van, at the screen's edge when it is out of view.
+- **The hold.** Until every basic is done (`Interior.yardHold`): a fresh first calm stands still (the
+  phase box says QUIET; no wave, shots do not shorten it), the dinner bell refuses, Pip calls nothing,
+  the crew offer no cards, and E at the van gets June's word on what is left ("The van has to wait.
+  Next, ..."). The bed, the pantry, the typewriter and the crew's talk and jobs work as usual. The last
+  basic ends the hold and starts the normal first calm (`DEFENSE.firstCalmSeconds`). The hold never
+  outlives the yard scene (`startLoop` and `stop` clear it).
+- **The practice walker.** One walker at half speed, a bite of 5, 30 health, no scrap, coming in 6 to
+  11 steps away on the player's side of the fence and of every shut door. It never takes the player
+  below half health (in the hold it is the only harm in the yard, so the tutorial cannot kill), never
+  claws the fence or the cabin, and comes again near you when stuck out of sight.
+- **Screen cards,** each once per save: the town map (on opening it), the road (the first drive; the
+  road waits under it before its first sign), the door note (before it opens), a building (inside;
+  the Map button ringed), the first lock (a hint only: read the note, do just what it says; any lock
+  puzzle, never the crowbar prompt) and the river.
+- **Replay.** "Show tutorial again" in the pause menu clears every card: in the yard the yard part
+  starts over, elsewhere that screen's card shows now and the rest come on their next visit. It is off
+  during a wave and while a card is up.
+- **Where progress lives.** `settings.tutorial`, the done ids, in the slot's own settings, written at
+  once: death, quitting and a refresh keep it. A basic is marked when it is done, a card on Got it.
+- At Huge text the card is one scroll, as the crew card (June's face and name, the words, the
+  pictures, then Got it; Enter works from anywhere), a ring is dropped for a hidden HUD button or when
+  the window leaves the card too little room beside it, and the try panel shows only its line.
+
 ## The workbench (typing)
 
 Room builds, van and van-gun upgrades, gun mods, and trap crafting open the workbench: a garage scene
@@ -337,7 +379,9 @@ come from the reading-level text files.
 
 Up to four labeled saves (one per player), picked on the title screen; a name is asked for
 when a slot is created. An older single save migrates into slot 1. The base is still the
-only place the game saves.
+only place the game saves. Each slot's settings (reading level, text size and the rest) are its
+own and written when changed; they also keep the slot's tutorial progress (`settings.tutorial`),
+written at once wherever the player is, so death or quitting never brings a seen card back.
 
 ## Rendering notes
 
@@ -390,6 +434,8 @@ trap stock and set traps, the crew (trust, talks, topics told, quests and errand
 dog), the yard grid version (`yardV`: an older yard's fence is rebuilt whole
 and its set traps return to stock), typing progress, best score. Only written at the base. An
 older save gets guns on load: the pistol, with mods carried over from its gun upgrades.
+`zs.settings.<n>` holds slot n's settings; `tutorial` there is `null` (none done) or the done tutorial
+card ids, written at once (missing in an older slot = none done, so it does the tutorial too).
 
 ## Content files
 
@@ -399,7 +445,8 @@ the landmarks the facts point at, and the story places (note spots, signs, stash
 and side streets. `js/content/levelN*.js` hold the words at each level: How it works,
 controls, base room texts, road signs and cards (`levelN.js`), every building's notes, signs
 and key (`levelN-places1.js`, `levelN-places2.js`), and the journal, radio, tags and plot
-signs (`levelN-home.js`). `npm test` checks that every level has the same keys as the world,
+signs (`levelN-home.js`); June's first-run tutorial is `level1-tutorial.js` alone, read at every
+level. `npm test` checks that every level has the same keys as the world,
 that lengths match the level, that notes name their building's landmarks, that every story
 note, key, stash and sign works in every building, that every route drives correctly, and
 that every piece of art exists.
