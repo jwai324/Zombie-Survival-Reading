@@ -610,9 +610,11 @@
       const wpm = READ_WPM[State().settings.level] || READ_WPM[0];
       return Math.max(min || 0, 2 + (words(text) * 60) / wpm);
     },
-    toast(text, secs) {
+    /** A message at the top of the screen for `secs`; `pickup` marks one E closes (what you just picked up). */
+    toast(text, secs, pickup) {
       this.hud.toast.textContent = text;
       this.hud.toast.classList.remove("hidden");
+      this.toastPickup = !!pickup;
       clearTimeout(this.toastT);
       this.toastT = setTimeout(() => this.hud.toast.classList.add("hidden"), (secs || 2.5) * 1000);
     },
@@ -662,7 +664,24 @@
       this.walkers.forEach((z) => (z.pathT = 0));
       Audio().play("click");
     },
+    /** What you just picked up is on screen: its tag panel, or its message at the top. */
+    pickupShown() {
+      return (!!this.tagPanel && this.panelKey === this.tagPanel.key) || (!!this.toastPickup && !this.hud.toast.classList.contains("hidden"));
+    },
+    /** E closes what you just picked up; that press does nothing else. */
+    closePickup() {
+      if (!this.pickupShown()) return false;
+      this.tagPanel = null;
+      if (this.toastPickup) {
+        clearTimeout(this.toastT);
+        this.hud.toast.classList.add("hidden");
+        this.toastPickup = false;
+      }
+      Audio().play("click");
+      return true;
+    },
     interact() {
+      if (this.closePickup()) return;
       const f = this.facing();
       if (!f) return;
       if (f.kind === "idoor") {
@@ -774,7 +793,7 @@
       if (sig !== this.hudSig) this.updateHud();
 
       const f = this.facing();
-      const hint = !f ? "" : f.kind === "idoor" ? this.modeCall("DoorHint", f.obj) || (f.obj.open ? "Press E to close the door" : "Press E to open the door") : this.modeCall("Hint", f) || "";
+      const hint = this.pickupShown() ? "Press E to close" : !f ? "" : f.kind === "idoor" ? this.modeCall("DoorHint", f.obj) || (f.obj.open ? "Press E to close the door" : "Press E to open the door") : this.modeCall("Hint", f) || "";
       if (this.hud.hint.textContent !== hint) this.hud.hint.textContent = hint;
       this.updatePanel();
     },

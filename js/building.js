@@ -179,10 +179,10 @@
       this.toastFit(tips.concat("M is the map."), 4.5);
     },
     /** A toast with the longest of `texts` that fits on the screen: Huge text on a small screen gets a short one. */
-    toastFit(texts, secs) {
+    toastFit(texts, secs, pickup) {
       const el = this.hud.toast;
       for (const t of texts) {
-        this.toast(t, secs);
+        this.toast(t, secs, pickup);
         if (!(el.offsetTop < 0)) return; // its layout box, before the pop animation's scale
       }
     },
@@ -386,7 +386,7 @@
           S.trip.cargo[it.item] = (S.trip.cargo[it.item] || 0) + 1;
           S.takeItem(this.loc.id, it.spot, it.source);
           const msg = "Picked up: " + W().ITEMS[it.item].name;
-          this.toast(msg, this.readSecs(msg, 3));
+          this.toast(msg, this.readSecs(msg, 3), true);
           this.showTag(it.item, Number(it.spot.slice(1)) % 2, W().ITEMS[it.item].name);
           Audio().play("pickup");
           this.updateHud();
@@ -399,7 +399,7 @@
         const kt = ZSR.keyText(kp.from);
         const target = W().LOCATIONS.find((l) => l.id === W().KEYS[kp.from]);
         const msgs = ["Found: " + kt.name + ". It opens " + target.stashName + " at " + target.name + ". Get it home to keep it.", "Found: " + kt.name + "."];
-        this.toastFit(msgs, this.readSecs(msgs[0], 5));
+        this.toastFit(msgs, this.readSecs(msgs[0], 5), true);
         if (kt.tag) {
           if (S.trip) S.trip.wordsRead += ZSR.wordCount(kt.tag);
           this.tagPanel = { key: "key:" + kp.from + ":" + this.time, kind: "tag", title: kt.name, status: "Opens " + target.stashName + " at " + target.name, text: kt.tag, until: this.time + this.readSecs(kt.tag, 8) };
@@ -415,7 +415,7 @@
         const w = ZSR.Weapons.WEAPONS[g.id];
         this.switchWeapon(g.id);
         const msgs = ["Found: " + w.name + "! Press " + w.slot + " or Q to switch guns. Get it home to keep it.", "Found: " + w.name + "! " + w.slot + " or Q switches."];
-        this.toastFit(msgs, this.readSecs(msgs[0], 4.5));
+        this.toastFit(msgs, this.readSecs(msgs[0], 4.5), true);
         Audio().play("buy");
       }
       this.piles.forEach((pl) => {
