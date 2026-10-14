@@ -226,6 +226,25 @@ kbd { font-family: var(--font-body); font-weight: 700; background: var(--paper-3
 .bp-section { margin: .8rem 0; }
 .bp-section > summary { cursor: pointer; font-family: var(--font-head); font-weight: 700; font-size: 1.2rem; letter-spacing: .04em; text-transform: uppercase; color: var(--ink); padding: .3rem 0; }
 .recap { font-weight: 700; border-bottom: .125rem dashed rgba(15,16,18,.35); padding-bottom: .4rem; }
+/* June's ledger line for a story object brought home (the day page) */
+.ledger-quest { border-left: .3rem solid var(--olive); padding: .1rem 0 .1rem .7rem; margin: 0 0 .9em; font-style: italic; }
+/* The backpack's crew section: one card per crew member, edged in their color (js/backpack.js renderCrew) */
+.bp-crew { margin: .6rem 0; }
+.bp-crew-card { --crew: var(--olive); background: var(--paper-3); border: .19rem solid var(--ink); border-left: .6rem solid var(--crew); box-shadow: .19rem .19rem 0 var(--ink); padding: .55rem .8rem; margin: .4rem 0; }
+.bp-crew-head { display: flex; flex-wrap: wrap; align-items: center; gap: .3rem .7rem; }
+.bp-crew-name { font-family: var(--font-head); font-weight: 700; font-size: 1.2rem; letter-spacing: .04em; text-transform: uppercase; }
+.bp-crew-req { border-top: .125rem dashed rgba(15,16,18,.35); margin-top: .45rem; padding-top: .4rem; }
+.bp-crew-req p { margin: .2rem 0; }
+.bp-crew-btns { display: flex; flex-wrap: wrap; gap: .5rem; }
+.bp-crew-give { background: var(--paper-2); }
+.bp-crew-dog { margin: .4rem 0 .1rem; }
+.bp-crew-done { margin-top: .4rem; }
+.bp-crew-done > summary { cursor: pointer; font-weight: 700; font-size: .95rem; padding: .2rem 0; }
+/* trust stars (the backpack and the crew card) */
+.crew-stars { display: inline-flex; gap: .12rem; align-items: center; vertical-align: middle; }
+.crew-star { width: 1.15rem; height: 1.15rem; display: block; }
+.crew-star path { fill: var(--paper-3); stroke: var(--ink); stroke-width: 2.2; stroke-linejoin: round; }
+.crew-star.on path { fill: var(--amber-2); }
 .radio-head { font-family: var(--font-head); letter-spacing: .04em; text-transform: uppercase; margin: 1rem 0 .3rem; border-top: .19rem solid var(--ink); padding-top: .6rem; }
 
 /* Stats, pause, death, confirm */
@@ -244,6 +263,37 @@ kbd { font-family: var(--font-body); font-weight: 700; background: var(--paper-3
 .btn.choice.on { background: var(--amber-2); outline: .25rem solid var(--red); }
 .choice-sub { display: block; font-family: var(--font-body); font-size: .8rem; font-weight: 500; letter-spacing: 0; color: var(--muted); }
 .wrong-text { margin: 1.4rem 0 .5rem; font-size: 1.8rem; line-height: 1.2; text-transform: none; }
+/* The crew card (js/main.js): a crew member asks a favor, thanks you, or Pip names the dog. The yard waits.
+   --crew is the crew member's color (CREW[id].color), set on the panel. */
+.crew-panel { --crew: var(--olive); max-width: 42rem; border-left: .75rem solid var(--crew); }
+.cc-head { display: flex; align-items: center; gap: .9rem; margin: .1rem 0 .2rem; }
+.cc-face { flex: none; width: 7.5rem; height: 7.5rem; border: .3rem solid var(--crew); outline: .19rem solid var(--ink); box-shadow: .4rem .4rem 0 var(--ink); background: var(--paper-2); transform: rotate(-1.5deg); overflow: hidden; }
+.cc-face canvas { display: block; width: 100%; height: 100%; }
+.cc-who { min-width: 0; flex: 1; }
+.cc-name-row { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .7rem; }
+.cc-name { font-family: var(--font-comic); font-size: 2rem; letter-spacing: .06em; line-height: 1.05; border-bottom: .3rem solid var(--crew); }
+.cc-title { margin: .45rem 0 0; font-size: 1.35rem; }
+.cc-text { margin: .8rem 0 .6rem; }
+.cc-reward { font-weight: 700; background: #f1e3b5; border: .19rem solid var(--ink); box-shadow: .19rem .19rem 0 var(--ink); padding: .45rem .75rem; margin: .7rem 0 .2rem; line-height: 1.45; }
+.cc-hint { color: var(--red); font-weight: 700; margin: .4rem 0 0; }
+.cc-names { display: grid; grid-template-columns: auto 1fr; gap: .4rem 1rem; align-items: center; margin: .4rem 0 0; }
+.cc-dog { grid-row: span 2; }
+.cc-names.named .cc-ideas, .cc-names.named .cc-own { display: none; }
+.cc-dog canvas { display: block; width: 9rem; height: auto; }
+.cc-ideas { display: flex; flex-wrap: wrap; gap: .5rem; }
+.cc-idea { text-transform: none; letter-spacing: .03em; }
+.cc-own { display: flex; flex-direction: column; gap: .25rem; }
+.cc-own label { font-weight: 700; }
+.cc-own-row { display: flex; gap: .5rem; flex-wrap: wrap; }
+#crew-dogname { flex: 1; min-width: 8rem; font: 700 1.3rem var(--font-head); letter-spacing: .04em; padding: .45rem .7rem; border: var(--border); background: var(--paper-3); color: var(--ink); }
+.cc-own-row .btn { padding: .45rem .9rem; }
+/* a short window: a smaller portrait and dog, so the words and the buttons fit together more often */
+@media (max-height: 720px) {
+  :root:not([data-size="huge"]) .cc-face { width: 5rem; height: 5rem; }
+  :root:not([data-size="huge"]) .cc-dog canvas { width: 6rem; }
+}
+/* the city map's info panel: a crew request waiting in this building */
+.map-quest { border-left: .35rem solid var(--olive); padding-left: .55rem; font-weight: 700; }
 
 /* Save slots on the title screen */
 .slots-title { margin: .6rem 0 .3rem; }
@@ -324,6 +374,26 @@ button[data-tip] { cursor: pointer; }
 :root[data-size="huge"] .upgrade .btn, :root[data-size="huge"] .btn { white-space: normal; max-width: 100%; }
 :root[data-size="huge"] .btn-row, :root[data-size="huge"] .slot .acts, :root[data-size="huge"] .kits .row, :root[data-size="huge"] .fence-row { justify-content: flex-start; }
 :root[data-size="huge"] .logo { font-size: 1.6rem; }
+/* the crew card at Huge: the letters stay one inch; the portrait, the stars and the dog shrink so the words fit */
+:root[data-size="huge"] .crew-panel { border-left-width: .25rem; padding-top: 1.75rem; }
+/* the portrait and the name share the first row; the title takes the full width below them (not squeezed beside the portrait) */
+:root[data-size="huge"] .cc-head { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: .1rem .25rem; }
+:root[data-size="huge"] .cc-who { display: contents; }
+:root[data-size="huge"] .cc-face { width: 1.2rem; height: 1.2rem; border-width: .08rem; outline-width: .05rem; box-shadow: .08rem .08rem 0 var(--ink); transform: none; }
+:root[data-size="huge"] .cc-name { font-size: 1rem; border-bottom-width: .1rem; }
+:root[data-size="huge"] .cc-title { grid-column: 1 / -1; font-size: 1rem; margin-top: .1rem; }
+:root[data-size="huge"] .crew-star { width: .5rem; height: .5rem; }
+:root[data-size="huge"] .cc-text { padding: .2rem .3rem; margin: .3rem 0; }
+:root[data-size="huge"] .cc-text::before, :root[data-size="huge"] .cc-text::after { display: none; } /* the tape strips would cover the words */
+:root[data-size="huge"] .cc-reward { padding: .1rem .25rem; border-width: .08rem; box-shadow: none; font-size: 1rem; }
+:root[data-size="huge"] .cc-names { grid-template-columns: 1fr; }
+:root[data-size="huge"] .cc-dog { display: none; }
+:root[data-size="huge"] #crew-buttons .btn, :root[data-size="huge"] .cc-names .btn, :root[data-size="huge"] .bp-crew-btns .btn { font-size: 1rem; padding: .05rem .3rem; border-width: .08rem; box-shadow: .08rem .08rem 0 var(--ink); }
+:root[data-size="huge"] #crew-buttons, :root[data-size="huge"] .cc-ideas, :root[data-size="huge"] .cc-own-row, :root[data-size="huge"] .bp-crew-btns { gap: .2rem; }
+:root[data-size="huge"] #crew-dogname { font-size: 1rem; padding: .1rem .2rem; border-width: .08rem; min-width: 0; width: 100%; }
+:root[data-size="huge"] .bp-crew-card { border-left-width: .25rem; padding: .2rem .3rem; }
+:root[data-size="huge"] .bp-crew-name { font-size: 1rem; }
+:root[data-size="huge"] .ledger-quest, :root[data-size="huge"] .map-quest { border-left-width: .12rem; padding-left: .2rem; }
 
 /* Full screen: a button in the top-left corner while the page is not full screen (js/main.js
    sets .fs-btn on <html>); the HUD's top rows and the screens make room for it */

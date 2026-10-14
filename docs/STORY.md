@@ -15,12 +15,18 @@ Months after the Fall. A mid-size river town. The player is "you" and is never n
 
 The crew at the cabin (home base, south end of town):
 
-- **June**: in her sixties, a retired school gardener. Calm, dry humor, keeps the crew's
-  journal in a green ledger. Plants anything that will grow.
-- **Tomas**: seventeen, a mechanic's son. Keeps the van alive. Talks to engines. Fixes
-  things with wire and stubbornness.
-- **Pip**: eleven. Runs the radio once it is built, keeps a list of every voice heard.
-  Asks hard questions. Wants a dog.
+- **June** (she): in her sixties, a retired school gardener. Calm, dry humor, keeps the crew's
+  journal in a green ledger and the rules on the door. Plants anything that will grow. Her knees
+  ache on cold mornings. Old friend of Rosa at Greenhouse Row. Not sure she wants to leave the
+  cabin, even if the convoy ever goes.
+- **Tomas** (he): seventeen, a mechanic's son. Keeps the van alive. Talks to engines. Fixes
+  things with wire and stubbornness. Learned from his father, who learned from Mr. Ortiz at Ortiz
+  Auto; his father's fate is never stated. Sleeps in Gus's room.
+- **Pip** (they/them at every reading level): eleven. Runs the radio once it is built, keeps a
+  list of every voice heard. Asks hard questions. Wants a dog (the stray Pip's fifth quest brings
+  home, named by the player) and Finn's treehouse.
+
+They live in the yard and the cabin, not only in the ledger: see "The crew at home base" below.
 
 ## The cabin and the Hollis family
 
@@ -43,6 +49,7 @@ tab). Words at six levels: `T.house` in each `levelN-home.js`.
 | Porch | The THE CABIN / THE HOLLIS FAMILY sign; the dinner bell and "ring for supper" | June's chalk: the bell carries far and walkers come to it, so ring it only when you are ready to fight |
 | Foyer | Five name hooks (Lucy's low), "last one out locks the door"; the keys went with them | |
 | Office | Kate's map desk; a sticky note: the computer runs off the big battery in the closet | The computer holds the base plans (rooms, van, guns, traps) |
+| Office closet | (no note) the big battery and boxes | The crew's shelter in a wave (`CREW_RULES.shelter`) |
 | Dining room | The chore chart, gold stars (Lucy leads, one of Gus's crossed out) | Pip's pencil row: feeds the dog we do not have yet |
 | Kitchen | Kate's note on the fridge, under a fish magnet | |
 | Pantry | Dan's shelf labels: beans, rice, peaches, flour | The crew counts food and everything in storage |
@@ -60,6 +67,80 @@ Tone: a family's home that strangers now live in. Warm, a little sad, never grim
 are written as people who left with a plan and might come back, never as lost. The **dinner
 bell** is the one thing in the house that calls trouble: ringing it brings the next wave of
 walkers, so the texts always pair it with June's warning.
+
+## The crew at home base (facts in `js/story-crew.js`)
+
+June, Tomas and Pip wander the yard and the cabin in the calm, shelter in a wave, talk, help, ask
+for things and earn your trust. The design and the contract between the files is `docs/CREW.md`;
+the owner's decisions are in `DESIGN.md`. Facts: `CREW` (who, where, jobs), `CREW_RULES`,
+`CREW_TALK` (topics and moods), `CREW_TIPS`, `CREW_REPORTS` and `ERRANDS` in `js/story-crew.js`;
+the story quests (five per crew member) and the dog in `js/story-quests.js`. Words at six levels: `T.crew` in
+each `levelN-crew.js`.
+
+**Where they spend the calm** (`CREW[id].posts`; a post tied to a room shows once it is built):
+
+| Crew | In the cabin | In the yard |
+|------|--------------|-------------|
+| June | the porch, by the bench; the kitchen stove; the living room, by the shelf with her ledger; the office (the base plans) | looking over the garden plot; tending the Garden (once built); the Lab's herb beds (once built) |
+| Tomas | Gus's room, where he sleeps; the ping pong table | under the van's hood; by the garage plot; the east fence; the Power and Water plots (once built) |
+| Pip | on the floor by the radio shelf; on the floor by the chore chart; Finn's treehouse plan; Lucy's drawing of a dog with no name yet; the ping pong table | the radio plot, with the list of voices; beside the radio shack (once built); the back fence, watching the trees |
+
+**In a wave** they hurry into the office closet, the shelter, and shut its door; they come out
+when the wave is cleared. A raider that forces the closet door and stays among them hurts one of
+them off-screen: a shout, nothing shown, nobody dies. It costs 1 medical kit from storage, or 2
+food if there is none, and that crew member's trust drops. The dog shelters with them and is
+never hurt.
+
+**Their jobs**, unlocked by trust stars (`CREW[id].jobs`): Tomas fixes fence holes and cracks from
+the start, and the cabin's broken doors and windows from 2 stars; the usual scrap comes out of the
+base's scrap (a quest perk can make it free), and he tells you about it the next time you talk.
+June patches you up once each calm, from 1 star. Pip is the lookout from 1 star: before the quiet
+runs out, Pip calls the next wave's size and sides.
+
+**Trust** is points per crew member, shown as 0 to 5 stars (`CREW_RULES.stars`). The first talk
+each day, errands and story quests earn it; a raid that hurts them, an errand that runs late and a
+request you give up cost some. Stars gate story quests, jobs and topics.
+
+**Talk** (E opens a comic speech bubble; the yard keeps running): what they did since you last
+talked (a report), one live tip (the food, the next build, the van, the fence, the next wave, your
+keys, the walkers in town), and one story topic. Topics unfold by day, by trust, by a note you
+have read, by a room you have built, and once the dog is home. Town news follows June's journal: a
+person or a place out in town comes up no earlier than the ledger day that names it (the crew's
+own past can come up any day). A topic never contradicts a story quest told before or after it.
+Every topic also carries one true, useful thing about how the game works, checked against the code.
+When the topics run out, mood lines repeat; a mood assumes nothing (no build, no find, no dog,
+nobody the crew has not heard of on day 1).
+
+**Errands**, once that crew member's first story quest is handed in, when no story quest is on offer
+(one errand can be open beside a story quest): June asks for
+seed packets, soil, a water filter or medical kits; Tomas for engine parts, nails, fuel or a tool
+kit; Pip for lumber (saved for Finn's treehouse), wire or books. Only items that come back on town
+shelves, so a repeat errand can always be filled: never food, and not radio parts or city maps,
+which only caches and stashes hold. Each crew member's first errand asks for something the start
+places (or their main notes) lead to; wire and books, on shelves further out, come later in the
+turn. Each has a deadline in days; a late one is dropped and costs a little trust.
+
+**Rules for crew texts.** The crew never give a lock answer, never tie a key to its stash, and
+never reveal a place on the map; they only name places the journal, or a note gating the topic,
+already names. Mr. Ortiz is safe at the Water Tower, but the crew say so only once the player has
+read Dev's note there (`watertower-trail1`). Tomas's father's fate is never stated. The Hollises
+are never written as lost, and the convoy never leaves on screen.
+
+**Crew canon the talk adds:**
+
+- June keeps tape and a clean cloth in her cardigan pocket; misses bells that only meant supper;
+  says a ledger only has to be honest, not neat; says Rosa never forgets a friend (her planting
+  chart at Greenhouse Row ends with a line about June's beans); says a garden makes a cabin hard to
+  leave, even for the River Convoy; calls the dog Pip's problem and slips it the last of her beans.
+- Tomas knows every hinge in the cabin by its squeak; wants to fix Gus's guitar someday; will not
+  go north without June; wraps a box of nails in a shirt so it does not rattle; says a good fix is
+  a quiet one; slips Pip half his bread; grins when he hears Mr. Ortiz is safe (only after Dev's note
+  at the Water Tower is read).
+- Pip has counted every wave since the first one and counts the minutes you are gone; got the
+  town's rule onto the door; is saving boards for Finn's treehouse; is teaching the dog to sit,
+  like Biscuit in Lucy's drawing; blames the leaning ping pong table when Tomas wins; reads the
+  first page of every book before choosing one; wants to meet the people still out there helping
+  each other.
 
 ## The people out there (they write the notes)
 

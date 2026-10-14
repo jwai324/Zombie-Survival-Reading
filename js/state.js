@@ -119,6 +119,7 @@
       rod: false, // Chief Dunn's fishing pole, once it is home (found in Station 12's equipment bay)
       riverRest: null, // the day River Landing was fished out (WORLD.RIVER.cap fish on one trip); it rests restockDays
       labAcc: 0, // partial medical kits brewing in the Lab
+      crew: State.crewFresh ? State.crewFresh() : null, // June, Tomas and Pip: trust, talk, requests, the dog (js/crewstate.js)
       stats: { trips: 0, walkers: 0, notesRead: 0, wordsRead: 0, items: 0 },
       wave: 0, // waves survived during this stay at the base (escalation)
       best: { days: 1, baseLevel: 0 },
@@ -170,6 +171,7 @@
     Object.keys(fresh.house).forEach((k) => {
       if (s.house[k] == null) s.house[k] = fresh.house[k];
     });
+    if (State.crewUpgrade) State.crewUpgrade(s); // the crew's fields, one per crew member (a member added later too)
     // where a note was found comes from the facts: a note that has moved since it was read says where it is now
     (Array.isArray(s.backpack) ? s.backpack : []).forEach((n) => {
       const N = n && W().NOTES[n.locId];
@@ -323,6 +325,11 @@
         }
         Object.entries(best).forEach(([k, v]) => (fx[k] += v));
       });
+      // the crew's perks from story quests handed in add on top (js/crewstate.js)
+      if (this.crewFx && this.save.crew) {
+        const c = this.crewFx();
+        ["foodPerDay", "medsPerDay", "footHp", "vanHp"].forEach((k) => (fx[k] += c[k] || 0));
+      }
       return fx;
     },
     vanMaxHp() {
@@ -360,6 +367,8 @@
         crowbarsUsed: 0, // crowbars spent on jammed locks this trip
         tags: [], // item tags read this trip
         signs: [], // wall signs read this trip (counted once for words read)
+        quest: [], // story quest objects picked up this trip (found once you get home; js/crewstate.js)
+        dog: false, // the dog follows you this trip (Pip's quest; home with you, lost if you die)
         walkers: 0,
         wordsRead: 0,
         items: 0,
@@ -480,14 +489,17 @@
         const have = this.save.inventory[k] || 0;
         if (have < n) missing[k] = n - have;
       });
-      const scrapShort = Math.max(0, def.scrap - this.save.scrap);
-      return { ok: !Object.keys(missing).length && !scrapShort, missing, scrapShort, def, requires: [], locked: [] };
+      // scrap: what it costs now (a crew perk can make a crowbar cheaper)
+      const perk = type === "crowbar" && this.crewFx ? this.crewFx().crowbarCost : null;
+      const scrap = perk != null ? Math.min(def.scrap, perk) : def.scrap;
+      const scrapShort = Math.max(0, scrap - this.save.scrap);
+      return { ok: !Object.keys(missing).length && !scrapShort, missing, scrapShort, scrap, def, requires: [], locked: [] };
     },
     craftTool(type) {
       const c = this.canCraftTool(type);
       if (!c.ok) return false;
       Object.entries(c.def.needs).forEach(([k, n]) => (this.save.inventory[k] -= n));
-      this.save.scrap -= c.def.scrap;
+      this.save.scrap -= c.scrap;
       if (type === "crowbar") this.save.crowbars = (this.save.crowbars || 0) + 1;
       this.commit();
       return true;
@@ -583,6 +595,8 @@
         (t.tags || []).forEach((item) => {
           if (!s.tagsSeen.includes(item)) s.tagsSeen.push(item);
         });
+        // the crew: story objects and the dog brought home are found; an open errand counts its item's cargo
+        const crewHome = this.crewTripHome ? this.crewTripHome(t) : [];
         // the crew patches the worst of it overnight, so a near-dead van is never saved as a trap;
         // a hungry trip ran on a lower ceiling, so scale its health back before saving it as damage
         const hp = t.hungry ? t.vanHp / W().SETTINGS.hungryVanPenalty : t.vanHp;
@@ -602,7 +616,14 @@
           s.labAcc -= 1;
           s.inventory.meds = (s.inventory.meds || 0) + 1;
         }
-        this.logDay({ items: Object.values(t.cargo).reduce((a, b) => a + b, 0), scrap: t.scrap, notes: t.notes.length, keys: (t.keys || []).length });
+        if (this.crewDayPassed) this.crewDayPassed(); // late errands, the dog's food, the scrapPerDay perk
+        // quests: story objects (and the dog) brought home, so a day with only one of those is not "nothing"
+        const haul = { items: Object.values(t.cargo).reduce((a, b) => a + b, 0), scrap: t.scrap, notes: t.notes.length, keys: (t.keys || []).length };
+        if (crewHome.length) haul.quests = crewHome.length;
+        const entry = this.logDay(haul);
+        // June's ledger line for each story quest handed in since the last day page (js/crewstate.js)
+        const ledger = this.crewLedgerDrain ? this.crewLedgerDrain() : [];
+        if (ledger.length) entry.quests = ledger;
       }
       this.trip = null;
       if (this.effects().freeRepair) s.vanHp = this.vanMaxHp();
@@ -614,15 +635,41 @@
     cycleIndex(n, len) {
       if (!len) return null;
       if (n < len) return n;
-      const loop = Math.max(1, Math.min(len, Math.floor(len / 3)));
+      const loop = this.cycleLoop(len);
       return len - loop + ((n - len) % loop);
+    },
+    /** How many entries at the end of a list of len repeat (the last third). */
+    cycleLoop(len) {
+      return Math.max(1, Math.min(len, Math.floor(len / 3)));
+    },
+    /** June's page for day index n (cycleIndex). Once the dog is home (js/crewstate.js), a repeating page that
+        wishes for a dog (JOURNAL dogWish: true) would read wrong, so the repeat goes round only the pages of the
+        window that do not, in order, so no page is written two days running (if every page there wishes for a
+        dog, the day's own page stays). Pages before the window are the one-time story: tests/validate-world.js
+        keeps the dog away until the last page that mentions a dog is written, so none of them needs skipping;
+        should one in the window's first pass still wish for a dog, the next page that does not takes its day. */
+    journalIndex(n, J) {
+      const i = this.cycleIndex(n, J.length);
+      if (i == null || !(this.dogHome && this.dogHome())) return i;
+      const loop = this.cycleLoop(J.length);
+      const start = J.length - loop;
+      if (i < start) return i;
+      const keep = [];
+      for (let k = 0; k < loop; k++) {
+        const j = start + ((i - start + k) % loop); // from the day's own page on, round the window
+        if (!(J[j] && J[j].dogWish)) keep.push(j);
+      }
+      if (!keep.length) return i;
+      if (n < J.length) return keep[0]; // the first pass: the day's own page, or the next one that wishes for none
+      keep.sort((a, b) => a - b);
+      return keep[(n - J.length) % keep.length];
     },
     /** Write today's entry (called when a day passes, and on Day 1). `trip` is null on Day 1. */
     logDay(trip) {
       const s = this.save;
       const J = W().JOURNAL || [];
       const R = W().RADIO || [];
-      const entry = { day: s.day, journal: this.cycleIndex(s.day - 1, J.length), radio: null, recap: null };
+      const entry = { day: s.day, journal: this.journalIndex(s.day - 1, J), radio: null, recap: null };
       if (s.rooms.radio > 0 && R.length) {
         entry.radio = this.cycleIndex(s.radioHeard || 0, R.length);
         s.radioHeard = (s.radioHeard || 0) + 1;
@@ -659,15 +706,13 @@
       if ((this.save.inventory.meds || 0) < 1 || (this.save.kits || 0) >= W().SETTINGS.kitsMax) return false;
       this.save.inventory.meds -= 1;
       this.save.kits = (this.save.kits || 0) + 1;
-      this.commit();
-      return true;
+      return true; // the caller saves (js/backpack.js: the yard's sync, which never saves mid-wave)
     },
     unpackKit() {
       if (this.trip || !(this.save.kits > 0)) return false;
       this.save.kits -= 1;
       this.save.inventory.meds = (this.save.inventory.meds || 0) + 1;
-      this.commit();
-      return true;
+      return true; // the caller saves, as packKit
     },
     /** Spend a kit from the backpack ("pack") or the van's cargo ("cargo"). The caller heals the player. */
     useKit(from) {
@@ -1038,7 +1083,17 @@
     const f = ((kind === "journal" ? ZSR.WORLD.JOURNAL : ZSR.WORLD.RADIO) || [])[idx];
     return { title: "", text: f ? f.facts.join(" ") : "" };
   };
-  /** The recap of a day, from the level's templates: {items} {scrap} {notes} {food} {room} {needs} {keys}. */
+  /** An item counted in running text: "1 box of nails", "2 boxes of nails" (WORLD.ITEMS one / many; an item
+      without them falls back to its label, "2 Generator"). For rewards, what a build still needs, and the crew. */
+  ZSR.itemCount = function itemCount(item, n) {
+    const it = ((ZSR.WORLD && ZSR.WORLD.ITEMS) || {})[item];
+    return n + " " + (it ? (n === 1 ? it.one : it.many) || it.name : String(item));
+  };
+  /** "a", "a and b", "a, b and c". */
+  const listWords = (parts) => (parts.length < 2 ? parts.join("") : parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1]);
+  /** The recap of a day, from the level's templates: {items} {scrap} {notes} {food} {room} {needs} {keys}.
+      r.quests: story objects (or the dog) brought home that day; with nothing else, the "nothing" line is left out
+      (June's ledger line for a story quest follows the recap on the first day page after its hand-in: entry.quests). */
   ZSR.recapText = function recapText(r) {
     if (!r) return "";
     const tpl = ZSR.textAt((t) => (t.recap && t.recap.haul ? t.recap : null)) || {
@@ -1054,10 +1109,11 @@
     const W2 = ZSR.WORLD;
     const fill = (s, o) => String(s || "").replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ? o[k] : m));
     const nb = r.next;
-    const needs = nb ? Object.entries(nb.missing || {}).map(([k, n]) => n + " " + W2.ITEMS[k].name).concat(nb.scrap ? [nb.scrap + " scrap"] : []).join(", ") : "";
+    const needs = nb ? listWords(Object.entries(nb.missing || {}).map(([k, n]) => ZSR.itemCount(k, n)).concat(nb.scrap ? [nb.scrap + " scrap"] : [])) : "";
     const o = Object.assign({}, r, { room: nb ? W2.BASE_ROOMS[nb.room].name : "", needs });
     const out = [];
-    out.push(fill(r.items || r.scrap ? tpl.haul : tpl.nothing, o));
+    if (r.items || r.scrap) out.push(fill(tpl.haul, o));
+    else if (!r.quests) out.push(fill(tpl.nothing, o));
     if (r.notes) out.push(fill(tpl.notes, o));
     if (r.keys) out.push(fill(tpl.keys, o));
     out.push(fill(r.hungry ? tpl.hungry : tpl.food, o));

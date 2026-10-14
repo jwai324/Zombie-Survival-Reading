@@ -453,7 +453,7 @@
         },
         "library-sign4": {
           title: "Chalk by the Archive",
-          text: "Chalked beside the archive door in neat, curly letters, the kind a librarian uses on a book cart: ask Mrs. Greer's note before you open a book. A small chalk arrow points toward the reference room with the giant globe.",
+          text: "Beside the archive door, someone has chalked a line in neat, curly letters, the kind a librarian uses on a book cart. It reads: ask Mrs. Greer's note before you open a book. A small chalk arrow points toward the reference room with the giant globe.",
         },
       },
       key: {

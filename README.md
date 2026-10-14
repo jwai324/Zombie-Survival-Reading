@@ -51,6 +51,26 @@ road also work on touch.
    spread. The gun in your hands shows its own mods: a heavier muzzle, a longer barrel and
    sights, a smoother action, a steadier grip (the bow: broadheads, stronger limbs, a smoother
    draw, sight pins).
+   **The crew.** June, Tomas and Pip live at the cabin with you. In the calm they wander
+   between their spots in the yard and the cabin (June by her ledger and the garden, Tomas at the
+   van and the garage, Pip at the radio). Look at one and press E: a speech bubble shows what they
+   did for you, one useful thing (food left, the van, the fence, the next wave, your keys) and a
+   piece of their story, while the yard keeps running. When they have a favor to ask, E again
+   opens a card. Five story quests each send you to bring one object home from one building, and
+   their words say where: the place, which way from the cabin, the room's sign and a landmark.
+   The object is there only once you say yes. Bring it home and hand it over in person for
+   supplies, sometimes a lasting help (more food a day, a cheaper crowbar, free fence fixes, a
+   longer warning of the next wave) and a new story; June writes it up in her ledger. After their
+   first quest they also ask for errands: a few of an ordinary item within a few days. Trust grows
+   as you talk (once a day) and bring things home, and drops when they get hurt, an errand runs
+   late or you give one up; their stars open new stories, quests and jobs. Tomas fixes fence holes
+   and cracks in the calm at the usual scrap (and the cabin's doors and windows at two stars) and
+   tells you later; June patches you up; Pip, as lookout, calls the next wave. In a wave they hide
+   in the office closet, and a walker that forces its door can hurt one of them, which costs a
+   medical kit (or 2 food). Pip's last quest finds the stray dog that barks past the trees: hold
+   out Pip's treats and it follows you to the van; at home you name it, and it follows Pip, barks
+   at walkers and eats a little food. The backpack's Crew section keeps every request to reread,
+   and the city map marks where an object waits.
 2. **Map.** A fixed city of 15 places and River Landing, with named streets and side streets. Only a few
    places are known at first; the notes you read and the Radio room reveal the rest. Pick a
    destination: the route is drawn and "The way there" lists it in words. Each step is
@@ -128,23 +148,31 @@ Up to four players keep their own labeled saves, picked on the title screen.
 ```
 index.html              all screens
 css/style.css           comic-book styling; every size in rem so Huge text (1 inch) scales everything
+css/crew.css            the crew's speech bubble
 js/layouts.js           THE BUILDINGS: one floor plan per place, its four landmarks, wall decor, palette,
                         and its story places: note spots, wall signs, the stash room and the key
 js/world.js             THE FACTS: items, base rooms, the yard and its plots, map locations, roads, the key ring, notes
 js/story.js             story facts inside buildings: trail and dead-end notes, wall signs, stash keys
 js/story-home.js        story facts at home: June's journal, the radio, item tags, the yard plot signs
+js/story-crew.js        the crew's facts: who they are, their spots, rules, talk, tips, reports, errands
+js/story-quests.js      the crew's story quests (one object, one building each) and the dog
 js/streets.js           street names, side streets, lanes and decisions for a route, road text fallback
 js/content/levelN*.js   THE WORDS at reading level N (1..6): levelN.js (how it works, controls, road, rooms,
                         typing), levelN-places1.js and -places2.js (every building), levelN-home.js (journal,
-                        radio, tags, plot signs)
+                        radio, tags, plot signs), levelN-crew.js (the crew's talk, tips, reports, the dog),
+                        levelN-quests.js (the crew's story quests and errands)
 js/locks.js             the locks: answers rolled per save, the {placeholders} they fill in the notes, the lock
                         prompt (keypad, moves, choices, stash keys, crowbar), god mode, fixture art
 js/state.js             settings, the base save, the in-memory trip, room effects, explored maps, the key ring
+js/crewstate.js         the crew's save state: trust, talk, requests, rewards and perks, reports, the dog, their words
 js/interior.js          first-person engine: raycaster, low see-over tiles, roofs, floors and ceilings,
                         props, walkers, shooting and switching guns, reading signs up close, HUD plumbing
 js/building.js          building mode: layouts, landmarks, decor, items, notes, cache, stash and key,
                         wall signs, guns on the floor, the M map
 js/yard.js              yard mode: plots and their builds per level, fence by Walls level, traps, waves, the bell and gunfire
+js/crew.js              the crew in the yard and cabin: wandering, the shelter, raids, Tomas's repairs, the lookout,
+                        the talk bubble, the dog at home
+js/crewart.js           crew art: June, Tomas and Pip in five poses, the dog, portraits, quest objects
 js/river.js             River Landing: the bank, walkers out of the trees, fishing (cast, bite, hook, the pole
                         propped on the bank and its bell), the sign and the dock note
 js/riverart.js          River Landing art: water, the sign, the dock post, the bobber, trees and reeds, the pole
@@ -173,9 +201,10 @@ js/main.js              screen flow
 docs/GAME_SPEC.md       the design as agreed
 docs/TEXT_GUIDE.md      how to write the six reading levels from the facts
 docs/STORY.md           the people, the story threads and the key ring
+docs/CREW.md            the crew at home base: the design and the contract between its files
 docs/SCALING.md         growing the game: limits the city is near, add-a-place checklist, save compatibility
 CLAUDE.md               standing notes for future builds (the game will grow; read docs/SCALING.md first)
-tests/                  world, weapons, text, streets, drive, engine and art validators, script syntax check,
+tests/                  world, weapons, text, streets, drive, engine, crew and art validators, script syntax check,
                         word counter
 ```
 
@@ -194,6 +223,10 @@ tests/                  world, weapons, text, streets, drive, engine and art val
   level must keep at least four times its pre-expansion reading (`npm test` checks).
 - **Change a story fact** (a trail note, a sign, a key, a journal day, a broadcast): edit
   `js/story.js` or `js/story-home.js`, then the six levels. See `docs/STORY.md`.
+- **Change the crew** (a story topic, a quest, an errand, a spot they stand on): edit
+  `js/story-crew.js` or `js/story-quests.js`, then the six levels (`levelN-crew.js`,
+  `levelN-quests.js`). `docs/CREW.md` has the shapes and rules; `npm test` checks the spots, each
+  quest's object spot beside its landmark, the gates, the rewards and every text at every level.
 - **Add a location** (the full checklist and the save rules are in `docs/SCALING.md`): add it to `LOCATIONS`, `NOTES`, `KEYS` and `ROADS` in `js/world.js`, give
   it a street name (and side streets if you like) in `js/streets.js`, draw its floor plan,
   landmarks and story places in `js/layouts.js` (and their art), add its story in

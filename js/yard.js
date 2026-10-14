@@ -7,7 +7,9 @@
    Yard legend (WORLD.YARD.grid): T treeline  F fence segment  V the van  P player start
    z walker spawn (outside the fence), and the cabin's own legend (WORLD.HOUSE).
    The plots are WORLD.YARD.plots; the textures and sprites named below are drawn in
-   yardart.js (the van and the gun in sprites3d.js read the upgrades themselves). */
+   yardart.js (the van and the gun in sprites3d.js read the upgrades themselves). The crew who live
+   here (wandering, the shelter in a wave, their jobs, the talk bubble, the dog) are js/crew.js: this
+   file calls crewEnter, crewDress, crewUpdate, crewWave, crewFacing, crewInteract and crewHint. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -367,17 +369,18 @@
       this.fenceMax = fenceHp;
       this.makePlayer(start[0], start[1], start[2]);
       this.houseLoad(); // the cabin: its doors, windows and roof (js/house.js)
+      this.crewEnter(); // the crew and the dog at their spots (js/crew.js); dressYard puts them in the scene
       this.dressYard();
       this.trapsOffBuilds();
       this.traps = (S.save.yardTraps || []).map((t) => Object.assign({}, t));
       this.player.hp = this.player.maxHp; // home: rested
       this.waveIndex = S.save.wave || 0; // escalation survives a reload and the yard button; resets when a day passes
-      this.phase = { kind: "calm", t: (opts && opts.firstCalm) || W().DEFENSE.firstCalmSeconds, total: 0, spawned: 0, spawnT: 0, size: "none" };
+      this.phase = this.calmPhase((opts && opts.firstCalm) || W().DEFENSE.firstCalmSeconds);
       this.hud.place.textContent = "Home Base";
       this.hud.phase.classList.remove("hidden");
       this.startLoop();
       const holes = this.fenceHoles().length;
-      this.toast(holes ? "Home. The fence has " + holes + " hole" + (holes > 1 ? "s" : "") + ". E at a gap fixes it for 1 scrap." : "Home. Quiet for now.", holes ? 4.5 : 3);
+      this.toast(holes ? "Home. The fence has " + holes + " hole" + (holes > 1 ? "s" : "") + ". E at a gap fixes it for " + W().SETTINGS.fenceRepairScrap + " scrap." : "Home. Quiet for now.", holes ? 4.5 : 3);
     },
 
     /* ---------- What the base rooms put in the yard ---------- */
@@ -408,6 +411,7 @@
       this.yardGround();
       this.dressHouse();
       Object.entries(Y.plots).forEach(([room, plot]) => this.buildPlot(room, plot, (S.save.rooms[room] || 0) | 0));
+      this.crewDress(); // the crew and the dog are props too: back in the scene (js/crew.js)
       this.maskDirty = true;
       this.refreshScene(); // the van's paint and gear may have changed too
       this.yardFenceLook(walls);
@@ -648,13 +652,17 @@
         return false;
       }
       S.save.scrap -= cost;
-      this.fence[key] = this.fenceMax;
-      this.grid[y][x] = "F";
-      this.maskDirty = true;
+      this.mendFence(x, y);
       Audio().play("buy");
       this.updateHud();
       if (this.hooks.onYardChanged) this.hooks.onYardChanged();
       return true;
+    },
+    /** One segment whole again at full strength (the player's repair above, and Tomas's job in js/crew.js). */
+    mendFence(x, y) {
+      this.fence[x + "," + y] = this.fenceMax;
+      this.grid[y][x] = "F";
+      this.maskDirty = true;
     },
     /** Fix every hole the player can afford (the cabin menu button). Returns how many were fixed. */
     repairAllHoles() {
@@ -779,6 +787,24 @@
     },
 
     /* ---------- Waves ---------- */
+    /** A calm of `t` seconds. What comes after it is rolled now (`next`: { size, sides }), so Pip, the
+        lookout (js/crew.js), can call it before it comes; the dinner bell re-rolls a "none" (js/house.js). */
+    calmPhase(t) {
+      return { kind: "calm", t, total: 0, spawned: 0, spawnT: 0, size: "none", next: this.rollWave(false) };
+    },
+    /** The next wave: { size: "none" | "some" | "many", sides }. Forced (after the dinner bell): some or many. */
+    rollWave(forced) {
+      const D = W().DEFENSE;
+      const mix = D.waveMix;
+      const r = Math.random();
+      const size = forced ? (r < mix.some / (mix.some + mix.many) ? "some" : "many") : r < mix.none ? "none" : r < mix.none + mix.some ? "some" : "many";
+      // a wave comes out of the trees on some sides (a heavy one on every side)
+      return { size, sides: size === "none" ? [] : this.pickSides((D.waveSides && D.waveSides[size]) || 4) };
+    },
+    /** Where a wave comes from, as the toasts say it: "the back fence and the fence by the farm". */
+    waveWhere(sides) {
+      return (sides || []).map((s) => SIDE_NAMES[s]).join(" and ");
+    },
     /** `n` different sides of the yard, at random. */
     pickSides(n) {
       const all = shuffle(["n", "e", "s", "w"].filter((s) => this.spawns.some((p) => p[2] === s)));
@@ -826,25 +852,28 @@
       if (ph.kind === "calm") {
         ph.t -= dt;
         if (ph.t <= 0) {
-          // what comes next?
-          const r = Math.random();
-          const mix = D.waveMix;
-          // after the dinner bell there is always a wave
-          const size = ph.forced ? (r < mix.some / (mix.some + mix.many) ? "some" : "many") : r < mix.none ? "none" : r < mix.none + mix.some ? "some" : "many";
+          // what comes next: rolled when the calm began (calmPhase), so it is what Pip called; after the dinner
+          // bell there is always a wave
+          let next = ph.next || this.rollWave(ph.forced);
+          if (ph.forced && next.size === "none") next = this.rollWave(true);
+          const size = next.size;
           if (size === "none") {
-            this.phase = { kind: "calm", t: rand(D.calmSeconds[0], D.calmSeconds[1]), size: "none" };
+            this.phase = this.calmPhase(rand(D.calmSeconds[0], D.calmSeconds[1]));
             this.toast("Still quiet. Nothing at the fence.", 3);
           } else {
             this.waveIndex += 1;
             S.save.wave = this.waveIndex;
             const total = size === "some" ? D.someCount(S.save.day, this.waveIndex) : D.manyCount(S.save.day, this.waveIndex);
-            // a wave comes out of the trees on some sides (a heavy one on every side), and the toast says where
-            const sides = this.pickSides((D.waveSides && D.waveSides[size]) || 4);
+            // it comes out of the trees on the sides rolled with it, and the toast says where
+            const sides = next.sides && next.sides.length ? next.sides : this.pickSides((D.waveSides && D.waveSides[size]) || 4);
             const every = sides.length >= 4;
-            const where = sides.map((s) => SIDE_NAMES[s]).join(" and ");
+            const where = this.waveWhere(sides);
             this.phase = { kind: "wave", size, total, spawned: 0, spawnT: 0, t: 0, sides };
-            if (size === "many") this.toast(every ? "A lot of them, from every side. Hold the fence!" : "A lot of them: " + where + ". Hold the fence!", 3.5);
-            else this.toast(every ? "Walkers on every side." : "Walkers at " + where + ".", 3.5);
+            // the crew hurry to the shelter; the dog's bark joins the toast, so the toast still says where
+            const bark = this.crewWave(true);
+            const tail = bark ? " " + bark : "";
+            if (size === "many") this.toast((every ? "A lot of them, from every side. Hold the fence!" : "A lot of them: " + where + ". Hold the fence!") + tail, bark ? 4.5 : 3.5);
+            else this.toast((every ? "Walkers on every side." : "Walkers at " + where + ".") + tail, bark ? 4.5 : 3.5);
             Audio().play("haven");
           }
           this.updateHud();
@@ -870,12 +899,22 @@
           ph.spawned += 1;
         }
         if (ph.spawned >= ph.total && this.walkers.length === 0) {
-          this.phase = { kind: "calm", t: rand(D.calmSeconds[0], D.calmSeconds[1]), size: "none" };
-          // nobody patches the fence for you: every hole costs scrap
+          this.phase = this.calmPhase(rand(D.calmSeconds[0], D.calmSeconds[1]));
+          this.crewWave(false); // the crew come out of the shelter
+          // every hole costs scrap. With the fence job unlocked (CREW[id].jobs, by trust stars) Tomas sees to the
+          // holes in the calm and the scrap still comes out of the base (js/crew.js); with the cabin job, to broken
+          // doors and windows too. E at a gap or a door still fixes it at once.
           const holes = this.fenceHoles().length;
           const broken = this.houseDamage().broken;
-          const cabin = broken ? " The cabin has " + broken + " broken door" + (broken > 1 ? "s or windows" : " or window") + ": E there fixes it, or use the computer." : "";
-          this.toast((holes ? "Wave cleared. " + holes + " hole" + (holes > 1 ? "s" : "") + " in the fence: E at a gap fixes it for " + W().SETTINGS.fenceRepairScrap + " scrap." : "Wave cleared. The fence held.") + cabin, holes || broken ? 5 : 3);
+          // (only while the base can pay: with no scrap nobody fixes anything)
+          const fixer = this.crewCanPay("fence") && this.crewFixer("fence");
+          const cabinFixer = this.crewCanPay("cabin") && this.crewFixer("cabin");
+          const fenceScrap = W().SETTINGS.fenceRepairScrap + " scrap";
+          const fence = !holes
+            ? "Wave cleared. The fence held."
+            : "Wave cleared. " + holes + " hole" + (holes > 1 ? "s" : "") + " in the fence: " + (fixer ? fixer + " will fix " + (holes > 1 ? "them (" + fenceScrap + " each" : "it (" + fenceScrap) + ", from the base), or E at a gap fixes one now." : "E at a gap fixes it for " + fenceScrap + ".");
+          const cabin = !broken ? "" : " The cabin has " + broken + " broken door" + (broken > 1 ? "s or windows" : " or window") + (cabinFixer ? ": " + cabinFixer + " will see to " + (broken > 1 ? "them" : "it") + ", or E there fixes it now." : ": E there fixes it, or use the computer.");
+          this.toast(fence + cabin, holes || broken ? 5.5 : 3);
           Audio().play("correct");
           if (this.hooks.onWaveCleared) this.hooks.onWaveCleared();
         }
@@ -893,6 +932,7 @@
       this.updateTraps(dt);
       this.yardUnjam(dt);
       this.yardAnimate(dt);
+      this.crewUpdate(dt); // the crew wander, shelter, fix things, call the next wave (js/crew.js)
       // the signs follow the text size
       const de = root.document && root.document.documentElement;
       if (de && de.getAttribute("data-size") !== this.yardSize) this.dressYard();
@@ -918,6 +958,7 @@
         if (hp == null) cand.push({ kind: "hole", obj: [gx, gy], x: gx + 0.5, y: gy + 0.5 });
         else if (hp < this.fenceMax * 0.5) cand.push({ kind: "crack", obj: [gx, gy], x: gx + 0.5, y: gy + 0.5 });
       }
+      this.crewFacing(cand); // a crew member or the dog right under the crosshair (js/crew.js); last, so it sees the spots
     },
     yardInteract(f) {
       const inWave = this.phase && this.phase.kind === "wave";
@@ -928,6 +969,8 @@
         this.repairFence(f.obj[0], f.obj[1]);
       } else if (f.kind === "spot" || f.kind === "pane") {
         this.houseInteract(f);
+      } else if (f.kind === "crew" || f.kind === "dog") {
+        this.crewInteract(f);
       } else if (f.kind === "van") {
         if (inWave) {
           this.toast("Not now. Clear the fence first.", 2.5);
@@ -942,6 +985,7 @@
       if (f.kind === "hole") return "Press E to rebuild the fence (" + fix + ")";
       if (f.kind === "crack") return "Press E to brace the fence (" + fix + ")";
       if (f.kind === "spot" || f.kind === "pane") return this.houseHint(f);
+      if (f.kind === "crew" || f.kind === "dog") return this.crewHint(f);
       if (f.kind === "van") return inWave ? "The van (clear the wave first)" : "Press E to head out in the van";
       return "";
     },

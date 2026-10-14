@@ -262,7 +262,7 @@
     },
     {
       title: "Theo at the Tower",
-      text: "This is Theo at the Water Tower. I take care of the pumps here. Dev and Mr. Ortiz are staying with me, because we have clean water. Dev has a message for his sister. Ruby, I am safe with Theo, so come west. That is all. Theo out.",
+      text: "This is Theo at the Water Tower. I take care of the pumps here. Dev and Mr. Ortiz are staying with me. They stay because we have clean water. Dev has a message for his sister. Ruby, I am safe with Theo, so come west. That is all. Theo out.",
     },
     {
       title: "Ruby Heads West",

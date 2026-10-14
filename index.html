@@ -10,6 +10,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Oswald:wght@500;700&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/bench.css">
+  <link rel="stylesheet" href="css/crew.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='18' width='52' height='30' rx='4' fill='%235b6b3a' stroke='%230f1012' stroke-width='5'/%3E%3Crect x='12' y='24' width='16' height='10' fill='%232b3540' stroke='%230f1012' stroke-width='4'/%3E%3Ccircle cx='18' cy='50' r='7' fill='%231f2023' stroke='%230f1012' stroke-width='4'/%3E%3Ccircle cx='46' cy='50' r='7' fill='%231f2023' stroke='%230f1012' stroke-width='4'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -175,6 +176,7 @@
       <div class="caption">Backpack</div>
       <div id="backpack-kits"></div>
       <div id="backpack-keys"></div>
+      <div id="backpack-crew"></div>
       <h2>Notes you've read</h2>
       <div id="backpack-body"></div>
       <div id="backpack-days"></div>
@@ -254,6 +256,37 @@
     </div>
   </section>
 
+  <!-- CREW CARD: a crew member asks you a favor, thanks you for one, or Pip names the dog. Pauses the yard;
+       Enter is the main button, Esc is "Not now" (js/main.js, the crew card) -->
+  <section id="screen-crew" class="screen hidden overlay">
+    <div id="crew-panel" class="panel crew-panel" role="dialog" aria-modal="true" aria-labelledby="crew-title">
+      <div id="crew-caption" class="caption">The crew</div>
+      <div class="cc-head">
+        <div id="crew-face" class="cc-face" aria-hidden="true"></div>
+        <div class="cc-who">
+          <div class="cc-name-row"><span id="crew-name" class="cc-name"></span><span id="crew-stars"></span></div>
+          <h2 id="crew-title" class="reading-title cc-title"></h2>
+        </div>
+      </div>
+      <div id="crew-text" class="paper reading cc-text"></div>
+      <div id="crew-names" class="cc-names hidden">
+        <div id="crew-dog" class="cc-dog" aria-hidden="true"></div>
+        <div id="crew-ideas" class="cc-ideas"></div>
+        <div class="cc-own">
+          <label for="crew-dogname" class="small">Or your own name</label>
+          <div class="cc-own-row">
+            <!-- maxlength: js/crewstate.js DOG_NAME_MAX (nameDog trims to it anyway) -->
+            <input type="text" id="crew-dogname" maxlength="14" autocomplete="off" spellcheck="false" placeholder="A name">
+            <button id="btn-crew-name" class="btn go">Name it</button>
+          </div>
+        </div>
+      </div>
+      <p id="crew-reward" class="cc-reward hidden"></p>
+      <p id="crew-hint" class="small cc-hint hidden" role="alert"></p>
+      <div id="crew-buttons" class="btn-row"></div>
+    </div>
+  </section>
+
   <!-- CONFIRM -->
   <section id="screen-confirm" class="screen hidden overlay">
     <div class="panel confirm-panel">
@@ -274,35 +307,50 @@
 <script src="js/world.js"></script>
 <script src="js/story.js"></script>
 <script src="js/story-home.js"></script>
+<script src="js/story-crew.js"></script>
+<script src="js/story-quests.js"></script>
 <!-- SCALE: each levelN.js assigns ZSR.TEXT[N] and must come before its part files. More places go in new
      part files (levelN-places3.js ...), each with its own tag here; tests/validate-text.js finds them. -->
 <script src="js/content/level1.js"></script>
 <script src="js/content/level1-places1.js"></script>
 <script src="js/content/level1-places2.js"></script>
 <script src="js/content/level1-home.js"></script>
+<script src="js/content/level1-crew.js"></script>
+<script src="js/content/level1-quests.js"></script>
 <script src="js/content/level2.js"></script>
 <script src="js/content/level2-places1.js"></script>
 <script src="js/content/level2-places2.js"></script>
 <script src="js/content/level2-home.js"></script>
+<script src="js/content/level2-crew.js"></script>
+<script src="js/content/level2-quests.js"></script>
 <script src="js/content/level3.js"></script>
 <script src="js/content/level3-places1.js"></script>
 <script src="js/content/level3-places2.js"></script>
 <script src="js/content/level3-home.js"></script>
+<script src="js/content/level3-crew.js"></script>
+<script src="js/content/level3-quests.js"></script>
 <script src="js/content/level4.js"></script>
 <script src="js/content/level4-places1.js"></script>
 <script src="js/content/level4-places2.js"></script>
 <script src="js/content/level4-home.js"></script>
+<script src="js/content/level4-crew.js"></script>
+<script src="js/content/level4-quests.js"></script>
 <script src="js/content/level5.js"></script>
 <script src="js/content/level5-places1.js"></script>
 <script src="js/content/level5-places2.js"></script>
 <script src="js/content/level5-home.js"></script>
+<script src="js/content/level5-crew.js"></script>
+<script src="js/content/level5-quests.js"></script>
 <script src="js/content/level6.js"></script>
 <script src="js/content/level6-places1.js"></script>
 <script src="js/content/level6-places2.js"></script>
 <script src="js/content/level6-home.js"></script>
+<script src="js/content/level6-crew.js"></script>
+<script src="js/content/level6-quests.js"></script>
 <script src="js/upgrades.js"></script>
 <script src="js/weapons.js"></script>
 <script src="js/state.js"></script>
+<script src="js/crewstate.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/sprites3d.js"></script>
@@ -311,6 +359,7 @@
 <script src="js/yardart.js"></script>
 <script src="js/houseart.js"></script>
 <script src="js/riverart.js"></script>
+<script src="js/crewart.js"></script>
 <script src="js/decor.js"></script>
 <script src="js/locks.js"></script>
 <script src="js/streets.js"></script>
@@ -319,6 +368,7 @@
 <script src="js/building.js"></script>
 <script src="js/yard.js"></script>
 <script src="js/house.js"></script>
+<script src="js/crew.js"></script>
 <script src="js/river.js"></script>
 <script src="js/map.js"></script>
 <script src="js/backpack.js"></script>

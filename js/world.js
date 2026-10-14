@@ -5,26 +5,29 @@
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
 
-  /* ---------- Items (currency is scrap; everything else is cargo) ---------- */
+  /* ---------- Items (currency is scrap; everything else is cargo) ----------
+     name: the item's label (lists, tags, the pantry, "2 of these: Box of nails"). one / many: the item counted in
+     running text, "1 box of nails", "2 boxes of nails" (ZSR.itemCount: rewards, what a build still needs, the
+     crew's hand-in line). Each keeps the last word of the name (less a plural s), as the quest briefs promise it. */
   const ITEMS = {
-    fuel: { name: "Fuel can", code: "FUEL", color: "#b3261e" },
-    food: { name: "Food crate", code: "FOOD", color: "#7a9a3c" },
-    lumber: { name: "Lumber", code: "WOOD", color: "#8a5a2e" },
-    nails: { name: "Box of nails", code: "NAIL", color: "#6e7278" },
-    tools: { name: "Tool kit", code: "TOOL", color: "#d9a21b" },
-    parts: { name: "Engine parts", code: "PART", color: "#4b5057" },
-    wire: { name: "Spool of wire", code: "WIRE", color: "#c08f1a" },
-    radioParts: { name: "Radio parts", code: "RDIO", color: "#3f5a8a" },
-    seeds: { name: "Seed packets", code: "SEED", color: "#5b6b3a" },
-    soil: { name: "Bag of soil", code: "SOIL", color: "#5a4535" },
-    meds: { name: "Medical kit", code: "MEDS", color: "#e6dfcc" },
-    waterFilter: { name: "Water filter", code: "FLTR", color: "#3aa0c0" },
-    waterTank: { name: "Water tank", code: "TANK", color: "#2b7a8a" },
-    generator: { name: "Generator", code: "GENR", color: "#2f3136" },
-    gunParts: { name: "Gun parts", code: "GUNP", color: "#1f2023" },
-    armorPlate: { name: "Armor plate", code: "ARMR", color: "#9ea3aa" },
-    books: { name: "Box of books", code: "BOOK", color: "#6b3f8a" },
-    maps: { name: "City maps", code: "MAPS", color: "#c9b78a" },
+    fuel: { name: "Fuel can", one: "fuel can", many: "fuel cans", code: "FUEL", color: "#b3261e" },
+    food: { name: "Food crate", one: "food crate", many: "food crates", code: "FOOD", color: "#7a9a3c" },
+    lumber: { name: "Lumber", one: "piece of lumber", many: "pieces of lumber", code: "WOOD", color: "#8a5a2e" },
+    nails: { name: "Box of nails", one: "box of nails", many: "boxes of nails", code: "NAIL", color: "#6e7278" },
+    tools: { name: "Tool kit", one: "tool kit", many: "tool kits", code: "TOOL", color: "#d9a21b" },
+    parts: { name: "Engine parts", one: "box of engine parts", many: "boxes of engine parts", code: "PART", color: "#4b5057" },
+    wire: { name: "Spool of wire", one: "spool of wire", many: "spools of wire", code: "WIRE", color: "#c08f1a" },
+    radioParts: { name: "Radio parts", one: "box of radio parts", many: "boxes of radio parts", code: "RDIO", color: "#3f5a8a" },
+    seeds: { name: "Seed packets", one: "seed packet", many: "seed packets", code: "SEED", color: "#5b6b3a" },
+    soil: { name: "Bag of soil", one: "bag of soil", many: "bags of soil", code: "SOIL", color: "#5a4535" },
+    meds: { name: "Medical kit", one: "medical kit", many: "medical kits", code: "MEDS", color: "#e6dfcc" },
+    waterFilter: { name: "Water filter", one: "water filter", many: "water filters", code: "FLTR", color: "#3aa0c0" },
+    waterTank: { name: "Water tank", one: "water tank", many: "water tanks", code: "TANK", color: "#2b7a8a" },
+    generator: { name: "Generator", one: "generator", many: "generators", code: "GENR", color: "#2f3136" },
+    gunParts: { name: "Gun parts", one: "box of gun parts", many: "boxes of gun parts", code: "GUNP", color: "#1f2023" },
+    armorPlate: { name: "Armor plate", one: "armor plate", many: "armor plates", code: "ARMR", color: "#9ea3aa" },
+    books: { name: "Box of books", one: "box of books", many: "boxes of books", code: "BOOK", color: "#6b3f8a" },
+    maps: { name: "City maps", one: "folder of city maps", many: "folders of city maps", code: "MAPS", color: "#c9b78a" },
   };
 
   /* ---------- Home base rooms: 3 levels each, with what they do ---------- */
