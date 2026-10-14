@@ -102,7 +102,9 @@
       known: W().LOCATIONS.filter((l) => l.known).map((l) => l.id),
       loc: {}, // per location: { taken: {spot: dayTaken}, cacheOpened, cacheTaken: {spot: true}, visits }
       backpack: [], // [{ noteId, locId, found, day }]
-      keys: {}, // stash keys found: { [locId where it was found]: { day } }; KEYS says which stash each opens
+      keys: {}, // stash keys found: { [locId where it was found]: { day, broken } }; KEYS says which stash each opens
+      lockSeed: Math.floor(Math.random() * 2147483646) + 1, // this save's codes, moves and hiding places (js/locks.js)
+      crowbars: 0, // crowbars built at the workbench: each pries open one jammed lock
       tagsSeen: [], // item keys whose tags have been read (kept in the backpack)
       log: [], // one entry per day at home: { day, journal, radio, recap }; the words come from the reading level
       radioHeard: 0, // broadcasts heard so far (the next one plays the day after)
@@ -350,6 +352,8 @@
         keys: [], // stash keys picked up this trip (yours once you get home)
         rod: false, // the fishing pole, picked up this trip (yours once you get home)
         fish: 0, // fish caught at River Landing this trip (each one is a food in the cargo)
+        brokenKeys: [], // stash keys snapped off in a wrong lock this trip (gone once you get home)
+        crowbarsUsed: 0, // crowbars spent on jammed locks this trip
         tags: [], // item tags read this trip
         signs: [], // wall signs read this trip (counted once for words read)
         walkers: 0,
@@ -368,6 +372,10 @@
         cacheTaken: Object.assign({}, base.cacheTaken, over.cacheTaken),
         stashOpened: !!(base.stashOpened || over.stashOpened),
         stashTaken: Object.assign({}, base.stashTaken, over.stashTaken),
+        cacheJammed: !!(base.cacheJammed || over.cacheJammed), // a lock gone wrong: a crowbar opens it
+        stashJammed: !!(base.stashJammed || over.stashJammed),
+        alarmOff: !!(base.alarmOff || over.alarmOff), // the alarm panel turned off the right way
+        cacheKey: !!(base.cacheKey || over.cacheKey), // what the search found (the key or badge to the cache door)
         visits: (base.visits || 0) + (over.visits || 0),
         seen: this.mergeSeen(base.seen, over.seen), // the explored map (packSeen), saved plus this trip
       };
@@ -399,7 +407,7 @@
       return sb.dims + ":" + toB64(sb.bytes);
     },
     tripLoc(id) {
-      if (!this.trip.loc[id]) this.trip.loc[id] = { taken: {}, cacheTaken: {}, cacheOpened: false, stashTaken: {}, stashOpened: false, visits: 0 };
+      if (!this.trip.loc[id]) this.trip.loc[id] = { taken: {}, cacheTaken: {}, cacheOpened: false, stashTaken: {}, stashOpened: false, cacheJammed: false, stashJammed: false, alarmOff: false, cacheKey: false, visits: 0 };
       return this.trip.loc[id];
     },
     itemAvailable(id, spot) {
@@ -427,7 +435,16 @@
     },
     canOpenStash(stashId) {
       const from = this.keySourceFor(stashId);
-      return !!from && this.hasKeyFrom(from);
+      return !!from && this.hasKeyFrom(from) && !this.keyBroken(from);
+    },
+    /** The key found at `fromId` snapped off in a wrong lock (saved, or this trip). */
+    keyBroken(fromId) {
+      return !!(this.save.keys && this.save.keys[fromId] && this.save.keys[fromId].broken) || (!!this.trip && (this.trip.brokenKeys || []).includes(fromId));
+    },
+    breakKey(fromId) {
+      if (this.trip) {
+        if (!this.trip.brokenKeys.includes(fromId)) this.trip.brokenKeys.push(fromId);
+      } else if (this.save.keys[fromId]) this.save.keys[fromId].broken = true;
     },
     takeKey(fromId) {
       if (this.hasKeyFrom(fromId)) return false;
@@ -435,11 +452,41 @@
       else this.save.keys[fromId] = { day: this.save.day };
       return true;
     },
-    /** Keys held right now: [{ from, opens, day, trip }]. */
+    /** Keys held right now: [{ from, opens, day, trip, broken }]. */
     keysHeld() {
-      const out = Object.entries(this.save.keys || {}).map(([from, k]) => ({ from, opens: W().KEYS[from], day: k.day, trip: false }));
-      ((this.trip && this.trip.keys) || []).forEach((from) => out.push({ from, opens: W().KEYS[from], day: this.save.day, trip: true }));
+      const out = Object.entries(this.save.keys || {}).map(([from, k]) => ({ from, opens: W().KEYS[from], day: k.day, trip: false, broken: this.keyBroken(from) }));
+      ((this.trip && this.trip.keys) || []).forEach((from) => out.push({ from, opens: W().KEYS[from], day: this.save.day, trip: true, broken: this.keyBroken(from) }));
       return out;
+    },
+
+    /* ---------- Crowbars (WORLD.TOOLS): built at home, spent on jammed locks ---------- */
+    crowbarsLeft() {
+      return Math.max(0, (this.save.crowbars || 0) - ((this.trip && this.trip.crowbarsUsed) || 0));
+    },
+    useCrowbar() {
+      if (this.crowbarsLeft() < 1) return false;
+      if (this.trip) this.trip.crowbarsUsed += 1;
+      else this.save.crowbars -= 1;
+      return true;
+    },
+    canCraftTool(type) {
+      const def = W().TOOLS[type];
+      const missing = {};
+      Object.entries(def.needs).forEach(([k, n]) => {
+        const have = this.save.inventory[k] || 0;
+        if (have < n) missing[k] = n - have;
+      });
+      const scrapShort = Math.max(0, def.scrap - this.save.scrap);
+      return { ok: !Object.keys(missing).length && !scrapShort, missing, scrapShort, def, requires: [], locked: [] };
+    },
+    craftTool(type) {
+      const c = this.canCraftTool(type);
+      if (!c.ok) return false;
+      Object.entries(c.def.needs).forEach(([k, n]) => (this.save.inventory[k] -= n));
+      this.save.scrap -= c.def.scrap;
+      if (type === "crowbar") this.save.crowbars = (this.save.crowbars || 0) + 1;
+      this.commit();
+      return true;
     },
 
     /* ---------- Item tags ---------- */
@@ -509,6 +556,7 @@
           base.cacheOpened = base.cacheOpened || over.cacheOpened;
           base.stashTaken = Object.assign(base.stashTaken || {}, over.stashTaken);
           base.stashOpened = !!(base.stashOpened || over.stashOpened);
+          ["cacheJammed", "stashJammed", "alarmOff", "cacheKey"].forEach((k) => (base[k] = !!(base[k] || over[k])));
           base.visits += over.visits || 0;
           if (over.seen) base.seen = this.mergeSeen(base.seen, over.seen);
         });
@@ -524,6 +572,10 @@
         (t.keys || []).forEach((from) => {
           if (!s.keys[from]) s.keys[from] = { day: s.day };
         });
+        (t.brokenKeys || []).forEach((from) => {
+          if (s.keys[from]) s.keys[from].broken = true;
+        });
+        s.crowbars = Math.max(0, (s.crowbars || 0) - (t.crowbarsUsed || 0));
         (t.tags || []).forEach((item) => {
           if (!s.tagsSeen.includes(item)) s.tagsSeen.push(item);
         });
@@ -892,9 +944,10 @@
       const e = L && (isDoor ? L.door : L.notes && L.notes[noteId]);
       return e && e.text ? e : null;
     });
-    if (entry) return { title: entry.title || "Note", text: entry.text };
+    const fill = (t) => (ZSR.Locks ? ZSR.Locks.fill(locId, t) : t); // this save's codes, moves and hiding places
+    if (entry) return { title: entry.title || "Note", text: fill(entry.text) };
     const facts = isDoor ? N.door.facts : (N.notes.find((n) => n.id === noteId) || {}).facts || [];
-    return { title: isDoor ? "At the door" : "A note", text: facts.join(" ") };
+    return { title: isDoor ? "At the door" : "A note", text: fill(facts.join(" ")) };
   };
   /** A wall sign or graffiti inside a building. */
   ZSR.signText = function signText(locId, signId) {
@@ -902,9 +955,10 @@
       const s = t.locations && t.locations[locId] && t.locations[locId].signs && t.locations[locId].signs[signId];
       return s && s.text ? s : null;
     });
-    if (e) return { title: e.title || "Sign", text: e.text };
+    const fill = (t) => (ZSR.Locks ? ZSR.Locks.fill(locId, t) : t);
+    if (e) return { title: e.title || "Sign", text: fill(e.text) };
     const sg = ((ZSR.WORLD.NOTES[locId] || {}).signs || []).find((x) => x.id === signId);
-    return { title: sg && sg.kind === "graffiti" ? "Spray paint" : "Sign", text: sg ? sg.facts.join(" ") : "" };
+    return { title: sg && sg.kind === "graffiti" ? "Spray paint" : "Sign", text: sg ? fill(sg.facts.join(" ")) : "" };
   };
   /** The stash key hidden at `fromId`: { name, tag }. */
   ZSR.keyText = function keyText(fromId) {

@@ -18,7 +18,7 @@ const ROOT = path.join(__dirname, "..");
 // baseline: in-world reading words (everything but the typing drills) before the reading expansion;
 // every level must now carry at least READING_FLOOR times that.
 const LEVELS = {
-  1: { words: [55, 90], sentence: 7, sign: [6, 22], tag: [10, 24], lot: [20, 48], day: [25, 55], baseline: 2600, typeWord: [3, 4], typePhrase: [2, 2], typeSentence: [3, 6] },
+  1: { words: [65, 130], sentence: 9, sign: [6, 22], tag: [10, 24], lot: [20, 48], day: [25, 55], baseline: 2600, typeWord: [3, 4], typePhrase: [2, 2], typeSentence: [3, 6] },
   2: { words: [80, 120], sentence: 10, sign: [8, 26], tag: [14, 30], lot: [30, 62], day: [35, 72], baseline: 3765, typeWord: [3, 5], typePhrase: [2, 2], typeSentence: [4, 7] },
   3: { words: [110, 160], sentence: 14, sign: [10, 32], tag: [18, 36], lot: [40, 82], day: [50, 95], baseline: 4744, typeWord: [3, 6], typePhrase: [2, 3], typeSentence: [5, 9] },
   4: { words: [150, 210], sentence: 18, sign: [12, 40], tag: [22, 44], lot: [55, 100], day: [70, 125], baseline: 5502, typeWord: [4, 7], typePhrase: [2, 3], typeSentence: [6, 10] },
@@ -26,6 +26,11 @@ const LEVELS = {
   6: { words: [230, 320], sentence: 26, sign: [18, 56], tag: [30, 62], lot: [85, 140], day: [110, 185], baseline: 7384, typeWord: [5, 9], typePhrase: [2, 4], typeSentence: [8, 12] },
 };
 const READING_FLOOR = 4;
+// the lock answers each save rolls (js/locks.js) and the fixed answers they replaced
+const PLACEHOLDERS = ["code", "codeSpoken", "decoyCode", "decoyCodeSpoken", "move1", "move2", "moves", "decoyMove1", "decoyMove2", "decoyMoves", "pick", "decoyPick", "button", "decoyButton"];
+const OLD_ANSWERS = ["4471", "4417", "19-4-33", "33-4-19", "2218", "2281", "0912", "0921", "red key on the board", "ask the dictionary", "on the hook under the counter", "taped under the register", "in the watering can", "in the top desk drawer", "inside the big dictionary"];
+/* what a mistake costs, by kind: a note that warns of it must say so in words the player knows */
+const FAIL_WORDS = { trap: /\b(trap|rigged|bomb|blast|kill|kills|shock|live|die|dead)\b/i, alarm: /\b(alarm|bells?|horns?|noise)\b/i, jam: /\b(jam|jams|jammed|crowbar)\b/i };
 // people from docs/STORY.md: a fact that names one must be carried by the text that names them too
 const PEOPLE = ["Ruby", "Dev", "Lin", "Ada", "Jo", "Max", "Mia", "Adler", "Greer", "Vega", "Dunn", "Luis", "Theo", "Rosa", "Reyes", "Hana", "Okafor", "Priya", "Ortiz", "Carla", "June", "Tomas", "Pip", "Kate", "Dan", "Gus", "Finn", "Lucy", "Biscuit", "Hollis"];
 const errors = [];
@@ -70,6 +75,10 @@ function checkText(ctx, text, spec, scale, facts, range) {
   const longest = sentences(text).reduce((m, s) => Math.max(m, words(s).length), 0);
   if (longest > spec.sentence + 3) warn(ctx, `longest sentence ${longest} words, max ${spec.sentence}`);
   if (/Shambler|poof/i.test(text)) err(ctx, "old-world term");
+  // the lock answers are rolled per save: the words carry {placeholders}, never a fixed code
+  (String(text).match(/\{(\w+)\}/g) || []).forEach((ph) => { if (!PLACEHOLDERS.includes(ph.slice(1, -1))) err(ctx, `unknown placeholder ${ph}`); });
+  OLD_ANSWERS.forEach((old) => { if (String(text).includes(old)) err(ctx, `still gives the old fixed answer "${old}" (use the {placeholder})`); });
+  (facts || []).forEach((f) => (f.match(/\{\w+\}/g) || []).forEach((ph) => { if (!String(text).includes(ph)) err(ctx, `fact placeholder ${ph} missing from text`); }));
   // numbers and codes from the facts must survive verbatim
   (facts || []).forEach((f) => {
     (f.match(/\b\d[\d-]*\b/g) || []).forEach((num) => {
@@ -149,6 +158,8 @@ const HOWTO_MUST = [
   [/\blab\b/i, "the Lab (late game: medicine made at home)"],
   [/\bstash/i, "stashes (a locked room in every building)"],
   [/\bkeys?\b/i, "stash keys (hidden in another building, found by reading)"],
+  [/crowbar/i, "the crowbar (a jammed lock needs one; build it at the workbench)"],
+  [/alarm/i, "alarms (a wrong code or button sets one off)"],
   [/journal/i, "June's journal (a page every day at home)"],
   [/radio/i, "the radio (broadcasts once the Radio room is built)"],
   [/\blanes?\b/i, "lanes on the road (be in the right lane before the stop line)"],
@@ -477,6 +488,13 @@ function checkLevel(n) {
       checkStreets(`${lctx} ${note.id}`, T.text, loc.id, note.reveals);
       if ((note.unlocks || note.kind === "trail") && marks.length && !landmarksIn(T.text, marks).length) err(`${lctx} ${note.id}`, `must name at least one landmark (${marks.join(", ")})`);
       if (note.unlocks && !/open|unlock|key|code|latch|bolt|badge|combination|handle|hatch|lift|twist/i.test(T.text || "")) warn(`${lctx} ${note.id}`, "note unlocks a cache but the text never says how to open it");
+      // the main note warns what each mistake costs (WORLD.LOCKS)
+      const LK = (WORLD.LOCKS || {})[loc.id];
+      if (note.unlocks && LK) {
+        const fails = [LK.panel ? "alarm" : null, LK.search ? LK.search.fail : null, LK.door.kind !== "found" ? LK.door.fail : null].filter(Boolean);
+        fails.forEach((f) => { if (!FAIL_WORDS[f].test(T.text || "")) err(`${lctx} ${note.id}`, `must warn what a mistake costs here (${f})`); });
+        if (LK.door.kind === "code" && !/\{code\}/.test(T.text || "")) err(`${lctx} ${note.id}`, "must give the code as {code}");
+      }
       (note.reveals || []).forEach((rid) => {
         const target = WORLD.LOCATIONS.find((l) => l.id === rid);
         if (target && !(T.text || "").includes(target.name)) err(`${lctx} ${note.id}`, `must name "${target.name}" (reveals it)`);
@@ -491,12 +509,17 @@ function checkLevel(n) {
       const kn = L.notes && L.notes[N.key.after];
       const bare = target.stashName.replace(/^the /i, "").toLowerCase();
       if (kn && !(kn.text || "").toLowerCase().includes(bare)) err(`${lctx} ${N.key.after}`, `must name the stash it opens ("${target.stashName}" at ${target.name})`);
+      const sf = ((WORLD.LOCKS || {})[target.id] || {}).stashFail;
+      const SF = { jam: /\b(jam|jams|jammed|crowbar)\b/i, break: /\b(snap|snaps|break|breaks|broke)\b/i, none: /\b(turn|turns|nothing)\b/i };
+      if (kn && sf && !SF[sf].test(kn.text || "")) err(`${lctx} ${N.key.after}`, `must warn what a wrong key does in ${target.stashName} (${sf})`);
       const K = L.key;
       const kctx = `${lctx} key`;
       if (!K || !isStr(K.name)) err(kctx, "name missing (2 to 6 words: what the key looks like)");
       else if (words(K.name).length > 7) warn(kctx, "name is long");
       if (!K || !isStr(K.tag)) err(kctx, "tag missing (what its tag says)");
       else checkText(kctx, K.tag, spec, 1, N.key.facts, spec.tag);
+      // a key says how it looks, never what it opens: that is in the note
+      [K && K.name, K && K.tag].forEach((x) => { if (x && (x.toLowerCase().includes(bare) || x.includes(target.name))) err(kctx, `names what it opens ("${target.stashName}" at ${target.name}); only the note may say that`); });
     }
     // wall signs and graffiti
     (N.signs || []).forEach((sg) => {

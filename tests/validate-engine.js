@@ -87,7 +87,7 @@ sb.window = sb;
 vm.createContext(sb);
 pixels = vm.runInContext("(w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) })", sb);
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const WANT = ["layouts.js", "world.js", "story.js", "story-home.js", "upgrades.js", "weapons.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "river.js"].concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
+const WANT = ["layouts.js", "world.js", "story.js", "story-home.js", "upgrades.js", "weapons.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "river.js"].concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
 const scripts = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]).filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -1024,11 +1024,23 @@ try {
       I.player.y = kp.y;
       I.updatePickups();
       if (!S.hasKeyFrom(loc.id) || I.keyVisible()) err(`${ctx}: walking onto the key did not pick it up`);
-      // the stash: locked without its key (the one hidden in another building), open with it
+      // the stash: locked without its key (the one hidden in another building); with keys in hand you pick
+      // one to try, and only the right one opens it
+      const realPrompt = I.lockPrompt;
+      let asked = null;
+      I.lockPrompt = (opts, then) => {
+        asked = opts;
+        const right = opts.options.find((o) => o.value === S.keySourceFor(loc.id));
+        then(right ? { value: right.value } : { cancel: true });
+      };
+      S.trip.keys = S.trip.keys.filter((k) => k !== S.keySourceFor(loc.id));
       I.buildingInteract({ kind: "stash", obj: sd });
       if (sd.open) err(`${ctx}: the stash opened without its key`);
       S.trip.keys.push(S.keySourceFor(loc.id));
       I.buildingInteract({ kind: "stash", obj: sd });
+      I.lockPrompt = realPrompt;
+      if (!asked || !asked.options.some((o) => o.value === S.keySourceFor(loc.id))) err(`${ctx}: the stash does not offer the keys in hand`);
+      else if (asked.options.some((o) => /opens|at /i.test(o.label))) err(`${ctx}: a key in the stash picker says where it goes`);
       if (!sd.open || I.grid[sd.y][sd.x] !== "D") err(`${ctx}: the stash did not open with its key`);
       const open = I.reachable(start[0], start[1], true);
       const stash = I.items.filter((it) => it.source === "stash");
@@ -1055,6 +1067,201 @@ try {
   S.settings.level = levelWas;
 } catch (e) {
   err(`story: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+}
+
+/* ---------- The locks (WORLD.LOCKS, js/locks.js): every cache opens only by doing what its note says ----------
+   For every building: the fixtures can be reached and used, the right answer opens it, a wrong one costs what
+   the note warns (a trap: down; the alarm: walkers pour in and the way out is shut; a jam: a crowbar), "god mode"
+   opens it, the answers fill the notes, and a stash's wrong key jams it, snaps off, or just does not turn. */
+try {
+  const L0 = ZSR.Locks;
+  const facingKind = (kind) => {
+    const f = I.facing();
+    return f && f.kind === kind;
+  };
+  /** Stand on reachable floor next to (x, y), facing it; true if E would reach it as `kind`. */
+  const standAt = (tx, ty, kind, reach) => {
+    for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]]) {
+      const x = tx + dx;
+      const y = ty + dy;
+      if (!reach.has(x + "," + y)) continue;
+      I.player.x = x + 0.5;
+      I.player.y = y + 0.5;
+      I.player.a = Math.atan2(ty - y, tx - x);
+      if (facingKind(kind)) return true;
+    }
+    return false;
+  };
+  const answerFor = (loc, kind) => {
+    const a = L0.answer(loc.id);
+    const L = L0.spec(loc.id);
+    if (kind === "door") return L.door.kind === "code" ? a.code.replace(/\D/g, "") : a.moves.slice();
+    if (kind === "search") return a.pick;
+    if (kind === "panel") return a.button;
+    return null;
+  };
+  const wrongFor = (loc, kind) => {
+    const a = L0.answer(loc.id);
+    const L = L0.spec(loc.id);
+    if (kind === "door") return L.door.kind === "code" ? a.decoyCode.replace(/\D/g, "") : a.decoyMoves.slice();
+    if (kind === "search") return a.decoyPick;
+    if (kind === "panel") return a.decoyButton;
+    return null;
+  };
+  let deaths = 0;
+  I.hooks.onDeath = () => deaths++;
+  const realPrompt = I.lockPrompt;
+  let reply = null; // what the next prompt answers
+  let prompts = 0;
+  I.lockPrompt = (opts, then) => {
+    prompts++;
+    then(typeof reply === "function" ? reply(opts) : reply);
+  };
+  // two saves roll different answers
+  const seedWas = S.save.lockSeed;
+  const rolls = new Set();
+  [11, 22, 33, 44].forEach((seed) => {
+    S.save.lockSeed = seed;
+    rolls.add(JSON.stringify(W.LOCATIONS.filter((l) => W.LOCKS[l.id]).map((l) => L0.answer(l.id))));
+  });
+  if (rolls.size < 4) err("locks: different saves rolled the same answers");
+  S.save.lockSeed = seedWas;
+  W.LOCATIONS.filter((l) => l.id !== "base" && !l.outdoor).forEach((loc) => {
+    const ctx = `lock ${loc.id}`;
+    const L = W.LOCKS[loc.id];
+    if (!L) return err(`${ctx}: no lock in WORLD.LOCKS`);
+    const a = L0.answer(loc.id);
+    // decoys are clearly different
+    if (a.code && [...a.decoyCode.replace(/\D/g, "")].some((c, i) => c === a.code.replace(/\D/g, "")[i])) err(`${ctx}: decoy code ${a.decoyCode} shares a digit in place with ${a.code}`);
+    if (a.moves && a.decoyMoves.some((m, i) => m === a.moves[i])) err(`${ctx}: decoy moves ${a.decoyMoves} share a step with ${a.moves}`);
+    if (a.pick && a.pick === a.decoyPick) err(`${ctx}: decoy pick is the real one`);
+    if (a.button && a.button === a.decoyButton) err(`${ctx}: decoy button is the real one`);
+    // the main note and the decoy carry this save's answers, filled in
+    const main = W.NOTES[loc.id].notes.find((n) => n.unlocks === loc.id);
+    const mainText = ZSR.noteText(loc.id, main.id).text;
+    if (/\{\w+\}/.test(mainText)) err(`${ctx}: the main note shows a raw placeholder`);
+    const must = [a.code, a.pick, a.button].concat(a.moves || []).filter(Boolean);
+    must.forEach((v) => { if (!mainText.includes(v)) err(`${ctx}: the main note does not say "${v}"`); });
+    const decoy = W.NOTES[loc.id].notes.find((n) => n.kind === "decoy" && (n.minLevel || 1) === 1);
+    if (!decoy) err(`${ctx}: no decoy note at every reading level`);
+    else if (![a.decoyCode, a.decoyPick, a.decoyButton].concat(a.decoyMoves || []).filter(Boolean).some((v) => ZSR.noteText(loc.id, decoy.id).text.includes(v))) err(`${ctx}: the decoy note gives no wrong answer`);
+
+    /** A fresh visit: a new trip, entered, with everything here in its first state. */
+    const visit = () => {
+      S.abandonTrip();
+      S.startTrip();
+      I.enter(loc);
+      I.stop();
+      I.running = true; // the interactions run as in play; nothing draws
+      deaths = 0;
+      return I.reachable(Math.floor(I.startPos[0]), Math.floor(I.startPos[1]), true);
+    };
+    const cache = () => I.buildingInteract({ kind: "cache", obj: I.cacheDoor });
+    const search = () => I.buildingInteract({ kind: "fixture", obj: I.lockFix });
+    const panel = () => I.buildingInteract({ kind: "panel", obj: I.lockPanel });
+    const steps = (L.panel ? ["panel"] : []).concat(L.search ? ["search"] : []).concat(L.door.kind !== "found" ? ["door"] : []);
+    const doStep = (st, value) => {
+      reply = { value };
+      if (st === "panel") panel();
+      else if (st === "search") search();
+      else cache();
+    };
+
+    // the fixtures are where E reaches them
+    let reach = visit();
+    if (L.search && (!I.lockFix || !standAt(I.lockFix.tx, I.lockFix.ty, "fixture", reach))) err(`${ctx}: the search fixture cannot be reached and used`);
+    if (L.panel && (!I.lockPanel || !standAt(I.lockPanel.x, I.lockPanel.y, "panel", reach))) err(`${ctx}: the alarm panel cannot be reached and used`);
+    if (L.panel && !(I.lockPanel.face && !I.solidAt(I.lockPanel.x + SIDES[I.lockPanel.face][0] + 0.5, I.lockPanel.y + SIDES[I.lockPanel.face][1] + 0.5))) err(`${ctx}: the alarm panel faces a wall`);
+
+    // the right answers, in order, open it
+    reach = visit();
+    if (L.door.kind === "found") {
+      cache();
+      if (I.cacheDoor.open) err(`${ctx}: the cache opened before the search`);
+    }
+    steps.forEach((st) => doStep(st, answerFor(loc, st)));
+    if (L.door.kind === "found") cache();
+    if (!I.cacheDoor.open) err(`${ctx}: the right answers did not open ${loc.cacheName}`);
+    if (I.alarm || deaths) err(`${ctx}: the right answers set off the alarm or killed`);
+
+    // each wrong answer costs what the note says
+    steps.forEach((st) => {
+      visit();
+      steps.slice(0, steps.indexOf(st)).forEach((s0) => doStep(s0, answerFor(loc, s0)));
+      doStep(st, wrongFor(loc, st));
+      const fail = st === "panel" ? "alarm" : st === "search" ? L.search.fail : L.door.fail;
+      if (I.cacheDoor.open) err(`${ctx}: a wrong ${st} opened ${loc.cacheName}`);
+      if (fail === "trap" && deaths !== 1) err(`${ctx}: the wrong ${st} should be a deadly trap`);
+      if (fail === "alarm") {
+        if (!I.alarm) err(`${ctx}: the wrong ${st} should set off the alarm`);
+        const n0 = I.walkers.length;
+        for (let i = 0; i < 40; i++) I.buildingUpdate(0.25);
+        if (I.walkers.length < n0 + 6) err(`${ctx}: the alarm did not bring walkers (${n0} -> ${I.walkers.length})`);
+        if (!I.walkers.some((z) => Math.hypot(z.x - I.startPos[0], z.y - I.startPos[1]) < 1.5 && z.awake)) err(`${ctx}: no walkers come through the way out`);
+        const exits = [];
+        I.hooks.onExit = () => exits.push(1);
+        I.buildingInteract({ kind: "exit", obj: I.exit });
+        I.hooks.onExit = undefined;
+        if (exits.length) err(`${ctx}: you could leave while the alarm rings`);
+      }
+      if (fail === "jam") {
+        if (!S.locState(loc.id).cacheJammed) err(`${ctx}: the wrong ${st} should jam the lock`);
+        // no crowbar: still shut; with one: open, and the crowbar is spent
+        S.save.crowbars = 0;
+        reply = { value: true };
+        cache();
+        if (I.cacheDoor.open) err(`${ctx}: a jammed lock opened without a crowbar`);
+        S.save.crowbars = 1;
+        cache();
+        if (!I.cacheDoor.open || S.crowbarsLeft() !== 0) err(`${ctx}: a crowbar did not pry the jammed lock (or was not spent)`);
+        S.save.crowbars = 0;
+      }
+    });
+    // the panel skipped: the door opens, and the alarm rings
+    if (L.panel) {
+      visit();
+      doStep("door", answerFor(loc, "door"));
+      if (!I.alarm) err(`${ctx}: opening the door with the alarm on did not set it off`);
+    }
+    // god mode, at any step
+    visit();
+    reply = { god: true };
+    if (L.door.kind === "found") search();
+    cache();
+    if (!I.cacheDoor.open || I.alarm || deaths) err(`${ctx}: god mode did not open ${loc.cacheName} cleanly`);
+
+    // the stash: a wrong key does what the key note warns
+    visit();
+    const right = S.keySourceFor(loc.id);
+    const wrong = Object.keys(W.KEYS).find((k) => k !== right && k !== loc.id);
+    S.trip.keys = [wrong, right];
+    reply = { value: wrong };
+    I.buildingInteract({ kind: "stash", obj: I.stashDoor });
+    if (I.stashDoor.open) err(`${ctx}: the stash opened with the wrong key`);
+    const sf = L.stashFail;
+    if (sf === "break" && !S.keyBroken(wrong)) err(`${ctx}: the wrong key should snap off`);
+    if (sf === "jam" && !S.locState(loc.id).stashJammed) err(`${ctx}: the wrong key should jam the stash`);
+    if (sf === "none" && (S.keyBroken(wrong) || S.locState(loc.id).stashJammed)) err(`${ctx}: the wrong key should do nothing`);
+    const warned = Object.keys(W.KEYS).find((k) => W.KEYS[k] === loc.id);
+    const keyNote = W.NOTES[warned].notes.find((n) => n.id === W.NOTES[warned].key.after);
+    if (!keyNote.facts.some((f) => f.includes(loc.stashName.replace(/^the /, "")) && /jam|snap|turn/.test(f))) err(`${ctx}: the key note in ${warned} does not warn what a wrong key does here`);
+    I.running = false;
+    S.abandonTrip();
+  });
+  // a jam and a broken key outlast the trip once you get home; a crowbar used is gone
+  S.startTrip();
+  S.tripLoc("grocery").cacheJammed = true;
+  S.trip.keys.push("gasngo");
+  S.trip.brokenKeys.push("gasngo");
+  S.save.crowbars = 2;
+  S.useCrowbar();
+  S.returnHome();
+  if (!S.locState("grocery").cacheJammed || !S.keyBroken("gasngo") || S.save.crowbars !== 1) err("locks: a jam, a broken key or a spent crowbar was not saved at home");
+  I.lockPrompt = realPrompt;
+  I.hooks.onDeath = undefined;
+  if (!prompts) err("locks: no prompt was ever asked");
+} catch (e) {
+  err(`locks: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
 }
 
 /* ---------- The yard: every plot's sign (or plaque) can be read up close ---------- */

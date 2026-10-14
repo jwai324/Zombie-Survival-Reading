@@ -14,7 +14,7 @@
       notes: {
         "police-desk": {
           title: "The Armory Combination",
-          text: "Sergeant Vega again. You made it to the desk. Good.\n\nThe armory combination is 19-4-33. Spin the dial slow. Go left, then right, then left again. The lock is old and stiff. Pull the handle hard after the last number. Now you can open the armory. Go to the back hall. Walk toward the police bike. The armory is the last door before the garage. Inside are gun parts and an armor plate. Take what you need.\n\nOne more thing. The Public Library is north of downtown. It has books in its archive room. The librarian stayed when the others left. Her name is Mrs. Greer. She does not scare easy. Tell her Vega sent you.",
+          text: "Sergeant Vega again. You made it to the desk. Good. Now do this in order.\n\nFirst, turn off the alarm. Its panel is on the left wall, by the coffee machine. Press the {button} button. Do that first!\n\nThen go to the armory. Take the back hall toward the police bike. The armory is the last door before the garage. Its combination is {code}.\n\nA wrong button sets off the station alarm. So does a wrong number. So does opening the armory with the alarm still on. Then walkers pour in, even through the front door. They come until they get you.\n\nInside are gun parts and an armor plate.\n\nThe Public Library is north of downtown. It has books in its archive room. The librarian stayed.",
         },
         "police-trail1": {
           title: "The River Convoy Is Real",
@@ -22,7 +22,7 @@
         },
         "police-trail2": {
           title: "A Key for Carla's Lockbox",
-          text: "Vega again. You found the dog kennel. Good.\n\nNow go back to the lobby. A key lies on the floor there. It is beside the coffee machine. It is a padlock key. It hangs on a loop of orange rope. You cannot miss the rope.\n\nIt opens the foreman's lockbox at Ridge Lumber. That yard is east of here, on the ridge. Carla runs it. She is building boats for the convoy. She gave me this key so the ring stays whole.\n\nThe ring is simple. Every stash is locked. Its key hides in another building. A note says where. Only people who read find them. Take what you need, and leave the rest.",
+          text: "Vega again. You found the dog kennel. Good.\n\nNow go back to the lobby. A key lies on the floor there. It is beside the coffee machine. It is a padlock key. It hangs on a loop of orange rope.\n\nIt opens the foreman's lockbox at Ridge Lumber. That yard is east of here, on the ridge. Carla runs it. She is building boats for the convoy. She gave me this key so the ring stays whole.\n\nThe foreman's lockbox has a plain lock. A wrong key just will not turn. Take what you need, and leave the rest.",
         },
         "police-dead1": {
           title: "Lost and Found List",
@@ -30,7 +30,7 @@
         },
         "police-dead2": {
           title: "Numbers on a Scrap",
-          text: "A torn scrap of paper, folded twice. The writing is fast and messy.\n\nARMORY COMBINATION: 33-4-19. GOT IT FROM THE SARGE.\n\nThat looks like a lucky find. It is not. Under it, in neat blue ink, someone added more.\n\n\"These are the right numbers. They are in the wrong order. Spin 33-4-19, and the dial just clicks. The door stays shut. You will waste time at that dial. Walkers will hear you trying. Whoever wrote this read it backward.\n\nDo not trust a scrap with no name on it. Go back to the front desk. The note there has the one that works.\"",
+          text: "A torn scrap of paper, folded twice. The writing is fast and messy.\n\nARMORY COMBINATION: {decoyCode}. GOT IT FROM THE SARGE.\n\nThat looks like a lucky find. The armory has gun parts. Who would not want them?\n\nBut look at the back of the scrap. It is an old duty list, from the first week of the Fall. These numbers are just as old. Sergeant Vega changed the combination after that. So this one is wrong now. Spin it in, and the station alarm goes off.\n\nDo not trust a scrap with no name on it. The note on the front desk has the one that works.",
         },
       },
       signs: {
@@ -39,7 +39,7 @@
         "police-sign3": { title: "Printed Notice", text: "RIVER CONVOY SIGN-UP. Trucks and boats, going north. Sign up at Station 12, the fire station. Ask for Chief Dunn. Bring your family." },
         "police-sign4": { title: "Armory Door Sign", text: "ARMORY. POLICE ONLY. All staff must sign in. Under it, in black marker: Combination changed. See the front desk." },
       },
-      key: { name: "Padlock key on orange rope", tag: "A padlock key on a loop of orange rope. The tag says: Foreman's lockbox. Knock first. Someone wrote it in thick pencil. The rope smells like sawdust." },
+      key: { name: "Padlock key on orange rope", tag: "A padlock key on a loop of orange rope. The tag says: Knock first. Someone wrote it in thick pencil. The rope smells like sawdust." },
     },
 
     school: {
@@ -50,8 +50,8 @@
       },
       notes: {
         "school-classroom": {
-          title: "Ms. Adler's Top Drawer",
-          text: "I am Ms. Adler. I taught in this room for nine years.\n\nIf you need the library closet, the key is here. Open the top drawer of my desk. It is under the attendance book. You can open the closet now. Follow the main hallway toward the drum set room. The library is the room next to it. Its closet is in the back corner, on the drum set side. Inside are boxes of books. There is a folder of city maps, too. Please keep the maps dry. Someone will need them.\n\nIf you are going north, think twice. Northgate Mall is up there. It has food, medicine, and wire. But the crowds there are the worst in town. Go only if you must. Go in daylight, and go quietly.",
+          title: "Ms. Adler's Desk Drawers",
+          text: "I am Ms. Adler. I taught in this room for nine years.\n\nThe library closet key is in the {pick} of this desk. The drawers are right under this note.\n\nOpen no other drawer! Max and Mia tied air horns to the other two. The noise brings every walker in the school. They come even through the front door. They keep coming until they get you.\n\nFollow the main hallway toward the drum set room. The library is the room next to it. Its closet is in the back corner, on the drum set side. Inside are books and a folder of city maps.\n\nNorthgate Mall is up north. It has food, medicine, and wire. But the crowds there are the worst in town.",
         },
         "school-trail1": {
           title: "Max, Mia: Read This",
@@ -59,15 +59,15 @@
         },
         "school-trail2": {
           title: "Sergeant Vega Came Looking",
-          text: "Sergeant Vega, 4th Precinct.\n\nMax and Mia came to the station. They asked me to find their class. So I came here. I found the school empty. The class was gone. I am sorry, kids. I will keep looking.\n\nI left something for the ring. A key lies on the gym floor. It is under the basketball hoop. It is a short steel key on a gray tag.\n\nIt opens the evidence locker at the 4th Precinct. The station is west of here. That is the ring. Each stash key hides in another building. Use what is inside. Then leave a note for the next one.",
+          text: "Sergeant Vega, 4th Precinct.\n\nMax and Mia came to the station. They asked me to find their class. So I came here. I found the school empty. The class was gone. I am sorry, kids. I will keep looking.\n\nI left something for the ring. A key lies on the gym floor. It is under the basketball hoop. It is a short steel key on a gray tag.\n\nIt opens the evidence locker at the 4th Precinct. The station is west of here. That locker has a fussy lock. The wrong key jams it. Then only a crowbar opens it.",
         },
         "school-dead1": {
           title: "Lunch Menu, Week One",
           text: "LINCOLN MIDDLE SCHOOL LUNCH MENU. This week's meals. Free milk with every meal.\n\nMonday: chicken soup and a roll.\nTuesday: tacos.\nWednesday: pasta with red sauce.\nThursday: grilled cheese and apples.\nFriday: PIZZA!\n\nThat was the week the Fall began. The menu is still taped to the wall. The corners curl up now. Pizza Friday was a big deal here. Kids lined up early for it.\n\nUnder Friday, someone wrote in pencil. The letters are big and angry.\n\nWe never got the pizza.\n\nSomeone else drew a sad face next to it. A third kid wrote: still mad about it. Honestly, same.",
         },
         "school-dead2": {
-          title: "Fire Drill Map",
-          text: "FIRE DRILL MAP. Room 4. Keep this posted by the door.\n\nIf the alarm rings, stay calm. Line up at the door. Do not run. Walk out the front. Everyone meets on the sports field. Teachers count every student there. Nobody goes back inside.\n\nIt is a good plan. It was a good plan, before. A red arrow points to the field.\n\nBut the class did not go to the field. The field is empty now. Only walkers cross it.\n\nMs. Adler left a note by the front door. That note says where the class really went. Read that one.",
+          title: "A Kid's Secret Note",
+          text: "A note on lined paper. The writing is big and round, like a kid's.\n\nCLOSET KEY: in the {decoyPick} of Ms. Adler's desk!! Don't tell anyone.\n\nIt looks like a real secret. Kids know where teachers hide things. At the bottom is a drawing of two stick kids.\n\nBut look at the name under the drawing. It says Mia. She wrote this early on. That was before she and Max rigged the desk drawers with air horns. Now that drawer has a horn on it. Open it, and the noise brings walkers.\n\nMs. Adler's own note on the desk says which drawer is safe. Read hers first.",
         },
       },
       signs: {
@@ -76,7 +76,7 @@
         "school-sign3": { title: "Neat Chalk Letters", text: "Neat chalk letters, like on a blackboard. Ms. Adler's class, gone north. Under it: Read the note by the front door." },
         "school-sign4": { title: "Library Closet Door", text: "LIBRARY CLOSET. Please return books on time. Thank you! Under it, someone added: Late fees canceled. Forever." },
       },
-      key: { name: "Short steel key, gray tag", tag: "A short steel key on a gray tag. The tag says: Evidence. Do not remove. Someone crossed out the words \"do not\" with a pen." },
+      key: { name: "Short steel key, gray tag", tag: "A short steel key on a gray tag. The tag says: Do not remove. Someone crossed out the words \"do not\" with a pen." },
     },
 
     firehouse: {
@@ -87,8 +87,8 @@
       },
       notes: {
         "firehouse-desk": {
-          title: "The Red Key on the Board",
-          text: "Chief Dunn again. I keep lists, so here is one.\n\nOne: look at the key board behind this desk. Two: take the red key. It is the only red one. Three: walk to the back of the truck bay. The equipment bay is beside the fire truck, on the gear racks side. The red key opens that lock. So you can open the equipment bay now.\n\nInside there is a water tank. There is lumber, and a set of tools. Take them. We have the trucks we need.\n\nFour: need water filters? Go to the Water Tower. It is on the west side of town. The filters are in its pump house. Theo looks after the pumps. He is fair. Be fair back.",
+          title: "The Key Board List",
+          text: "Chief Dunn again. I keep lists, so here is one.\n\nOne: look at the key board by this desk. Two: take the {pick}. That key opens the equipment bay. Three: take no other key! The others are for old locks. A wrong one jams the bay lock. After that, only a crowbar opens it.\n\nFour: walk to the back of the truck bay. The equipment bay is beside the fire truck, on the gear racks side. Inside there is a water tank. There is lumber, and a set of tools.\n\nFive: need water filters? Go to the Water Tower. It is on the west side of town. The filters are in its pump house.",
         },
         "firehouse-trail1": {
           title: "The Convoy List",
@@ -96,24 +96,24 @@
         },
         "firehouse-trail2": {
           title: "Priya's Key, Not Ours",
-          text: "Chief Dunn. Second note. Good, you read the first.\n\nA key lies on the truck bay floor. It is beside the fire truck. It is a small silver key. It has a yellow tag shaped like a lightning bolt.\n\nIt opens the repair locker at Signal Electronics. That shop is downtown, east of here. Priya runs it. She fixed our radios for the convoy. Then she left this key here.\n\nThat is how the ring works. Keys in the ring never stay home. Each one opens a stash in another place. Read the notes, and you find them. Take what you need, and leave the rest.",
+          text: "Chief Dunn. Second note. Good, you read the first.\n\nA key lies on the truck bay floor. It is beside the fire truck. It is a small silver key. It has a yellow tag shaped like a lightning bolt.\n\nIt opens the repair locker at Signal Electronics. That shop is downtown, east of here. Priya runs it. She fixed our radios for the convoy. Then she left this key here.\n\nKeys in the ring never stay home.\n\nThe repair locker has a plain lock. A wrong key just will not turn. Take what you need, and leave the rest.",
         },
         "firehouse-dead1": {
           title: "Chief Dunn's Famous Chili",
           text: "STATION 12 CHILI. By Chief Dunn. Feeds the whole crew.\n\nWhat you need:\nBeans.\nMore beans.\nWhatever is in the can.\n\nHow to make it:\nPut it all in the pot. Add water if it looks thick. Cook it slow. Cook it slower than that. Stir when you walk past. Do not rush it.\n\nServe it hot after a long shift. Nobody complains. If they do, they wash the pot. Vega burned the rice once. We still talk about it.\n\nAt the bottom, in big letters: NEVER LET VEGA COOK.\n\nSomebody drew a little fire under the words. Somebody else wrote: fair.",
         },
         "firehouse-dead2": {
-          title: "First Convoy Notice",
-          text: "RIVER CONVOY NOTICE. Signed, Sergeant Vega.\n\nThe convoy leaves this week. Meet at the north bridge. Be there at dawn on Friday. Bring water and warm clothes. Bring one bag each. Kids hold hands. Do not be late. We will not wait.\n\nThe paper is stiff and old. The tape at the corners is yellow. It was the very first notice. It went up before anything went wrong.\n\nSince then, the leaving day has moved. It moved again after that. Friday came and went. Nobody left from the bridge.\n\nDo not go to the bridge at dawn. You will stand there alone.",
+          title: "Duty Roster Tip",
+          text: "A note on the back of a duty roster. Nobody signed it.\n\nEquipment bay: use the {decoyPick} on the board. Quick and easy.\n\nIt looks like a tip from the crew. The whole crew's names are on the front of the roster.\n\nBut look at the dates on the roster. They are from before the Fall. Back then, that key fit the old lock. Then the chief changed the lock. Now that key is wrong. Try it, and the bay lock jams. Then only a crowbar opens it.\n\nThe chief's note on the watch desk says which key fits now. Read that one first.",
         },
       },
       signs: {
         "firehouse-sign1": { title: "TRUCK BAY", text: "TRUCK BAY. KEEP CLEAR. Do not park here. Do not block these doors. Trucks leave fast when the bell rings." },
         "firehouse-sign2": { title: "Safety Board", text: "SAFETY BOARD. DAYS WITHOUT AN ACCIDENT: The number is wiped off. Under it, in marker: We stopped counting." },
         "firehouse-sign3": { title: "Spray paint", text: "Ruby's red R by the front door, with a 6 under it. Smaller, below: TWO IN THE TRUCK BAY. Look before you walk in." },
-        "firehouse-sign4": { title: "Chalk by the Door", text: "Chalk on the equipment bay door. RED KEY, ON THE BOARD. An arrow points back toward the desk." },
+        "firehouse-sign4": { title: "Chalk by the Door", text: "Chalk by the equipment bay door. THE BAY KEY IS ON THE BOARD. Under it: The chief's note says which one." },
       },
-      key: { name: "Silver key, lightning-bolt tag", tag: "A small silver key on a yellow tag. The tag is shaped like a lightning bolt. It says: Repair locker. Fix it, don't toss it." },
+      key: { name: "Silver key, lightning-bolt tag", tag: "A small silver key on a yellow tag. The tag is shaped like a lightning bolt. It says: Fix it, don't toss it." },
     },
 
     hospital: {
@@ -125,7 +125,7 @@
       notes: {
         "hospital-hall": {
           title: "Nurse Ada Stayed",
-          text: "Nurse Ada, St. Anne Annex. I stayed when the others left.\n\nThe stock room needs a badge to open. My badge is in the drawer under this station. It is the top drawer. Take the badge. Hold it to the reader by the stock room door. The light turns green. You can open the stock room now. Its door is in this room. It is across the walkway from this desk, on the angel statue side.\n\nThere are three medical kits inside. Count them. Take what you need.\n\nOne rule in here. Stay quiet. The walkers follow sound more than light. A flashlight will not bring them. A dropped can will. Walk soft. Close doors slowly. Do not call out to anyone. Not even me.",
+          text: "Nurse Ada, St. Anne Annex. I stayed when the others left.\n\nThe stock room needs a badge. It is white, on a blue clip. It is in the {pick} of this station. The drawers are right under this note. Hold the badge to the reader by the stock room door.\n\nOpen no other drawer! They are wired to the crash cart alarm. It brings walkers, more and more. They come even through the front doors. They keep coming until they get you.\n\nThe stock room door is in this room. It is across the walkway from this desk, on the angel statue side. There are three medical kits inside.\n\nStay quiet in here. The walkers follow sound more than light.",
         },
         "hospital-trail1": {
           title: "Ada Keeps Listening",
@@ -133,15 +133,15 @@
         },
         "hospital-trail2": {
           title: "The Heavy Iron Key",
-          text: "Nurse Ada. This is the note about the key.\n\nA key lies on the chapel floor. It is beside the angel statue. It is a heavy old iron key. It has a square head. You will feel the weight.\n\nIt opens the old safe room at Gas-N-Go. That is south of here. It is near the south end of town. Take only what you need there.\n\nRuby brought this key up here. It was her first scouting run north. She wanted the ring to close into a circle. Every key opens a stash somewhere else. This one closes the loop.",
+          text: "Nurse Ada. This is the note about the key.\n\nA key lies on the chapel floor. It is beside the angel statue. It is a heavy old iron key. It has a square head. You will feel the weight.\n\nIt opens the old safe room at Gas-N-Go. That is south of here. It is near the south end of town. Take only what you need there.\n\nRuby brought this key up here. It was her first scouting run north. She wanted the ring to close into a circle.\n\nThe old safe room has an old lock that bites. The wrong key snaps off inside it. Then that key is gone for good.",
         },
         "hospital-dead1": {
           title: "Visitor Sign-In Sheet",
           text: "ST. ANNE ANNEX. VISITOR SIGN-IN. Please print your name and the time.\n\nThe sheet is from before the Fall. Most names are a mess of pen. Mothers, sons, a pastor, a man with flowers. They came in. They signed out again.\n\nThe last name on the sheet is neat. It says Doc Lin. Next to her name, she wrote two words: back tomorrow.\n\nThen the Fall came. The rest of the sheet is blank. The pen still hangs on its string. Nobody has written on it since. Ada keeps it by the door anyway. Tomorrow is taking a long time.",
         },
         "hospital-dead2": {
-          title: "Patient Bus Notice",
-          text: "NOTICE TO ALL PATIENTS AND FAMILIES.\n\nA bus will take patients out of town. It leaves from the front door. It comes every morning at eight. Bring one bag. Bring your papers. Staff will help you board. Please do not crowd the doors.\n\nThat sounds like a way out. Look at the date in the corner. The notice is from the first week of the Fall.\n\nNo bus has come since then. The road out front is empty. Grass grows in the bus lane. The bus stop sign is bent flat. If you wait out there, you wait alone. Do not wait.",
+          title: "Old Staff Memo",
+          text: "An old staff memo, printed on hospital paper.\n\nTO ALL STAFF. The stock room badge is kept in the {decoyPick} of the nurses' station. Return it after every use. Thank you.\n\nIt looks official. It has the hospital name at the top. It even has a little stamp.\n\nBut look at the date. The memo is old. Nurse Ada moved the badge after it was printed. Now that drawer is wired to the crash cart alarm. Open it, and walkers pour in.\n\nAda's note on the station says where the badge is now. Trust Ada, not the memo.",
         },
       },
       signs: {
@@ -150,7 +150,7 @@
         "hospital-sign3": { title: "Hospital Floor Map", text: "FLOOR MAP. Patient rooms run all along the main hall. The supply cupboard is marked next to the chapel, off the main hall." },
         "hospital-sign4": { title: "Chalk by the Stock Room", text: "Chalk by the stock room door. It is Ada's neat writing. Lin, it is all still here. Come soon." },
       },
-      key: { name: "Heavy iron key, square head", tag: "A heavy old iron key with a square head. Its tag says: Old safe room. Ruby was here. The ink is red. It is cold in your hand." },
+      key: { name: "Heavy iron key, square head", tag: "A heavy old iron key with a square head. Its tag says: Ruby was here. The ink is red. It is cold in your hand." },
     },
 
     watertower: {
@@ -161,8 +161,8 @@
       },
       notes: {
         "watertower-panel": {
-          title: "The Key in the Breaker Box",
-          text: "Theo again. You found the panel. Good. Now listen.\n\nThe pump house key is in the breaker box. The box is gray, on the wall by this panel. Open the little door. The key hangs on a hook inside. Do not touch the switches. You can open the pump house now.\n\nIts door is at the back of the pump hall. It is at the blue pump end, away from the big red wheel.\n\nIn the pump house there are filters. There is a water tank and some wire, too. Take what you need. Leave the rest for the next person.\n\nNeed medicine? St. Anne Annex is the hospital. It is north, up Hill Road. It still has medicine. But it is the most dangerous place in town. Go slow, or do not go.",
+          title: "Three Breaker Boxes",
+          text: "Theo again. You found the panel. Good. Now listen close.\n\nThree breaker boxes hang by this panel. The pump house key is in the {pick}. Open that one, and take the key.\n\nOpen neither of the other two boxes! They are live. The shock kills. Do not touch them at all.\n\nThe pump house door is at the back of the pump hall. It is at the blue pump end, away from the big red wheel. In the pump house there are filters. There is a water tank and some wire, too.\n\nNeed medicine? St. Anne Annex is the hospital. It is north, up Hill Road. It still has medicine. But it is the most dangerous place in town.",
         },
         "watertower-trail1": {
           title: "Dev's Note to Ruby",
@@ -170,7 +170,7 @@
         },
         "watertower-trail2": {
           title: "Theo's Note for Travelers",
-          text: "For travelers. From Theo, who tends the pumps.\n\nA key lies on the floor beside the green tanks. It is a small brass key. It hangs on a purple school lanyard.\n\nIt opens the principal's closet at Lincoln Middle School. The school is far east of here, across town.\n\nMax and Mia, the twins, came here. They were looking for their teacher. I gave them water. Mia had this key. They left it with me for the ring. Each stash key hides in another building. So take this one east. Leave something good behind. Then come back for water.",
+          text: "For travelers. From Theo, who tends the pumps.\n\nA key lies on the floor beside the green tanks. It is a small brass key. It hangs on a purple school lanyard.\n\nIt opens the principal's closet at Lincoln Middle School. The school is far east of here, across town.\n\nMax and Mia, the twins, came here. They were looking for their teacher. I gave them water. Mia had this key. They left it with me for the ring.\n\nThe principal's closet has a fussy lock. The wrong key jams it. Then only a crowbar opens it. So take this one east. Then come back for water.",
         },
         "watertower-dead1": {
           title: "Theo's Water Rules",
@@ -178,16 +178,16 @@
         },
         "watertower-dead2": {
           title: "Paper Plate Note",
-          text: "Written in marker on a paper plate. No name on it.\n\nGOOD NEWS. The river water is clean now. I tested it myself. It is safe to drink. No need to filter. Save your filters for later. Drink up.\n\nIt sounds great. It is not true.\n\nThe river is not clean. It carries mud and worse from upstream. Theo crossed out every line. Then he wrote across the plate. In thick black letters: FILTER EVERYTHING.\n\nUnder that, smaller: Every cup. Every time. Ask me if you need a filter. A filter costs less than a fever. Sick people cannot run. Theo has seen it happen.",
+          text: "Written in marker on a paper plate. No name on it.\n\nPUMP HOUSE KEY: in the {decoyPick}. Just open it and grab it. Easy!\n\nIt sounds simple. The plate is from a party, with little balloons on the rim. The marker is faded.\n\nThis note is old. Theo rewired the breaker boxes after it was written. Then he moved the key. The box this plate names is live now. Open it, and the shock kills.\n\nTheo's note on the control panel says which box is safe. Read that one first.",
         },
       },
       signs: {
         "watertower-sign1": { title: "City Sign", text: "CITY WATER WORKS. STAFF ONLY. Below it, in red: DANGER. Pumps start without warning. Keep hands clear." },
         "watertower-sign2": { title: "Big Chalk Letters", text: "Big chalk letters across the wall: Ruby, I am here. It is signed with a D. The D is underlined twice." },
         "watertower-sign3": { title: "Chalk Circle", text: "A chalk circle with a key inside. It is by the tool crib door, in the boat workshop. Under it: Key not here. Read the notes." },
-        "watertower-sign4": { title: "Pump House Door", text: "PUMP HOUSE. KEEP LOCKED AT ALL TIMES. Under it, Theo wrote in pen: Key in the breaker box. It is by the control panel." },
+        "watertower-sign4": { title: "Pump House Door", text: "PUMP HOUSE. KEEP LOCKED. Theo wrote under it: Key in a breaker box by the control panel. Read my note there first. Two are live." },
       },
-      key: { name: "Brass key, purple school lanyard", tag: "A small brass key on a purple school lanyard. The tag says: Principal's closet. Go Lions. A little lion is drawn on it." },
+      key: { name: "Brass key, purple school lanyard", tag: "A small brass key on a purple school lanyard. The tag says: Go Lions. A little lion is drawn on it." },
     },
 
     lumberyard: {
@@ -199,7 +199,7 @@
       notes: {
         "lumberyard-rack": {
           title: "Carla's Clipboard",
-          text: "Carla here! I am the yard boss. Read this whole thing!\n\nThe kiln shed has a padlock with a code. The code is 2218. Write it on your hand if you have to. Spin it in, and pull down hard. The lock is stiff, not broken. You can open the kiln shed now.\n\nLeave the band saw shop. Walk along the back wall of the rack hall. Go toward the log pile. The kiln shed door is in that wall.\n\nInside, the lumber is dry. That is the good stuff. There are boxes of nails, too. Take what you need.\n\nNow the big rule. DO NOT RUN THE SAWS. Not once. Not for one board. The noise brings the whole dock crowd. Cut boards by hand if you must. Carry what you need. Then get out.",
+          text: "Carla here! I am the yard boss. Read this whole thing!\n\nThe kiln shed padlock opens with a code. The code is {code}. Say it in your head: {codeSpoken}. Get it right the first time. A wrong code locks the old padlock up for good. After that, only a crowbar opens it.\n\nLeave the band saw shop by its door. Follow the back wall of the rack hall toward the log pile. The kiln shed door is in that wall.\n\nInside, the lumber is dry. That is the good stuff. There are nails, too.\n\nNow the big rule. DO NOT RUN THE SAWS. Not once. The noise brings the whole dock crowd.",
         },
         "lumberyard-trail1": {
           title: "Boats for the Convoy",
@@ -207,7 +207,7 @@
         },
         "lumberyard-trail2": {
           title: "The Bookmark Key",
-          text: "Carla, yard boss. This one is about the key ring.\n\nA key lies on the floor of the sales office. It is beside the wooden bear. Look low. It is a long, old-fashioned key. It has a round loop for a handle. It is tied to a paper bookmark.\n\nIt opens the rare book room at the Public Library. The library is north and west of here.\n\nMrs. Greer paid me with this key. She bought planks to board up her library windows. So the key lives here now, in the ring. Every stash key hides in another place. Go use it!",
+          text: "Carla, yard boss. This one is about the key ring.\n\nA key lies on the floor of the sales office. It is beside the wooden bear. Look low. It is a long, old-fashioned key. It has a round loop for a handle. It is tied to a paper bookmark.\n\nIt opens the rare book room at the Public Library. The library is north and west of here.\n\nMrs. Greer paid me with this key. She bought planks to board up her library windows. So the key lives here now, in the ring.\n\nThe rare book room has an old lock that bites. The wrong key snaps off inside it. Then that key is gone for good.",
         },
         "lumberyard-dead1": {
           title: "Carla's Yard Rules",
@@ -215,7 +215,7 @@
         },
         "lumberyard-dead2": {
           title: "Code on a Receipt",
-          text: "Scrawled on the back of a receipt. The pen skipped. It was written fast. The receipt is for one box of screws.\n\nKILN SHED CODE: 2281. Got it off the clipboard. Hurry.\n\nIt looks right. It is close. But it is wrong. Two of the numbers are swapped. Spin 2281, and the padlock will not budge. You will stand there tugging. The dock crowd will hear you.\n\nWhoever wrote this was in too much of a rush. Maybe they were scared. Don't be in a rush. Go find Carla's clipboard by the band saw. It has the right code. Read twice, spin once.",
+          text: "Scrawled on the back of a receipt. The pen skipped. It was written in a hurry.\n\nKILN SHED CODE: {decoyCode}. Got it off the clipboard. Hurry.\n\nIt looks right. It says it came from the clipboard. But look at the date on the receipt. It is from months ago.\n\nCarla changed the padlock after that. This is the old code. Spin it in, and the old padlock locks up for good. Then only a crowbar opens it.\n\nDo not rush. Go find Carla's clipboard by the band saw. It has the code that works now. Read twice, spin once.",
         },
       },
       signs: {
@@ -224,7 +224,7 @@
         "lumberyard-sign3": { title: "Safety Sign", text: "SAFETY FIRST. Ear protection needed near the saws. Under it, in Carla's marker: The saws stay off. Period." },
         "lumberyard-sign4": { title: "Paint on the Shed", text: "Spray paint on the kiln shed door. CODE ON THE CLIPBOARD. A big arrow points toward the saw shop." },
       },
-      key: { name: "Old key with bookmark tag", tag: "A long, old-fashioned key. It has a round loop for a handle. It is tied to a paper bookmark. The bookmark says: Rare books. Handle with care." },
+      key: { name: "Old key with bookmark tag", tag: "A long, old-fashioned key. It has a round loop for a handle. It is tied to a paper bookmark. The bookmark says: Handle with care." },
     },
 
     mall: {
@@ -236,7 +236,7 @@
       notes: {
         "mall-guard": {
           title: "Luis Left the Code",
-          text: "My name is Luis. I am a security guard here. I still am. Nobody told me to stop.\n\nThe office code is 0912. Type it on the keypad by the office door. Press the green button after. You can open the security office now. Go to the back of the food court. Take the kitchen door. Turn right. The office is behind the green dino.\n\nInside there are gun parts. There are radio parts and a tool kit, too.\n\nNow the important part. The walkers here watch for running. If you run, they come running at you. All of them. So walk. Walk slow and steady. Then most of them stay put. It feels wrong. Your legs will want to run. Do not let them.",
+          text: "My name is Luis. I am a security guard here. I still am.\n\nDo this in order. First, turn off the alarm. Its panel is on the left wall, by the rocking horse. Press the {button} button. Do that first!\n\nThen go to the office. Take the kitchen door at the back of the food court. Turn right. The office is behind the green dino. The code is {code}. Say it like this: {codeSpoken}.\n\nA wrong button sets off the mall alarm. So does a wrong code. So does opening the office with the alarm still on. Then walkers pour in, even through the front doors. They come until they get you.\n\nInside are gun parts, radio parts, and a tool kit.\n\nThe walkers here run at anyone who runs. So walk, and most of them stay put.",
         },
         "mall-trail1": {
           title: "Luis Holds His Post",
@@ -244,7 +244,7 @@
         },
         "mall-trail2": {
           title: "A Key from Doc Lin",
-          text: "Luis. This is about the key ring.\n\nA key lies on the floor of Toy Town. It is beside the rocking horse. It is a small silver key. It has a white tag with a red cross.\n\nIt opens the supply cupboard at St. Anne Annex. That is the hospital, far west of here. It is up in the north hills.\n\nDoc Lin left it with me on a medicine run. It is for the ring. Every stash key hides in another building. Nurse Ada wants the cupboard used, not saved. So use it. That is what the ring is for.",
+          text: "Luis. This is about the key ring.\n\nA key lies on the floor of Toy Town. It is beside the rocking horse. It is a small silver key. It has a white tag with a red cross.\n\nIt opens the supply cupboard at St. Anne Annex. That is the hospital, far west of here. It is up in the north hills.\n\nDoc Lin left it with me on a medicine run. It is for the ring. Nurse Ada wants the cupboard used, not saved.\n\nThe supply cupboard has a plain lock. A wrong key just will not turn.",
         },
         "mall-dead1": {
           title: "Luis's Patrol Log",
@@ -252,7 +252,7 @@
         },
         "mall-dead2": {
           title: "Pencil Note, No Name",
-          text: "A note in pencil, folded small. No name at the bottom.\n\nSECURITY OFFICE CODE IS 0921. Trust me. I watched the guard type it.\n\nIt looks real. It is not. The last two numbers are swapped. Type 0921, and the keypad beeps red. Type it again, and it beeps again. Every beep is loud in here. The crowd will turn toward the sound.\n\nMaybe the writer watched from too far away. Maybe they wanted you to fail. Either way, skip it. Do not guess at a keypad here. Luis's clipboard, by the green dino, has the right code. Use that one.",
+          text: "A note in pencil, folded small. No name at the bottom.\n\nSECURITY OFFICE CODE IS {decoyCode}. Trust me. I watched the guard type it.\n\nIt sounds sure. Maybe the writer really did watch the guard.\n\nBut the paper is yellow and soft. It has been folded and unfolded many times. This is the old code. Luis changed it after this note was written. Type it now, and the mall alarm goes off.\n\nDo not guess at a keypad here. Luis's clipboard, by the green dino, has the code that works now. Use that one.",
         },
       },
       signs: {
@@ -261,7 +261,7 @@
         "mall-sign3": { title: "Store Map", text: "STORE MAP. You are here. The jewelry vault is marked inside the gadget store, at its front wall. Someone circled it in pen." },
         "mall-sign4": { title: "Security Door Sign", text: "SECURITY. STAFF ONLY. Under it, in marker: Code on the clipboard by the green dino. Do not guess." },
       },
-      key: { name: "Silver key, red cross tag", tag: "A small silver key on a white tag. The tag has a red cross on it. It says: Supply cupboard. Ada says use it." },
+      key: { name: "Silver key, red cross tag", tag: "A small silver key on a white tag. The tag has a red cross on it. It says: Ada says use it." },
     },
 
     library: {
@@ -272,8 +272,8 @@
       },
       notes: {
         "library-desk": {
-          title: "The Key in the Dictionary",
-          text: "Mrs. Greer again. Since you are reading, you are welcome here.\n\nThe archive key is inside the big dictionary. It sits on this desk. It is the heaviest book in the building. Open it to the letter K. K for key, of course. The key is taped to the page. You can open the archive room now. Inside are boxes of books. There is a folder of city maps, too.\n\nThe archive door is at the back end of the main hall. It sits between two rooms. One has the giant globe. One has the tall clock.\n\nReading saved this building. The walls are stacked with books. They are the books nobody wanted. Old phone books. Tax guides. They stop the walkers just fine. A wall of words holds better than you think.",
+          title: "Three Big Books",
+          text: "Mrs. Greer again. Since you are reading, you are welcome here.\n\nThree big books sit on this desk. The archive key is inside the {pick}. Open that one, and the key is there.\n\nOpen neither of the other two books! I hid a blast trap in each one, for book thieves. It kills. Pick the right book.\n\nThe archive door is at the back end of the main hall. It sits between two rooms. One has the giant globe. One has the tall clock. Inside are books and a folder of city maps.\n\nReading saved this building. The walls are stacked with books. They are the books nobody wanted.",
         },
         "library-trail1": {
           title: "The Class Lives Here Now",
@@ -281,7 +281,7 @@
         },
         "library-trail2": {
           title: "A Key for the Mall",
-          text: "Mrs. Greer. Here is the note about the key.\n\nA key lies on the floor of the children's room. It is beside the toy castle. It is a tiny gold key. It is in a small velvet pouch. The pouch is dark blue.\n\nIt opens the jewelry vault at Northgate Mall. The mall is east of here. Do not let the vault's name fool you.\n\nLuis the guard sent it to me with Jo. He asked me to keep it for the ring. Each stash key waits in another building. A key in a library is safe. Few people read the notes. You did.",
+          text: "Mrs. Greer. Here is the note about the key.\n\nA key lies on the floor of the children's room. It is beside the toy castle. It is a tiny gold key. It is in a small velvet pouch. The pouch is dark blue.\n\nIt opens the jewelry vault at Northgate Mall. The mall is east of here.\n\nLuis the guard sent it to me with Jo. He asked me to keep it for the ring.\n\nThe jewelry vault has a fussy lock. The wrong key jams it. Then only a crowbar opens it. Few people read the notes. You did.",
         },
         "library-dead1": {
           title: "Class Reading Chart",
@@ -289,16 +289,16 @@
         },
         "library-dead2": {
           title: "Index Card Tip",
-          text: "An index card, left just inside the front door. No name on it.\n\nARCHIVE ROOM KEY: card catalog, drawer marked A. Back of the drawer. You're welcome.\n\nIt sounds like a librarian's trick. The card catalog is right there. It has a hundred small drawers. Each drawer squeaks when it opens. You could spend an hour pulling them out.\n\nDon't. The drawer marked A holds only old cards. So do all the others. Dusty cards, and one dead spider.\n\nRead Mrs. Greer's note on the desk. It says where the key really is. Trust the librarian. Then you will know.",
+          text: "An index card, left just inside the front door. No name on it.\n\nARCHIVE ROOM KEY: inside the {decoyPick}, on the reference desk. You're welcome.\n\nIt sounds like a librarian's tip. The writing is neat. The card is from the library's own box.\n\nBut a thief read this card once. After that, Mrs. Greer moved the key. Then she set her traps. The book this card names holds a blast trap now. Open it, and it kills.\n\nMrs. Greer's note on the desk says which book is safe. Read hers before you open any book.",
         },
       },
       signs: {
         "library-sign1": { title: "QUIET, PLEASE", text: "QUIET, PLEASE. Thank you for respecting other readers. Under it, in pencil: It works on walkers too. Seriously." },
         "library-sign2": { title: "Very Small Spray Paint", text: "Ruby's red R, with an 8 under it. Both are painted very small. Like she felt bad writing on a library wall." },
         "library-sign3": { title: "Library Hours", text: "LIBRARY HOURS: Dawn until dark. Below it: No candles near the books. Fire is worse than walkers." },
-        "library-sign4": { title: "Chalk by the Archive", text: "Chalk by the archive room door. Curly letters: ASK THE DICTIONARY. A small smiley face sits next to it." },
+        "library-sign4": { title: "Chalk by the Archive", text: "Chalk by the archive room door, in curly letters: Ask Mrs. Greer's note before you open a book. A small smiley face sits next to it." },
       },
-      key: { name: "Tiny gold key, velvet pouch", tag: "A tiny gold key in a small velvet pouch. A paper tag is tied to the pouch. It says: Jewelry vault. Not for jewelry." },
+      key: { name: "Tiny gold key, velvet pouch", tag: "A tiny gold key in a small velvet pouch. A paper tag is tied to the pouch. It says: Not for show." },
     },
   });
 })(typeof globalThis !== "undefined" ? globalThis : this);

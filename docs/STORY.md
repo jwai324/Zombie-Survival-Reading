@@ -112,9 +112,9 @@ Every building has, besides its door note and its main note (spot 1, opens the c
 | Note id | Kind | Spot | Shown | What it must do |
 |---------|------|------|-------|-----------------|
 | `<loc>-trail1` | trail | 2 to 7 | always | A named character moves an arc forward, and says exactly where `trail2` is in this building. |
-| `<loc>-trail2` | trail | 2 to 7 | after trail1 is read | Says where the key is in this building, what it looks like, and which stash at which place it opens, with a direction. Reveals that place on the map. |
+| `<loc>-trail2` | trail | 2 to 7 | after trail1 is read | Says where the key is in this building, what it looks like, and which stash at which place it opens, with a direction, and what a wrong key does in that stash's lock. Reveals that place on the map. The only place that ties a key to its stash. |
 | `<loc>-dead1` | dead or decoy | 2 to 7 | every level | Flavor (a diary, a list, a letter) or a decoy (useful-looking but wrong or out of date). |
-| `<loc>-dead2` | dead or decoy | 2 to 7 | reading level 2+ | Same. |
+| `<loc>-dead2` | decoy | 2 to 7 | every level | The lock decoy: a clearly different wrong answer for this building's cache lock (`{decoy...}` placeholders), with a later hint that it is out of date. |
 | `<loc>-dead3` | dead or decoy | 2 to 7 | reading level 4+ | Same. At least one of dead2 to dead4 is a decoy. |
 | `<loc>-dead4` | dead or decoy | 2 to 7 | reading level 6 | Same. |
 
@@ -122,9 +122,10 @@ Plus four **signs** (printed signs and graffiti on the walls, read up close, in 
 the layout's `signs` list) and one **key** (hidden on the layout's `y` tile, visible once
 `trail2` has been read). The spot numbers are the layout's `spots` (`n` is spot 1).
 
-Decoys never lie about how the game works in a way the player cannot recover from: a code
-"that was changed last week", a room "already emptied", a key "lost", a prank. The real
-note always wins.
+Decoys never lie about how the game works: a code "that was changed last week", a room
+"already emptied", a key "lost", a prank. Each says, later on, that it is out of date. The
+real note always wins, and a player who acts on a decoy without reading to the end pays what
+the real note warned of (an alarm, a trap, a jam).
 
 ## The key ring
 

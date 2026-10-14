@@ -10,71 +10,71 @@
       garden: {
         title: "Garden plot",
         empty:
-          "GARDEN, someday. June paints that on the sign. Stakes and string mark out beds. They sit in the dark dirt. It is right behind the cabin. Raised beds could go here. Fill them with seeds and soil. Then they grow food. Each van trip eats food.",
+          "June painted this sign. It says GARDEN, someday. Stakes and string mark out beds in the dirt. The dirt is dark, and it sits behind the cabin. Raised beds of seeds and soil could grow food here. We need food, because each van trip eats food.",
         built: [
-          "The sign says GARDEN. One raised bed is in. Seeds sit in the soil now. June checks the bed each morning. She pokes the dirt. She looks for green. The bed grows 1 food each day. Small, but it is a start.",
-          "The sign says GARDEN. Now there are more beds. Beans climb up the string. Pip counts the pods out loud. June tells Pip to count quiet. The beds grow 2 food each day. Our stock lasts a bit longer.",
-          "The sign says GARDEN. A water tank stands by the beds. A hose runs from it. It feeds each bed. June has her full garden at last. She grins at it a lot. It grows 3 food each day. Nobody goes hungry here now.",
+          "The sign says GARDEN now. One raised bed is planted with seeds. June checks the bed every morning. She looks for green shoots. The bed grows 1 food each day. It is small, but it is a start.",
+          "The sign says GARDEN. Now there are more beds. Beans climb up the string. Pip counts the bean pods out loud. The beds grow 2 food each day. So our food lasts longer now.",
+          "The sign says GARDEN. A water tank stands by the beds. A hose runs from the tank to each bed. June has her full garden at last, and she grins at it. It grows 3 food each day.",
         ],
       },
       farm: {
         title: "Farm field",
         empty:
-          "FARM, after the Garden and the Well. Tomas paints that on the sign. Past the garden is wide grass. A stake marks each corner. A crop field could go here. Its food adds to the Garden. Later, it could hold animals too. Hens, maybe. Goats, maybe.",
+          "Tomas painted this sign. It says FARM, after the Garden and the Well. Past the garden is a wide patch of grass. A stake marks each corner. A crop field here would grow food on top of the Garden. Later, it could hold animals too.",
         built: [
-          "The sign says FARM. A crop field fills the grass. Corn and beans grow in long rows. The rows run to the fence. The field grows 2 food each day. That is on top of the Garden. Pip walks the rows at dusk.",
-          "The sign says FARM. Now there is a chicken coop. It has wire walls. The hens are loud at dawn. Very loud. Pip picks up the eggs each day. Pip names every hen. The farm gives 4 food each day.",
-          "The sign says FARM. A goat pen stands past the coop. A trough fills from the Well. The goats chew on all of it. Even the rope. Goats are almost as good as dogs. Pip says so. The farm gives 6 food each day.",
+          "The sign says FARM. A crop field fills the grass now. Corn and beans grow in long rows. The field grows 2 food each day. That food comes on top of the Garden. Pip walks the rows at dusk.",
+          "The sign says FARM. Now there is a chicken coop with wire walls. The hens are very loud at dawn. Pip collects the eggs each day. Pip gives every hen a name. The farm gives 4 food each day.",
+          "The sign says FARM. Now a goat pen stands past the coop. Water from the Well fills its trough. The goats chew on everything, even the rope. Pip says goats are almost as good as a dog. The farm gives 6 food each day.",
         ],
       },
       well: {
         title: "Well site",
         empty:
-          "WELL. Dig after the Water room is built. June paints that on the sign. Stones ring a spot by the cabin. Deep water comes up cold and clean. You would heal faster in the yard. The Farm needs the Well first. So does the Lab.",
+          "June painted this sign: WELL. It says to dig after the Water room is built. Stones ring a spot by the cabin. Water from deep down is cold and clean. It would help you heal faster in the yard. The Farm and the Lab need the Well first.",
         built: [
-          "The sign says WELL. Here is a hand-dug well. Lumber lines the inside. A bucket hangs on a rope. Drop it down. Pull it up. The water is cold and clean. It helps you heal faster in the yard.",
-          "The sign says WELL. No more bucket and rope. Now a hand pump lifts the water. A filter sits on the pump. Pip likes to work the handle. Push down, and water comes out. You heal in the yard even faster.",
-          "The sign says WELL. Now a pump runs on wire. It fills a tank all by itself. Nobody has to pump by hand. You heal in the yard faster than ever. You start each building at full health. That is a big help.",
+          "The sign says WELL. It is a well dug by hand, and lumber lines it. A bucket hangs on a rope. The water comes up cold and clean. It helps you heal faster in the yard.",
+          "The sign says WELL. Now a hand pump brings the water up. Nobody needs the bucket. The water goes through a filter on the way. Pip likes to work the handle. You heal in the yard even faster.",
+          "The sign says WELL. Now a pump runs on wire and fills a tank by itself. Nobody has to pump by hand. You heal in the yard faster than ever. You also start each building at full health.",
         ],
       },
       water: {
         title: "Water barrel",
         empty:
-          "WATER, filter goes here. Tomas paints that on the sign. An empty barrel sits on two sawhorses. It is by the cabin wall. Rain fills it, but gray. A filter and tank could go here. They turn gray rain clear. Then you heal faster in the yard.",
+          "Tomas painted this sign: WATER, filter goes here. An empty barrel sits on two sawhorses by the cabin wall. Rain fills it, but the water is gray. A filter and a tank would make the water clear. Then you would heal faster in the yard.",
         built: [
-          "The sign says WATER. A filter sits on the barrel. Gray water goes in the top. Clear water comes out the tap. Tomas tastes it first. He makes a face. It is fine. You heal slow in the yard.",
-          "The sign says WATER. Now there is a filter. A big tank sits by it. The tank is full of clean water. Nobody has to wait for rain. Pip checks the tank each night. You heal faster in the yard.",
-          "The sign says WATER. Two filters work now. A tank sits by them. The water is the best in town. You heal even faster in the yard. Walk into each building at full health. That means fewer kits used up.",
+          "The sign says WATER. A filter sits on top of the barrel now. Gray water goes in at the top. Clear water comes out at the tap. Tomas tastes it first and makes a face, but it is fine. You slowly heal in the yard.",
+          "The sign says WATER. Now a big tank stands next to the filter. The tank is full of clean water, so nobody waits for rain. Pip checks the tank each night. You heal faster in the yard.",
+          "The sign says WATER. Now two filters work, and a tank stands by them. You heal even faster in the yard. You also walk into each building at full health. That means you use fewer medical kits.",
         ],
       },
       power: {
         title: "Power pole",
         empty:
-          "POWER, lights first. Tomas paints that on the sign. A bare pole stands by the shed. Old rope lies coiled at its foot. Fuel, wire, and lights could go here. Then the map would show danger. You would know each bad place. Later a generator could do more.",
+          "Tomas painted this sign: POWER, lights first. A bare pole stands by the shed. An old coil of rope lies at its foot. Fuel, wire, and lights could go here. Then the map would show how dangerous each place is. Later, a generator could do even more.",
         built: [
-          "The sign says POWER. Fuel cans sit by the pole. Wire runs up it. A string of lights works now. They glow on the yard at night. The map shows danger at every place. Now you know what you drive into.",
-          "The sign says POWER. A generator hums here. A tin roof keeps it dry. The map shows danger. You find one supply crate each drive. Tomas pats the generator. He calls it a good beast.",
-          "The sign says POWER. More wire runs out to the van. The van has headlights now. The map shows danger. You find two supply crates each drive. The lights cut through night. They cut through fog too.",
+          "The sign says POWER. Fuel cans sit by the pole, and wire runs up it. A string of lights works now. The map shows the danger of every place. Now you know what you drive into.",
+          "The sign says POWER. Now a generator hums under a tin roof. The map still shows the danger of every place. You also find one supply crate on each drive. Tomas pats the generator and calls it a good beast.",
+          "The sign says POWER. More wire runs out to the van. Now the van has headlights. They cut through night and fog. The map shows the danger of every place. You find two supply crates on each drive.",
         ],
       },
       radio: {
         title: "Radio mast",
         empty:
-          "RADIO, Pip's job. Pip paints that on the sign. A tall post stands in the yard. A ladder leans on it. A radio mast could go here. It would pick up voices from town. The voices tell where places are. Then they show up on your map.",
+          "Pip painted this sign: RADIO, Pip's job. A tall post stands in the yard. A ladder leans on it. A radio mast could go up here. It would pick up voices from town. The voices would tell where places are. Then the places show up on your map.",
         built: [
-          "The sign says RADIO. A short mast holds up an antenna. A receiver sits under it. Static hisses out. Then voices. Pip writes down every voice. It finds three new places. They go on the map.",
-          "The sign says RADIO. The mast is taller now. It reaches all over town. Every voice comes in clear. Pip's list gets long. Pip needs more paper. Now every place shows on the map.",
-          "The sign says RADIO. The tall mast still stands. A shelf of books sits by it. Pip uses them for the voice log. The radio finds every place. It shows which places still have items. No more blind drives.",
+          "The sign says RADIO. A short mast holds up an antenna and a receiver. Static hisses out, and then voices come. Pip writes down every voice. The radio finds three new places on the map.",
+          "The sign says RADIO. The mast is taller now, so it reaches all over town. Every voice comes in clear. Pip's list gets so long that Pip needs more paper. The radio finds every place on the map.",
+          "The sign says RADIO. The tall mast still stands. A shelf of books sits under it now. Pip uses the books to keep the log of voices. The radio finds every place. It also shows which places still have items.",
         ],
       },
       lab: {
         title: "Lab corner",
         empty:
-          "LAB, after the Medbay and the Well. June paints that on the sign. A shady corner has a bench. Empty jars sit on it. Herb beds could go here. So could a still. They would make med kits at home. That means fewer trips to the hospital.",
+          "June painted this sign: LAB, after the Medbay and the Well. A shady corner has an old bench. Empty jars sit on it. Herb beds and a still could go here. They would make medical kits at home. Then we would make fewer trips to the hospital.",
         built: [
-          "The sign says LAB. Herb beds grow by the bench. A copper still sits on top. It cooks herbs into meds. It drips slow. One medical kit every 2 days. June guards it like gold.",
-          "The sign says LAB. The bench is clean now. A sink sits in it. The sink runs filtered water. June keeps her hands and tools spotless. It makes 1 medical kit each day. That is one less trip out.",
-          "The sign says LAB. This is a powered lab now. It hums off a generator. Lights glow on the bench at night. It makes 2 medical kits each day. Doc Lin would like this place. June says so too.",
+          "The sign says LAB. Herb beds grow by the bench. A copper still sits on top. The still cooks herbs into medicine. It drips slowly. It makes 1 medical kit every 2 days.",
+          "The sign says LAB. Now there is a clean bench with a sink. The sink runs filtered water. June keeps her hands and tools spotless. The lab makes 1 medical kit each day.",
+          "The sign says LAB. Now it is a powered lab that hums off a generator. Lights glow on the bench at night. It makes 2 medical kits each day. June says Doc Lin would like this place.",
         ],
       },
     },
@@ -83,333 +83,333 @@
   T.journal = [
     {
       title: "Day One, by Candle",
-      text: "Candle lit. Green ledger open. The van rolls into the yard. Last drops of fuel. Tomas talks to the engine. The whole way. Our cabin: south end of town. Empty. Dry. A woodstove. The door still locks. Pip sleeps on the bench. Bags still out. You take first watch at the window. Nothing comes.\n\n—June",
+      text: "I write by candle in my green ledger. Our van rolls in on its last fuel. Tomas talks to it all the way. The cabin at the south end of town is empty. It is dry and has a woodstove. The door locks. Pip sleeps before the bags are in. You keep first watch at the window. Nothing comes.\n\n—June",
     },
     {
       title: "The Cabin by Day",
-      text: "In daylight the cabin looks bigger. It is a whole family house. It has a porch. The roof is sound. An old fence circles the yard. Some boards are loose. The back dirt is dark and good. I see it first. Rule one goes inside the door. Say where you go.\n\n—June",
+      text: "By day, the cabin looks bigger. It is a family house with a porch. The roof is sound. An old fence circles the yard. Some boards are loose. The dirt behind the cabin is dark and good. I see it first. I write our first rule inside the door. Say where you are going before you go.\n\n—June",
     },
     {
       title: "Old but Honest",
-      text: "Tomas spends the morning under the van. He comes out smiling. The van is old, he says. But honest. Like a good mule. Then you drive out for supplies. I watch the road until you return. Pip counts the minutes you are gone. Pip writes the number on the wall.\n\n—June",
+      text: "Tomas spends the morning under the van. He comes out smiling. He says the van is old but honest, like a good mule. Then you drive out to look for supplies. I watch the road until the van comes back. Pip counts the minutes you are gone. Then Pip writes the number on the wall.\n\n—June",
     },
     {
       title: "They Come in Waves",
-      text: "First walkers at the fence, at dusk. They come in a group. They push at the boards. Then the yard goes quiet. For a while. So now I know. They come in waves. There is calm in between. A new rule goes on the door. No shouting in the yard. Walkers follow sound.\n\n—June",
+      text: "The first walkers come to the fence at dusk. They come in a group and push at the boards. Then the yard goes quiet for a while. Now I know they come in waves, with calm in between. A new rule goes on the door. Do not shout in the yard, because walkers follow sound.\n\n—June",
     },
     {
       title: "Pip Asks Questions",
-      text: "Pip asks where all the town went. I tell the truth. Some people left. Some hid. Some are still out there. They help each other. Then Pip asks. Can we keep a dog we find? A dog eats too, I say. And it needs a name, Pip says. Pip has thought about this.\n\n—June",
+      text: "Pip asks me where everyone in town went. I say some people left, and some people hid. Some are still out there, helping each other. Then Pip asks if we can keep a dog we find. I say a dog would need to eat, too. Pip says a dog would need a name, too.\n\n—June",
     },
     {
       title: "Patch Before Supper",
-      text: "The days have a rhythm now. Drive out. Come home. Hold the fence. A fence hole does not close itself. Someone has to patch it with scrap. So I make a rule. Patch the fence before supper. Supper is beans again. Nobody says a word about it. Not out loud.\n\n—June",
+      text: "Our days have a rhythm now. We drive out, come home, and hold the fence. A hole in the fence does not close by itself. Someone has to patch it with scrap. So I make a rule. We patch the fence before supper. Supper is beans again, but nobody complains out loud.\n\n—June",
     },
     {
       title: "Before the Fall",
-      text: "Before the Fall, I was a gardener. I kept a school garden. I want raised beds behind the cabin. Beans, squash, and tomatoes. My old friend Rosa ran the greenhouses. They are at Greenhouse Row. That is west of the gas station. Who still has seeds? Rosa does. I bet my boots.\n\n—June",
+      text: "Before the Fall, I was the gardener at a school. Now I want raised beds behind the cabin. I want beans, squash, and tomatoes. My old friend Rosa ran the greenhouses at Greenhouse Row. That is west of the gas station. If anyone still has seeds, it is Rosa.\n\n—June",
     },
     {
       title: "The Red R",
-      text: "People talk about a scout named Ruby. She paints a red R on buildings. She writes a number by it. It tells how many walkers are inside. Pip paints an R on a board. Then a number by it. A stranger who warns other strangers? That is a good sign.\n\n—June",
+      text: "People talk about a scout named Ruby. She paints a red R on buildings. Next to the R, she writes a number. It tells how many walkers she saw inside. Pip paints an R on a board. Pip puts a number next to it. A stranger who warns other strangers is a good sign.\n\n—June",
     },
     {
       title: "Wire and Stubbornness",
-      text: "Tomas's father was a mechanic. He learned at Ortiz Auto. From Mr. Ortiz himself. Tomas learned it from his father. He grew up under cars. He handed over wrenches. Today he fixes the van's loose mirror. He uses wire and stubbornness. Is Mr. Ortiz still out there? He hopes so. So do I.\n\n—June",
+      text: "Tomas's father was a mechanic. He learned from Mr. Ortiz at Ortiz Auto. Tomas learned from his father. He grew up under cars, handing over wrenches. Today he fixes the van's loose mirror with wire and stubbornness. He hopes Mr. Ortiz is still out there. So do I.\n\n—June",
     },
     {
       title: "Rain and Cards",
-      text: "It rains all day. The roof leaks in two spots. We put pots under the drips. Plink, plink, plink. Then we play cards by the stove. Pip wins every game. Pip will not tell us how. Rain, and all of us inside? That is a good day. I will take it.\n\n—June",
+      text: "It rains all day, and the roof leaks in two spots. We put pots under the drips. Then we play cards by the stove. Pip wins every game and will not tell us how. A rainy day with all of us inside is a good day.\n\n—June",
     },
     {
       title: "Static and Voices",
-      text: "Pip finds an old radio dial. It was in a drawer. Pip turns it for an hour. Only static. Pip is sure voices are out there. People say Jo talks on the radio. From a rooftop. Pip starts a list of every voice. The first name on it is June. That is me.\n\n—June",
+      text: "Pip finds an old radio dial in a drawer. Pip turns it for an hour, but there is only static. Pip still thinks voices are out there. People say Jo talks on the radio from a rooftop. Pip lists every voice we hear. The first name is June, and that is me.\n\n—June",
     },
     {
       title: "The Sunflower Kids",
-      text: "Today I think of my school garden. The kids plant sunflowers by the fence. I teach them to plant seeds. One finger deep. Water it every day, I tell them. Where are those kids now? I do not know. I hope they remember the sunflowers. I hope they plant more.\n\n—June",
+      text: "Today I think of my old school garden. The kids planted sunflowers by the fence. I taught them to plant a seed one finger deep. I told them to water it every day. Where are those kids now? I do not know. I hope they remember the sunflowers.\n\n—June",
     },
     {
       title: "Counting the Food",
-      text: "Each night I count the food. I write the number in this ledger. Every trip in the van eats food. A hungry crew makes a weak van. Our rule: we all eat the same. Even when there is not much. Tomas gives Pip half his bread anyway. I pretend not to see.\n\n—June",
+      text: "Every night I count the food. I write the number in this ledger. Each van trip eats food. A hungry crew makes a weak van. Our rule is that we all eat the same. We do it even when there is not much. Tomas gives Pip half his bread anyway. I pretend not to see.\n\n—June",
     },
     {
       title: "Talk of a Convoy",
-      text: "There is talk of the River Convoy. Boats and trucks, in a line. A police sergeant, Vega, gets it ready. It leaves north on the river road. Could our van make the trip? Tomas wants to see. Leave the cabin? I am not sure. Pip asks if dogs can come.\n\n—June",
+      text: "People talk about the River Convoy. It is a line of boats and trucks. A police sergeant named Vega is getting it ready. It will leave north on the river road. Tomas wants to see if our van could make the trip. I am not sure I want to leave the cabin.\n\n—June",
     },
     {
       title: "Half a Month",
-      text: "Tomas fixes the squeaky cabin door. He uses a strip of wire. And some cooking oil. He would fix the moon, I say. Just hand him a ladder. Pip asks if the moon is broken. We have lasted half a month here. That is longer than anyone guessed. Even me.\n\n—June",
+      text: "Tomas fixes the squeaky cabin door with wire and cooking oil. I tell him he would fix the moon. Someone just has to hand him a ladder. Pip asks if the moon is broken. We have lasted half a month at the cabin. That is longer than anyone guessed.\n\n—June",
     },
     {
       title: "The Hardest Night",
-      text: "Last night is the hardest night yet. Walkers hit the fence from every side. The boards crack. We all stay in place. Nobody runs. The fence holds until morning. Pip sleeps in the closet. Pip wears a pot on their head. Pip calls it a helmet. It is not a bad idea.\n\n—June",
+      text: "Last night was the hardest night yet. Walkers came at the fence from every side. The boards cracked, but we all stayed in place. The fence held until morning. Pip slept in the closet with a pot on their head. Pip called it a helmet.\n\n—June",
     },
     {
       title: "A Doctor Out There",
-      text: "People talk of a doctor, Doc Lin. Doc Lin carries meds around town. Doc Lin goes to the grocery. Then the pharmacy. Then the hospital. A nurse, Ada, stays at the hospital. It is called St. Anne Annex. She keeps the generator running. People like that keep the town alive.\n\n—June",
+      text: "People talk about a doctor named Doc Lin. Doc Lin carries medicine around town. Doc Lin goes between the grocery, the pharmacy, and the hospital. A nurse named Ada stayed at the hospital, St. Anne Annex. She keeps the generator running there. People like that are why our town is not gone.\n\n—June",
     },
     {
       title: "Frost on the Glass",
-      text: "Frost on the van this morning. It coats the windshield. Tomas scrapes it off. He uses an old library card. Cold mornings mean one thing. We need blankets. We need them before anything else. Pip finds frost on the window too. Pip draws a dog in it. Of course Pip does.\n\n—June",
+      text: "This morning there is frost on the van's windshield. Tomas scrapes it off with an old library card. Cold mornings tell me one thing. We need blankets before we need anything else. Pip draws a dog in the frost on the window.\n\n—June",
     },
     {
       title: "A Teacher Who Counts",
-      text: "People tell a story about Ms. Adler. She is a teacher. She led her whole class out. They left Lincoln Middle School. Where to? The Public Library, people say. Two kids got split off. They are twins, Max and Mia. A good teacher counts heads every hour. I hope Ms. Adler is still counting.\n\n—June",
+      text: "There is a story about a teacher, Ms. Adler. She led her whole class out of Lincoln Middle School. People say she took them to the Public Library. But two of her students got split off. They are twins named Max and Mia. A good teacher counts heads every hour. I hope Ms. Adler is still counting.\n\n—June",
     },
     {
       title: "What We Carry",
-      text: "Will the world ever come back? Pip asks me. I say some of it will. The parts people carry with them. Pip asks which parts we carry. I think about it. Then I tell Pip. The rules on the door. The seeds. And each other. Pip nods and goes to bed.\n\n—June",
+      text: "Pip asks me if the world will ever come back. I say some of it will. The parts that people carry with them will come back. Then Pip asks which parts we carry. I say three things. We carry the rules on the door, the seeds, and each other.\n\n—June",
     },
     {
       title: "The Rules Out Loud",
-      text: "After supper, I read the door rules. Out loud. Say where you go. No shouting in the yard. Patch the fence before supper. We all eat the same. Pip wants a new rule. Take what you need, leave the rest. That is the town's rule. A good one. It goes on the door too.\n\n—June",
+      text: "After supper, I read the door rules out loud. Say where you go. Do not shout in the yard. Patch the fence before supper. Everyone eats the same. Pip wants one more rule. Take what you need, and leave the rest. It is the town's rule, and a good one. So it goes on our door too.\n\n—June",
     },
     {
       title: "Ruby and Dev",
-      text: "Pip keeps asking about Ruby. Ruby has a younger brother named Dev. People say Ruby is looking for Dev. Dev leaves messages for her. Pip has it all worked out. They keep leaving messages. So they will find each other. Pip says it like a fact. I do not argue.\n\n—June",
+      text: "Pip keeps asking about Ruby and her younger brother, Dev. People say Ruby is looking for Dev. Dev leaves messages for her. Pip has it all worked out. If they keep leaving messages, they will find each other. Pip says it like a fact. I do not argue.\n\n—June",
     },
     {
       title: "Tick, Knock, Squeal",
-      text: "Tomas teaches Pip to hear the engine. A tick means one thing. A knock means something else. A squeal means stop right now. Pip learns fast. Pip says hello to the van daily. Good morning, van. Tomas says the van likes it. I think he likes it more.\n\n—June",
+      text: "Tomas is teaching Pip to listen to the van's engine. A tick means one thing, and a knock means another. A squeal means stop right now. Now Pip says hello to the van every morning. Tomas says the van likes it.\n\n—June",
     },
     {
       title: "Big, Messy, Honest",
-      text: "My knees ache on cold mornings. My hands get stiff too. So I teach Pip the ledger. Just in case. Pip writes big and messy. I tell Pip that is fine. A ledger need not be neat. It only has to be honest. Pip writes that down too.\n\n—June",
+      text: "My knees ache on cold mornings. So I show Pip how to keep the ledger. It is just in case my hands get stiff. Pip's writing is big and messy. I tell Pip that is fine. A ledger only has to be honest. It does not have to be neat.\n\n—June",
     },
     {
       title: "A Bark Past the Trees",
-      text: "Last night, a dog barks. It is past the trees. Pip stands at the window. A whole hour. Pip just listens. Tomas says this dog must be smart. It can find us if it wants. Pip leaves water by the gate. A full bowl. Just in case.\n\n—June",
+      text: "Last night, a dog barked somewhere past the trees. Pip stood at the window for an hour and listened. Tomas said a dog that lived this long is smart. It could find us if it wanted to. Pip left a bowl of water by the gate, just in case.\n\n—June",
     },
     {
       title: "Stories in the Wind",
-      text: "The wind comes hard from the north. It shakes the windows all night. Nobody can sleep. So we tell stories by the stove. Tomas tells one about his father's garage. I tell one about my school garden. Pip's is about a dog. The dog drives a van. That one wins.\n\n—June",
+      text: "Last night the wind came hard from the north. It shook the windows all night, so nobody could sleep. We told stories by the stove instead. Tomas told one about his father's garage. I told one about my school garden. Pip told one about a dog that drives a van.\n\n—June",
     },
     {
       title: "Reading by the Window",
-      text: "I think of my old students. I do it when I write. Some of them may have made it. Maybe they are in the library. With the others. I picture them reading by the window. It helps. Then I put the pen down. I get up. I do the next job.\n\n—June",
+      text: "I think about my old students when I write. Maybe some of them made it. Maybe they are in the library with the others. It helps to picture them reading by the window. Then I put the pen down. I get up and do the next job.\n\n—June",
     },
     {
       title: "What We Want",
-      text: "Tomas says the van could do it. Up the river road. That is if the convoy ever leaves. So I ask the crew. What do we want? Pip wants a dog. Tomas wants a garage. I want a garden. Then we agree. The cabin is home for now.\n\n—June",
+      text: "Tomas says the van could make it up the river road. That is, if the convoy ever leaves. So I ask the crew what we want. Pip wants a dog. Tomas wants a garage. I want a garden. Then we all agree that the cabin is home for now.\n\n—June",
     },
     {
       title: "A Quiet Day",
-      text: "A quiet day. Sun on the yard. Wind in the trees. No walkers at the fence for hours. I sit on the step. I write slow. Tomas whistles under the van. Pip ties knots in the fence rope. Quiet days are not wasted. They get you ready for loud ones.\n\n—June",
+      text: "Today is a quiet day. Sun is on the yard, and wind is in the trees. No walkers come to the fence for hours. I sit on the step and write slowly. Tomas whistles under the van. Pip ties knots in the fence rope. Quiet days are not wasted. They get us ready for loud ones.\n\n—June",
     },
     {
       title: "We Are Still Here",
-      text: "I read the ledger to the crew. I start at the first page. We found the cabin. We kept it. We kept each other. Tomorrow is the same work. The van. The fence. The food. The rules on the door. At the bottom, I write this. We are still here. That is a lot.\n\n—June",
+      text: "Tonight I read the ledger to the crew from page one. We found the cabin and kept it. We kept each other, too. Tomorrow is the same work. It is the van, the fence, the food, and the door rules. At the bottom, I write one line. We are still here, and that is a lot.\n\n—June",
     },
   ];
 
   T.radio = [
     {
       title: "Jo on 88.1",
-      text: "Hello out there. This is Jo on 88.1. I talk from a rooftop downtown. Each day I read the news. I give warnings. I give tips. It is for anyone still listening. Keep the town's rule. Take what you need, leave the rest.\n\n(Pip puts Jo on the voice list.)",
+      text: "Hello out there. This is Jo on 88.1. I am talking from a rooftop downtown. Every day I read the news, warnings, and tips. They are for anyone still listening. Here is the town's rule. Take what you need, and leave the rest.\n\n(Pip writes Jo's name on the list of voices.)",
     },
     {
       title: "Jo Explains the Key Ring",
-      text: "Jo here. Here is how the key ring works. Each building has a stash. It holds the best stuff. So smash and grab types get nothing. Its key hides in another building. A note tells where. Ruby and I started it. Mr. Reyes cut the first keys. He runs Reyes Hardware. Only readers find them.",
+      text: "Jo here. This is how the key ring works. Each building locks its best things in a stash. So people who smash and grab get nothing. Each stash key hides in a different building. A note there says where. Ruby and I started it. Mr. Reyes of Reyes Hardware cut the first keys. Only readers find them.",
     },
     {
       title: "A Tip from Jo",
-      text: "Jo again, on 88.1. Got a key ring tip for you. Grab a pen. A key is hidden at Gas-N-Go. It opens the staff locker. That locker is at Corner Grocery. Where is the key? Read the notes inside Gas-N-Go. They tell you. Read them all. Read them twice if you have to.",
+      text: "This is Jo on 88.1, with a key ring tip. Get a pen. A key is hidden at Gas-N-Go. It opens the staff locker at Corner Grocery. Where is the key? The notes inside Gas-N-Go tell you. So read them all. Read them twice if you have to.",
     },
     {
       title: "Ruby Is Still Looking",
-      text: "This is Jo. I have a message from Ruby. You know her. She paints the red R. She looks for her younger brother, Dev. He worked at Gas-N-Go. Do you see Dev? Tell him Ruby is still looking. One more thing. The number by her red R? It counts the walkers she saw inside.",
+      text: "This is Jo. I have a message from Ruby. She is the scout who paints the red R. Ruby is looking for her younger brother, Dev. Dev worked at Gas-N-Go. If you see Dev, tell him Ruby is still looking. One more thing. See the number by her red R? It counts the walkers she saw inside.",
     },
     {
       title: "Hold On, Ada",
-      text: "Jo here. This is from Doc Lin. It goes to Nurse Ada at St. Anne Annex. Ada, hold on. I am coming. Now a warning from me. No place in town is more dangerous. The walkers there follow sound. Not light. Sound. So move quiet in there. Very quiet.",
+      text: "Jo here, with a message from Doc Lin. It is for Nurse Ada at St. Anne Annex. Hold on, Ada, because I am coming. Now here is a warning from me. St. Anne Annex is the most dangerous place in town. The walkers there follow sound more than light. So move quietly inside.",
     },
     {
       title: "Sergeant Vega Speaks",
-      text: "Sergeant Vega here, at the 4th Precinct. I am building the River Convoy. It is boats and trucks. We leave north on the river road. We go in about ten days. That is the plan. We need fuel. We need boats. We need drivers who stay calm. Can you help? Come see me.",
+      text: "Sergeant Vega here, at the 4th Precinct. I am putting together the River Convoy. It is a line of boats and trucks. We will leave north on the river road. The plan is to go in about ten days. We need fuel, and we need boats. Most of all, we need drivers who stay calm.",
     },
     {
       title: "Doc Lin's Tip",
-      text: "This is Doc Lin. Jo lends me the mike today. I have a key ring tip. Look at Corner Grocery for a key. It opens the narcotics safe. That safe is at Mile 9 Pharmacy. It holds strong meds. Please take only what you need. Others need them too. Thank you.",
+      text: "This is Doc Lin. Jo lets me use the microphone today. I have a key ring tip. A key is hidden at Corner Grocery. It opens the narcotics safe at Mile 9 Pharmacy. That safe holds strong medicine. Please take only what you need, because others need it too.",
     },
     {
       title: "Max and Mia Ask",
-      text: "Jo here. This one is from twins. Max and Mia. They got split from their class. That was at Lincoln Middle School. Now they look for their teacher. Her name is Ms. Adler. Have you seen Ms. Adler's class? Then leave a note at the school.",
+      text: "Jo here, with a message from twins named Max and Mia. They got split from their class at Lincoln Middle School. Now they are looking for their teacher, Ms. Adler. Have you seen Ms. Adler's class? Then please leave a note at the school.",
     },
     {
       title: "Walk at the Mall",
-      text: "Jo with a warning. It is about Northgate Mall. The walkers there move as a group. If you run, they come running. All of them. So walk. Do not run. Then most of them stay put. That tip comes from Luis. He is the mall guard. He never left his post.",
+      text: "Jo here, with a warning about Northgate Mall. The walkers there move in a group. If you run, they all come running at you. So walk, and do not run. Then most of them stay put. That tip comes from Luis. He is the mall guard who never left his post.",
     },
     {
       title: "Seeds from Rosa",
-      text: "Jo here, with a key ring tip. Thanks to Mr. Reyes for this one. There is a key at Reyes Hardware. It opens the seed vault. The vault is at Greenhouse Row. Rosa has a word for you. Take seeds. Plant them. Save some for the next person.",
+      text: "Jo here, with a key ring tip. Thanks go to Mr. Reyes for this one. A key is hidden at Reyes Hardware. It opens the seed vault at Greenhouse Row. Rosa has a message for you. Take seeds, and plant them. Then save some seeds for the next person.",
     },
     {
       title: "Nurse Ada Answers",
-      text: "This is Nurse Ada at St. Anne Annex. I stay here for two jobs. I keep the generator running. I keep the records safe. Doc Lin, I hear your message. I am still here. I am still waiting. Come to the hospital? Walk soft. Please.",
+      text: "This is Nurse Ada at St. Anne Annex. I will be calm and clear. I stayed here to keep the generator running. I also keep the records safe. Doc Lin, I heard your message. I am still waiting. If you come to this hospital, please walk softly.",
     },
     {
       title: "The Class Is Safe",
-      text: "This is Mrs. Greer, the librarian. I speak from the Public Library. I have good news. Ms. Adler and her class are safe here. The kids read by window light. They do it each afternoon. Max and Mia, come to the library. Your teacher is here. She waits for you.",
+      text: "This is Mrs. Greer, the librarian. I am speaking from the Public Library, and I have good news. Ms. Adler and her class are safe here. The kids read by window light every afternoon. Max and Mia, please come to the library. Your teacher is here, and she is waiting for you.",
     },
     {
       title: "Chief Dunn's List",
-      text: "Chief Dunn here, at Station 12. That is the fire station. I work with Sergeant Vega. The job is the River Convoy. I keep the lists. Bad news first. The convoy is late. One truck needs new engine parts. Do you want to leave? Sign the list at Station 12.",
+      text: "This is Chief Dunn at Station 12, the fire station. I work with Sergeant Vega on the River Convoy. I keep the lists. The convoy is late, because one truck needs new engine parts. Do you want to leave with us? Then sign the list at Station 12.",
     },
     {
       title: "Parts for a Van",
-      text: "Jo on 88.1. I have a key ring tip. Search Greenhouse Row for a key. It opens the parts cage. That cage is at Ortiz Auto. Mr. Ortiz would want those parts used well. Like to keep a van running. Got a van? Go get them.",
+      text: "Jo on 88.1, with a key ring tip. A key is hidden at Greenhouse Row. It opens the parts cage at Ortiz Auto. Mr. Ortiz would want those parts used well. He would want them to keep a van running. So if you have a van, go get them.",
     },
     {
       title: "Theo at the Tower",
-      text: "This is Theo at the Water Tower. I tend the pumps here. Dev is with me. So is Mr. Ortiz. We have clean water. So they stay. Dev has a message for his sister. Ruby, I am safe with Theo. Come west. That is all. Theo out.",
+      text: "This is Theo at the Water Tower. I take care of the pumps here. Dev and Mr. Ortiz are staying with me, because we have clean water. Dev has a message for his sister. Ruby, I am safe with Theo, so come west. That is all. Theo out.",
     },
     {
       title: "Ruby Heads West",
-      text: "Jo here, with good news. Ruby hears Dev's message. She heads west to the Water Tower. But first she leaves one more warning. It is on the Ridge Lumber gate. Do not run the saws there. The noise brings the whole crowd. They come from the loading dock.",
+      text: "Jo here, with good news. Ruby heard Dev's message. She is heading west to the Water Tower. But first she left one more warning. It is on the gate at Ridge Lumber. Do not run the saws at Ridge Lumber. The noise brings the whole crowd from the loading dock.",
     },
     {
       title: "Together Again",
-      text: "Theo here. I have good news. This morning, Ruby walks in. She comes through the Water Tower gate. She and Dev are together again. They hug for a long time.\n\n(At the cabin, Pip cheers. So loud! June points at the door rules. No shouting in the yard.)",
+      text: "This is Theo, and I have good news. This morning, Ruby walked through the Water Tower gate. She and Dev are together again. They hugged for a long time.\n\n(At the cabin, Pip cheers very loud. June has to remind everyone of the rule. Do not shout in the yard.)",
     },
     {
       title: "A Locker Jo Knows",
-      text: "Jo again. Here is a key ring tip. I know this place well. A key waits at Station 12. It opens the repair locker. The locker is at Signal Electronics. Priya runs that store. She built my first radio transmitter. So be nice to her shop.",
+      text: "Jo here, with a key ring tip. I know this place well. A key is hidden at Station 12. It opens the repair locker at Signal Electronics. Priya runs that store. She built my first radio transmitter. So be kind to her shop.",
     },
     {
       title: "Getting Closer",
-      text: "Doc Lin here. I made it to Mile 9 Pharmacy. I have a bag of meds. The road north has too many walkers. It goes to St. Anne Annex. So I wait for a safe day. Nurse Ada, here is my message. Keep the generator going. I am getting closer.",
+      text: "Doc Lin here. I made it to Mile 9 Pharmacy with a bag of medicine. The road north to St. Anne Annex is still full of walkers. So I am waiting for a safe day. Nurse Ada, here is my message. Keep the generator going, because I am getting closer.",
     },
     {
       title: "Delayed Again",
-      text: "Sergeant Vega here. The River Convoy is late again. Rain made the river too high. It is too fast for the boats. I know. I am tired too. But the plan is still good. We still need fuel. We still need more drivers. Hang in there.",
+      text: "Sergeant Vega here. The River Convoy is late again. Rain made the river too high and fast for the boats. I know you are tired, and so am I. But the plan is still good. We still need fuel, and we still need more drivers. Hang in there.",
     },
     {
       title: "Theo's Key Tip",
-      text: "Theo at the Water Tower. I have a key ring tip. A key is hidden right here. It opens the principal's closet. That closet is at Lincoln Middle School. One more thing. Ruby and Dev say hello. Hello to all of you out there.",
+      text: "This is Theo at the Water Tower, with a key ring tip. A key is hidden right here at the Water Tower. It opens the principal's closet at Lincoln Middle School. One more thing. Ruby and Dev say hello to everyone who is listening.",
     },
     {
       title: "Two Extra Cots",
-      text: "Mrs. Greer here. The library still stands. Reading saved this building. I believe that. Each night Ms. Adler sets out two extra cots. One is for Max. One is for Mia. Twins, if you hear this, come here. Go to the book drop. Knock.",
+      text: "Mrs. Greer here. The library still stands, because reading saved this building. Every night, Ms. Adler sets out two extra cots. One cot is for Max, and one is for Mia. Twins, if you hear this, come to us. Come to the book drop, and knock.",
     },
     {
       title: "Vega's Key Tip",
-      text: "Sergeant Vega here. I have a key ring tip. A key hides at the 4th Precinct. It opens the foreman's lockbox. That lockbox is at Ridge Lumber. Carla says that lumber is for building. Not for burning. She is the yard boss. Do what she says.",
+      text: "Sergeant Vega here, with a key ring tip. A key is hidden at the 4th Precinct. It opens the foreman's lockbox at Ridge Lumber. Carla is the yard boss there. She says that lumber is for building, not for burning. So do what she says.",
     },
     {
       title: "A Light for Lin",
-      text: "Nurse Ada here. The hospital generator runs low. But I hear Doc Lin's voice. It is on the radio. It makes my day. Doc Lin, here is my message. I will keep a light on. It is in the top window. That way, you know I am here.",
+      text: "This is Nurse Ada. The hospital generator is running low. But I heard Doc Lin on the radio. It made my day. Doc Lin, here is my message. I will keep a light in the top window. Then you will know I am here.",
     },
     {
       title: "More Names, No Boats",
-      text: "This is Chief Dunn. I have the River Convoy list. More names are on it every day. Good. But the convoy is late again. We do not have enough boats yet. Can you fix an engine? Then come to Station 12. We need you.",
+      text: "This is Chief Dunn with the River Convoy list. More names go on it every day, and that is good. But the convoy is late again. We do not have enough boats yet. Can you fix an engine? Then come to Station 12, because we need you.",
     },
     {
       title: "Mrs. Greer's Key Tip",
-      text: "Mrs. Greer here, with a key ring tip. Check the Public Library for a key. It opens the jewelry vault. The vault is at Northgate Mall. Be careful at the mall. Walk there. Do not run. I mean it. Walkers there chase runners.",
+      text: "Mrs. Greer here, with a key ring tip. A key is hidden at the Public Library. It opens the jewelry vault at Northgate Mall. Please be careful at the mall. Walk there, and do not run. The walkers there chase anyone who runs.",
     },
     {
       title: "Storm Tonight",
-      text: "Jo on 88.1. A storm comes from the north tonight. Stay inside. Keep the fire low. Check the fence before dark. Bring in what can blow away. Walkers are slow in the wind. But they still come. So be ready. Stay warm out there. Stay dry.",
+      text: "Jo on 88.1. A storm is coming from the north tonight. Stay inside, and keep the fire low. Check the fence before dark. Walkers are slow in the wind, but they still come. So be ready, and stay warm out there.",
     },
     {
       title: "A Light Up the Hill",
-      text: "This is Doc Lin. I sit below a hill. St. Anne Annex is up top. Last night I see a light. It shines in the top window. That is the hospital. Nurse Ada is still there. I am still trying to reach her. Soon, Ada.",
+      text: "This is Doc Lin. I am at the bottom of the hill below St. Anne Annex. Last night I saw a light up there. It was in the top window of the hospital. That means Nurse Ada is still there. I am still trying to reach her. Soon, Ada.",
     },
     {
       title: "First Light Tomorrow",
-      text: "Sergeant Vega here. The River Convoy leaves tomorrow. At first light. That is if the river road holds. Is your name on the list? Pack tonight. Some of you will stay behind. Then keep the town's rule. Take what you need, leave the rest.",
+      text: "Sergeant Vega here. The River Convoy leaves at first light tomorrow. That is, if the river road holds. Is your name on the list? Then pack tonight. Some of you will stay behind. If you stay, keep the town's rule. Take what you need, and leave the rest.",
     },
     {
       title: "Same Time Tomorrow",
-      text: "Jo here. The River Convoy stays put. It did not leave this morning. Fog sits on the river road. Sergeant Vega says soon. Some good news too. Ruby and Dev are safe. They are at the Water Tower. Nurse Ada's light is still on. Same time tomorrow on 88.1. Jo out.",
+      text: "Jo here. The River Convoy did not leave this morning. Fog sat on the river road. Sergeant Vega says it will be soon. There is good news, too. Ruby and Dev are safe at the Water Tower. Nurse Ada's light is still on. Same time tomorrow on 88.1. Jo out.",
     },
   ];
 
   T.tags = {
     fuel: [
-      "Tape on the can says MIXED. Use it in the generator only. Marker below: shake before you pour.",
-      "Tomas's rule: fill to the line. Not to the top. Fuel needs room in heat. Store it outside, far from the stove.",
+      "Tape on the can says MIXED. Use it in the generator only. Marker under it says to shake it before you pour.",
+      "Tomas wrote a rule: fill it to the line, not the top. Fuel needs room in heat. Keep it outside, away from the stove.",
     ],
     food: [
-      "Stamped on the lid: beans, peaches, rice. Hana's note: eat the old cans first. Never eat from a can that bulges.",
-      "On the side: one crate per trip. Someone drew a smiley face. Under it they wrote one word: share.",
+      "The lid says beans, peaches, and rice. Hana wrote a note: eat the oldest cans first. Never eat from a can that bulges.",
+      "The side says one crate for every trip. Someone drew a smiley face. Under it, they wrote one word: share.",
     ],
     lumber: [
-      "End stamp: kiln dried, Ridge Lumber. Carla's chalk on the side: for fences. Not for fires. Not ever.",
-      "Paper tag on the bundle: measure twice. Cut once. Pencil marks on one board. Someone almost cut it there.",
+      "A stamp on the board says it is kiln dried. It is from Ridge Lumber. Carla wrote in chalk: for fences, not for fires.",
+      "A paper tag says to measure twice and cut once. Pencil marks on one board show where someone almost cut it.",
     ],
     nails: [
-      "Box label: nails, three inches long. Mr. Reyes's price sticker is still on it. Wear gloves. Pick up each nail you drop.",
-      "Two nails per board beat one. Drive them in at an angle. The box rattles. Wrap it in a shirt.",
+      "The box says the nails are three inches long. Mr. Reyes's price sticker is on it. Wear gloves. Pick up each nail you drop.",
+      "Two nails in a board, at an angle, hold better than one. The box rattles, so wrap it in a shirt.",
     ],
     tools: [
-      "Tape on the lid: Reyes Hardware. Bring it back when done. Inside: hammer, saw, pliers, wrench, tape.",
-      "Mr. Ortiz's note, inside: wipe the tools clean. Then put them away. On the wrench: righty tighty, lefty loosey.",
+      "Tape on the lid says Reyes Hardware. Bring it back when you are done. Inside are a hammer, saw, pliers, wrench, and tape.",
+      "Mr. Ortiz left a note inside. Wipe the tools clean before you put them away. The wrench says righty tighty, lefty loosey.",
     ],
     parts: [
-      "Tag wired to the box: Ortiz Auto. Fits most vans. Mr. Ortiz wrote more. Check the belt before a long drive.",
-      "Grease pencil list: plugs, belt, oil filter. Turn it hand tight. Then a bit more. Never as hard as you can.",
+      "A tag on the box says Ortiz Auto. The parts fit most vans. Mr. Ortiz wrote: check the belt before a long drive.",
+      "It lists spark plugs, a belt, and an oil filter. Turn it hand tight, then a bit more. Never use all your strength.",
     ],
     wire: [
-      "Copper wire, coated in plastic. Priya's note: strip each end. Twist the ends together. Then wrap them in tape.",
-      "Never touch bare wire. Not if it hooks to a generator. Someone drew a tiny antenna. It says: Jo, 88.1.",
+      "The spool holds copper wire coated in plastic. Priya says to strip each end and twist the ends together. Then wrap them in tape.",
+      "Never touch bare wire that is hooked to a generator. Someone drew a tiny antenna by it. It says Jo, 88.1.",
     ],
     radioParts: [
-      "Box label: tuner, speaker, antenna clamp. Priya wrote on the side. Keep it dry. Keep it in the bag.",
-      "Sticky note: put the antenna up high. Higher means farther voices. A list of stations is on it. Just one is circled: Jo.",
+      "The box holds a tuner, a speaker, and an antenna clamp. Priya wrote on the side: keep it dry and in the bag.",
+      "A note says the higher the antenna, the farther the voices. It lists radio stations. Only one is circled, and it is Jo.",
     ],
     seeds: [
-      "Seed packet: bush beans. Plant them one finger deep. Rosa's note: soak them in water first. Leave them overnight.",
-      "Seed packet: lettuce and carrots. Cover them just barely. Keep it damp. Rosa wrote on the back. Save the best seeds for next year.",
+      "This packet holds bush beans. Plant them one finger deep. Rosa wrote on it: soak them in water overnight first.",
+      "This packet holds lettuce and carrots. Barely cover them with soil, and keep it damp. Rosa wrote: save seeds from your best plants.",
     ],
     soil: [
-      "On the bag: garden soil, keep dry. Rosa's note: mix in old leaves. Kitchen scraps too. It makes the soil richer.",
-      "Stamped on the bag: Greenhouse Row. On the side: it is heavy. Lift with your legs. Not with your back.",
+      "The bag says garden soil, keep dry. Rosa says to mix in old leaves and kitchen scraps. That makes the soil richer.",
+      "The bag is stamped Greenhouse Row. The side says it is heavy. Lift it with your legs, not your back.",
     ],
     meds: [
-      "A red cross kit. Inside: bandages, tape, wipes, pain pills. Nurse Ada's steps: wash the cut. Press it. Cover it. Check it every day.",
-      "Doc Lin's note: cool a burn. Use clean water. Do not pop the blisters. One kit gets you back up.",
+      "It has a red cross. Inside are bandages, tape, wipes, and pills. Nurse Ada says: wash, press, and cover a cut. Check it daily.",
+      "Doc Lin wrote: cool a burn under clean water. Do not pop the blisters. One kit gets you back on your feet.",
     ],
     waterFilter: [
-      "Label: water slow or strange? Change the filter. Theo's tag: let dirty water settle. Then pour from the top.",
-      "On the side: not sure? Boil the water too. Rinse the filter in clean water. Never in dirty water.",
+      "Change the filter when the water runs slow or tastes strange. Theo wrote: let dirty water settle, then pour from the top.",
+      "If you are not sure, boil the water too. Rinse the filter in clean water, never in dirty water.",
     ],
     waterTank: [
-      "Painted on the side: drinking water only. Chief Dunn's tag: Station 12. Keep the lid on tight.",
-      "Scrub it with a bit of bleach. Rinse it well. Then fill it. Keep the tank in the shade. Then nothing grows inside.",
+      "The side says drinking water only. Chief Dunn's tag says it is from Station 12. Keep the lid on.",
+      "Scrub it with a little bleach, and rinse it well. Then fill it. Keep the tank in the shade so nothing grows inside.",
     ],
     generator: [
-      "Warning plate: run it outside only. The fumes poison a closed room. Tape label: check oil before each start.",
-      "Taped note: it is loud. Walkers hear it from far away. So run it in the day. Shut it off at night.",
+      "The plate says to run it outside only. Its fumes are poison in a closed room. Check the oil before every start.",
+      "It is loud, and walkers hear it from far away. So run it in the day, and shut it off at night.",
     ],
     gunParts: [
-      "A tag from the police armory. Sergeant Vega signed it. Wrapped in oily paper. The note: keep it clean and dry.",
-      "Written on the box. Check that it is empty first. Then clean it. Point it at the ground. Never at a person.",
+      "The tag is from the police armory. Sergeant Vega signed it. The parts sit in oily paper. Keep them clean and dry.",
+      "Always check that it is empty before you clean it. Point it at the ground, never at a person.",
     ],
     armorPlate: [
-      "Painted on the plate: steel, heavy. Chalk: bolt it to the van door. Put it at chest height.",
-      "Sticky note: a plate stops grabbing hands. It does not stop crashes. Marker lines on the edge count dents.",
+      "The plate is steel, and it is heavy. Chalk says to bolt it on the van door. Put it at chest height.",
+      "A plate stops grabbing hands, but it does not stop crashes. Marker lines on one edge count every dent.",
     ],
     books: [
-      "Stamped inside the cover: Public Library. Please return it. Mrs. Greer wrote on the box. Reading saved this building.",
-      "Box label: guides, first aid, engines, poems. A sticky note: want first aid? Look for folded corners.",
+      "Inside the cover, a stamp says Public Library, please return. Mrs. Greer wrote on the box: reading saved this building.",
+      "The box holds field guides, first aid, small engines, and poems. The first aid book is the one with folded corners.",
     ],
     maps: [
-      "Folder label: city maps. Streets and the river road. Red pen traces the road north. It says: CONVOY.",
-      "The map has red R marks. Ruby wrote on the back. A red R means I went in. The number means walkers.",
+      "The folder holds city maps of the streets and the river road. Someone traced the road north in red pen. It says CONVOY.",
+      "Some buildings have a red R in pencil. Ruby wrote on the back: R means I went in. The number means walkers.",
     ],
   };
 
   T.recap = {
-    haul: "Home with {items} items and {scrap} scrap.",
-    nothing: "You come home with nothing today.",
-    notes: "New notes read: {notes}.",
-    keys: "Stash keys found: {keys}.",
-    food: "Food left in the cabin: {food}.",
-    hungry: "No food, so the van runs weak.",
-    next: "Next up: the {room} still needs {needs}.",
-    ready: "You can build the {room} now.",
+    haul: "You came home with {items} items and {scrap} scrap.",
+    nothing: "You came home with nothing this time.",
+    notes: "You read {notes} new notes on this trip.",
+    keys: "You found {keys} stash keys.",
+    food: "The crew ate, and {food} food is left.",
+    hungry: "There is no food, so the van will be weak.",
+    next: "The next build is the {room}. It still needs {needs}.",
+    ready: "You have everything to build the {room} now.",
   };
   // The cabin inside: what the Hollis family left on the walls, one note per room (facts: W.HOUSE_NOTES),
   // and the computer's House tab (facts: W.HOUSE_UPGRADE_FACTS).
@@ -417,80 +417,80 @@
     notes: {
       porch: {
         title: "The Dinner Bell",
-        text: "A carved sign says THE CABIN. Under it: THE HOLLIS FAMILY. Dan Hollis hung this big iron bell. The kids heard it in the woods. A note says: ring for supper. June adds in chalk: it rings far. Walkers come to it. Ready to fight? Then ring it.",
+        text: "A carved sign says THE CABIN, THE HOLLIS FAMILY. Dan Hollis hung this iron bell. The kids could hear it from the woods. A note says: ring for supper. June added in chalk: walkers come to the bell. So ring it only when you are ready to fight.",
       },
       foyer: {
         title: "Five Hooks by the Door",
-        text: "Five hooks hang by the door. Names are over them. Kate. Dan. Gus. Finn. A low one says Lucy. Lucy's hook has a tag. Tag: last one out locks the door. The hooks are empty now. The Hollis family took their keys. They left.",
+        text: "Five hooks hang by the door. Names are over them: Kate, Dan, Gus, and Finn. A low hook says Lucy. Its tag says: last one out locks the door. The hooks are empty now. The Hollis family took their keys when they left.",
       },
       office: {
         title: "Kate's Map Desk",
-        text: "Kate Hollis worked at this desk. She drew maps for the county. A sticky note is on the screen. The computer runs on a big battery. The battery is in the closet. June keeps base plans on it now. Rooms, van, guns, and traps.",
+        text: "Kate Hollis worked at this desk. She drew maps for the county. A sticky note is on the screen. It says the computer runs on the big battery in the closet. June keeps the base plans on it now. They cover rooms, the van, guns, and traps.",
       },
       dining: {
         title: "The Chore Chart",
-        text: "A chore chart has gold stars. Gus washed the dishes. Finn took out the trash. Lucy fed Biscuit the dog. Lucy has the most stars. One of Gus's stars is crossed out. Pip adds a pencil row. Pip feeds our dog. We do not have one yet.",
+        text: "A chore chart has gold stars. Gus washed the dishes. Finn took out the trash. Lucy fed Biscuit, the dog. Lucy has the most stars. One of Gus's stars is crossed out. Pip added a pencil row. It says Pip feeds the dog we do not have yet.",
       },
       kitchen: {
         title: "Kate's Note on the Fridge",
-        text: "A fish magnet holds this note. Kate wrote it the morning they left. We go north with the River Convoy. We ride Sergeant Vega's trucks. We take Biscuit and our go bags. We take the last peaches. Are you kind? Our cabin is yours. Keep the garden going.",
+        text: "A fish magnet holds this note. Kate wrote it the morning they left. We go north with the River Convoy on Sergeant Vega's trucks. We took Biscuit, our go bags, and the last peaches. Are you kind? Then our cabin is yours now. Please keep the garden going.",
       },
       pantry: {
         title: "Labels on the Shelves",
-        text: "Dan Hollis labeled each shelf. Beans. Rice. Peaches. Flour. Most shelves are bare now. The labels are still there. The crew counts the food in here. Everything in storage is counted here too.",
+        text: "Dan Hollis put a label on every shelf. They say beans, rice, peaches, and flour. Most shelves are bare now, but the labels are still there. The crew counts the food in here. Everything else in storage gets counted here too.",
       },
       pingpong: {
         title: "The Ping Pong Score",
-        text: "This is the ping pong room. A chalk score board hangs over the table. The last game: Finn 21, Dad 19. Dan wrote under it: rematch on Sunday. Tomas and Pip play here now. Pip says the table leans left.",
+        text: "A chalk scoreboard hangs over the ping pong table. The last game says Finn 21, Dad 19. Under it, Dan wrote: rematch on Sunday. Tomas and Pip play here now. Pip says the table leans to the left.",
       },
       masterBath: {
         title: "A Heart on the Mirror",
-        text: "Someone drew a heart on the mirror. Three names are in it. Gus. Finn. Lucy. A list is taped by the sink. It says: Lucy, brush your teeth. Brush for two whole minutes. June leaves the list up.",
+        text: "Someone drew a heart on the mirror. Three names are in it: Gus, Finn, and Lucy. A list is taped by the sink. It says Lucy must brush her teeth for two whole minutes. June left the list up.",
       },
       master: {
         title: "The Photo Over the Bed",
-        text: "A photo hangs over the big bed. It shows Kate and Dan Hollis. It is their wedding day. The river is behind them. June gives this bed to the most hurt. Sleep here to heal all the way. But it takes time. Walkers keep coming while you sleep.",
+        text: "A photo hangs over the big bed. It shows Kate and Dan Hollis by the river. It was their wedding day. June says whoever is hurt most gets this bed. A nap here heals you to full. It takes time, and walkers keep coming while you sleep.",
       },
       living: {
         title: "Lines on the Door Frame",
-        text: "Each year the kids grew. Pencil lines on the frame show it. Gus has the top line. Lucy's low line says age 3. Pip's line falls between Finn and Gus. The radio sits by the couch. So does June's green ledger. Anyone can read old days again.",
+        text: "Lines on the door frame show how tall the kids grew. Gus has the top line. Lucy's lowest line says age 3. Pip comes up between Finn and Gus. The radio and June's green ledger sit by the couch. Anyone can read past days there again.",
       },
       gusRoom: {
         title: "Keep Out",
-        text: "The door sign says: Gus's Room. Keep out. This means you, Finn. Gus is sixteen. He left his guitar here. It has two broken strings. Tomas sleeps here now. He says the sign still counts. It counts for Pip.",
+        text: "The sign on this door says GUS'S ROOM. KEEP OUT. THIS MEANS YOU, FINN. Gus is sixteen. He left his guitar here, and it has two broken strings. Tomas sleeps here now. He says the sign still counts, and now it means Pip.",
       },
       finnRoom: {
         title: "Finn's Treehouse Plan",
-        text: "Finn drew a plan for a treehouse. The tree is past the fence. The plan has a rope ladder. It has a lookout. It has a bucket on a pulley. Pip wants to build it someday. First the fence must be strong.",
+        text: "Finn drew a plan for a treehouse. It goes in the woods past the fence. The plan has a rope ladder and a lookout. It has a bucket on a pulley, too. Pip wants to build it someday. But first the fence must be strong.",
       },
       lucyRoom: {
         title: "My Dog Biscuit",
-        text: "Lucy drew a dog in crayon. It has floppy ears. It says: MY DOG BISCUIT. Lucy wrote more under it. Biscuit can sit. Biscuit can shake. Biscuit can roll over. Pip pins up a second drawing. It is a dog with no name yet.",
+        text: "Lucy drew a dog in crayon. The dog has floppy ears. The drawing says MY DOG BISCUIT. Under it, Lucy wrote that Biscuit can sit, shake, and roll over. Pip pinned up a second drawing next to it. It shows a dog with no name yet.",
       },
       playroom: {
         title: "The Typing Board",
-        text: "This play room has a little desk. An old typewriter sits on it. There is a chalkboard too. Kate wrote: practice typing ten minutes a day. Keep your fingers on the home row. Lucy wrote her name ten times below.",
+        text: "The play room has a little desk. An old typewriter sits on it. There is a chalkboard too. Kate wrote on it: practice typing ten minutes a day. Keep your fingers on the home row. Lucy wrote her name ten times under it.",
       },
       coatCloset: {
         title: "The Go Bag List",
-        text: "A list is taped inside the closet door. It says: the go bag. Water. A flashlight. Batteries. Biscuit's leash. The photo album. At the bottom it says this. Split up? Meet at the river dock. Meet by the convoy trucks.",
+        text: "A list is taped inside the closet door. It is called the go bag. It lists water, a flashlight, batteries, Biscuit's leash, and the photo album. The last line says this. If we get split up, meet at the river dock. Meet by the convoy trucks.",
       },
     },
     upgrades: {
       doors: {
-        desc: "Two doors lead to the yard. The front door is on the porch. The back door is in the play room. A shut door? Walkers pound it till it breaks. An open door? They walk right in. A door starts at 150 strength.",
+        desc: "The cabin has two doors to the yard. The front door is on the porch. The back door is in the play room. Walkers pound on a shut door until it breaks. They walk right in through an open door. Each door starts at 150 strength.",
         next: [
-          "Each door gets a thick wood bar. Door strength rises to 260.",
-          "Steel sheets get bolted on both doors. Door strength rises to 400.",
-          "Steel security doors replace the old ones. Door strength rises to 560.",
+          "A thick wooden bar goes across each door. Door strength rises to 260.",
+          "Steel sheets are bolted onto both doors. Door strength rises to 400.",
+          "Steel security doors take the place of the old ones. Door strength rises to 560.",
         ],
       },
       windows: {
-        desc: "The cabin has lots of windows. Walkers smash the glass fast. Then they climb in. You cannot climb out a broken window. Glass starts at 50 strength.",
+        desc: "The cabin has many windows. Walkers smash the glass fast, and then they climb in. You cannot climb out through a broken window. The glass starts at 50 strength.",
         next: [
           "Boards go up over the glass. Window strength rises to 140.",
-          "Metal shutters go on every window. Window strength rises to 240.",
-          "Steel plates cover every window. Each has a thin slot. Window strength rises to 380.",
+          "Metal shutters go up over every window. Window strength rises to 240.",
+          "Steel plates cover every window, and each has a thin slot. Window strength rises to 380.",
         ],
       },
     },

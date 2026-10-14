@@ -24,6 +24,7 @@
           "It opens the staff locker at Corner Grocery, east of here.",
           "Ruby and Jo made a rule: take what you need, leave the rest; every stash is locked, and its key is hidden in another building with a note that says where, so only people who read can find it.",
           "Hana, the grocery manager, gave Ruby this key on the first day of the ring.",
+          "The staff locker has a fussy lock: the wrong key jams it, and after that only a crowbar opens it.",
         ] },
         { id: "gasngo-dead1", kind: "dead", minLevel: 1, spot: 7, found: "on the floor of the break room, near the ice machine", facts: [
           "A to-do list in Dev's handwriting, from his last shift before the Fall.",
@@ -31,11 +32,11 @@
           "At the bottom: call Ruby back.",
           "Nothing on the list is crossed off.",
         ] },
-        { id: "gasngo-dead2", kind: "decoy", minLevel: 2, spot: 4, found: "in the back hall, outside the old safe room door", facts: [
-          "A note signed only \"a friend\".",
-          "It says the key to the old safe room is under the mat outside the front door.",
-          "There is no mat outside the front door anymore.",
-          "Someone has written NOPE across the note in red marker.",
+        { id: "gasngo-dead2", kind: "decoy", minLevel: 1, spot: 4, found: "in the back hall, outside the old safe room door", facts: [
+          "A scrap of receipt in shaky pencil, not signed.",
+          "It says the storeroom key is in the {decoyPick} of the counter.",
+          "It was written before Ruby set her traps in the counter drawers.",
+          "Dev's note on the counter says which drawer is safe now.",
         ] },
         { id: "gasngo-dead3", kind: "dead", minLevel: 4, spot: 2, found: "between the shelves in the middle of the shop", facts: [
           "A lost-dog flyer, faded by the sun.",
@@ -54,9 +55,9 @@
         { id: "gasngo-sign1", kind: "sign", facts: ["A faded store sign: Gas-N-Go, always open.", "Someone has crossed out \"always\" and written \"not\"."] },
         { id: "gasngo-sign2", kind: "graffiti", facts: ["Ruby's big red R by the front door, with a 3 under it: she counted three walkers in here.", "Under it, smaller: don't run, walk and look."] },
         { id: "gasngo-sign3", kind: "graffiti", facts: ["By the old safe room door, a chalk circle with a small key drawn inside it.", "It means this lock's key is hidden in another building; find the note that says where."] },
-        { id: "gasngo-sign4", kind: "sign", facts: ["A metal sign beside the storeroom door: Staff only.", "Under it, in Dev's writing: key on the hook, you know where."] },
+        { id: "gasngo-sign4", kind: "sign", facts: ["A metal sign beside the storeroom door: Staff only.", "Under it, in Dev's writing: key in the counter drawers, and read my note before you open one."] },
       ],
-      key: { id: "key-gasngo", opens: "grocery", after: "gasngo-trail2", facts: ["What it looks like: a small brass key on a green plastic tag.", "Its tag says: \"Staff locker. Leave some for the next one.\""] },
+      key: { id: "key-gasngo", opens: "grocery", after: "gasngo-trail2", facts: ["What it looks like: a small brass key on a green plastic tag.", "Its tag says: \"Leave some for the next one.\""] },
     },
 
     /* ---------- Corner Grocery: Doc Lin's route begins ---------- */
@@ -75,6 +76,7 @@
           "It is a long silver key on a red string.",
           "It opens the narcotics safe at Mile 9 Pharmacy, west of here.",
           "Mr. Okafor gave Hana this key for the ring because she never took more than she needed.",
+          "The narcotics safe has an old lock that bites: the wrong key snaps off inside it and is gone for good.",
         ] },
         { id: "grocery-dead1", kind: "dead", minLevel: 1, spot: 3, found: "at the top of aisle 2, under the BREAD sign", facts: [
           "A shopping list in a kid's handwriting.",
@@ -82,11 +84,11 @@
           "Next to dog food a grown-up wrote: we don't have a dog.",
           "Under that, the kid wrote: yet.",
         ] },
-        { id: "grocery-dead2", kind: "decoy", minLevel: 2, spot: 6, found: "on the floor just inside the front door", facts: [
-          "A sheet of cardboard with big letters: cooler empty, don't bother.",
-          "It is not signed.",
-          "The letters are shaky, as if someone wrote it in a hurry to keep others away.",
-          "Hana's own note in the office says what is really in the cooler.",
+        { id: "grocery-dead2", kind: "decoy", minLevel: 1, spot: 6, found: "on the floor just inside the front door", facts: [
+          "A note on a flap of cardboard, not signed.",
+          "It says the trick for the cooler latch is to {decoyMoves}.",
+          "That was the trick for the old latch, before Hana put in a new one.",
+          "Hana's note in the office has the trick that works now.",
         ] },
         { id: "grocery-dead3", kind: "dead", minLevel: 4, spot: 5, found: "under the SEAFOOD sign, near the fish tank", facts: [
           "Hana's work schedule for the week the Fall began.",
@@ -105,9 +107,9 @@
         { id: "grocery-sign1", kind: "sign", facts: ["A printed sign: Corner Grocery, fresh bread every morning.", "The bread rack under it is empty."] },
         { id: "grocery-sign2", kind: "graffiti", facts: ["In black marker: the loading door at the back doesn't shut.", "Under it: watch your back."] },
         { id: "grocery-sign3", kind: "sign", facts: ["A sale sign: soup, two cans for the price of one.", "Someone added: deal still stands, everything is free now."] },
-        { id: "grocery-sign4", kind: "sign", facts: ["A sign on the cooler: walk-in cooler, keep the door closed.", "Under it, in Hana's writing: lift and pull."] },
+        { id: "grocery-sign4", kind: "sign", facts: ["A sign on the cooler: walk-in cooler, keep the door closed.", "Under it, in Hana's writing: the trick is in my note in the office; do it any other way and the latch jams."] },
       ],
-      key: { id: "key-grocery", opens: "pharmacy", after: "grocery-trail2", facts: ["What it looks like: a long silver key on a red string.", "Its tag says: \"Medicine only. Count what you take.\""] },
+      key: { id: "key-grocery", opens: "pharmacy", after: "grocery-trail2", facts: ["What it looks like: a long silver key on a red string.", "Its tag says: \"Count what you take.\""] },
     },
 
     /* ---------- Mile 9 Pharmacy: Lin's road north is blocked ---------- */
@@ -126,6 +128,7 @@
           "It is a stubby iron key with drops of blue paint on it.",
           "It opens the paint vault at Reyes Hardware, east of here across town.",
           "Mr. Reyes cut this key himself; he keeps none of his own keys, and that is how the ring works.",
+          "The paint vault has a fussy lock: the wrong key jams it, and after that only a crowbar opens it.",
         ] },
         { id: "pharmacy-dead1", kind: "dead", minLevel: 1, spot: 3, found: "in the cross aisle, between the shelves", facts: [
           "A paper pharmacy bag that nobody picked up.",
@@ -133,9 +136,9 @@
           "The pills inside are for sore knees.",
           "Mr. Okafor wrote on the bag: she always forgets these.",
         ] },
-        { id: "pharmacy-dead2", kind: "decoy", minLevel: 2, spot: 6, found: "on the floor just inside the front door", facts: [
+        { id: "pharmacy-dead2", kind: "decoy", minLevel: 1, spot: 6, found: "on the floor just inside the front door", facts: [
           "A yellow sticky note.",
-          "It says the cabinet room code is 4417.",
+          "It says the cabinet room code is {decoyCode}.",
           "The note is old, from before Mr. Okafor changed the code.",
           "The code on the counter note is the one that works.",
         ] },
@@ -158,7 +161,7 @@
         { id: "pharmacy-sign3", kind: "sign", facts: ["A health poster: clean water saves lives.", "It says: if you can't filter it, boil it."] },
         { id: "pharmacy-sign4", kind: "sign", facts: ["A sign on the door: cabinet room, staff only.", "Under it, in neat pen: code changed, use the one on the counter note."] },
       ],
-      key: { id: "key-pharmacy", opens: "hardware", after: "pharmacy-trail2", facts: ["What it looks like: a stubby iron key with drops of blue paint on it.", "Its tag says: \"Paint vault. Cut by Reyes.\""] },
+      key: { id: "key-pharmacy", opens: "hardware", after: "pharmacy-trail2", facts: ["What it looks like: a stubby iron key with drops of blue paint on it.", "Its tag says: \"Cut by Reyes.\""] },
     },
 
     /* ---------- Reyes Hardware: where the keys were cut ---------- */
@@ -177,6 +180,7 @@
           "It is a copper key with a leaf scratched into its head.",
           "It opens the seed vault at Greenhouse Row, far west across town.",
           "It was the very first key he cut for the ring; Rosa said a hardware store is the last place a seed thief would look.",
+          "The seed vault has a plain lock: a wrong key just will not turn.",
         ] },
         { id: "hardware-dead1", kind: "dead", minLevel: 1, spot: 4, found: "in the lumber racks, by the stacked planks", facts: [
           "Mr. Reyes's list of who borrowed his tools.",
@@ -184,11 +188,11 @@
           "Chief Dunn: two ladders.",
           "Theo: one pipe wrench, never returned, again.",
         ] },
-        { id: "hardware-dead2", kind: "decoy", minLevel: 2, spot: 7, found: "in the paint department, outside the paint vault door", facts: [
+        { id: "hardware-dead2", kind: "decoy", minLevel: 1, spot: 7, found: "in the paint department, outside the paint vault door", facts: [
           "A note in pencil, not signed.",
-          "It says the paint vault key is hidden inside a can of blue paint.",
-          "Many blue paint cans on the shelves have been pried open.",
-          "None of them had a key inside.",
+          "It says the back room door opens if you push it {decoyMove1}, then {decoyMove2}.",
+          "That was before the frame bent in the storm.",
+          "Mr. Reyes's note by the paint mixer has the way that works now.",
         ] },
         { id: "hardware-dead3", kind: "dead", minLevel: 4, spot: 5, found: "at the end of the aisles, by the garden center door", facts: [
           "A crayon drawing by Mr. Reyes's grandson.",
@@ -207,9 +211,9 @@
         { id: "hardware-sign1", kind: "sign", facts: ["A hand-painted sign: Reyes Hardware.", "Under the name: if we don't have it, you don't need it."] },
         { id: "hardware-sign2", kind: "graffiti", facts: ["Ruby's red R by the front door, with a 5 under it.", "Under it: two in the middle aisles."] },
         { id: "hardware-sign3", kind: "sign", facts: ["A sign with an arrow: keys cut here.", "Someone drew a circle with a key inside next to the arrow, which points toward the paint vault in the paint department."] },
-        { id: "hardware-sign4", kind: "graffiti", facts: ["Written on the back room door in marker: lift, then push.", "Mr. Reyes signed it."] },
+        { id: "hardware-sign4", kind: "graffiti", facts: ["Written on the back room door in marker: it sticks, so read my note by the paint mixer before you push it.", "Mr. Reyes signed it."] },
       ],
-      key: { id: "key-hardware", opens: "garden", after: "hardware-trail2", facts: ["What it looks like: a copper key with a leaf scratched into its head.", "Its tag says: \"Seed vault. Seeds for anyone.\""] },
+      key: { id: "key-hardware", opens: "garden", after: "hardware-trail2", facts: ["What it looks like: a copper key with a leaf scratched into its head.", "Its tag says: \"Take only what you need.\""] },
     },
 
     /* ---------- Greenhouse Row: Rosa saw Dev, then Ruby ---------- */
@@ -228,6 +232,7 @@
           "It is a greasy steel key on a loop of wire.",
           "It opens the parts cage at Ortiz Auto, far east across town.",
           "Mr. Ortiz gave Rosa the key when the truck stopped here, so the ring would not break.",
+          "The parts cage has a plain lock: a wrong key just will not turn.",
         ] },
         { id: "garden-dead1", kind: "dead", minLevel: 1, spot: 5, found: "in the shop, just inside the gate", facts: [
           "Rosa's planting chart.",
@@ -235,11 +240,11 @@
           "The beans came from seeds her old friend June gave her.",
           "At the bottom: tell June the beans came up.",
         ] },
-        { id: "garden-dead2", kind: "decoy", minLevel: 2, spot: 4, found: "on the path, outside the potting shed door", facts: [
-          "A note from a stranger.",
-          "It says the potting shed is full of canned food.",
-          "There is no canned food in the shed, only seeds and water.",
-          "Rosa wrote under it: seeds are food, if you wait.",
+        { id: "garden-dead2", kind: "decoy", minLevel: 1, spot: 4, found: "on the path, outside the potting shed door", facts: [
+          "A note from a stranger, on a seed packet.",
+          "It says the shed key is in the {decoyPick}.",
+          "Rosa moved the key after a looter read this note.",
+          "Her note on the potting bench says where the key is now.",
         ] },
         { id: "garden-dead3", kind: "dead", minLevel: 4, spot: 3, found: "near the front of the big greenhouse", facts: [
           "Rosa's seed-sharing list.",
@@ -260,7 +265,7 @@
         { id: "garden-sign3", kind: "graffiti", facts: ["A chalk circle with a key inside, by the seed vault door in the shop.", "Under it: the key is not here, read the notes."] },
         { id: "garden-sign4", kind: "sign", facts: ["A painted sign: potting shed, mind the step.", "A small watering can is painted next to the words."] },
       ],
-      key: { id: "key-garden", opens: "autoshop", after: "garden-trail2", facts: ["What it looks like: a greasy steel key on a loop of wire.", "Its tag says: \"Parts cage. Fix something good.\""] },
+      key: { id: "key-garden", opens: "autoshop", after: "garden-trail2", facts: ["What it looks like: a greasy steel key on a loop of wire.", "Its tag says: \"Fix something good.\""] },
     },
 
     /* ---------- Ortiz Auto: Dev goes west; the convoy's trucks ---------- */
@@ -279,6 +284,7 @@
           "It is a big key painted fire-engine red, on a brass ring.",
           "It opens the chief's locker at Station 12, north and west of here.",
           "Chief Dunn left it with Mr. Ortiz as thanks for fixing the convoy's trucks; it waits here for the ring.",
+          "The chief's locker has an old lock that bites: the wrong key snaps off inside it and is gone for good.",
         ] },
         { id: "autoshop-dead1", kind: "dead", minLevel: 1, spot: 5, found: "in the waiting room, by the chairs", facts: [
           "Mr. Ortiz's job board.",
@@ -286,10 +292,10 @@
           "Sergeant Vega's van: new tires.",
           "Carla's boat motor: not done yet.",
         ] },
-        { id: "autoshop-dead2", kind: "decoy", minLevel: 2, spot: 6, found: "in the shop, by the pit room's locked hatch", facts: [
+        { id: "autoshop-dead2", kind: "decoy", minLevel: 1, spot: 6, found: "in the shop, by the pit room's locked hatch", facts: [
           "A note on greasy paper, not signed.",
-          "It says the service pit hatch is welded shut and cannot be opened.",
-          "The marks on the hatch are only paint, not a weld.",
+          "It says the hatch bolt comes out if you {decoyMoves}.",
+          "That was how the old bolt worked; Mr. Ortiz put in a new one.",
           "Mr. Ortiz's note by the office tells the real trick.",
         ] },
         { id: "autoshop-dead3", kind: "dead", minLevel: 4, spot: 2, found: "in the parts room, by the door to the shop", facts: [
@@ -309,9 +315,9 @@
         { id: "autoshop-sign1", kind: "sign", facts: ["A painted sign: Ortiz Auto, honest repairs.", "Under it is a row of greasy handprints, big and small."] },
         { id: "autoshop-sign2", kind: "graffiti", facts: ["Ruby's red R by the front door, with a 5 under it.", "Next to it: one by the engine crane."] },
         { id: "autoshop-sign3", kind: "sign", facts: ["A safety poster: never work under a car alone.", "Someone added: never work anywhere alone."] },
-        { id: "autoshop-sign4", kind: "sign", facts: ["A metal plate: service pit, keep the hatch shut.", "Under it, a chalk arrow curls to the left."] },
+        { id: "autoshop-sign4", kind: "sign", facts: ["A metal plate: service pit, keep the hatch shut.", "Under it, in chalk: the bolt bends if you work it wrong; Mr. Ortiz's note says how."] },
       ],
-      key: { id: "key-autoshop", opens: "firehouse", after: "autoshop-trail2", facts: ["What it looks like: a big key painted fire-engine red, on a brass ring.", "Its tag says: \"Chief's locker. Return the favor.\""] },
+      key: { id: "key-autoshop", opens: "firehouse", after: "autoshop-trail2", facts: ["What it looks like: a big key painted fire-engine red, on a brass ring.", "Its tag says: \"Return the favor.\""] },
     },
 
     /* ---------- Signal Electronics: Jo and Priya, the radio ---------- */
@@ -330,6 +336,7 @@
           "It is a long, thin key on a blue tag shaped like a drop of water.",
           "It opens the tool crib at the Water Tower, far west of here.",
           "Theo gave Priya the key so she and Jo could borrow tools to put an antenna on the tower; now it stays here, in the ring.",
+          "The tool crib has an old lock that bites: the wrong key snaps off inside it and is gone for good.",
         ] },
         { id: "radioshack-dead1", kind: "dead", minLevel: 1, spot: 4, found: "in the gap between the long middle shelves", facts: [
           "Jo's show plan, taped to a shelf.",
@@ -337,11 +344,11 @@
           "Warnings first, always.",
           "At the bottom: no sad songs, people have enough.",
         ] },
-        { id: "radioshack-dead2", kind: "decoy", minLevel: 2, spot: 7, found: "near the robot, at the end of the counter", facts: [
+        { id: "radioshack-dead2", kind: "decoy", minLevel: 1, spot: 7, found: "near the robot, at the end of the counter", facts: [
           "A note on a torn envelope, not signed.",
-          "It says Jo's station moved to 99.5.",
-          "Jo never moved; the station is still 88.1.",
-          "There is only static on 99.5.",
+          "It says the button that turns off the alarm is the {decoyButton} one.",
+          "Priya rewired the panel after that note was written.",
+          "Her note on the counter has the button that works now.",
         ] },
         { id: "radioshack-dead3", kind: "dead", minLevel: 4, spot: 6, found: "on the floor just inside the front door", facts: [
           "A repair tag on a fire station radio.",
@@ -362,7 +369,7 @@
         { id: "radioshack-sign3", kind: "graffiti", facts: ["Painted in big yellow numbers: 88.1.", "Under it: Jo, every night at dusk."] },
         { id: "radioshack-sign4", kind: "sign", facts: ["A sign on the door: manager's office, please knock.", "Under it in marker: Priya says look under the register."] },
       ],
-      key: { id: "key-radioshack", opens: "watertower", after: "radioshack-trail2", facts: ["What it looks like: a long, thin key on a blue tag shaped like a drop of water.", "Its tag says: \"Tool crib. Bring the wrench back.\""] },
+      key: { id: "key-radioshack", opens: "watertower", after: "radioshack-trail2", facts: ["What it looks like: a long, thin key on a blue tag shaped like a drop of water.", "Its tag says: \"Bring the wrench back.\""] },
     },
 
     /* ---------- Station 12: Chief Dunn's convoy list ---------- */
@@ -381,6 +388,7 @@
           "It is a small silver key on a yellow tag shaped like a lightning bolt.",
           "It opens the repair locker at Signal Electronics, downtown, east of here.",
           "Priya left it here after she fixed the station's radios for the convoy; keys in the ring never stay home.",
+          "The repair locker has a plain lock: a wrong key just will not turn.",
         ] },
         { id: "firehouse-dead1", kind: "dead", minLevel: 1, spot: 5, found: "in the day room, by the CHILI NIGHT board", facts: [
           "Chief Dunn's chili recipe, pinned up for the crew.",
@@ -388,11 +396,11 @@
           "Cook it slow.",
           "At the bottom: never let Vega cook.",
         ] },
-        { id: "firehouse-dead2", kind: "decoy", minLevel: 2, spot: 3, found: "in the truck bay, by its right wall", facts: [
-          "A convoy notice signed by Sergeant Vega.",
-          "It says: meet at the north bridge at dawn on Friday, the convoy leaves.",
-          "It is the very first notice.",
-          "The leaving day has been moved since then.",
+        { id: "firehouse-dead2", kind: "decoy", minLevel: 1, spot: 3, found: "in the truck bay, by its right wall", facts: [
+          "A note on the back of a duty roster, not signed.",
+          "It says the equipment bay opens with the {decoyPick} on the board.",
+          "That key fit the old lock, before the chief changed it.",
+          "The chief's note on the watch desk says which key fits now.",
         ] },
         { id: "firehouse-dead3", kind: "dead", minLevel: 4, spot: 6, found: "in the office, between the desks", facts: [
           "A page from Chief Dunn's convoy list.",
@@ -412,9 +420,9 @@
         { id: "firehouse-sign1", kind: "sign", facts: ["A big sign on the wall: truck bay, keep clear."] },
         { id: "firehouse-sign2", kind: "sign", facts: ["A safety board: days without an accident.", "The number is wiped off; someone wrote: we stopped counting."] },
         { id: "firehouse-sign3", kind: "graffiti", facts: ["Ruby's red R by the front door, with a 6 under it.", "Under it: two in the truck bay."] },
-        { id: "firehouse-sign4", kind: "graffiti", facts: ["Chalked by the equipment bay door: red key, on the board."] },
+        { id: "firehouse-sign4", kind: "graffiti", facts: ["Chalked by the equipment bay door: the bay key is on the board; the chief's note says which one."] },
       ],
-      key: { id: "key-firehouse", opens: "radioshack", after: "firehouse-trail2", facts: ["What it looks like: a small silver key on a yellow tag shaped like a lightning bolt.", "Its tag says: \"Repair locker. Fix it, don't toss it.\""] },
+      key: { id: "key-firehouse", opens: "radioshack", after: "firehouse-trail2", facts: ["What it looks like: a small silver key on a yellow tag shaped like a lightning bolt.", "Its tag says: \"Fix it, don't toss it.\""] },
     },
 
     /* ---------- 4th Precinct: Vega plans the convoy ---------- */
@@ -433,16 +441,17 @@
           "It is a padlock key on a loop of orange rope.",
           "It opens the foreman's lockbox at Ridge Lumber, east of here on the ridge.",
           "Carla is building boats for the convoy; she gave Vega this key so the ring stays whole.",
+          "The foreman's lockbox has a plain lock: a wrong key just will not turn.",
         ] },
         { id: "police-dead1", kind: "dead", minLevel: 1, spot: 7, found: "in the garage, near the front", facts: [
           "The lost-and-found list from the front desk.",
           "One bike, one trumpet, one dog leash with no dog.",
           "Someone added at the bottom: one town.",
         ] },
-        { id: "police-dead2", kind: "decoy", minLevel: 2, spot: 3, found: "in the garage, along its far wall", facts: [
+        { id: "police-dead2", kind: "decoy", minLevel: 1, spot: 3, found: "in the garage, along its far wall", facts: [
           "A scrap of paper with numbers on it.",
-          "It says the armory combination is 33-4-19.",
-          "Those are the right numbers in the wrong order.",
+          "It says the armory combination is {decoyCode}.",
+          "It is the old combination, from before Sergeant Vega changed it.",
           "The note on the front desk has the one that works.",
         ] },
         { id: "police-dead3", kind: "dead", minLevel: 4, spot: 4, found: "in the first holding cell", facts: [
@@ -464,7 +473,7 @@
         { id: "police-sign3", kind: "sign", facts: ["A printed notice: River Convoy sign-up at Station 12.", "It says: ask for Chief Dunn."] },
         { id: "police-sign4", kind: "sign", facts: ["A sign on the door: armory, police only.", "Under it in marker: combination changed, see the front desk."] },
       ],
-      key: { id: "key-police", opens: "lumberyard", after: "police-trail2", facts: ["What it looks like: a padlock key on a loop of orange rope.", "Its tag says: \"Foreman's lockbox. Knock first.\""] },
+      key: { id: "key-police", opens: "lumberyard", after: "police-trail2", facts: ["What it looks like: a padlock key on a loop of orange rope.", "Its tag says: \"Knock first.\""] },
     },
 
     /* ---------- Lincoln Middle School: the class leaves ---------- */
@@ -483,17 +492,18 @@
           "It is a short steel key on a gray tag.",
           "It opens the evidence locker at the 4th Precinct, west of here.",
           "Vega came for the class because Max and Mia asked, found the school empty, and left this key for the ring.",
+          "The evidence locker has a fussy lock: the wrong key jams it, and after that only a crowbar opens it.",
         ] },
         { id: "school-dead1", kind: "dead", minLevel: 1, spot: 3, found: "at the science room end of the main hallway", facts: [
           "The lunch menu for the week the Fall began.",
           "Pizza on Friday.",
           "Someone wrote under it: we never got the pizza.",
         ] },
-        { id: "school-dead2", kind: "decoy", minLevel: 2, spot: 7, found: "in the middle of the gym", facts: [
-          "A fire drill map.",
-          "It says: if the alarm rings, everyone meets on the sports field.",
-          "The class did not go to the field.",
-          "Ms. Adler's note by the front door says where they really went.",
+        { id: "school-dead2", kind: "decoy", minLevel: 1, spot: 7, found: "in the middle of the gym", facts: [
+          "A note on lined paper, in a kid's writing.",
+          "It says the closet key is in the {decoyPick} of Ms. Adler's desk.",
+          "Mia wrote it before the twins rigged the desk drawers.",
+          "Ms. Adler's own note on the desk says which drawer is safe.",
         ] },
         { id: "school-dead3", kind: "dead", minLevel: 4, spot: 4, found: "at the music room end of the main hallway", facts: [
           "Written by Max and Mia.",
@@ -514,7 +524,7 @@
         { id: "school-sign3", kind: "graffiti", facts: ["In neat chalk letters: Ms. Adler's class, gone north.", "Under it: read the note by the front door."] },
         { id: "school-sign4", kind: "sign", facts: ["A sign on the door: library closet, return books on time.", "Someone added: late fees canceled."] },
       ],
-      key: { id: "key-school", opens: "police", after: "school-trail2", facts: ["What it looks like: a short steel key on a gray tag.", "Its tag says: \"Evidence. Do not remove.\" The words \"do not\" are crossed out."] },
+      key: { id: "key-school", opens: "police", after: "school-trail2", facts: ["What it looks like: a short steel key on a gray tag.", "Its tag says: \"Do not remove.\" The words \"do not\" are crossed out."] },
     },
 
     /* ---------- St. Anne Annex: Ada waits for Lin ---------- */
@@ -533,17 +543,18 @@
           "It is a heavy old iron key with a square head.",
           "It opens the old safe room at Gas-N-Go, south of here near the south end of town.",
           "Ruby brought it up here on her first scouting run north, so the ring would close into a circle.",
+          "The old safe room has an old lock that bites: the wrong key snaps off inside it and is gone for good.",
         ] },
         { id: "hospital-dead1", kind: "dead", minLevel: 1, spot: 7, found: "in the front lobby, near the front door", facts: [
           "A visitor sign-in sheet from before the Fall.",
           "The last name on it is Doc Lin.",
           "Next to her name she wrote: back tomorrow.",
         ] },
-        { id: "hospital-dead2", kind: "decoy", minLevel: 2, spot: 3, found: "at the x-ray end of the main hall", facts: [
-          "A printed notice.",
-          "It says a bus takes patients out of town from the front door every morning.",
-          "The notice is from the first week of the Fall.",
-          "No bus has come since then.",
+        { id: "hospital-dead2", kind: "decoy", minLevel: 1, spot: 3, found: "at the x-ray end of the main hall", facts: [
+          "An old staff memo.",
+          "It says the stock room badge is kept in the {decoyPick} of the nurses' station.",
+          "Nurse Ada moved the badge after the memo was printed.",
+          "Her note on the station says where it is now.",
         ] },
         { id: "hospital-dead3", kind: "dead", minLevel: 4, spot: 5, found: "in the utility room", facts: [
           "Nurse Ada's generator log.",
@@ -564,7 +575,7 @@
         { id: "hospital-sign3", kind: "sign", facts: ["A hospital map: patient rooms all along the main hall.", "The supply cupboard is marked next to the chapel, off the main hall."] },
         { id: "hospital-sign4", kind: "graffiti", facts: ["Chalked by the stock room door, in Ada's writing: Lin, it is all still here."] },
       ],
-      key: { id: "key-hospital", opens: "gasngo", after: "hospital-trail2", facts: ["What it looks like: a heavy old iron key with a square head.", "Its tag says: \"Old safe room. Ruby was here.\""] },
+      key: { id: "key-hospital", opens: "gasngo", after: "hospital-trail2", facts: ["What it looks like: a heavy old iron key with a square head.", "Its tag says: \"Ruby was here.\""] },
     },
 
     /* ---------- Water Tower: Dev is safe with Theo ---------- */
@@ -583,6 +594,7 @@
           "It is a small brass key on a purple school lanyard.",
           "It opens the principal's closet at Lincoln Middle School, far east of here across town.",
           "Max and Mia came here looking for their teacher; Mia had the key, and they left it with Theo for the ring.",
+          "The principal's closet has a fussy lock: the wrong key jams it, and after that only a crowbar opens it.",
         ] },
         { id: "watertower-dead1", kind: "dead", minLevel: 1, spot: 5, found: "in the entry hall, near the front door", facts: [
           "Theo's water rules, on a card.",
@@ -590,11 +602,11 @@
           "Kids get two.",
           "Nobody leaves thirsty.",
         ] },
-        { id: "watertower-dead2", kind: "decoy", minLevel: 2, spot: 6, found: "in the blue pump room, by its far wall", facts: [
+        { id: "watertower-dead2", kind: "decoy", minLevel: 1, spot: 6, found: "in the blue pump room, by its far wall", facts: [
           "A note on a paper plate, not signed.",
-          "It says the river water is clean now and safe to drink.",
-          "It is not clean.",
-          "Theo crossed it out and wrote: filter everything.",
+          "It says the pump house key is in the {decoyPick}.",
+          "That box is live now; Theo moved the key after he rewired it.",
+          "Theo's note on the control panel says which box is safe.",
         ] },
         { id: "watertower-dead3", kind: "dead", minLevel: 4, spot: 4, found: "by the blue pump", facts: [
           "Written by Mr. Ortiz.",
@@ -612,9 +624,9 @@
         { id: "watertower-sign1", kind: "sign", facts: ["A city sign: water works, staff only.", "Below it: danger, pumps start without warning."] },
         { id: "watertower-sign2", kind: "graffiti", facts: ["In big chalk letters: Ruby, I am here.", "It is signed with a D."] },
         { id: "watertower-sign3", kind: "graffiti", facts: ["A chalk circle with a key inside, by the tool crib door in the boat workshop.", "Under it: the key is not here, read the notes."] },
-        { id: "watertower-sign4", kind: "sign", facts: ["A sign on the door: pump house, keep locked.", "Under it, in Theo's writing: the key is in the breaker box, by the control panel."] },
+        { id: "watertower-sign4", kind: "sign", facts: ["A sign on the door: pump house, keep locked.", "Under it, in Theo's writing: the key is in a breaker box by the control panel; read my note there first, two of them are live."] },
       ],
-      key: { id: "key-watertower", opens: "school", after: "watertower-trail2", facts: ["What it looks like: a small brass key on a purple school lanyard.", "Its tag says: \"Principal's closet. Go Lions.\""] },
+      key: { id: "key-watertower", opens: "school", after: "watertower-trail2", facts: ["What it looks like: a small brass key on a purple school lanyard.", "Its tag says: \"Go Lions.\""] },
     },
 
     /* ---------- Ridge Lumber: Carla builds the boats ---------- */
@@ -633,17 +645,18 @@
           "It is a long, old-fashioned key with a round loop for a handle, tied to a paper bookmark.",
           "It opens the rare book room at the Public Library, north and west of here.",
           "Mrs. Greer paid for planks to board the library windows with this key, so it lives here now, in the ring.",
+          "The rare book room has an old lock that bites: the wrong key snaps off inside it and is gone for good.",
         ] },
         { id: "lumberyard-dead1", kind: "dead", minLevel: 1, spot: 3, found: "in the saw shop, in its back corner", facts: [
           "Carla's yard rules.",
           "Wear boots. Lift with your legs. Never run the saws.",
           "A new rule, added in a different pen: if you hear the dock crowd, freeze.",
         ] },
-        { id: "lumberyard-dead2", kind: "decoy", minLevel: 2, spot: 7, found: "in the rack hall, outside the kiln shed door", facts: [
+        { id: "lumberyard-dead2", kind: "decoy", minLevel: 1, spot: 7, found: "in the rack hall, outside the kiln shed door", facts: [
           "A note on the back of a receipt, written in a hurry.",
-          "It says the kiln shed code is 2281.",
-          "That code is wrong; two numbers are swapped.",
-          "Carla's clipboard has the right code.",
+          "It says the kiln shed code is {decoyCode}.",
+          "It is the old code, from before Carla changed the padlock.",
+          "Carla's clipboard has the code that works now.",
         ] },
         { id: "lumberyard-dead3", kind: "dead", minLevel: 4, spot: 5, found: "at the end of the racks, by the dock door", facts: [
           "Carla's sketch of a flat boat.",
@@ -664,7 +677,7 @@
         { id: "lumberyard-sign3", kind: "sign", facts: ["A safety sign: ear protection needed near the saws.", "Carla added in marker: the saws stay off."] },
         { id: "lumberyard-sign4", kind: "graffiti", facts: ["Spray-painted on the kiln shed door: code on the clipboard."] },
       ],
-      key: { id: "key-lumberyard", opens: "library", after: "lumberyard-trail2", facts: ["What it looks like: a long, old-fashioned key with a round loop for a handle, tied to a paper bookmark.", "Its bookmark tag says: \"Rare books. Handle with care.\""] },
+      key: { id: "key-lumberyard", opens: "library", after: "lumberyard-trail2", facts: ["What it looks like: a long, old-fashioned key with a round loop for a handle, tied to a paper bookmark.", "Its bookmark tag says: \"Handle with care.\""] },
     },
 
     /* ---------- Northgate Mall: Luis holds his post ---------- */
@@ -683,17 +696,18 @@
           "It is a small silver key on a white tag with a red cross.",
           "It opens the supply cupboard at St. Anne Annex, far west of here in the north hills.",
           "Doc Lin left it with Luis for the ring on a medicine run, because Nurse Ada wants the cupboard used, not saved.",
+          "The supply cupboard has a plain lock: a wrong key just will not turn.",
         ] },
         { id: "mall-dead1", kind: "dead", minLevel: 1, spot: 6, found: "in the front hall, by the CAFE shop front", facts: [
           "Luis's patrol log.",
           "Most days say the same thing: crowd quiet, nobody running, doors held.",
           "One day says: Jo came by with batteries and stayed for coffee.",
         ] },
-        { id: "mall-dead2", kind: "decoy", minLevel: 2, spot: 4, found: "in the food court, among the tables", facts: [
+        { id: "mall-dead2", kind: "decoy", minLevel: 1, spot: 4, found: "in the food court, among the tables", facts: [
           "A note in pencil, not signed.",
-          "It says the security office code is 0921.",
-          "That code is wrong; the last two numbers are swapped.",
-          "Luis's clipboard has the right code.",
+          "It says the security office code is {decoyCode}.",
+          "It is the old code, from before Luis changed it.",
+          "Luis's clipboard has the code that works now.",
         ] },
         { id: "mall-dead3", kind: "dead", minLevel: 4, spot: 5, found: "in the Book Nook", facts: [
           "A letter to Luis from his niece, carried here by Jo.",
@@ -714,7 +728,7 @@
         { id: "mall-sign3", kind: "sign", facts: ["A store map on the wall.", "The jewelry vault is marked inside the gadget store, at its front wall."] },
         { id: "mall-sign4", kind: "sign", facts: ["A sign on the door: security, staff only.", "Under it in marker: code on the clipboard by the green dino."] },
       ],
-      key: { id: "key-mall", opens: "hospital", after: "mall-trail2", facts: ["What it looks like: a small silver key on a white tag with a red cross.", "Its tag says: \"Supply cupboard. Ada says use it.\""] },
+      key: { id: "key-mall", opens: "hospital", after: "mall-trail2", facts: ["What it looks like: a small silver key on a white tag with a red cross.", "Its tag says: \"Ada says use it.\""] },
     },
 
     /* ---------- Public Library: the class is safe ---------- */
@@ -732,6 +746,7 @@
           "It is a tiny gold key in a small velvet pouch.",
           "It opens the jewelry vault at Northgate Mall, east of here.",
           "Luis the guard sent it with Jo and asked Mrs. Greer to keep it for the ring.",
+          "The jewelry vault has a fussy lock: the wrong key jams it, and after that only a crowbar opens it.",
         ] },
         { id: "library-dead1", kind: "dead", minLevel: 1, spot: 3, found: "in the main hall, by the BOOKS A-M sign", facts: [
           "The class reading chart.",
@@ -739,11 +754,11 @@
           "Two names have no stars yet: Max and Mia.",
           "Next to them someone wrote: saving their stars.",
         ] },
-        { id: "library-dead2", kind: "decoy", minLevel: 2, spot: 6, found: "in the lobby, just inside the front door", facts: [
+        { id: "library-dead2", kind: "decoy", minLevel: 1, spot: 6, found: "in the lobby, just inside the front door", facts: [
           "A note on an index card, not signed.",
-          "It says the archive room key is in the card catalog, in the drawer marked A.",
-          "The drawers hold only old cards.",
-          "Mrs. Greer's note on the desk says where the key really is.",
+          "It says the archive room key is inside the {decoyPick}.",
+          "Mrs. Greer moved the key and set her traps after a thief read this card.",
+          "Her note on the desk says which book is safe.",
         ] },
         { id: "library-dead3", kind: "dead", minLevel: 4, spot: 5, found: "in the children's room, near its door", facts: [
           "Mrs. Greer's shelter rules.",
@@ -762,9 +777,9 @@
         { id: "library-sign1", kind: "sign", facts: ["A sign: quiet, please.", "Under it in pencil: it works on walkers too."] },
         { id: "library-sign2", kind: "graffiti", facts: ["Ruby's red R, with an 8 under it, painted very small.", "It looks as if she felt bad writing on a library wall."] },
         { id: "library-sign3", kind: "sign", facts: ["A sign: library hours, dawn until dark.", "Below it: no candles near the books."] },
-        { id: "library-sign4", kind: "graffiti", facts: ["Chalked by the archive door: ask the dictionary."] },
+        { id: "library-sign4", kind: "graffiti", facts: ["Chalked by the archive door: ask Mrs. Greer's note before you open a book."] },
       ],
-      key: { id: "key-library", opens: "mall", after: "library-trail2", facts: ["What it looks like: a tiny gold key in a small velvet pouch.", "Its tag says: \"Jewelry vault. Not for jewelry.\""] },
+      key: { id: "key-library", opens: "mall", after: "library-trail2", facts: ["What it looks like: a tiny gold key in a small velvet pouch.", "Its tag says: \"Not for show.\""] },
     },
   };
   Object.entries(STORY).forEach(([id, s]) => {

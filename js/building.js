@@ -23,6 +23,7 @@
   const Audio = () => ZSR.Audio;
   const D3 = () => ZSR.Draw3;
   const W = () => ZSR.WORLD;
+  const Locks = () => ZSR.Locks;
   const rand = (a, b) => a + Math.random() * (b - a);
   const KEEP = "#W.DLQESXGCKR"; // tiles that stay as they are; the markers become floor
   const DECOR_ON = "#WSXG"; // decor goes on plain wall-like tiles, never on a door, the exit or the cache door
@@ -40,6 +41,22 @@
   const textScale = () => ({ large: 1.3, huge: 2 }[root.document && document.documentElement.getAttribute("data-size")] || 1);
   let floorColors = null; // Draw3 floor id -> map color
   let fogTile = null; // the fog's dots, one pattern tile (mapFog)
+  const SIDES = { n: [0, -1], s: [0, 1], w: [-1, 0], e: [1, 0] };
+  const cap = (t) => String(t).charAt(0).toUpperCase() + String(t).slice(1);
+  /* The fixture a search happens at (WORLD.LOCKS): its art and what the prompt and hint call it. */
+  const FIXTURES = {
+    drawers: { art: "fixDrawers", name: "the drawers", ask: "Which drawer do you open?" },
+    cans: { art: "fixCans", name: "the watering cans", ask: "Which can do you look in?" },
+    keyboard: { art: "fixKeyboard", name: "the key board", ask: "Which key do you take?" },
+    breakers: { art: "fixBreakers", name: "the breaker boxes", ask: "Which box do you open?" },
+    books: { art: "fixBooks", name: "the big books", ask: "Which book do you open?" },
+  };
+  /* What a wrong move costs, said when it happens (the notes warn of it first). */
+  const FAIL_SAY = {
+    trap: "It was rigged. The note warned you.",
+    alarm: "That set off the alarm!",
+    jam: "It sticks fast. The lock is jammed now. A crowbar from the workbench will pry it open.",
+  };
 
   Object.assign(ZSR.Interior, {
     /** The layout of a place: its own in ZSR.LAYOUTS (by id), else WORLD.TEMPLATES by its template. */
@@ -130,6 +147,9 @@
       });
       this.dressLayout(tpl);
       this.placeSigns(tpl, N.signs || []);
+      this.alarm = null; // the alarm, once it rings: walkers pour in until you go down
+      this.deathReason = null;
+      this.placeLock(spotAt["1"]);
       this.markSeen(st.seen); // what you saw here before: saved, or earlier this trip
       this.mapOpen = false;
       const mask = this.solidMask();
@@ -278,6 +298,280 @@
       });
     },
 
+    /** The cache lock's fixtures (WORLD.LOCKS): the search fixture on the counter or desk beside the main
+        note, and the alarm panel on its wall. */
+    placeLock(noteAt) {
+      const L = Locks() && Locks().spec(this.loc.id);
+      this.lockFix = null;
+      this.lockPanel = null;
+      if (!L) return;
+      const st = State().locState(this.loc.id);
+      if (L.search && noteAt) {
+        const nx = Math.floor(noteAt[0]);
+        const ny = Math.floor(noteAt[1]);
+        const low = (x, y) => !!this.grid[y] && "CK".includes(this.grid[y][x]);
+        const near = [[0, -1], [1, 0], [-1, 0], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]].map(([dx, dy]) => [nx + dx, ny + dy]);
+        const at = near.find(([x, y]) => low(x, y)) || near.find(([x, y]) => this.grid[y] && this.grid[y][x] === ".") || [nx, ny];
+        const lift = { C: 0.45, K: 0.4 }[this.grid[at[1]][at[0]]] || 0;
+        const F = FIXTURES[L.search.fixture] || FIXTURES.drawers;
+        const img = D3().hasSprite(F.art) ? D3().sprite(F.art) : null;
+        this.lockFix = { x: at[0] + 0.5, y: at[1] + 0.5, tx: at[0], ty: at[1], fixture: L.search.fixture };
+        if (img) this.addProp({ x: at[0] + 0.5, y: at[1] + 0.5, img, scale: 0.34, lift, solid: false });
+      }
+      if (L.panel) {
+        const [x, y, face] = L.panel.at;
+        this.lockPanel = { x, y, face, off: st.alarmOff };
+        this.paintPanel();
+      }
+    },
+    paintPanel() {
+      const pn = this.lockPanel;
+      if (!pn || !D3().hasTexture("alarmPanel")) return;
+      const tex = D3().texture(pn.off ? "alarmPanelOff" : "alarmPanel", this.palette);
+      const k = pn.x + "," + pn.y;
+      const cur = this.tileTex[k];
+      const faces = cur && typeof cur === "object" && !cur.width ? cur : {};
+      faces[pn.face] = tex;
+      this.tileTex[k] = faces;
+      if (this.refreshScene) this.refreshScene();
+    },
+
+    /* ---------- The locks: the player must do what the notes say ---------- */
+    /** Pause for the lock prompt (js/locks.js); `then(result)` runs once it closes and the game is back. */
+    lockPrompt(opts, then) {
+      this.pause();
+      Locks().prompt(
+        Object.assign({}, opts, {
+          onDone: (r) => {
+            if (!this.running) return;
+            this.resume();
+            if (r && r.god) {
+              this.toast("God mode. It opens.", 2.5);
+              Audio().play("haven");
+            }
+            then(r || { cancel: true });
+          },
+        })
+      );
+    },
+    openCache(god) {
+      const S = State();
+      const cd = this.cacheDoor;
+      cd.open = true;
+      this.grid[cd.y][cd.x] = "D";
+      this.maskDirty = true;
+      this.doors.push({ x: cd.x, y: cd.y, open: true, cache: true });
+      S.tripLoc(this.loc.id).cacheOpened = true;
+      this.walkers.forEach((z) => (z.pathT = 0));
+      const L = Locks().spec(this.loc.id);
+      if (!god && L && L.panel && !S.locState(this.loc.id).alarmOff) {
+        this.toast("Opened: " + this.loc.cacheName + ". But the alarm was still on!", 3);
+        this.startAlarm();
+      } else {
+        this.toast("Opened: " + this.loc.cacheName + ".", 3);
+        Audio().play("buy");
+      }
+      this.updateHud();
+    },
+    openStash(msg) {
+      const d = this.stashDoor;
+      d.open = true;
+      this.grid[d.y][d.x] = "D";
+      this.maskDirty = true;
+      this.doors.push({ x: d.x, y: d.y, open: true, stash: true });
+      State().tripLoc(this.loc.id).stashOpened = true;
+      this.walkers.forEach((z) => (z.pathT = 0));
+      this.toast(msg || "Opened: " + (this.loc.stashName || "the stash") + ".", 3);
+      Audio().play("buy");
+      this.updateHud();
+    },
+    /** A mistake costs what the note warned: "trap" (you go down), "alarm" (it rings), "jam" (the cache or stash jams). */
+    lockFail(kind, which, say) {
+      if (kind === "trap") return this.dieBy((say ? say + " " : "") + FAIL_SAY.trap);
+      if (kind === "alarm") {
+        this.toast((say ? say + " " : "") + FAIL_SAY.alarm, 3);
+        return this.startAlarm();
+      }
+      if (kind === "jam") {
+        State().tripLoc(this.loc.id)[which === "stash" ? "stashJammed" : "cacheJammed"] = true;
+        this.toast((say ? say + " " : "") + FAIL_SAY.jam, 5);
+        Audio().play("crunch");
+        this.updateHud();
+        return;
+      }
+      this.toast(say || "Nothing happens.", 3);
+      Audio().play("wrong");
+    },
+    /** Down at once (a booby trap): no Medbay kit gets you up from this. */
+    dieBy(reason) {
+      this.deathReason = reason;
+      Audio().play("poof");
+      this.stop();
+      if (this.hooks.onDeath) this.hooks.onDeath();
+    },
+    /** The alarm rings: walkers pour in, from deep inside and through the way out, until you go down. */
+    startAlarm() {
+      if (this.alarm) return;
+      this.alarm = { t: 0, next: 0.4, siren: 0 };
+      this.toast("ALARM! Walkers are pouring in, even through the way out.", 4);
+      this.updateHud();
+    },
+    updateAlarm(dt) {
+      const A = this.alarm;
+      if (!A) return;
+      A.t += dt;
+      A.next -= dt;
+      A.siren -= dt;
+      if (A.siren <= 0) {
+        A.siren = 0.9;
+        Audio().play("alarm");
+      }
+      if (A.next > 0) return;
+      A.next = Math.max(1.1, 3 - A.t * 0.04); // faster and faster
+      if (this.walkers.length >= 40) return;
+      const hpMult = 1 + 0.1 * (State().save.day - 1);
+      const p = this.player;
+      const add = (x, y) => {
+        const z = this.makeWalker(Math.random() < 0.3 ? "runner" : "walker", x, y, hpMult);
+        z.awake = true;
+        this.walkers.push(z);
+      };
+      // one through the way out, so there is no leaving
+      add(this.startPos[0] + rand(-0.15, 0.15), this.startPos[1] + rand(-0.15, 0.15));
+      // and one from somewhere deeper in the building
+      const far = this.floors.filter(([x, y]) => Math.hypot(x - p.x, y - p.y) > 7);
+      if (far.length) {
+        const [x, y] = far[Math.floor(Math.random() * far.length)];
+        add(x, y);
+      }
+    },
+    /** The cache door: whatever its lock asks for (WORLD.LOCKS). */
+    cacheInteract() {
+      const S = State();
+      const id = this.loc.id;
+      const L = Locks().spec(id);
+      const st = S.locState(id);
+      if (st.cacheJammed) return this.crowbarPrompt("cache");
+      if (!L) return this.openCache(false);
+      const d = L.door;
+      if (d.kind === "found") {
+        if (st.cacheKey) return this.openCache(false);
+        this.toast("Locked. It opens with " + L.search.find + ". A note here says where that is.", 3.5);
+        Audio().play("wrong");
+        return;
+      }
+      const a = Locks().answer(id);
+      const opts = d.kind === "code"
+        ? { kind: "code", caption: "Code lock", title: cap(this.loc.cacheName), text: "Type the code, then press Try it.", pattern: d.pattern }
+        : { kind: "moves", caption: "Stuck", title: cap(this.loc.cacheName), text: "Pick the moves in order, then press Try it.", words: d.words, steps: a.moves.length };
+      this.lockPrompt(opts, (r) => {
+        if (r.cancel) return;
+        if (r.god) return this.openCache(true);
+        const ok = d.kind === "code" ? r.value === a.code.replace(/\D/g, "") : r.value.join("|") === a.moves.join("|");
+        if (ok) return this.openCache(false);
+        this.lockFail(d.fail, "cache", d.kind === "code" ? "Wrong code." : "Wrong moves.");
+      });
+    },
+    /** The fixture by the main note: the right one holds what opens the cache door. */
+    searchInteract() {
+      const S = State();
+      const id = this.loc.id;
+      const L = Locks().spec(id);
+      if (S.locState(id).cacheKey) {
+        this.toast("You already have " + L.search.find + ".", 2.5);
+        return;
+      }
+      const F = FIXTURES[L.search.fixture] || FIXTURES.drawers;
+      const a = Locks().answer(id);
+      this.lockPrompt({ kind: "choice", caption: "Search", title: cap(F.name), text: F.ask, go: "Open it", options: L.search.options.map((o) => ({ label: cap(o), value: o })) }, (r) => {
+        if (r.cancel) return;
+        if (r.god || r.value === a.pick) {
+          S.tripLoc(id).cacheKey = true;
+          this.toast("Found: " + L.search.find + ". It opens " + this.loc.cacheName + ".", 3.5);
+          Audio().play("pickup");
+          this.updateHud();
+          return;
+        }
+        const say = L.search.fail === "jam" ? "You try that key in the lock of " + this.loc.cacheName + "." : "Not that one!";
+        this.lockFail(L.search.fail, "cache", say);
+      });
+    },
+    /** The alarm panel: press the right button before the door. */
+    panelInteract() {
+      const S = State();
+      const id = this.loc.id;
+      const L = Locks().spec(id);
+      const pn = this.lockPanel;
+      if (pn.off || S.locState(id).alarmOff) {
+        this.toast("The alarm is off. Its light is green.", 2.5);
+        return;
+      }
+      const a = Locks().answer(id);
+      this.lockPrompt({ kind: "choice", caption: "Alarm panel", title: "The alarm panel", text: "Which button do you press?", go: "Press it", options: L.panel.options.map((o) => ({ label: cap(o) + " button", value: o })) }, (r) => {
+        if (r.cancel) return;
+        if (r.god || r.value === a.button) {
+          S.tripLoc(id).alarmOff = true;
+          pn.off = true;
+          this.paintPanel();
+          this.toast("The light turns green. The alarm is off.", 3);
+          Audio().play("correct");
+          return;
+        }
+        this.lockFail("alarm", "cache", "Wrong button.");
+      });
+    },
+    /** The stash: try one of your keys. Which one fits, only the notes say. */
+    stashInteract() {
+      const S = State();
+      const id = this.loc.id;
+      const stashName = this.loc.stashName || "the stash";
+      if (S.locState(id).stashJammed) return this.crowbarPrompt("stash");
+      const held = S.keysHeld().filter((k) => !k.broken);
+      if (!held.length) {
+        this.toast("Locked: " + stashName + ". Its key is hidden in another building. Notes say where.", 3.5);
+        Audio().play("wrong");
+        return;
+      }
+      const L = Locks().spec(id);
+      const right = S.keySourceFor(id);
+      const options = held.map((k) => {
+        const from = W().LOCATIONS.find((l) => l.id === k.from);
+        return { label: ZSR.keyText(k.from).name, sub: "found at " + (from ? from.name : k.from), value: k.from };
+      });
+      this.lockPrompt({ kind: "choice", caption: "Stash", title: cap(stashName), text: "Which key do you try?", go: "Try this key", options }, (r) => {
+        if (r.cancel) return;
+        if (r.god) return this.openStash();
+        if (r.value === right) return this.openStash("Your key fits. Opened: " + stashName + ".");
+        const fail = (L && L.stashFail) || "none";
+        const name = ZSR.keyText(r.value).name;
+        if (fail === "break") {
+          S.breakKey(r.value);
+          this.toast("Wrong key! " + name + " snaps off in the lock. It is gone.", 4.5);
+          Audio().play("crunch");
+          this.updateHud();
+        } else if (fail === "jam") this.lockFail("jam", "stash", "Wrong key!");
+        else this.lockFail("none", "stash", "Wrong key. It will not turn.");
+      });
+    },
+    /** A jammed lock: a crowbar from the workbench pries it open, and is spent. */
+    crowbarPrompt(which) {
+      const S = State();
+      const n = S.crowbarsLeft();
+      const name = which === "stash" ? this.loc.stashName || "the stash" : this.loc.cacheName;
+      this.lockPrompt({ kind: "crowbar", caption: "Jammed", title: cap(name), text: "It is jammed tight. A crowbar can pry it open, and the crowbar breaks doing it. You have " + n + " crowbar" + (n === 1 ? "" : "s") + ". Build them at the workbench, in the Traps & tools tab.", go: "Use a crowbar", goDisabled: n < 1 }, (r) => {
+        if (r.cancel) return;
+        if (!r.god && !S.useCrowbar()) return;
+        const tl = S.tripLoc(this.loc.id);
+        if (which === "stash") {
+          tl.stashJammed = false;
+          this.openStash("Pried open: " + name + ".");
+        } else {
+          tl.cacheJammed = false;
+          this.openCache(true);
+        }
+      });
+    },
+
     /** What this building looks like right now, so a return visit on the same trip finds it unchanged. */
     snapshot() {
       return {
@@ -408,12 +702,12 @@
         kp.taken = true;
         S.takeKey(kp.from);
         const kt = ZSR.keyText(kp.from);
-        const target = W().LOCATIONS.find((l) => l.id === W().KEYS[kp.from]);
-        const msgs = ["Found: " + kt.name + ". It opens " + target.stashName + " at " + target.name + ". Get it home to keep it.", "Found: " + kt.name + "."];
+        // which stash it opens is in the note, not on the key: read it again before you try the key
+        const msgs = ["Found: " + kt.name + ". The note says which stash it opens. Get it home to keep it.", "Found: " + kt.name + "."];
         this.toastFit(msgs, this.readSecs(msgs[0], 5), true);
         if (kt.tag) {
           if (S.trip) S.trip.wordsRead += ZSR.wordCount(kt.tag);
-          this.tagPanel = { key: "key:" + kp.from + ":" + this.time, kind: "tag", title: kt.name, status: "Opens " + target.stashName + " at " + target.name, text: kt.tag, until: this.time + this.readSecs(kt.tag, 8) };
+          this.tagPanel = { key: "key:" + kp.from + ":" + this.time, kind: "tag", title: kt.name, status: "A stash key", text: kt.tag, until: this.time + this.readSecs(kt.tag, 8) };
         }
         Audio().play("buy");
         this.updateHud();
@@ -460,13 +754,20 @@
     },
 
     /* ---------- Mode hooks (called by the core while mode is "building") ---------- */
-    buildingUpdate() {
+    buildingUpdate(dt) {
       this.updatePickups();
+      this.updateAlarm(dt || 0);
     },
     buildingFacing(cand) {
       this.notes.forEach((n) => this.noteVisible(n) && cand.push({ kind: "note", obj: n, x: n.x, y: n.y }));
       if (this.cacheDoor && !this.cacheDoor.open) cand.push({ kind: "cache", obj: this.cacheDoor, x: this.cacheDoor.x + 0.5, y: this.cacheDoor.y + 0.5 });
       if (this.stashDoor && !this.stashDoor.open) cand.push({ kind: "stash", obj: this.stashDoor, x: this.stashDoor.x + 0.5, y: this.stashDoor.y + 0.5 });
+      if (this.lockFix) cand.push({ kind: "fixture", obj: this.lockFix, x: this.lockFix.x, y: this.lockFix.y });
+      const pn = this.lockPanel;
+      if (pn) {
+        const [dx, dy] = SIDES[pn.face] || [0, 0];
+        cand.push({ kind: "panel", obj: pn, x: pn.x + 0.5 + dx * 0.5, y: pn.y + 0.5 + dy * 0.5 });
+      }
       if (this.exit) cand.push({ kind: "exit", obj: this.exit, x: this.exit.x + 0.5, y: this.exit.y + 0.5 });
     },
     buildingInteract(f) {
@@ -474,54 +775,49 @@
       if (f.kind === "note") {
         if (this.hooks.onReadNote) this.hooks.onReadNote(f.obj, this.loc);
       } else if (f.kind === "cache") {
-        const note = W().NOTES[this.loc.id].notes.find((n) => n.unlocks === this.loc.id);
-        if (note && S.noteRead(note.id)) {
-          this.cacheDoor.open = true;
-          this.grid[this.cacheDoor.y][this.cacheDoor.x] = "D";
-          this.maskDirty = true;
-          this.doors.push({ x: this.cacheDoor.x, y: this.cacheDoor.y, open: true, cache: true });
-          S.tripLoc(this.loc.id).cacheOpened = true;
-          this.toast("Opened: " + this.loc.cacheName + ".", 3);
-          Audio().play("buy");
-          this.updateHud();
-        } else {
-          this.toast("Locked. A note here says how.", 3);
-          Audio().play("wrong");
-        }
+        this.cacheInteract();
       } else if (f.kind === "stash") {
-        const stashName = this.loc.stashName || "the stash";
-        if (S.canOpenStash(this.loc.id)) {
-          const d = this.stashDoor;
-          d.open = true;
-          this.grid[d.y][d.x] = "D";
-          this.maskDirty = true;
-          this.doors.push({ x: d.x, y: d.y, open: true, stash: true });
-          S.tripLoc(this.loc.id).stashOpened = true;
-          this.toast("Your key fits. Opened: " + stashName + ".", 3);
-          Audio().play("buy");
-          this.updateHud();
-        } else {
-          this.toast("Locked: " + stashName + ". Its key is hidden in another building. Notes say where.", 3.5);
-          Audio().play("wrong");
-        }
+        this.stashInteract();
+      } else if (f.kind === "fixture") {
+        this.searchInteract();
+      } else if (f.kind === "panel") {
+        this.panelInteract();
       } else if (f.kind === "exit") {
+        if (this.alarm) {
+          this.toast("Walkers pack the way out. There is no getting out now.", 3);
+          Audio().play("wrong");
+          return;
+        }
         if (this.hooks.onExit) this.hooks.onExit();
       }
     },
     buildingHint(f) {
       if (f.kind === "note") return "Press E to read the note";
-      if (f.kind === "cache") return "Press E to open " + this.loc.cacheName;
-      if (f.kind === "stash") return State().canOpenStash(this.loc.id) ? "Press E: your key opens " + this.loc.stashName : this.loc.stashName + ": locked (its key is in another building)";
-      if (f.kind === "exit") return "Press E to leave for the van";
+      const S = State();
+      const st = S.locState(this.loc.id);
+      const L = Locks() && Locks().spec(this.loc.id);
+      if (f.kind === "cache") {
+        if (st.cacheJammed) return cap(this.loc.cacheName) + " is jammed: press E to pry it open";
+        const k = L && L.door.kind;
+        if (k === "code") return "Press E to use the keypad";
+        if (k === "moves") return "Press E to work the lock";
+        if (k === "found" && !st.cacheKey) return cap(this.loc.cacheName) + ": locked";
+        return "Press E to open " + this.loc.cacheName;
+      }
+      if (f.kind === "stash") return st.stashJammed ? cap(this.loc.stashName) + " is jammed: press E to pry it open" : "Press E to try a key in " + this.loc.stashName;
+      if (f.kind === "fixture") return st.cacheKey ? "You already searched " + (FIXTURES[f.obj.fixture] || FIXTURES.drawers).name : "Press E to search " + (FIXTURES[f.obj.fixture] || FIXTURES.drawers).name;
+      if (f.kind === "panel") return f.obj.off ? "The alarm panel: off" : "Press E to use the alarm panel";
+      if (f.kind === "exit") return this.alarm ? "Walkers pack the way out" : "Press E to leave for the van";
       return "";
     },
     buildingGoal() {
       const left = this.items.filter((i) => !i.taken && !i.source).length;
       const cacheLeft = this.items.filter((i) => !i.taken && i.source === "cache").length;
-      const cacheState = this.cacheDoor ? (this.cacheDoor.open ? "open" : "locked") : "none";
+      const st = State().locState(this.loc.id);
+      const cacheState = this.cacheDoor ? (this.cacheDoor.open ? "open" : st.cacheJammed ? "jammed" : "locked") : "none";
       const sd = this.stashDoor;
-      const stashState = !sd ? "" : sd.open ? "open" : State().canOpenStash(this.loc.id) ? "you have the key" : "locked";
-      return (left ? left + " item" + (left > 1 ? "s" : "") + " on the floor" : "Floor cleared") + " · " + this.loc.cacheName + ": " + cacheState + (cacheLeft && cacheState === "open" ? ", " + cacheLeft + " left" : "") + (sd ? " · " + this.loc.stashName + ": " + stashState : "");
+      const stashState = !sd ? "" : sd.open ? "open" : st.stashJammed ? "jammed" : "locked";
+      return (this.alarm ? "ALARM! · " : "") + (left ? left + " item" + (left > 1 ? "s" : "") + " on the floor" : "Floor cleared") + " · " + this.loc.cacheName + ": " + cacheState + (cacheLeft && cacheState === "open" ? ", " + cacheLeft + " left" : "") + (sd ? " · " + this.loc.stashName + ": " + stashState : "");
     },
     buildingLeave() {
       const S = State();

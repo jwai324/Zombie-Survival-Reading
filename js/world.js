@@ -128,6 +128,52 @@
     blast: { name: "Blast trap", key: "R", needs: { fuel: 1, wire: 1 }, scrap: 25, damage: 120, uses: 1, radius: 1.6, requires: { walls: 3 } },
   };
 
+  /* ---------- Tools: crafted at the workbench, carried on every trip ----------
+     A crowbar pries open one jammed lock (a cache door or a stash) and is spent doing it. */
+  const TOOLS = {
+    crowbar: { name: "Crowbar", needs: {}, scrap: 20 },
+  };
+
+  /* ---------- Locks: how each cache room opens, and what a mistake costs ----------
+     Every lock is real: the player does what the note says, or pays for it. The answers are rolled
+     once per save (js/locks.js) and fill the {placeholders} in the facts below and in every level's
+     words: {code} {codeSpoken} {move1} {move2} {moves} {pick} {button}, and their decoys
+     {decoyCode} {decoyCodeSpoken} {decoyMove1} {decoyMove2} {decoyMoves} {decoyPick} {decoyButton}
+     (always clearly different from the real answer).
+       panel   an alarm panel on a wall, [x, y, face] in the layout: press the right button first.
+               A wrong button, or opening the door with the alarm still on, sets off the alarm.
+       search  a fixture beside the main note (drawers, watering cans, a key board, breaker boxes, books):
+               the right one holds what opens the door (`find`); `fail` is what the others do.
+       door    "code": a keypad (`pattern`, each # a digit); "moves": word buttons pressed in order (one
+               of `variants`, buttons from `words`); "found": opens with what the search found.
+               `fail` is what a wrong code or move does.
+     fail:      "alarm" it rings, and walkers pour in, through the way out too, until you go down;
+                "trap"  a booby trap: you go down;
+                "jam"   the lock jams; a crowbar from the workbench pries it open.
+     stashFail: what a wrong key does in this building's stash lock: "jam", "break" (the key snaps
+                off in the lock and is gone) or "none" (it just will not turn).
+     The notes say all of it: what to do, and what a mistake costs. */
+  const MOVES_LATCH = { words: ["lift", "press down", "pull", "push"], variants: [["lift", "pull"], ["press down", "push"], ["press down", "pull"], ["lift", "push"]] };
+  const DRAWERS = ["top drawer", "middle drawer", "bottom drawer"];
+  const BUTTONS = ["red", "green", "blue", "yellow"];
+  const LOCKS = {
+    gasngo: { search: { fixture: "drawers", options: DRAWERS, find: "the storeroom key", fail: "trap" }, door: { kind: "found" }, stashFail: "break" },
+    grocery: { door: Object.assign({ kind: "moves", fail: "jam" }, MOVES_LATCH), stashFail: "jam" },
+    hardware: { door: { kind: "moves", words: ["up", "down", "left", "right"], variants: [["up", "right"], ["down", "left"], ["up", "left"], ["down", "right"]], fail: "jam" }, stashFail: "jam" },
+    pharmacy: { door: { kind: "code", pattern: "####", fail: "alarm" }, stashFail: "break" },
+    autoshop: { door: { kind: "moves", words: ["twist left", "twist right", "lift", "push"], variants: [["twist left", "lift"], ["twist right", "push"], ["twist left", "push"], ["twist right", "lift"]], fail: "jam" }, stashFail: "none" },
+    radioshack: { panel: { at: [29, 17, "w"], options: BUTTONS }, door: { kind: "code", pattern: "####", fail: "alarm" }, stashFail: "none" },
+    garden: { search: { fixture: "cans", options: ["green can", "red can", "blue can"], find: "the shed padlock key", fail: "alarm" }, door: { kind: "found" }, stashFail: "none" },
+    police: { panel: { at: [0, 26, "e"], options: BUTTONS }, door: { kind: "code", pattern: "##-#-##", fail: "alarm" }, stashFail: "jam" },
+    school: { search: { fixture: "drawers", options: DRAWERS, find: "the closet key", fail: "alarm" }, door: { kind: "found" }, stashFail: "jam" },
+    firehouse: { search: { fixture: "keyboard", options: ["red key", "blue key", "yellow key", "green key"], find: "the bay key", fail: "jam" }, door: { kind: "found" }, stashFail: "break" },
+    hospital: { search: { fixture: "drawers", options: DRAWERS, find: "the white badge", fail: "alarm" }, door: { kind: "found" }, stashFail: "none" },
+    watertower: { search: { fixture: "breakers", options: ["gray box", "yellow box", "red box"], find: "the pump house key", fail: "trap" }, door: { kind: "found" }, stashFail: "break" },
+    lumberyard: { door: { kind: "code", pattern: "####", fail: "jam" }, stashFail: "none" },
+    mall: { panel: { at: [0, 6, "e"], options: BUTTONS }, door: { kind: "code", pattern: "####", fail: "alarm" }, stashFail: "jam" },
+    library: { search: { fixture: "books", options: ["dictionary", "atlas", "phone book"], find: "the archive key", fail: "trap" }, door: { kind: "found" }, stashFail: "break" },
+  };
+
   /* ---------- Interior templates ----------
      One hand-built layout per location, keyed by location id, in js/layouts.js (loaded
      before this file; legend and landmarks are explained there). The notes below point at
@@ -434,8 +480,8 @@
   /* ---------- Notes: the facts each text must carry ----------
      Every location has a door note (read on arrival, before entering) and its main note on
      the layout's `n` spot (spot 1); js/story.js adds the trail and dead-end notes (on the
-     layout's numbered `spots`), the wall signs and the stash key. `unlocks` names the cache this note opens:
-     reading the note is what lets the player open that locked door.
+     layout's numbered `spots`), the wall signs and the stash key. `unlocks` names the cache this note
+     tells how to open; the lock itself (LOCKS above) holds the player to what it says.
      `reveals` adds locations to the map when the note is read.
      Positions are true in js/layouts.js: "front" is the entrance wall, "back" the far wall,
      left/right as seen from the entrance looking in. Landmarks are named exactly as in the
@@ -447,91 +493,91 @@
     gasngo: {
       door: { id: "gasngo-door", found: "taped to the front door", facts: ["Written by Ruby.", "At least three walkers inside, one in the garage by the car lift; more come as the days pass.", "One fuel can is by the slushie machine; the other is in the garage, by the tire tower.", "The storeroom is locked; the clerk's note is on the counter by the front door."] },
       notes: [
-        { id: "gasngo-counter", found: "on the counter right of the front door", unlocks: "gasngo", reveals: ["autoshop", "garden"], facts: ["Written by the clerk, Dev.", "The storeroom key is on the hook under the counter, so the storeroom can be opened now.", "There is more fuel and a spool of wire in the storeroom.", "The storeroom is at the far end of the back hall from the ice machine, the last door before the garage.", "Dev went to Ortiz Auto on the east side of town; the shop is still standing.", "Rosa at Greenhouse Row, west past the gas station, has seeds and soil."] },
+        { id: "gasngo-counter", found: "on the counter right of the front door", unlocks: "gasngo", reveals: ["autoshop", "garden"], facts: ["Written by the clerk, Dev.", "The storeroom key is in the {pick} of the counter, right under this note; it opens the storeroom door.", "Open no other drawer: Ruby rigged the other two with a bomb trap for looters, and it kills whoever opens one.", "There is more fuel and a spool of wire in the storeroom.", "The storeroom is at the far end of the back hall from the ice machine, the last door before the garage.", "Dev went to Ortiz Auto on the east side of town; the shop is still standing.", "Rosa at Greenhouse Row, west past the gas station, has seeds and soil."] },
       ],
     },
     grocery: {
       door: { id: "grocery-door", found: "written on the glass in marker", facts: ["Written by Doc Lin.", "The shelves are picked over; food is on the floor by the fish tank and by the freezers on the right.", "Walkers get in through the loading door at the back, by the forklift; count on at least three.", "The cooler is locked; the manager's note is in the office, back left."] },
       notes: [
-        { id: "grocery-counter", found: "on the desk in the manager's office", unlocks: "grocery", reveals: ["pharmacy"], facts: ["Written by the store manager, Hana.", "The cooler latch opens if you lift it while pulling, so the cooler can be opened now.", "Inside the cooler there is food and one medical kit.", "Out of the office, the cooler is the next door down the back hall, toward the forklift.", "The pharmacy at Mile 9, west of here, had medicine on its shelves last week."] },
+        { id: "grocery-counter", found: "on the desk in the manager's office", unlocks: "grocery", reveals: ["pharmacy"], facts: ["Written by the store manager, Hana.", "The cooler latch sticks; to open it, {moves}, in that order.", "Work it any other way and the latch jams tight; after that only a crowbar opens the cooler.", "Inside the cooler there is food and one medical kit.", "Out of the office, the cooler is the next door down the back hall, toward the forklift.", "The pharmacy at Mile 9, west of here, had medicine on its shelves last week."] },
       ],
     },
     hardware: {
       door: { id: "hardware-door", found: "on a sheet nailed to the door", facts: ["Written by Mr. Reyes, the owner.", "At least five walkers are inside, two in the middle aisles.", "Nails are by the toilet display, tools are in the middle aisle, and lumber is in the lumber racks at the back.", "The back room is locked; the owner's note is by the paint mixer, back left."] },
       notes: [
-        { id: "hardware-paint", found: "tucked into the paint shelf by the paint mixer", unlocks: "hardware", reveals: ["lumberyard", "watertower"], facts: ["Written by Mr. Reyes.", "The back room door sticks; the trick is to lift the handle and push, so the back room can be opened now.", "The back room holds a water filter, a second tool kit, and lumber.", "Take the side door by the paint mixer; the back room door is past the lumber racks.", "Ridge Lumber on the east ridge has stacks of lumber; the Water Tower on the west side has more filters in its pump house."] },
+        { id: "hardware-paint", found: "tucked into the paint shelf by the paint mixer", unlocks: "hardware", reveals: ["lumberyard", "watertower"], facts: ["Written by Mr. Reyes.", "The back room door sticks in its frame; to open it, push it {move1}, then {move2}.", "Push it any other way and it jams for good; after that only a crowbar opens it.", "The back room holds a water filter, a second tool kit, and lumber.", "Take the side door by the paint mixer; the back room door is past the lumber racks.", "Ridge Lumber on the east ridge has stacks of lumber; the Water Tower on the west side has more filters in its pump house."] },
       ],
     },
     pharmacy: {
       door: { id: "pharmacy-door", found: "on the door under a strip of tape", facts: ["Written by the pharmacist, Mr. Okafor.", "One medical kit is by the giant toothbrush; the other is in the middle, where the aisles cross.", "At least five walkers inside, most near the back.", "The cabinet room is locked; its code is on a note behind the counter, reached at the right end, by the wheelchairs."] },
       notes: [
-        { id: "pharmacy-counter", found: "behind the pharmacy counter", unlocks: "pharmacy", reveals: ["hospital"], facts: ["Written by Mr. Okafor.", "The cabinet room code is 4471, so the cabinet room can be opened now.", "Inside are two more medical kits and a water filter.", "The cabinet room door is behind the counter, in the corner on the same side as the wheelchairs.", "St. Anne Annex, the hospital in the north hills, still has medicine and a generator, but it is the most dangerous place in town."] },
+        { id: "pharmacy-counter", found: "behind the pharmacy counter", unlocks: "pharmacy", reveals: ["hospital"], facts: ["Written by Mr. Okafor.", "The cabinet room keypad code is {code}: {codeSpoken}.", "Use that code and no other: one wrong code sets off the alarm, and walkers pour in, even through the front door, until they get you.", "Inside are two more medical kits and a water filter.", "The cabinet room door is behind the counter, in the corner on the same side as the wheelchairs.", "St. Anne Annex, the hospital in the north hills, still has medicine and a generator, but it is the most dangerous place in town."] },
       ],
     },
     autoshop: {
       door: { id: "autoshop-door", found: "chalked on the garage door", facts: ["Written by Dev from the Gas-N-Go.", "Engine parts are on the workbenches: back right by the red tool chest, and in the left bay.", "At least five walkers inside; one wanders the parts room by the engine crane.", "The service pit is under a locked hatch; Mr. Ortiz left a note in the office behind the waiting room."] },
       notes: [
-        { id: "autoshop-office", found: "pinned to the office window", unlocks: "autoshop", reveals: ["radioshack"], facts: ["Written by Mr. Ortiz.", "The hatch bolt comes out if you twist it left, so the service pit can be opened now.", "The generator is down in the pit, with spare parts and a fuel can.", "The pit room stands in the middle of the shop; its hatch is on the front side, toward the oil drums.", "Signal Electronics downtown still has wire and radio parts, but it is near the walker crowds."] },
+        { id: "autoshop-office", found: "pinned to the office window", unlocks: "autoshop", reveals: ["radioshack"], facts: ["Written by Mr. Ortiz.", "The hatch bolt is tricky; to open it, {moves}, in that order.", "Any other way bends the bolt and jams the hatch; after that only a crowbar opens it.", "The generator is down in the pit, with spare parts and a fuel can.", "The pit room stands in the middle of the shop; its hatch is on the front side, toward the oil drums.", "Signal Electronics downtown still has wire and radio parts, but it is near the walker crowds."] },
       ],
     },
     radioshack: {
       door: { id: "radioshack-door", found: "on a cardboard sign in the window", facts: ["Written by Jo.", "Spools of wire are between the two long middle shelves: one on the TV wall side, one on the robot side.", "At least six walkers inside; one near the right end of the counter, by the robot.", "The manager's office is locked; the manager left a note on the counter at the back."] },
       notes: [
-        { id: "radioshack-counter", found: "under the register on the back counter", unlocks: "radioshack", reveals: ["police", "school"], facts: ["Written by the manager, Priya.", "The office key is taped under the register, so the manager's office can be opened now.", "The office has two boxes of radio parts and more wire.", "The office door is in the back wall near the robot, beside the MANAGER sign.", "The 4th Precinct police station and Lincoln Middle School are both north of downtown; the school has books and the station has gun parts."] },
+        { id: "radioshack-counter", found: "under the register on the back counter", unlocks: "radioshack", reveals: ["police", "school"], facts: ["Written by the manager, Priya.", "First turn off the alarm: its panel is on the right wall, by the big dish; press the {button} button.", "Then the office keypad code is {code}: {codeSpoken}.", "A wrong button, a wrong code, or opening the office with the alarm still on sets off the alarm, and walkers pour in, even through the front door, until they get you.", "The office has two boxes of radio parts and more wire.", "The office door is in the back wall near the robot, beside the MANAGER sign.", "The 4th Precinct police station and Lincoln Middle School are both north of downtown; the school has books and the station has gun parts."] },
       ],
     },
     garden: {
       door: { id: "garden-door", found: "painted on the gate", facts: ["Written by Rosa, who ran the greenhouse.", "Soil is in the big greenhouse with the scarecrow; seeds are in the shop by the gate, near the big gnome.", "At least five walkers inside, one at the back of the big greenhouse.", "The potting shed is locked; Rosa's note is on the potting bench by the palm tree, back right."] },
       notes: [
-        { id: "garden-bench", found: "on the potting bench by the palm tree", unlocks: "garden", reveals: ["firehouse"], facts: ["Written by Rosa.", "The shed padlock key is in the watering can, so the potting shed can be opened now.", "The shed has more seeds and a water tank.", "The shed door is on the path from the palm tree house down to the beehives.", "Station 12, the fire station north of here, has tools and water tanks in its equipment bay."] },
+        { id: "garden-bench", found: "on the potting bench by the palm tree", unlocks: "garden", reveals: ["firehouse"], facts: ["Written by Rosa.", "The shed padlock key is in the {pick}, one of the three watering cans by this bench.", "The other two cans are Rosa's walker alarm, full of bells and tin cans: tip one over and the noise brings walkers, more and more, even through the gate, until they get you.", "The shed has more seeds and a water tank.", "The shed door is on the path from the palm tree house down to the beehives.", "Station 12, the fire station north of here, has tools and water tanks in its equipment bay."] },
       ],
     },
     police: {
       door: { id: "police-door", found: "on a notice board by the door", facts: ["Written by Sergeant Vega.", "Gun parts are in the squad room, left of the long hall; an armor plate is in the garage on the right, by the riot shields.", "At least eight walkers inside, and a big one by the police bike in the garage.", "The armory is locked; the sergeant left the combination on a note at the front desk."] },
       notes: [
-        { id: "police-desk", found: "on the front desk", unlocks: "police", reveals: ["library"], facts: ["Written by Sergeant Vega.", "The armory combination is 19-4-33, so the armory can be opened now.", "The armory has gun parts and an armor plate.", "The armory is near the end of the back hall toward the police bike: the last door before the garage.", "The Public Library north of downtown has books in its archive room; the librarian stayed."] },
+        { id: "police-desk", found: "on the front desk", unlocks: "police", reveals: ["library"], facts: ["Written by Sergeant Vega.", "First turn off the alarm: its panel is on the left wall, by the coffee machine; press the {button} button.", "Then the armory combination is {code}.", "A wrong button, a wrong number, or opening the armory with the alarm still on sets off the station alarm, and walkers pour in, even through the front door, until they get you.", "The armory has gun parts and an armor plate.", "The armory is near the end of the back hall toward the police bike: the last door before the garage.", "The Public Library north of downtown has books in its archive room; the librarian stayed."] },
       ],
     },
     school: {
       door: { id: "school-door", found: "on the office door", facts: ["Written by Max and Mia.", "Boxes of books: one is in the music room with the drum set, the other in the front office, behind the lion statue.", "At least six walkers inside, one in the main hallway.", "The library closet is locked; the key is in the teacher's note in the science room, back left, by the big brain."] },
       notes: [
-        { id: "school-classroom", found: "on the teacher's desk in the science room", unlocks: "school", reveals: ["mall"], facts: ["Written by Ms. Adler, a teacher.", "The library closet key is in the top desk drawer, so the closet can be opened now.", "The closet has books and a folder of city maps.", "Follow the main hallway toward the drum set room; the library is the room next to it, and its closet is in the back corner on the drum set side.", "Northgate Mall in the north has food, medicine, and wire, but the crowds there are the worst in town."] },
+        { id: "school-classroom", found: "on the teacher's desk in the science room", unlocks: "school", reveals: ["mall"], facts: ["Written by Ms. Adler, a teacher.", "The library closet key is in the {pick} of this desk, right under this note.", "Open no other drawer: Max and Mia tied air horns to the other two, and the noise brings every walker in the school, even through the front door, until they get you.", "The closet has books and a folder of city maps.", "Follow the main hallway toward the drum set room; the library is the room next to it, and its closet is in the back corner on the drum set side.", "Northgate Mall in the north has food, medicine, and wire, but the crowds there are the worst in town."] },
       ],
     },
     firehouse: {
       door: { id: "firehouse-door", found: "on the bay door", facts: ["Written by Chief Dunn.", "A tool kit is in the office behind the watch desk; a water tank is on the right wall of the truck bay, past the gear racks.", "At least six walkers inside, two in the truck bay.", "The equipment bay is locked; the chief's note is on the watch desk, by the spotted dog."] },
       notes: [
-        { id: "firehouse-desk", found: "on the watch desk", unlocks: "firehouse", reveals: ["watertower"], facts: ["Written by Chief Dunn.", "The equipment bay lock opens with the red key on the board, so the equipment bay can be opened now.", "The bay has a water tank, lumber, and tools.", "The equipment bay is at the back of the truck bay, beside the fire truck on the gear racks side.", "The Water Tower on the west side has filters in its pump house."] },
+        { id: "firehouse-desk", found: "on the watch desk", unlocks: "firehouse", reveals: ["watertower"], facts: ["Written by Chief Dunn.", "The equipment bay opens with the {pick} on the key board by this desk.", "Take no other key: the others are for old locks, and a wrong one jams the bay lock; after that only a crowbar opens it.", "The bay has a water tank, lumber, and tools.", "The equipment bay is at the back of the truck bay, beside the fire truck on the gear racks side.", "The Water Tower on the west side has filters in its pump house."] },
       ],
     },
     hospital: {
       door: { id: "hospital-door", found: "on the ambulance doors", facts: ["Written by Doc Lin.", "One medical kit is in the patient room next to the x-ray machine, one is by the giant teddy bear in the gift shop; the generator is in the utility room, on the right.", "At least nine walkers inside; they stand in the dark rooms.", "The pharmacy stock room is locked; the nurse's note is at the nurses' station in the middle."] },
       notes: [
-        { id: "hospital-hall", found: "on the nurses' station", unlocks: "hospital", facts: ["Written by Nurse Ada, who stayed.", "The stock room badge is in the drawer under the station, so the stock room can be opened now.", "The stock room has three medical kits.", "The stock room door is in the nurses' station room itself, across its walkway from the desk, on the angel statue side.", "Stay quiet; the walkers here follow sound more than light."] },
+        { id: "hospital-hall", found: "on the nurses' station", unlocks: "hospital", facts: ["Written by Nurse Ada, who stayed.", "The stock room badge, white on a blue clip, is in the {pick} of this station, right under this note; hold it to the reader by the stock room door.", "Open no other drawer: they are wired to the crash cart alarm, and it brings walkers, more and more, even through the front doors, until they get you.", "The stock room has three medical kits.", "The stock room door is in the nurses' station room itself, across its walkway from the desk, on the angel statue side.", "Stay quiet; the walkers here follow sound more than light."] },
       ],
     },
     watertower: {
       door: { id: "watertower-door", found: "on the fence gate", facts: ["Written by Theo, who tends the pumps.", "One water filter is by the crates near the big red wheel; the other is in the boat workshop, by the rowboat.", "At least six walkers inside the pump building.", "The pump house is locked; Theo's note is on the control panel in the back right room."] },
       notes: [
-        { id: "watertower-panel", found: "on the control panel", unlocks: "watertower", reveals: ["hospital"], facts: ["Written by Theo.", "The pump house key is in the breaker box, so the pump house can be opened now.", "The pump house has filters, a water tank, and wire.", "The pump house door is at the back of the pump hall, at the blue pump end, away from the big red wheel.", "St. Anne Annex, the hospital, is north up Hill Road; it still has medicine, but it is the most dangerous place in town."] },
+        { id: "watertower-panel", found: "on the control panel", unlocks: "watertower", reveals: ["hospital"], facts: ["Written by Theo.", "The pump house key is in the {pick}, one of the three breaker boxes by this panel.", "Open neither of the other two boxes: they are live, and the shock kills.", "The pump house has filters, a water tank, and wire.", "The pump house door is at the back of the pump hall, at the blue pump end, away from the big red wheel.", "St. Anne Annex, the hospital, is north up Hill Road; it still has medicine, but it is the most dangerous place in town."] },
       ],
     },
     lumberyard: {
       door: { id: "lumberyard-door", found: "spray-painted on the gate", facts: ["Written by Ruby.", "Lumber is in the long racks in the middle, and one more stack is out back by the log pile.", "At least eight walkers inside; a crowd gathers by the loading dock and the flatbed truck, and a big one stands by the log pile.", "The kiln shed is locked; the yard boss left a note on a clipboard by the band saw."] },
       notes: [
-        { id: "lumberyard-rack", found: "on the clipboard by the band saw", unlocks: "lumberyard", facts: ["Written by the yard boss, Carla.", "The kiln shed padlock opens with the code 2218, so the kiln shed can be opened now.", "The shed has dry lumber and nails.", "The kiln shed door is in the back wall of the rack hall; from the band saw shop door, follow that wall toward the log pile.", "Do not run the saws; the noise brings the whole dock crowd."] },
+        { id: "lumberyard-rack", found: "on the clipboard by the band saw", unlocks: "lumberyard", facts: ["Written by the yard boss, Carla.", "The kiln shed padlock opens with the code {code}: {codeSpoken}.", "A wrong code locks the old padlock up for good; after that only a crowbar opens it.", "The shed has dry lumber and nails.", "The kiln shed door is in the back wall of the rack hall; from the band saw shop door, follow that wall toward the log pile.", "Do not run the saws; the noise brings the whole dock crowd."] },
       ],
     },
     mall: {
       door: { id: "mall-door", found: "on the mall doors", facts: ["Written by Jo.", "Food is in the food court at the back, medicine is in the pharmacy on the left, and wire is in the gadget store on the right, next door to the orange tent.", "At least nine walkers inside; many of them stand along the main hall.", "The security office is locked; the guard's note is in the play area by the green dino."] },
       notes: [
-        { id: "mall-guard", found: "on a clipboard in the play area", unlocks: "mall", facts: ["Written by a mall security guard named Luis.", "The office code is 0912, so the security office can be opened now.", "The office has gun parts, radio parts, and a tool kit.", "Take the kitchen door at the back of the food court and turn right; the office is behind the green dino.", "The walkers here come running at anyone who runs; walk, and most of them stay put."] },
+        { id: "mall-guard", found: "on a clipboard in the play area", unlocks: "mall", facts: ["Written by a mall security guard named Luis.", "First turn off the alarm: its panel is on the left wall, by the rocking horse; press the {button} button.", "Then the office code is {code}: {codeSpoken}.", "A wrong button, a wrong code, or opening the office with the alarm still on sets off the mall alarm, and walkers pour in, even through the front doors, until they get you.", "The office has gun parts, radio parts, and a tool kit.", "Take the kitchen door at the back of the food court and turn right; the office is behind the green dino.", "The walkers here come running at anyone who runs; walk, and most of them stay put."] },
       ],
     },
     library: {
       door: { id: "library-door", found: "on the book drop", facts: ["Written by the librarian, Mrs. Greer.", "Books are in the stacks on both sides of the main hall, and in the children's room by the toy castle.", "At least eight walkers inside; two in the main hall.", "The archive room is locked; the librarian's note is on the reference desk by the giant globe, back left."] },
       notes: [
-        { id: "library-desk", found: "on the reference desk", unlocks: "library", facts: ["Written by Mrs. Greer.", "The archive key is inside the big dictionary on the desk, so the archive room can be opened now.", "The archive has books and a folder of city maps.", "The archive door is at the back end of the main hall, between the rooms with the giant globe and the tall clock.", "Reading saved this building; the walls are stacked with the books nobody wanted."] },
+        { id: "library-desk", found: "on the reference desk", unlocks: "library", facts: ["Written by Mrs. Greer.", "The archive key is inside the {pick}, one of the three big books on this desk.", "Open neither of the other two books: Mrs. Greer hid a blast trap in each one for book thieves, and it kills.", "The archive has books and a folder of city maps.", "The archive door is at the back end of the main hall, between the rooms with the giant globe and the tall clock.", "Reading saved this building; the walls are stacked with the books nobody wanted."] },
       ],
     },
   };
@@ -574,5 +620,5 @@
     },
   };
 
-  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TEMPLATES, HOUSE, HOUSE_UPGRADES, YARD, DEFENSE, LOCATIONS, JUNCTIONS, place, isJunction, RIVER, KEYS, NOTES, ROADS, SETTINGS };
+  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TOOLS, LOCKS, TEMPLATES, HOUSE, HOUSE_UPGRADES, YARD, DEFENSE, LOCATIONS, JUNCTIONS, place, isJunction, RIVER, KEYS, NOTES, ROADS, SETTINGS };
 })(typeof globalThis !== "undefined" ? globalThis : this);

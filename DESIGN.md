@@ -271,7 +271,7 @@ won; the reading expansion was moved into them.
 | A gun with the line out? | The pole is propped on the bank and the line stays in. A bite rings its bell and holds until you take the pole back (E). |
 | How is the river found? | By reading: the pole's tag says where the crew fished, and reading it reveals River Landing. |
 | Where does Frog Lane leave? | Where its old "Road closed" sign was, halfway along River Road: a real corner with lanes, not a move to another place. |
-| Where is the pole? | In Station 12's equipment bay, the locked cache room (read Chief Dunn's note to open it). |
+| Where is the pole? | In Station 12's equipment bay, the locked cache room (his note on the watch desk says which key on the key board opens it). |
 | Walkers at the river? | Usually one, sometimes two, every 45 to 90 seconds. |
 | Reading there? | The pole's tag, a sign by the parking and Chief Dunn's note on the dock post, at all six levels. |
 

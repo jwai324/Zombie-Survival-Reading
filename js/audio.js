@@ -136,6 +136,11 @@
     reel() {
       for (let i = 0; i < 6; i++) setTimeout(() => tone(1400 + (i % 2) * 200, 0.025, "square", 0.06), i * 45);
     },
+    alarm() {
+      // a building alarm: two hard tones, over and over while it rings
+      tone(880, 0.32, "square", 0.16);
+      setTimeout(() => tone(660, 0.32, "square", 0.16), 420);
+    },
   };
 
   ZSR.Audio = {

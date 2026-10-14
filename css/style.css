@@ -231,6 +231,18 @@ kbd { font-family: var(--font-body); font-weight: 700; background: var(--paper-3
 /* Stats, pause, death, confirm */
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .6rem; margin: .9rem 0; }
 .pause-panel, .death-panel, .confirm-panel { max-width: 40rem; text-align: center; }
+/* The lock prompt (js/locks.js): keypad, word buttons, a choice, the crowbar */
+.lock-panel { max-width: 34rem; text-align: center; }
+.lock-body { margin: .6rem auto 0; }
+.keypad-show { font-family: var(--font-head); font-size: 2.2rem; letter-spacing: .15em; background: #22262b; color: #7dff8a; border: var(--border); padding: .3rem .8rem; margin: 0 auto .7rem; max-width: 16rem; }
+.keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; max-width: 16rem; margin: 0 auto; }
+.keypad .btn.key { font-size: 1.5rem; padding: .5rem 0; }
+.moves-show { font-weight: 700; min-height: 1.6rem; margin: 0 0 .6rem; }
+.moves-row, .choice-list { display: flex; flex-wrap: wrap; gap: .5rem; justify-content: center; margin-bottom: .5rem; }
+.choice-list { flex-direction: column; align-items: stretch; max-width: 24rem; margin: 0 auto .5rem; }
+.btn.choice { text-transform: none; letter-spacing: .02em; }
+.btn.choice.on { background: var(--amber-2); outline: .25rem solid var(--red); }
+.choice-sub { display: block; font-family: var(--font-body); font-size: .8rem; font-weight: 500; letter-spacing: 0; color: var(--muted); }
 .wrong-text { margin: 1.4rem 0 .5rem; font-size: 1.8rem; line-height: 1.2; text-transform: none; }
 
 /* Save slots on the title screen */
