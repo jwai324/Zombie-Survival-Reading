@@ -1069,6 +1069,19 @@
       e.stopPropagation();
       Backpack.close();
     });
+    // E steps away from the computer it opens, the same way, so the yard never sees it and opens the computer again.
+    // Not while something sits over the menu (the workbench, the backpack, a question, a tutorial card, a lock)
+    document.addEventListener("keydown", (e) => {
+      if (e.code !== "KeyE" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      if ($("screen-base").classList.contains("hidden") || !$("screen-backpack").classList.contains("hidden") || !$("screen-confirm").classList.contains("hidden")) return;
+      if ((ZSR.Typing && ZSR.Typing.isOpen()) || (ZSR.Locks && ZSR.Locks.isOpen()) || Tutorial.isOpen() || crewCardOpen()) return;
+      const tag = e.target && e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      e.preventDefault();
+      e.stopPropagation();
+      Audio.play("click");
+      Base.close();
+    });
     // the dog's name box: typing stays in the box (P, E and the rest never reach the yard); Enter names, Esc cancels
     $("crew-dogname").addEventListener("keydown", (e) => {
       e.stopPropagation();

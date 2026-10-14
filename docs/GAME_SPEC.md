@@ -214,7 +214,9 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   the same building. Inside, it lies on a floor tile well away from the door, the same tile
   on every visit. Walk over it to pick it up: it goes straight into your hands.
 - A gun picked up on a trip is a trip item: it is yours once you get home, and a death
-  puts it back where it was. Switching guns: 1 to 5, Q, or the mouse wheel.
+  puts it back where it was. Switching guns: 1 to 5, Q, or the mouse wheel. While the read
+  panel is up and too long to show at once (a yard plot's sign, a long note), the wheel scrolls it
+  and switches nothing.
 - Every gun has a range (nothing farther is hit), a spread (random aim error, wider while
   moving), and a noise radius (walkers that close hear the shot; the bow makes none).
 - **Mods**, in the cabin's Weapons tab: Damage (+25% a tier), Range (+25%), Fire rate (12%
@@ -334,7 +336,7 @@ arrow `js/tutorial-ui.js` and `css/tutorial.css`, the words `js/content/level1-t
 - **The yard part**, on every stay at home until it is done (new saves after How it works, old saves
   on their next Continue): walk and look around (W A S D and the mouse), open and close the backpack
   (B, or the HUD button, which the card rings), stop a slow practice walker (click or Space), talk to a
-  crew member (E; not the dog), use the office computer (E, then Step away), then the ready card (P
+  crew member (E; not the dog), use the office computer (E, then Step away or E again), then the ready card (P
   pauses, the Pause button ringed; walk to the van). A step done early is ticked and its card skipped.
   In the try steps an arrow points the way to the walker, the nearest crew member, the computer (along
   the walkable way, through the cabin's doors) or the van, at the screen's edge when it is out of view.

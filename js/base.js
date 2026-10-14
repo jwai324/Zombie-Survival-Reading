@@ -188,7 +188,7 @@
       else body.appendChild(this.inventory());
 
       const row = el("div", "btn-row");
-      const back = tip(el("button", "btn big", "Step away from the computer"), "Close the menu. The yard was paused while you were at the computer.");
+      const back = tip(el("button", "btn big", "Step away from the computer"), "Close the menu (or press E). The yard was paused while you were at the computer.");
       back.addEventListener("click", () => {
         ZSR.Audio.play("click");
         this.close();
