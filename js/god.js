@@ -172,6 +172,7 @@
       if (!this.inYard()) return "Only in the yard.";
       const ph = ZSR.Interior.phase;
       if (ph.kind !== "calm") return "A wave is already on.";
+      if (ZSR.Interior.yardHold) return "June's tutorial holds the calm until its yard steps are done.";
       ph.t = 0;
       ph.forced = true;
       return "Here they come.";

@@ -416,6 +416,133 @@ Judgment calls made while building the crew (each marked **Assumption** can chan
   the view so they never cover it (at Huge there is no room, so a toast may cover it for its few
   seconds).
 
+## Owner decisions: the first-run tutorial (2026-10-14)
+
+The owner asked for "a tutorial during the game for when you first start playing. It should pop up and
+show what buttons do what, and pause the game until the user pushes the button. Very intuitive." The
+design is in `docs/GAME_SPEC.md` ("The first-run tutorial"); the logic is `js/tutorial.js`, the card,
+panel and arrow `js/tutorial-ui.js`, the words `js/content/level1-tutorial.js`.
+
+| Question | Answer |
+|----------|--------|
+| What does it cover? | The yard first (the basics), then ONE short card the first time the player reaches each new screen: the city map, the road (the first drive), a building (the door note, then the first time inside), the first lock, the river. (The cabin computer moved into the yard gate.) |
+| When can the van leave? | Not until the player has done all of: walk (W A S D) and look around (mouse); open the Backpack (B) and close it (B); talk to a crew member (walk up to June, Tomas or Pip and press E); use the cabin computer (E at the office computer opens the build menu; close it); shoot "ONE SLOW PRACTICE WALKER" that comes in (click or Space). Until then E at the van does not open the map and June says what is left. On day 1 nothing can be built, so the computer card says: bring items home, build here. |
+| Waves during it? | No wave until the yard basics are done. Then the normal first calm (`DEFENSE.firstCalmSeconds`) starts. |
+| How does a step work? | "Card, then try it": the game freezes; a card explains with key pictures and a "Got it" button (Enter presses it too). Then a short "Now you try" prompt waits while the player does the real action. The game runs during "try it" (the wave hold aside). |
+| What does it look like? | "Card + arrows": a centered comic card with key-cap pictures (W A S D caps, a mouse drawing). A ring and arrow point at a real HUD button (Backpack, Pause, Map); an edge-of-screen arrow points toward a target off screen (the van, the cabin computer, a crew member, the practice walker). |
+| The How it works page? | Kept: a new save still opens it at once; the tutorial runs after it, in the yard. |
+| Can it be skipped? | NOTHING is skippable; there is no Skip button anywhere. "Show tutorial again" in the pause menu replays it. |
+| Reading level? | ONE level-1 text for everyone, whatever their reading-level setting. Level-1 rules still hold: whole sentences, 9 words or fewer, teen tone, no questions or quizzes. |
+| Who talks? | June talks you through it: her face (the crew art), her name and her voice, under the crew text rules in `docs/CREW.md` (Pip is they/them, no lock answers, no place reveals). |
+| The practice walker? | Slow, and it "HURTS A LITTLE" (a small bite). |
+| The first lock? | A hint only. Gas-N-Go's drawer can end a trip at once, so the first lock's card says, in effect, "Read the note. Do just what it says." It never gives the answer, and no lock rule changes. |
+| Which saves? | EVERY save does it, existing saves too: the yard part on their next Continue into the yard, each screen card on its first visit after the update. Veterans are not exempt. |
+
+**The one-text rule is a departure, by owner decision.** Every other in-world text exists at all six
+levels (the owner decisions of 2026-10-12 above; CLAUDE.md: "Words live in `js/content/levelN*.js` at
+all six reading levels"), and the Settings screen says the reading level "Changes every note, sign, and
+instruction in the game." The tutorial's words exist once, at level 1, and `tests/validate-text.js`
+fails if any other level defines `T.tutorial`. The Settings line is unchanged (it is the owner's to
+amend); if wanted, it could add "June's first-day tutorial uses the simplest words for everyone."
+
+Accepted defaults:
+
+- Enter presses Got it. Esc does nothing on a card, so a reflex Esc cannot break it (in pointer lock
+  the browser eats Esc anyway).
+- After a card in first person, Got it grabs the mouse (pointer lock, inside the click or the Enter
+  keydown, with try/catch) and the first click into the view after a card does not fire the gun (how
+  that is read: see the judgment calls).
+- Keyboard and mouse only, as today (touch-only devices cannot start a game).
+- The existing `click` sound on Got it; no voice narration.
+- At Huge text, a ring for a HUD button that is hidden is dropped; the card still shows.
+
+Calls made by Claude, told to the owner (reversible):
+
+- **No tutorial death.** The practice walker cannot take the player below 50% health.
+- **Crew favor cards wait.** Story quest cards are held until the yard part is done.
+- **Progress per save slot, written at once** (`settings.tutorial`, like `settings.seenHowto`), so
+  death or quitting never wipes it. An old save without the field has done none of it.
+- **"Show tutorial again" is off during a wave**, as the build menu is: no menu you can hide in
+  during a wave.
+- **The river gets a first-visit card** like the other new screens.
+
+Judgment calls made while building the tutorial (each marked **Assumption** can change cheaply in
+`js/tutorial.js`):
+
+- **Step order: walk, bag, shoot, talk, computer, then the ready card.** The owner's list (walk,
+  backpack, talk, computer, shoot) is a checklist, not an order. Shooting third happens where you
+  start, in the open yard, so the practice walker always has room and never has to find a player shut
+  in the office; the trip into the cabin (crew, computer) then leads straight out to the van.
+  Reordering is the one array `YARD_STEPS` (saves store step ids, so they keep what is done).
+- **A step done early counts and its card is skipped,** so a veteran who walks, opens the backpack
+  and talks loses three cards. The backpack step counts only B or the HUD Backpack button (not the
+  pause menu's Backpack or the radio shelf's), the talk step any crew member but the dog, the computer
+  step the build menu closing.
+- **The ready card is not a basic.** It sends you to the van and its line and arrow stay until the
+  van leaves; leaving with every basic done also counts it seen.
+- **The hold starts and ends with a fresh first calm.** It freezes a new full calm (a calm already
+  running might be short or already called by Pip), and the release installs another, so the owner's
+  "normal first calm" always starts in full. The phase box shows "QUIET" with no countdown while held.
+- **What the hold stops:** the calm's clock, shots shortening the calm, the dinner bell (refused with
+  a plain toast), Pip's lookout call, every crew card (offers, hand-ins and the dog's name: one card at
+  a time, one line of code) and the van. The bed stays allowed (it heals after practice bites); the
+  calm it costs is thrown away at the release. Tomas's fence jobs and June's patch-up run as usual.
+- **The practice walker** is a walker at half speed with a bite of 5 (a walker bites 12) and a
+  walker's 30 health. It comes in 6 to 11 steps away, on the player's own walkable tiles (inside the
+  fence, on your side of every shut door), ahead and in sight when it can. It never claws the fence or
+  breaks into the cabin (it waits), pays no scrap (replay cannot farm it), and comes again near you
+  when it has not moved for 15 s out of sight (30 s in sight). The pole in hand at the shoot step is put away for the gun; with
+  the bow the try line says to hold and let go. **Assumption:** `PRACTICE` (speed 0.5, bite 5, floor
+  0.5 of max health, 6 to 11 steps).
+- **"First lock" is the first lock puzzle of any kind** (code, moves, a search choice, an alarm
+  panel, a stash key), never the crowbar prompt: it is no puzzle, and a jammed lock in an old save
+  could be the first prompt met.
+- **The first click after a first-person card is eaten only when it is the click that takes the
+  mouse back** (the pointer is not locked at mousedown). If Got it already took pointer lock, the next
+  click fires as usual, so the first shot at the practice walker works. Space always fires. Refused
+  pointer lock (an embedded page, or Got it by Enter in a browser that refuses a lock from a keydown)
+  makes the next click take the mouse without firing; mouse look works unlocked anyway.
+- **A card never interrupts another panel.** The next yard card waits while a speech bubble, a lot
+  sign, the pantry list or a pickup tag is open, at most 20 s; a toast or road banner a card covered is
+  shown again after Got it; in the yard only under the stay's first card (a later card would bring back
+  old news, such as June's "Next, talk to the crew" once you have).
+  Got it does nothing for its first half second (mashed keys, a click spree).
+- **A pointer lock that lands after a pause is given back.** Got it asks for the mouse; a P pressed at
+  once (the ready card says to) pauses before the lock arrives, and the pause menu would have no mouse.
+  `js/interior.js` now returns any lock that lands while the scene is paused or stopped.
+- **Never a dead end.** With no crew in the data the talk step ticks itself, with no office computer
+  the computer step, with no room for the practice walker the shoot step. A card the UI cannot draw
+  finishes at once, so the game never stays frozen.
+- **Rings only on the three HUD buttons** the owner named (Backpack, Pause, Map). The yard's arrow
+  follows the walkable way (through the cabin's doors), carries a label (Van, Computer, Walker, or the
+  crew member's name), points at the nearest crew member, and hides within 2 tiles, where the game's
+  own "Press E" line takes over.
+- **Replay resets everything,** as the button's name says: the yard part and every screen card. In
+  the yard the yard part starts over (a fresh held calm, an old practice walker removed, an open bubble
+  closed, the walk card in a moment); in a building, on the road or at the river that screen's card
+  shows now and the rest come on their next visit. How it works is untouched.
+- **Progress lives in the slot's settings, not the base save:** the base save is written only at home
+  and reloaded on death or quit, so a road or lock card would come back after every death. A basic is
+  marked when it is done, a card when Got it is pressed; a refresh with a card up shows it again. With
+  storage blocked (no save slot) progress is kept in memory for the session, so the van can still go.
+  A new screen drops any card left from the one before (no path leaves one today; a safeguard).
+- **Huge text:** the card is one scroll like the crew card (June's face and name, the title, the
+  words, the pictures, then Got it; Enter works from anywhere and the arrow and Page keys scroll it).
+  The "June says" caption folds away (at 800 px it wrapped over the face) and the side margins are
+  thin, so a word like "backpack" fits its line. A ringed button keeps its ring only while the card
+  still has 40% of the window's height beside it; otherwise the ring goes and the card shows as usual
+  (**Assumption:** `MIN_ROOM` in `js/tutorial-ui.js`). On a window as small as 800 x 600 the try line
+  can run past the bottom edge (the HUD's top row takes two rows there).
+- **"Town map", not "city map":** the card uses the game's own word (How it works at level 1 and the
+  wrong-turn button say town).
+- **The words never go stale:** no digits, no place names, no crew names and no crew count ("one of
+  us"), so a bigger city or a fourth crew member never makes them false. Control and button names are
+  the game's own ("Drive there", "Step away", "Step back"). They are not counted in words read, like
+  How it works.
+- **Assumption:** `TUNE` (0.6 s before the first card, 0.8 s between cards, 20 s wait for an open
+  panel, 0.5 s arming, the walk step's 3 tiles and 2.4 radians of turning, 15 s stuck, the arrow hidden
+  within 2 tiles) and the checklist's 6 rows (`LIST_SHOWN`).
+
 ## Owner decisions: god mode, a test sandbox (2026-10-14)
 
 The owner wants to test any part of the game directly. Code: `js/god.js` (menu and actions), the

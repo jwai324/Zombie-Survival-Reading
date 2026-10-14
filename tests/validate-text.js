@@ -5,7 +5,8 @@
    (facts, landmarks, revealed places, and street names that must lie on the way there),
    wall signs, keys, and the home texts (plot signs, journal, radio, item tags, recap, and the
    house: the Hollis family's notes on the cabin walls and the House tab's doors and windows), and the crew's
-   words (T.crew: talk, tips, reports, story quests, errands, the dog; see "The crew at home base" below).
+   words (T.crew: talk, tips, reports, story quests, errands, the dog; see "The crew at home base" below), and
+   June's first-run tutorial (level 1 only: T.tutorial, see checkTutorial).
    Usage: node tests/validate-text.js [level ...] [--crew=auto|strict|present]. Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -130,6 +131,9 @@ const landmarksIn = (text, names) => names.filter((n) => String(text || "").toLo
    street the player really takes from this place to a place the note reveals. */
 const STREETS = load(FACT_FILES.concat(JS("streets.js")), "Streets");
 const STREET_LIST = STREETS ? Object.values(STREETS.STREET_NAMES).concat(STREETS.SIDE_STREETS.map((s) => s.name)) : [];
+// June's first-run tutorial: its card list and text keys come from the engine (js/tutorial.js touches no DOM)
+const TUTORIAL = load(FACT_FILES.concat(JS("tutorial.js")), "Tutorial");
+const TUTORIAL_WARN_WORDS = 55; // a card stays short (a warning)
 function checkStreets(ctx, text, from, reveals) {
   const low = String(text || "").toLowerCase();
   STREET_LIST.forEach((name) => {
@@ -760,6 +764,69 @@ function howtoCrewMust() {
 }
 const CONTROLS_CREW_MUST = [[(L) => L.some((l) => /\bE\b/.test(l) && /\btalk/i.test(l)), "that E talks to the crew (on the E line)"]];
 
+/* June's first-run tutorial (js/tutorial.js, js/content/level1-tutorial.js): ONE level-1 text for every reader (owner
+   decision 2026-10-14, DESIGN.md). Errors here, not warnings: whole sentences of at most LEVELS[1].sentence words that
+   end in . or !, no questions, no digits (counts go stale as the game grows), only the placeholders the engine fills,
+   no place or stash names (a card never reveals a place), no lock answers, the crew text rules (Pip is "they"), and
+   every key a card pictures named in its words as a capital. Every key the engine shows must exist, and no other. */
+function checkTutorial(ctx, n, t) {
+  if (!TUTORIAL || !TUTORIAL.CARDS) return err(`${ctx} tutorial`, "js/tutorial.js did not define ZSR.Tutorial.CARDS");
+  if (n !== TUTORIAL.TEXT_LEVEL) {
+    if (t.tutorial) err(ctx, `tutorial: written once, at level ${TUTORIAL.TEXT_LEVEL}, for every reader; remove T.tutorial here`);
+    return;
+  }
+  const T = t.tutorial;
+  if (!T || typeof T !== "object") return err(ctx, `tutorial missing (js/content/level${n}-tutorial.js)`);
+  if (!(WORLD.CREW || {})[TUTORIAL.SPEAKER]) err(`${ctx} tutorial`, `the speaker "${TUTORIAL.SPEAKER}" is not in CREW`);
+  const items = TUTORIAL.YARD_STEPS.map((id) => String((T[id] || {}).item || ""));
+  const longest = items.reduce((a, b) => (words(b).length > words(a).length ? b : a), "");
+  const sample = { next: longest.charAt(0).toLowerCase() + longest.slice(1) }; // filled with its longest real value
+  const places = WORLD.LOCATIONS.filter((l) => l.id !== "base").map((l) => l.name);
+  const stashes = WORLD.LOCATIONS.map((l) => String(l.stashName || "").toLowerCase().replace(/^the\s+/, "")).filter(Boolean);
+  const keys = TUTORIAL.textKeys();
+  keys.forEach(({ key, kind, tokens, caps }) => {
+    const c = `${ctx} tutorial.${key}`;
+    const v = getPath(T, key.split("."));
+    if (!isStr(v, 2)) return err(c, "missing");
+    if (/\?/.test(v)) err(c, "asks a question (none anywhere)");
+    if (/\d/.test(v)) err(c, "has a digit: name no counts or keys that come from data");
+    (v.match(/\{(\w+)\}/g) || []).forEach((ph) => { if (!tokens.includes(ph.slice(1, -1))) err(c, `${ph} is not filled here${PLACEHOLDERS.includes(ph.slice(1, -1)) ? " (a lock answer: never)" : ""}`); });
+    tokens.forEach((k) => { if (!v.includes("{" + k + "}")) err(c, `{${k}} missing`); });
+    if (v.replace(/\{\w+\}/g, "").match(/[{}\[\]<>]/)) err(c, "a stray bracket (the game shows it as it is)");
+    places.forEach((nm) => { if (v.includes(nm)) err(c, `names ${nm} (a tutorial card never names a place)`); });
+    stashes.forEach((st) => { if (v.toLowerCase().includes(st)) err(c, `names "${st}", a stash`); });
+    if (/Shambler|poof/i.test(v)) err(c, "old-world term");
+    if (CREW_GORE.test(v)) err(c, `"${v.match(CREW_GORE)[0]}": no gore (teen audience)`);
+    CABIN_BANNED.forEach(([re, what]) => { if (re.test(v)) err(c, what); });
+    if (HOWTO_BANNED.test(v)) err(c, "says the fence is patched (a hole stays until it is fixed)");
+    checkPronouns(c, v, true);
+    caps.forEach((k) => { if (!new RegExp("\\b" + k + "\\b").test(v)) err(c, `must name the key ${k} (the card pictures it)`); });
+    const filled = v.replace(/\{(\w+)\}/g, (m, k) => (sample[k] != null ? sample[k] : m));
+    if (kind === "label") {
+      const w = words(filled).length;
+      if (w < 1 || w > 6) err(c, `a label is 1 to 6 words (${w})`);
+      if (/[.!]$/.test(filled.trim())) err(c, "a label has no end mark");
+      return;
+    }
+    sentences(filled).forEach((s) => {
+      const w = words(s).length;
+      if (w > LEVELS[1].sentence) err(c, `"${s}" is ${w} words; level 1 allows ${LEVELS[1].sentence}`);
+      if (w < 2) err(c, `"${s}" is not a whole sentence`);
+      if (!/^[A-Z]/.test(s)) err(c, `"${s}" must start with a capital`);
+      if (!/[.!]$/.test(s)) err(c, `"${s}" must end with a period or an exclamation mark`);
+    });
+    if (words(filled).length > TUTORIAL_WARN_WORDS) warn(c, `${words(filled).length} words; keep a card to ${TUTORIAL_WARN_WORDS}`);
+  });
+  const known = new Set(keys.map((k) => k.key));
+  (function each(o, at) {
+    Object.entries(o).forEach(([k, v]) => {
+      const p = at.concat(k);
+      if (v && typeof v === "object") each(v, p);
+      else if (!known.has(p.join("."))) err(`${ctx} tutorial.${p.join(".")}`, "not a text the game shows (Tutorial.textKeys)");
+    });
+  })(T, []);
+}
+
 function checkLevel(n) {
   const spec = LEVELS[n];
   const file = path.join(ROOT, "js", "content", `level${n}.js`);
@@ -969,6 +1036,7 @@ function checkLevel(n) {
     });
   });
   checkHome(ctx, t, spec);
+  checkTutorial(ctx, n, t);
   const crew = checkCrew(ctx, n, t, spec, crewMode);
   if (crew) console.log(`level ${n}: crew ${crew.written} of ${crew.total} texts written, ${crew.words} words (${crewMode === "off" ? "not checked until they are written" : crewMode})`);
   // T.crew counts here like every other in-world text (readingWords skips only the typing drills)

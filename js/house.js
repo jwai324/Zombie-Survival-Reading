@@ -340,6 +340,7 @@
         way. { path: to the first of them (empty once beside it), target: its middle }, or null (no way
         even so: it claws at the fence like before). */
     yardBarrier(z, goal) {
+      if (z.practice) return { path: [], target: null }; // the tutorial's practice walker waits; it never claws or breaks in
       const gw = this.gw;
       const gh = this.gh;
       const m = this.solidMask();
@@ -542,6 +543,12 @@
           this.toast("They are already here.", 2);
           return;
         }
+        if (this.yardHold) {
+          // the first-run basics come first (js/tutorial.js)
+          this.toast("Not yet. Finish the basics first.", 3);
+          Audio().play("wrong");
+          return;
+        }
         ph.t = Math.min(ph.t, D.bellSeconds);
         ph.forced = true;
         // the bell always brings a wave: a calm that was going to stay quiet rolls again, among some and many
@@ -584,7 +591,7 @@
       const later = " (clear the wave first)";
       switch (f.obj) {
         case "bell":
-          return inWave ? "The dinner bell" : "Press E to ring the dinner bell (the next wave comes now)";
+          return inWave ? "The dinner bell" : this.yardHold ? "The dinner bell (after the basics)" : "Press E to ring the dinner bell (the next wave comes now)";
         case "bed":
           return inWave ? "The big bed" + later : "Press E to rest: full health, but " + D.restSeconds + " seconds of the calm go by";
         case "pantry":

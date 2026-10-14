@@ -369,19 +369,24 @@
     /** Pause for the lock prompt (js/locks.js); `then(result)` runs once it closes and the game is back. */
     lockPrompt(opts, then) {
       this.pause();
-      Locks().prompt(
-        Object.assign({}, opts, {
-          onDone: (r) => {
-            if (!this.running) return;
-            this.resume();
-            if (r && r.god) {
-              this.toast("God mode. It opens.", 2.5);
-              Audio().play("haven");
-            }
-            then(r || { cancel: true });
-          },
-        })
-      );
+      const open = () =>
+        Locks().prompt(
+          Object.assign({}, opts, {
+            onDone: (r) => {
+              if (!this.running) return;
+              this.resume();
+              if (r && r.god) {
+                this.toast("God mode. It opens.", 2.5);
+                Audio().play("haven");
+              }
+              then(r || { cancel: true });
+            },
+          })
+        );
+      // the first lock: June's hint card first (owner decision 11: read the note, do just what it says; never the
+      // answer). Not the crowbar prompt: it is no puzzle, and a jammed lock in an old save could be the first prompt met
+      if (ZSR.Tutorial && opts.kind !== "crowbar") ZSR.Tutorial.first("lock", open);
+      else open();
     },
     openCache(god) {
       const S = State();

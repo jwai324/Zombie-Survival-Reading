@@ -9,7 +9,9 @@
    The plots are WORLD.YARD.plots; the textures and sprites named below are drawn in
    yardart.js (the van and the gun in sprites3d.js read the upgrades themselves). The crew who live
    here (wandering, the shelter in a wave, their jobs, the talk bubble, the dog) are js/crew.js: this
-   file calls crewEnter, crewDress, crewUpdate, crewWave, crewFacing, crewInteract and crewHint. */
+   file calls crewEnter, crewDress, crewUpdate, crewWave, crewFacing, crewInteract and crewHint.
+   June's first-run tutorial (js/tutorial.js) watches the yard from yardUpdate; while it sets this.yardHold the
+   calm stands still (no wave, no "next in"), shots never bring the wave sooner and the van waits. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -850,7 +852,8 @@
       const S = State();
       const D = W().DEFENSE;
       if (ph.kind === "calm") {
-        if (!S.cheat("holdCalm")) ph.t -= dt; // god mode: the calm waits until it is let go
+        // the first-run basics hold the calm (js/tutorial.js); so does god mode's "hold the calm"
+        if (!this.yardHold && !S.cheat("holdCalm")) ph.t -= dt;
         if (ph.t <= 0) {
           // what comes next: rolled when the calm began (calmPhase), so it is what Pip called; after the dinner
           // bell there is always a wave
@@ -921,13 +924,14 @@
       }
       // HUD phase line (cheap enough every frame)
       const h = this.hud.phase;
-      const text = ph.kind === "calm" ? "QUIET · next in " + Math.max(0, Math.ceil(this.phase.t)) + "s" : (ph.size === "many" ? "HEAVY WAVE" : "WAVE") + " · " + (ph.total - ph.spawned + this.walkers.length) + " left";
+      const text = ph.kind === "calm" ? (this.yardHold ? "QUIET" : "QUIET · next in " + Math.max(0, Math.ceil(this.phase.t)) + "s") : (ph.size === "many" ? "HEAVY WAVE" : "WAVE") + " · " + (ph.total - ph.spawned + this.walkers.length) + " left";
       if (h.textContent !== text) h.textContent = text;
       h.classList.toggle("alarm", ph.kind === "wave");
     },
 
     /* ---------- Mode hooks (called by the core while mode is "yard") ---------- */
     yardUpdate(dt) {
+      if (ZSR.Tutorial) ZSR.Tutorial.tick(this, dt); // June's first-run tutorial: watches the basics, shows its cards
       this.updateYard(dt);
       this.updateTraps(dt);
       this.yardUnjam(dt);
@@ -975,6 +979,10 @@
         if (inWave) {
           this.toast("Not now. Clear the fence first.", 2.5);
           Audio().play("wrong");
+        } else if (this.yardHold) {
+          // the first-run basics come first: June says what is left (js/tutorial.js)
+          this.toast(ZSR.Tutorial ? ZSR.Tutorial.vanWait() : "Not yet. Finish the basics first.", 3.5);
+          Audio().play("wrong");
         } else if (this.hooks.onVan) this.hooks.onVan();
       }
     },
@@ -986,7 +994,7 @@
       if (f.kind === "crack") return "Press E to brace the fence (" + fix + ")";
       if (f.kind === "spot" || f.kind === "pane") return this.houseHint(f);
       if (f.kind === "crew" || f.kind === "dog") return this.crewHint(f);
-      if (f.kind === "van") return inWave ? "The van (clear the wave first)" : "Press E to head out in the van";
+      if (f.kind === "van") return inWave ? "The van (clear the wave first)" : this.yardHold ? "The van (after the basics)" : "Press E to head out in the van";
       return "";
     },
     yardGoal() {
@@ -1001,7 +1009,7 @@
     yardNoise(tiles) {
       const ph = this.phase;
       const D = W().DEFENSE;
-      if (!ph || ph.kind !== "calm" || ph.t <= D.bellSeconds) return;
+      if (this.yardHold || !ph || ph.kind !== "calm" || ph.t <= D.bellSeconds) return; // the first-run basics hold the calm
       ph.t = Math.max(D.bellSeconds, ph.t - tiles * D.noiseCut);
       if (!ph.noiseToast) {
         ph.noiseToast = true;

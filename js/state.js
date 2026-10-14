@@ -18,6 +18,7 @@
     shake: true,
     mouseSens: 1,
     seenHowto: false,
+    tutorial: null, // the first-run tutorial's done ids (js/tutorial.js); null = none. A primitive: read() merges shallowly
   };
 
   function read(key, fallback) {
@@ -294,8 +295,8 @@
       idx.list[sid] = { label: name, createdAt: Date.now() };
       idx.active = sid;
       write(KEYS.slots, idx);
-      // a new save starts from the settings on screen, and shows its new player the how-to
-      this.settings = Object.assign({}, this.settings, { seenHowto: false });
+      // a new save starts from the settings on screen, and shows its new player the how-to and the tutorial
+      this.settings = Object.assign({}, this.settings, { seenHowto: false, tutorial: null });
       this.saveSettings();
       this.save = freshSave(name);
       this.trip = null;

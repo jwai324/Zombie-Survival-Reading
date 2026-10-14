@@ -23,6 +23,7 @@ constant with a `SCALE:` comment.
 | Reading levels | 6 | `js/content/`, `index.html`, tests |
 | Journal / radio | 30 entries each | `js/story-home.js` |
 | Crew | 3 crew, 22 spots, 30 topics and 16 moods, 15 story quests, 11 errands, 1 dog | `js/story-crew.js`, `js/story-quests.js` |
+| Tutorial | 5 yard steps and the ready card, 6 screen cards (map, road, door, building, lock, river) | `js/tutorial.js` `YARD_STEPS`, `CARDS` |
 | Danger | 1..5 | `LOCATIONS[].danger`, `js/map.js` pips |
 
 ## What breaks first
@@ -109,7 +110,7 @@ scaling all assume it. `tests/validate-streets.js` also requires side streets in
 - **Place text:**
   - `levelN-places1.js` holds the first 7 buildings and `-places2.js` the next 8.
   - Add `-places3.js` and so on rather than growing the files. Each one merges into `T.locations` by id.
-  - Every new file needs a `<script>` tag in `index.html`. `validate-text.js` finds the new file itself and warns if the tag is missing.
+  - Every new file needs a `<script>` tag in `index.html`. `validate-text.js` finds the new file itself and reports an error if the tag is missing.
 - **`levelN.js` must load before its part files:** it assigns `ZSR.TEXT[n] = {...}` and would wipe anything loaded before it.
 - **Landmark art:** split the same way (`landmarks1.js`, `landmarks2.js`). Add `landmarks3.js`
   and so on. These tests have hardcoded file lists that also need the new file:
@@ -148,6 +149,8 @@ missing. Growth rules:
   existing saves. New places are safe: answers hash from (seed, place id).
 - **A yard grid change needs `YARD.version` bumped,** or the fence and the traps land on the wrong tiles.
 - **Bump `version` (now 3) when a migration must run once,** and branch on it in `upgradeSave`.
+- **Tutorial card ids are stored in each slot's settings** (`settings.tutorial`): append, never rename
+  or remove (see "The tutorial" below).
 
 ## Add a place: the checklist
 
@@ -215,6 +218,33 @@ quests or errands need facts and words, not engine changes, within these limits.
 - `npm test` drives a full play-through of every story quest on the real facts and the crew in the
   yard and every quest building (`tests/validate-crew.js`, about 10 of npm test's 46 seconds); it
   grows with the number of quests.
+
+## The tutorial
+
+June's first-run tutorial (`js/tutorial.js`, `docs/GAME_SPEC.md`) is data-driven too: `YARD_STEPS` (the
+yard's basics, in order) and `CARDS` (every card, what it pictures, the HUD button it rings, what the
+arrow points at), with the words in `js/content/level1-tutorial.js` (level 1 only).
+
+- **Card ids are stored in saves** (`settings.tutorial`, per slot). Append; never rename or remove one
+  (an old save would show the renamed card again, or keep a dead id). Saves store ids, not places, so
+  reordering `YARD_STEPS` changes only the card order (the walk card's words introduce June, so it
+  stays first).
+- **A new screen** (a new kind of place, a new menu that needs teaching): a `CARDS` entry, its words
+  (`title`, `text`, its keys named as capitals), and one `Tutorial.enter("<id>")` or
+  `Tutorial.first("<id>", next)` where the screen opens. `tests/validate-engine.js` fails if a
+  non-yard card has no such call in `js/main.js` or `js/building.js`, and `tests/validate-text.js` if
+  its words are missing. It shows once to every save, old ones included.
+- **A new yard step stops every save at home until it is done,** veterans too, and the yard holds its
+  waves until then. To teach veterans something new gently, add a screen card instead. A new step needs
+  a completion the tutorial can see (polled in `tick`, or a `Tutorial.note(id)` from the event) and a
+  "cannot be done" fallback so it is never a dead end (as `talk` and `computer` mark themselves when
+  there is no crew or no computer); the liveness test in `tests/validate-engine.js` must still pass.
+- **The words never go stale:** no digits, no place names, no crew names or crew count (the validator
+  errors on digits and places), so a bigger city, more crew or more guns leave them true.
+- `SCALE:` spots: `LIST_SHOWN` (the checklist's rows; today 6 rows for 6 entries, at the limit: a new
+  yard step makes the list a window around the current row), the practice walker's spawn search cap (it
+  stops a few steps out, so a bigger yard costs nothing), and the arrow's path search (one search over
+  the yard twice a second, about 2,500 tiles today; past about 10,000 tiles, cap it at 60 steps).
 
 ## Refactors worth doing before the next big jump
 
