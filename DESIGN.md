@@ -393,3 +393,14 @@ Judgment calls made while building the crew (each marked **Assumption** can chan
 - **A gun that would land on a quest tile takes the next tile,** so no gun moves in an existing save
   and none ever lies on a quest object.
 - **The dog's name:** letters (accents too), spaces, apostrophes and hyphens, 1 to 14 characters.
+- **Trust is capped at the top star's points,** so a loss at five stars always shows as four.
+- **June's ledger line for a quest comes the day after the hand-over** (the first day page after it),
+  since it tells how the giver used the thing; the day the object comes home, the recap counts it.
+- **An errand asks only for what the known shelves can give before its deadline** (at least 1).
+- **When a build is ready, Tomas spends only the scrap above what it needs;** holes and cracks wait.
+- **Pip's radio tip is told once,** and Pip has a fallback tip once every known building is at its
+  walker limit, so every bubble still carries one useful thing.
+- **An open errand shows as a line in its giver's bubble** (and in the hint on its last day), so
+  "time ran out" is never the first you hear of it again.
+- **Open question for the owner:** the fifth star gates nothing yet (stars 1 to 4 gate quests and
+  jobs). A fifth-star reward (a job, a perk or a story) would be a design addition.

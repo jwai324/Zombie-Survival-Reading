@@ -297,8 +297,7 @@ June, Tomas and Pip live at the cabin. The full design and the contract between 
   the dog on day 28) and offered only once the building is known. One object, one building, on a
   fixed spot beside a landmark the request names with the place, the direction from the cabin and
   the room's sign. It appears once accepted; a trip item (yours at home, lost on death). June's
-  ledger notes it on the day page; it is handed over in person for supplies, sometimes a perk
-  (more food or kits a day, more health, scrap a day, free crew repairs, a longer lookout warning,
+  handed over in person for supplies, sometimes a perk (more food a day, more van health, scrap a day, free crew repairs, a longer lookout warning,
   a bigger patch-up, a cheaper crowbar) and a payoff topic.
 - **Errands.** After a crew member's first story quest: N of an ordinary item that a known place
   stocks, brought home within some days, then handed over (taken from storage). One story quest
@@ -316,7 +315,7 @@ June, Tomas and Pip live at the cabin. The full design and the contract between 
   It follows Pip, shelters with the crew, barks at a wave, and eats 1 food every 2 days. The ledger
   no longer wishes for a dog once it is home.
 - **Where it shows.** The backpack's Crew section (stars, open requests to reread or give up,
-  finished quests), the day page (June's ledger line), the city map (a marker where an object
+  finished quests), the day page (June's ledger line, the day after the hand-over), the city map (a marker where an object
   waits), the building's goal line.
 
 ## The workbench (typing)

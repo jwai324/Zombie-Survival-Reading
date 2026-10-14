@@ -137,7 +137,7 @@ Where each one shows, so it reads well there:
   `done` again once it is handed in. A quest title also runs inside the game's own lines ("give
   June the bag of sunflower seeds", "June asked you to find: Bag of sunflower seeds", a toast).
 - **Elsewhere**: a quest `tag` when you pick the object up in a building; its `journal` line on the
-  day page under June's journal; Pip's `wave` tip also as a toast before a wave; the dog's `pet`
+  first day page after the hand-over, under June's journal; Pip's `wave` tip also as a toast before a wave; the dog's `pet`
   in its own bubble. Talk titles are kept for the crew files and not shown.
 
 Every fact is in the words, as everywhere: numbers, people and places are checked. Beyond that:
@@ -185,8 +185,8 @@ must use every one its facts carry. Copy them exactly, braces and all: the game 
 
 | Text | Placeholders |
 |------|--------------|
-| Tips | June: `hungry` none, `food` `{food} {days}`, `ready` `{room}`, `build` `{room} {needs}`, `heal` `{hp}`. Tomas: `van` `{hp} {max} {cost}`, `vanFree` `{hp} {max}`, `fence` `{holes} {cracks}`, `cabin` `{broken}`, `crowbar` and `fine` none. Pip: `wave` `{size} {sides}`, `keys` `{keys}`, `walkers` `{days}`, `radio` none |
-| Reports | `fence` `{fixed} {scrap}`, `fenceFree` `{fixed}`, `cabin` `{fixed} {scrap}`, `cabinFree` `{fixed}`, `hurt` `{who} {cost}`, `late` `{item}`, `heal` `{hp}` |
+| Tips | June: `hungry` none, `food` `{food} {days}`, `ready` `{room}`, `build` `{room} {needs}`, `heal` `{hp}`. Tomas: `van` `{hp} {max} {cost}`, `vanFree` `{hp} {max}`, `fence` `{holes} {cracks}`, `cabin` `{broken}`, `crowbar` and `fine` none. Pip: `wave` `{size} {sides}`, `keys` `{keys}`, `walkers` `{days}`, `radio` and `full` none |
+| Reports | `fence` `{fixed} {scrap}`, `fenceFree` `{fixed}`, `cabin` `{fixed} {scrap}`, `cabinFree` `{fixed}`, `hurt` `{who} {cost}` (every hurt since the last talk), `late` `{item}` |
 | Errand brief and done | `{count} {item} {days} {reward}` |
 | Quest brief and done | `{reward} {dog}` |
 | Talk and quest `after` | `{dog}` |
@@ -202,12 +202,14 @@ must use every one its facts carry. Copy them exactly, braces and all: the game 
   would read "the dog" with no capital).
 - What they become: `{size}` "a small wave", "a big wave" or "no wave"; `{sides}` "the back
   fence", "the back fence and the fence by the farm" (one to four sides), or "nowhere" with no
-  wave; `{cost}` "a medical kit", or the food it took ("2 food", less when the pantry is short);
-  `{needs}` a list that may end with scrap ("2 Lumber, 1 Box of nails and 20 scrap"); `{reward}`
-  a list ("30 scrap, 2 Lumber and 1 medical kit"); `{keys}` "1 stash key" or "3 stash keys";
+  wave; `{cost}` "a medical kit", the food it took ("2 food", less when the pantry is short), a sum
+  over several waves ("2 medical kits and 2 food"), or "nothing";
+  `{needs}` a list that may end with scrap ("2 pieces of lumber, 1 box of nails and 20 scrap");
+  `{reward}` a list ("30 scrap, 2 pieces of lumber and 1 medical kit"); `{keys}` "1 stash key" or "3 stash keys";
   `{room}` a room's name ("Garden"); `{who}` a crew member's name; `{item}` an item's name; the
   rest are numbers. An errand's `{days}` is its deadline when offered and the days left when the
-  brief is read again from the backpack (it can be 0 or 1). Write around them so the sentence
+  brief is read again from the backpack (at least 1; once the errand is filled, the deadline it
+  was given). Write around them so the sentence
   reads well whatever they become. A count that can be 1 goes where no plural hangs on it, or
   before a noun the game mends ("1 holes" reads "1 hole").
 

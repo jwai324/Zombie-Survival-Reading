@@ -58,9 +58,9 @@ road also work on touch.
    piece of their story, while the yard keeps running. When they have a favor to ask, E again
    opens a card. Five story quests each send you to bring one object home from one building, and
    their words say where: the place, which way from the cabin, the room's sign and a landmark.
-   The object is there only once you say yes. Bring it home (June writes about it in her ledger)
-   and hand it over in person for supplies, sometimes a lasting help (more food a day, a cheaper
-   crowbar, free fence fixes, a longer warning of the next wave) and a new story. After their
+   The object is there only once you say yes. Bring it home and hand it over in person for
+   supplies, sometimes a lasting help (more food a day, a cheaper crowbar, free fence fixes, a
+   longer warning of the next wave) and a new story; June writes it up in her ledger. After their
    first quest they also ask for errands: a few of an ordinary item within a few days. Trust grows
    as you talk (once a day) and bring things home, and drops when they get hurt, an errand runs
    late or you give one up; their stars open new stories, quests and jobs. Tomas fixes fence holes

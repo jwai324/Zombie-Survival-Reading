@@ -43,7 +43,7 @@ at every level. The player is "you".
 - **Answering.** When the crew member has something to ask (a quest or errand on offer), something
   to take (a request you have filled), or the dog to name, the bubble ends with "Press E again
   ...". E then opens a short pausing card (portrait, words, buttons): "I'll do it" / "Not now";
-  "Here you go"; or Pip's dog names. Locked during a wave.
+  "You're welcome" (the card opens once the hand-in is paid); or Pip's dog names. Locked during a wave.
 - **Helping.** Jobs unlock with trust stars (`CREW[id].jobs`). Tomas walks to fence holes and
   cracked segments in the calm and fixes them, paying `SETTINGS.fenceRepairScrap` from base scrap
   each (never below 0); at 2 stars he also fixes the cabin's broken doors and windows
@@ -54,9 +54,9 @@ at every level. The player is "you".
   home one object from one building. The request says where by the building, a compass direction
   from the cabin, a room or sign, and a landmark. The object appears in that building only once
   you accept, on a fixed spot beside that landmark. Walk over it to pick it up (its tag shows). It
-  is a trip item: yours once home, lost if you die. At home June writes a line about it in her
-  ledger (the day page), and you hand it over by talking to the giver: supplies, sometimes a
-  lasting perk, trust, and a new story topic (`after`).
+  is a trip item: yours once home, lost if you die. At home you hand it over by talking to the
+  giver: supplies, sometimes a lasting perk, trust, and a new story topic (`after`). June writes a
+  line about it in her ledger, shown on the next day page.
 - **Errands.** Once a crew member's first story quest is handed in, and whenever they have no story
   quest to give right now (the next one is locked, or all five are done), they ask for N of an
   ordinary item (`ERRANDS`). A crew member can have one open story quest and one open errand at
@@ -190,7 +190,7 @@ facts carry the placeholders exactly.
 | Crew | Tip id | When | Placeholders |
 |------|--------|------|--------------|
 | June | `hungry` | food is 0 | |
-| June | `food` | always (fallback) | `{food}` crates, `{days}` trips it lasts |
+| June | `food` | always (takes turns with the other regular tips) | `{food}` crates, `{days}` trips it lasts |
 | June | `ready` | a room can be built now | `{room}` |
 | June | `build` | the next build is short of items | `{room}`, `{needs}` ("2 pieces of lumber and 1 box of nails") |
 | June | `heal` | you are hurt and she can heal (job) | `{hp}` she gives back |
@@ -202,15 +202,20 @@ facts carry the placeholders exactly.
 | Tomas | `fine` | always (fallback) | |
 | Pip | `wave` | lookout job and a wave is coming in the calm | `{size}` ("a small wave" / "a big wave" / "no wave"), `{sides}` |
 | Pip | `keys` | holding stash keys | `{keys}` |
-| Pip | `walkers` | always (fallback) | `{days}` days until the town gets more walkers |
-| Pip | `radio` | Radio room built | |
+| Pip | `walkers` | while a known building is below the walker limit | `{days}` days until the town gets more walkers |
+| Pip | `radio` | Radio room built, until it has been read once | |
+| Pip | `full` | every known building is at the walker limit (fallback) | |
 
 ### `CREW_REPORTS` (js/story-crew.js)
 
 What a crew member says they did since you last talked. Keys: `fence` (`{fixed}` segments,
 `{scrap}` scrap), `fenceFree` (`{fixed}`, a perk made it free), `cabin` (`{fixed}`, `{scrap}`),
 `hurt` (`{who}` was hurt in a raid, `{cost}` what it took: "a medical kit" / "2 food"), `late`
-(`{item}`, an errand ran out), `heal` (`{hp}`). Each is `{ facts: [...] }`.
+(`{item}`, an errand ran out). Each is `{ facts: [...] }`. One `hurt` report covers every hurt
+since the last talk, its `{cost}` summed ("2 medical kits and 2 food"). June's patch-up is told by
+her `heal` tip, not a report. The fence and cabin reports name their fixer (Tomas) and use his
+pronoun: giving those jobs to someone else means passing `who` for them and rewording them at six
+levels (`tests/validate-world.js` checks the reports name the job holder).
 
 ### `ERRANDS` (js/story-crew.js)
 
@@ -225,7 +230,8 @@ W.ERRANDS = {
 ```
 
 3 to 4 errands per crew member, items true to them (June: seeds, soil, waterFilter, meds; Tomas: parts, nails, lumber, wire, fuel, tools; Pip:
-radioParts, wire, books, maps). Item ids from `ITEMS`, never "food". Facts carry `{count}`,
+lumber, wire, books; only items some place's shelves stock, never radioParts or maps). Item ids
+from `ITEMS`, never "food". Facts carry `{count}`,
 `{item}` (the item's name), `{days}` and `{reward}` ("30 scrap"). Rewards: scrap 15 to 40, or a
 medical kit, or a crowbar.
 
@@ -244,7 +250,7 @@ W.QUESTS = [
     reward: { scrap: 30, items: { meds: 1 }, perk: { foodPerDay: 1 } },
     brief: [...], // the request: why, where (place, direction from the cabin, room, landmark), what it looks like, the reward
     tag: [...], // the object's tag, shown on pickup
-    journal: [...], // June's ledger line on the day it comes home
+    journal: [...], // June's ledger line, on the first day page after the hand-over
     done: [...], // the thank-you when you hand it over (and what the perk does)
     after: [...], // a new story topic told afterwards (the payoff)
   },
@@ -292,7 +298,8 @@ crew: {
   quests: { "june-1": { state: "active" | "found" | "done", day, doneDay } },
   errand: { june: null | { id, item, count, have, day, due } },
   errandNext: { june: 0, ... },            // which errand comes next
-  report: { june: {}, ... },               // { fence, fenceFree, cabin, scrap, hurt: [..], late: item, heal }
+  report: { june: {}, ... },               // { fence, fenceFree, cabin, scrap, hurt: [..], late: item }
+  ledger: [],                              // quest ids handed in since the last day page (June's lines)
   dog: { home: false, name: "" },
 }
 ```
@@ -374,6 +381,13 @@ As built, beyond the table (js/crewstate.js):
   ("1 seed packet", "2 boxes of nails"): rewards, `{needs}`, the errand hand-in line. An errand's
   `{item}` stays the item's name, used as a label ("2 of these: Box of nails").
 - June's heal is told by her `heal` tip in the bubble that heals you, not logged as a report.
+- Trust is capped at the top star's points, so a loss at five stars always shows. An errand's count
+  is capped at what the known shelves can give before its deadline (at least 1). When a build is
+  ready, Tomas spends only the scrap above what it needs. Tomas's `vanHp` perk raises the van's
+  health with its maximum. Packing or unpacking a kit at home saves through `syncYard` (never
+  mid-wave). An open errand shows as a line in its giver's bubble, and on its last day in the hint.
+  The bubble reopened after a hand-in tells the payoff without a tip. June's ledger line for a
+  quest comes on the first day page after the hand-over (`crew.ledger`).
   Pip's lookout calls only real waves (never "none", never after the bell). One raider hurts at
   most one crew member; each crew member is hurt at most once a wave. A walk is re-planned when a
   build goes up across it. The day log keeps `recap.quests`, so a day that brought home only a
@@ -388,7 +402,7 @@ As built, beyond the table (js/crewstate.js):
 T.crew = T.crew || {};
 T.crew.talk = Object.assign(T.crew.talk || {}, { "june-t1": { title, text }, "june-m1": { title, text } }); // every topic and mood
 T.crew.tips = Object.assign(T.crew.tips || {}, { june: { food: "...{food}...{days}..." }, tomas: {}, pip: {} });
-T.crew.reports = Object.assign(T.crew.reports || {}, { fence, fenceFree, cabin, cabinFree, hurt, late, heal });
+T.crew.reports = Object.assign(T.crew.reports || {}, { fence, fenceFree, cabin, cabinFree, hurt, late });
 T.crew.dog = Object.assign(T.crew.dog || {}, { ask, named, pet });
 // levelN-quests.js
 T.crew.quests = Object.assign(T.crew.quests || {}, { "june-1": { title, brief, tag, journal, done, after } }); // dog quest: no tag

@@ -83,7 +83,7 @@ each `levelN-crew.js`.
 |------|--------------|-------------|
 | June | the porch, by the bench; the kitchen stove; the living room, by the shelf with her ledger; the office (the base plans) | looking over the garden plot; tending the Garden (once built); the Lab's herb beds (once built) |
 | Tomas | Gus's room, where he sleeps; the ping pong table | under the van's hood; by the garage plot; the east fence; the Power and Water plots (once built) |
-| Pip | on the floor by the radio shelf; the chair by the chore chart; Finn's treehouse plan; Lucy's drawing of a dog with no name yet; the ping pong table | the radio plot, with the list of voices; beside the radio shack (once built); the back fence, watching the trees |
+| Pip | on the floor by the radio shelf; on the floor by the chore chart; Finn's treehouse plan; Lucy's drawing of a dog with no name yet; the ping pong table | the radio plot, with the list of voices; beside the radio shack (once built); the back fence, watching the trees |
 
 **In a wave** they hurry into the office closet, the shelter, and shut its door; they come out
 when the wave is cleared. A raider that forces the closet door and stays among them hurts one of
@@ -111,7 +111,8 @@ Every topic also carries one true, useful thing about how the game works, checke
 When the topics run out, mood lines repeat; a mood assumes nothing (no build, no find, no dog,
 nobody the crew has not heard of on day 1).
 
-**Errands**, when no story quest is on offer (from day 1, before the first quest): June asks for
+**Errands**, once that crew member's first story quest is handed in, when no story quest is on offer
+(one errand can be open beside a story quest): June asks for
 seed packets, soil, a water filter or medical kits; Tomas for engine parts, nails, fuel or a tool
 kit; Pip for lumber (saved for Finn's treehouse), wire or books. Only items that come back on town
 shelves, so a repeat errand can always be filled: never food, and not radio parts or city maps,
