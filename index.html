@@ -142,7 +142,13 @@
     <div class="map-layout">
       <div class="map-board">
         <div class="caption">The city</div>
-        <canvas id="map-canvas" width="1000" height="700"></canvas>
+        <canvas id="map-canvas" width="1000" height="700" aria-label="City map: tap a place, drag to look around"></canvas>
+        <div class="map-zoom" role="group" aria-label="Map zoom">
+          <button id="map-zoom-in" class="zbtn" title="Zoom in (+)" aria-label="Zoom in">+</button>
+          <button id="map-zoom-out" class="zbtn" title="Zoom out (-)" aria-label="Zoom out" disabled>&minus;</button>
+          <button id="map-zoom-route" class="zbtn wide hidden" title="Fit the whole route">Route</button>
+          <button id="map-zoom-all" class="zbtn wide" title="The whole city (0)" disabled>All</button>
+        </div>
       </div>
       <div class="panel map-panel">
         <div id="map-info"></div>

@@ -199,10 +199,10 @@
       this.toastFit(tips.concat("M is the map."), 4.5);
     },
     /** A toast with the longest of `texts` that fits on the screen: Huge text on a small screen gets a short one. */
-    toastFit(texts, secs) {
+    toastFit(texts, secs, pickup) {
       const el = this.hud.toast;
       for (const t of texts) {
-        this.toast(t, secs);
+        this.toast(t, secs, pickup);
         if (!(el.offsetTop < 0)) return; // its layout box, before the pop animation's scale
       }
     },
@@ -386,7 +386,7 @@
     },
     /** A mistake costs what the note warned: "trap" (you go down), "alarm" (it rings), "jam" (the cache or stash jams). */
     lockFail(kind, which, say) {
-      if (kind === "trap") return this.dieBy(say || FAIL_SAY.trap);
+      if (kind === "trap") return this.dieBy((say ? say + " " : "") + FAIL_SAY.trap);
       if (kind === "alarm") {
         this.toast((say ? say + " " : "") + FAIL_SAY.alarm, 3);
         return this.startAlarm();
@@ -679,7 +679,8 @@
           it.taken = true;
           S.trip.cargo[it.item] = (S.trip.cargo[it.item] || 0) + 1;
           S.takeItem(this.loc.id, it.spot, it.source);
-          this.toast("Picked up: " + W().ITEMS[it.item].name, 2);
+          const msg = "Picked up: " + W().ITEMS[it.item].name;
+          this.toast(msg, this.readSecs(msg, 3), true);
           this.showTag(it.item, Number(it.spot.slice(1)) % 2, W().ITEMS[it.item].name);
           Audio().play("pickup");
           this.updateHud();
@@ -691,10 +692,11 @@
         S.takeKey(kp.from);
         const kt = ZSR.keyText(kp.from);
         // which stash it opens is in the note, not on the key: read it again before you try the key
-        this.toastFit(["Found: " + kt.name + ". The note says which stash it opens. Get it home to keep it.", "Found: " + kt.name + "."], 5);
+        const msgs = ["Found: " + kt.name + ". The note says which stash it opens. Get it home to keep it.", "Found: " + kt.name + "."];
+        this.toastFit(msgs, this.readSecs(msgs[0], 5), true);
         if (kt.tag) {
           if (S.trip) S.trip.wordsRead += ZSR.wordCount(kt.tag);
-          this.tagPanel = { key: "key:" + kp.from + ":" + this.time, kind: "tag", title: kt.name, status: "A stash key", text: kt.tag, until: this.time + 8 };
+          this.tagPanel = { key: "key:" + kp.from + ":" + this.time, kind: "tag", title: kt.name, status: "A stash key", text: kt.tag, until: this.time + this.readSecs(kt.tag, 8) };
         }
         Audio().play("buy");
         this.updateHud();
@@ -706,7 +708,8 @@
         S.takeWeapon(g.id);
         const w = ZSR.Weapons.WEAPONS[g.id];
         this.switchWeapon(g.id);
-        this.toastFit(["Found: " + w.name + "! Press " + w.slot + " or Q to switch guns. Get it home to keep it.", "Found: " + w.name + "! " + w.slot + " or Q switches."], 4.5);
+        const msgs = ["Found: " + w.name + "! Press " + w.slot + " or Q to switch guns. Get it home to keep it.", "Found: " + w.name + "! " + w.slot + " or Q switches."];
+        this.toastFit(msgs, this.readSecs(msgs[0], 4.5), true);
         Audio().play("buy");
       }
       this.piles.forEach((pl) => {
@@ -714,7 +717,7 @@
         if (Math.hypot(pl.x - p.x, pl.y - p.y) < 0.6) {
           pl.taken = true;
           S.trip.scrap += pl.value;
-          this.toast("+" + pl.value + " scrap", 1.5);
+          this.toast("+" + pl.value + " scrap", 2.5);
           Audio().play("pickup");
           this.updateHud();
         }

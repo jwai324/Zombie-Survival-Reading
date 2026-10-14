@@ -1354,6 +1354,34 @@ try {
   err(`settings: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
 }
 
+/* ---------- A pickup's tag stays up long enough to read, and E closes it ---------- */
+try {
+  const level = S.settings.level;
+  S.settings.level = 1;
+  const shop = W.LOCATIONS.find((l) => l.id !== "base" && ZSR.LAYOUTS[l.id]);
+  S.startTrip();
+  I.enter(shop);
+  I.walkers = [];
+  const it = I.items.find((x) => ZSR.tagText(x.item, Number(x.spot.slice(1)) % 2));
+  if (!it) throw new Error(`no item with a tag in ${shop.id}`);
+  const text = ZSR.tagText(it.item, Number(it.spot.slice(1)) % 2);
+  Object.assign(I.player, { x: it.x, y: it.y });
+  I.updatePickups();
+  I.updatePanel();
+  const left = I.tagPanel ? I.tagPanel.until - I.time : 0;
+  if (left < ZSR.wordCount(text)) err(`pickup: a ${ZSR.wordCount(text)}-word tag stays up ${left.toFixed(1)}s at level 1; want at least a second a word`);
+  if (!I.pickupShown()) err("pickup: the tag and its message do not count as shown");
+  I.interact();
+  if (I.tagPanel || I.toastPickup || I.pickupShown()) err("pickup: E did not close the tag and its message");
+  I.toast("Not a pickup.", 3);
+  if (I.pickupShown()) err("pickup: E would close a message that is not a pickup");
+  I.stop();
+  S.abandonTrip();
+  S.settings.level = level;
+} catch (e) {
+  err(`pickup: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+}
+
 if (errors.length) {
   errors.forEach((e) => console.log("ERROR " + e));
   console.log(`\n${errors.length} engine problem(s).`);

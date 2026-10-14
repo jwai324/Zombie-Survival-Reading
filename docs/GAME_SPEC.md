@@ -249,8 +249,9 @@ the game and none of it is quizzed.
 - **Wall signs and graffiti.** Four per building (the layout's `signs`: a wall tile and the
   face they are painted on). Walk up and look at one and a panel shows it; no key press, no
   pause. Extra notes stand on the layout's numbered `spots`.
-- **Item tags.** Every item has two tags (label, sticky note). The tag shows for a few seconds
-  on pickup and is kept in the backpack.
+- **Item tags.** Every item has two tags (label, sticky note). On pickup the tag shows for
+  as long as it takes to read at the reading level's pace (60 words a minute at level 1 up to 150
+  at level 6); E closes it and its "Picked up" message early. It is kept in the backpack.
 - **Plot signs.** Every room's plot in the yard has a sign (a plaque once it is built). Walk
   up to one and press E, and a panel says what it is, what the next level needs, and why it is locked (the
   same facts as the cabin's build menu); the outdoor rooms (Garden, Farm, Well, Water, Power,

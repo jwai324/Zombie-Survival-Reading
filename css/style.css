@@ -83,9 +83,17 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); f
 #minimap { position: absolute; top: var(--mini-top, 3.6rem); left: .6rem; transform: rotate(-.4deg); width: min(15rem, 30vw); height: min(10.6rem, 25vh); background: var(--paper); border: min(.22rem, 5px) solid var(--ink); box-shadow: min(.25rem, 6px) min(.25rem, 6px) 0 var(--ink); pointer-events: none; }
 /* Map: written directions for the picked route */
 .route-head { font-family: var(--font-head); font-size: 1.1rem; letter-spacing: .04em; text-transform: uppercase; margin: .7rem 0 0; }
-.route-steps { margin: .3rem 0 .6rem; padding-left: 1.5rem; }
-.route-steps li { margin: .25rem 0; line-height: 1.4; }
+.route-steps { margin: .3rem 0 .4rem; padding: 0; list-style: none; }
+.route-steps li { display: flex; align-items: center; gap: .45rem; margin: .3rem 0; line-height: 1.35; }
+.route-steps li[role="button"] { cursor: pointer; border-radius: .2rem; }
+.route-steps li[role="button"]:hover, .route-steps li[role="button"]:focus-visible { background: rgba(217,162,27,.22); outline: none; }
 .route-steps li.last { font-weight: 700; }
+/* the step's number matches its badge on the board; the lane strip is the road sign's lanes, ours lit */
+.step-num { flex: none; width: 1.45rem; height: 1.45rem; border-radius: 50%; background: var(--ink); color: var(--amber); border: .12rem solid var(--amber); font-family: var(--font-head); font-weight: 700; font-size: .85rem; display: inline-flex; align-items: center; justify-content: center; }
+.route-steps li.last .step-num { background: #3f5a8a; color: var(--paper-3); border-color: var(--ink); }
+.lane-strip { flex: none; box-shadow: .12rem .12rem 0 var(--ink); }
+.step-text { flex: 1; min-width: 0; }
+.route-tip { margin-top: 0; }
 
 /* Screens and panels */
 .screen { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: .75rem; overflow: auto; background: var(--bg); background-image: radial-gradient(ellipse at 50% 40%, rgba(255,255,255,.07), transparent 60%), repeating-linear-gradient(135deg, rgba(255,255,255,.035) 0 2px, transparent 2px 14px); z-index: 5; }
@@ -150,7 +158,16 @@ kbd { font-family: var(--font-body); font-weight: 700; background: var(--paper-3
 .map-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; width: 100%; max-width: 90rem; max-height: 100%; align-items: start; }
 @media (min-width: 900px) { .map-layout { grid-template-columns: minmax(0, 2fr) minmax(16rem, 1fr); } }
 .map-board { position: relative; border: var(--border); box-shadow: var(--shadow); background: var(--paper); padding: 1.4rem .4rem .4rem; }
-#map-canvas { width: 100%; height: auto; display: block; border: .19rem solid var(--ink); background: var(--paper); }
+#map-canvas { width: 100%; height: auto; aspect-ratio: 10 / 7; display: block; border: .19rem solid var(--ink); background: var(--paper); touch-action: none; }
+/* zoom buttons in a row along the board's top-left edge, above the hills (the compass is top right) */
+/* sized in em off the board's width too, so on a phone they stay small enough to leave the map in view */
+.map-zoom { position: absolute; top: calc(1.4rem + .19rem + .4rem); left: calc(.4rem + .19rem + .4rem); display: flex; gap: .35em; align-items: center; font-size: min(1rem, 3.4vw); }
+.zbtn { font-family: var(--font-head); font-weight: 700; font-size: 1.35em; line-height: 1; min-width: 1.63em; height: 1.63em; padding: 0 .3em; background: var(--paper-3); color: var(--ink); border: .12em solid var(--ink); box-shadow: .12em .12em 0 var(--ink); cursor: pointer; }
+.zbtn.wide { font-size: .85em; letter-spacing: .06em; text-transform: uppercase; height: 2.1em; }
+.zbtn:hover:not(:disabled) { background: var(--amber-2); }
+.zbtn:active:not(:disabled) { transform: translate(2px,2px); box-shadow: 0 0 0 var(--ink); }
+.zbtn:disabled { opacity: .4; cursor: default; }
+#map-zoom-route { background: var(--amber); }
 .map-panel { max-height: 100%; }
 #map-info h3 { font-size: 1.6rem; }
 
