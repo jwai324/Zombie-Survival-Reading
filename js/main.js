@@ -13,7 +13,7 @@
   const W = ZSR.WORLD;
 
   const $ = (id) => document.getElementById(id);
-  const SCREENS = ["screen-title", "screen-newsave", "screen-settings", "screen-howto", "screen-map", "screen-base", "screen-backpack", "screen-note", "screen-pause", "screen-death", "screen-confirm"];
+  const SCREENS = ["screen-title", "screen-newsave", "screen-settings", "screen-howto", "screen-map", "screen-base", "screen-backpack", "screen-note", "screen-pause", "screen-death", "screen-confirm", "screen-wrong"];
   const ORDINAL = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th" };
   let settingsReturn = "screen-title";
   let titleRaf = 0;
@@ -334,8 +334,43 @@
     Map.hide();
     showCanvas("road");
     active = "road";
-    // the road follows the route the map showed; a wrong turn restarts it from `from` inside Game
+    // the road follows the route the map showed; a wrong turn asks what next (onWrongTurn)
     Game.startTrip({ to: destId, name: loc.name, seconds: secs, danger: loc.danger, path: r.path });
+  }
+  /** A wrong turn on the road: try the drive again, open the town map, or go back where the van set out. */
+  function onWrongTurn(info) {
+    const St = ZSR.Streets;
+    $("wrong-caption").textContent = St.text("wrongTitle");
+    $("wrong-text").textContent = info.msg;
+    const retry = $("btn-wrong-retry");
+    retry.textContent = St.text("tryAgain");
+    $("btn-wrong-map").textContent = St.text("townMap");
+    $("btn-wrong-back").textContent = St.text("goBack", { origin: info.originName });
+    retry.onclick = () => {
+      Audio.play("click");
+      hideScreens();
+      Game.retry();
+    };
+    $("btn-wrong-map").onclick = () => {
+      Audio.play("click");
+      Game.stop();
+      openMap(State.trip.at);
+    };
+    $("btn-wrong-back").onclick = () => {
+      Audio.play("click");
+      Game.stop();
+      // out of the cabin's own driveway nothing is lost or gained: the trip never left (as the map's yard button)
+      if (info.origin === "base") backToYard();
+      else onArrive(info.origin);
+    };
+    show("screen-wrong");
+    retry.focus();
+  }
+  /** Back out of a trip that has not reached any place yet: no day passes. */
+  function backToYard() {
+    State.trip = null;
+    Map.hide();
+    goYard({ firstCalm: 30 });
   }
   function onArrive(destId) {
     if (!State.trip) return goYard();
@@ -403,7 +438,7 @@
 
   /* ---------- Shared: pause, backpack, death ---------- */
   function overlayOpen() {
-    return ["screen-pause", "screen-note", "screen-backpack", "screen-base", "screen-bench", "screen-confirm"].some((id) => $(id) && !$(id).classList.contains("hidden"));
+    return ["screen-pause", "screen-note", "screen-backpack", "screen-base", "screen-bench", "screen-confirm", "screen-wrong"].some((id) => $(id) && !$(id).classList.contains("hidden"));
   }
   function pauseActive() {
     if (active === "road" && Game.running && !Game.paused) Game.pause();
@@ -578,12 +613,7 @@
       else quitToTitle();
     });
     $("map-btn-backpack").addEventListener("click", () => Backpack.open());
-    $("map-btn-yard").addEventListener("click", () => {
-      // back out of a trip before leaving the driveway
-      State.trip = null;
-      Map.hide();
-      goYard({ firstCalm: 30 });
-    });
+    $("map-btn-yard").addEventListener("click", backToYard); // back out of a trip before leaving the driveway
     $("map-btn-home").addEventListener("click", () => confirm("Quit to the title? Everything since your last save at the cabin is lost.", quitToTitle));
     $("btn-reload").addEventListener("click", () => {
       Audio.play("click");
@@ -596,7 +626,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", () => {
-    Game.init($("game"), { onArrive, onDeath, onPause, onPauseKey });
+    Game.init($("game"), { onArrive, onWrongTurn, onDeath, onPause, onPauseKey });
     Interior.init($("fp"), {
       onComputer: () => yardHooks.onComputer(),
       onJournal: () => yardHooks.onJournal(),

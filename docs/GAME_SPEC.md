@@ -145,8 +145,13 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   1000 px wide), and signs shrink to fit under it.
 - The lane the van is in when it crosses the white stop line decides. A wrong lane drives a
   little way down the wrong road, then a card says what went wrong ("Wrong way! That road goes
-  to ...", "You drove past ...") and the drive restarts from where it set out. Damage, scrap,
-  kills and miles stay.
+  to ...", "You drove past ...") with three choices: try again (the drive restarts from where it
+  set out; damage, scrap, kills and miles stay), the town map (pick any drive from where the van
+  set out), or go back to where the van set out (a building: straight back in as you left it;
+  the cabin: back out of the trip, as the map's yard button, and no day passes).
+- The roof gun fires at the pointer; shots carry the van's own speed, so on screen they fly
+  straight at it. Aim assist (Settings) bends a shot only onto a walker right under the pointer;
+  with no pointer yet it takes the walker closest to straight ahead.
 - The minimap (top left, under the HUD's top row) turns with the van, shows known roads, side
   streets and places, and flags the destination. It never draws the route.
 
