@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 /* Sanity checks for js/world.js, js/layouts.js and the story facts (js/story.js, js/story-home.js):
    interior layouts (legend v2, landmarks, decor, reachability), the stash and key in every building,
-   note spots and wall signs, notes that name the landmarks, the key ring, and reveal chains. */
+   note spots and wall signs, notes that name the landmarks, the key ring, and reveal chains; and the crew
+   at home base (js/story-crew.js: roster, rules, talk, tips, reports, errands) and their story quests
+   (js/story-quests.js: spots, landmarks, gating, rewards, perks, the dog). Contract: docs/CREW.md. */
 "use strict";
 const fs = require("fs");
 const path = require("path");
@@ -563,5 +565,376 @@ const st = ["base"];
 while (st.length) { const a = st.pop(); (adj[a] || []).forEach((b) => { if (!reach.has(b)) { reach.add(b); st.push(b); } }); }
 W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches it`); });
 
+/* ---------- The crew at home base (js/story-crew.js) and their story quests (js/story-quests.js) ----------
+   docs/CREW.md is the contract. Every count comes from the data; the lists below are the contract's own
+   (engine keys, art kinds, tip ids). While js/story-crew.js is still empty (no CREW), its checks pass and the
+   quests are checked on their own. */
+{
+  const CREW = W.CREW || {};
+  const crewIds = Object.keys(CREW);
+  const crewOn = crewIds.length > 0;
+  const R = W.CREW_RULES || {};
+  const starsMax = Array.isArray(R.stars) ? R.stars.length : null;
+  const QUESTS = Array.isArray(W.QUESTS) ? W.QUESTS : [];
+  const DOG = W.DOG || {};
+  const POSES = ["stand", "sit", "work", "read"];
+  const JOBS = ["fence", "cabin", "heal", "lookout"];
+  const PRONOUNS = ["she", "he", "they"];
+  const WHEN_KEYS = ["day", "stars", "quest", "note", "room", "level", "dog"];
+  // CREW_TIPS: the tip ids each crew member must have, and the placeholders their facts carry
+  const TIPS = {
+    june: { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"] },
+    tomas: { van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [] },
+    pip: { wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [] },
+  };
+  const REPORTS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], hurt: ["who", "cost"], late: ["item"], heal: ["hp"] };
+  const PLACEHOLDERS = ["food", "days", "room", "needs", "hp", "max", "cost", "holes", "cracks", "broken", "keys", "size", "sides", "fixed", "scrap", "who", "item", "count", "reward", "dog"];
+  const ART_KINDS = ["bag", "photo", "box", "book", "tin", "leash", "toolbox", "radio", "jar", "letter", "seeds", "blanket", "tape", "badge", "wrench"];
+  const PERKS = ["foodPerDay", "medsPerDay", "footHp", "vanHp", "scrapPerDay", "crewRepairFree", "lookoutEarly", "healAmount", "crowbarCost"];
+  const REWARD_KEYS = ["scrap", "items", "kits", "crowbars", "traps", "perk"];
+  const ERRAND_REWARD_KEYS = ["scrap", "kits", "crowbars"];
+  const QUEST_SCRAP = [20, 80];
+  const ERRAND_SCRAP = [15, 40];
+  const QUEST_NEAR = 3; // tiles (Chebyshev) from the spot to the `near` landmark's footprint
+  const QUESTS_PER_PLACE = 2; // SCALE: quest spots per building; more quests than 2 x buildings needs a new place or a higher cap
+  const DOG_QUESTS = 1; // save.crew.dog holds one dog
+  const DOG_DANGER = 3; // the dog waits somewhere a first-time visitor can manage
+  const DOG_IDEAS = 3; // Pip's name ideas on the card
+  const DIR_SLACK = 10; // degrees: near the edge of a compass point, the next point over is fine too
+  const NOT_DOG_NAMES = ["Peanut"]; // the lost dog on the Gas-N-Go flyer
+  // people the words must carry (tests/validate-text.js): the dog's names must not be one of them
+  const PEOPLE = (() => {
+    const m = fs.readFileSync(path.join(__dirname, "validate-text.js"), "utf8").match(/const PEOPLE = (\[[^\]]*\]);/);
+    try { return m ? JSON.parse(m[1]) : null; } catch (e) { return null; }
+  })();
+  if (!PEOPLE) err("crew: could not read PEOPLE from tests/validate-text.js");
+
+  const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && (hi == null || v <= hi);
+  const factsOf = (v) => (Array.isArray(v) ? v : v && Array.isArray(v.facts) ? v.facts : null);
+  // the crew never tie a key to its stash, so no crew text names a stash (LOCATIONS stashName, "the" aside)
+  const STASHES = W.LOCATIONS.map((l) => String(l.stashName || "").toLowerCase().replace(/^the\s+/, "")).filter(Boolean);
+  const checkFacts = (ctx, v, need) => {
+    const f = factsOf(v);
+    if (!f || !f.length || f.some((s) => typeof s !== "string" || !s.trim())) return err(`${ctx}: needs facts, a list of short true sentences`);
+    const all = f.join(" ");
+    (all.match(/\{\w+\}/g) || []).forEach((p) => { if (!PLACEHOLDERS.includes(p.slice(1, -1))) err(`${ctx}: unknown placeholder ${p} (allowed: ${PLACEHOLDERS.join(" ")})`); });
+    (need || []).forEach((p) => { if (!all.includes(`{${p}}`)) err(`${ctx}: facts must carry {${p}}`); });
+    STASHES.forEach((st) => { if (all.toLowerCase().includes(st)) err(`${ctx}: names "${st}", a stash; the crew never tie a key to a stash or send you to one`); });
+  };
+  // notes every reading level shows: the door note, the main and trail notes, and dead notes with minLevel 1
+  const levelOneNotes = new Set();
+  Object.values(W.NOTES).forEach((N) => {
+    if (N.door && N.door.id) levelOneNotes.add(N.door.id);
+    (N.notes || []).forEach((n) => { if ((n.minLevel || 1) === 1) levelOneNotes.add(n.id); });
+  });
+  const questIds = new Set(QUESTS.map((q) => q.id));
+  const checkRoomLevel = (ctx, room, level) => {
+    if (room == null && level == null) return;
+    if (room == null) return err(`${ctx}: level ${level} without a room`);
+    const r = W.BASE_ROOMS[room];
+    if (!r) return err(`${ctx}: room "${room}" is not a BASE_ROOMS key`);
+    if (!isInt(level, 1, r.levels.length)) err(`${ctx}: room ${room} needs a level 1 to ${r.levels.length} (has ${level})`);
+  };
+  const checkWhen = (ctx, w) => {
+    if (w == null) return;
+    if (typeof w !== "object") return err(`${ctx}: when must be an object`);
+    Object.keys(w).forEach((k) => { if (!WHEN_KEYS.includes(k)) err(`${ctx}: unknown when key "${k}" (${WHEN_KEYS.join(", ")})`); });
+    if ("day" in w && !isInt(w.day, 1)) err(`${ctx}: when.day must be a day, 1 or more`);
+    if ("stars" in w && !isInt(w.stars, 0, starsMax)) err(`${ctx}: when.stars ${w.stars} must be 0 to ${starsMax == null ? "the CREW_RULES.stars count" : starsMax}`);
+    if ("quest" in w && !questIds.has(w.quest)) err(`${ctx}: when.quest "${w.quest}" is not a quest id`);
+    if ("note" in w && !levelOneNotes.has(w.note)) err(`${ctx}: when.note "${w.note}" is not a note every reading level shows (a door note, a main or trail note, or a dead note with minLevel 1)`);
+    if ("room" in w || "level" in w) checkRoomLevel(ctx, w.room, w.level);
+    if ("dog" in w && w.dog !== true) err(`${ctx}: when.dog can only be true`);
+  };
+
+  // the roster
+  if (crewOn) {
+    const hw = W.HOUSE.grid[0].length;
+    const yw = W.YARD.grid[0].length;
+    const names = new Set();
+    crewIds.forEach((id) => {
+      const c = CREW[id];
+      const ctx = `CREW ${id}`;
+      if (!/^[a-z][a-zA-Z0-9]*$/.test(id)) err(`${ctx}: ids are short lowercase words (saves key on them)`);
+      if (typeof c.name !== "string" || !c.name.trim()) err(`${ctx}: needs a name`);
+      else if (names.has(c.name)) err(`${ctx}: another crew member is also called ${c.name}`);
+      names.add(c.name);
+      if (!PRONOUNS.includes(c.pronoun)) err(`${ctx}: pronoun "${c.pronoun}" (${PRONOUNS.join(", ")})`);
+      if (!/^#[0-9a-f]{6}$/i.test(c.color || "")) err(`${ctx}: color must be a #rrggbb color`);
+      if (!(typeof c.scale === "number" && c.scale > 0 && c.scale <= 1.5)) err(`${ctx}: scale must be a share of a walker's height, above 0 and at most 1.5`);
+      if (!Array.isArray(c.jobs)) err(`${ctx}: jobs must be a list (it may be empty)`);
+      else {
+        const seen = new Set();
+        c.jobs.forEach((j, i) => {
+          if (!JOBS.includes(j.job)) err(`${ctx}: job ${i + 1} "${j.job}" (${JOBS.join(", ")})`);
+          if (!isInt(j.stars, 0, starsMax)) err(`${ctx}: job ${j.job} stars ${j.stars} must be 0 to ${starsMax}`);
+          if (seen.has(j.job)) err(`${ctx}: job ${j.job} twice`);
+          seen.add(j.job);
+        });
+      }
+      if (!Array.isArray(c.posts) || c.posts.length < 2) return err(`${ctx}: needs 2 or more posts to wander between`);
+      const postIds = new Set();
+      c.posts.forEach((p, i) => {
+        const pc = `${ctx} post ${p.id || i + 1}`;
+        if (!p.id || postIds.has(p.id)) err(`${pc}: needs an id of its own`);
+        postIds.add(p.id);
+        if (!!p.at === !!p.house) err(`${pc}: give either at (a yard tile) or house (a cabin tile)`);
+        else if (p.at && !(Array.isArray(p.at) && isInt(p.at[0], 0, yw - 1) && isInt(p.at[1], 0, W.YARD.grid.length - 1))) err(`${pc}: at ${JSON.stringify(p.at)} is not a yard tile`);
+        else if (p.house && !(Array.isArray(p.house) && isInt(p.house[0], 0, hw - 1) && isInt(p.house[1], 0, W.HOUSE.grid.length - 1) && W.HOUSE.grid[p.house[1]][p.house[0]] !== " ")) err(`${pc}: house ${JSON.stringify(p.house)} is not a cabin tile`);
+        if (!POSES.includes(p.pose)) err(`${pc}: pose "${p.pose}" (${POSES.join(", ")})`);
+        if (!(typeof p.weight === "number" && p.weight > 0)) err(`${pc}: weight must be a number above 0`);
+        checkRoomLevel(pc, p.room, p.level);
+      });
+    });
+    // the rules
+    const num = (k, ok, what) => { if (!ok(R[k])) err(`CREW_RULES.${k}: ${what}`); };
+    const pos = (v) => typeof v === "number" && v > 0;
+    num("stars", (v) => Array.isArray(v) && v.length && v.every((n, i) => isInt(n, 1) && (!i || n > v[i - 1])), "trust points for each star, rising");
+    ["gain", "loss"].forEach((k) => { if (!R[k] || typeof R[k] !== "object") err(`CREW_RULES.${k}: missing`); });
+    ["talk", "errand", "quest"].forEach((k) => { if (!isInt((R.gain || {})[k], 0)) err(`CREW_RULES.gain.${k}: trust points, 0 or more`); });
+    ["hurt", "late", "giveUp"].forEach((k) => { if (!isInt((R.loss || {})[k], 0)) err(`CREW_RULES.loss.${k}: trust points, 0 or more`); });
+    num("shelter", (v) => !!W.HOUSE.rooms[v], "a HOUSE.rooms key");
+    num("raidShelterShare", (v) => typeof v === "number" && v >= 0 && v <= 1, "a share, 0 to 1");
+    ["hurtSeconds", "walkSpeed", "runSpeed", "workSeconds", "lookoutSeconds", "healAmount", "dogBarkRange"].forEach((k) => num(k, pos, "a number above 0"));
+    num("hurtCost", (v) => v && isInt(v.meds, 0) && isInt(v.food, 0), "{ meds, food }");
+    num("dwell", (v) => Array.isArray(v) && v.length === 2 && pos(v[0]) && v[1] >= v[0], "[min, max] seconds");
+    ["requestsPerCrew", "dogFoodEvery"].forEach((k) => num(k, (v) => isInt(v, 1), "a whole number, 1 or more"));
+    // talk: topics and moods, ids unique across the crew
+    const talkIds = new Set();
+    Object.keys(W.CREW_TALK || {}).forEach((id) => { if (!CREW[id]) err(`CREW_TALK ${id}: not a crew member`); });
+    crewIds.forEach((id) => {
+      const T = (W.CREW_TALK || {})[id];
+      if (!T) return err(`CREW_TALK ${id}: missing`);
+      [["topics", T.topics], ["moods", T.moods]].forEach(([kind, list]) => {
+        if (!Array.isArray(list) || !list.length) return err(`CREW_TALK ${id}: needs ${kind}`);
+        list.forEach((t, i) => {
+          const ctx = `CREW_TALK ${id} ${t.id || kind + " " + (i + 1)}`;
+          if (!t.id || talkIds.has(t.id) || questIds.has(t.id)) err(`${ctx}: needs an id no other topic, mood or quest has`);
+          talkIds.add(t.id);
+          checkWhen(ctx, t.when);
+          checkFacts(ctx, t.facts);
+        });
+      });
+    });
+    // tips: every tip id of the contract's table, with its placeholders
+    Object.keys(W.CREW_TIPS || {}).forEach((id) => { if (!CREW[id]) err(`CREW_TIPS ${id}: not a crew member`); });
+    crewIds.forEach((id) => {
+      const tips = (W.CREW_TIPS || {})[id];
+      const table = TIPS[id];
+      if (!tips) return err(`CREW_TIPS ${id}: missing`);
+      Object.keys(tips).forEach((tip) => {
+        if (table && !table[tip]) err(`CREW_TIPS ${id}.${tip}: not a tip the engine gives ${id} (${Object.keys(table).join(", ")})`);
+        checkFacts(`CREW_TIPS ${id}.${tip}`, tips[tip], table && table[tip]);
+      });
+      Object.keys(table || {}).forEach((tip) => { if (!tips[tip]) err(`CREW_TIPS ${id}.${tip}: missing`); });
+    });
+    // reports
+    const RP = W.CREW_REPORTS || {};
+    Object.keys(RP).forEach((k) => { if (!REPORTS[k]) err(`CREW_REPORTS.${k}: not a report (${Object.keys(REPORTS).join(", ")})`); });
+    Object.entries(REPORTS).forEach(([k, need]) => { if (!RP[k]) err(`CREW_REPORTS.${k}: missing`); else checkFacts(`CREW_REPORTS.${k}`, RP[k], need); });
+    // errands: ordinary items (never food), counts, deadlines, small rewards
+    const errandIds = new Set();
+    Object.keys(W.ERRANDS || {}).forEach((id) => { if (!CREW[id]) err(`ERRANDS ${id}: not a crew member`); });
+    crewIds.forEach((id) => {
+      const list = (W.ERRANDS || {})[id];
+      if (!Array.isArray(list) || !list.length) return err(`ERRANDS ${id}: needs errands (asked when no story quest is open)`);
+      list.forEach((e, i) => {
+        const ctx = `ERRANDS ${id} ${e.id || i + 1}`;
+        if (!e.id || errandIds.has(e.id) || questIds.has(e.id)) err(`${ctx}: needs an id no other errand or quest has`);
+        errandIds.add(e.id);
+        if (!W.ITEMS[e.item] || e.item === "food") err(`${ctx}: item "${e.item}" must be an ITEMS id, not food`);
+        if (!(Array.isArray(e.count) && e.count.length === 2 && isInt(e.count[0], 1) && isInt(e.count[1], e.count[0]))) err(`${ctx}: count must be [min, max], 1 or more`);
+        if (!isInt(e.days, 1)) err(`${ctx}: days must be a deadline of 1 day or more`);
+        const rw = e.reward || {};
+        const keys = Object.keys(rw);
+        if (!keys.length || keys.some((k) => !ERRAND_REWARD_KEYS.includes(k))) err(`${ctx}: reward must be scrap, kits or crowbars`);
+        if ("scrap" in rw && !isInt(rw.scrap, ERRAND_SCRAP[0], ERRAND_SCRAP[1])) err(`${ctx}: reward scrap ${rw.scrap} must be ${ERRAND_SCRAP[0]} to ${ERRAND_SCRAP[1]}`);
+        ["kits", "crowbars"].forEach((k) => { if (k in rw && !isInt(rw[k], 1)) err(`${ctx}: reward ${k} must be 1 or more`); });
+        checkFacts(ctx, e.facts, ["count", "item", "days", "reward"]);
+        checkFacts(`${ctx} done`, e.done);
+      });
+    });
+  }
+
+  // the story quests: one object (or the dog) on a spot a reader can find from the brief
+  const base = W.LOCATIONS.find((l) => l.type === "base");
+  const DIRS = ["east", "northeast", "north", "northwest", "west", "southwest", "south", "southeast"];
+  const allowedDirs = (l) => {
+    // north is up on the city map (y grows southward)
+    const a = (Math.atan2(base.y - l.y, l.x - base.x) * 180) / Math.PI;
+    const i = ((Math.round(a / 45) % 8) + 8) % 8;
+    const off = a - Math.round(a / 45) * 45;
+    const out = [DIRS[i]];
+    if (off > 22.5 - DIR_SLACK) out.push(DIRS[(i + 1) % 8]);
+    if (off < -(22.5 - DIR_SLACK)) out.push(DIRS[(i + 7) % 8]);
+    return out;
+  };
+  const known = new Set(W.LOCATIONS.filter((l) => l.known).map((l) => l.id));
+  const early = new Set(known);
+  known.forEach((id) => ((W.NOTES[id] || {}).notes || []).filter((n) => n.unlocks).forEach((n) => (n.reveals || []).forEach((r) => early.add(r))));
+  const geoCache = {};
+  const geo = (id) => {
+    if (geoCache[id]) return geoCache[id];
+    const t = W.TEMPLATES[id];
+    const g = t.grid;
+    const H = g.length;
+    const w = g[0].length;
+    const at = (x, y) => (x < 0 || y < 0 || x >= w || y >= H ? "#" : g[y][x]);
+    const foot = {}; // landmark name -> its tiles
+    const blocked = new Set();
+    Object.entries(t.landmarks || {}).forEach(([d, def]) => {
+      const y = g.findIndex((r) => r.includes(d));
+      if (y < 0) return;
+      const x = g[y].indexOf(d);
+      const [fw, fh] = def.foot || [1, 1];
+      foot[def.name] = [];
+      for (let yy = y - (fh >> 1); yy <= y + (fh >> 1); yy++) for (let xx = x - (fw >> 1); xx <= x + (fw >> 1); xx++) { foot[def.name].push([xx, yy]); blocked.add(xx + "," + yy); }
+    });
+    // walk in from the entrance with the cache door L and the stash door Q shut
+    const ex = g[H - 1].indexOf("E");
+    const reach = new Set([ex + "," + (H - 1)]);
+    const q = [[ex, H - 1]];
+    while (q.length) {
+      const [x, y] = q.shift();
+      STEPS.forEach(([dx, dy]) => {
+        const k = x + dx + "," + (y + dy);
+        if (!reach.has(k) && ".inyz$DE1234".includes(at(x + dx, y + dy)) && !blocked.has(k)) { reach.add(k); q.push([x + dx, y + dy]); }
+      });
+    }
+    const off = new Set(Object.values(t.spots || {}).map((s) => s.join(",")).concat((t.signs || []).map((s) => s[0] + "," + s[1])));
+    if (Array.isArray(t.rod)) off.add(t.rod.join(","));
+    const texts = (t.decor || []).filter((d) => d.text).map((d) => d.text.toUpperCase());
+    return (geoCache[id] = { at, foot, reach, off, texts });
+  };
+  const cheb = (a, b) => Math.max(Math.abs(a[0] - b[0]), Math.abs(a[1] - b[1]));
+  // a reward the brief promises: "<n> ... <the item's noun>" ("1 box of nails", "2 seed packets", "1 medical kit")
+  const noun = (name) => String(name || "").toLowerCase().trim().split(/\s+/).pop().replace(/s$/, "");
+  const promises = (text, n, word) => new RegExp(`\\b${n} (?:[a-z-]+ ){0,3}${word}`, "i").test(text);
+  // the dog is the one June's ledger hears barking past the trees, and the ledger never has it home: it comes
+  // no earlier than the last JOURNAL page that mentions a dog (a page on a later day may not assume it is home)
+  const dogPage = (Array.isArray(W.JOURNAL) ? W.JOURNAL : []).reduce((last, e, i) => (/\bdogs?\b/i.test((factsOf(e) || []).join(" ")) ? i + 1 : last), 0);
+  const ids2 = new Set();
+  const perPlace = {};
+  const byGiver = {};
+  const dogQuests = QUESTS.filter((q) => q.kind === "dog");
+  if (W.QUESTS != null && !Array.isArray(W.QUESTS)) err("QUESTS: must be a list");
+  if (dogQuests.length > DOG_QUESTS) err(`QUESTS: ${dogQuests.length} dog quests, the save holds ${DOG_QUESTS} dog`);
+  QUESTS.forEach((q, n) => {
+    const ctx = `QUESTS ${q.id || n + 1}`;
+    if (!q.id || ids2.has(q.id)) err(`${ctx}: needs an id of its own`);
+    ids2.add(q.id);
+    if (crewOn && !CREW[q.giver]) err(`${ctx}: giver "${q.giver}" is not in CREW`);
+    (byGiver[q.giver] = byGiver[q.giver] || []).push(q);
+    if (q.kind != null && q.kind !== "dog") err(`${ctx}: kind "${q.kind}" (leave it out, or "dog")`);
+    checkWhen(ctx, q.when);
+    // facts
+    ["brief", "journal", "done", "after"].forEach((k) => checkFacts(`${ctx} ${k}`, q[k]));
+    if (q.kind === "dog") {
+      if (q.object || q.tag) err(`${ctx}: the dog quest has no object and no tag`);
+    } else {
+      if (!q.object || typeof q.object.name !== "string" || !q.object.name.trim()) err(`${ctx}: needs object.name`);
+      if (!q.object || !ART_KINDS.includes(q.object.art)) err(`${ctx}: object.art "${q.object && q.object.art}" (${ART_KINDS.join(", ")})`);
+      checkFacts(`${ctx} tag`, q.tag);
+    }
+    // the reward
+    const rw = q.reward || {};
+    Object.keys(rw).forEach((k) => { if (!REWARD_KEYS.includes(k)) err(`${ctx}: reward key "${k}" (${REWARD_KEYS.join(", ")})`); });
+    if ("scrap" in rw && !isInt(rw.scrap, QUEST_SCRAP[0], QUEST_SCRAP[1])) err(`${ctx}: reward scrap ${rw.scrap} must be ${QUEST_SCRAP[0]} to ${QUEST_SCRAP[1]}`);
+    Object.entries(rw.items || {}).forEach(([it, c]) => { if (!W.ITEMS[it] || !isInt(c, 1)) err(`${ctx}: reward item ${it} x ${c} (an ITEMS id, 1 or more)`); });
+    ["kits", "crowbars"].forEach((k) => { if (k in rw && !isInt(rw[k], 1)) err(`${ctx}: reward ${k} must be 1 or more`); });
+    Object.entries(rw.traps || {}).forEach(([k, c]) => { if (!(W.TRAPS || {})[k] || !isInt(c, 1)) err(`${ctx}: reward trap ${k} x ${c} (a TRAPS key, 1 or more)`); });
+    const done = (factsOf(q.done) || []).join(" ");
+    Object.entries(rw.perk || {}).forEach(([k, v]) => {
+      if (!PERKS.includes(k)) return err(`${ctx}: perk "${k}" is not an engine perk (${PERKS.join(", ")})`);
+      if (k === "crewRepairFree") { if (v !== true) err(`${ctx}: perk crewRepairFree must be true`); else if (!/scrap|free/i.test(done)) err(`${ctx}: the done facts must say repairs cost no scrap`); return; }
+      const crowbar = ((W.TOOLS || {}).crowbar || {}).scrap;
+      if (k === "crowbarCost" ? !(isInt(v, 0) && (crowbar == null || v < crowbar)) : !(typeof v === "number" && v > 0)) return err(`${ctx}: perk ${k} ${v} (${k === "crowbarCost" ? "a cost below the crowbar's " + crowbar + " scrap" : "a number above 0"})`);
+      if (Number.isInteger(v) && !new RegExp(`\\b${v}\\b`).test(done)) err(`${ctx}: the done facts must say what perk ${k} does, with its number ${v}`);
+    });
+    // where: a building with a layout, a spot a reader can walk to, by the landmark the brief names
+    const loc = W.LOCATIONS.find((l) => l.id === q.at);
+    if (!loc || loc.type === "base" || loc.outdoor || !W.TEMPLATES[q.at]) return err(`${ctx}: at "${q.at}" must be a building with a layout`);
+    perPlace[q.at] = (perPlace[q.at] || []).concat(q.id);
+    const G = geo(q.at);
+    const s = q.spot;
+    if (!(Array.isArray(s) && Number.isInteger(s[0]) && Number.isInteger(s[1]))) return err(`${ctx}: spot must be [x, y]`);
+    const k = s.join(",");
+    if (G.at(s[0], s[1]) !== ".") err(`${ctx}: spot ${k} in ${q.at} is "${G.at(s[0], s[1])}", not plain floor`);
+    else if (!G.reach.has(k)) err(`${ctx}: spot ${k} in ${q.at} cannot be reached from the entrance with the cache and stash doors shut`);
+    if (G.off.has(k)) err(`${ctx}: spot ${k} in ${q.at} is a note spot, a sign or the rod spot`);
+    Object.entries(G.foot).forEach(([name, tiles]) => { if (tiles.some((f) => cheb(f, s) <= 1)) err(`${ctx}: spot ${k} in ${q.at} is on or touching ${name}`); });
+    if (!G.foot[q.near]) err(`${ctx}: near "${q.near}" is not a landmark of ${q.at} (${Object.keys(G.foot).join(", ")})`);
+    else if (Math.min(...G.foot[q.near].map((f) => cheb(f, s))) > QUEST_NEAR) err(`${ctx}: spot ${k} is more than ${QUEST_NEAR} tiles from ${q.near}`);
+    if (q.room != null && !G.texts.some((t) => t.includes(String(q.room).toUpperCase()))) err(`${ctx}: room "${q.room}" is not a sign painted in ${q.at}`);
+    // the brief says where, word for word: the place, its direction from the cabin, the room or sign, the landmark
+    const brief = (factsOf(q.brief) || []).join(" ");
+    if (!brief.includes(loc.name)) err(`${ctx}: the brief must name ${loc.name}`);
+    if (q.near && !brief.toLowerCase().includes(String(q.near).toLowerCase())) err(`${ctx}: the brief must name ${q.near} word for word`);
+    if (q.room != null && !brief.toUpperCase().includes(String(q.room).toUpperCase())) err(`${ctx}: the brief must name the ${q.room} sign`);
+    const dirs = allowedDirs(loc);
+    const said = (brief.match(/\b(north|south|east|west|northeast|northwest|southeast|southwest) of the cabin\b/gi) || []).map((m) => m.split(" ")[0].toLowerCase());
+    if (!said.length) err(`${ctx}: the brief must say which way ${loc.name} is: ${dirs.map((d) => `"${d} of the cabin"`).join(" or ")}`);
+    said.filter((d) => !dirs.includes(d)).forEach((d) => err(`${ctx}: ${loc.name} is ${dirs.join(" or ")} of the cabin, not ${d}`));
+    if ("scrap" in rw && !new RegExp(`\\b${rw.scrap} scrap\\b`).test(brief)) err(`${ctx}: the brief must give the reward, ${rw.scrap} scrap`);
+    Object.entries(rw.items || {}).forEach(([it, c]) => { const word = noun((W.ITEMS[it] || {}).name); if (word && !promises(brief, c, word)) err(`${ctx}: the brief must promise the reward, ${c} ${W.ITEMS[it].name} ("${c} ... ${word}")`); });
+    if (rw.kits && !promises(brief, rw.kits, "kit")) err(`${ctx}: the brief must promise the reward, ${rw.kits} medical kit`);
+    if (rw.crowbars && !promises(brief, rw.crowbars, "crowbar")) err(`${ctx}: the brief must promise the reward, ${rw.crowbars} crowbar`);
+    Object.entries(rw.traps || {}).forEach(([tk, c]) => { const word = noun(((W.TRAPS || {})[tk] || {}).name); if (word && !promises(brief, c, word)) err(`${ctx}: the brief must promise the reward, ${c} ${W.TRAPS[tk].name}`); });
+    // inside a building a reader may face any way: landmarks, rooms and signs, never left or right
+    if (/\b(left|right) of\b/i.test(brief)) err(`${ctx}: the brief steers by "left of" or "right of"; use the landmark, a room or a sign`);
+    // no place reveals: a quest's texts name only its own place, the places known at the start, and the places
+    // of the giver's earlier quests (each was known when it was offered)
+    const allowed = new Set([q.at].concat([...known], byGiver[q.giver].slice(0, -1).map((x) => x.at)));
+    const questWords = ["brief", "tag", "journal", "done", "after"].map((key) => (factsOf(q[key]) || []).join(" ")).join(" ");
+    W.LOCATIONS.forEach((l) => { if (!allowed.has(l.id) && questWords.includes(l.name)) err(`${ctx}: names ${l.name}, which the player may not know yet (a quest names only its own place and places already known)`); });
+    if (crewOn && CREW[q.giver] && !brief.includes(CREW[q.giver].name)) err(`${ctx}: the brief must name who asks (${CREW[q.giver].name})`);
+    if (q.kind === "dog") {
+      if (!(loc.danger <= DOG_DANGER)) err(`${ctx}: the dog waits at danger ${DOG_DANGER} or less (${loc.name} is ${loc.danger})`);
+      if (!/\btreats?\b/i.test(brief)) err(`${ctx}: the brief must say Pip's treats bring the dog along`);
+      if (dogPage && !isInt((q.when || {}).day, dogPage)) err(`${ctx}: June's ledger has no dog at home through day ${dogPage} (its last JOURNAL page that mentions a dog), so when.day must be ${dogPage} or later`);
+      if (isInt(R.dogFoodEvery, 1)) {
+        const every = R.dogFoodEvery === 1 ? /every day/i : new RegExp(`every ${R.dogFoodEvery} days`, "i");
+        if (/\bfood\b/i.test(done) && !every.test(done)) err(`${ctx}: the done facts say what the dog eats: ${every.source} (CREW_RULES.dogFoodEvery)`);
+      }
+    }
+  });
+  Object.entries(perPlace).forEach(([at, list]) => {
+    if (list.length > QUESTS_PER_PLACE) err(`QUESTS: ${list.length} quest spots in ${at} (${list.join(", ")}), at most ${QUESTS_PER_PLACE}`);
+    const spots = QUESTS.filter((q) => q.at === at && Array.isArray(q.spot)).map((q) => q.spot.join(","));
+    if (new Set(spots).size !== spots.length) err(`QUESTS: two quests share a spot in ${at}`);
+  });
+  // gating: each giver's quests in order of stars; the first two at places a new player can reach
+  Object.entries(byGiver).forEach(([giver, list]) => {
+    let prev = 0;
+    list.forEach((q, i) => {
+      const st = (q.when || {}).stars || 0;
+      if (st < prev) err(`QUESTS ${q.id}: needs ${st} stars, fewer than ${giver}'s quest before it (${prev})`);
+      // docs/CREW.md: quest 1 at 0 stars, 2 at 1, 3 at 2 ... (one more star each, while there are stars to give)
+      if (starsMax != null && i < starsMax && st !== i) err(`QUESTS ${q.id}: ${giver}'s quest ${i + 1} comes at ${i} star${i === 1 ? "" : "s"} (has ${st})`);
+      prev = st;
+      if (i === 0 && !(st === 0 && isInt((q.when || {}).day, 2))) err(`QUESTS ${q.id}: ${giver}'s first quest comes at 0 stars, on day 2 or later`);
+      if (i === 0 && !known.has(q.at)) err(`QUESTS ${q.id}: ${giver}'s first quest must be at a place known at the start (${[...known].filter((x) => x !== "base").join(", ")})`);
+      if (i === 1 && !early.has(q.at)) err(`QUESTS ${q.id}: ${giver}'s second quest must be at a place the start places' main notes reveal (${[...early].filter((x) => x !== "base").join(", ")})`);
+    });
+  });
+  // the dog's names: Pip's ideas, then the card's words
+  if (dogQuests.length || (DOG.ideas || []).length) {
+    const ideas = DOG.ideas;
+    if (!Array.isArray(ideas) || ideas.length !== DOG_IDEAS) err(`DOG.ideas: Pip has ${DOG_IDEAS} name ideas`);
+    else {
+      const taken = (PEOPLE || []).concat(NOT_DOG_NAMES, crewIds.map((id) => CREW[id].name)).map((p) => String(p).toLowerCase());
+      ideas.forEach((n) => {
+        if (typeof n !== "string" || !/^[A-Za-z][A-Za-z' -]{0,13}$/.test(n)) err(`DOG.ideas: "${n}" must be 1 to 14 letters, spaces, ' or -`);
+        else if (taken.includes(n.toLowerCase())) err(`DOG.ideas: "${n}" is a person in the story or another dog`);
+      });
+      if (new Set(ideas.map((n) => String(n).toLowerCase())).size !== ideas.length) err("DOG.ideas: two ideas are the same");
+    }
+    const F = DOG.facts || {};
+    ["ask", "named", "pet"].forEach((k) => checkFacts(`DOG.facts.${k}`, F[k], k === "ask" ? [] : ["dog"]));
+    const dogSaid = ["ask", "named", "pet"].map((k) => (factsOf(F[k]) || []).join(" ")).join(" ");
+    W.LOCATIONS.forEach((l) => { if (!known.has(l.id) && dogSaid.includes(l.name)) err(`DOG.facts: names ${l.name}, which the player may not know`); });
+  }
+}
+
 if (errors.length) { errors.forEach((e) => console.log("ERROR " + e)); process.exit(1); }
-console.log(`OK: world has ${W.LOCATIONS.length} locations, ${Object.keys(W.TEMPLATES).length} layouts (${Object.keys(ART).length} landmark arts, ${Object.keys(DECOR).length} decor kinds), ${Object.keys(W.ITEMS).length} items, ${Object.keys(W.BASE_ROOMS).length} rooms.`);
+console.log(`OK: world has ${W.LOCATIONS.length} locations, ${Object.keys(W.TEMPLATES).length} layouts (${Object.keys(ART).length} landmark arts, ${Object.keys(DECOR).length} decor kinds), ${Object.keys(W.ITEMS).length} items, ${Object.keys(W.BASE_ROOMS).length} rooms, ${Object.keys(W.CREW || {}).length} crew, ${(W.QUESTS || []).length} crew quests.`);

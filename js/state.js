@@ -119,6 +119,7 @@
       rod: false, // Chief Dunn's fishing pole, once it is home (found in Station 12's equipment bay)
       riverRest: null, // the day River Landing was fished out (WORLD.RIVER.cap fish on one trip); it rests restockDays
       labAcc: 0, // partial medical kits brewing in the Lab
+      crew: State.crewFresh ? State.crewFresh() : null, // June, Tomas and Pip: trust, talk, requests, the dog (js/crewstate.js)
       stats: { trips: 0, walkers: 0, notesRead: 0, wordsRead: 0, items: 0 },
       wave: 0, // waves survived during this stay at the base (escalation)
       best: { days: 1, baseLevel: 0 },
@@ -170,6 +171,7 @@
     Object.keys(fresh.house).forEach((k) => {
       if (s.house[k] == null) s.house[k] = fresh.house[k];
     });
+    if (State.crewUpgrade) State.crewUpgrade(s); // the crew's fields, one per crew member (a member added later too)
     // where a note was found comes from the facts: a note that has moved since it was read says where it is now
     (Array.isArray(s.backpack) ? s.backpack : []).forEach((n) => {
       const N = n && W().NOTES[n.locId];
@@ -323,6 +325,11 @@
         }
         Object.entries(best).forEach(([k, v]) => (fx[k] += v));
       });
+      // the crew's perks from story quests handed in add on top (js/crewstate.js)
+      if (this.crewFx && this.save.crew) {
+        const c = this.crewFx();
+        ["foodPerDay", "medsPerDay", "footHp", "vanHp"].forEach((k) => (fx[k] += c[k] || 0));
+      }
       return fx;
     },
     vanMaxHp() {
@@ -360,6 +367,8 @@
         crowbarsUsed: 0, // crowbars spent on jammed locks this trip
         tags: [], // item tags read this trip
         signs: [], // wall signs read this trip (counted once for words read)
+        quest: [], // story quest objects picked up this trip (found once you get home; js/crewstate.js)
+        dog: false, // the dog follows you this trip (Pip's quest; home with you, lost if you die)
         walkers: 0,
         wordsRead: 0,
         items: 0,
@@ -480,14 +489,17 @@
         const have = this.save.inventory[k] || 0;
         if (have < n) missing[k] = n - have;
       });
-      const scrapShort = Math.max(0, def.scrap - this.save.scrap);
-      return { ok: !Object.keys(missing).length && !scrapShort, missing, scrapShort, def, requires: [], locked: [] };
+      // scrap: what it costs now (a crew perk can make a crowbar cheaper)
+      const perk = type === "crowbar" && this.crewFx ? this.crewFx().crowbarCost : null;
+      const scrap = perk != null ? Math.min(def.scrap, perk) : def.scrap;
+      const scrapShort = Math.max(0, scrap - this.save.scrap);
+      return { ok: !Object.keys(missing).length && !scrapShort, missing, scrapShort, scrap, def, requires: [], locked: [] };
     },
     craftTool(type) {
       const c = this.canCraftTool(type);
       if (!c.ok) return false;
       Object.entries(c.def.needs).forEach(([k, n]) => (this.save.inventory[k] -= n));
-      this.save.scrap -= c.def.scrap;
+      this.save.scrap -= c.scrap;
       if (type === "crowbar") this.save.crowbars = (this.save.crowbars || 0) + 1;
       this.commit();
       return true;
@@ -583,6 +595,8 @@
         (t.tags || []).forEach((item) => {
           if (!s.tagsSeen.includes(item)) s.tagsSeen.push(item);
         });
+        // the crew: story objects and the dog brought home are found; an open errand counts its item's cargo
+        const crewHome = this.crewTripHome ? this.crewTripHome(t) : [];
         // the crew patches the worst of it overnight, so a near-dead van is never saved as a trap;
         // a hungry trip ran on a lower ceiling, so scale its health back before saving it as damage
         const hp = t.hungry ? t.vanHp / W().SETTINGS.hungryVanPenalty : t.vanHp;
@@ -602,7 +616,9 @@
           s.labAcc -= 1;
           s.inventory.meds = (s.inventory.meds || 0) + 1;
         }
-        this.logDay({ items: Object.values(t.cargo).reduce((a, b) => a + b, 0), scrap: t.scrap, notes: t.notes.length, keys: (t.keys || []).length });
+        if (this.crewDayPassed) this.crewDayPassed(); // late errands, the dog's food, the scrapPerDay perk
+        const entry = this.logDay({ items: Object.values(t.cargo).reduce((a, b) => a + b, 0), scrap: t.scrap, notes: t.notes.length, keys: (t.keys || []).length });
+        if (crewHome.length) entry.quests = crewHome; // June's ledger line for each story object brought home
       }
       this.trip = null;
       if (this.effects().freeRepair) s.vanHp = this.vanMaxHp();

@@ -10,7 +10,12 @@
    - every gun in hand draws cleanly at every mod tier, at rest and in motion, with its icon and view;
    - the walk-in house's art (js/houseart.js, loaded by the page after sprites3d.js): every texture,
      sprite and floor listed in ZSR.HOUSE_ART draws cleanly with every opts set listed for it, at its
-     size; its wall faces, floors and ceiling start by painting the whole tile opaque.
+     size; its wall faces, floors and ceiling start by painting the whole tile opaque;
+   - the crew's art (js/crewart.js, loaded by the page after sprites3d.js): every sprite ZSR.CREW_ART
+     lists is registered and draws cleanly, at its size, with every opts set listed for it; the list
+     covers every crew member in every pose and frame, the poses and quest object kinds docs/CREW.md
+     names, and every crew member, post pose and quest object kind in the facts (js/story-crew.js,
+     js/story-quests.js); an id, pose or kind the art does not know yet draws a stand-in.
    validate-world.js checks the layout data, validate-engine.js what the engine makes of it. */
 "use strict";
 const fs = require("fs");
@@ -19,6 +24,12 @@ const vm = require("vm");
 const ROOT = path.join(__dirname, "..");
 const ART_FILES = ["decor.js", "landmarks1.js", "landmarks2.js"]; // SCALE: add landmarks3.js ... here as places grow
 const HOUSE_FILE = "houseart.js";
+const CREW_FILE = "crewart.js";
+const CREW_SPRITES = ["crew", "crewDog", "crewFace", "qObj"]; // the names js/crew.js, js/building.js and the crew card draw
+// docs/CREW.md's own lists: the post poses (plus "walk", between posts) and the quest object kinds. The art
+// must cover them even before a fact uses one (validate-world.js holds the facts to the same kinds).
+const CREW_POSES = ["stand", "sit", "work", "read", "walk"];
+const QUEST_KINDS = ["bag", "photo", "box", "book", "tin", "leash", "toolbox", "radio", "jar", "letter", "seeds", "blanket", "tape", "badge", "wrench"];
 
 const errors = [];
 const warnings = [];
@@ -149,6 +160,14 @@ else {
   const at = pageScripts.indexOf(HOUSE_FILE);
   if (at < 0) err(`index.html does not load js/${HOUSE_FILE}`);
   else if (at < pageScripts.indexOf("sprites3d.js")) err(`index.html loads js/${HOUSE_FILE} before sprites3d.js (it needs Draw3)`);
+}
+
+if (!fs.existsSync(path.join(ROOT, "js", CREW_FILE))) err(`js/${CREW_FILE} is missing`);
+else {
+  load(CREW_FILE);
+  const at = pageScripts.indexOf(CREW_FILE);
+  if (at < 0) err(`index.html does not load js/${CREW_FILE}`);
+  else if (at < pageScripts.indexOf("sprites3d.js")) err(`index.html loads js/${CREW_FILE} before sprites3d.js (it needs Draw3)`);
 }
 
 const { ZSR } = sb;
@@ -327,6 +346,122 @@ else {
   });
 }
 
+/* ---------- The crew (js/crewart.js): everything ZSR.CREW_ART lists, with every opts set ---------- */
+const CREW = ZSR.CREW_ART;
+let crewDrawn = 0;
+if (!CREW || !CREW.sprites) err(`js/${CREW_FILE} does not export ZSR.CREW_ART { sprites: { ${CREW_SPRITES.join(", ")} } }`);
+else {
+  CREW_SPRITES.forEach((name) => CREW.sprites[name] || err(`CREW_ART.sprites does not list "${name}" (the game draws it)`));
+  Object.entries(CREW.sprites).forEach(([name, list]) => {
+    if (!D.hasSprite(name)) return err(`crew sprite "${name}" is listed but not registered (Draw3.registerSprite)`);
+    if (!Array.isArray(list) || !list.length) return err(`CREW_ART ${name}: no opts sets (list [{}] for none)`);
+    const size = CREW.size && CREW.size[name];
+    list.forEach((o) => {
+      if (!o || typeof o !== "object" || Array.isArray(o)) return err(`CREW_ART ${name}: opts ${JSON.stringify(o)} is not an object`);
+      const what = (current = `crew sprite ${name} ${JSON.stringify(o)}`);
+      let c;
+      try {
+        c = D.sprite(name, o);
+      } catch (e) {
+        return err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+      }
+      if (!c || !(c.width > 0) || !(c.height > 0)) return err(`${what}: no image`);
+      if (size && (c.width !== size[0] || c.height !== size[1])) err(`${what}: ${c.width} x ${c.height}, CREW_ART.size says ${size[0]} x ${size[1]}`);
+      if (!c.ops) return;
+      crewDrawn++;
+      if (c.ops.length < 12) err(`${what}: draws almost nothing (${c.ops.length} calls)`);
+      delete c.ops;
+    });
+  });
+  // a crew figure is drawn like a walker (192 x 256, wide 0.75), and a portrait is square
+  const crewImg = D.hasSprite("crew") && D.sprite("crew", (CREW.sprites.crew || [{}])[0]);
+  if (crewImg && (crewImg.width !== 192 || crewImg.height !== 256)) err(`crew sprite is ${crewImg.width} x ${crewImg.height}; it must be 192 x 256 like a walker`);
+  const face = D.hasSprite("crewFace") && D.sprite("crewFace", (CREW.sprites.crewFace || [{}])[0]);
+  if (face && face.width !== face.height) err(`crewFace is ${face.width} x ${face.height}; the crew card wants a square`);
+  // the list covers every crew member in every pose and frame, the dog in every pose and frame
+  const has = (name, o) => (CREW.sprites[name] || []).some((x) => Object.keys(o).every((k) => x[k] === o[k]));
+  const frames = CREW.frames || 2;
+  (CREW.who || []).forEach((who) => {
+    (CREW.poses || []).forEach((pose) => {
+      for (let f = 0; f < frames; f++) has("crew", { who, pose, f }) || err(`CREW_ART.sprites.crew does not list ${JSON.stringify({ who, pose, f })}`);
+    });
+    has("crewFace", { who }) || err(`CREW_ART.sprites.crewFace does not list ${JSON.stringify({ who })}`);
+  });
+  (CREW.dogPoses || []).forEach((pose) => {
+    for (let f = 0; f < frames; f++) has("crewDog", { pose, f }) || err(`CREW_ART.sprites.crewDog does not list ${JSON.stringify({ pose, f })}`);
+  });
+  (CREW.kinds || []).forEach((kind) => has("qObj", { kind }) || err(`CREW_ART.sprites.qObj does not list ${JSON.stringify({ kind })}`));
+  if (!Number.isInteger(CREW.frames) || CREW.frames < 1) err(`CREW_ART.frames is ${CREW.frames}: the number of frames (f 0 .. frames - 1) every pose has`);
+  CREW_POSES.forEach((pose) => (CREW.poses || []).includes(pose) || err(`CREW_ART.poses lacks "${pose}" (docs/CREW.md: posts stand, sit, work or read; walk between them)`));
+  QUEST_KINDS.forEach((kind) => (CREW.kinds || []).includes(kind) || err(`CREW_ART.kinds lacks the quest object kind "${kind}" (docs/CREW.md)`));
+  ["crew", "crewDog", "qObj"].forEach((name) => {
+    const v = CREW.scale && CREW.scale[name];
+    if (!(typeof v === "number" && v > 0 && v <= 1)) err(`CREW_ART.scale.${name} is ${v}: the prop scale the runtime draws it at (0 to 1 tiles)`);
+  });
+  // a crew id, pose, dog pose or kind the art does not know yet (a fact added before its art) still draws
+  // a plain stand-in, never nothing and never a throw
+  [["crew", { who: "zz-new", pose: "stand", f: 0 }], ["crew", { who: (CREW.who || [])[0], pose: "zz-new", f: 1 }], ["crewDog", { pose: "zz-new", f: 0 }], ["crewFace", { who: "zz-new" }], ["qObj", { kind: "zz-new" }]].forEach(([name, o]) => {
+    if (!D.hasSprite(name)) return;
+    current = `crew stand-in ${name} ${JSON.stringify(o)}`;
+    let c;
+    try {
+      c = D.sprite(name, o);
+    } catch (e) {
+      return err(`${current}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+    }
+    if (!c || !c.ops || c.ops.length < 12) err(`${current}: draws ${c && c.ops ? c.ops.length : 0} calls, not a stand-in`);
+    else delete c.ops;
+  });
+  // every crew member, post pose and quest object kind in the facts has its art (the facts load in their
+  // own sandbox; a facts file that does not load is validate-world.js's to report)
+  const fsb = { console };
+  fsb.globalThis = fsb;
+  fsb.window = fsb;
+  vm.createContext(fsb);
+  let factsOk = true;
+  ["layouts.js", "world.js", "story.js", "story-home.js", "story-crew.js", "story-quests.js"].forEach((f) => {
+    if (!factsOk) return;
+    try {
+      vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), fsb, { filename: "js/" + f });
+    } catch (e) {
+      factsOk = false;
+      warn(`could not load js/${f} to check the crew art against the facts: ${String(e.message).split("\n")[0]}`);
+    }
+  });
+  const WD = (fsb.ZSR && fsb.ZSR.WORLD) || {};
+  if (factsOk && WD.CREW) {
+    Object.entries(WD.CREW).forEach(([id, c]) => {
+      if (!(CREW.who || []).includes(id)) err(`crew member "${id}" (CREW) has no art in js/${CREW_FILE} (CREW_ART.who)`);
+      ((c && c.posts) || []).forEach((p) => p && p.pose && !(CREW.poses || []).includes(p.pose) && err(`crew ${id} post ${p.id}: pose "${p.pose}" has no art (CREW_ART.poses)`));
+    });
+    // the portrait tints its panel with the facts' CREW[id].color (on the page the facts load first):
+    // draw each one again with the facts in place (an extra opts key, so the cache does not hand back the first)
+    if (D.hasSprite("crewFace")) {
+      const hadWorld = Object.prototype.hasOwnProperty.call(ZSR, "WORLD");
+      const world = ZSR.WORLD;
+      ZSR.WORLD = WD;
+      Object.keys(WD.CREW).forEach((who) => {
+        current = `crewFace ${JSON.stringify({ who })} with the facts' color ${JSON.stringify(WD.CREW[who] && WD.CREW[who].color)}`;
+        try {
+          const c = D.sprite("crewFace", { who, withFacts: true });
+          if (!c || !c.ops || c.ops.length < 12) err(`${current}: draws almost nothing`);
+          else delete c.ops;
+        } catch (e) {
+          err(`${current}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+        }
+      });
+      if (hadWorld) ZSR.WORLD = world;
+      else delete ZSR.WORLD;
+    }
+  }
+  if (factsOk && Array.isArray(WD.QUESTS)) {
+    WD.QUESTS.forEach((q) => {
+      const art = q && q.object && q.object.art;
+      if (art && !(CREW.kinds || []).includes(art)) err(`quest ${q.id}: object art "${art}" is not a quest object kind (CREW_ART.kinds: ${(CREW.kinds || []).join(", ")})`);
+    });
+  }
+}
+
 /* ---------- The guns in hand with their mods (live and at rest), their floor icons and tab views ---------- */
 let guns = 0;
 const MOD_SETS = [0, 1, 2, 3].map((n) => ({ damage: n, range: n, rate: n, aim: n })).concat([{ damage: 3 }, { range: 2, aim: 1 }, { rate: 3, aim: 3 }]);
@@ -380,4 +515,4 @@ if (errors.length) {
   console.log(`\n${errors.length} art problem(s).`);
   process.exit(1);
 }
-console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), every call checked.`);
+console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), ${crewDrawn} crew pictures, every call checked.`);
