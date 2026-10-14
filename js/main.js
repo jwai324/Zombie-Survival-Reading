@@ -648,6 +648,25 @@
     Map.hide();
     goYard({ firstCalm: 30 });
   }
+  /** The start of the home toast, saying what came home besides the cargo (plain English, like the card's lines):
+      "Home.", "Home with the dog.", "Home. You brought back the roll of knee tape for June." (story objects and the
+      dog this trip brings home: js/crewstate.js crewTripHome makes them found). */
+  function homeWords(t) {
+    const S = State;
+    const quests = (W.QUESTS || []).filter((q) => q && S.questState && S.questState(q.id) === "active");
+    const dog = !!t.dog && quests.some((q) => q.kind === "dog" && (!t.dogQuest || t.dogQuest === q.id));
+    const objs = quests.filter((q) => q.kind !== "dog" && (t.quest || []).includes(q.id));
+    const names = objs.map((q) => {
+      const title = ZSR.crewFill(ZSR.crewText("quest", q.id, "title")).trim() || (q.object && q.object.name) || "";
+      // a label in running text: "the roll of knee tape"; a possessive keeps its capital ("Rosa's jar of beans"),
+      // a title with its own article keeps it ("The old map" -> "the old map")
+      const low = title.charAt(0).toLowerCase() + title.slice(1);
+      const what = /^\S+'s\b/.test(title) ? title : /^(the|a|an) /i.test(title) ? low : "the " + low;
+      return what + " for " + ZSR.crewName(q.giver);
+    });
+    const list = names.length < 2 ? names.join("") : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+    return "Home" + (dog ? " with the dog" : "") + "." + (list ? " You brought back " + list + "." : "");
+  }
   function onArrive(destId) {
     if (!State.trip) return goYard();
     State.trip.at = destId;
@@ -655,8 +674,10 @@
     if (destId === "base") {
       const t = State.trip;
       const cargo = Object.values(t.cargo).reduce((a, b) => a + b, 0);
+      const brought = homeWords(t); // before returnHome makes them found
       State.returnHome();
-      goYardWithDay({ firstCalm: W.DEFENSE.firstCalmSeconds }, () => Interior.toast("Home. " + cargo + " item" + (cargo === 1 ? "" : "s") + " unloaded. Day " + State.save.day + ". Saved.", 4));
+      const said = brought + (cargo ? " " + cargo + " item" + (cargo === 1 ? "" : "s") + " unloaded." : "");
+      goYardWithDay({ firstCalm: W.DEFENSE.firstCalmSeconds }, () => Interior.toast(said + " Day " + State.save.day + ". Saved.", 4));
       return;
     }
     const dest = W.LOCATIONS.find((l) => l.id === destId);

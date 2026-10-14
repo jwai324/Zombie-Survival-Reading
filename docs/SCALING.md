@@ -118,6 +118,9 @@ scaling all assume it. `tests/validate-streets.js` also requires side streets in
   - `tests/validate-world.js`
   - `tests/validate-streets.js`
   - `tests/validate-text.js`
+- **Fact files:** `js/layouts.js`, `js/world.js` and every `js/story*.js` the page loads are the facts.
+  The validators take that list from `index.html` in page order, so a split fact file
+  (`story-quests2.js`) is checked like the rest once it has a script tag.
 - **Size:** one game load parses every level file. At 3 to 4 times today's content, think about
   loading only the active reading level (the files are already per level).
 

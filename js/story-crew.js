@@ -152,7 +152,7 @@
           "Each new level of the Garden grows more food each day.",
           "June says a cabin with a garden is hard to leave, even for the River Convoy.",
         ] },
-        { id: "june-t10", when: { dog: true }, facts: [
+        { id: "june-t10", when: { dog: true, quest: "pip-5" }, facts: [
           "June says the dog is Pip's problem, then slips it the last of her beans.",
           "She writes its supper in the ledger like everyone else's.",
           "She is glad of one thing: walkers never hurt the dog, so nobody has to guard it in a wave.",
@@ -277,14 +277,14 @@
           "Pip wants to build it someday, once the fence is strong.",
           "Pip says the Walls room makes the fence stronger and gives you and the van more health.",
         ] },
-        { id: "pip-t10", when: { dog: true }, facts: [
+        { id: "pip-t10", when: { dog: true, quest: "pip-5" }, facts: [
           "The dog follows Pip around the yard and hides in the closet with the crew in a wave.",
           "If it barks in a wave, Pip says a walker is near the cabin, so go and check.",
           "Pip is teaching it to sit, like Biscuit in Lucy's drawing.",
         ] },
       ],
       moods: [
-        { id: "pip-m1", facts: ["Pip asks what the town looked like today and listens to every word."] },
+        { id: "pip-m1", facts: ["Pip asks what the town looks like out there and listens to every word."] },
         { id: "pip-m2", facts: ["Pip practices knots on the fence rope and ties one for you, for luck."] },
         { id: "pip-m3", facts: ["Pip asks where everyone in town went.", "Pip says some people must still be out there helping each other, and Pip wants to meet them."] },
         { id: "pip-m4", facts: ["Pip says the ping pong table leans to the left, and that is the only reason Tomas wins."] },
@@ -323,6 +323,8 @@
       // told only while a known building is not yet full (js/crewstate.js crewWalkerDays), so "up to a limit" stays true
       walkers: { facts: ["Pip keeps count: in {days} days, the buildings in town get one more walker each, up to a limit."] },
       radio: { facts: ["Pip says the radio plays a new broadcast each day you come home.", "Hear them all again at the radio shelf by the couch."] },
+      // the fallback once every known building is at its walker limit (the walkers tip has nothing left to count)
+      full: { facts: ["Pip says every building in town is as full of walkers as it will get.", "From now on, a place is only as dangerous as it is today."] },
     },
   };
 
@@ -334,9 +336,10 @@
     cabinFree: { facts: ["Tomas fixed broken doors and windows in the cabin: {fixed} in all.", "It cost no scrap at all."] },
     // {cost} is "a medical kit" (from storage), "2 food" (from the crew's food, not storage; "1 food" when only 1 was
     // left), or "nothing" when there was neither (js/crewstate.js crewHurt): the words must read with all three
-    hurt: { facts: ["Walkers got into the closet during the wave, and {who} got hurt.", "It cost the base {cost}.", "Everyone is all right now."] },
+    // one report for every hurt since the last talk ({cost} sums them: "2 medical kits and 2 food"), so the words
+    // must read true for one wave or several
+    hurt: { facts: ["Walkers got into the closet in a wave, and {who} got hurt.", "It cost the base {cost}.", "Everyone is all right now."] },
     late: { facts: ["Time ran out on the errand: {item}.", "It is off the list now, and trust dropped a little."] },
-    heal: { facts: ["June patched you up and gave you back {hp} health."] },
   };
 
   /* ---------- Errands: the ordinary asks once a crew member has no story quest to give ----------

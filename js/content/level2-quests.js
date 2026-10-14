@@ -164,7 +164,7 @@
         "Pip wants a leash for the day a dog comes. Pip once saw one at the 4th Precinct. It was in the lost-and-found box. The precinct is north of the cabin. The leash lies in the GARAGE. Look on the floor by the riot shields. It is red, with a metal clip. Pip will pay 50 scrap and 1 spool of wire. Pip adds 1 box of books.",
       tag: "This red dog leash has a metal clip. A paper tag hangs on it. The tag says: found by the front steps, no dog.",
       journal:
-        "You brought Pip a red leash from the 4th Precinct. Pip hung it by the front door. Pip says that is where a leash belongs. We still have no dog.",
+        "You brought Pip a red leash from the 4th Precinct. Pip hung it by the front door. A leash belongs there. Pip checks the hook every day.",
       done: "Pip clips the leash to their belt to practice. Then Pip walks the empty leash around the porch. Pip says the crew has treats and a leash now. All that is missing is the dog. Pip thanks you and looks out at the trees.",
       after:
         "Pip tells you about a police dog. It once came to Pip's class. It sat still while the whole class talked. It moved only when the officer said one quiet word. Pip says a dog chooses its people. So Pip is practicing being calm and quiet. Pip is not very good at it yet.",

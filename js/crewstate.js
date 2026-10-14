@@ -38,6 +38,26 @@
   function listWords(parts) {
     return parts.length < 2 ? parts.join("") : parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1];
   }
+  /** Every hurt since the last talk, summed in words (the hurt report's {cost}): each entry is a crewHurt word ("a
+      medical kit", "2 medical kits", "2 food", "nothing"); the kits are counted with the ITEMS forms, then the food:
+      "a medical kit and 2 food", "2 medical kits and 3 food". "nothing" only when every hurt cost nothing; a word not of these kinds is kept. */
+  function hurtCostWords(list) {
+    let meds = 0;
+    let food = 0;
+    const other = [];
+    list.forEach((w) => {
+      const t = String(w).trim();
+      let m;
+      if ((m = /^(a|an|\d+) medical kits?$/i.exec(t))) meds += /^\d+$/.test(m[1]) ? Number(m[1]) : 1;
+      else if ((m = /^(\d+) food$/i.exec(t))) food += Number(m[1]);
+      else if (t.toLowerCase() !== "nothing" && !other.includes(t)) other.push(t);
+    });
+    // one kit reads as crewHurt says it ("a medical kit"); more are counted ("2 medical kits")
+    const one = W().ITEMS && W().ITEMS.meds && W().ITEMS.meds.one;
+    const kits = meds === 1 && one ? (/^[aeiou]/i.test(one) ? "an " : "a ") + one : itemCount("meds", meds);
+    const parts = (meds ? [kits] : []).concat(food ? [food + " food"] : [], other);
+    return parts.length ? listWords(parts) : "nothing";
+  }
   /** A reward in plain words: "30 scrap", "30 scrap, 2 pieces of lumber and 1 medical kit", as the briefs promise it. */
   function rewardWords(r) {
     r = r || {};
@@ -76,7 +96,7 @@
   const WALKER_LOOKAHEAD = 60;
   // a repair report and its words when the fix cost no scrap (CREW_REPORTS keys), in the order they are told
   const FREE_REPORT = { fence: "fenceFree", cabin: "cabinFree" };
-  const CREW_FIELDS = ["trust", "talkDay", "talks", "heard", "mood", "quests", "errand", "errandNext", "report", "dog", "read"]; // save.crew
+  const CREW_FIELDS = ["trust", "talkDay", "talks", "heard", "mood", "quests", "errand", "errandNext", "report", "dog", "read", "ledger"]; // save.crew
 
   /* ---------- Tips: the one piece of useful live information in every talk ----------
      A rule returns the placeholders for the words when its tip applies, else null. Only tips the crew member
@@ -84,8 +104,11 @@
      tip listed after an always-true one (June's ready, build and heal; Pip's radio), so:
      - URGENT tips (in this order) win outright: June patching you up, the pantry empty, Pip's wave call;
      - otherwise the REGULAR tips that apply take turns, one further on each talk (save.crew.talks), so the
-       crew says something new each time (food and walkers always apply, so June and Pip always have one);
-     - FALLBACK ("fine") only when nothing else applies (it says all is well).
+       crew says something new each time (June's food always applies, so she always has one; Pip's walkers
+       tip goes quiet once every known building is at the walker cap, about day 33, and the radio tip is
+       told once, so Pip needs the fallback below);
+     - FALLBACK only when nothing else applies, the first of the speaker's in list order: Tomas's "fine" (all
+       is well), Pip's "full" (every known building is as full of walkers as it gets).
      `ctx` is what only the yard knows: { heal: hp June gives back now, wave: { size, sides } (the next
      wave's words, in the calm), holes, cracks, broken (live counts; else they are read from the save) }.
      A new tip id needs a rule here and a place in one of the three lists. */
@@ -126,7 +149,9 @@
       return n > 0 ? { keys: n === 1 ? "1 stash key" : n + " stash keys" } : null;
     },
     crowbar: (S) => (S.crowbarsLeft() < 1 ? {} : null),
-    radio: (S) => ((S.save.rooms.radio || 0) > 0 ? {} : null),
+    // the Radio room built: told until its words have been read once (seeCrewTalk keeps the key), so a fixed
+    // line does not come back every other talk for the rest of the game
+    radio: (S, ctx, id) => ((S.save.rooms.radio || 0) > 0 && !S.crewSave().read.includes("tip:" + id + ":radio") ? {} : null),
     food: (S) => {
       const per = (W().SETTINGS && W().SETTINGS.foodPerTrip) || 1;
       return { food: S.save.food, days: Math.floor(Math.max(0, S.save.food) / per) };
@@ -136,10 +161,12 @@
       const days = S.crewWalkerDays();
       return days ? { days } : null;
     },
+    // the walkers tip has nothing left to count: every known building is at its walker cap (or none is known)
+    full: (S) => (S.crewWalkerDays() ? null : {}),
   };
   const URGENT = ["heal", "hungry", "wave"];
   const REGULAR = ["van", "vanFree", "fence", "cabin", "ready", "build", "keys", "crowbar", "food", "walkers", "radio"];
-  const FALLBACK = ["fine"];
+  const FALLBACK = ["fine", "full"];
 
   const CrewState = {
     /* ---------- The save's crew field ---------- */
@@ -169,6 +196,9 @@
         // crew text keys whose words were counted (seeCrewTalk). SCALE: one short key per crew text ever read
         // (topics, moods, quest and errand texts); at many hundreds of texts, pack it like the explored maps
         read: [],
+        // story quests handed in since the last day page: June writes their ledger lines on the next one
+        // (crewLedgerDrain, from returnHome), once the giver has the object, never on the day it only came home
+        ledger: [],
       };
     },
     /** Fill a save's `crew`: an old save without one gets it whole; a crew id added later gets its fields. */
@@ -211,10 +241,14 @@
       const t = this.trust(id);
       return rules().stars.filter((n) => t >= n).length;
     },
-    /** Add (or, with a negative n, take) trust; never below 0. Returns the new points. */
+    /** Add (or, with a negative n, take) trust: never below 0, never above the top star's points (the last
+        CREW_RULES.stars entry), so a loss at five stars always shows as four. Points an older save holds above
+        the top count as the top before the change, so its first loss shows too. Returns the new points. */
     addTrust(id, n) {
       const c = this.crewSave();
-      c.trust[id] = Math.max(0, (c.trust[id] || 0) + (n || 0));
+      const stars = rules().stars;
+      const top = stars.length ? stars[stars.length - 1] : Infinity;
+      c.trust[id] = Math.max(0, Math.min(top, Math.min(top, c.trust[id] || 0) + (n || 0)));
       return c.trust[id];
     },
     /** A talk (call it once each time the bubble opens, before crewTip and offer, so both stay the same while
@@ -311,7 +345,7 @@
     },
     /** Days until the known buildings that are not full yet get one more walker each; 0 once every known
         building is at the cap of SETTINGS.walkersPerLocation (or none is known), so Pip's walkers tip is skipped
-        and its words stay true. Buildings only: River Landing (outdoor) and the base have no walkers. */
+        and its words stay true (Pip's fallback tip "full" says so instead). Buildings only: River Landing (outdoor) and the base have no walkers. */
     crewWalkerDays() {
       const SET = W().SETTINGS || {};
       if (!SET.walkersPerLocation) return 0;
@@ -432,12 +466,48 @@
       return null;
     },
     /** How many items this errand asks for if offered today: rolled from the save's seed, the errand and the day
-        (never Math.random), so it stays the same while the bubble and the card are open. */
+        (never Math.random), so it stays the same while the bubble and the card are open; then capped at what the
+        known places' shelves can give on the trips it allows (crewShelfSupply), so every errand asked can be
+        filled, even the day after you emptied the only shelf that stocks it. At least 1: an errand's days are at
+        least SETTINGS.restockDays, so any shelf comes back once in time. The same all day (the shelves' taken
+        days change only when a day passes). */
     errandCount(def) {
       const range = Array.isArray(def.count) ? def.count : [def.count || 1, def.count || 1];
       const lo = Math.max(1, range[0] || 1);
       const hi = Math.max(lo, range[1] || lo);
-      return lo + Math.floor(roll(this.save.lockSeed || 0, def.id + "|" + this.save.day) * (hi - lo + 1));
+      const rolled = lo + Math.floor(roll(this.save.lockSeed || 0, def.id + "|" + this.save.day) * (hi - lo + 1));
+      return Math.max(1, Math.min(rolled, this.crewErrandSpare(def)));
+    },
+    /** The shelf pickups this errand could have if accepted today: crewShelfSupply less what the open errands for
+        the same item still need (they came first and share the cargo, earliest due first: crewTripHome). Below 1,
+        the errand is passed over in the turn (crewErrandTurn), so one asked can always be filled. */
+    crewErrandSpare(def) {
+      const c = this.crewSave();
+      const owed = Object.values(c.errand).reduce((n, e) => n + (e && e.item === def.item ? Math.max(0, e.count - (e.have || 0)) : 0), 0);
+      return this.crewShelfSupply(def.item, def.days || 1) - owed;
+    },
+    /** How many of this item the known places' shelves can give on the trips from today to today + days - 1
+        (an errand accepted today with `days`: the trip that comes home on its due day is the last that counts).
+        Each shelf spot (LOCATIONS items, spot key "i" + index, as js/building.js keys them) gives one now if it is
+        back (SETTINGS.restockDays after it was taken), then one every restockDays. Caches and stashes never refill,
+        so they do not count. Read from the save, never this trip's overlay. */
+    crewShelfSupply(item, days) {
+      const s = this.save;
+      const restock = Math.max(1, (W().SETTINGS && W().SETTINGS.restockDays) || 1);
+      const today = s.day;
+      const last = today + Math.max(1, days || 1) - 1;
+      let n = 0;
+      (W().LOCATIONS || []).forEach((l) => {
+        if (!this.isKnown(l.id)) return;
+        const taken = (s.loc && s.loc[l.id] && s.loc[l.id].taken) || {};
+        (l.items || []).forEach((k, i) => {
+          if (k !== item) return;
+          const when = taken["i" + i];
+          const first = when == null ? today : Math.max(today, when + restock);
+          if (first <= last) n += 1 + Math.floor((last - first) / restock);
+        });
+      });
+      return n;
     },
     /** What they would ask now: { kind: "quest", def } or { kind: "errand", def, count }, or null.
         The story quest when one can be offered: in order, once the one before is done, its `when` holds, its
@@ -457,7 +527,8 @@
     },
     /** The errand they would ask for now, { kind: "errand", def, count }, or null: only once their first story
         quest is handed in (a crew member with no story quests asks from the start), only while no errand of
-        theirs is open, and only one whose item a known place's shelves stock. Errands come in turn
+        theirs is open, and only one whose item a known place's shelves stock (with a pickup in its days that the
+        open errands for the same item leave over). Errands come in turn
         (save.crew.errandNext); one whose item no known place stocks is passed over for the next that is (the turn
         moves past both when that one is accepted, so it comes round again later). The same all day: the count is
         rolled from the seed and the day. */
@@ -474,14 +545,15 @@
       const first = questList().find((q) => q.giver === id);
       return !first || this.questState(first.id) === "done";
     },
-    /** The next errand in turn whose item a known place stocks: { def, skip } (skip: how many in the turn were
-        passed over), or { def: null } when none is stocked anywhere known. */
+    /** The next errand in turn whose item a known place stocks, with a shelf pickup in its days that no other
+        open errand needs (crewErrandSpare): { def, skip } (skip: how many in the turn were passed over), or
+        { def: null } when none is. */
     crewErrandTurn(id) {
       const list = errandsOf(id);
       const at = this.crewSave().errandNext[id] || 0;
       for (let k = 0; k < list.length; k++) {
         const def = list[(at + k) % list.length];
-        if (this.crewItemStocked(def.item)) return { def, skip: k };
+        if (this.crewItemStocked(def.item) && this.crewErrandSpare(def) >= 1) return { def, skip: k };
       }
       return { def: null, skip: 0 };
     },
@@ -531,7 +603,8 @@
       return true;
     },
     /** Hand in a filled request: pay out, close it, earn trust. Returns { kind, def, reward } or null. reqId (a
-        def id) picks which; without it, the one request(id) shows: the first filled one, a story quest first. */
+        def id) picks which; without it, the one request(id) shows: the first filled one, a story quest first.
+        A story quest goes on crew.ledger (its ledger line on the next day page) and a vanHp perk tops up the van. */
     handIn(id, reqId) {
       const r = this.requests(id).find((x) => (!reqId || x.def.id === reqId) && this.requestReady(x));
       if (!r) return null;
@@ -541,6 +614,13 @@
         r.st.state = "done";
         r.st.doneDay = this.save.day;
         this.addTrust(id, R.gain.quest);
+        // June's ledger line for it goes on the next day page, now that the giver has it (the dog's too)
+        const c = this.crewSave();
+        if (!c.ledger.includes(r.def.id)) c.ledger.push(r.def.id);
+        // a van health perk raises the van's health with its maximum (as the Walls room and the armor do), so
+        // a full van stays full instead of arriving with a repair bill
+        const vanHp = reward.perk && reward.perk.vanHp;
+        if (typeof vanHp === "number" && vanHp > 0) this.save.vanHp = Math.min(this.vanMaxHp(), (this.save.vanHp || 0) + vanHp);
       } else {
         const inv = this.save.inventory;
         inv[r.st.item] = Math.max(0, (inv[r.st.item] || 0) - r.st.count);
@@ -551,7 +631,7 @@
       return { kind: r.kind, def: r.def, reward };
     },
     /** A reward into the save: scrap, items to storage (food to the crew's food), kits into storage as medical
-        kits, crowbars, traps into stock. A perk needs nothing here: it is active once its quest is done. */
+        kits, crowbars, traps into stock. A perk is active once its quest is done (handIn tops up the van for vanHp). */
     payReward(reward) {
       const s = this.save;
       const r = reward || {};
@@ -644,8 +724,9 @@
       this.crewSave().report[id] = {};
     },
     /** Add work to the report. kind: "fence" or "cabin" (n fixed, scrap paid; a fix that paid nothing because
-        it cost nothing, with the crewRepairFree perk, is logged as "fenceFree" or "cabinFree"), "fenceFree",
-        "cabinFree", or "heal" (n = health given back). Returns the report. */
+        it cost nothing, with the crewRepairFree perk, is logged as "fenceFree" or "cabinFree"), "fenceFree" or
+        "cabinFree". (June's patch-up is told by her heal tip in the bubble that heals you, never as a report.)
+        Returns the report. */
     logWork(id, kind, n, scrap) {
       const c = this.crewSave();
       const r = (c.report[id] = c.report[id] || {});
@@ -661,7 +742,8 @@
       return r;
     },
     /** The report as words to say, in order: [{ key, vars }] for ZSR.crewText("report", key) + ZSR.crewFill.
-        Fixes that took no scrap are told with the free words, so a report never says "It took 0 scrap". */
+        Fixes that took no scrap are told with the free words, so a report never says "It took 0 scrap". Every
+        hurt since the last talk is one item (several waves can pass between talks), its {cost} the sum. */
     crewReportItems(id) {
       const r = this.crewReport(id);
       const by = r.scrapBy || {};
@@ -672,9 +754,9 @@
         if (paid > 0 && r[k]) out.push({ key: k, vars: { fixed: r[k], scrap: paid } });
         if (free) out.push({ key: FREE_REPORT[k], vars: { fixed: free } });
       });
-      (r.hurt || []).forEach((cost) => out.push({ key: "hurt", vars: { who: ZSR.crewName(id), cost } }));
+      const hurt = (Array.isArray(r.hurt) ? r.hurt : []).filter((x) => x != null && x !== "");
+      if (hurt.length) out.push({ key: "hurt", vars: { who: ZSR.crewName(id), cost: hurtCostWords(hurt) } });
       if (r.late) out.push({ key: "late", vars: { item: itemName(r.late) } });
-      if (r.heal) out.push({ key: "heal", vars: { hp: r.heal } });
       return out;
     },
     /** A raider got among the crew in the shelter: 1 medical kit from storage, else 2 food (never below 0);
@@ -712,7 +794,8 @@
 
     /* ---------- Home from a trip (called by returnHome in js/state.js) ---------- */
     /** Before the day passes: story objects and the dog brought home become found, and an open errand counts
-        the cargo of its item. Returns the quest ids brought home (the day log's entry.quests). */
+        the cargo of its item. Returns the quest ids brought home (the day's recap counts them, recap.quests, so a
+        day that brought home only one of those is not "empty-handed"; the ledger line waits for the hand-in). */
     crewTripHome(t) {
       const c = this.crewSave();
       const home = [];
@@ -734,10 +817,13 @@
         }
       }
       // errands are accepted at home, so all of this trip's cargo came after it. Each item counts once: two
-      // crew members asking for the same item share the cargo (in roster order), never both count it
+      // crew members asking for the same item share the cargo, the errand due first first (then roster order),
+      // never both count it; errandCount left the shelves' pickups for the ones already open
       const left = Object.assign({}, t.cargo);
-      this.crewIds()
-        .concat(Object.keys(c.errand).filter((id) => !roster()[id]))
+      const order = this.crewIds().concat(Object.keys(c.errand).filter((id) => !roster()[id]));
+      order
+        .slice()
+        .sort((a, b) => ((c.errand[a] && c.errand[a].due) || 0) - ((c.errand[b] && c.errand[b].due) || 0) || order.indexOf(a) - order.indexOf(b))
         .forEach((id) => {
           const e = c.errand[id];
           if (!e) return;
@@ -748,6 +834,17 @@
           }
         });
       return home;
+    },
+    /** The story quests handed in since the last day page, for this day page's entry.quests (June's ledger line
+        for each): crew.ledger, emptied. One already on an earlier page is left out (a save from before the line
+        waited for the hand-in wrote it on the day the object came home). */
+    crewLedgerDrain() {
+      const c = this.crewSave();
+      const list = c.ledger.slice();
+      c.ledger = [];
+      const written = new Set();
+      (this.save.log || []).forEach((e) => (e && Array.isArray(e.quests) ? e.quests : []).forEach((q) => written.add(q)));
+      return list.filter((q, i) => q && !written.has(q) && list.indexOf(q) === i);
     },
     /** After the day passes: an errand whose deadline day has come and is not filled is dropped (trust, report
         `late`): accepted on day 1 with 4 days (due 5), the trips of days 1 to 4 count, and the one that brings it

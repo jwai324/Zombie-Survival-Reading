@@ -116,7 +116,10 @@ function browser() {
 }
 
 const PAGE = [...fs.readFileSync(path.join(ROOT, "index.html"), "utf8").matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]);
-const FACTS = ["layouts.js", "world.js", "story.js", "story-home.js", "story-crew.js", "story-quests.js"];
+// the fact files, in page order, as index.html loads them: the layouts, the world and every js/story*.js (a fact
+// file split off into another story file, story-quests2.js say, is loaded and checked here too)
+const FACTS = PAGE.filter((f) => f === "layouts.js" || f === "world.js" || /^story[\w-]*\.js$/.test(f));
+if (!["layouts.js", "world.js", "story-crew.js"].every((f) => FACTS.includes(f))) throw new Error("validate-crew: index.html does not load layouts.js, world.js and story-crew.js (" + FACTS.join(", ") + ")");
 const STATE = FACTS.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js"]);
 const ENGINE = STATE.concat(["audio.js", "sprites.js", "sprites3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "houseart.js", "riverart.js", "crewart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "crew.js", "river.js"]);
 
@@ -188,9 +191,9 @@ function fixture() {
     CREW_TIPS: {
       ann: { hungry: f("Out of food."), food: f("{food} crates, {days} trips."), ready: f("Build the {room}."), build: f("The {room} needs {needs}."), heal: f("Back {hp} health.") },
       bo: { van: f("{hp} of {max}, {cost} scrap."), vanFree: f("{hp} of {max}, free."), fence: f("{holes} holes, {cracks} cracks."), cabin: f("{broken} broken."), crowbar: f("No crowbar."), fine: f("All fine.") },
-      cy: { wave: f("{size} from {sides}."), keys: f("You hold {keys}."), walkers: f("{days} days."), radio: f("The radio.") },
+      cy: { wave: f("{size} from {sides}."), keys: f("You hold {keys}."), walkers: f("{days} days."), radio: f("The radio."), full: f("Every building is full.") },
     },
-    CREW_REPORTS: { fence: f("Bo fixed {fixed} for {scrap} scrap."), fenceFree: f("Bo fixed {fixed} free."), cabin: f("Bo fixed {fixed} doors for {scrap}."), cabinFree: f("Bo fixed {fixed} doors free."), hurt: f("{who} was hurt; it cost {cost}."), late: f("The {item} errand ran out."), heal: f("Back {hp}.") },
+    CREW_REPORTS: { fence: f("Bo fixed {fixed} for {scrap} scrap."), fenceFree: f("Bo fixed {fixed} free."), cabin: f("Bo fixed {fixed} doors for {scrap}."), cabinFree: f("Bo fixed {fixed} doors free."), hurt: f("{who} was hurt; it cost {cost}."), late: f("The {item} errand ran out.") },
     ERRANDS: {
       ann: [
         { id: "ann-e1", item: "seeds", count: [2, 3], days: 3, reward: { scrap: 25 }, facts: ["Ann asks for {count} {item} within {days} days for {reward}."], done: ["Ann thanks you for the seeds."] },
@@ -253,7 +256,7 @@ group("fresh save", () => {
 });
 
 group("trust and stars", () => {
-  const { S } = synthetic();
+  const { S, W } = synthetic();
   ok(S.trust("ann") === 0 && S.stars("ann") === 0, "trust: a fresh crew member has trust or stars");
   S.addTrust("ann", 2);
   ok(S.stars("ann") === 0, "stars: 2 points is a star (the first is at 3)");
@@ -267,6 +270,15 @@ group("trust and stars", () => {
   ok(S.stars("ann") === 5, "stars: 35 points is not 5 stars");
   S.addTrust("ann", 1000);
   ok(S.stars("ann") === 5, "stars: more than the top threshold is more than 5 stars");
+  // trust stops at the top star's points, so one loss at five stars shows as four
+  const top = W.CREW_RULES.stars[W.CREW_RULES.stars.length - 1];
+  ok(S.trust("ann") === top, `addTrust: trust ran past the top star's ${top} points (${S.trust("ann")})`);
+  S.addTrust("ann", -W.CREW_RULES.loss.hurt);
+  ok(S.stars("ann") === 4 && S.trust("ann") === top - W.CREW_RULES.loss.hurt, `addTrust: one loss at five stars does not show as four (${S.trust("ann")} points, ${S.stars("ann")} stars)`);
+  // an older save that ran past the top: its first loss shows too
+  S.save.crew.trust.ann = 86;
+  S.addTrust("ann", -1);
+  ok(S.trust("ann") === top - 1 && S.stars("ann") === 4, `addTrust: a save holding 86 points lost 1 and still shows ${S.stars("ann")} stars (${S.trust("ann")} points)`);
   ok(S.addTrust("ann", -5000) === 0 && S.trust("ann") === 0, "addTrust: trust went below 0");
   ok(S.trust("bo") === 0, "addTrust: one crew member's trust moved another's");
 });
@@ -393,8 +405,13 @@ group("tips", () => {
   if (ok(lastFull, "tips: the quietest known building never fills, so Pip's walkers tip can never be checked at the cap")) {
     S.save.day = lastFull - 1;
     ok(tips("cy").includes("walkers") && S.crewTips("cy").regular.find((t) => t.tip === "walkers").vars.days === 1, "tips: the walkers tip is not told the day before the last known building fills");
+    ok(!S.crewTips("cy").fallback.length, "tips: Pip's fallback (full) applies while a known building still fills");
     S.save.day = lastFull;
-    ok(!tips("cy").includes("walkers") && S.crewTip("cy") === null, `tips: Pip's walkers tip is told on day ${lastFull}, with every known building full`);
+    ok(!tips("cy").includes("walkers"), `tips: Pip's walkers tip is told on day ${lastFull}, with every known building full`);
+    // with nothing else to tell, Pip says the town is as full as it gets (the fallback): every talk tells one thing
+    const full = S.crewTip("cy");
+    ok(full && full.tip === "full" && same(full.vars, {}), `tips: with every known building full, Pip's tip is ${JSON.stringify(full)}, not the fallback "full"`);
+    ok(S.crewTip("bo").tip !== "full", "tips: a crew member without the full tip told it");
   }
   // only the known buildings count: with only the busiest building known, the tip stops once that one is full,
   // while a quieter one, not yet known, still fills
@@ -423,6 +440,9 @@ group("tips", () => {
   ok(!tips("cy").includes("keys"), "tips: a key whose stash is open still counts");
   S.save.rooms.radio = 1;
   ok(tips("cy").includes("radio"), "tips: the radio is not told once built");
+  // told until its words have been read once (State.seeCrewTalk keeps "tip:<crew>:radio"), never again after
+  S.seeCrewTalk("tip:cy:radio", 9);
+  ok(!tips("cy").includes("radio"), "tips: the radio tip comes back after it was read");
   ok(S.crewTip("nobody") === null, "tips: an unknown crew member has a tip");
 });
 
@@ -466,15 +486,21 @@ group("offers: order and gates", () => {
   ok(o1 && o1.kind === "errand" && o1.def.id === "ann-e3" && o1.count === 1, `offer: with no story quest to give, not the first errand whose item a known place stocks (${JSON.stringify(o1 && o1.def.id)})`);
   S.save.known.push("garden");
   const o3 = S.offer("ann");
-  ok(o3 && o3.def.id === "ann-e1" && o3.count >= 2 && o3.count <= 3, `offer: once Greenhouse Row is known, the errand first in turn (seeds) is not asked (${JSON.stringify(o3 && o3.def.id)})`);
+  // Greenhouse Row has one seed shelf, back every restockDays (3): in the errand's 3 days it gives 1, so [2, 3] asks 1
+  ok(o3 && o3.def.id === "ann-e1" && o3.count === 1 && S.crewShelfSupply("seeds", 3) === 1, `offer: once Greenhouse Row is known, the errand first in turn (seeds) is not asked for the 1 its one shelf can give in 3 days (${JSON.stringify(o3 && { id: o3.def.id, count: o3.count })})`);
   vm.runInContext("Math.random = (() => { let i = 0; return () => (i++ % 7) / 7; })()", sb);
   ok(same(S.offer("ann"), o3) && same(S.offer("ann"), o3), "offer: the errand count changes between calls (Math.random?)");
+  // with shelves enough (two more seed spots there), the count is rolled from [2, 3] by the seed and the day
+  const garden = W.LOCATIONS.find((l) => l.id === "garden");
+  const gardenItems = garden.items;
+  garden.items = gardenItems.concat(["seeds", "seeds"]);
   const counts = new Set();
   for (let day = 1; day <= 40; day++) {
     S.save.day = day;
     counts.add(S.errandCount(o3.def));
   }
   ok(counts.has(2) && counts.has(3) && counts.size === 2, `errandCount: over 40 days not both ends of [2, 3] (${[...counts]})`);
+  garden.items = gardenItems;
   S.save.day = 2;
   const was = S.save.known.slice();
   S.save.known = was.filter((k) => k === "base");
@@ -566,7 +592,8 @@ group("story quest: accept, pick up, death, home, hand in, perk", () => {
   const foot0 = S.footMaxHp();
   const entry = tripHome(S, {}, () => S.takeQuestObject("ann-1"));
   ok(S.save.crew.quests["ann-1"].state === "found", "returnHome: the object brought home is not found");
-  ok(same(entry.quests, ["ann-1"]), `returnHome: the day log does not carry entry.quests (${JSON.stringify(entry.quests)})`);
+  // the day it comes home the recap counts it; June's ledger line waits for the hand-in (the next day page)
+  ok(entry.recap.quests === 1 && !entry.quests, `returnHome: the day the object came home, the recap does not count it or the ledger line came before the hand-in (${JSON.stringify({ recap: entry.recap.quests, quests: entry.quests })})`);
   ok(same(ids("grocery"), []) && S.questHeld("ann-1"), "questsAt: a found object still waits");
   ok(S.handInReady("ann") && S.giveUp("ann") === false, "handInReady / giveUp: a found object is not ready, or was given up");
   const before = { scrap: S.save.scrap, lumber: S.save.inventory.lumber || 0, meds: S.save.inventory.meds || 0, trust: S.trust("ann") };
@@ -579,9 +606,12 @@ group("story quest: accept, pick up, death, home, hand in, perk", () => {
   const fx1 = S.effects();
   ok(fx1.foodPerDay === fx0.foodPerDay + 1 && fx1.footHp === fx0.footHp + 10 && S.footMaxHp() === foot0 + 10, "effects: the quest's perk (foodPerDay 1, footHp 10) is not in effects()");
   ok(S.crewFx().foodPerDay === 1 && S.crewFx().crowbarCost === null, "crewFx: not the done quest's perk");
+  ok(same(S.save.crew.ledger, ["ann-1"]), `handIn: the quest is not on crew.ledger for the next day page (${JSON.stringify(S.save.crew.ledger)})`);
   const f0 = S.save.food;
-  tripHome(S);
+  const next = tripHome(S);
   ok(S.save.food === Math.max(0, f0 - g.W.SETTINGS.foodPerTrip) + fx1.foodPerDay, "returnHome: the foodPerDay perk does not feed the crew");
+  ok(same(next.quests, ["ann-1"]) && same(S.save.crew.ledger, []) && !next.recap.quests, `returnHome: the day page after the hand-in does not carry June's ledger line for ann-1 (${JSON.stringify(next.quests)}; ledger ${JSON.stringify(S.save.crew.ledger)})`);
+  ok(!tripHome(S).quests, "returnHome: the ledger line was written twice");
   ok(S.nextTopic("ann").id === "ann-1", "nextTopic: the handed-in quest's payoff is not next");
 });
 
@@ -606,12 +636,16 @@ group("give up", () => {
 });
 
 group("errands", () => {
-  const { S, W, ZSR: Z } = synthetic((Wd) => (Wd.QUESTS = Wd.QUESTS.filter((q) => q.giver !== "ann"))); // Ann: errands only
+  // Ann: errands only; Greenhouse Row with a second seed shelf, so her seed errand can ask for 2 in its 3 days
+  const { S, W, ZSR: Z } = synthetic((Wd) => {
+    Wd.QUESTS = Wd.QUESTS.filter((q) => q.giver !== "ann");
+    Wd.LOCATIONS = Wd.LOCATIONS.map((l) => (l.id === "garden" ? Object.assign({}, l, { items: l.items.concat(["seeds"]) }) : l));
+  });
   const c = S.save.crew;
   S.save.known.push("garden"); // Greenhouse Row's shelves hold the seeds and the soil
   tripHome(S, { seeds: 5 }); // brought home before the errand: does not count
   const o = S.offer("ann");
-  ok(o.kind === "errand" && o.def.id === "ann-e1", "errands: Ann's first errand");
+  ok(o.kind === "errand" && o.def.id === "ann-e1" && o.count === 2, `errands: Ann's first errand (${JSON.stringify(o && { id: o.def.id, count: o.count })}; 2 seed shelves give 2 in 3 days)`);
   ok(same(S.requestVars(o), { count: o.count, item: W.ITEMS.seeds.name, days: 3, reward: "25 scrap" }), `requestVars: offer ${JSON.stringify(S.requestVars(o))}`);
   S.accept("ann", o);
   const e = c.errand.ann;
@@ -685,15 +719,25 @@ group("errands", () => {
 });
 
 group("errands: two crew members asking for the same item share the cargo", () => {
-  const { S } = synthetic();
+  // one nail shelf (Reyes Hardware) gives 1 box in the errands' 2 days: once Ann's errand is open, Bo's would have
+  // nothing left on the shelves, so Bo is not asked for it
+  const one = synthetic();
+  one.S.save.day = 2;
+  one.S.save.crew.quests["ann-1"] = { state: "done", day: 2, doneDay: 2 };
+  one.S.save.crew.quests["bo-1"] = { state: "done", day: 1, doneDay: 1 };
+  ok(one.S.offer("bo") && one.S.offer("bo").def.item === "nails", "errands: setup, Bo asks for nails");
+  one.S.accept("ann", one.S.offer("ann"));
+  ok(one.S.offer("bo") === null, `errands: with the one nail shelf spoken for by Ann's open errand, Bo still asks for nails (${JSON.stringify(one.S.offer("bo"))})`);
+  // two nail shelves: both ask, and they share the cargo
+  const { S } = synthetic((Wd) => (Wd.LOCATIONS = Wd.LOCATIONS.map((l) => (l.id === "hardware" ? Object.assign({}, l, { items: l.items.concat(["nails"]) }) : l))));
   const c = S.save.crew;
   S.save.day = 2;
   c.quests["ann-1"] = { state: "done", day: 2, doneDay: 2 };
   c.quests["bo-1"] = { state: "done", day: 1, doneDay: 1 };
   const a = S.offer("ann");
+  S.accept("ann", a);
   const b = S.offer("bo");
   ok(a && a.def.item === "nails" && b && b.def.item === "nails", `errands: setup, Ann and Bo both ask for nails (${a && a.def.id}, ${b && b.def.id})`);
-  S.accept("ann", a);
   S.accept("bo", b);
   S.save.inventory.nails = 0;
   tripHome(S, { nails: 1 });
@@ -701,10 +745,78 @@ group("errands: two crew members asking for the same item share the cargo", () =
   tripHome(S, { nails: 1 });
   ok(c.errand.ann.have === 1 && c.errand.bo.have === 1 && S.handInReady("ann") && S.handInReady("bo"), "errands: the second Box of nails did not fill the other errand");
   ok(S.handIn("ann") && S.handIn("bo") && S.save.inventory.nails === 0, "errands: both not handed in with the 2 brought home");
+  // the cargo goes to the errand due first: Bo's, accepted a day later with more days, waits for Ann's
+  c.errand.ann = { id: "ann-e3", item: "nails", count: 1, have: 0, day: 5, due: 7 };
+  c.errand.bo = { id: "bo-e1", item: "nails", count: 1, have: 0, day: 4, due: 6 };
+  tripHome(S, { nails: 1 });
+  ok(c.errand.bo.have === 1 && c.errand.ann.have === 0, `errands: the one box went to ${c.errand.ann.have ? "Ann's" : "nobody's"} errand, not Bo's (due first)`);
+});
+
+/** One trip a day that takes every shelf spot of `item` that is back, in every known place (as a player bent on
+    the errand would), and brings it home. Returns how many it brought. */
+function shelfTrip(S, W, item) {
+  S.startTrip();
+  let got = 0;
+  W.LOCATIONS.forEach((l) =>
+    (l.items || []).forEach((k, i) => {
+      if (k !== item || !S.isKnown(l.id) || !S.itemAvailable(l.id, "i" + i)) return;
+      S.takeItem(l.id, "i" + i, false);
+      S.trip.cargo[item] = (S.trip.cargo[item] || 0) + 1;
+      got++;
+    })
+  );
+  S.returnHome();
+  return got;
+}
+
+group("errands: the count is what the known shelves can give in time", () => {
+  // Ann asks for 2 boxes of nails within 4 days; Reyes Hardware (known at the start) has one nail shelf
+  const E = { id: "ann-e9", item: "nails", count: [2, 2], days: 4, reward: { scrap: 20 }, facts: ["Ann asks for {count} {item} within {days} days."], done: ["Ann hangs a picture."] };
+  const edit = (Wd) => {
+    Wd.QUESTS = Wd.QUESTS.filter((q) => q.giver !== "ann");
+    Wd.ERRANDS.ann = [E];
+  };
+  const probe = synthetic(edit);
+  const hw = probe.W.LOCATIONS.find((l) => l.id === "hardware");
+  const spots = hw.items.map((k, i) => (k === "nails" ? "i" + i : null)).filter(Boolean);
+  if (!ok(probe.S.isKnown("hardware") && spots.length === 1, `errands: setup, Reyes Hardware is not known at the start with one nail shelf (${spots})`)) return;
+  const R = probe.W.SETTINGS.restockDays;
+  // the shelf emptied 1, 2 or 3 (restockDays) days before the errand is asked, or never: 1, 1, 2, 2
+  [1, 2, R, null].forEach((ago) => {
+    const { S, W } = synthetic(edit);
+    const c = S.save.crew;
+    S.save.day = 20;
+    if (ago != null) S.save.loc.hardware = { taken: { [spots[0]]: S.save.day - ago }, cacheOpened: false, cacheTaken: {}, visits: 1 };
+    const o = S.offer("ann");
+    const want = ago == null || ago >= R ? 2 : 1;
+    const when = ago == null ? "never emptied" : `emptied ${ago} day(s) before`;
+    if (!ok(o && o.def.id === E.id && o.count === want, `errands: with the only nail shelf ${when}, Ann asks for ${o && o.count}, not ${want}`)) return;
+    ok(same(S.offer("ann"), o) && S.errandCount(E) === o.count, `errands: the capped count changes between calls (${when})`);
+    S.accept("ann", o);
+    const trips = [];
+    for (let k = 0; k < 8 && c.errand.ann && c.errand.ann.have < c.errand.ann.count; k++) trips.push(shelfTrip(S, W, "nails"));
+    const e = c.errand.ann;
+    ok(e && e.have >= e.count && !S.crewReport("ann").late && S.save.day <= e.due, `errands: with the only nail shelf ${when}, the errand for ${o.count} was not filled by taking that shelf on every trip it was back (${trips.join(" ")}; ${e ? "have " + e.have : "dropped late"})`);
+  });
+  // a second known place with the item raises the cap (Ridge Lumber's three lumber shelves beside Reyes Hardware's one)
+  const g2 = synthetic((Wd) => {
+    edit(Wd);
+    Wd.ERRANDS.ann = [Object.assign({}, E, { id: "ann-e8", item: "lumber", count: [5, 5] })];
+  });
+  const S2 = g2.S;
+  const lumber = (known) => {
+    S2.save.known = S2.save.known.filter((k) => k !== "lumberyard").concat(known ? ["lumberyard"] : []);
+    return S2.crewShelfSupply("lumber", 4);
+  };
+  const shelves = (id) => g2.W.LOCATIONS.find((l) => l.id === id).items.filter((k) => k === "lumber").length;
+  const per = 1 + Math.floor(3 / R); // trips a fresh shelf gives in 4 days
+  ok(lumber(false) === shelves("hardware") * per && lumber(true) === (shelves("hardware") + shelves("lumberyard")) * per, `crewShelfSupply: lumber in 4 days is ${lumber(false)} (Reyes Hardware) and ${lumber(true)} (with Ridge Lumber), not ${per} a shelf`);
+  ok(S2.offer("ann").count === Math.min(5, lumber(true)), `errandCount: with Ridge Lumber known, the lumber errand asks for ${S2.offer("ann").count}, not ${Math.min(5, lumber(true))}`);
 });
 
 group("raids: crewHurt", () => {
-  const { S } = synthetic();
+  const g = synthetic();
+  const { S } = g;
   S.addTrust("bo", 10);
   S.save.inventory.meds = 1;
   S.save.food = 5;
@@ -714,10 +826,22 @@ group("raids: crewHurt", () => {
   ok(S.crewHurt("bo") === "1 food" && S.save.food === 0 && S.trust("bo") === 1, "crewHurt: with 1 food left, not 1 food taken and said (or food went below 0)");
   // nothing to take: the report says it cost nothing ("It cost the base nothing"), never "0 food"
   ok(S.crewHurt("bo") === "nothing" && S.save.food === 0 && S.trust("bo") === 0, "crewHurt: an empty pantry is not said to cost nothing (\"0 food\"?), or trust went below 0");
+  // every hurt since the last talk is one paragraph, its cost summed ("nothing" left out beside a real cost)
   const items = S.crewReportItems("bo").filter((x) => x.key === "hurt");
-  ok(items.length === 4 && items[0].vars.who === "Bo" && items[0].vars.cost === "a medical kit" && items[1].vars.cost === "2 food" && items[2].vars.cost === "1 food" && items[3].vars.cost === "nothing", `crewReportItems: hurt ${JSON.stringify(items)}`);
+  ok(same(items, [{ key: "hurt", vars: { who: "Bo", cost: "a medical kit and 3 food" } }]), `crewReportItems: four hurts are not one report costing "a medical kit and 3 food" (${JSON.stringify(items)})`);
   S.clearReport("bo");
   ok(same(S.crewReport("bo"), {}) && same(S.crewReportItems("bo"), []), "clearReport: the report is not empty");
+  const cost = (list) => {
+    S.crewReport("bo").hurt = list;
+    const it = S.crewReportItems("bo").filter((x) => x.key === "hurt");
+    S.clearReport("bo");
+    return it.length === 1 ? it[0].vars.cost : JSON.stringify(it);
+  };
+  const IT = g.W.ITEMS;
+  ok(cost(["a medical kit"]) === "a medical kit" && cost(["2 food"]) === "2 food" && cost(["nothing"]) === "nothing", "crewReportItems: one hurt's cost is not crewHurt's word");
+  ok(cost(["a medical kit", "a medical kit", "2 food", "2 food"]) === "2 " + IT.meds.many + " and 4 food", `crewReportItems: hurts summed as "${cost(["a medical kit", "a medical kit", "2 food", "2 food"])}"`);
+  ok(cost(["nothing", "nothing"]) === "nothing" && cost(["nothing", "1 food"]) === "1 food" && cost(["3 medical kits", "nothing"]) === "3 " + IT.meds.many, "crewReportItems: \"nothing\" is said beside a real cost, or not when every hurt cost nothing");
+  ok(same(S.crewReportItems("bo"), []) && (S.crewReport("bo").hurt = []) && same(S.crewReportItems("bo"), []), "crewReportItems: an empty hurt list is a report");
 });
 
 group("work, reports, repairs", () => {
@@ -728,11 +852,13 @@ group("work, reports, repairs", () => {
   ok(S.crewRepairPay("fence") === 0 && S.save.scrap === 0, "crewRepairPay: scrap went below 0");
   S.logWork("bo", "fence", 3, 3);
   S.logWork("bo", "cabin", 1, 2);
-  S.logWork("ann", "heal", 40);
   const bo = S.crewReportItems("bo");
   ok(same(bo, [{ key: "fence", vars: { fixed: 3, scrap: 3 } }, { key: "cabin", vars: { fixed: 1, scrap: 2 } }]), `crewReportItems: work ${JSON.stringify(bo)}`);
   ok(S.crewReport("bo").scrap === 5, "logWork: report.scrap is not the scrap paid");
-  ok(same(S.crewReportItems("ann"), [{ key: "heal", vars: { hp: 40 } }]), "crewReportItems: heal");
+  // June's patch-up is told by her heal tip as it happens, never as a report (an older save's report.heal is not told)
+  S.crewReport("ann").heal = 40;
+  ok(same(S.crewReportItems("ann"), []), `crewReportItems: a patch-up is told as a report (${JSON.stringify(S.crewReportItems("ann"))})`);
+  S.clearReport("ann");
   S.save.crew.quests["bo-1"] = { state: "done", day: 1, doneDay: 1 };
   ok(S.crewFx().crewRepairFree === true && S.crewRepairCost("fence") === 0 && S.crewRepairCost("cabin") === 0, "crewRepairFree: repairs still cost scrap");
   S.clearReport("bo");
@@ -764,13 +890,29 @@ group("perks: crowbarCost, vanHp, medsPerDay, only once done", () => {
   c.quests["ann-2"] = { state: "found", day: 2, doneDay: null };
   ok(S.crewFx().crowbarCost === null && S.vanMaxHp() === van0, "crewFx: a quest not handed in gives its perk");
   const had = { bars: S.save.crowbars, spike: S.save.traps.spike };
+  S.save.vanHp = van0; // a full van
   const r = S.handIn("ann");
+  // the van's health rises with its maximum (as the Walls room and the armor do): a full van stays full
+  ok(S.save.vanHp === van0 + 15 && S.save.vanHp === S.vanMaxHp(), `handIn: the vanHp perk (+15) left a full van at ${S.save.vanHp} of ${S.vanMaxHp()}`);
   ok(r && r.def.id === "ann-2" && S.save.crowbars === had.bars + 1 && S.save.traps.spike === had.spike + 1, "handIn: crowbars or traps not paid");
   ok(S.canCraftTool("crowbar").scrap === 5, "canCraftTool: the crowbarCost perk is not the cost");
   S.save.scrap = 5;
   const bars = S.save.crowbars;
   ok(S.craftTool("crowbar") === true && S.save.scrap === 0 && S.save.crowbars === bars + 1, "craftTool: the crowbarCost perk is not what it takes");
   ok(S.vanMaxHp() === van0 + 15, "effects: the vanHp perk is not in the van's health");
+  // a damaged van gets the perk's health too, never past the maximum
+  const g2 = synthetic();
+  const S2 = g2.S;
+  S2.save.crew.quests["ann-1"] = { state: "done", day: 2, doneDay: 2 };
+  S2.save.crew.quests["ann-2"] = { state: "found", day: 2, doneDay: null };
+  S2.save.vanHp = 50;
+  S2.handIn("ann");
+  ok(S2.save.vanHp === 65, `handIn: the vanHp perk (+15) took a van at 50 to ${S2.save.vanHp}, not 65`);
+  const max2 = S2.vanMaxHp(); // with the perk
+  S2.save.crew.quests["ann-2"] = { state: "found", day: 2, doneDay: null };
+  S2.save.vanHp = max2 - 3;
+  S2.handIn("ann");
+  ok(S2.save.vanHp === max2 && S2.vanMaxHp() === max2, `handIn: the vanHp perk took the van past its maximum (${S2.save.vanHp} of ${S2.vanMaxHp()})`);
   const meds = S.save.inventory.meds || 0;
   tripHome(S);
   tripHome(S);
@@ -792,8 +934,8 @@ group("the dog", () => {
   S.abandonTrip();
   ok(!S.dogHome() && S.save.crew.quests["cy-1"].state === "active" && S.questsAt("grocery").length === 1, "abandonTrip: the dog is not back in its building after a death");
   const entry = tripHome(S, {}, () => S.takeDog());
-  ok(S.dogHome() && S.save.crew.quests["cy-1"].state === "found" && same(entry.quests, ["cy-1"]), "returnHome: the dog is not home, its quest not found, or not in entry.quests");
-  ok(S.handInReady("cy") && S.handIn("cy").kind === "quest", "handIn: the dog quest");
+  ok(S.dogHome() && S.save.crew.quests["cy-1"].state === "found" && entry.recap.quests === 1 && !entry.quests, "returnHome: the dog is not home, its quest not found, not in the recap, or its ledger line came before the hand-in");
+  ok(S.handInReady("cy") && S.handIn("cy").kind === "quest" && same(S.save.crew.ledger, ["cy-1"]), "handIn: the dog quest (and onto crew.ledger)");
   ok(S.dogName() === "", "dogName: named before it was named");
   ok(S.nameDog("  R3x!! the  Great-Dog's  ") === "Rx the Great-D" && S.dogName() === "Rx the Great-D", `nameDog: not sanitized (${S.dogName()})`);
   ok(S.nameDog("1234 !!") === false && S.nameDog("'-'") === false && S.nameDog("") === false && S.dogName() === "Rx the Great-D", "nameDog: a name with no letters was kept");
@@ -906,17 +1048,64 @@ group("the day's recap: counted items, and a day that brought home only a story 
   const next = { room: Object.keys(W.BASE_ROOMS)[0], missing: { lumber: 2, nails: 1 }, scrap: 40, ready: false };
   const r = Z.recapText({ items: 3, scrap: 5, food: 3, hungry: false, next });
   ok(r.includes("2 " + IT.lumber.many + ", 1 " + IT.nails.one + " and 40 scrap"), `recapText: what a build still needs is not counted in running text (${r})`);
-  // the day log: a trip that brings home only a story object keeps it in the recap (and entry.quests)
+  // the day log: a trip that brings home only a story object keeps it in the recap (its ledger line waits for the hand-in)
   S.save.day = 2;
   S.accept("ann", S.offer("ann"));
   const entry = tripHome(S, {}, () => S.takeQuestObject("ann-1"));
-  ok(entry.recap.quests === 1 && same(entry.quests, ["ann-1"]) && !/nothing/i.test(Z.recapText(entry.recap)), `logDay: a day that brought home only ann-1 reads ${JSON.stringify(entry.recap)}: ${Z.recapText(entry.recap)}`);
+  ok(entry.recap.quests === 1 && !entry.quests && !/nothing/i.test(Z.recapText(entry.recap)), `logDay: a day that brought home only ann-1 reads ${JSON.stringify(entry.recap)}: ${Z.recapText(entry.recap)}`);
   const plain = tripHome(S);
   ok(!("quests" in plain.recap) && !plain.quests && /nothing/i.test(Z.recapText(plain.recap)), "logDay: an empty-handed day after it is not empty-handed");
   // the build tip's {needs}, counted the same way
   S.save.inventory = {};
   const tip = S.crewTips("ann").regular.find((t) => t.tip === "build");
   ok(tip && !/\b\d+ [A-Z]/.test(tip.vars.needs), `tips: build {needs} gives an item's label after its count (${tip && tip.vars.needs})`);
+});
+
+group("June's ledger: a quest's line on the first day page after its hand-in", () => {
+  const { S } = synthetic();
+  const c = S.save.crew;
+  S.save.day = 2;
+  S.accept("ann", S.offer("ann"));
+  const home = tripHome(S, {}, () => S.takeQuestObject("ann-1"));
+  ok(home.recap.quests === 1 && !home.quests, `ledger: the day ann-1 came home (not yet handed over) has its line (${JSON.stringify(home.quests)})`);
+  ok(!tripHome(S).quests, "ledger: a day before the hand-in has the line");
+  // two hand-ins at home the same day: both lines on the next page, in the order handed in
+  S.handIn("ann");
+  S.accept("bo", S.offer("bo"));
+  c.quests["bo-1"].state = "found";
+  S.handIn("bo");
+  const page = tripHome(S);
+  ok(same(page.quests, ["ann-1", "bo-1"]) && same(c.ledger, []), `ledger: the page after two hand-ins carries ${JSON.stringify(page.quests)}, not ["ann-1", "bo-1"]`);
+  ok(!tripHome(S).quests, "ledger: a line was written on a second page");
+  // a save from an older build wrote the line on the day the object came home: handed in now, it is not written again
+  c.quests["cy-1"] = { state: "found", day: S.save.day, doneDay: null };
+  c.dog.home = true;
+  S.save.log[S.save.log.length - 1].quests = ["cy-1"];
+  S.handIn("cy");
+  ok(!tripHome(S).quests && same(c.ledger, []), "ledger: a line already on an earlier page was written again");
+  // a save with no crew.ledger gets one
+  delete c.ledger;
+  ok(Array.isArray(S.crewSave().ledger) && same(S.crewSave().ledger, []), "ledger: an older crew field without ledger is not filled in");
+});
+
+group("medical kits packed at the cabin: the caller saves, so a wave's death undoes the wave", () => {
+  const { S, store } = synthetic();
+  S.save.inventory.meds = 3;
+  S.addTrust("ann", 10);
+  S.commit();
+  const saved = store.get("zs.save.1");
+  // a wave: a raider hurts Ann (crewHurt), then you pack a kit from the backpack (the yard's sync saves nothing
+  // mid-wave, so packKit must not either), then you die in that wave
+  S.crewHurt("ann");
+  ok(S.packKit() === true && S.save.kits === 1 && store.get("zs.save.1") === saved, "packKit: packing a kit wrote the save (mid-wave, it keeps the raid's hurt past a death)");
+  ok(S.unpackKit() === true && S.packKit() === true && store.get("zs.save.1") === saved, "unpackKit: putting a kit back wrote the save");
+  S.abandonTrip();
+  ok(S.save.inventory.meds === 3 && !(S.save.kits > 0) && S.trust("ann") === 10 && !S.crewReport("ann").hurt, `packKit: after a death in the wave the reload keeps meds ${S.save.inventory.meds}, kits ${S.save.kits}, trust ${S.trust("ann")}, report ${JSON.stringify(S.crewReport("ann"))}`);
+  // in the calm the caller saves it (js/backpack.js: syncYard, or a commit away from the yard), and it is kept
+  S.packKit();
+  S.commit();
+  S.abandonTrip();
+  ok(S.save.kits === 1 && S.save.inventory.meds === 2, "packKit: a kit packed and saved in the calm was lost");
 });
 
 group("words read: seeCrewTalk", () => {
@@ -979,8 +1168,8 @@ group("an empty roster and no quests", () => {
    3. The real facts
    ===================================================================================================== */
 // the placeholders the engine fills, by text (docs/CREW.md "Words"); {dog} is filled everywhere
-const TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [] };
-const REPORT_VARS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], hurt: ["who", "cost"], late: ["item"], heal: ["hp"] };
+const TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [], full: [] };
+const REPORT_VARS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], hurt: ["who", "cost"], late: ["item"] };
 const ERRAND_VARS = ["count", "item", "days", "reward"];
 // {reward} only where the request or the thank-you is shown with its reward (the card, the bubble, the backpack); the tag
 // (building), the journal line (day page), the title and the payoff topic are shown with no request at hand
@@ -1102,6 +1291,38 @@ group("real facts: every topic can be told, in order", () => {
   });
 });
 
+group("real facts: the dog's topics wait for its hand-in (the thank-you and the name come first)", () => {
+  const g = loadGame();
+  const { S, W } = g;
+  const dq = (W.QUESTS || []).find((q) => q.kind === "dog");
+  if (!dq) return;
+  S.newGame(1, "Dog topics");
+  // every gate open but the dog quest: the dog is home, its quest found, not yet handed in
+  S.save.day = lateDay(W);
+  S.crewIds().forEach((id) => S.addTrust(id, 1000));
+  (W.QUESTS || []).forEach((q) => (S.save.crew.quests[q.id] = { state: q === dq ? "found" : "done", day: 1, doneDay: q === dq ? null : 1 }));
+  Object.keys(S.save.rooms).forEach((k) => (S.save.rooms[k] = 3));
+  Object.entries(W.NOTES).forEach(([locId, N]) => [N.door].concat(N.notes || []).forEach((n) => n && S.save.backpack.push({ noteId: n.id, locId, found: "", day: 1 })));
+  S.save.crew.dog.home = true;
+  const dogTopics = [];
+  Object.values(W.CREW_TALK || {}).forEach((T) => ((T && T.topics) || []).forEach((t) => t.when && t.when.dog && dogTopics.push(t.id)));
+  const tellAll = (id) => {
+    const told = [];
+    for (let i = 0; i < 200; i++) {
+      const t = S.nextTopic(id);
+      if (!t || t.mood) break;
+      told.push(t.id);
+      S.markTopic(id, t.id);
+    }
+    return told;
+  };
+  const early = [].concat(...S.crewIds().map(tellAll)).filter((t) => dogTopics.includes(t));
+  ok(!early.length, `topics: ${early.join(", ")} told with the dog home but ${dq.id} not yet handed in (its thank-you and its name come first)`);
+  S.save.crew.quests[dq.id] = { state: "done", day: 1, doneDay: 1 };
+  const later = [].concat(...S.crewIds().map(tellAll));
+  ok(dogTopics.every((t) => later.includes(t)), `topics: once ${dq.id} is handed in, not every dog topic is told (${dogTopics.filter((t) => !later.includes(t)).join(", ")})`);
+});
+
 group("real facts: every story quest through the state API", () => {
   const g = loadGame();
   const { S, W } = g;
@@ -1126,13 +1347,15 @@ group("real facts: every story quest through the state API", () => {
       S.accept(id, o);
       ok(S.questsAt(q.at).some((x) => x.id === q.id), `quests: ${q.id} does not wait in ${q.at} once accepted`);
       const entry = tripHome(S, {}, () => ok(q.kind === "dog" ? S.takeDog(q.id) : S.takeQuestObject(q.id), `quests: ${q.id} could not be picked up`));
-      ok(S.save.crew.quests[q.id].state === "found" && (entry.quests || []).includes(q.id), `quests: ${q.id} is not found at home and in the day log`);
+      ok(S.save.crew.quests[q.id].state === "found" && entry.recap.quests === 1 && !(entry.quests || []).includes(q.id), `quests: ${q.id} is not found at home and in the day's recap (or its ledger line came before the hand-in)`);
       if (q.kind === "dog") ok(S.dogHome(), `quests: ${q.id} did not bring the dog home`);
       const scrap = S.save.scrap;
       const r = S.handIn(id);
       ok(r && r.def.id === q.id && S.save.scrap >= scrap + ((q.reward && q.reward.scrap) || 0), `quests: ${q.id} was not handed in with its scrap`);
       const perk = (q.reward && q.reward.perk) || {};
       Object.entries(perk).forEach(([k, v]) => ok(typeof v === "boolean" ? S.crewFx()[k] === v : k === "crowbarCost" ? S.crewFx()[k] <= v : S.crewFx()[k] >= v, `quests: ${q.id}'s perk ${k} is not active once done`));
+      const page = tripHome(S);
+      ok((page.quests || []).includes(q.id), `quests: ${q.id}'s ledger line is not on the day page after its hand-in (${JSON.stringify(page.quests)})`);
       done.push(id + ":" + q.id);
       moved = true;
     });
@@ -1146,6 +1369,48 @@ group("real facts: every story quest through the state API", () => {
     const o = S.offer(id);
     if (list.length) ok(o && o.kind === "errand" && o.count >= list[0].count[0] && o.count <= list[0].count[1], `errands: ${id} offers no errand once the story quests are done`);
   });
+});
+
+group("real facts: every errand can be filled, even the day after its shelves were emptied", () => {
+  const g = loadGame();
+  const { S, W } = g;
+  const R = W.SETTINGS.restockDays;
+  const bad = [];
+  let tried = 0;
+  Object.entries(W.ERRANDS || {}).forEach(([id, list]) =>
+    (list || []).forEach((def) => {
+      // only the start places known, then every place: the item's shelves in each, emptied 1 to restockDays days
+      // before the errand is asked (the likeliest case: you came home with them yesterday), or never
+      [false, true].forEach((all) =>
+        [1, 2, R, null].forEach((ago) => {
+          S.newGame(1, "Errand");
+          if (all) W.LOCATIONS.forEach((l) => !S.isKnown(l.id) && S.save.known.push(l.id));
+          if (!S.crewItemStocked(def.item)) return;
+          S.save.day = 20;
+          W.LOCATIONS.forEach((l) => {
+            const taken = {};
+            (l.items || []).forEach((k, i) => k === def.item && ago != null && (taken["i" + i] = S.save.day - ago));
+            S.save.loc[l.id] = { taken, cacheOpened: true, cacheTaken: {}, visits: 1 };
+          });
+          // the most it asks for over a few seeds (the roll), then that errand, filled shelf by shelf
+          let count = 0;
+          for (let seed = 1; seed <= 12; seed++) {
+            S.save.lockSeed = seed;
+            count = Math.max(count, S.errandCount(def));
+          }
+          for (let seed = 1; seed <= 12 && S.errandCount(def) !== count; seed++) S.save.lockSeed = seed;
+          S.save.crew.errand[id] = { id: def.id, item: def.item, count, have: 0, day: S.save.day, due: S.save.day + def.days };
+          const trips = [];
+          for (let k = 0; k < def.days + 2 && S.save.crew.errand[id] && S.save.crew.errand[id].have < count; k++) trips.push(shelfTrip(S, W, def.item));
+          tried++;
+          const e = S.save.crew.errand[id];
+          if (!(e && e.have >= e.count)) bad.push(`${def.id} (${count} ${def.item}, ${def.days} days, ${all ? "every place" : "the start places"} known, shelves ${ago == null ? "full" : "emptied " + ago + " day(s) before"}): trips gave ${trips.join(" ")}`);
+        })
+      );
+    })
+  );
+  ok(tried > 0, "errands: no real errand could be tried on a known shelf");
+  ok(!bad.length, `errands: asked for more than the known shelves give in time: ${bad.slice(0, 4).join("; ")}`);
 });
 
 group("real facts: June's ledger never wishes for a dog that is home", () => {
@@ -1571,6 +1836,50 @@ simGroup("yard", "yard: the fence job mends holes and cracks, paying from the ba
   }
 });
 
+simGroup("yard", "yard: the fence job keeps back the scrap a ready build needs", () => {
+  const g = engineGame(113);
+  const { I, S, W } = g;
+  const fx = jobOf(W, "fence");
+  if (!ok(fx, "reserve: nobody has the fence job")) return;
+  const cost = W.SETTINGS.fenceRepairScrap;
+  const FT = fenceTiles(W);
+  const key = (t) => t.join(",");
+  const hp0 = W.DEFENSE.fenceHp[0];
+  let room = null;
+  let lv = null;
+  // the cheapest room you could build: its items in storage and exactly its scrap; a hole and a crack in the fence
+  homeYard(g, (S) => {
+    S.addTrust(fx.id, trustFor(W, fx.stars));
+    const open = Object.keys(W.BASE_ROOMS).filter((r) => {
+      const c = S.canUpgradeRoom(r);
+      return !c.maxed && !c.locked.length;
+    });
+    room = open.sort((a, b) => W.BASE_ROOMS[a].levels[S.save.rooms[a]].scrap - W.BASE_ROOMS[b].levels[S.save.rooms[b]].scrap)[0];
+    lv = W.BASE_ROOMS[room].levels[S.save.rooms[room]];
+    Object.entries(lv.needs).forEach(([k, n]) => (S.save.inventory[k] = n));
+    S.save.scrap = lv.scrap;
+    S.save.fence = { [key(FT.n)]: 0, [key(FT.e)]: Math.floor(hp0 * 0.3) };
+  });
+  const nb = S.nextBuild();
+  if (!ok(nb && nb.ready && I.crewScrapReserve() === lv.scrap, `reserve: setup, the ${room} is not the ready next build (${JSON.stringify(nb)}, reserve ${I.crewScrapReserve()})`)) return;
+  const left = () => I.crewFenceDamage().length;
+  stepFor(g, 120);
+  ok(left() === 2 && S.save.scrap === lv.scrap && S.canUpgradeRoom(nb.room).ok, `reserve: with a build ready and only its scrap, the crew spent ${lv.scrap - S.save.scrap} scrap on the fence (${left()} of 2 left)`);
+  // scrap above the build's: they spend that and no more
+  S.save.scrap = lv.scrap + cost;
+  stepFor(g, 180, () => left() > 1);
+  stepFor(g, 60);
+  ok(left() === 1 && S.save.scrap === lv.scrap && S.canUpgradeRoom(nb.room).ok, `reserve: with ${cost} scrap above the build's, ${2 - left()} fixed and ${S.save.scrap} scrap left (want 1 fixed, ${lv.scrap} left)`);
+  // no build ready (an item it needs gone): the usual scrap pays as before
+  const item = Object.keys(lv.needs)[0];
+  if (item) {
+    S.save.inventory[item] = 0;
+    ok(I.crewScrapReserve() === 0, "reserve: scrap kept back with no build ready");
+    stepFor(g, 180, () => left() > 0);
+    ok(left() === 0 && S.save.scrap === lv.scrap - cost, `reserve: with no build ready the last segment was not fixed with the usual scrap (${left()} left, scrap ${S.save.scrap})`);
+  }
+});
+
 simGroup("yard", "yard: the cabin job fixes a smashed window, and a corner hole is reached", () => {
   const g = engineGame(104);
   const { I, S, W } = g;
@@ -1696,15 +2005,31 @@ simGroup("yard", "yard: a raider in the shelter hurts one crew member, once", ()
   ok(shout && h && shout.text.includes(g.ZSR.crewName(h)), `raid: no shout toast naming ${h} (${g.toasts.map((x) => x.text).join(" | ")})`);
   ok(same(S.crewReport(h).hurt, ["a medical kit"]), `raid: ${h}'s report ${JSON.stringify(S.crewReport(h))}`);
   // more raiders, more hurt, but nobody twice: one more goes for the tile of the one already hurt, then one for each
-  // shelter tile; the hurts after the kit cost 2 food, and once every crew member is hurt, a raider hurts nobody
+  // shelter tile, each sent once the one before has hurt someone and been put down (so a raider that stays among
+  // them never blocks the next: with more crew than shelter tiles they share tiles, docs/SCALING.md). The hurts after
+  // the kit cost 2 food each, and once every crew member is hurt, a raider hurts nobody
+  const downHurters = () => I.walkers.forEach((z) => z.crewHurt && z.hp > 0 && I.hurtWalker(z, 1e6));
+  downHurters();
   const hurtAt = I.crew.find((c) => c.id === h);
-  [{ x: hurtAt.x, y: hurtAt.y }].concat(spots).forEach((spot) => {
-    raider(spot);
-    stepFor(g, 25);
-  });
+  const sent = [{ x: hurtAt.x, y: hurtAt.y }].concat(spots);
+  // enough raiders for every crew member, whatever the tiles: the spots again until all are hurt (or a round hurts nobody)
+  for (let round = 0; round < ids.length && info.hurt.size < ids.length; round++) {
+    const before = info.hurt.size;
+    (round ? spots : sent).forEach((spot) => {
+      if (info.hurt.size >= ids.length) return;
+      raider(spot);
+      stepFor(g, 25);
+      downHurters();
+    });
+    if (info.hurt.size === before) break;
+  }
   const reps = ids.map((id) => (S.crewReport(id).hurt || []).length);
-  ok(info.hurt.size === ids.length && reps.every((n) => n === 1), `raid: ${spots.length + 2} raiders hurt ${info.hurt.size} (hurts in the reports: ${ids.map((id, i) => id + " " + reps[i])}); every crew member once, nobody twice`);
-  ok(S.save.food === Math.max(0, food0 - R.hurtCost.food * (ids.length - 1)), `raid: the hurts after the kit ran out did not cost ${R.hurtCost.food} food each (${food0} -> ${S.save.food})`);
+  ok(info.hurt.size === ids.length && reps.every((n) => n === 1), `raid: the raiders hurt ${info.hurt.size} of ${ids.length} (hurts in the reports: ${ids.map((id, i) => id + " " + reps[i])}); every crew member once, nobody twice`);
+  ok(S.save.food === Math.max(0, food0 - R.hurtCost.food * (info.hurt.size - 1)), `raid: the ${info.hurt.size - 1} hurts after the kit ran out did not cost ${R.hurtCost.food} food each (${food0} -> ${S.save.food})`);
+  // and one more among them, with everyone hurt already: nobody is hurt twice
+  raider(spots[0]);
+  stepFor(g, 25);
+  ok(ids.every((id) => (S.crewReport(id).hurt || []).length === 1), "raid: a raider among a crew already all hurt hurt one of them again");
   ok(commits === 0 && store.get("zs.save.1") === saved, `raid: the game saved mid-wave (${commits} commits)`);
   // cleared: the door opens at once, and they come out
   I.walkers.forEach((z) => I.hurtWalker(z, 1e6));
@@ -1872,7 +2197,7 @@ simGroup("yard", "yard: talking: June's patch-up, the bubble, words counted once
   // more talks the same calm: no second patch-up, no heal report, and words already read never count again
   I.interact();
   ok(!I.talk, "talk: E again with nothing to ask did not close the bubble");
-  const healWords = Z.crewFill(Z.crewText("report", "heal"), { hp: S.crewHealAmount() }).trim();
+  const healTip = Z.crewFill(Z.crewText("tip", who, "heal"), { hp: S.crewHealAmount() }).trim();
   let healed = 0;
   let reported = 0;
   let recounted = 0;
@@ -1886,7 +2211,7 @@ simGroup("yard", "yard: talking: June's patch-up, the bubble, words counted once
     I.interact();
     if (!I.talk) break;
     if (p.hp !== hp1) healed++;
-    if (healWords && I.talk.panel.text.includes(healWords)) reported++;
+    if (healTip && I.talk.panel.text.includes(healTip)) reported++; // the patch-up told again, as if it healed
     if (new Set(S.save.crew.read).size === read1) {
       quiet++;
       if (S.save.stats.wordsRead !== w1) recounted++;
@@ -1894,7 +2219,7 @@ simGroup("yard", "yard: talking: June's patch-up, the bubble, words counted once
     I.interact();
   }
   ok(!healed, `talk: patched up ${healed} more times in the same calm`);
-  ok(!reported, "talk: the patch-up was told again as a report");
+  ok(!reported, "talk: the patch-up was told again (as a report, or her heal tip with no patch-up)");
   ok(!recounted, `talk: ${recounted} bubbles with nothing new in them counted their words again`);
   ok(quiet > 0, "talk: twelve talks never repeated a text (nothing to check words-once against)");
   // walking three tiles away (backing off, S held) closes it
@@ -1953,8 +2278,58 @@ simGroup("yard", "yard: asking: the offer, the card, an errand's hand-in line", 
       const want = "give " + Z.crewName(eid) + " " + n + " " + (n === 1 ? IT.one : IT.many);
       ok(act && act.action === "handIn" && act.line === want, `ask: the errand's hand-in line is "${act && act.line}", not "${want}"`);
     });
+    // open and not yet filled: the bubble names it under the words, in plain English, and the hint says so on its
+    // last day (the crew never said a word about it before "time ran out")
+    const ce = crewOf(g, eid);
+    if (ok(ce, `ask: ${eid} is not in the yard`)) {
+      hold(g, eid, o.x + 2, o.y);
+      standAt(g, o.x + 2, o.y + 1.5, o.x + 2, o.y);
+      const line = (count, have, left) => {
+        S.save.crew.errand[eid] = { id: e.id, item: e.item, count, have, day: S.save.day, due: S.save.day + left };
+        I.crewOpen(eid);
+        const meta = I.talk ? I.talk.panel.meta : [];
+        I.crewTalkEnd();
+        const row = meta.find((m) => m[0] === "Errand");
+        return row ? row[1] : null;
+      };
+      const many = "2 " + IT.many;
+      ok(line(2, 0, 3) === many + ", 3 days left", `ask: an open errand's bubble line is "${line(2, 0, 3)}", not "${many}, 3 days left"`);
+      ok(line(2, 1, 1) === many + ", 1 brought home, 1 day left", `ask: an open errand's last-day line is "${line(2, 1, 1)}"`);
+      ok(line(2, 2, 1) === null, "ask: a filled errand is still named as open in the bubble");
+      const hint = (left) => {
+        S.save.crew.errand[eid] = { id: e.id, item: e.item, count: 2, have: 0, day: S.save.day, due: S.save.day + left };
+        S.save.inventory[e.item] = 0;
+        ce.hint = null;
+        return I.crewHint({ kind: "crew", obj: ce });
+      };
+      ok(/\(.*errand: 1 day left\)$/.test(hint(1)) && !/errand/.test(hint(2)), `ask: the hint on an errand's last day is "${hint(1)}" (the day before: "${hint(2)}")`);
+    }
     S.save.crew.errand[eid] = null;
   }
+  // a hand-in: no toast over the bubble that opens again (the card said what it paid), and that bubble tells the
+  // payoff the hand-in earned without the tip read a moment ago (no new talk is counted)
+  S.save.crew.quests[first.id].state = "found";
+  hold(g, who, o.x, o.y);
+  standAt(g, o.x, o.y + 1.5, o.x, o.y);
+  I.crewOpen(who);
+  const tip = S.crewTip(who, I.crewTipCtx(who));
+  const tipText = tip ? Z.crewFill(Z.crewText("tip", who, tip.tip), tip.vars).trim() : "";
+  ok(I.talk && I.talk.action === "handIn" && tipText && I.talk.panel.text.includes(tipText.slice(0, 20)), `ask: setup, the bubble before the hand-in (${I.talk && I.talk.action}) has no tip`);
+  const talks = S.save.crew.talks[who];
+  const toasts = g.toasts.length;
+  I.interact();
+  ok(same(g.cards[g.cards.length - 1], [who, "handIn"]), `ask: E did not ask for the hand-in card (${JSON.stringify(g.cards)})`);
+  const res = S.handIn(who, first.id);
+  I.crewCardDone(who, "handIn", res);
+  ok(g.toasts.length === toasts, `ask: the hand-in made a toast over the bubble (${g.toasts.slice(toasts).map((x) => x.text).join(" | ")})`);
+  const after = Z.crewFill(Z.crewText("quest", first.id, "after")).trim();
+  ok(I.talk && I.talk.id === who && I.talk.panel.text.includes(after.slice(0, 30)), `ask: after the hand-in the bubble did not open again with the payoff (${I.talk && I.talk.panel.text.slice(0, 80)})`);
+  // no tip at all: not the one just read, nor the next in turn (a tip that applies now, of any class)
+  const tipsNow = S.crewTips(who, I.crewTipCtx(who));
+  const told = tipsNow.urgent.concat(tipsNow.regular, tipsNow.fallback).map((t) => Z.crewFill(Z.crewText("tip", who, t.tip), t.vars).trim().slice(0, 20)).concat([tipText.slice(0, 20)]);
+  ok(I.talk && !told.some((x) => x && I.talk.panel.text.includes(x)), `ask: the bubble opened again after the hand-in tells a tip (${I.talk && I.talk.panel.text.slice(0, 120)})`);
+  ok(S.save.crew.talks[who] === talks, `ask: the bubble opened again counted a new talk (${talks} -> ${S.save.crew.talks[who]})`);
+  if (I.talk) I.crewTalkEnd();
 });
 
 simGroup("yard", "yard: the dog at home: near Pip, then trailing, sheltering, barking, petted", () => {
@@ -2059,9 +2434,9 @@ simGroup("yard", "yard: the dog quest handed in, then the dog named", () => {
   I.interact();
   ok(same(g.cards, [[lead, "handIn"]]), `dog: the cards asked for: ${JSON.stringify(g.cards)}`);
   const res = S.handIn(lead, dq.id);
+  const toasts = g.toasts.length;
   I.crewCardDone(lead, "handIn", res);
-  const thanks = g.toasts[g.toasts.length - 1];
-  ok(thanks && thanks.text.includes(S.rewardWords(dq.reward)) && !/\b\d+ [A-Z]/.test(thanks.text), `dog: the thank-you toast does not give the reward in running text (${thanks && thanks.text})`);
+  ok(g.toasts.length === toasts, `dog: a toast over the bubble after the hand-in (${g.toasts.slice(toasts).map((x) => x.text).join(" | ")}); the card said what it paid`);
   ok(I.talk && I.talk.action === "name", `dog: after the hand-in the bubble did not reopen to name the dog (${I.talk && I.talk.action})`);
   I.update(0.05);
   I.interact();
@@ -2233,10 +2608,11 @@ simGroup("building", "buildings: walking onto every story object, a death, a sec
       I.updatePickups();
     }
     I.buildingLeave();
-    // home: found, on the day page with June's ledger line, and a day that brought only it is not "nothing"
+    // home: found, counted in the day's recap, and a day that brought only it is not "nothing" (June's ledger line
+    // waits for the hand-in: the next day page)
     S.returnHome();
     const entry = S.save.log[S.save.log.length - 1];
-    ok(S.questState(q.id) === "found" && entry && same(entry.quests, [q.id]), `buildings: ${q.id}: home, it is ${S.questState(q.id)} and the day log has ${JSON.stringify(entry && entry.quests)}`);
+    ok(S.questState(q.id) === "found" && entry && entry.recap.quests === 1 && !entry.quests, `buildings: ${q.id}: home, it is ${S.questState(q.id)} and the day log has ${JSON.stringify(entry && { recap: entry.recap.quests, quests: entry.quests })}`);
     const recap = Z.recapText(entry.recap);
     ok(recap && (!nothing || !recap.includes(nothing)), `buildings: ${q.id}: the day it came home reads "${nothing}"`);
   });
@@ -2341,7 +2717,8 @@ simGroup("building", "buildings: the dog follows you through the doors and home"
   }
   I.buildingLeave();
   S.returnHome();
-  ok(S.dogHome() && S.questState(q.id) === "found" && same(S.save.log[S.save.log.length - 1].quests, [q.id]), "dog: home, it is not home or its quest not found");
+  const last = S.save.log[S.save.log.length - 1];
+  ok(S.dogHome() && S.questState(q.id) === "found" && last.recap.quests === 1 && !last.quests, `dog: home, it is not home, its quest not found or not in the day's recap (${JSON.stringify(last.recap)})`);
 });
 
 simGroup("building", "buildings: a gun never lies on a story quest's spot, and keeps its tile", () => {
@@ -2416,6 +2793,7 @@ simGroup("loop", "play-through: every story quest, the errands, the perks and th
   };
   const maxDays = Math.max(40, ...QS.map((q) => ((q.when && q.when.day) || 1) + 15));
   let oldChecked = false;
+  let handed = []; // story quests handed in at home today: June's ledger lines on the next day page
   for (let n = 0; n < maxDays; n++) {
     // home: talk to each of the crew; answer what they ask (the card, as js/main.js shows it)
     S.trip = null;
@@ -2447,6 +2825,7 @@ simGroup("loop", "play-through: every story quest, the errands, the perks and th
           I.crewCardDone(id, "handIn", res);
           if (res && res.kind === "quest") {
             counts.quests++;
+            handed.push(res.def.id);
             const perk = (res.def.reward && res.def.reward.perk) || {};
             const now = perkNow();
             Object.entries(perk).forEach(([k, v]) => {
@@ -2478,16 +2857,32 @@ simGroup("loop", "play-through: every story quest, the errands, the perks and th
       else fail(`${q.id} could not be picked up in ${loc.id}`);
       I.buildingLeave();
     });
+    // each open errand's items off the known places' shelves, as a player would get them: every shelf spot of the
+    // item that is back (never more than the errand still needs). No items are made up: an errand asks only for
+    // what those shelves can give in its days, so none ever runs late
+    const lateBefore = ids.map((id) => S.crewReport(id).late || null);
+    const need = {}; // per item, what the open errands still need (two crew members may ask for the same item)
     ids.forEach((id) => {
       const e = S.save.crew.errand[id];
-      if (e && e.have < e.count) S.trip.cargo[e.item] = (S.trip.cargo[e.item] || 0) + e.count - e.have;
+      if (e && e.have < e.count) need[e.item] = (need[e.item] || 0) + e.count - e.have;
     });
+    W.LOCATIONS.forEach((l) =>
+      (l.items || []).forEach((k, i) => {
+        if (!(need[k] > 0) || !S.isKnown(l.id) || !S.itemAvailable(l.id, "i" + i)) return;
+        S.takeItem(l.id, "i" + i, false);
+        S.trip.cargo[k] = (S.trip.cargo[k] || 0) + 1;
+        need[k]--;
+      })
+    );
     const next = toFind.find((id) => !S.isKnown(id));
     if (next) S.reveal([next]);
     S.returnHome();
     counts.days++;
+    ids.forEach((id, i) => S.crewReport(id).late && S.crewReport(id).late !== lateBefore[i] && fail(`${id}'s errand for ${S.crewReport(id).late} ran late although its shelves were emptied on every trip`));
     const entry = S.save.log[S.save.log.length - 1];
-    if (!same((entry.quests || []).slice().sort(), picked.slice().sort())) fail(`the day log's quests ${JSON.stringify(entry.quests)} are not the ${JSON.stringify(picked)} brought home`);
+    if ((entry.recap.quests || 0) !== picked.length) fail(`the day's recap counts ${entry.recap.quests || 0} story objects, not the ${picked.length} brought home`);
+    if (!same((entry.quests || []).slice().sort(), handed.slice().sort())) fail(`the day page's ledger lines ${JSON.stringify(entry.quests)} are not the ${JSON.stringify(handed)} handed in the day before`);
+    handed = [];
     // the save, as written, loads back the same
     const json = JSON.stringify(S.save);
     S.loadSave(1);

@@ -12,7 +12,7 @@
       title: "Bag of sunflower seeds",
       brief: "June wants to plant sunflowers along the fence. The kids at her old school did that every year. Corner Grocery is east of the cabin. The seeds lie on the floor by the fish tank, near the SEAFOOD sign. Look for a brown paper bag with a sunflower on it. “A fence looks less sad with flowers on it,” June says. She will give you 20 scrap and 1 seed packet.",
       tag: "A brown paper bag of sunflower seeds, scooped from the bulk bins. A sunflower is printed on the front. The price sticker says: for snacks or for planting.",
-      journal: "You brought home a bag of sunflower seeds today. I planted them along the fence, one finger deep. Pip watered every one and whispered, “Grow, June's sunflowers.”",
+      journal: "You brought home a bag of sunflower seeds. I planted them along the fence, one finger deep. Pip watered every one and whispered, “Grow, June's sunflowers.”",
       done: "June holds the bag in both hands, as if it were full of gold. She shakes it softly and listens to the seeds. “Sunflowers grow taller than the fence,” June says. “They turn their faces to the sun all day long.” She smiles at you over her glasses. Then she goes to find a trowel.",
       after: "June tells you about her old school garden. Every spring, her students planted sunflowers by the school fence. Every fall, they saved the seeds in envelopes with their names on them. One boy wrote down how tall his sunflower was, every single day. “That boy would be good at keeping a ledger,” June says. “Better than me, maybe.”",
     },
@@ -127,7 +127,7 @@
     "pip-5": {
       title: "The stray dog",
       brief: "Through the binoculars, Pip saw the dog that barks past the trees. It slipped into Corner Grocery, east of the cabin. It sleeps on the LOADING DOCK, beside the forklift. It is sandy tan, with a dark brown patch over one eye. Pip gives you some treats. Hold one out (press E), and the dog will follow you to the van. Walkers leave it alone. Pip offers 60 scrap, 1 box of radio parts and 1 box of books.",
-      journal: "You brought a dog home from Corner Grocery today. Pip smiled all evening. The dog drank from Pip's bowl by the gate. I did not say a word.",
+      journal: "You brought a dog home from Corner Grocery. Pip smiled all evening. The dog drank from Pip's bowl by the gate. I did not say a word.",
       done: "Pip kneels down, and the dog licks their face. Pip laughs so loud that June comes out to look. The dog eats 1 food every 2 days. It barks when walkers come close to the cabin, so it keeps watch too. Pip says that makes two lookouts now.",
       after: "Pip says {dog} has a home now, and so does the crew. Pip still wants to build Finn's treehouse one day. It will have a bucket on a pulley, so {dog} can ride up. June says the dog stays on the ground. Pip just says, “We will see.”",
     },

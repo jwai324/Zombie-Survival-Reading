@@ -404,3 +404,10 @@ Judgment calls made while building the crew (each marked **Assumption** can chan
   "time ran out" is never the first you hear of it again.
 - **Open question for the owner:** the fifth star gates nothing yet (stars 1 to 4 gate quests and
   jobs). A fifth-star reward (a job, a perk or a story) would be a design addition.
+- **Cargo goes to the errand due first** when two open errands want the same item, and an errand
+  whose item the known shelves cannot give in time is passed over in its turn.
+- **After a hand-in** the bubble reopens with the payoff and no tip, and no reward toast covers it
+  (the card already listed the reward). Arriving home with only a story object or the dog, the toast
+  says what came home instead of "0 items unloaded".
+- **Quest markers on the city map** carry a paper ring, so a crew color reads on a roof of its own
+  color.

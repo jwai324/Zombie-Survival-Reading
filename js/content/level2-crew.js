@@ -51,7 +51,7 @@
     },
     "june-t10": {
       title: "Pip's Problem",
-      text: "June says {dog} is Pip's problem. Then she slips it the last of her beans. She writes its supper in the ledger, like everyone else's. June is glad of one thing. Walkers never hurt the dog. So nobody has to guard it in a wave.",
+      text: "June says {dog} is Pip's problem. Then she slips it the last of her beans. She writes its supper in the ledger, like everyone else's. June is glad of one thing. Walkers never hurt {dog}. So nobody has to guard it in a wave.",
     },
     "june-m1": {
       title: "Cold Morning Knees",
@@ -93,7 +93,7 @@
     },
     "tomas-t5": {
       title: "His Father's Teacher",
-      text: "Tomas learned engines from his father. He handed his father wrenches under cars. His father learned from Mr. Ortiz at Ortiz Auto. Tomas hopes Mr. Ortiz is still out there somewhere. Then he gets back to work. He says most van upgrades stop at level 2. They go higher once you build a Garage.",
+      text: "Tomas learned engines from his father. He handed his father wrenches under cars. His father learned from Mr. Ortiz at Ortiz Auto. Tomas hopes Mr. Ortiz is still out there somewhere. Then he gets back to work. He says most van upgrades stop at level 2. A Garage lets them go higher.",
     },
     "tomas-t6": {
       title: "A Garage at Last",
@@ -163,7 +163,7 @@
     },
     "pip-t6": {
       title: "The List of Voices",
-      text: "Pip keeps a list of every voice the crew hears. The first name on it is June. People say someone named Jo talks on the radio. Jo talks from a rooftop. Pip wants to hear Jo for real. A Radio room finds new places for the map. You build it from radio parts and wire.",
+      text: "Pip keeps a list of every voice the crew hears. The first name on it is June. Jo talks on the radio from a rooftop. Pip says the Radio room brings in voices like Jo's. It finds new places for the map, too. It is made from radio parts and wire.",
     },
     "pip-t7": {
       title: "A Radio That Reaches Town",
@@ -183,7 +183,7 @@
     },
     "pip-m1": {
       title: "What Town Looked Like",
-      text: "Pip asks what the town looked like today. Every street and every shop matters to Pip. So do the birds. Pip listens to every word and never gets bored. The best parts go in Pip's notebook. Someday Pip wants to see it all.",
+      text: "Pip asks what the town looks like out there. Every street and every shop matters to Pip. So do the birds. Pip listens to every word and never gets bored. The best parts go in Pip's notebook. Someday Pip wants to see it all.",
     },
     "pip-m2": {
       title: "A Knot for Luck",
@@ -225,6 +225,7 @@
       keys: "Pip says you are holding {keys}. Each key's note says which stash it opens. Your notes are in the backpack, so read them again.",
       walkers: "Pip keeps count of the walkers in town. In {days} days, each building gets one more walker. That goes on up to a limit, Pip says.",
       radio: "Pip says the radio has news for you. A new broadcast plays each day you come home. Hear old ones at the radio shelf by the couch.",
+      full: "Pip says the buildings in town are full of walkers. No building will get any more. Each place stays as dangerous as it is now.",
     }),
   });
 
@@ -234,9 +235,8 @@
     fenceFree: "Tomas fixed {fixed} fence boards since you last talked. It cost no scrap at all. Tomas is proud of that.",
     cabin: "Tomas fixed the cabin's broken doors and windows. He fixed {fixed} in all. It took {scrap} scrap from the base. He did it in the calm.",
     cabinFree: "Tomas fixed the cabin's broken doors and windows. He fixed {fixed} in all. It cost no scrap at all. He did it in the calm.",
-    hurt: "Walkers got into the closet during the wave. {who} got hurt. It cost the base {cost}. Everyone is all right now. Clear the cabin faster next time.",
+    hurt: "Walkers got into the closet during a wave. {who} got hurt. It cost the base {cost}. Everyone is all right now. Clear the cabin faster next time.",
     late: "Time ran out on the errand: {item}. It is off the list now. Trust dropped a little. The backpack shows the days left on an errand.",
-    heal: "June patched you up and gave you back {hp} health. She says to be more careful out there.",
   });
 
   /* ---------- The dog: Pip's card asks for a name, then the dog's own bubble ---------- */

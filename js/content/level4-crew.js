@@ -162,7 +162,7 @@
     },
     "pip-t6": {
       title: "The List of Voices",
-      text: "Pip keeps a list of every voice the crew hears, and the first name on it is June. Tomas is second, which he finds unfair. People say someone named Jo talks on the radio from a rooftop. Pip wants Jo on the list more than anything, except maybe a dog. Pip says the Radio room, made of radio parts and wire, finds new places for the map.",
+      text: "Pip keeps a list of every voice the crew hears, and the first name on it is June. Tomas is second, which he finds unfair. People say someone named Jo talks on the radio from a rooftop. Pip says a voice like that is exactly what the list is for. The Radio room, made of radio parts and wire, brings in voices like Jo's, Pip says. It also finds new places for the map.",
     },
     "pip-t7": {
       title: "A Radio That Reaches",
@@ -178,11 +178,11 @@
     },
     "pip-t10": {
       title: "Pip's Shadow",
-      text: "These days {dog} follows Pip around the yard like a sandy shadow. In a wave, it hides in the closet with the crew. If it barks in a wave, Pip says a walker is near the cabin, so go and check. Pip is teaching it to sit, like Biscuit in Lucy's drawing. So far it sits about half the time. Pip says that counts.",
+      text: "Already {dog} follows Pip around the yard like a sandy shadow. In a wave, it hides in the closet with the crew. If it barks in a wave, Pip says a walker is near the cabin, so go and check. Pip is teaching it to sit, like Biscuit in Lucy's drawing. So far it sits about half the time. Pip says that counts.",
     },
     "pip-m1": {
       title: "Tell It Slowly",
-      text: "Pip looks up the moment you walk over, eyes wide and ready. Pip asks what the town looked like today and listens to every word. Pip wants to know if the streets were empty and if any windows had lights. Pip likes the small details best, like the color of a door. “Tell it slowly,” Pip says. “I want to see it in my head.”",
+      text: "Pip looks up the moment you walk over, eyes wide and ready. Pip asks what the town looks like out there and listens to every word. Pip wants to know if the streets are empty and if any windows have lights. Pip likes the small details best, like the color of a door. “Tell it slowly,” Pip says. “I want to see it in my head.”",
     },
     "pip-m2": {
       title: "A Knot for Luck",
@@ -224,6 +224,7 @@
       keys: "Pip says you are holding {keys}. Each key's note says which stash it opens. Your notes are all in the backpack, so read them again before you try a lock.",
       walkers: "Pip keeps count with tally marks. In {days} days, the buildings in town get one more walker each, up to a limit. Pip says an early trip is a quieter trip.",
       radio: "Pip says the radio plays a new broadcast each day you come home. Pip never misses one. You can hear them all again at the radio shelf by the couch, any time.",
+      full: "Pip taps the last tally mark on the wall. Every building in town is as full of walkers as it will get, Pip says. From now on, a place is only as dangerous as it is today.",
     }),
   });
 
@@ -233,9 +234,8 @@
     fenceFree: "Tomas fixed {fixed} fence boards since you last talked. It cost no scrap at all, thanks to the steel brackets you brought home. Tomas says free fixes are the best kind.",
     cabin: "Tomas fixed broken doors and windows in the cabin: {fixed} in all. It took {scrap} scrap from the base. Tomas says every hinge is quiet again, and walkers will have to work harder now.",
     cabinFree: "Tomas fixed broken doors and windows in the cabin: {fixed} in all. It cost no scrap at all. Tomas whistles as he hangs up his hammer, pleased with the work.",
-    hurt: "Walkers got into the closet during the wave, and {who} got hurt. It cost the base {cost}. Everyone is all right now, but the crew needs you inside faster next time.",
+    hurt: "Walkers got into the closet in a wave, and {who} got hurt. Counting every wave since you last talked, it cost the base {cost}. Everyone is all right now, but the crew needs you inside faster.",
     late: "Time ran out on the errand: {item}. It is off the list now, and trust dropped a little. There will be other errands, so bring things home before the days run out.",
-    heal: "June patched you up and gave you back {hp} health. She tucks the tape back into her cardigan pocket and tells you to take it slower out there. June means it kindly.",
   });
 
   /* ---------- The dog: Pip's card asks for a name; then a line when you pet it ---------- */

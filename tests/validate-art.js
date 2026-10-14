@@ -15,7 +15,8 @@
      lists is registered and draws cleanly, at its size, with every opts set listed for it; the list
      covers every crew member in every pose and frame, the poses and quest object kinds docs/CREW.md
      names, and every crew member, post pose and quest object kind in the facts (js/story-crew.js,
-     js/story-quests.js); an id, pose or kind the art does not know yet draws a stand-in.
+     js/story-quests.js and any other js/story*.js the page loads); an id, pose or kind the art does not know yet
+     draws a stand-in.
    validate-world.js checks the layout data, validate-engine.js what the engine makes of it. */
 "use strict";
 const fs = require("fs");
@@ -419,7 +420,9 @@ else {
   fsb.window = fsb;
   vm.createContext(fsb);
   let factsOk = true;
-  ["layouts.js", "world.js", "story.js", "story-home.js", "story-crew.js", "story-quests.js"].forEach((f) => {
+  // the fact files in page order: js/layouts.js, js/world.js and every js/story*.js the page loads (a split fact file,
+  // story-quests2.js, is checked too; tests/validate-world.js reads the same list)
+  pageScripts.filter((f) => /^(layouts|world|story[\w-]*)\.js$/.test(f)).forEach((f) => {
     if (!factsOk) return;
     try {
       vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), fsb, { filename: "js/" + f });

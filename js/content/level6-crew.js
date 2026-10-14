@@ -47,7 +47,7 @@
     },
     "june-t10": {
       title: "Pip's Problem",
-      text: "“That dog,” June announces, “is Pip's problem, not mine.” Then, when she thinks nobody is looking, she slips {dog} the last of her beans from her own plate. June writes its supper in the ledger like everyone else's, one neat line under the crew's, because a ledger has to be honest about every mouth. She admits she is glad of one thing. Walkers never hurt the dog, so nobody has to guard it in a wave. Nobody has to choose between the closet door and a frightened animal. “It simply comes with us and sits,” June says. “Which is more than I can say for Tomas.”",
+      text: "“That dog,” June announces, “is Pip's problem, not mine.” Then, when she thinks nobody is looking, she slips {dog} the last of her beans from her own plate. June writes its supper in the ledger like everyone else's, one neat line under the crew's, because a ledger has to be honest about every mouth. She admits she is glad of one thing. Walkers never hurt the dog, so nobody has to guard it in a wave. Nobody has to choose between the closet door and a frightened animal. “It can simply come with us and sit,” June says. “Which is more than I can say for Tomas.”",
     },
     "june-m1": {
       title: "Cold Mornings",
@@ -89,7 +89,7 @@
     },
     "tomas-t5": {
       title: "Handing Over Wrenches",
-      text: "Tomas learned engines from his father, mostly by lying on cold concrete and handing him wrenches under cars. “Nine-sixteenths,” he says, in his father's deeper voice. “No, the other nine-sixteenths.” His father learned the trade from Mr. Ortiz at Ortiz Auto, who taught half the mechanics in town and never once let them skip a step. Tomas hopes Mr. Ortiz is still out there somewhere, inspecting somebody's work. Then he turns back to business. Most van upgrades stop at level 2 until you build a Garage, because some jobs need a proper roof over them. “Build the Garage,” Tomas says, “and I will build you a better van.”",
+      text: "Tomas learned engines from his father, mostly by lying on cold concrete and handing him wrenches under cars. “Nine-sixteenths,” he says, in his father's deeper voice. “No, the other nine-sixteenths.” His father learned the trade from Mr. Ortiz at Ortiz Auto, who taught half the mechanics in town and never once let them skip a step. Tomas hopes Mr. Ortiz is still out there somewhere, inspecting somebody's work. Then he turns back to business. Most van upgrades stop at level 2 until you build a Garage, because some jobs need a proper roof over them. “A garage is where a van gets better,” Tomas says, “one level at a time.”",
     },
     "tomas-t6": {
       title: "A Garage at Last",
@@ -159,7 +159,7 @@
     },
     "pip-t6": {
       title: "The List of Voices",
-      text: "Pip keeps a list of every voice the crew hears, written in a notebook that is starting to come apart at the spine. The first name on it is June, underlined twice. Lately there is a rumor at the bottom of the page. People say someone named Jo talks on the radio from a rooftop, reading out news and warnings to anybody listening. Pip wants that voice on the list more than almost anything. The Radio room, made of radio parts and wire, would find new places for the map, Pip says, and maybe Jo too. “Imagine,” Pip says. “A voice that knows things we do not.”",
+      text: "Pip keeps a list of every voice the crew hears, written in a notebook that is starting to come apart at the spine. The first name on it is June, underlined twice. People say someone named Jo talks on the radio from a rooftop, reading out news and warnings to anybody listening. Pip says that is exactly the kind of voice the list was made for. The Radio room, made of radio parts and wire, brings in voices like Jo's, Pip says, and it finds new places for the map too. “Imagine,” Pip says. “Voices that know things we do not.”",
     },
     "pip-t7": {
       title: "A Radio That Reaches",
@@ -175,11 +175,11 @@
     },
     "pip-t10": {
       title: "Teaching It to Sit",
-      text: "These days {dog} follows Pip around the yard like a sandy shadow. In a wave it hides in the closet with the crew, pressed against Pip's knees. Pip wants you to know about the barking. If it barks in a wave, a walker is near the cabin, Pip says, so go and check before trouble gets any further inside. Pip is also teaching it to sit, like Biscuit in Lucy's drawing. Progress is uneven. “It sits beautifully,” Pip reports, “for exactly one second, and then it sits on me.” Pip has decided that still counts, and writes it down as a success.",
+      text: "Already {dog} follows Pip around the yard like a sandy shadow. In a wave it hides in the closet with the crew, pressed against Pip's knees. Pip wants you to know about the barking. If it barks in a wave, a walker is near the cabin, Pip says, so go and check before trouble gets any further inside. Pip is also teaching it to sit, like Biscuit in Lucy's drawing. Progress is uneven. “It sits beautifully,” Pip reports, “for exactly one second, and then it sits on me.” Pip has decided that still counts, and writes it down as a success.",
     },
     "pip-m1": {
       title: "What the Town Looked Like",
-      text: "Pip pounces the moment you are within reach. “What did the town look like today?” Pip asks, and then listens to every word as if you were reading aloud from a great novel. Pip wants all of it: which streets were empty, what the signs said, whether anything at all is growing in the cracks. If you leave something out, Pip notices. “You skipped the part between the van and the door,” Pip says. “That is usually the best part.” Some nights Pip writes your answers down, word for word, in the back of a notebook.",
+      text: "Pip pounces the moment you are within reach. “What does the town look like out there?” Pip asks, and then listens to every word as if you were reading aloud from a great novel. Pip wants all of it: which streets are empty, what the signs say, whether anything at all is growing in the cracks. If you leave something out, Pip notices. “You skipped the part between the van and the door,” Pip says. “That is usually the best part.” Some nights Pip writes your answers down, word for word, in the back of a notebook.",
     },
     "pip-m2": {
       title: "A Knot for Luck",
@@ -221,6 +221,7 @@
       keys: "Pip has noticed the jingle in your pocket: you are holding {keys}. Each key's note says which stash it opens, Pip reminds you, and your notes are all in the backpack. “Read it again before you try a lock,” Pip says.",
       walkers: "Pip keeps count, and the numbers are not good news: in {days} days, the buildings in town each get one more walker, up to a limit. Pip says the places you keep putting off will only get busier.",
       radio: "Pip says the radio plays a new broadcast each day you come home, and Pip has not missed one yet. If you have, no harm done: you can hear them all again at the radio shelf by the couch.",
+      full: "Pip has drawn a double line under the tally on the wall, the way a bookkeeper closes an account. Every building in town is as full of walkers as it will get, Pip says. From now on, a place is only as dangerous as it is today. “Which is still plenty,” Pip adds, “so do not get comfortable.”",
     }),
   });
 
@@ -230,9 +231,8 @@
     fenceFree: "Tomas reports, a little proudly, that he fixed {fixed} fence boards since you last talked. It cost no scrap at all, which Tomas considers the finest kind of repair there is.",
     cabin: "Tomas went through the cabin while it was quiet and fixed broken doors and windows: {fixed} in all. It took {scrap} scrap from the base. Everything swings and latches properly again, he says, and he tested each one twice.",
     cabinFree: "Tomas went through the cabin while it was quiet and fixed broken doors and windows: {fixed} in all. It cost no scrap at all, and Tomas is still faintly smug about it.",
-    hurt: "Walkers forced their way into the closet during the wave, and {who} got hurt. It cost the base {cost} to set things right. Everyone is all right now, {who} says, but the closet felt very small for a while.",
+    hurt: "Walkers forced their way into the closet in a wave, and {who} got hurt. Tallied across every wave since you last talked, it cost the base {cost} to set things right. Everyone is all right now, {who} says, but the closet felt very small for a while.",
     late: "Time ran out on the errand: {item}. It is off the list now, crossed through in pencil, and trust dropped a little. Nobody is angry, exactly, but a promise that runs late leaves a mark.",
-    heal: "June patched you up, with tape and a clean cloth and no fuss, and gave you back {hp} health. She says that next time you might try staying in one piece, but she says it kindly.",
   });
 
   /* ---------- The dog (DOG.facts) ---------- */

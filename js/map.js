@@ -1299,7 +1299,9 @@
         ctx.stroke();
       }
       // crew quest markers: a diamond in the giver's color for each story object (or the dog) waiting inside,
-      // on the corner opposite the cache marker, side by side (at most two quest spots a building)
+      // on the corner opposite the cache marker, side by side (at most two quest spots a building). A paper ring
+      // outside its ink edge keeps it apart from any roof, a giver's color on a roof of the same color too
+      // (Tomas's navy on Reyes Hardware's navy roof): on a dark roof the paper ring shows, on a light one the ink
       if (l.id !== "base") {
         questsAt(l.id).forEach((q, i) => {
           const x = -size - 2 + i * 21;
@@ -1310,6 +1312,10 @@
           ctx.lineTo(x, y + 12);
           ctx.lineTo(x - 10, y);
           ctx.closePath();
+          ctx.lineJoin = "round";
+          ctx.strokeStyle = PAPER3;
+          ctx.lineWidth = 7.5;
+          ctx.stroke();
           ctx.fillStyle = crewColor(q.giver);
           ctx.fill();
           ctx.strokeStyle = INK;

@@ -41,7 +41,9 @@ const warnings = [];
 const err = (c, m) => errors.push(c + ": " + m);
 const warn = (c, m) => warnings.push(c + ": " + m);
 const words = (s) => String(s).trim().split(/\s+/).filter(Boolean);
-const sentences = (s) => String(s).replace(/\n+/g, " ").split(/(?<=[.!?]["”']?)\s+/).map((x) => x.trim()).filter(Boolean);
+// a sentence ends at . ! or ? (and a closing quote), but never at Mr., Mrs., Ms., Dr. or St.: in these texts they
+// always come before a name ("Mr. Ortiz", "St. Anne Annex"), so the sentence goes on
+const sentences = (s) => String(s).replace(/\n+/g, " ").split(/(?<=[.!?]["”']?)(?<!\b(?:Mr|Mrs|Ms|Dr|St)\.)\s+/).map((x) => x.trim()).filter(Boolean);
 const isStr = (v, min = 1) => typeof v === "string" && v.trim().length >= min;
 const longestSentence = (p) => sentences(p).reduce((m, s) => Math.max(m, words(s).length), 0);
 // a few offending entries, quoted, for an error message
@@ -53,16 +55,21 @@ const dupes = (arr) => {
   return out;
 };
 
-function load(file, key, before) {
+/** Run these files, in order, in one fresh sandbox and hand back ZSR[key]. */
+function load(files, key) {
   const sb = {};
   sb.globalThis = sb;
   vm.createContext(sb);
-  (before || []).concat(file).forEach((f) => vm.runInContext(fs.readFileSync(f, "utf8"), sb, { filename: f }));
+  files.forEach((f) => vm.runInContext(fs.readFileSync(f, "utf8"), sb, { filename: f }));
   return sb.ZSR && sb.ZSR[key];
 }
-// world.js takes its interiors from layouts.js, so that loads first; the story facts follow it
 const JS = (f) => path.join(ROOT, "js", f);
-const WORLD = load(JS("story-quests.js"), "WORLD", [JS("layouts.js"), JS("world.js"), JS("story.js"), JS("story-home.js"), JS("story-crew.js")]);
+// the fact files, in page order: js/layouts.js (world.js takes its interiors from it), js/world.js and every
+// js/story*.js index.html loads, so a fact file split off as the game grows (story-quests2.js) is checked too
+// (tests/validate-world.js reads the same list and checks the page loads them in a working order)
+const PAGE = [...fs.readFileSync(path.join(ROOT, "index.html"), "utf8").matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]);
+const FACT_FILES = PAGE.filter((f) => /^(layouts|world|story[\w-]*)\.js$/.test(f)).map(JS);
+const WORLD = load(FACT_FILES, "WORLD");
 if (!WORLD) {
   console.log("ERROR js/world.js did not define ZSR.WORLD");
   process.exit(1);
@@ -121,7 +128,7 @@ const landmarkNames = (loc) => {
 const landmarksIn = (text, names) => names.filter((n) => String(text || "").toLowerCase().includes(n));
 /* Streets have names on the signs, the city map and the minimap, so a note that names one must name a
    street the player really takes from this place to a place the note reveals. */
-const STREETS = load(JS("streets.js"), "Streets", [JS("layouts.js"), JS("world.js")]);
+const STREETS = load(FACT_FILES.concat(JS("streets.js")), "Streets");
 const STREET_LIST = STREETS ? Object.values(STREETS.STREET_NAMES).concat(STREETS.SIDE_STREETS.map((s) => s.name)) : [];
 function checkStreets(ctx, text, from, reveals) {
   const low = String(text || "").toLowerCase();
@@ -391,11 +398,11 @@ const CREW_MODE = (() => {
   return process.env.CREW_STRICT === "1" || CREW_WORDS_REQUIRED ? "strict" : "auto";
 })();
 /* The placeholders the engine fills, by text: the same tables as tests/validate-crew.js (compared at the start of a
-   run). Every placeholder in a text's facts must be in its words. {dog} (the dog's name, or "the dog" before it has
+   run) and as TIP_VARS and REPORTS in tests/validate-world.js (compared there). Every placeholder in a text's facts must be in its words. {dog} (the dog's name, or "the dog" before it has
    one) is filled everywhere, but only these texts may use it: talk (topics, moods and a quest's payoff), a quest's
    brief and thanks, and the dog's own named and pet lines; titles and tags are shown as written, so never any. */
-const CREW_TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [] };
-const CREW_REPORT_VARS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], hurt: ["who", "cost"], late: ["item"], heal: ["hp"] };
+const CREW_TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [], full: [] };
+const CREW_REPORT_VARS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], hurt: ["who", "cost"], late: ["item"] };
 const CREW_ERRAND_VARS = ["count", "item", "days", "reward"];
 const CREW_QUEST_VARS = { brief: ["reward"], done: ["reward"], title: [], tag: [], journal: [], after: [] };
 const CREW_DOG_SUBS = ["brief", "done", "after"]; // the quest texts that may also say {dog}

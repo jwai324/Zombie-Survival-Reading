@@ -10,7 +10,8 @@
      supplies and trust; once per member per wave; the dog never). They come out when it is cleared.
    - Jobs in the calm (State.crewJobs): the fence job walks to the nearest hole or cracked segment, works
      workSeconds and fixes it, paying from the base's scrap (State.crewRepairPay); the cabin job does the
-     same for the cabin's damaged doors and windows. No toast: they tell you when you next talk (a report).
+     same for the cabin's damaged doors and windows. While the next build is ready its scrap is kept back
+     (crewCanPay). No toast: they tell you when you next talk (a report).
      The lookout job calls the next wave (phase.next, rolled when the calm began: js/yard.js) as a toast
      State.crewLookoutSeconds() before it comes. The heal job patches you up when you talk while hurt.
    - Talking (E, crosshair on them): a speech bubble on the read panel (kind "talk"; the yard keeps
@@ -575,10 +576,22 @@
       });
       return out;
     },
-    /** The base can pay for one repair of this kind (or it is free with the perk). */
+    /** The base can pay for one repair of this kind (or it is free with the perk). While the next build is ready
+        (State.nextBuild), the scrap it needs is kept back: they spend only what is above it, and the holes and
+        cracks wait (Tomas never spends the scrap a build you could make right now needs). */
     crewCanPay(kind) {
       const S = State();
-      return (S.save.scrap || 0) >= S.crewRepairCost(kind);
+      const cost = S.crewRepairCost(kind);
+      if (cost <= 0) return true;
+      return (S.save.scrap || 0) - this.crewScrapReserve() >= cost;
+    },
+    /** Scrap kept back from the crew's repairs: the ready next build's scrap, else 0. */
+    crewScrapReserve() {
+      const S = State();
+      const nb = S.nextBuild ? S.nextBuild() : null;
+      if (!nb || !nb.ready) return 0;
+      const c = S.canUpgradeRoom(nb.room);
+      return (c && c.def && c.def.scrap) || 0;
     },
     /** The job's target still needs fixing. */
     crewJobLive(job) {
@@ -953,13 +966,37 @@
       // more words below the fold come first; then the bubble itself says "Press E again: ..."
       if (this.talk && this.talk.id === c.id) return this.talk.more ? "Press E to read on" : this.talk.action ? "" : "Press E to close";
       // what they have for you, looked up twice a second, not every frame
-      if (!c.hint || this.time - c.hint.t > 0.5) c.hint = { t: this.time, news: S.crewReportItems(c.id).length > 0, need: !!this.crewAction(c.id) };
-      const { news, need } = c.hint;
-      const extra = news && need ? says(c.id, "has", "have") + " news and " + (pron(c.id) === "they" ? "need" : "needs") + " something" : news ? says(c.id, "has", "have") + " news" : need ? says(c.id, "needs", "need") + " something" : "";
+      if (!c.hint || this.time - c.hint.t > 0.5) {
+        const e = this.crewErrandOpen(c.id);
+        c.hint = { t: this.time, news: S.crewReportItems(c.id).length > 0, need: !!this.crewAction(c.id), last: !!e && e.days <= 1 };
+      }
+      const { news, need, last } = c.hint;
+      let extra = news && need ? says(c.id, "has", "have") + " news and " + (pron(c.id) === "they" ? "need" : "needs") + " something" : news ? says(c.id, "has", "have") + " news" : need ? says(c.id, "needs", "need") + " something" : "";
+      // an errand not yet filled on its last day (the trip today is the last that counts)
+      if (last) extra = (extra ? extra + "; " : "") + "errand: 1 day left";
       return "Press E to talk to " + name + (extra ? " (" + extra + ")" : "");
     },
 
     /* ---------- The speech bubble ---------- */
+    /** The speaker's open errand while it is not yet filled: { r (State.request shape), v (State.requestVars),
+        days (trips left, at least 1) }, or null. */
+    crewErrandOpen(id) {
+      const S = State();
+      const r = S.requests(id).find((x) => x.kind === "errand");
+      if (!r || !r.st || (r.st.have || 0) >= r.st.count) return null;
+      const v = S.requestVars(r);
+      return { r, v, days: Math.max(1, v.days || 1) };
+    },
+    /** The bubble's plain-English reminder of an open errand: "2 boxes of engine parts, 1 day left" (the items
+        counted in running text, ITEMS one / many; what is already home said too), or "" with none open. */
+    crewErrandLine(id) {
+      const e = this.crewErrandOpen(id);
+      if (!e) return "";
+      const item = e.r.st.item || e.r.def.item;
+      const what = ZSR.itemCount ? ZSR.itemCount(item, e.v.count) : e.v.count + " " + e.v.item;
+      const have = e.r.st.have || 0;
+      return what + (have > 0 ? ", " + have + " brought home" : "") + ", " + e.days + " day" + (e.days === 1 ? "" : "s") + " left";
+    },
     /** What they would ask of you now: { action: "handIn" | "name" | "offer", line } or null. A request filled
         first; then the dog's name (its quest's giver, once the dog is home); then a new request. */
     crewAction(id) {
@@ -1011,17 +1048,19 @@
       return ctx;
     },
     /** Open the bubble: talk (once), report, tip, topic, and what they want. Built once; State.seeCrewTalk counts
-        each text's words the first time it is read. */
-    crewOpen(id) {
+        each text's words the first time it is read. `again`: the same talk goes on after a hand-in (crewCardDone):
+        no new talk is counted and no tip is told (the one just read would come round again), only the payoff topic
+        the hand-in earned and what they want next. An open errand not yet filled is named under the words. */
+    crewOpen(id, again) {
       const S = State();
       const c = (this.crew || []).find((m) => m.id === id);
       if (!c) return;
-      S.crewTalk(id);
+      if (!again) S.crewTalk(id);
       const paras = [];
       S.crewReportItems(id).forEach((r) => paras.push({ key: "report:" + r.key, text: ZSR.crewFill(ZSR.crewText("report", r.key), r.vars) }));
       S.clearReport(id);
-      const ctx = this.crewTipCtx(id);
-      const tip = S.crewTip(id, ctx);
+      const ctx = again ? {} : this.crewTipCtx(id);
+      const tip = again ? null : S.crewTip(id, ctx);
       if (tip) paras.push({ key: "tip:" + id + ":" + tip.tip, text: ZSR.crewFill(ZSR.crewText("tip", id, tip.tip), tip.vars) });
       if (ctx.healed && tip && tip.tip === "heal") {
         const p = this.player;
@@ -1038,7 +1077,10 @@
       }
       const act = this.crewAction(id);
       const shown = paras.filter((x) => x.text && x.text.trim()).map((x) => ({ key: x.key, text: sentence(x.text) }));
+      if (again && !shown.length && !act) return; // nothing more to say: the bubble stays closed
       shown.forEach((x) => S.seeCrewTalk(x.key, ZSR.wordCount(x.text)));
+      const errand = this.crewErrandLine(id);
+      const meta = (errand ? [["Errand", errand]] : []).concat(act ? [["Press E again", act.line]] : []);
       const stars = Math.max(0, Math.min(S.stars(id), ((W().CREW_RULES || {}).stars || []).length));
       const max = ((W().CREW_RULES || {}).stars || []).length;
       const panel = {
@@ -1049,7 +1091,7 @@
         title: ZSR.crewName(id),
         status: max ? "★".repeat(stars) + "☆".repeat(max - stars) : "",
         text: shown.map((x) => x.text).join("\n\n"),
-        meta: act ? [["Press E again", act.line]] : [],
+        meta,
       };
       this.crewTalkHold(c);
       this.talk = { id, panel, action: act ? act.action : null, line: act ? act.line : "", c, more: false };
@@ -1136,7 +1178,8 @@
       c.hint = null;
     },
     /** The crew card is closed (js/main.js calls this, then resume): a toast for what changed, and the bubble
-        closes, or opens again after a hand-in (their thanks lead straight into the story it earned). */
+        closes, or opens again after a hand-in (their thanks lead straight into the story it earned: crewOpen with
+        `again`, no tip). A hand-in has no toast: the card's "You get:" line has just said what it paid. */
     crewCardDone(id, action, result) {
       const S = State();
       const t = this.talk;
@@ -1156,9 +1199,6 @@
         const gone = before.reqs.find((rid) => !now.some((r) => r.def.id === rid));
         const def = gone ? S.questDef(gone) || S.errandDef(gone) : result && result.def;
         if (def) {
-          const words = S.rewardWords(def.reward);
-          // scrap, storage, crowbars and traps are all "at the base" (not all of it goes into storage)
-          this.toast(words ? "From " + name + ": " + words + ". It is all at the base now." : name + " thanks you.", 3.5);
           Audio().play("buy");
           reopen = true;
         }
@@ -1172,7 +1212,7 @@
       const c = t && t.c;
       this.crewTalkEnd(true);
       const p = this.player;
-      if (reopen && c && p && !(this.phase && this.phase.kind === "wave") && Math.hypot(c.x - p.x, c.y - p.y) <= 2.6) this.crewOpen(id);
+      if (reopen && c && p && !(this.phase && this.phase.kind === "wave") && Math.hypot(c.x - p.x, c.y - p.y) <= 2.6) this.crewOpen(id, true);
       if (ZSR.Main && ZSR.Main.syncYard) ZSR.Main.syncYard();
     },
     /** The bubble's look on the read panel: the speaker's color, and its tail toward their side of the view. */

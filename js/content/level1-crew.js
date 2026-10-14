@@ -39,7 +39,7 @@
     },
     "june-t8": {
       title: "Rosa Never Forgets",
-      text: "You tell June about Rosa's planting chart. June smiles at the last line. It is about her beans. June says Rosa never forgets a friend. The notes you find stay in your backpack. So you can read them again.",
+      text: "You tell June about Rosa's planting chart. June smiles at the last line. It is about her beans. June says Rosa never forgets a friend. The notes you bring home stay in your backpack. So you can read them again.",
     },
     "june-t9": {
       title: "A Garden Again",
@@ -90,7 +90,7 @@
     },
     "tomas-t5": {
       title: "Wrenches Under Cars",
-      text: "Tomas learned engines from his father. He handed his father wrenches under cars. His father learned from Mr. Ortiz at Ortiz Auto. Tomas hopes Mr. Ortiz is still out there. He says most van upgrades stop at level 2. They go higher once you build a Garage.",
+      text: "Tomas learned engines from his father. He handed his father wrenches under cars. His father learned from Mr. Ortiz at Ortiz Auto. Tomas hopes Mr. Ortiz is still out there. He says most van upgrades stop at level 2. A Garage lets them go higher.",
     },
     "tomas-t6": {
       title: "A Garage at Last",
@@ -161,7 +161,7 @@
     },
     "pip-t6": {
       title: "The List of Voices",
-      text: "Pip writes down every voice the crew hears. June is the first name on the list. People say someone named Jo is on the radio. Jo talks from a rooftop. A Radio room finds new places for the map. Build it from radio parts and wire.",
+      text: "Pip lists every voice the crew hears. June is the first name on the list. Jo talks on the radio from a rooftop. The Radio room brings in voices like Jo's. It finds new places for the map, Pip says. It is made from radio parts and wire.",
     },
     "pip-t7": {
       title: "A Radio That Reaches",
@@ -182,7 +182,7 @@
     // Pip: moods
     "pip-m1": {
       title: "What Town Looked Like",
-      text: "Pip asks you what the town looked like today. Pip sits very still and listens to every word. Then Pip asks for more.",
+      text: "Pip asks what the town looks like out there. Pip sits very still and listens to every word. Then Pip asks for more.",
     },
     "pip-m2": {
       title: "A Knot for Luck",
@@ -224,6 +224,7 @@
       keys: "Pip says you are holding {keys}. Each key's note says which stash it opens. Your notes are in the backpack. Read them again.",
       walkers: "Pip keeps count of the walkers in town. In {days} days, each building gets one more walker. It stops at a limit.",
       radio: "Pip says the radio plays a new show. One comes each day you come home. The radio shelf by the couch plays them again.",
+      full: "Pip says the town's buildings are full of walkers. No building will get any more. Each place stays as dangerous as it is today.",
     }),
   });
 
@@ -233,9 +234,8 @@
     fenceFree: "Tomas fixed {fixed} fence boards since you last talked. It cost no scrap at all.",
     cabin: "Tomas fixed broken doors and windows in the cabin. He fixed {fixed} in all. It took {scrap} scrap from the base.",
     cabinFree: "Tomas fixed broken doors and windows in the cabin. He fixed {fixed} in all. It cost no scrap at all.",
-    hurt: "Walkers got into the office closet in the wave. {who} got hurt. It cost the base {cost}. Everyone is all right now.",
+    hurt: "Walkers got into the office closet in a wave. {who} got hurt. It cost the base {cost}. Everyone is all right now.",
     late: "Time ran out on the favor: {item}. It is off the list now. So you lost a little trust.",
-    heal: "June patched you up last time. She gave you back {hp} health. She says to be more careful out there.",
   });
 
   // The dog: Pip's card asks for a name, then thanks you; a pat gets its own bubble.

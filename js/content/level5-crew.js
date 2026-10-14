@@ -47,7 +47,7 @@
     },
     "june-t10": {
       title: "Not My Dog",
-      text: "June crosses her arms and frowns at {dog}. “That dog is Pip's problem, not mine,” June says firmly. Then, when she thinks nobody is looking, June slips it the last of her beans. You saw it. Now she writes its supper in the ledger, right beside everyone else's, in the same neat hand. June admits she is glad of one thing. Walkers never hurt the dog, so nobody has to guard it in a wave. “It hides in the closet with us and snores,” June says. “Louder than Tomas, which is saying something.”",
+      text: "June crosses her arms and frowns at {dog}. “That dog is Pip's problem, not mine,” June says firmly. Then, when she thinks nobody is looking, June slips it the last of her beans. You saw it. Now she writes its supper in the ledger, right beside everyone else's, in the same neat hand. June admits she is glad of one thing. Walkers never hurt the dog, so nobody has to guard it in a wave. “It can hide in the closet with us,” June says. “I only ask that it snore more quietly than Tomas.”",
     },
     "june-m1": {
       title: "Cold Morning Knees",
@@ -101,7 +101,7 @@
     },
     "tomas-t8": {
       title: "Keep Out Means Pip",
-      text: "Tomas sleeps in Gus's room, under the sign that says KEEP OUT. “Gus wrote that for his little brother,” Tomas says. “Now it means Pip.” Gus also left a guitar with two broken strings, and Tomas wants to fix it someday. He cannot even play a note. “I just hate seeing anything broken,” Tomas admits. That is good news for the cabin. Now Tomas also fixes the cabin's broken doors and windows himself when it is quiet. The usual scrap comes out of the base, and he will tell you about it the next time you talk.",
+      text: "Tomas sleeps in Gus's room, under the sign that says KEEP OUT. “Gus wrote that for his little brother,” Tomas says. “Now it means Pip.” Gus also left a guitar with two broken strings, and Tomas wants to fix it someday. He cannot even play a note. “I just hate seeing anything broken,” Tomas admits. That is good news for the cabin. Now Tomas also fixes the cabin's broken doors and windows himself when it is quiet. He will tell you about it the next time you talk.",
     },
     "tomas-t9": {
       title: "Good News About Mr. Ortiz",
@@ -159,7 +159,7 @@
     },
     "pip-t6": {
       title: "The List of Voices",
-      text: "Pip pulls a folded paper from their hoodie pocket. It is a list of every voice the crew hears. The first name on it is June, with a crown drawn over it. People say someone named Jo talks on the radio from a rooftop, reading the news to anyone listening. Pip says a voice is just noise until someone writes it down. The Radio room, made of radio parts and wire, pulls voices like Jo's out of the static. “And it finds new places for the map,” Pip says. “Voices know where things are.”",
+      text: "Pip pulls a folded paper from their hoodie pocket. It is a list of every voice the crew hears. The first name on it is June, with a crown drawn over it. People say someone named Jo talks on the radio from a rooftop, reading the news to anyone listening. Pip says a voice is just noise until someone writes it down. The Radio room, made of radio parts and wire, brings in voices like Jo's through the static. “And it finds new places for the map,” Pip says. “Voices know where things are.”",
     },
     "pip-t7": {
       title: "A Radio That Reaches",
@@ -175,11 +175,11 @@
     },
     "pip-t10": {
       title: "Teaching It to Sit",
-      text: "These days, {dog} follows Pip all around the yard like a sandy shadow. In a wave, it hides in the closet with the crew, ears up and tail tucked. “Listen for barking,” Pip says. If it barks in a wave, a walker is near the cabin, so go and check before trouble gets inside. Pip is teaching {dog} to sit, just like Biscuit in Lucy's drawing. “It sits about half the time,” Pip reports. “The other half, it sits on me. I am counting that as progress.”",
+      text: "Already, {dog} follows Pip all around the yard like a sandy shadow. In a wave, it hides in the closet with the crew, ears up and tail tucked. “Listen for barking,” Pip says. If it barks in a wave, a walker is near the cabin, so go and check before trouble gets inside. Pip is teaching {dog} to sit, just like Biscuit in Lucy's drawing. “It sits about half the time,” Pip reports. “The other half, it sits on me. I am counting that as progress.”",
     },
     "pip-m1": {
       title: "Tell Me About Town",
-      text: "Pip looks up at you, eyes wide, ready for a story. “What did the town look like today?” Pip asks. “Tell me everything. Even the boring parts.” Pip listens to every word, like each one is a coin worth saving. Pip wants to know the color of the sky downtown, which stores still have glass, and whether the birds are back. Then come the follow-up questions, one after another, until you run out of answers. “Okay,” Pip finally says. “Next time, look closer. I want details.”",
+      text: "Pip looks up at you, eyes wide, ready for a story. “What does the town look like out there?” Pip asks. “Tell me everything. Even the boring parts.” Pip listens to every word, like each one is a coin worth saving. Pip wants to know the color of the sky downtown, which stores still have glass, and whether the birds are back. Then come the follow-up questions, one after another, until you run out of answers. “Okay,” Pip finally says. “Next time, look closer. I want details.”",
     },
     "pip-m2": {
       title: "A Knot for Luck",
@@ -221,6 +221,7 @@
       keys: "Pip says you are holding {keys}, and Pip is very curious about that. Each key's note says which stash it opens, and your notes are all in the backpack. Read them again before you try a lock.",
       walkers: "Pip keeps count on the wall: in {days} days, the buildings in town each get one more walker, up to a limit. So the sooner you go, Pip says, the fewer walkers wait for you inside.",
       radio: "Pip says the radio plays a new broadcast each day you come home, so every trip ends with news. If you missed one, you can hear them all again at the radio shelf by the couch.",
+      full: "Pip draws a line under the tally marks on the wall, like closing a finished column. Every building in town is as full of walkers as it will get, Pip says. From now on, a place is only as dangerous as it is today, and Pip finds that oddly comforting.",
     }),
   });
 
@@ -230,9 +231,8 @@
     fenceFree: "Tomas fixed {fixed} fence boards since you last talked. It cost no scrap at all, and Tomas is very proud of that. He says a free fix holds just as well as a paid one.",
     cabin: "Tomas fixed broken doors and windows in the cabin while you were busy: {fixed} in all. It took {scrap} scrap from the base. He says the hinges sound happier already.",
     cabinFree: "Tomas fixed broken doors and windows in the cabin: {fixed} in all. It cost no scrap at all. Every hinge swings quietly again, just the way Tomas likes it.",
-    hurt: "Walkers got into the office closet during the wave, and {who} got hurt. It cost the base {cost}. {who} says everyone is all right now, but clear the cabin faster next time, so no walker reaches the closet.",
+    hurt: "Walkers got into the office closet in a wave, and {who} got hurt. Added up over every wave since you last talked, it cost the base {cost}. Everyone is all right now, {who} says, but clear the cabin faster next time, so no walker reaches the closet.",
     late: "Time ran out on the errand: {item}. It is off the list now, and trust dropped a little. Next time, bring the things home before the days run out, and the favor earns trust instead.",
-    heal: "June patched you up and gave you back {hp} health. She says the tape and cloth in her pocket are for emergencies, so try to come home with fewer scrapes next time.",
   });
 
   /* ---------- The dog (DOG.facts in js/story-quests.js) ---------- */

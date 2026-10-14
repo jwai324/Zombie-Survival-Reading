@@ -1,5 +1,6 @@
 #!/usr/bin/env node
-/* Sanity checks for js/world.js, js/layouts.js and the story facts (js/story.js, js/story-home.js):
+/* Sanity checks for js/world.js, js/layouts.js and the story facts (js/story.js, js/story-home.js and every other
+   js/story*.js the page loads):
    interior layouts (legend v2, landmarks, decor, reachability), the stash and key in every building,
    note spots and wall signs, notes that name the landmarks, the key ring, and reveal chains; and the crew
    at home base (js/story-crew.js: roster, rules, talk, tips, reports, errands) and their story quests
@@ -11,8 +12,26 @@ const vm = require("vm");
 const sb = {};
 sb.globalThis = sb;
 vm.createContext(sb);
-// layouts.js defines ZSR.LAYOUTS (the interiors); world.js uses them as its TEMPLATES
-["layouts.js", "world.js", "story.js", "story-home.js", "story-crew.js", "story-quests.js"].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8"), sb, { filename: f }));
+// The fact files, in page order: js/layouts.js (ZSR.LAYOUTS, the interiors world.js uses as its TEMPLATES),
+// js/world.js and every js/story*.js that index.html loads, so a fact file split off as the game grows
+// (story-quests2.js) is checked like the rest. tests/validate-text.js, validate-art.js and validate-engine.js read the
+// same list.
+const PAGE = [...fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8").matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]);
+const FACT_FILES = PAGE.filter((f) => /^(layouts|world|story[\w-]*)\.js$/.test(f));
+{
+  const page = [];
+  const at = (f) => FACT_FILES.indexOf(f);
+  if (at("layouts.js") < 0 || at("world.js") < 0) page.push("index.html must load js/layouts.js and js/world.js");
+  else if (at("layouts.js") > at("world.js")) page.push("index.html loads js/world.js before js/layouts.js (world.js takes its interiors from it)");
+  FACT_FILES.filter((f) => f.startsWith("story") && at(f) < at("world.js")).forEach((f) => page.push(`index.html loads js/${f} before js/world.js (it adds to ZSR.WORLD)`));
+  // a story file the page never loads is facts the game never reads (and no validator would check)
+  fs.readdirSync(path.join(__dirname, "..", "js")).filter((f) => /^story[\w-]*\.js$/.test(f) && !PAGE.includes(f)).forEach((f) => page.push(`js/${f} is not loaded by index.html: add <script src="js/${f}"></script> after js/world.js, or the game never reads its facts`));
+  if (page.length) {
+    page.forEach((m) => console.log("ERROR " + m));
+    process.exit(1);
+  }
+}
+FACT_FILES.forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8"), sb, { filename: f }));
 const W = sb.ZSR.WORLD;
 const ART = sb.ZSR.LAYOUT_ART || {};
 const DECOR = sb.ZSR.LAYOUT_DECOR || {};
@@ -567,7 +586,8 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
 
 /* ---------- The crew at home base (js/story-crew.js) and their story quests (js/story-quests.js) ----------
    docs/CREW.md is the contract. Every count comes from the data; the lists below are the contract's own
-   (engine keys, art kinds, tip ids). While js/story-crew.js is still empty (no CREW), its checks pass and the
+   (engine keys, art kinds, each tip's placeholders), and the tip ids the engine gives are read from js/crewstate.js.
+   Every check runs for every CREW id. While js/story-crew.js is still empty (no CREW), its checks pass and the
    quests are checked on their own. */
 {
   const CREW = W.CREW || {};
@@ -581,13 +601,77 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   const JOBS = ["fence", "cabin", "heal", "lookout"];
   const PRONOUNS = ["she", "he", "they"];
   const WHEN_KEYS = ["day", "stars", "quest", "note", "room", "level", "dog"];
-  // CREW_TIPS: the tip ids each crew member must have, and the placeholders their facts carry
-  const TIPS = {
-    june: { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"] },
-    tomas: { van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [] },
-    pip: { wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [] },
+  // CREW_TIPS: every tip id the engine gives (js/crewstate.js), with the placeholders its facts carry. One table for
+  // every crew member; the same as CREW_TIP_VARS in tests/validate-text.js and TIP_VARS in tests/validate-crew.js
+  const TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [], full: [] };
+  // tips the engine gives only with a job (js/crewstate.js TIP_RULES): June's patch-up happens only as her heal tip
+  // is told (js/crew.js crewOpen), and the lookout's wave call reads the wave tip (js/crew.js crewLookout)
+  const TIP_JOB = { heal: "heal", wave: "lookout" };
+  // docs/CREW.md's tips table: the tips each crew member it names has (a crew member added later needs only the
+  // tips of the jobs they hold, and at least one tip)
+  const CONTRACT_TIPS = {
+    june: ["hungry", "food", "ready", "build", "heal"],
+    tomas: ["van", "vanFree", "fence", "cabin", "crowbar", "fine"],
+    pip: ["wave", "keys", "walkers", "radio", "full"],
   };
-  const REPORTS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], hurt: ["who", "cost"], late: ["item"], heal: ["hp"] };
+  // the tip ids js/crewstate.js gives: a rule in TIP_RULES and a place in URGENT, REGULAR or FALLBACK (read from its
+  // source, as PEOPLE is read from tests/validate-text.js below); null when the source cannot be read
+  const ENGINE_TIPS = (() => {
+    let src = "";
+    try {
+      src = fs.readFileSync(path.join(__dirname, "..", "js", "crewstate.js"), "utf8");
+    } catch (e) {
+      return null;
+    }
+    const lists = {};
+    ["URGENT", "REGULAR", "FALLBACK"].forEach((k) => {
+      const m = src.match(new RegExp("const " + k + " = (\\[[^\\]]*\\]);"));
+      try {
+        lists[k] = m ? JSON.parse(m[1]) : null;
+      } catch (e) {
+        lists[k] = null;
+      }
+    });
+    const block = (src.match(/const TIP_RULES = \{([\s\S]*?)\n {2}\};/) || [])[1];
+    if (!block || Object.values(lists).some((l) => !Array.isArray(l))) return null;
+    const rules = new Set([...block.matchAll(/^ {4}(\w+):/gm)].map((m) => m[1]));
+    const listed = [].concat(...Object.values(lists));
+    listed.filter((t) => !rules.has(t)).forEach((t) => err(`js/crewstate.js: tip ${t} is listed (URGENT, REGULAR or FALLBACK) but has no rule in TIP_RULES`));
+    [...rules].filter((t) => !listed.includes(t)).forEach((t) => err(`js/crewstate.js: TIP_RULES.${t} is in none of URGENT, REGULAR or FALLBACK, so the engine never gives it`));
+    return listed.filter((t) => rules.has(t));
+  })();
+  if (!ENGINE_TIPS) err("crew: could not read the tip ids from js/crewstate.js (TIP_RULES and the URGENT, REGULAR and FALLBACK lists)");
+  else {
+    ENGINE_TIPS.filter((t) => !TIP_VARS[t]).forEach((t) => err(`crew: js/crewstate.js gives tip ${t}, but TIP_VARS here does not say which placeholders it fills (add it here, in CREW_TIP_VARS in tests/validate-text.js and in TIP_VARS in tests/validate-crew.js)`));
+    Object.keys(TIP_VARS).filter((t) => !ENGINE_TIPS.includes(t)).forEach((t) => err(`crew: TIP_VARS has tip ${t}, which js/crewstate.js does not give (a rule in TIP_RULES and a place in URGENT, REGULAR or FALLBACK)`));
+  }
+  // what a crew member says they did since you last talked (js/crewstate.js crewReportItems), with its placeholders
+  const REPORTS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], hurt: ["who", "cost"], late: ["item"] };
+  // the repair jobs whose reports name their fixer: CREW_REPORTS[job] and CREW_REPORTS[job + "Free"]
+  const FIX_JOBS = ["fence", "cabin"];
+  // the words' validator holds the same two tables (CREW_TIP_VARS, CREW_REPORT_VARS): they must agree
+  {
+    let src = "";
+    try {
+      src = fs.readFileSync(path.join(__dirname, "validate-text.js"), "utf8");
+    } catch (e) {
+      src = "";
+    }
+    const canon = (v) => JSON.stringify((v || []).slice().sort());
+    [["CREW_TIP_VARS", TIP_VARS, "TIP_VARS"], ["CREW_REPORT_VARS", REPORTS, "REPORTS"]].forEach(([name, mine, here]) => {
+      const m = src.match(new RegExp("const " + name + " = ([^;\\n]+);"));
+      let theirs = null;
+      try {
+        theirs = m ? vm.runInNewContext("(" + m[1] + ")") : null;
+      } catch (e) {
+        theirs = null;
+      }
+      if (!theirs) return err(`crew: could not read ${name} from tests/validate-text.js to compare it with ${here} here`);
+      const keys = [...new Set(Object.keys(mine).concat(Object.keys(theirs)))];
+      const off = keys.filter((k) => !(k in mine) || !(k in theirs) || canon(mine[k]) !== canon(theirs[k]));
+      if (off.length) err(`crew: ${here} here and ${name} in tests/validate-text.js differ at ${off.map((k) => `${k} (here ${k in mine ? canon(mine[k]) : "none"}, there ${k in theirs ? canon(theirs[k]) : "none"})`).join(", ")}: make them the same`);
+    });
+  }
   const PLACEHOLDERS = ["food", "days", "room", "needs", "hp", "max", "cost", "holes", "cracks", "broken", "keys", "size", "sides", "fixed", "scrap", "who", "item", "count", "reward", "dog"];
   const ART_KINDS = ["bag", "photo", "box", "book", "tin", "leash", "toolbox", "radio", "jar", "letter", "seeds", "blanket", "tape", "badge", "wrench"];
   const PERKS = ["foodPerDay", "medsPerDay", "footHp", "vanHp", "scrapPerDay", "crewRepairFree", "lookoutEarly", "healAmount", "crowbarCost"];
@@ -611,6 +695,7 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
 
   const isInt = (v, lo, hi) => Number.isInteger(v) && v >= lo && (hi == null || v <= hi);
   const factsOf = (v) => (Array.isArray(v) ? v : v && Array.isArray(v.facts) ? v.facts : null);
+  const nameIn = (name, facts) => new RegExp("\\b" + String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test((facts || []).join(" "));
   // the crew never tie a key to its stash, so no crew text names a stash (LOCATIONS stashName, "the" aside)
   const STASHES = W.LOCATIONS.map((l) => String(l.stashName || "").toLowerCase().replace(/^the\s+/, "")).filter(Boolean);
   const checkFacts = (ctx, v, need) => {
@@ -716,22 +801,42 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
         });
       });
     });
-    // tips: every tip id of the contract's table, with its placeholders
+    // tips: for every crew member, each tip is one the engine gives and carries its placeholders; the tips of their
+    // jobs, and no job tip without the job
     Object.keys(W.CREW_TIPS || {}).forEach((id) => { if (!CREW[id]) err(`CREW_TIPS ${id}: not a crew member`); });
+    const tipIds = ENGINE_TIPS ? ENGINE_TIPS.filter((t) => TIP_VARS[t]) : Object.keys(TIP_VARS);
     crewIds.forEach((id) => {
       const tips = (W.CREW_TIPS || {})[id];
-      const table = TIPS[id];
-      if (!tips) return err(`CREW_TIPS ${id}: missing`);
+      if (!tips || typeof tips !== "object" || !Object.keys(tips).length) return err(`CREW_TIPS ${id}: missing (every crew member needs tips: ${tipIds.join(", ")})`);
+      const jobs = (Array.isArray(CREW[id].jobs) ? CREW[id].jobs : []).map((j) => j && j.job);
       Object.keys(tips).forEach((tip) => {
-        if (table && !table[tip]) err(`CREW_TIPS ${id}.${tip}: not a tip the engine gives ${id} (${Object.keys(table).join(", ")})`);
-        checkFacts(`CREW_TIPS ${id}.${tip}`, tips[tip], table && table[tip]);
+        const ctx = `CREW_TIPS ${id}.${tip}`;
+        if (!tipIds.includes(tip)) return err(`${ctx}: not a tip the engine gives (${tipIds.join(", ")}); a new tip needs a rule in js/crewstate.js TIP_RULES, a place in its URGENT, REGULAR or FALLBACK list, and its placeholders in TIP_VARS here`);
+        checkFacts(ctx, tips[tip], TIP_VARS[tip]);
+        if (TIP_JOB[tip] && !jobs.includes(TIP_JOB[tip])) err(`${ctx}: the engine gives the ${tip} tip only with the ${TIP_JOB[tip]} job, and ${CREW[id].name || id} has no ${TIP_JOB[tip]} job (CREW.${id}.jobs), so it would never be told`);
       });
-      Object.keys(table || {}).forEach((tip) => { if (!tips[tip]) err(`CREW_TIPS ${id}.${tip}: missing`); });
+      const missing = Object.keys(TIP_JOB).filter((tip) => jobs.includes(TIP_JOB[tip]) && !tips[tip]);
+      missing.forEach((tip) => err(`CREW_TIPS ${id}.${tip}: missing (${CREW[id].name || id} has the ${TIP_JOB[tip]} job, and the engine tells it with this tip)`));
+      (CONTRACT_TIPS[id] || []).forEach((tip) => { if (!tips[tip] && !missing.includes(tip)) err(`CREW_TIPS ${id}.${tip}: missing (docs/CREW.md's tips table)`); });
     });
     // reports
     const RP = W.CREW_REPORTS || {};
     Object.keys(RP).forEach((k) => { if (!REPORTS[k]) err(`CREW_REPORTS.${k}: not a report (${Object.keys(REPORTS).join(", ")})`); });
     Object.entries(REPORTS).forEach(([k, need]) => { if (!RP[k]) err(`CREW_REPORTS.${k}: missing`); else checkFacts(`CREW_REPORTS.${k}`, RP[k], need); });
+    // the fence and cabin reports are told in the fixer's voice: their facts (and the words at every level) name him
+    // and say "he" (js/crewstate.js crewReportItems fills {who} only for hurt). A repair job given to anyone else
+    // needs those reports rewritten for them
+    crewIds.forEach((id) => {
+      const c = CREW[id];
+      const jobs = (Array.isArray(c.jobs) ? c.jobs : []).map((j) => j && j.job);
+      if (!c.name) return;
+      FIX_JOBS.filter((job) => jobs.includes(job)).forEach((job) => {
+        [job, job + "Free"].forEach((k) => {
+          if (!RP[k] || nameIn(c.name, factsOf(RP[k]))) return;
+          err(`CREW_REPORTS.${k}: ${c.name} has the ${job} job (CREW.${id}.jobs), but these facts do not name ${c.name}. The ${job} reports are told as their fixer's own work, by name and pronoun, at all six reading levels: when the ${job} job moves, rewrite CREW_REPORTS.${job} and ${job}Free and their words (js/content/levelN-crew.js) for the new fixer, or pass who: ZSR.crewName(id) to every report in js/crewstate.js crewReportItems and word them with {who} and no pronoun`);
+        });
+      });
+    });
     // errands: ordinary items (never food), counts, deadlines, small rewards
     const errandIds = new Set();
     Object.keys(W.ERRANDS || {}).forEach((id) => { if (!CREW[id]) err(`ERRANDS ${id}: not a crew member`); });

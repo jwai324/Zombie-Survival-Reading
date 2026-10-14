@@ -621,7 +621,9 @@
         const haul = { items: Object.values(t.cargo).reduce((a, b) => a + b, 0), scrap: t.scrap, notes: t.notes.length, keys: (t.keys || []).length };
         if (crewHome.length) haul.quests = crewHome.length;
         const entry = this.logDay(haul);
-        if (crewHome.length) entry.quests = crewHome; // June's ledger line for each story object brought home
+        // June's ledger line for each story quest handed in since the last day page (js/crewstate.js)
+        const ledger = this.crewLedgerDrain ? this.crewLedgerDrain() : [];
+        if (ledger.length) entry.quests = ledger;
       }
       this.trip = null;
       if (this.effects().freeRepair) s.vanHp = this.vanMaxHp();
@@ -704,15 +706,13 @@
       if ((this.save.inventory.meds || 0) < 1 || (this.save.kits || 0) >= W().SETTINGS.kitsMax) return false;
       this.save.inventory.meds -= 1;
       this.save.kits = (this.save.kits || 0) + 1;
-      this.commit();
-      return true;
+      return true; // the caller saves (js/backpack.js: the yard's sync, which never saves mid-wave)
     },
     unpackKit() {
       if (this.trip || !(this.save.kits > 0)) return false;
       this.save.kits -= 1;
       this.save.inventory.meds = (this.save.inventory.meds || 0) + 1;
-      this.commit();
-      return true;
+      return true; // the caller saves, as packKit
     },
     /** Spend a kit from the backpack ("pack") or the van's cargo ("cargo"). The caller heals the player. */
     useKit(from) {
@@ -1093,7 +1093,7 @@
   const listWords = (parts) => (parts.length < 2 ? parts.join("") : parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1]);
   /** The recap of a day, from the level's templates: {items} {scrap} {notes} {food} {room} {needs} {keys}.
       r.quests: story objects (or the dog) brought home that day; with nothing else, the "nothing" line is left out
-      (June's ledger line for each follows the recap on the day page). */
+      (June's ledger line for a story quest follows the recap on the first day page after its hand-in: entry.quests). */
   ZSR.recapText = function recapText(r) {
     if (!r) return "";
     const tpl = ZSR.textAt((t) => (t.recap && t.recap.haul ? t.recap : null)) || {

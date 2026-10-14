@@ -244,7 +244,7 @@
         },
         "autoshop-dead2": {
           title: "A Greasy Tip",
-          text: "This note is on greasy paper. No one signed it.\n\nIt says: Do you want to get into the pit? The bolt is easy. Just do this: {decoyMoves}. Then the bolt comes right out.\n\nThat was true once, for the old bolt. But the old bolt wore out, so Mr. Ortiz put in a new one. The new bolt does not work this way. A wrong move bends it and jams the hatch.\n\nMr. Ortiz left his own note at the office. It tells the real trick for the new bolt. Read his note, not this one.",
+          text: "This note is on greasy paper. No one signed it.\n\nIt says: Do you want to get into the pit? The bolt is easy. Just do this: {decoyMoves}. Then the bolt comes right out.\n\nThat was true once, for the old bolt. But the old bolt wore out. So Mr. Ortiz put in a new one. The new bolt does not work this way. A wrong move bends it and jams the hatch.\n\nMr. Ortiz left his own note at the office. It tells the real trick for the new bolt. Read his note, not this one.",
         },
       },
       signs: {

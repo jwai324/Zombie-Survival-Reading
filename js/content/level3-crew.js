@@ -92,7 +92,7 @@
     },
     "tomas-t5": {
       title: "Under the Cars",
-      text: "Tomas learned engines from his father, handing him wrenches under cars. His father learned the trade from Mr. Ortiz at Ortiz Auto. Tomas hopes Mr. Ortiz is still out there somewhere. He is quiet for a moment. Then he clears his throat and talks about the van. Most van upgrades stop at level 2 until you build a Garage, Tomas says.",
+      text: "Tomas learned engines from his father, handing him wrenches under cars. His father learned the trade from Mr. Ortiz at Ortiz Auto. Tomas hopes Mr. Ortiz is still out there somewhere. He is quiet for a moment. Then he clears his throat and talks about the van. Without a Garage, most van upgrades stop at level 2, Tomas says.",
     },
     "tomas-t6": {
       title: "A Real Garage",
@@ -162,7 +162,7 @@
     },
     "pip-t6": {
       title: "The List of Voices",
-      text: "Pip keeps a list of every voice the crew hears. The first name on it is June, in big letters. People say someone named Jo talks on the radio from a rooftop. Pip wants Jo on the list too. Pip says the Radio room finds new places for the map. You build it from radio parts and wire.",
+      text: "Pip keeps a list of every voice the crew hears. The first name on it is June, in big letters. Jo talks on the radio from a rooftop. Pip says the Radio room brings in voices like Jo's. It finds new places for the map, too. The Radio room is made from radio parts and wire.",
     },
     "pip-t7": {
       title: "A Radio That Reaches Town",
@@ -178,11 +178,11 @@
     },
     "pip-t10": {
       title: "A Bark Means Look",
-      text: "These days, {dog} follows Pip around the yard. In a wave, it hides in the closet with the crew. If it barks in a wave, Pip says a walker is near the cabin. So go and check. Pip is teaching it to sit, like Biscuit in Lucy's drawing. So far, it mostly sits on Pip.",
+      text: "Now {dog} follows Pip around the yard. In a wave, it hides in the closet with the crew. If it barks in a wave, Pip says a walker is near the cabin. So go and check. Pip is teaching it to sit, like Biscuit in Lucy's drawing. So far, it mostly sits on Pip.",
     },
     "pip-m1": {
       title: "Tell Pip Everything",
-      text: "Pip takes the pencil from behind one ear. Pip asks what the town looked like today. Pip wants to hear about the streets, the stores, and the signs. Pip listens to every word and writes some of them down. Pip says one day they will see the town too. For now, your words will do.",
+      text: "Pip takes the pencil from behind one ear. Pip asks what the town looks like out there. Pip wants to hear about the streets, the stores, and the signs. Pip listens to every word and writes some of them down. Pip says one day they will see the town too. For now, your words will do.",
     },
     "pip-m2": {
       title: "A Knot for Luck",
@@ -224,6 +224,7 @@
       keys: "Pip says you are holding {keys}. Each key's note says which stash it opens. Your notes are in the backpack, so read them again.",
       walkers: "Pip keeps count on the wall. In {days} days, each building in town gets one more walker. That keeps happening, up to a limit. Pip says the sooner you go, the fewer walkers you meet.",
       radio: "Pip says the radio plays a new broadcast each day you come home. You can hear them all again at the radio shelf by the couch.",
+      full: "Pip says every building in town is as full of walkers as it gets. From now on, a place is only as dangerous as it is today.",
     }),
   });
 
@@ -233,9 +234,8 @@
     fenceFree: "Tomas fixed {fixed} fence boards since you last talked. It cost no scrap at all. Tomas says free fixes are the best kind.",
     cabin: "Tomas fixed broken doors and windows in the cabin: {fixed} in all. It took {scrap} scrap from the base. Tomas says walkers will have to work harder to get in now.",
     cabinFree: "Tomas fixed broken doors and windows in the cabin: {fixed} in all. It cost no scrap at all. Tomas whistles while he puts his tools away.",
-    hurt: "Walkers got into the closet during the wave, and {who} got hurt. It cost the base {cost}. Everyone is all right now. Next time, clear the cabin fast.",
+    hurt: "Walkers got into the closet during a wave, and {who} got hurt. It cost the base {cost}. Everyone is all right now. Next time, clear the cabin fast.",
     late: "Time ran out on the errand: {item}. It is off the list now, and trust dropped a little. There will be other errands.",
-    heal: "June patched you up and gave you back {hp} health. She says to take it slow. Come and see her again after the next wave.",
   });
 
   /* ---------- The dog: Pip's card asks for a name; then a line when you pet it ---------- */

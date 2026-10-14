@@ -137,7 +137,7 @@
         },
         "pharmacy-dead1": {
           title: "A Bag for June",
-          text: "A white paper pharmacy bag, folded shut at the top and stapled twice. A printed label is stuck to the front. Nobody ever picked it up. The staples have rusted a little.\n\nThe name on the label is June, in capital letters. The pills inside are for sore knees. The label says to take one each morning with food.\n\nAcross the bottom of the bag, in Mr. Okafor's tidy blue pen, there is a note: she always forgets these. Mr. Okafor must have known her well.\n\nThe bag sat behind the counter for a long time. Then someone moved it out here, to the cross aisle. Maybe they meant to deliver it.\n\nYou think of June back at the cabin, kneeling in the dirt to plant. Her knees do creak. Maybe it is the same June.",
+          text: "A white paper pharmacy bag, folded shut at the top and stapled twice. A printed label is stuck to the front. Nobody ever picked it up. The staples have rusted a little.\n\nThe name on the label is June, in capital letters. The pills inside are for sore knees. The label says to take one each morning with food.\n\nMr. Okafor wrote a note across the bottom in tidy blue pen. It says: she always forgets these. Mr. Okafor must have known her well.\n\nThe bag sat behind the counter for a long time. Then someone moved it out here, to the cross aisle. Maybe they meant to deliver it.\n\nYou think of June back at the cabin, kneeling in the dirt to plant. Her knees do creak. Maybe it is the same June.",
         },
         "pharmacy-dead2": {
           title: "A Yellow Sticky Note",

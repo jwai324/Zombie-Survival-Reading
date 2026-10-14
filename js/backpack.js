@@ -341,7 +341,7 @@
       let html = "";
       if (recap) html += '<p class="recap">' + esc(recap) + "</p>";
       html += paragraphs(j.text);
-      // June's ledger line for each story object brought home that day (docs/CREW.md), counted once
+      // June's ledger line for each story quest handed in since the day before (docs/CREW.md), counted once
       (entry.quests || []).forEach((qid) => {
         const line = crewWords("quest", qid, "journal");
         if (!line.trim()) return;
@@ -388,6 +388,13 @@
         node.setAttribute("data-tip", html);
         return node;
       };
+      // packing or unpacking a kit at the cabin is saved the way the yard saves: never in the middle of a wave (a
+      // death in it reloads the save from before it began, so nothing that wave did may be written mid-wave)
+      const saveAtHome = () => {
+        const Main = ZSR.Main;
+        if (Main && Main.syncYard && I && I.mode === "yard") Main.syncYard();
+        else S.commit();
+      };
       const heal = (from) => {
         if (!hurt) return;
         if (S.useKit(from)) {
@@ -418,6 +425,7 @@
         tip(pack, "<strong>Pack a kit</strong><span class='t-line'>Moves one Medical kit from storage into the backpack (up to " + max + "). Rooms that need kits cannot use packed ones.</span>");
         pack.addEventListener("click", () => {
           if (S.packKit()) {
+            saveAtHome();
             ZSR.Audio.play("pickup");
             this.renderKits();
           }
@@ -428,6 +436,7 @@
         tip(unpack, "<strong>Put one back</strong><span class='t-line'>Returns a packed kit to storage for building the Medbay or the Lab.</span>");
         unpack.addEventListener("click", () => {
           if (S.unpackKit()) {
+            saveAtHome();
             ZSR.Audio.play("click");
             this.renderKits();
           }
