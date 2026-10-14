@@ -55,6 +55,8 @@
   const REACH = { note: 1.4, van: 2.0, hole: 1.8, crack: 1.8, lot: READ_REACH }; // how close E works; everything else 1.6
   const words = (t) => String(t || "").trim().split(/\s+/).filter(Boolean).length;
   ZSR.wordCount = words;
+  // reading pace by reading level, in words a minute: a little under grade-level fluency, so a slow reader still finishes
+  const READ_WPM = [100, 60, 90, 110, 130, 145, 150];
   /** "x,y" -> index into a gw-wide array, or -1 off the grid. */
   const keyIndex = (k, gw, gh) => {
     const i = k.indexOf(",");
@@ -603,6 +605,11 @@
       return this.walkers.some((z) => Math.floor(z.x) === x && Math.floor(z.y) === y);
     },
 
+    /** Seconds to leave `text` on screen: long enough to read it at the reading level's pace, and never under `min`. */
+    readSecs(text, min) {
+      const wpm = READ_WPM[State().settings.level] || READ_WPM[0];
+      return Math.max(min || 0, 2 + (words(text) * 60) / wpm);
+    },
     toast(text, secs) {
       this.hud.toast.textContent = text;
       this.hud.toast.classList.remove("hidden");
@@ -855,13 +862,13 @@
       const status = lvl ? def.name + " · level " + lvl + " of " + def.levels.length : def.name + " · empty lot";
       return { key: "lot:" + room + ":" + lvl + ":" + S.settings.level + ":" + meta.map((m) => m[1]).join("|"), kind: "lot", title: t.title, status, text: t.text, meta };
     },
-    /** Show an item's tag for a few seconds after picking it up. */
+    /** Show an item's tag after picking it up, for as long as it takes to read. */
     showTag(item, variant, title) {
       const S = State();
       const text = ZSR.tagText(item, variant);
       if (!text) return;
       if (S.seeTag(item) && S.trip) S.trip.wordsRead += words(text);
-      this.tagPanel = { key: "tag:" + item + ":" + variant + ":" + this.time, kind: "tag", title: title || W().ITEMS[item].name, status: "The tag says", text, until: this.time + 7 };
+      this.tagPanel = { key: "tag:" + item + ":" + variant + ":" + this.time, kind: "tag", title: title || W().ITEMS[item].name, status: "The tag says", text, until: this.time + this.readSecs(text, 7) };
     },
     updatePanel() {
       const near = this.nearReadable();

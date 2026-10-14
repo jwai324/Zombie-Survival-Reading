@@ -385,7 +385,8 @@
           it.taken = true;
           S.trip.cargo[it.item] = (S.trip.cargo[it.item] || 0) + 1;
           S.takeItem(this.loc.id, it.spot, it.source);
-          this.toast("Picked up: " + W().ITEMS[it.item].name, 2);
+          const msg = "Picked up: " + W().ITEMS[it.item].name;
+          this.toast(msg, this.readSecs(msg, 3));
           this.showTag(it.item, Number(it.spot.slice(1)) % 2, W().ITEMS[it.item].name);
           Audio().play("pickup");
           this.updateHud();
@@ -397,10 +398,11 @@
         S.takeKey(kp.from);
         const kt = ZSR.keyText(kp.from);
         const target = W().LOCATIONS.find((l) => l.id === W().KEYS[kp.from]);
-        this.toastFit(["Found: " + kt.name + ". It opens " + target.stashName + " at " + target.name + ". Get it home to keep it.", "Found: " + kt.name + "."], 5);
+        const msgs = ["Found: " + kt.name + ". It opens " + target.stashName + " at " + target.name + ". Get it home to keep it.", "Found: " + kt.name + "."];
+        this.toastFit(msgs, this.readSecs(msgs[0], 5));
         if (kt.tag) {
           if (S.trip) S.trip.wordsRead += ZSR.wordCount(kt.tag);
-          this.tagPanel = { key: "key:" + kp.from + ":" + this.time, kind: "tag", title: kt.name, status: "Opens " + target.stashName + " at " + target.name, text: kt.tag, until: this.time + 8 };
+          this.tagPanel = { key: "key:" + kp.from + ":" + this.time, kind: "tag", title: kt.name, status: "Opens " + target.stashName + " at " + target.name, text: kt.tag, until: this.time + this.readSecs(kt.tag, 8) };
         }
         Audio().play("buy");
         this.updateHud();
@@ -412,7 +414,8 @@
         S.takeWeapon(g.id);
         const w = ZSR.Weapons.WEAPONS[g.id];
         this.switchWeapon(g.id);
-        this.toastFit(["Found: " + w.name + "! Press " + w.slot + " or Q to switch guns. Get it home to keep it.", "Found: " + w.name + "! " + w.slot + " or Q switches."], 4.5);
+        const msgs = ["Found: " + w.name + "! Press " + w.slot + " or Q to switch guns. Get it home to keep it.", "Found: " + w.name + "! " + w.slot + " or Q switches."];
+        this.toastFit(msgs, this.readSecs(msgs[0], 4.5));
         Audio().play("buy");
       }
       this.piles.forEach((pl) => {
@@ -420,7 +423,7 @@
         if (Math.hypot(pl.x - p.x, pl.y - p.y) < 0.6) {
           pl.taken = true;
           S.trip.scrap += pl.value;
-          this.toast("+" + pl.value + " scrap", 1.5);
+          this.toast("+" + pl.value + " scrap", 2.5);
           Audio().play("pickup");
           this.updateHud();
         }
