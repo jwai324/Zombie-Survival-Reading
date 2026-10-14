@@ -10,11 +10,13 @@
    panels with its tail pointing up. Sizes are in rem like every panel (the Text size setting scales
    them), with px caps where a rem would grow past sense at Huge (1 rem = 1 inch). */
 
+/* from the middle of the view to the bubble: clear of the speaker (on the HUD, so the toast can keep clear too) */
+#int-hud { --talk-gap: min(10rem, 13vw); }
 .read-panel.talk {
   --crew: #4b5057;
   --ink-w: min(.3rem, 5px);
   --stripe: min(.6rem, 10px);
-  --gap: min(10rem, 13vw); /* from the middle of the view to the bubble: clear of the speaker */
+  --gap: var(--talk-gap, min(10rem, 13vw));
   --tw: min(1.7rem, 28px); /* the tail: how far it reaches */
   --th: min(2.1rem, 34px); /* ... and how wide it is where it meets the bubble */
   left: calc(50% + var(--gap));
@@ -75,6 +77,21 @@
   left: auto;
   right: calc(-1 * var(--tw) + 1.6 * var(--ink-w));
   clip-path: polygon(0 0, 0 100%, 100% 14%);
+}
+/* a toast while the bubble stands beside its speaker (a wide screen) moves over to the other side of the view, so
+   it never covers the words (Pip's lookout call, "You said yes", the home toast). #int-toast follows #int-read */
+@media (min-width: 52.01rem) {
+  :root:not([data-size="huge"]) #int-read.talk:not(.hidden) ~ #int-toast {
+    left: auto;
+    right: calc(50% - var(--talk-gap) + 1rem);
+    max-width: min(36rem, calc(50% + var(--talk-gap) - 2rem));
+    transform: none;
+    animation-name: popc;
+  }
+  :root:not([data-size="huge"]) #int-read.talk[data-tail="right"]:not(.hidden) ~ #int-toast {
+    left: calc(50% - var(--talk-gap) + 1rem);
+    right: auto;
+  }
 }
 
 /* the name, comic lettering in the speaker's color; the trust stars beside it */

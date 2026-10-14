@@ -766,9 +766,13 @@
       this.toast(text, this.readSecs(text, 4));
       Audio().play("equip"); // a crackle on the walkie-talkie
     },
-    /** {size} and {sides} for a wave roll. */
+    /** {size} and {sides} for a wave roll. A wave from every side the yard's walkers come from reads "every side",
+        as the yard's own wave toast says it (js/yard.js), not every fence in one long list. */
     crewWaveVars(next) {
-      return { size: SIZE_WORDS[next.size] || SIZE_WORDS.none, sides: next.sides && next.sides.length ? this.waveWhere(next.sides) : "nowhere" };
+      const sides = next.sides || [];
+      const all = new Set((this.spawns || []).map((p) => p[2])).size;
+      const where = !sides.length ? "nowhere" : all > 1 && sides.length >= all ? "every side" : this.waveWhere(sides);
+      return { size: SIZE_WORDS[next.size] || SIZE_WORDS.none, sides: where };
     },
 
     /* ---------- The dog at home ---------- */

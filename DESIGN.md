@@ -411,3 +411,7 @@ Judgment calls made while building the crew (each marked **Assumption** can chan
   says what came home instead of "0 items unloaded".
 - **Quest markers on the city map** carry a paper ring, so a crew color reads on a roof of its own
   color.
+- **Pip calls a wave from every side "every side"** (as the yard's own wave toast does), not four
+  fence names. While a bubble is open on a wide screen, the yard's toasts move to the other half of
+  the view so they never cover it (at Huge there is no room, so a toast may cover it for its few
+  seconds).
