@@ -265,12 +265,12 @@
       { id: "coatCloset", room: "coatCloset", wall: [18, 20], face: "s" },
     ],
     // E inside the house: the office computer (the build menu), the pantry shelves (food and stock),
-    // the radio and June's ledger by the couch (the old days), the play room's typewriter desk
+    // the radio and June's ledger in the dining room (today's news, and the old days), the play room's typewriter desk
     // (typing practice), the big bed (rest), and the dinner bell on the porch (it calls the next wave)
     spots: {
       computer: [2, 1],
       pantry: [18, 6],
-      radio: [18, 17],
+      radio: [15, 1],
       typewriter: [15, 21],
       bed: [2, 14],
       bell: [10, 0],

@@ -53,12 +53,12 @@
         ],
       },
       radio: {
-        title: "Radio, Pip's job",
-        empty: "A tall post stands in the yard. A ladder leans on it. Pip painted the sign: RADIO, Pip's job. A radio mast could go up here. It would pick up voices from town. The voices would say where places are. Then those places would show up on the map. Pip checks the post every day, just in case.",
+        title: "Radio tower, Pip's job",
+        empty: "A tall post stands in the yard. A ladder leans on it. Pip painted the sign: RADIO, Pip's job. A radio tower could go up here. It would pick up voices from town. They would play on the radio in the dining room. The voices would put new places on the map. Pip checks the post every day, just in case.",
         built: [
-          "The sign says RADIO. A short mast stands on the post. It has an antenna and a receiver. Voices crackle out of it at night. Pip writes down every voice in a notebook. The radio finds three new places on the map. Pip wants a taller mast already.",
-          "The sign says RADIO. The mast is taller now. Tomas helped Pip climb up and bolt it. Now it reaches all over town. Voices come in from every side. The radio finds every place on the map. Pip's notebook is almost full. June gave Pip a new one from her pile.",
-          "The sign says RADIO. The tall mast still stands. Now a shelf of books sits under it. Pip uses them to keep the logbook of voices. It is neat now, sort of. The radio finds every place. It shows which places still have items, too. So you never drive out for nothing.",
+          "The sign says RADIO. A timber tower stands here, lashed with rope. A whip antenna sticks up on top. A wire runs to the radio in the dining room. Pip sits there and writes down every voice. The radio finds three new places on the map. Pip wants a taller tower already.",
+          "The sign says RADIO. Now a steel tower stands here. Long wires hold it steady. A dish sits halfway up. A red light blinks on top. Tomas helped Pip climb up and bolt the dish. Now it reaches all over town. The radio finds every place on the map. Pip's notebook is almost full.",
+          "The sign says RADIO. A tall red and white tower stands here. It has two dishes and two blinking lights. A little hut below it has solar panels. In the dining room, Pip's books hold the voice logbook. A town map hangs next to them. The radio finds every place. It shows which places still have items, too.",
         ],
       },
       lab: {
@@ -238,7 +238,7 @@
       pingpong: { title: "The Ping Pong Score", text: "A chalk scoreboard hangs over the ping pong table. The last game reads Finn 21, Dad 19. Under it, in Dan's writing: rematch on Sunday. Tomas and Pip play here now. They keep score the same way. Pip says the table leans to the left." },
       masterBath: { title: "A Heart on the Mirror", text: "Someone drew a heart on the bathroom mirror. Three names are inside it: Gus, Finn, and Lucy. A list is taped by the sink. It says: Lucy, brush your teeth for two whole minutes. June left the list up. She says it is a good rule." },
       master: { title: "The Wedding Photo", text: "A photo hangs over the big bed. It shows Kate and Dan Hollis by the river. It was their wedding day. June says whoever is hurt the most gets this bed. A nap here heals you all the way. But it takes time. The walkers keep coming while you sleep." },
-      living: { title: "Lines on the Door Frame", text: "Pencil lines on the door frame mark each year. They show how tall the kids grew. Gus has the top line. Lucy's lowest line says age 3. Pip stood against the frame. Pip came up between Finn and Gus. The radio sits on the shelf by the couch. June's green ledger sits there too. Anyone can read the past days again." },
+      living: { title: "Lines on the Door Frame", text: "Pencil lines on the door frame mark each year. They show how tall the kids grew. Gus has the top line. Lucy's lowest line says age 3. Pip stood against the frame. Pip came up between Finn and Gus. The radio shelf stood by the couch once. Pip carried it to the dining room. The crew eats there." },
       gusRoom: { title: "Keep Out", text: "A sign on this door says: Gus's Room. Keep Out. This Means You, Finn. Gus is sixteen. He left behind a guitar with two broken strings. Tomas sleeps here now. He says the sign still counts. Now it means you, Pip." },
       finnRoom: { title: "Finn's Treehouse Plan", text: "Finn drew a plan for a treehouse. It goes in the woods past the fence. The plan has a rope ladder and a lookout. A bucket hangs on a pulley. Finn drew the bucket full of snacks. Pip wants to build it someday. But first the fence has to be strong." },
       lucyRoom: { title: "My Dog Biscuit", text: "A crayon drawing hangs on the wall. It shows a dog with floppy ears. It says: MY DOG BISCUIT. Under it, Lucy wrote what Biscuit can do. Biscuit can sit, shake, and roll over. Pip pinned a second drawing next to it. It shows a dog with no name yet." },

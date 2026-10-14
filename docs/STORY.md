@@ -50,13 +50,13 @@ tab). Words at six levels: `T.house` in each `levelN-home.js`.
 | Foyer | Five name hooks (Lucy's low), "last one out locks the door"; the keys went with them | |
 | Office | Kate's map desk; a sticky note: the computer runs off the big battery in the closet | The computer holds the base plans (rooms, van, guns, traps) |
 | Office closet | (no note) the big battery and boxes | The crew's shelter in a wave (`CREW_RULES.shelter`) |
-| Dining room | The chore chart, gold stars (Lucy leads, one of Gus's crossed out) | Pip's pencil row: feeds the dog we do not have yet |
+| Dining room | The chore chart, gold stars (Lucy leads, one of Gus's crossed out) | Pip's pencil row: feeds the dog we do not have yet. The radio shelf and June's ledger: tune in to today's news, read past days again; Pip's map and list of voices take over the table (Radio 2), a cork board of the town (Radio 3) |
 | Kitchen | Kate's note on the fridge, under a fish magnet | |
 | Pantry | Dan's shelf labels: beans, rice, peaches, flour | The crew counts food and everything in storage |
 | Ping pong room | Chalk score: Finn 21, Dad 19, "rematch on Sunday" | Tomas and Pip play; Pip says the table leans left |
 | Master bath | A heart on the mirror (Gus, Finn, Lucy); Lucy's two-minute toothbrush list | June left the list up |
 | Master bedroom | Kate and Dan's wedding photo by the river | The big bed heals you fully, but it takes time and walkers keep coming |
-| Living room | Growth lines on the door frame (Gus top, Lucy age 3; Pip between Finn and Gus) | The radio and June's ledger by the couch: read past days again |
+| Living room | Growth lines on the door frame (Gus top, Lucy age 3; Pip between Finn and Gus) | The radio shelf stood by the couch until Pip carried it to the dining room |
 | Gus's room | GUS'S ROOM, KEEP OUT, THIS MEANS YOU FINN; a guitar with two broken strings | Tomas sleeps here; the sign now means Pip |
 | Finn's room | Finn's treehouse plan (rope ladder, lookout, bucket on a pulley) | Pip wants to build it once the fence is strong |
 | Lucy's room | MY DOG BISCUIT (sit, shake, roll over) | Pip's drawing of a dog with no name yet |
@@ -83,7 +83,7 @@ each `levelN-crew.js`.
 |------|--------------|-------------|
 | June | the porch, by the bench; the kitchen stove; the living room, by the shelf with her ledger; the office (the base plans) | looking over the garden plot; tending the Garden (once built); the Lab's herb beds (once built) |
 | Tomas | Gus's room, where he sleeps; the ping pong table | under the van's hood; by the garage plot; the east fence; the Power and Water plots (once built) |
-| Pip | on the floor by the radio shelf; on the floor by the chore chart; Finn's treehouse plan; Lucy's drawing of a dog with no name yet; the ping pong table | the radio plot, with the list of voices; beside the radio shack (once built); the back fence, watching the trees |
+| Pip | at the radio in the dining room; on the floor by the chore chart; Finn's treehouse plan; Lucy's drawing of a dog with no name yet; the ping pong table | the radio plot, with the list of voices; beside the radio tower (once built); the back fence, watching the trees |
 
 **In a wave** they hurry into the office closet, the shelter, and shut its door; they come out
 when the wave is cleared. A raider that forces the closet door and stays among them hurts one of
@@ -254,7 +254,8 @@ periodicals room). In the game, M shows the map of what you have seen.
 - **Journal**: June's green ledger. One entry per day (Day 1 is the night the crew finds
   the cabin). Crew life, the town, worries, small wins. Never assumes what the player has
   built or found; a short recap of the real day is written by the game around it.
-- **Radio**: once the Radio room is built, one broadcast each day you come home. Mostly Jo
+- **Radio**: once the Radio room is built, one broadcast each day you come home. It waits at the
+  radio in the dining room until you tune in there (E). Mostly Jo
   on 88.1, sometimes Theo, Vega, Doc Lin or Nurse Ada. News, warnings, messages between the
   threads above, and now and then a true tip about the key ring.
 - **Item tags**: two tags per item (the label, a sticky note, writing on the side). Shown

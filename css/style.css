@@ -246,6 +246,7 @@ kbd { font-family: var(--font-body); font-weight: 700; background: var(--paper-3
 .crew-star path { fill: var(--paper-3); stroke: var(--ink); stroke-width: 2.2; stroke-linejoin: round; }
 .crew-star.on path { fill: var(--amber-2); }
 .radio-head { font-family: var(--font-head); letter-spacing: .04em; text-transform: uppercase; margin: 1rem 0 .3rem; border-top: .19rem solid var(--ink); padding-top: .6rem; }
+.radio-wait { font-weight: 700; margin: 1rem 0 0; border-top: .19rem dashed var(--ink); padding-top: .6rem; }
 
 /* Stats, pause, death, confirm */
 .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .6rem; margin: .9rem 0; }

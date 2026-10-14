@@ -28,7 +28,7 @@ useful.
    three kids' rooms, a second bath, closets and a rear play room. The office computer
    opens the build menu, which pauses the yard: upgrade rooms with items plus scrap, the van
    and gun in the garage, the doors and windows in the House tab. The pantry lists food and
-   storage, the radio shelf shows past days, the typewriter is typing practice, and the big
+   storage, the radio shelf in the dining room tunes in to today's broadcast and shows past days, the typewriter is typing practice, and the big
    bed heals fully for a minute of the calm. The computer, radio shelf and typewriter wait
    while a wave is on. Doors open and shut with E; walkers break shut doors, smash windows
    and climb in, and walk through open doors. A quarter of each wave's walkers make for the
@@ -85,7 +85,7 @@ tension.
 | Power | Map shows danger; supply crates on drives; headlights beat night and fog |
 | Water | Faster health regen in the yard (without it the yard heals 1 per 15 s; never on the road or in buildings); level 3 starts buildings at full health |
 | Garden | Food per day (each trip eats one food; no food means a weaker van) |
-| Radio | Reveals locations; later shows which still hold items |
+| Radio | Reveals locations; later shows which still hold items. The yard gets a radio tower (timber, then steel on guy wires, then a red and white broadcast tower); the dining-room set grows with it |
 | Medbay | Less on-foot damage; one revive per trip; less van damage |
 | Archive | Notes show what is left at a place; map shows caches and stock |
 | Well (late) | Needs Water 1. Clean water: faster yard regen, full health on entry at level 3. The Farm and the Lab need it |
@@ -278,8 +278,8 @@ the game and none of it is quizzed.
   same facts as the cabin's build menu); the outdoor rooms (Garden, Farm, Well, Water, Power,
   Radio, Lab) also have a hand-painted text for the empty lot and each built level.
 - **The day page.** Day 1 and every arrival home show a page: a recap of the trip (items,
-  scrap, notes, keys, food, the nearest build), June's journal entry, and, once the Radio room
-  is built, one broadcast. Thirty of each are written; after day 30 the last ten repeat. Every
+  scrap, notes, keys, food, the nearest build) and June's journal entry. Once the Radio room is
+  built, the day's broadcast waits at the radio in the dining room: E there tunes in. Thirty of each are written; after day 30 the last ten repeat. Every
   page is kept in the backpack.
 
 ## The crew at home base (2026-10-14)

@@ -8,7 +8,7 @@
      computer's House tab (WORLD.HOUSE_UPGRADES).
    - Some of every wave's walkers make for the cabin, not for you: they get in and wait inside.
    - E inside: the office computer (the build menu), the pantry shelves (food and storage, on the read
-     panel), the radio shelf (the old days), the typewriter (typing practice), the big bed (rest: full
+     panel), the radio shelf in the dining room (today's news, and the old days), the typewriter (typing practice), the big bed (rest: full
      health for a minute of the calm), and the dinner bell on the porch (calls the next wave now).
    - The notes the Hollis family left are read up close, like wall signs (ZSR.houseNoteText).
    - The crew shelter in the office closet in a wave (CREW_RULES.shelter, js/crew.js): some raiders go
@@ -88,7 +88,14 @@
     dining(f) {
       f.low(13, 2, 2, 2, { h: 0.4, tex: { name: "hTableSide", opts: { c: "#8a5a2e" } }, top: "#9a6a3e" });
       [[12.55, 2.5], [12.55, 3.5], [15.45, 2.5], [15.45, 3.5]].forEach(([x, y]) => f.prop(x, y, "hChair", { scale: 0.5 }));
-      f.prop(15.5, 1.4, "hPlant", { scale: 0.55, solid: true });
+      // the radio and June's ledger in the corner (WORLD.HOUSE.spots.radio). The room is a one-tile ring
+      // around the table, so this is the only solid thing on the floor: a second one would wall off a pocket.
+      // The set grows with the Radio room; from level 2 Pip's map and list of voices take over the table,
+      // and at 3 a cork board of the town stands on it too.
+      const lvl = Math.min(3, (State().save && State().save.rooms.radio) || 0);
+      f.prop(15.5, 1.45, "hRadioShelf", { scale: 0.6, solid: true, opts: { lvl } });
+      if (lvl >= 3) f.prop(13.55, 2.45, "hRadioBoard", { scale: 0.62, lift: 0.4, cover: false });
+      if (lvl >= 2) f.prop(14.2, 3.15, "hRadioTable", { scale: 0.5, lift: 0.4, cover: false });
     },
     pingpong(f) {
       f.low(7, 9, 2, 3, { h: 0.38, tex: "hPingPong", top: "#2f6b4a" });
@@ -119,7 +126,7 @@
       f.prop(16.5, 19.5, "hPlant", { scale: 0.55, solid: true });
       f.prop(12.5, 17.5, "hArmchair", { scale: 0.5, solid: true });
       f.prop(12.45, 19.45, "hLamp", { scale: 0.9, solid: true, cover: false });
-      f.prop(18.5, 17.5, "hRadioShelf", { scale: 0.6, solid: true });
+      f.prop(18.5, 17.5, "hPlant", { scale: 0.55, solid: true }); // where the radio shelf stood: Pip carried it to the dining room
       f.prop(16.5, 13.4, "hBookcase", { scale: 0.95, solid: true });
     },
     masterBath(f) {
@@ -580,7 +587,7 @@
         Audio().play("click");
       } else {
         if (inWave) return busy();
-        const hook = { computer: "onComputer", radio: "onJournal", typewriter: "onPractice" }[name];
+        const hook = { computer: "onComputer", radio: "onRadio", typewriter: "onPractice" }[name];
         if (hook && this.hooks[hook]) this.hooks[hook]();
       }
     },
@@ -599,7 +606,9 @@
         case "computer":
           return inWave ? "The computer" + later : "Press E to use the computer: build and plan";
         case "radio":
-          return inWave ? "The radio and June's ledger" + later : "Press E to read June's journal and the radio again";
+          if (inWave) return "The radio and June's ledger" + later;
+          if (!(State().save.rooms.radio > 0)) return "Press E to read June's journal (the radio needs the Radio room)";
+          return State().radioWaiting() ? "Press E to tune in: today's news" : "Press E to read June's journal and the radio again";
         case "typewriter":
           return inWave ? "The typewriter" + later : "Press E to practice typing";
         default:

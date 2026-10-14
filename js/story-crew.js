@@ -58,9 +58,9 @@
       scale: 0.74,
       jobs: [{ job: "lookout", stars: 1 }],
       posts: [
-        { id: "radioShelf", house: [16, 18], pose: "sit", weight: 3 }, // on the floor by the radio shelf
+        { id: "radioShelf", house: [13, 1], pose: "sit", weight: 4 }, // at the radio in the dining room, on the floor by the shelf
         { id: "radioLot", at: [12, 12], pose: "read", weight: 3 }, // the radio plot, with the list of voices
-        { id: "radio", at: [12, 9], room: "radio", level: 1, pose: "work", weight: 3 }, // beside the radio shack
+        { id: "radio", at: [12, 9], room: "radio", level: 1, pose: "work", weight: 3 }, // beside the radio tower
         { id: "dining", house: [15, 3], pose: "sit", weight: 2 }, // on the floor by the chore chart (the sit pose sits on the floor: the art draws no chair)
         { id: "finnRoom", house: [21, 17], pose: "read", weight: 2 }, // Finn's treehouse plan
         { id: "lucyRoom", house: [21, 22], pose: "stand", weight: 1 }, // the drawing of a dog with no name yet
@@ -110,7 +110,7 @@
         { id: "june-t1", when: { day: 1 }, facts: [
           "June was a school gardener for years before the Fall.",
           "Now she keeps the crew's days in a green ledger, one page for each day.",
-          "The ledger sits on the radio shelf by the couch, and you can read the old pages there.",
+          "The ledger sits on the radio shelf in the dining room, and you can read the old pages there.",
         ] },
         { id: "june-t2", when: { day: 1 }, facts: [
           "June says the crew hides in the office closet during a wave.",
@@ -265,7 +265,7 @@
         { id: "pip-t7", when: { room: "radio", level: 1 }, facts: [
           "Pip finally has a radio that reaches town, and every new voice goes on the list.",
           "It plays one broadcast each day you come home.",
-          "You can hear every broadcast again at the radio shelf by the couch.",
+          "Pip moved the radio to the dining room: tune in there for each day's news, and hear old broadcasts again.",
         ] },
         { id: "pip-t8", when: { day: 21, stars: 2 }, facts: [
           "Pip got the town's own rule onto the door: take what you need, leave the rest.",
@@ -322,7 +322,7 @@
       keys: { facts: ["Pip says you are holding {keys}.", "Each key's note says which stash it opens, and your notes are in the backpack."] },
       // told only while a known building is not yet full (js/crewstate.js crewWalkerDays), so "up to a limit" stays true
       walkers: { facts: ["Pip keeps count: in {days} days, the buildings in town get one more walker each, up to a limit."] },
-      radio: { facts: ["Pip says the radio plays a new broadcast each day you come home.", "Hear them all again at the radio shelf by the couch."] },
+      radio: { facts: ["Pip says a new broadcast waits at the radio in the dining room each day you come home.", "Tune in there, and hear the old ones again too."] },
       // the fallback once every known building is at its walker limit (the walkers tip has nothing left to count)
       full: { facts: ["Pip says every building in town is as full of walkers as it will get.", "From now on, a place is only as dangerous as it is today."] },
     },

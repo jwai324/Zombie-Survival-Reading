@@ -712,12 +712,20 @@
       const entry = { day: s.day, journal: this.journalIndex(s.day - 1, J), radio: null, recap: null };
       if (s.rooms.radio > 0 && R.length) {
         entry.radio = this.cycleIndex(s.radioHeard || 0, R.length);
+        entry.tuned = false; // heard when the player tunes in at the radio in the dining room (older saves: no field, heard)
         s.radioHeard = (s.radioHeard || 0) + 1;
       }
       if (trip) entry.recap = Object.assign({ food: s.food, hungry: s.food <= 0, next: this.nextBuild() }, trip);
       s.log.push(entry);
       if (s.log.length > 120) s.log.splice(0, s.log.length - 120);
       return entry;
+    },
+    /** Today's broadcast, still waiting at the radio: the newest day's, not yet tuned in to (an older day's
+        missed broadcast just shows with its day). The entry, or null. */
+    radioWaiting() {
+      const log = (this.save && this.save.log) || [];
+      const e = log[log.length - 1];
+      return e && e.radio != null && e.tuned === false ? e : null;
     },
     /** The room closest to buildable (fewest things missing, not locked): { room, missing: {item: n}, scrap }. */
     nextBuild() {

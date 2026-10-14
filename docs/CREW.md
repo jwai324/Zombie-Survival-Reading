@@ -132,7 +132,7 @@ Posts must be open floor the player can reach, inside the fence, outside every p
 shelter. `tests/validate-crew.js` checks every post at room levels 0 and 3. Give each crew member
 5 to 8 posts across the yard and the cabin, true to the story (June: porch, garden, kitchen,
 living room by her ledger; Tomas: by the van, the garage plot, Gus's room where he sleeps, the
-ping pong room; Pip: the radio shelf in the living room, the radio plot, the dining room, Finn's
+ping pong room; Pip: the radio shelf in the dining room, the radio plot, the dining room, Finn's
 room).
 
 ### `CREW_RULES` (js/story-crew.js)

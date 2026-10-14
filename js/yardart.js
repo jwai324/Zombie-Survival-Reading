@@ -769,24 +769,69 @@
         circle(ctx, x, y + 2, 3, cols[i], 1.5);
       });
     },
-    /* The lattice tower: two legs, cross bracing and struts (stretched over a tall tile). */
-    yLattice(ctx, w, h) {
+    /* The lattice tower: two legs, cross bracing and struts (stretched over a tall tile; o.n bays, so a
+       taller tower keeps its bays near square). */
+    yLattice(ctx, w, h, p, o) {
       ctx.clearRect(0, 0, w, h);
       const legs = [[6, 0], [w - 6, 0]];
       legs.forEach(([x]) => {
         line(ctx, [[x, 0], [x, h]], INK, 6);
         line(ctx, [[x, 0], [x, h]], "#c9cdd0", 3);
       });
-      for (let y = 0; y < h; y += 16) {
-        line(ctx, [[6, y], [w - 6, y + 16]], INK, 3);
-        line(ctx, [[w - 6, y], [6, y + 16]], INK, 3);
-        line(ctx, [[6, y], [w - 6, y + 16]], "#c9cdd0", 1.5);
-        line(ctx, [[w - 6, y], [6, y + 16]], "#c9cdd0", 1.5);
+      const step = h / ((o && o.n) || 4);
+      for (let y = 0; y < h - 0.5; y += step) {
+        line(ctx, [[6, y], [w - 6, y + step]], INK, 3);
+        line(ctx, [[w - 6, y], [6, y + step]], INK, 3);
+        line(ctx, [[6, y], [w - 6, y + step]], "#c9cdd0", 1.5);
+        line(ctx, [[w - 6, y], [6, y + step]], "#c9cdd0", 1.5);
         line(ctx, [[6, y], [w - 6, y]], INK, 3);
       }
       // red and white bands at the top, for aircraft that no longer fly
       box(ctx, 3, 0, 6, 6, "#c0302a", 1.5);
       box(ctx, w - 9, 0, 6, 6, "#c0302a", 1.5);
+    },
+    /* The first radio tower: weathered timber legs, X braces nailed on, rope lashings at the joints. */
+    yTimber(ctx, w, h, p, o) {
+      ctx.clearRect(0, 0, w, h);
+      const n = (o && o.n) || 3;
+      const step = h / n;
+      for (let y = 0; y < h - 0.5; y += step) {
+        line(ctx, [[8, y + 2], [w - 8, y + step - 2]], INK, 5);
+        line(ctx, [[w - 8, y + 2], [8, y + step - 2]], INK, 5);
+        line(ctx, [[8, y + 2], [w - 8, y + step - 2]], "#a07a4a", 2.5);
+        line(ctx, [[w - 8, y + 2], [8, y + step - 2]], "#a07a4a", 2.5);
+      }
+      [[3, 0], [w - 13, 0]].forEach(([x]) => {
+        box(ctx, x, 0, 10, h, "#7a5a36", 2.5);
+        ctx.fillStyle = "rgba(255,240,210,0.18)";
+        ctx.fillRect(x + 2, 0, 2, h);
+      });
+      for (let y = 0; y < h - 0.5; y += step) {
+        box(ctx, 3, y, w - 6, 5, "#8a6a42", 2);
+        // rope lashings where the rungs meet the legs
+        [8, w - 8].forEach((x) => box(ctx, x - 4, y + 5, 8, 3, "#d9c08a", 1.2));
+      }
+    },
+    /* The broadcast tower: a heavy steel lattice painted in red and white bands, with a ladder up one side. */
+    yTower(ctx, w, h, p, o) {
+      ctx.clearRect(0, 0, w, h);
+      const n = (o && o.n) || 6;
+      const step = h / n;
+      for (let i = 0; i < n; i++) {
+        const y = i * step;
+        const c = i % 2 ? "#eeeae2" : "#c8352b";
+        line(ctx, [[6, y], [w - 6, y + step]], INK, 3.5);
+        line(ctx, [[w - 6, y], [6, y + step]], INK, 3.5);
+        line(ctx, [[6, y], [w - 6, y + step]], c, 1.8);
+        line(ctx, [[w - 6, y], [6, y + step]], c, 1.8);
+        box(ctx, 3, y, 6, step, c, 1.5);
+        box(ctx, w - 9, y, 6, step, c, 1.5);
+        box(ctx, 3, y, w - 6, 3, c, 1.5);
+      }
+      // the ladder up the middle
+      line(ctx, [[w / 2 - 5, 0], [w / 2 - 5, h]], "rgba(20,20,20,0.75)", 1.5);
+      line(ctx, [[w / 2 + 5, 0], [w / 2 + 5, h]], "rgba(20,20,20,0.75)", 1.5);
+      for (let y = 2; y < h; y += 4) line(ctx, [[w / 2 - 5, y], [w / 2 + 5, y]], "rgba(20,20,20,0.6)", 1);
     },
     /* A two-post car lift: yellow posts, the arms raised, the motor box and its hose. */
     yLift(ctx, w, h) {
@@ -950,6 +995,15 @@
     line(ctx, [[w / 2, 6], [w / 2, h - 26]], "#c9cdd0", 2.5);
     [[60, 12], [120, 9]].forEach(([y, len]) => line(ctx, [[w / 2 - len, y], [w / 2 + len, y]], INK, 3));
     circle(ctx, w / 2, 6, 4, "#c0302a", 2);
+  });
+  /* Guy wires from a tower's top down to three ground anchors (stands over the tower's tile, see-through). */
+  sprite("yGuys", 288, 320, (ctx, w, h) => {
+    const cx = w / 2;
+    [[6, h - 6], [w - 6, h - 6], [cx - 34, h - 2], [cx + 34, h - 2]].forEach(([x, y], i) => {
+      const top = i < 2 ? 6 : h * 0.45;
+      line(ctx, [[cx, top], [x, y]], "rgba(25,25,25,0.75)", 1.6);
+    });
+    [[6, h - 6], [w - 6, h - 6]].forEach(([x, y]) => box(ctx, x - 6, y - 5, 12, 8, "#6f7a80", 2));
   });
   /* A tall mast on guy wires with antennas at the top. */
   sprite("yMast", 112, 352, (ctx, w, h) => {

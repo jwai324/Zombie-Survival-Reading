@@ -11,7 +11,7 @@
     // June: dry, warm, in her sixties, a retired school gardener
     "june-t1": {
       title: "The Green Ledger",
-      text: "June pats the green ledger under her arm like an old friend. “Before the Fall, I was a school gardener for years,” she says. “Seeds, kids and muddy boots. I miss all three.” Now June keeps the crew's days in this ledger, one page for each day, so nothing important slips away. When she is not carrying it, she says, the ledger sits on the radio shelf by the couch. You can read the old pages there whenever you like. “Memory is a leaky bucket,” June says. “Paper holds water better.”",
+      text: "June pats the green ledger under her arm like an old friend. “Before the Fall, I was a school gardener for years,” she says. “Seeds, kids and muddy boots. I miss all three.” Now June keeps the crew's days in this ledger, one page for each day, so nothing important slips away. When she is not carrying it, she says, the ledger sits on the radio shelf in the dining room. You can read the old pages there whenever you like. “Memory is a leaky bucket,” June says. “Paper holds water better.”",
     },
     "june-t2": {
       title: "When a Wave Comes",
@@ -163,7 +163,7 @@
     },
     "pip-t7": {
       title: "A Radio That Reaches",
-      text: "Pip is practically bouncing. Pip finally has a radio that reaches town, and every new voice goes straight onto the list in Pip's best handwriting. “Well, my second best,” Pip admits. “My best is too slow for the radio.” The radio plays one broadcast each day you come home, so every trip ends with news. If you miss one, or want to hear it again, you can hear every broadcast at the radio shelf by the couch. “Voices from all over town,” Pip says, “and they are all talking to us. Well, to everyone. But also us.”",
+      text: "Pip is practically bouncing. Pip finally has a radio that reaches town, and every new voice goes straight onto the list in Pip's best handwriting. “Well, my second best,” Pip admits. “My best is too slow for the radio.” The radio plays one broadcast each day you come home, so every trip ends with news. Pip moved the radio to the dining room, so that is where you tune in for each day's news. If you miss one, or want to hear it again, every old broadcast plays there too. “Voices from all over town,” Pip says, “and they are all talking to us. Well, to everyone. But also us.”",
     },
     "pip-t8": {
       title: "Take What You Need",
@@ -220,7 +220,7 @@
       wave: "Pip has been watching the trees from the lookout, walkie-talkie in hand. Here is Pip's call for what comes next: {size}, from {sides}. Pip says to get set before the quiet runs out.",
       keys: "Pip says you are holding {keys}, and Pip is very curious about that. Each key's note says which stash it opens, and your notes are all in the backpack. Read them again before you try a lock.",
       walkers: "Pip keeps count on the wall: in {days} days, the buildings in town each get one more walker, up to a limit. So the sooner you go, Pip says, the fewer walkers wait for you inside.",
-      radio: "Pip says the radio plays a new broadcast each day you come home, so every trip ends with news. If you missed one, you can hear them all again at the radio shelf by the couch.",
+      radio: "Pip says a new broadcast waits at the radio in the dining room each day you come home, so every trip ends with news. Tune in there, and you can hear the old ones again too.",
       full: "Pip draws a line under the tally marks on the wall, like closing a finished column. Every building in town is as full of walkers as it will get, Pip says. From now on, a place is only as dangerous as it is today, and Pip finds that oddly comforting.",
     }),
   });
