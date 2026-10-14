@@ -1445,7 +1445,7 @@ try {
   I.enterRiver(river);
   I.walkers = [];
   I.riverSpawnT = 1e9;
-  Object.assign(I.player, { x: 17.5, y: 5.5, a: -Math.PI / 2 });
+  Object.assign(I.player, { x: 5.5, y: 17.5, a: Math.PI }); // the end of the dock, facing the water (west)
   I.selectRod();
   step(15);
   click();
@@ -1453,10 +1453,10 @@ try {
   if (f.state !== "wait" || !f.bobber) err(`river: a click at the end of the dock did not cast (${f.state})`);
   else if (!I.isWater(f.bobber.x, f.bobber.y)) err("river: the bobber landed on land");
   renderAround("river, line out");
-  I.player.a = Math.PI / 2; // look back at the trees: the line stays out
+  I.player.a = 0; // look back at the trees: the line stays out
   I.render();
   if (!f.bobber) err("river: looking around pulled the line in");
-  I.player.a = -Math.PI / 2;
+  I.player.a = Math.PI;
   f.t = 0.01;
   step(2);
   if (f.state !== "bite") err(`river: no bite when the wait ran out (${f.state})`);

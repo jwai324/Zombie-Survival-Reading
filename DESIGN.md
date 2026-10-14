@@ -41,8 +41,8 @@ marked **Assumption** can be changed cheaply.
 | A map inside? | M shows only what you have explored. Each main corner has something unique and memorable to steer by. |
 | Notes | Rewritten at all six levels to point at the landmarks. |
 | Turn cues on the road | Read the street signs; a minimap tracks the van and the destination but never draws the route. |
-| Wrong turn or missed lot | A panel says what went wrong and offers three ways on: try the drive again from where it set out, open the town map, or go back to the place the van set out from (from the cabin, that backs out of the trip: no day passes). Damage, scrap and kills from the failed attempt stay on a retry. |
-| Where are the decisions? | Real map junctions plus side streets (dead ends, no through roads, closed roads), the lots of places passed, and the destination's lot. |
+| Wrong turn | A panel says what went wrong and offers three ways on: try the drive again from where it set out, open the town map, or go back to the place the van set out from (from the cabin, that backs out of the trip: no day passes). Damage, scrap and kills from the failed attempt stay on a retry. |
+| Where are the decisions? | Real map junctions plus side streets (dead ends, no through roads, closed roads). Every place sits at the end of its own drive off its corner, so a place passed is one more lane at its corner (its drive), and the last turn is the destination's drive (none for a place at the end of its one road). |
 
 ## Judgment calls
 
@@ -119,10 +119,10 @@ a bow and arrow, and double pistols.
   only across its own side of the road, not the whole road. Damage taken on a drive measured
   the same as before. **Assumption:** the owner may want the old free slide back between
   junctions.
-- **Why the usual lane goes straight past side streets and lots.** A player who does nothing
-  never turns into a dead end or a parking lot; each of those turns is a choice the sign
-  asked for. Right turns there use the right lane; left turns use a turn lane that opens on
-  the far left, so at those signs "the left lane" never means two things. A real junction is
+- **Why the usual lane goes straight past side streets.** A player who does nothing never turns
+  into a dead end; each of those turns is a choice the sign asked for. Right turns there use the
+  right lane; left turns use a turn lane that opens on the far left, so at those signs "the left
+  lane" never means two things. A real junction is
   different: the road splits into one lane per road out, left to right by the angle of the
   turn (the right lane takes the road furthest right, extra lanes open to the left), so
   there is no straight-on lane to fall back on. Left alone, the van stays in its own left
@@ -136,7 +136,7 @@ a bow and arrow, and double pistols.
   up. Each turn gets a numbered badge on the board and, in the list (and beside the badge
   when zoomed in), the lanes exactly as that junction's sign will draw them, ours lit. They are
   read off `Streets.buildDrive`, the drive the road builds, so the two cannot disagree. The
-  route line also starts on the first place's own drive and ends in the lot on its side.
+  route line runs from the first place's icon down its drive and ends up the destination's drive at its icon.
 - **Why place names sit on paper tags beside their icon.** Each name takes the spot around its
   icon that covers the fewest roads, icons, badges and other names, splitting to two lines
   when that fits better; the tag keeps it readable where it must touch a road. On a small
@@ -277,7 +277,7 @@ won; the reading expansion was moved into them.
 
 - **Why a junction with no place.** Every road used to run from place to place. Frog Lane leaves
   River Road where nothing stands, so the road graph gained `JUNCTIONS` (`frog`): a corner on the
-  route with one lane per road like any junction, no lot, never a destination and never drawn as a
+  route with one lane per road like any junction, no drive, never a destination and never drawn as a
   place. Signs name the place a road runs on to (River Road through the corner is signed for the
   Water Tower; `Streets.farPlace`). River Road keeps its name on both halves; the street validator
   allows that only through a bare corner, in a straight line.
@@ -287,11 +287,11 @@ won; the reading expansion was moved into them.
   there" shows that step and its lanes. Corn Lane moved from 0.35 to 0.55 of the way up River Road
   so both directions keep 2.5 seconds of lanes before the new corner.
 - **Why River Landing is a place without a building.** It is in `LOCATIONS` (marked `outdoor`) so the
-  map, the route, the drive and the lot all work unchanged; it has no notes, layout, key or stash, and
+  map, the route and the drive work as for any place; it has no notes, layout, key or stash, and
   the Radio room never reveals it (only the pole's tag does).
 - **The paving.** Frog Lane is asphalt for its first 18% (just through the corner), then dirt with
-  ruts and stones, and the lanes before the turnout are painted on dirt. The river itself is drawn on
-  the road, the same curve as the city map. **Assumption:** the dirt is looks only; it does not slow
+  ruts and stones. The river itself is drawn on the road, the same curve as the city map, and Frog
+  Lane ends square at its edge. **Assumption:** the dirt is looks only; it does not slow
   the van.
 - **The longest drive grew.** The mall to River Landing is the longest route in the city (about 137 s
   at the slowest van); the street validator's ceiling went from 125 to 140 s for it.
@@ -305,4 +305,25 @@ won; the reading expansion was moved into them.
 - **The pole is like a gun on the floor.** In your hands at once (6, or Q and the wheel after the
   guns), yours once home, lost with a dead trip. It works only at River Landing; a click elsewhere
   says there is no water.
+
+## Owner decisions: every place at the end of its own drive, and the pond's routes (2026-10-14)
+
+| Question | Answer |
+|----------|--------|
+| How does arriving match leaving? | Every building sits at the end of its own short drive off the corner where its roads meet. Leaving, the van drives up it to the corner and picks a road; arriving, the corner's sign has a lane for the drive, and the van turns onto it and parks at the door. Roadside lots are gone. |
+| A place passed on the way? | Its drive is one more lane at its corner, signed with its name (Parking lot if unknown); taking it is a wrong turn ("That is ..., not ..."). |
+| Where are icons on the map? | At the end of each place's drive, out of its corner the way the van leaves; the route line runs icon to icon. |
+| A place with one road (River Landing, Ortiz Auto)? | It is at the end of that road: no drive, no last lane to pick; the van drives on to the end and parks. Leaving starts from the same spot. |
+| The pond's routes? | Frog Lane leaves River Road square to it (a plain 90 degree turn either way, no hairpin) and runs west to the river's edge, where the van parks by the dock. The fishing scene is turned to match the map: water west, Frog Lane in from the east. The map's icon is a dock on the river's bank. |
+
+- **The drive's length.** A place's drive is as long as leaving it needs (the start banner, the sign
+  and 3.5 seconds of lanes before its corner: `Streets.driveLen`), so the same drive is driven in to
+  park, about 8 to 10 seconds. Walkers keep coming down it until the van is nearly at the door.
+- **The map's drives are a sketch.** On the road a drive is as long as the lanes need; on the map it
+  is drawn a little longer than the icon so it always shows. Both point the same way.
+- **The Water Tower hairpin stays.** Coming along Lake Road from the pharmacy, the way to the river
+  turns back down River Road at about 133 degrees. Easing it means moving the Water Tower or
+  rerouting a road, which changes the road graph; left for the owner.
+- **Two drive times.** The road's time on the map now counts the drive in to park too, and the
+  validator's ceiling is 150 s.
 

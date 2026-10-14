@@ -130,23 +130,29 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
 
 ## Driving: lanes, signs, side streets
 
-- The van drives in the left of its two lanes; past side streets and parking lots that lane
-  goes straight. A turn to the right uses the right lane; a turn to the left uses a turn lane
-  that opens on the far left. At a junction there is one lane per road out, left to right in
+- Every place sits at the end of its own short drive off the corner where its roads meet (a
+  place with one road, at the end of that road). A drive starts in the first place's parking
+  spot and ends in the destination's.
+- The van drives in the left of its two lanes; past side streets that lane goes straight. A
+  turn into a side street on the right uses the right lane; on the left, a turn lane that
+  opens on the far left. At a junction there is one lane per road out, left to right in
   the order the roads turn, each with a painted arrow, and the sign says where each lane goes.
   There is no straight-on lane there: the right lane takes the road furthest right, extra
   lanes open to the left, and the van's own left lane takes whatever road it points at (with
   two roads out, the left one).
-- Decision points along a route, in order: the junction of the place the drive sets out from
-  (the van starts on that place's own short drive, with one lane per road out; a place with one
-  road starts on it), then side streets (dead ends, no through roads, closed roads), the
-  parking lots of places the route passes (Home Base too), real junctions, and the
-  destination's lot. Signs name a place only when the player knows it; otherwise the street.
+- Decision points along a route, in order: the corner of the place the drive sets out from
+  (the van drives up that place's own drive to it, with one lane per road out; a place with one
+  road starts on it), then side streets (dead ends, no through roads, closed roads) and real
+  junctions; at the corner of every place the route passes (Home Base too) its drive is one more
+  lane (a wrong one), and the last decision is the destination's corner, where its drive is the
+  right lane, then the van parks at the door. A place with one road has no last decision: the
+  road runs on to it. Signs name a place only when the player knows it; otherwise the street
+  (a drive of an unknown place: Parking lot).
 - At Huge text the road's top row keeps to one line (van health and pause, plus scrap from
   1000 px wide), and signs shrink to fit under it.
 - The lane the van is in when it crosses the white stop line decides. A wrong lane drives a
   little way down the wrong road, then a card says what went wrong ("Wrong way! That road goes
-  to ...", "You drove past ...") with three choices: try again (the drive restarts from where it
+  to ...", "That is ..., not ...") with three choices: try again (the drive restarts from where it
   set out; damage, scrap, kills and miles stay), the town map (pick any drive from where the van
   set out), or go back to where the van set out (a building: straight back in as you left it;
   the cabin: back out of the trip, as the map's yard button, and no day passes).

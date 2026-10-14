@@ -1,11 +1,13 @@
 /* The road: a top-down drive through the city along the route picked on the map.
-   The van drives itself; A and D (or the arrows, or the touch buttons) change lanes. It sets out on
-   its place's own drive, so the first decision is that place's junction. Before every decision point
-   (a junction, a side street, a driveway, the destination's driveway) the road
-   splits into lanes with arrows and a sign says where each lane goes; the lane the van is in at
-   the stop line is the way it takes, and the van then drives its own arc through the turn.
-   Left alone the van keeps to the left lane, which always goes straight on past side streets and
-   driveways. A wrong way or a missed driveway: a fade, then the page (hooks.onWrongTurn) offers
+   The van drives itself; A and D (or the arrows, or the touch buttons) change lanes. Every building sits at
+   the end of its own drive off its corner: the van sets out from its parking spot, up that drive, so the
+   first decision is that place's corner, and it ends by turning onto the destination's drive at its corner
+   and parking at the door (a place with one road is at the end of it: the van drives on to the end).
+   Before every decision point (a corner, a side street) the road splits into lanes with arrows and a sign
+   says where each lane goes (at a place, its drive is a lane too); the lane the van is in at the stop line
+   is the way it takes, and the van then drives its own arc through the turn.
+   Left alone the van keeps to the left lane, which always goes straight on past side streets.
+   A wrong way: a fade, then the page (hooks.onWrongTurn) offers
    try again (retry(): the drive starts over where it set out; van damage, scrap, walkers and
    miles stay), the town map, or back to where the van set out.
    The camera follows the van with its heading up; a minimap tracks it but never shows the route.
@@ -43,6 +45,7 @@
     fadeOut: 0.6,
     fadeIn: 0.6,
     parkWait: 1.6, // seconds parked before the place opens
+    quietAtDoor: 900, // px from the parking spot where walkers stop coming
   };
   const ZOMBIE_TYPES = {
     walker: { hp: 30, speed: 55, r: 18, dmg: 5, scrap: 1 },
@@ -222,7 +225,7 @@
       this.track = this.drive.track;
       this.onMain = true;
       this.van.s = this.drive.startS;
-      this.van.d = Streets().laneCenter(0, 2); // the left lane: it goes straight on past every side street and driveway
+      this.van.d = Streets().laneCenter(0, 2); // the left lane: it goes straight on past every side street
       this.van.vd = 0;
       this.van.hurt = 0;
       this.next = 0;
@@ -553,24 +556,26 @@
         return S.isKnown(to) && !World().isJunction(to) ? St.text("wrongWay", { place: this.placeName(to), dest }) : St.text("wrongStreet", { street: opt.street, dest });
       }
       if (opt.kind === "side") return St.text("wrongSide", { street: opt.street, dest });
-      if (opt.kind === "lot") return S.isKnown(opt.to) ? St.text("wrongPlace", { place: this.placeName(opt.to), dest }) : St.text("wrongLot", { dest });
-      return St.text("missed", { dest });
+      // a place's own drive
+      return S.isKnown(opt.to) ? St.text("wrongPlace", { place: this.placeName(opt.to), dest }) : St.text("wrongLot", { dest });
     },
-    /** What the sign for a decision says: one row per lane, left to right (only the turn for a driveway or side street). */
+    /** What the sign for a decision says: one row per lane, left to right (only the turn for a side street).
+        At a place's corner its own drive is a row too, named for the place (a parking lot if not known yet). */
     signFor(dec) {
       const St = Streets();
       const S = State();
-      if (dec.kind === "junction")
-        return {
-          style: "guide",
-          rows: dec.options.map((o) => {
-            const to = this.roadEnd(dec, o);
-            return { rel: o.rel, text: S.isKnown(to) && !World().isJunction(to) ? this.placeName(to) : o.street };
-          }),
-        };
-      const turn = dec.options.find((o) => o.kind !== "through" && o.kind !== "miss");
-      if (dec.kind === "side") return { style: "street", rows: [{ rel: turn.rel, text: turn.street, badge: St.text(turn.sideKind), badgeKind: turn.sideKind }] };
-      return { style: "place", rows: [{ rel: turn.rel, text: S.isKnown(dec.node) ? this.placeName(dec.node) : St.text("lot") }] };
+      if (dec.kind === "side") {
+        const turn = dec.options.find((o) => o.kind === "side");
+        return { style: "street", rows: [{ rel: turn.rel, text: turn.street, badge: St.text(turn.sideKind), badgeKind: turn.sideKind }] };
+      }
+      return {
+        style: "guide",
+        rows: dec.options.map((o) => {
+          if (o.kind === "drive") return { rel: o.rel, text: S.isKnown(o.to) ? this.placeName(o.to) : St.text("lot") };
+          const to = this.roadEnd(dec, o);
+          return { rel: o.rel, text: S.isKnown(to) && !World().isJunction(to) ? this.placeName(to) : o.street };
+        }),
+      };
     },
     startFade(msg) {
       this.fade = { phase: "out", t: 0, msg };
@@ -627,6 +632,8 @@
       van.s = Math.min(this.track.len, van.s + (this.curSpeed * dt) / (this.turn && this.turn.main ? this.turn.k : 1));
       t.miles += DIFF.milesPerSecond * stats.speed * dt * brake;
       while (this.onMain && !this.arrive && this.next < this.drive.decisions.length && van.s >= this.drive.decisions[this.next].stop) this.commit(this.drive.decisions[this.next]);
+      // a place at the end of its one road: past the last decision the road runs on to it, and the van parks there
+      if (this.onMain && !this.arrive && !this.turn && this.next >= this.drive.decisions.length) this.arrive = { t: 0, parked: false };
       // lanes: the player slides, or the van drives its turn
       van.vd = 0;
       if (this.turn) {
@@ -702,7 +709,8 @@
       van.flash = Math.max(0, van.flash - dt);
       van.drawAim = aim;
 
-      if (!this.arrive) {
+      // walkers keep coming down the destination's drive, until the van is nearly at the door
+      if (!this.arrive || this.track.len - van.s > DIFF.quietAtDoor) {
         this.spawnTimer -= dt;
         if (this.spawnTimer <= 0) {
           this.spawnZombie();
@@ -1258,11 +1266,11 @@
         ctx.lineTo(pos[b].x, pos[b].y);
         ctx.stroke();
       });
-      // the drive out of the place the van set out from (it starts on it)
+      // each known place's own drive, out of its corner to its building (and the one the van is on)
       ctx.strokeStyle = "#4b5057";
       ctx.lineWidth = 9 / zoom;
       this.drive.roads.forEach((rd) => {
-        if (!rd.start) return;
+        if (!rd.drive || !(S.isKnown(rd.a) || rd.a === this.origin || rd.a === this.opts.to)) return;
         ctx.beginPath();
         ctx.moveTo(rd.x0 / scale, rd.y0 / scale);
         ctx.lineTo(rd.x1 / scale, rd.y1 / scale);
@@ -1347,10 +1355,13 @@
         ctx.fillText(name, 0, -fs * 0.9);
         ctx.restore();
       });
-      // known places, and the destination's flag (pinned to the edge when it is out of view)
+      // known places at their buildings (the end of each one's drive), and the destination's flag (pinned to the edge when it is out of view)
+      const endAt = {};
+      this.drive.ends.forEach((e) => (endAt[e.id] = e));
       Wd.LOCATIONS.forEach((l) => {
         if (!S.isKnown(l.id)) return;
-        const p = P(l.x, l.y);
+        const e = endAt[l.id];
+        const p = e ? P(e.park.x / scale, e.park.y / scale) : P(l.x, l.y);
         const isDest = l.id === this.opts.to;
         if (!inside(p, 4) && !isDest) return;
         if (isDest) {
