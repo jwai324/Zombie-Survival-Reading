@@ -41,7 +41,7 @@ marked **Assumption** can be changed cheaply.
 | A map inside? | M shows only what you have explored. Each main corner has something unique and memorable to steer by. |
 | Notes | Rewritten at all six levels to point at the landmarks. |
 | Turn cues on the road | Read the street signs; a minimap tracks the van and the destination but never draws the route. |
-| Wrong turn or missed lot | A card says what went wrong, then the drive restarts from where it set out. Damage, scrap and kills from the failed attempt stay. |
+| Wrong turn or missed lot | A panel says what went wrong and offers three ways on: try the drive again from where it set out, open the town map, or go back to the place the van set out from (from the cabin, that backs out of the trip: no day passes). Damage, scrap and kills from the failed attempt stay on a retry. |
 | Where are the decisions? | Real map junctions plus side streets (dead ends, no through roads, closed roads), the lots of places passed, and the destination's lot. |
 
 ## Judgment calls

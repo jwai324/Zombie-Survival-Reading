@@ -131,8 +131,8 @@ if (S.SIDE_STREETS.length < roadKeys.length * 0.7) err("SIDE_STREETS", `only ${S
 
 /* ---------- road text keys ---------- */
 const TOKENS = ["place", "street", "dest", "origin"];
-const NEED = { to: ["dest"], wrongWay: ["place"], wrongStreet: ["street"], wrongSide: ["street"], wrongPlace: ["place", "dest"], wrongLot: ["dest"], missed: ["dest"], restart: ["origin"], routeTake: ["street", "place"], routeTakeStreet: ["street"], routeLeft: ["dest"], routeRight: ["dest"] };
-const REQUIRED = ["to", "here", "home", "fog", "night", "hungry", "deadEnd", "noThrough", "closed", "lot", "hint", "wrongWay", "wrongStreet", "wrongSide", "wrongPlace", "wrongLot", "missed", "restart", "routeHead", "routeTake", "routeTakeStreet", "routeStraight", "routeLeft", "routeRight"];
+const NEED = { to: ["dest"], wrongWay: ["place"], wrongStreet: ["street"], wrongSide: ["street"], wrongPlace: ["place", "dest"], wrongLot: ["dest"], missed: ["dest"], goBack: ["origin"], routeTake: ["street", "place"], routeTakeStreet: ["street"], routeLeft: ["dest"], routeRight: ["dest"] };
+const REQUIRED = ["to", "here", "home", "fog", "night", "hungry", "deadEnd", "noThrough", "closed", "lot", "hint", "wrongWay", "wrongStreet", "wrongSide", "wrongPlace", "wrongLot", "missed", "wrongTitle", "tryAgain", "townMap", "goBack", "routeHead", "routeTake", "routeTakeStreet", "routeStraight", "routeLeft", "routeRight"];
 const tokensOf = (s) => [...String(s).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 const F = S.ROAD_TEXT_FALLBACK;
 REQUIRED.forEach((k) => {

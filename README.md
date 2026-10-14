@@ -61,8 +61,8 @@ road also work on touch.
    lane opens on the far left to turn left. At a junction every road out gets its own lane,
    left to right, each with a painted arrow, and your usual lane may be one that turns (with
    two roads out it takes the left one), so match the arrow on the sign. Be in your lane
-   before the white stop line. A wrong turn or a missed lot sends you back to where
-   you set out (damage, scrap and kills stay). The minimap in the corner shows where you are
+   before the white stop line. A wrong turn or a missed lot lets you try again from where
+   you set out (damage, scrap and kills stay), open the town map, or go back to that place. The minimap in the corner shows where you are
    and flags where you are going.
 4. **Building.** The note at the door tells you how many walkers wait inside and where the
    things are, by landmark: every building has four, one in each corner (the tire tower, the

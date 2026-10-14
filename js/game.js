@@ -5,8 +5,9 @@
    splits into lanes with arrows and a sign says where each lane goes; the lane the van is in at
    the stop line is the way it takes, and the van then drives its own arc through the turn.
    Left alone the van keeps to the left lane, which always goes straight on past side streets and
-   driveways. A wrong way or a missed driveway: a banner, a fade, and the drive starts over from
-   where it set out (van damage, scrap, walkers and miles stay).
+   driveways. A wrong way or a missed driveway: a fade, then the page (hooks.onWrongTurn) offers
+   try again (retry(): the drive starts over where it set out; van damage, scrap, walkers and
+   miles stay), the town map, or back to where the van set out.
    The camera follows the van with its heading up; a minimap tracks it but never shows the route.
    Route geometry lives in js/streets.js. Walkers come from ahead and from both shoulders; the
    player aims and shoots. The trip's van health, scrap and walker count live in ZSR.State.trip.
@@ -115,7 +116,6 @@
         Audio().unlock();
         setAim(e);
         this.pointer.down = true;
-        if (this.fade) this.fade.skip = true;
         try {
           c.setPointerCapture(e.pointerId);
         } catch (err) {
@@ -137,7 +137,7 @@
       });
       root.addEventListener("keydown", (e) => {
         if (!this.running) return;
-        if (e.repeat) return;
+        if (e.repeat || (this.fade && this.fade.phase === "choose")) return; // the wrong-turn panel has the keys
         const k = keyOf(e);
         if (k === "arrowleft" || k === "a") this.keys.left = true;
         if (k === "arrowright" || k === "d") this.keys.right = true;
@@ -145,7 +145,6 @@
           this.keys.fire = true;
           e.preventDefault();
         }
-        if ((k === " " || k === "enter") && this.fade && !this.paused) this.fade.skip = true;
         if ((k === "p" || k === "escape") && this.hooks.onPauseKey) this.hooks.onPauseKey();
       });
       root.addEventListener("keyup", (e) => {
@@ -560,9 +559,18 @@
       return { style: "place", rows: [{ rel: turn.rel, text: S.isKnown(dec.node) ? this.placeName(dec.node) : St.text("lot") }] };
     },
     startFade(msg) {
-      const words = String(msg).split(/\s+/).length + 5;
-      // firing already waits for the card to end; a button still held when the drive restarts keeps firing
-      this.fade = { phase: "out", t: 0, msg, sub: Streets().text("restart", { origin: this.placeName(this.origin) }), hold: clamp(1.2 + words * 0.25, 2.4, 5.5), skip: false };
+      this.fade = { phase: "out", t: 0, msg };
+    },
+    /** The wrong-turn card's "Try again": back to the start of the route, the screen fades back in. */
+    retry() {
+      const f = this.fade;
+      if (!f || f.phase !== "choose") return;
+      this.attempt += 1;
+      this.keys = {};
+      this.pointer.down = false;
+      this.resetDrive();
+      f.phase = "in";
+      f.t = 0;
     },
 
     update(dt) {
@@ -581,19 +589,15 @@
         }
         return;
       }
-      // a wrong turn: dark, a card to read, then back to the start
+      // a wrong turn: dark, then the page asks what next (try again, the town map, or back where the van set out)
       if (this.fade) {
         const f = this.fade;
         f.t += dt;
         if (f.phase === "out" && f.t >= DIFF.fadeOut) {
-          f.phase = "hold";
+          f.phase = "choose";
           f.t = 0;
-          f.skip = false;
-        } else if (f.phase === "hold" && (f.t >= f.hold || (f.skip && f.t >= 1))) {
-          this.attempt += 1;
-          this.resetDrive();
-          f.phase = "in";
-          f.t = 0;
+          if (this.hooks.onWrongTurn) this.hooks.onWrongTurn({ msg: f.msg, origin: this.origin, originName: this.placeName(this.origin) });
+          else this.retry();
         } else if (f.phase === "in" && f.t >= DIFF.fadeIn) this.fade = null;
         if (this.fade && this.fade.phase !== "in") {
           this.updateHud();
@@ -659,7 +663,9 @@
       van.cooldown -= dt;
       const vs = this.toScreen(van.x, van.y);
       const rot = van.heading - this.cam.th;
-      const turret = { x: vs.x - Math.sin(rot) * 11 * this.zoom, y: vs.y + Math.cos(rot) * 11 * this.zoom };
+      // the mount sits h * 0.1 behind the van's middle (sprites.js van)
+      const ty = van.h * 0.1 * this.zoom;
+      const turret = { x: vs.x - Math.sin(rot) * ty, y: vs.y + Math.cos(rot) * ty };
       if (this.pointer.seen) van.aim = Math.atan2(this.pointer.y - turret.y, this.pointer.x - turret.x);
       let aim = van.aim;
       const toWorldAngle = (a) => a + this.cam.th + Math.PI / 2;
@@ -669,9 +675,12 @@
         van.cooldown = stats.fireInterval;
         const n = stats.bullets;
         const tw = this.toWorld(turret.x, turret.y);
+        // bullets carry the van's own speed, so on screen (which rides with the van) they fly straight at the pointer
+        const cx = Math.cos(van.heading) * this.curSpeed;
+        const cy = Math.sin(van.heading) * this.curSpeed;
         for (let i = 0; i < n; i++) {
           const a = toWorldAngle(aim + (i - (n - 1) / 2) * ZSR.Upgrades.SPREAD);
-          this.bullets.push({ x: tw.x + Math.cos(a) * 24, y: tw.y + Math.sin(a) * 24, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, dmg: stats.damage });
+          this.bullets.push({ x: tw.x + Math.cos(a) * 24, y: tw.y + Math.sin(a) * 24, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, cx, cy, dmg: stats.damage });
         }
         van.flash = 0.07;
         Audio().play("shoot");
@@ -688,8 +697,8 @@
       }
       for (let i = this.bullets.length - 1; i >= 0; i--) {
         const b = this.bullets[i];
-        b.x += b.vx * dt;
-        b.y += b.vy * dt;
+        b.x += (b.vx + b.cx) * dt;
+        b.y += (b.vy + b.cy) * dt;
         if (Math.hypot(b.x - van.x, b.y - van.y) > 1300) {
           this.bullets.splice(i, 1);
           continue;
@@ -791,8 +800,22 @@
       this.updateHud();
     },
 
+    /** Aim assist. With a pointer: only a walker right under it (a near miss), so the shot still goes where the player points.
+        Keys only (no pointer yet): the walker closest to straight ahead. */
     assist(aim, from) {
       let best = null;
+      if (this.pointer.seen) {
+        let bestD = Infinity;
+        for (const z of this.zombies) {
+          const p = this.toScreen(z.x, z.y);
+          const d = Math.hypot(p.x - this.pointer.x, p.y - this.pointer.y);
+          if (d < z.r * this.zoom + 28 && d < bestD) {
+            bestD = d;
+            best = Math.atan2(p.y - from.y, p.x - from.x);
+          }
+        }
+        return best == null ? aim : best;
+      }
       let bestDiff = 0.42;
       for (const z of this.zombies) {
         const p = this.toScreen(z.x, z.y);
@@ -962,8 +985,8 @@
       let dim = 0;
       if (this.fade) {
         const f = this.fade;
-        dim = clamp(f.phase === "out" ? f.t / DIFF.fadeOut : f.phase === "hold" ? 1 : 1 - f.t / DIFF.fadeIn, 0, 1);
-        D.card(ctx, W, H, f.phase === "in" ? null : f.msg, f.sub, dim, k, 0);
+        dim = clamp(f.phase === "out" ? f.t / DIFF.fadeOut : f.phase === "choose" ? 1 : 1 - f.t / DIFF.fadeIn, 0, 1);
+        D.card(ctx, W, H, null, null, dim, k, 0); // the dark only: the page's wrong-turn panel says what went wrong
       }
       // the card has the screen to itself: the HUD's top row and the minimap fade out with the road (P and Esc still pause)
       this.hudFade(this.hud.top, 1 - dim);

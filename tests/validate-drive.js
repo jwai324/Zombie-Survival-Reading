@@ -4,8 +4,9 @@
      a second before each stop line: arrives first time, the van and the camera never step backward, turns end;
    - a driver who never touches the keys: never turns off at a side street or a driveway
      (the left lane goes straight on), so the first wrong way is a junction or the destination;
-   - a wrong lane on purpose: the banner, the fade, the drive starts over from the start with the
-     trip's miles, walkers and scrap kept, and the next try arrives.
+   - a wrong lane on purpose: the fade, the wrong-turn panel (the drive holds until a choice), then
+     "try again" starts the drive over with the trip's miles, walkers and scrap kept, and the next try arrives;
+   - the roof gun: a shot flies straight at the pointer on screen, whichever way it points, at any van speed.
    Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -57,8 +58,9 @@ ZSR.State = {
 };
 ZSR.Audio = { play: noop, unlock: noop };
 let arrived = null;
+let wrongTurn = null; // what the road asked the page on a wrong turn
 const canvas = Object.assign(el(), { getContext: () => ({ setTransform: noop }) });
-G.init(canvas, { onArrive: (to) => (arrived = to), onDeath: noop, onPause: noop, onPauseKey: noop });
+G.init(canvas, { onArrive: (to) => (arrived = to), onWrongTurn: (info) => (wrongTurn = info), onDeath: noop, onPause: noop, onPauseKey: noop });
 
 const name = (id) => W.LOCATIONS.find((l) => l.id === id).name;
 function start(a, b) {
@@ -66,6 +68,7 @@ function start(a, b) {
   const r = S.route(a, b);
   const L = W.LOCATIONS.find((l) => l.id === b);
   arrived = null;
+  wrongTurn = null;
   G.startTrip({ to: b, name: L.name, danger: L.danger, path: r.path });
   G.spawnTimer = 1e9; // no walkers: this is about the road
 }
@@ -154,7 +157,7 @@ for (const a of ids) {
   }
 }
 
-/* ---------- a wrong lane on purpose: fade, start over, tallies kept, then arrive ---------- */
+/* ---------- a wrong lane on purpose: fade, the panel, "try again", tallies kept, then arrive ---------- */
 [["base", "watertower"], ["base", "hardware"], ["hospital", "autoshop"], ["school", "base"]].forEach(([a, b]) => {
   const c = `${a} > ${b} (wrong lane)`;
   start(a, b);
@@ -165,6 +168,8 @@ for (const a of ids) {
   let failed = false;
   let restarted = false;
   let milesAtFail = 0;
+  let held = 0;
+  let heldS = 0;
   drive((dec) => {
     if (G.attempt === 0 && dec === target) return dec.options.find((o) => !o.correct);
     return right(dec);
@@ -173,6 +178,14 @@ for (const a of ids) {
       failed = true;
       milesAtFail = t.miles;
     }
+    // the panel is up: the road holds still until the player picks; then "try again"
+    if (wrongTurn && G.attempt === 0) {
+      if (held === 0) {
+        heldS = G.van.s;
+        if (wrongTurn.origin !== a || !wrongTurn.msg) err(c, `the panel was asked ${JSON.stringify(wrongTurn)}`);
+      } else if (G.van.s !== heldS) err(c, "the van moved while the wrong-turn panel was up");
+      if (++held === 90) G.retry();
+    }
     if (G.attempt === 1 && !restarted) {
       restarted = true;
       if (Math.abs(G.van.s - G.drive.startS) > G.speed / 20 || !G.onMain || G.next !== 0) err(c, "the drive did not start over from the start");
@@ -180,10 +193,44 @@ for (const a of ids) {
     }
   });
   if (!failed) err(c, "the wrong lane did not go wrong");
+  if (!wrongTurn) err(c, "the wrong turn never asked the page what next");
   if (!restarted) err(c, "the drive did not start over");
   if (arrived !== b || G.attempt !== 1) err(c, `after starting over: arrived ${arrived}, attempt ${G.attempt}`);
 });
 
+/* ---------- the roof gun: shots fly at the pointer on screen ---------- */
+let worstAim = 0;
+for (const engine of [0, 5]) {
+  upgrades.engine = engine;
+  for (const deg of [0, 45, 90, 135, 180, 225, 270, 315]) {
+    start("base", "hospital");
+    for (let i = 0; i < 90; i++) G.update(1 / 60); // up to speed, clear of the start
+    const vs = G.toScreen(G.van.x, G.van.y);
+    const a = (deg * Math.PI) / 180;
+    Object.assign(G.pointer, { x: vs.x + Math.cos(a) * 260, y: vs.y + Math.sin(a) * 260, seen: true, down: true });
+    G.van.cooldown = 0;
+    G.update(1 / 60);
+    G.pointer.down = false;
+    const b = G.bullets[G.bullets.length - 1];
+    // where the shot left the mount, on screen, and the line from there to the pointer
+    const from = G.toScreen(b.x, b.y);
+    const ux = G.pointer.x - from.x;
+    const uy = G.pointer.y - from.y;
+    const len = Math.hypot(ux, uy);
+    for (let i = 0; i < 12; i++) {
+      G.update(1 / 60);
+      if (!G.bullets.includes(b)) break;
+      const p = G.toScreen(b.x, b.y);
+      worstAim = Math.max(worstAim, Math.abs(((p.x - from.x) * uy - (p.y - from.y) * ux) / len));
+    }
+    G.stop();
+  }
+}
+upgrades.engine = 0;
+// the camera eases a little through the van's own lean; a few pixels off the line is fine, a drift (tens of px) is not
+if (worstAim > 6) err("gun", `a shot drifted ${worstAim.toFixed(1)} px off the line to the pointer`);
+
+console.log(`gun: shots stay within ${worstAim.toFixed(1)} px of the line to the pointer`);
 console.log(`drive: ${routes} routes driven (${turns} turns), largest step back ${maxBack.toFixed(2)} px; left alone the first wrong way is ${Object.entries(failedAt).map(([k, n]) => k + " " + n).join(", ")}`);
 errors.slice(0, 40).forEach((e) => console.log("ERROR " + e));
 if (errors.length > 40) console.log(`... ${errors.length - 40} more errors`);

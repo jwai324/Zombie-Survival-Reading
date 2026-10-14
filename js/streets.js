@@ -80,7 +80,10 @@
     wrongPlace: "That is {place}, not {dest}.",
     wrongLot: "That lot is not {dest}.",
     missed: "You drove past {dest}.",
-    restart: "Back to {origin}. Try again.",
+    wrongTitle: "Wrong turn", // the wrong-turn panel: its caption, then its three buttons
+    tryAgain: "Try again",
+    townMap: "Town map",
+    goBack: "Go back to {origin}", // back where the drive set out
     // written directions on the city map, one line per road (directions() below)
     routeHead: "The way there",
     routeTake: "Take {street} to {place}.", // the road's far end is a place you know
