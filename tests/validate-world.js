@@ -238,6 +238,39 @@ W.LOCATIONS.filter((l) => l.id !== "base").forEach((l) => {
     if (!sg.id || !["sign", "graffiti"].includes(sg.kind) || !Array.isArray(sg.facts) || !sg.facts.length) err(`${l.id}: sign ${sg.id} needs an id, kind sign|graffiti, and facts`);
   });
   if (!N.notes.some((n) => n.unlocks === l.id)) err(`${l.id}: no note unlocks its cache`);
+  // the lock (WORLD.LOCKS): a known kind, answers to roll, a cost the main note warns of, a panel on a wall
+  const LK = (W.LOCKS || {})[l.id];
+  if (!LK) err(`${l.id}: no lock in WORLD.LOCKS`);
+  else {
+    const FAILS = ["alarm", "trap", "jam"];
+    const d = LK.door || {};
+    if (!["code", "moves", "found"].includes(d.kind)) err(`${l.id}: lock door kind ${d.kind} (code, moves or found)`);
+    if (d.kind === "code" && !/^[#-]+$/.test(d.pattern || "")) err(`${l.id}: a code lock needs a pattern of # and -`);
+    if (d.kind === "moves" && (!Array.isArray(d.variants) || d.variants.length < 2 || d.variants.some((v) => v.some((m) => !d.words.includes(m))))) err(`${l.id}: moves need 2+ variants made of its words`);
+    if (d.kind === "moves" && d.variants.some((v) => !d.variants.some((o) => o.every((m, i) => m !== v[i])))) err(`${l.id}: every moves variant needs a decoy that differs at every step`);
+    if (d.kind !== "found" && !FAILS.includes(d.fail)) err(`${l.id}: lock door fail ${d.fail}`);
+    if (d.kind === "found" && !LK.search) err(`${l.id}: a "found" door needs a search that finds its key`);
+    if (LK.search && (!Array.isArray(LK.search.options) || LK.search.options.length < 2 || !FAILS.includes(LK.search.fail) || !LK.search.find)) err(`${l.id}: the search needs 2+ options, a fail and a find`);
+    if (LK.panel) {
+      const [px, py, face] = LK.panel.at || [];
+      const S2 = { n: [0, -1], s: [0, 1], w: [-1, 0], e: [1, 0] }[face];
+      if (!S2 || !t.grid[py] || !"#W".includes(t.grid[py][px])) err(`${l.id}: the alarm panel must be on a wall tile with a face`);
+      else if (!t.grid[py + S2[1]] || t.grid[py + S2[1]][px + S2[0]] !== ".") err(`${l.id}: the alarm panel faces no floor`);
+      if (!Array.isArray(LK.panel.options) || LK.panel.options.length < 2) err(`${l.id}: the alarm panel needs 2+ buttons`);
+    }
+    if (!["jam", "break", "none"].includes(LK.stashFail)) err(`${l.id}: stashFail ${LK.stashFail} (jam, break or none)`);
+    const main = N.notes.find((n) => n.unlocks === l.id);
+    if (main && d.kind === "code" && !main.facts.join(" ").includes("{code}")) err(`${l.id}: the main note's facts must give {code}`);
+    if (main && d.kind === "moves" && !/\{moves?\d?\}/.test(main.facts.join(" "))) err(`${l.id}: the main note's facts must give the moves`);
+    if (main && LK.search && !main.facts.join(" ").includes("{pick}")) err(`${l.id}: the main note's facts must give {pick}`);
+    if (main && LK.panel && !main.facts.join(" ").includes("{button}")) err(`${l.id}: the main note's facts must give {button}`);
+    if (!N.notes.some((n) => n.kind === "decoy" && (n.minLevel || 1) === 1 && /\{decoy\w+\}/.test(n.facts.join(" ")))) err(`${l.id}: needs a lock decoy at every reading level ({decoy...} in its facts, minLevel 1)`);
+  }
+  // a stash key never says what it opens: only the note that leads to it does
+  if (N.key) {
+    const tgt = W.LOCATIONS.find((x) => x.id === N.key.opens);
+    if (tgt && N.key.facts.join(" ").toLowerCase().includes(tgt.stashName.replace(/^the /, "").toLowerCase())) err(`${l.id}: the key's facts name the stash it opens (${tgt.stashName})`);
+  }
   N.notes.forEach((n) => (n.reveals || []).forEach((r) => { if (!ids.has(r)) err(`${l.id}: reveals unknown ${r}`); }));
   // the notes steer by the landmarks, so text and layout cannot drift apart
   const marks = Object.values(t.landmarks || {}).map((m) => m.name.toLowerCase());

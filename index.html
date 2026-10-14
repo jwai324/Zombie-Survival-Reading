@@ -240,6 +240,20 @@
     </div>
   </section>
 
+  <!-- LOCK: a keypad, word buttons, a choice (drawers, buttons, keys) or a crowbar; js/locks.js -->
+  <section id="screen-lock" class="screen hidden overlay">
+    <div class="panel lock-panel">
+      <div id="lock-caption" class="caption">Locked</div>
+      <h2 id="lock-title"></h2>
+      <p id="lock-text" class="small"></p>
+      <div id="lock-body" class="lock-body"></div>
+      <div class="btn-row">
+        <button id="btn-lock-back" class="btn alt">Step back</button>
+        <button id="btn-lock-go" class="btn big go">Try it</button>
+      </div>
+    </div>
+  </section>
+
   <!-- CONFIRM -->
   <section id="screen-confirm" class="screen hidden overlay">
     <div class="panel confirm-panel">
@@ -295,6 +309,7 @@
 <script src="js/yardart.js"></script>
 <script src="js/houseart.js"></script>
 <script src="js/decor.js"></script>
+<script src="js/locks.js"></script>
 <script src="js/streets.js"></script>
 <script src="js/game.js"></script>
 <script src="js/interior.js"></script>

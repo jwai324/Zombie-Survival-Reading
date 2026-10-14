@@ -45,8 +45,8 @@ useful.
    first person inside a building with its own floor plan: WASD to move, mouse to look,
    click to fire, E to interact, M for the map of what you have seen. Four landmarks, one
    per corner, are what the notes steer by. Walkers inside come for you. Items sit on
-   shelves and floors; a locked cache room holds the best items and only opens once you
-   have read the note that explains how. Scrap piles give scrap. Press E at the entrance
+   shelves and floors; a locked cache room holds the best items and opens only when you do
+   what its note says (see **Locks** below). Scrap piles give scrap. Press E at the entrance
    to leave. Shelf and floor items come back three days after they are taken; scrap piles
    are back every visit; cache items never come back.
 5. **Map again.** Chain more locations or head home. Cargo rides in the van.
@@ -68,7 +68,8 @@ tension.
 - **Backpack**: every note read is kept with its title, the location, and where in the
   building it was found. Opens from the base, the map, and inside a building (pauses).
 - **Why read**: the door note says how many walkers and where the items are, by landmark;
-  the inside note says how to open the cache (reading it is what unlocks the door), what is
+  the inside note says how to open the cache (a code, a stuck lock's moves, which drawer, which
+  alarm button; the lock holds you to it), what a mistake costs, what is
   in the cache, the way from the note to the cache door, and often which other location to
   try next (reading it reveals that location on the map). On the road, the street signs
   say where each lane goes, and the city map lists the way there in words.
@@ -223,15 +224,28 @@ the game and none of it is quizzed.
 
 - **More notes per building.** Besides the door note and the main note: a two-note trail
   (`trail1` says where `trail2` is; `trail2` appears once `trail1` is read and says where the
-  key is) and dead-end notes placed by reading level (1 at levels 1, 2 at levels 2 and 3, 3 at
+  key is) and dead-end notes placed by reading level (2 at levels 1 to 3, the lock decoy among them, 3 at
   levels 4 and 5, 4 at level 6). Some dead ends are decoys: wrong codes, emptied rooms.
 - **Stashes and the key ring.** Every building has a small locked stash room (`Q` door, `k`
   spots in its floor plan, two good items that never come back). Its key is hidden in another
   building (`y` spot), visible once that building's `trail2` is read. The notes say where by
   that building's landmarks and rooms, like every other note inside. `KEYS` in `js/world.js` is a ring
   through all fifteen places. A key picked up is a trip item: yours once home, lost on death.
-  Keys are listed in the backpack and the cabin's stock tab (what each opens, where it was
-  found, its tag, the clue note); the map shows a stash once you hold its key.
+  Keys are listed in the backpack and the cabin's stock tab by how they look (where each was
+  found, its tag, the clue note), never by what they open. At a stash door you pick which key
+  to try; only the `trail2` note says which key fits. A wrong key jams the stash (a crowbar opens
+  it), snaps off and is gone, or just will not turn, as that note warns (`stashFail`).
+- **Locks** (`LOCKS` in `js/world.js`, `js/locks.js`). Every cache lock is real. Its answers are
+  rolled per save and filled into the notes' `{placeholders}`, so they cannot be shared or
+  memorized from another save. Kinds: a keypad code; moves pressed in order on word buttons (up,
+  right, lift, pull, twist left ...); a search at a fixture beside the main note (which drawer,
+  watering can, key, breaker box or book) that finds the door's key or badge; an alarm panel on a
+  named wall (press the right button first). A mistake costs what the note warns: the alarm
+  (walkers pour in, through the way out too, so there is no leaving: you go down), a booby trap
+  (you go down), or a jam (only a crowbar opens it; crowbars are built at the workbench, 20 scrap,
+  carried on every trip, spent on use). Jams and broken keys are saved. Every building's `dead2`
+  note is a decoy with a clearly different wrong answer, at every reading level. Typing "god mode"
+  within 2.5 seconds at any lock prompt opens it.
 - **Wall signs and graffiti.** Four per building (the layout's `signs`: a wall tile and the
   face they are painted on). Walk up and look at one and a panel shows it; no key press, no
   pause. Extra notes stand on the layout's numbered `spots`.

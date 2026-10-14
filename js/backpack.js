@@ -60,7 +60,7 @@
       document.getElementById("btn-backpack-close").onclick = () => this.close();
     },
 
-    /** Stash keys held: what each opens, where it was found, its tag, and the note that led to it.
+    /** Stash keys held: how each looks, where it was found, its tag, and the note that led to it (which says what it opens).
         `reopen` brings this view back after reading the clue. Shared with the cabin's stock tab. */
     keysBlock(reopen) {
       const S = State();
@@ -71,15 +71,14 @@
         wrap.appendChild(el("p", "small muted", "No keys yet. Every building hides the key to another building's stash. Read the notes inside: one of them leads to the key."));
         return wrap;
       }
+      wrap.appendChild(el("p", "small muted", "A key does not say what it opens. The note that led you to it does. At a stash, you pick the key to try."));
       held.forEach((k) => {
         const kt = ZSR.keyText(k.from);
         const from = W().LOCATIONS.find((l) => l.id === k.from);
-        const to = W().LOCATIONS.find((l) => l.id === k.opens);
-        const st = S.locState(k.opens);
-        const status = st.stashOpened ? (to.stash || []).every((_, i) => st.stashTaken["k" + i]) ? "opened and emptied" : "opened" : "not opened yet";
+        // which stash it opens is in the note that led to it, not on the key: read the clue again
         const card = el("div", "key-card");
-        card.appendChild(el("div", "key-name", esc(kt.name)));
-        card.appendChild(el("div", "small", "<strong>Opens:</strong> " + esc(to.stashName) + " at " + esc(to.name) + " (" + status + ")" + (S.isKnown(to.id) ? "" : " · not on your map yet")));
+        card.appendChild(el("div", "key-name", esc(kt.name) + (k.broken ? " (broken)" : "")));
+        if (k.broken) card.appendChild(el("div", "small", "It snapped off in the wrong lock. It is gone."));
         card.appendChild(el("div", "small muted", "Found at " + esc(from.name) + (k.trip ? ", this trip: get it home to keep it" : ", day " + k.day)));
         if (kt.tag) card.appendChild(el("p", "key-tag", esc(kt.tag)));
         const K = W().NOTES[k.from].key;

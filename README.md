@@ -73,15 +73,22 @@ road also work on touch.
    fire truck, the giant globe). Inside, first person: W A S D to move, mouse to look, click
    to fire, E to read notes and to open and close doors (walkers cannot open them), B for the
    backpack, M (or the Map button) for a map of the parts you have seen. The locked cache room
-   holds the best items and opens only once you have read the note inside, which also gives
-   the way there. Go back in from the map and the building is exactly as you left it; what you
+   holds the best items, and the note inside says how to open it and the way there. **Every
+   lock is real:** type the keypad code, press the stuck door's moves in order (up, right, lift,
+   pull ...), open the right drawer or can, press the right alarm button first. The answers are
+   different in every save. A mistake costs what the note warns: an alarm (walkers pour in, even
+   through the way out, until you go down), a booby trap (you go down), or a jammed lock that only
+   a crowbar opens (build crowbars at the workbench; each one is spent on use). Typing
+   `god mode` within 2.5 seconds at any lock prompt opens it. Go back in from the map and the building is exactly as you left it; what you
    have explored is kept once you are home.
    Items sit on shelves and floors, and each has a tag you read as you pick it up. Every
    building also has a locked **stash** whose key is hidden in a *different* building: one
    note leads to a second, and the second says where the key is and which stash it opens (the
-   keys form a ring around the town). Walls carry signs and graffiti you read by walking up to
-   them. Higher reading levels place more notes in each building, some of them wrong or out
-   of date.
+   keys form a ring around the town). A key only says how it looks: at a stash you pick which
+   key to try, so reread the note. A wrong key jams some locks, snaps off in others, and does
+   nothing in the rest, as the note warns. Walls carry signs and graffiti you read by walking up
+   to them. Every building has a decoy note with a wrong answer for its lock; higher reading
+   levels place more notes, some of them wrong or out of date.
    Four more guns lie on the floor of four buildings, different ones in every save:
    double pistols, a machine gun, a heavy machine gun, and a bow and arrow. Walk over one
    to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns.
@@ -115,6 +122,8 @@ js/streets.js           street names, side streets, lanes and decisions for a ro
 js/content/levelN*.js   THE WORDS at reading level N (1..6): levelN.js (how it works, controls, road, rooms,
                         typing), levelN-places1.js and -places2.js (every building), levelN-home.js (journal,
                         radio, tags, plot signs)
+js/locks.js             the locks: answers rolled per save, the {placeholders} they fill in the notes, the lock
+                        prompt (keypad, moves, choices, stash keys, crowbar), god mode, fixture art
 js/state.js             settings, the base save, the in-memory trip, room effects, explored maps, the key ring
 js/interior.js          first-person engine: raycaster, low see-over tiles, roofs, floors and ceilings,
                         props, walkers, shooting and switching guns, reading signs up close, HUD plumbing
@@ -151,7 +160,7 @@ tests/                  world, weapons, text, streets, drive, engine and art val
 
 ## Editing content
 
-- **Change a fact** (where an item is, a code, who wrote a note): edit `js/world.js`, then
+- **Change a fact** (where an item is, a lock, who wrote a note): edit `js/world.js`, then
   update the six level files so the words still carry the fact. `npm test` checks that
   every level has every note, that numbers, people and revealed place names survive, and that
   each note that gives a way names the building's landmarks.
@@ -172,6 +181,8 @@ tests/                  world, weapons, text, streets, drive, engine and art val
 ## Tuning
 
 - Walkers inside buildings: `SETTINGS.walkersPerLocation` in `js/world.js`.
+- Locks: `LOCKS` in `js/world.js` (what each cache asks, what a mistake costs, what a wrong stash key
+  does) and `TOOLS` (the crowbar's price). The alarm's pace: `updateAlarm` in `js/building.js`.
 - The cabin: `HOUSE` (plan, rooms, notes, what E uses) and `HOUSE_UPGRADES` (door and window strength and
   cost) in `js/world.js`; furniture and room looks in `js/house.js`. A moved wall can strand a note or
   a doorway: `npm test` walks every room, reads every note and uses every spot.
