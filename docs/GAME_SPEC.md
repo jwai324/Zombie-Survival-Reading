@@ -280,6 +280,45 @@ the game and none of it is quizzed.
   is built, one broadcast. Thirty of each are written; after day 30 the last ten repeat. Every
   page is kept in the backpack.
 
+## The crew at home base (2026-10-14)
+
+June, Tomas and Pip live at the cabin. The full design and the contract between its files is
+`docs/CREW.md`; the owner's answers are in `DESIGN.md`.
+
+- **Wandering.** In the calm each walks between their own spots in the yard and the cabin
+  (`CREW[id].posts`; some only once a room is built), rests in a pose (stand, sit, work, read) and
+  moves on. Not solid: walkers ignore them and shots pass them by.
+- **Talking.** Look at one and press E: a comic speech bubble (the read panel), the yard running:
+  what they did for you since you last talked, one useful tip with live numbers, and the next
+  story topic (or a mood line). The first talk each day earns trust. A long bubble pages with E.
+  When they ask something, take something, or Pip wants to name the dog, E again opens the crew
+  card (it pauses; Yes / Not now; locked in a wave).
+- **Story quests.** Five per crew member, in order, gated by trust stars and days (2, 4, 8, 13, 19;
+  the dog on day 28) and offered only once the building is known. One object, one building, on a
+  fixed spot beside a landmark the request names with the place, the direction from the cabin and
+  the room's sign. It appears once accepted; a trip item (yours at home, lost on death). June's
+  ledger notes it on the day page; it is handed over in person for supplies, sometimes a perk
+  (more food or kits a day, more health, scrap a day, free crew repairs, a longer lookout warning,
+  a bigger patch-up, a cheaper crowbar) and a payoff topic.
+- **Errands.** After a crew member's first story quest: N of an ordinary item that a known place
+  stocks, brought home within some days, then handed over (taken from storage). One story quest
+  and one errand can be open at once.
+- **Trust.** Points shown as 0 to 5 stars. Up: a talk a day, errands, quests. Down: hurt in a raid,
+  an errand late, a request given up (in the backpack's Crew section).
+- **Jobs.** Tomas fixes fence holes and cracks in the calm at the usual scrap when the base can pay,
+  and the cabin's doors and windows from two stars; he tells you in his next bubble. June patches
+  you up once a calm (one star). Pip calls the next wave's size and sides as lookout (one star).
+- **Waves.** The crew hurry into the office closet and shut its door. A raider that forces it and
+  stands among them for 6 seconds hurts one off-screen (at most once each per wave): a shout, 1
+  medical kit from storage or else 2 food, and trust. Nobody dies; nothing is shown.
+- **The dog.** Pip's fifth quest. The stray sits in a building; E holds out Pip's treats and it
+  follows you (walkers ignore it) to the van. Home, you name it (Pip's three ideas, or your own).
+  It follows Pip, shelters with the crew, barks at a wave, and eats 1 food every 2 days. The ledger
+  no longer wishes for a dog once it is home.
+- **Where it shows.** The backpack's Crew section (stars, open requests to reread or give up,
+  finished quests), the day page (June's ledger line), the city map (a marker where an object
+  waits), the building's goal line.
+
 ## The workbench (typing)
 
 Room builds, van and van-gun upgrades, gun mods, and trap crafting open the workbench: a garage scene
@@ -347,7 +386,8 @@ where each unfound gun is hidden, and the seed that picks its floor tile), known
 per-location state (items taken, cache opened, stash opened and taken, explored tiles as a
 packed bitset), stash keys found, item tags read, the day log (journal and radio entries by
 index, recap numbers), broadcasts heard, backpack notes, packed kits, fence health per segment,
-trap stock and set traps, the yard grid version (`yardV`: an older yard's fence is rebuilt whole
+trap stock and set traps, the crew (trust, talks, topics told, quests and errands, reports, the
+dog), the yard grid version (`yardV`: an older yard's fence is rebuilt whole
 and its set traps return to stock), typing progress, best score. Only written at the base. An
 older save gets guns on load: the pistol, with mods carried over from its gun upgrades.
 

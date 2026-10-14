@@ -22,6 +22,7 @@ constant with a `SCALE:` comment.
 | Base rooms / plots | 11 rooms x 3 levels, 10 yard plots | `js/world.js` |
 | Reading levels | 6 | `js/content/`, `index.html`, tests |
 | Journal / radio | 30 entries each | `js/story-home.js` |
+| Crew | 3 crew, 22 spots, 30 topics and 16 moods, 15 story quests, 11 errands, 1 dog | `js/story-crew.js`, `js/story-quests.js` |
 | Danger | 1..5 | `LOCATIONS[].danger`, `js/map.js` pips |
 
 ## What breaks first
@@ -182,6 +183,32 @@ missing. Growth rules:
     - the counts in `README.md` and `docs/GAME_SPEC.md`
 13. Decide the old-save migration (see above).
 14. `npm test`.
+
+## The crew
+
+The crew at home base is data-driven (`docs/CREW.md`): a fourth crew member, more topics, more
+quests or errands need facts and words, not engine changes, within these limits.
+
+- **Ids are permanent.** Topic, mood, quest and errand ids are stored in saves (`crew.heard`,
+  `crew.quests`, `crew.errand`, `crew.read`). Append; never rename, reorder within a giver (quests
+  are offered in array order) or remove one.
+- **A new crew member** needs posts (checked by `tests/validate-crew.js` at every room level), a
+  `crewart.js` look (the art validator fails without one), tips for every tip id the engine knows,
+  and room in the shelter (`CREW_RULES.shelter`: three tiles today; more crew than tiles share them).
+  `upgradeSave` fills its save fields in old saves.
+- **Quest spots** are fixed tiles beside a landmark, at most `QUESTS_PER_PLACE` (2) per building
+  (`tests/validate-world.js`). Moving a landmark or redrawing a room means rechecking the spots and
+  rewriting those briefs at six levels. A gun that lands on a quest tile takes the next tile.
+- **Errands** need their item on some place's restocking shelves; offers skip items no known place
+  stocks.
+- **The yard.** Posts are hand-placed tiles: moving a plot, the van or a cabin room means
+  rechecking them (`npm test` does).
+- `SCALE:` spots: `CREW_RULES.stars` (one entry per star), `requestsPerCrew` (one errand slot in the
+  save), the `crew.read` list, the dog's trail lengths (`js/crew.js`, `js/building.js`), the walker
+  look-ahead for Pip's tip (`js/crewstate.js`), `QUESTS_PER_PLACE`, and the How it works paragraph
+  bound (`tests/validate-text.js`).
+- `npm test` drives a full play-through of every story quest on the real facts; it grows with the
+  number of quests.
 
 ## Refactors worth doing before the next big jump
 

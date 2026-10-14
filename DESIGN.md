@@ -349,3 +349,43 @@ contract between the files is `docs/CREW.md`.
 | The dog? | The stray barking past the trees. You name it: one of Pip's ideas or your own. |
 | Can trust drop? | Yes: when a crew member is hurt in a raid, an errand runs late, or you give up a request. |
 | Delivery? | Everything in one drop. |
+
+Judgment calls made while building the crew (each marked **Assumption** can change cheaply in
+`js/story-crew.js`, `js/story-quests.js` or `CREW_RULES`):
+
+- **The shelter is the office closet.** Pip once slept in "the closet" (journal-16). Its two box
+  stacks became the big battery against the end wall (not solid), so three crew and the dog fit.
+- **The crew are not solid.** You and walkers pass through them and shots pass them by, so they
+  never block a doorway, a fight or E at the cabin's spots (the crosshair has to be on them to talk).
+- **Harm in a raid** needs a raider among them for 6 seconds, at most once per crew member per wave,
+  and costs 1 medical kit from storage, else 2 food (less if the pantry is short). **Assumption:**
+  6 seconds, half the raiders go for the closet. The dog is never hurt.
+- **Talk earns trust once a day; stars at 3, 8, 15, 24 and 35 points.** A quest is worth 5, an
+  errand 3, a talk 1; a hurt costs 3, a late errand 2, a request given up 3. Quest n needs n-1
+  stars and day 2, 4, 8, 13 or 19, so the stories unfold over about three weeks of game days
+  instead of a week. **Assumption:** all of these numbers.
+- **The dog quest waits for day 28.** June's ledger wishes for a dog up to day 28; once the dog is
+  home, the repeating ledger pages skip the ones that wish for a dog.
+- **One story quest and one errand can be open at once,** so an errand never holds back a story.
+  Errands start after a crew member's first story quest, ask only for items some known place's
+  shelves stock, count only what you bring home after accepting, and are taken from storage at
+  hand-in. Filled in time, an errand never goes late, even if the items were used meanwhile.
+- **A story quest is offered only once its building is known.** The crew never reveal a place,
+  give a lock answer or say which key opens which stash: reading the town's notes stays the way in.
+- **Two quest objects changed.** June's pill bag and the photo of Tomas's father are already
+  described by notes in other spots, and a quest object must lie beside a landmark the request
+  names, so June asks for knee tape and Tomas for his father's thank-you card.
+- **Tips:** an urgent one wins (June when you are hurt or the food is gone, Pip's wave call);
+  the others that apply take turns, one per talk; a fallback only when nothing else applies.
+- **Pip calls only real waves** as lookout, and not after the dinner bell (that wave's own toast
+  names the sides).
+- **Tomas fixes only what the base can pay for,** never with a walker in the gap, and says nothing
+  at the time; his next bubble tells it. Free fixes (a perk) are told as free.
+- **A long bubble pages with E** before E opens the card or closes it, since the read panel cannot
+  be scrolled with the mouse in first person.
+- **Plain English for the UI around the crew** (the card's buttons and reward line, the backpack's
+  labels, pickup toasts), like the kits and keys blocks; everything the crew say is at the reading
+  level.
+- **A gun that would land on a quest tile takes the next tile,** so no gun moves in an existing save
+  and none ever lies on a quest object.
+- **The dog's name:** letters (accents too), spaces, apostrophes and hyphens, 1 to 14 characters.
