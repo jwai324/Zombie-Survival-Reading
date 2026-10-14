@@ -955,6 +955,17 @@
         if (crewCard.primary) crewCard.primary();
       }
     });
+    // B closes the backpack it opens (from anywhere the backpack is up). On the document and stopped there, so the
+    // game's own handler on the window never sees it and opens the backpack again once the close resumes play
+    document.addEventListener("keydown", (e) => {
+      if (e.code !== "KeyB" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      if ($("screen-backpack").classList.contains("hidden") || !$("screen-confirm").classList.contains("hidden")) return;
+      const tag = e.target && e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      e.preventDefault();
+      e.stopPropagation();
+      Backpack.close();
+    });
     // the dog's name box: typing stays in the box (P, E and the rest never reach the yard); Enter names, Esc cancels
     $("crew-dogname").addEventListener("keydown", (e) => {
       e.stopPropagation();
