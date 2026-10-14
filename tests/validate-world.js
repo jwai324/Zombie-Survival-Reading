@@ -10,7 +10,7 @@ const sb = {};
 sb.globalThis = sb;
 vm.createContext(sb);
 // layouts.js defines ZSR.LAYOUTS (the interiors); world.js uses them as its TEMPLATES
-["layouts.js", "world.js", "story.js", "story-home.js"].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8"), sb, { filename: f }));
+["layouts.js", "world.js", "story.js", "story-home.js", "story-crew.js", "story-quests.js"].forEach((f) => vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8"), sb, { filename: f }));
 const W = sb.ZSR.WORLD;
 const ART = sb.ZSR.LAYOUT_ART || {};
 const DECOR = sb.ZSR.LAYOUT_DECOR || {};

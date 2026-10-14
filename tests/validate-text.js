@@ -59,7 +59,7 @@ function load(file, key, before) {
 }
 // world.js takes its interiors from layouts.js, so that loads first; the story facts follow it
 const JS = (f) => path.join(ROOT, "js", f);
-const WORLD = load(JS("story-home.js"), "WORLD", [JS("layouts.js"), JS("world.js"), JS("story.js")]);
+const WORLD = load(JS("story-quests.js"), "WORLD", [JS("layouts.js"), JS("world.js"), JS("story.js"), JS("story-home.js"), JS("story-crew.js")]);
 if (!WORLD) {
   console.log("ERROR js/world.js did not define ZSR.WORLD");
   process.exit(1);
