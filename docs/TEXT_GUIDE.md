@@ -234,7 +234,8 @@ Each level is five files, loaded in this order (`index.html`):
 - `js/content/levelN-places2.js`: locations police, school, firehouse, hospital, watertower,
   lumberyard, mall, library.
 - `js/content/levelN-home.js`: `yard`, `journal`, `radio`, `tags`, `recap`.
-- `js/content/levelN-crew.js`: `crew` (talk, tips, reports, quests, errands, dog).
+- `js/content/levelN-crew.js`: `crew` talk, tips, reports and dog.
+- `js/content/levelN-quests.js`: `crew` quests and errands.
 
 More words for the same level go in a new part file (`levelN-places3.js`), loaded by `index.html`
 after the others; the validator reads every `levelN-*.js` part it finds. A second crew part

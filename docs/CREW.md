@@ -373,28 +373,34 @@ As built, beyond the table (js/crewstate.js):
 - The journal: once the dog is home, `logDay` skips the pages that wish for a dog (`dogWish: true` in
   `JOURNAL`) when the ledger repeats.
 
-## Words (`T.crew` in `js/content/levelN-crew.js`)
+## Words (`T.crew` in `js/content/levelN-crew.js` and `levelN-quests.js`)
 
 ```js
-T.crew = {
-  talk: { "june-t1": { title, text }, "june-m1": { title, text }, ... }, // every topic and mood
-  tips: { june: { food: "...{food}...{days}...", ... }, tomas: {...}, pip: {...} },
-  reports: { fence: "...", fenceFree: "...", cabin: "...", hurt: "...", late: "...", heal: "..." },
-  quests: { "june-1": { title, brief, tag, journal, done, after }, ... }, // dog quest: no tag
-  errands: { "june-e1": { title, brief, done }, ... },
-  dog: { ask: "...", named: "...{dog}...", pet: "...{dog}..." },
-};
+// levelN-crew.js
+T.crew = T.crew || {};
+T.crew.talk = Object.assign(T.crew.talk || {}, { "june-t1": { title, text }, "june-m1": { title, text } }); // every topic and mood
+T.crew.tips = Object.assign(T.crew.tips || {}, { june: { food: "...{food}...{days}..." }, tomas: {}, pip: {} });
+T.crew.reports = Object.assign(T.crew.reports || {}, { fence, fenceFree, cabin, cabinFree, hurt, late, heal });
+T.crew.dog = Object.assign(T.crew.dog || {}, { ask, named, pet });
+// levelN-quests.js
+T.crew.quests = Object.assign(T.crew.quests || {}, { "june-1": { title, brief, tag, journal, done, after } }); // dog quest: no tag
+T.crew.errands = Object.assign(T.crew.errands || {}, { "june-e1": { title, brief, done } });
 ```
 
-Lengths by kind (the same columns as `docs/TEXT_GUIDE.md`): `talk` and `after` and `done` use the
-`lot` range; `brief` the `day` range; `tips`, `reports`, `tag`, `journal`, errand texts and `dog`
-the `tag` range. Every text names its speaker the first time ("June says ..."). The `brief` names
-the place, the landmark (`near`) word for word, and the direction. Placeholders allowed in crew
-words: `{food} {days} {room} {needs} {hp} {max} {cost} {holes} {cracks} {broken} {keys} {size}
-{sides} {fixed} {scrap} {who} {item} {count} {reward} {dog}`.
+Each part file merges into `T.crew`, never replaces it. The rules for these words (lengths by kind,
+the speaker rule, placeholders per kind, quest titles, briefs that name the place, the landmark, the
+room sign in capitals, the direction and the reward, people and places a crew text may name, Pip's
+pronoun, the How it works crew paragraph and the controls' E line) are in `docs/TEXT_GUIDE.md`
+("The crew's words") and enforced by `node tests/validate-text.js` (`--crew=strict` lists what a
+level still lacks; `--crew=present` checks only what is written).
 
-Accessor: `ZSR.crewText(kind, id, sub)` returns the words at the reading level (nearest level,
-then the facts), placeholders unfilled; `ZSR.crewFill(text, vars)` fills them.
+As built in phase 2 (beyond the tables above): `handIn(id, reqId)` and `giveUp(id, reqId)` take a
+request id; errands are offered only after a crew member's first story quest is handed in, only
+for items a known place's shelves stock (`errandOffer`, `crewErrandsOpen`, `crewErrandTurn`,
+`crewItemStocked`), and an errand filled in time never goes late; `cabinFree` joins the reports;
+Pip's `walkers` tip applies only while a known building is below the walker cap; E with a long
+bubble open first pages through it ("Press E to read on"); the crew card's DOM is
+`#screen-crew` (styles in css/style.css), `ZSR.Main = { syncYard, confirm, onCrewCard }`.
 
 ## Engine contract (yard, cabin, UI)
 
