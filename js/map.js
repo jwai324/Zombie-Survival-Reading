@@ -23,7 +23,7 @@
   const ZSTEP = 1.5; // one press of + or -
   const FONT = (px) => "700 " + px + "px Oswald, Impact, sans-serif";
 
-  const TYPE_LABEL = { base: "Home base", gas: "Gas station", store: "Store", shop: "Auto shop", station: "Station", school: "School", hospital: "Hospital", utility: "Utility", industrial: "Industrial", mall: "Mall", library: "Library" };
+  const TYPE_LABEL = { base: "Home base", gas: "Gas station", store: "Store", shop: "Auto shop", station: "Station", school: "School", hospital: "Hospital", utility: "Utility", industrial: "Industrial", mall: "Mall", library: "Library", river: "Riverbank" };
   const DISTRICTS = [
     ["NORTH HILLS", 520, 95],
     ["DOWNTOWN", 560, 450],
@@ -203,7 +203,7 @@
     buildGraph() {
       const adj = {};
       const pos = {};
-      W().LOCATIONS.forEach((l) => (pos[l.id] = l));
+      W().LOCATIONS.concat(W().JUNCTIONS || []).forEach((l) => (pos[l.id] = l));
       W().ROADS.forEach(([a, b]) => {
         const d = Math.hypot(pos[a].x - pos[b].x, pos[a].y - pos[b].y);
         (adj[a] = adj[a] || []).push([b, d]);
@@ -261,7 +261,7 @@
       const path = r.path;
       const scale = St.scaleFor(r.dist, this.tripSeconds(r.dist), St.GEOM.baseSpeed);
       const drive = St.buildDrive(path, { scale, speed: St.GEOM.baseSpeed });
-      const P = path.map((id) => W().LOCATIONS.find((l) => l.id === id));
+      const P = path.map((id) => W().place(id));
       const turnAt = {};
       drive.decisions.forEach((d) => d.kind === "junction" && (turnAt[d.node] = d));
       const lanesOf = (dec) => dec.lanes.map((k) => ({ rel: dec.options[k].rel, ok: !!dec.options[k].correct }));
@@ -433,7 +433,7 @@
         if (this.at !== "base") {
           const here = W().LOCATIONS.find((l) => l.id === this.at);
           const been = S.trip && S.trip.rooms && S.trip.rooms[this.at];
-          const back = el("button", "btn", (been ? "Back into " : "Go into ") + esc(here ? here.name : "the building"));
+          const back = el("button", "btn", here && here.outdoor ? "Back to the river" : (been ? "Back into " : "Go into ") + esc(here ? here.name : "the building"));
           back.addEventListener("click", () => this.hooks.onEnter && this.hooks.onEnter(this.at));
           info.appendChild(back);
           const home = el("button", "btn big go", "Drive home");
@@ -445,9 +445,15 @@
       const loc = W().LOCATIONS.find((l) => l.id === id);
       info.appendChild(el("h3", null, esc(loc.name)));
       info.appendChild(el("p", "small muted", esc(TYPE_LABEL[loc.type] || loc.type) + (loc.id === "base" ? "" : " · " + (fx.showDanger || S.locState(id).visits ? "danger " + loc.danger + " of 5" : "danger unknown"))));
-      const blurb = t && t.locations && t.locations[id] && t.locations[id].blurb;
+      const blurb = loc.outdoor ? ZSR.riverText && ZSR.riverText("blurb") : t && t.locations && t.locations[id] && t.locations[id].blurb;
       if (blurb) info.appendChild(el("p", null, esc(blurb)));
-      if (loc.id !== "base") {
+      if (loc.outdoor) {
+        // River Landing: no shelves, just the river; the pole is what you need
+        const left = S.fishLeft();
+        const rest = S.riverRestDays();
+        info.appendChild(el("p", "small", "<strong>Fish:</strong> " + (rest ? "fished out. Back in " + rest + " day" + (rest > 1 ? "s" : "") + "." : left + " to catch on this trip. Each fish is 1 food.")));
+        if (!S.hasRod()) info.appendChild(el("p", "small warn", "You need a fishing pole to fish here."));
+      } else if (loc.id !== "base") {
         const st = S.locState(id);
         const items = loc.items.filter((_, i) => S.itemAvailable(id, "i" + i));
         const cacheLeft = loc.cache.filter((_, i) => !st.cacheTaken["c" + i]);
@@ -476,8 +482,8 @@
       }
       if (this.at === id && id !== "base" && S.trip) {
         const again = S.trip.rooms && S.trip.rooms[id];
-        info.appendChild(el("p", "small muted", again ? "You are parked outside. Inside is just as you left it." : "You are parked at the door."));
-        const go = el("button", "btn big go", again ? "Go back in" : "Go in");
+        info.appendChild(el("p", "small muted", loc.outdoor ? "You are parked at the end of the dirt road." : again ? "You are parked outside. Inside is just as you left it." : "You are parked at the door."));
+        const go = el("button", "btn big go", loc.outdoor ? "Walk to the river" : again ? "Go back in" : "Go in");
         go.addEventListener("click", () => this.hooks.onEnter && this.hooks.onEnter(id));
         info.appendChild(go);
       } else if (this.at === id) info.appendChild(el("p", "small muted", "You are here."));
@@ -591,8 +597,9 @@
       const pxU = 1 / (shown * z); // map units per CSS px now
       const ik = 1 / Math.sqrt(z); // icons and roads grow slower than the zoom, so a close look has room
       const pos = {};
-      W().LOCATIONS.forEach((l) => (pos[l.id] = l));
-      const known = new Set(knownIds);
+      W().LOCATIONS.concat(W().JUNCTIONS || []).forEach((l) => (pos[l.id] = l));
+      // bare corners count as known once two of their places are (State.isKnown), so their roads show
+      const known = new Set(knownIds.concat((W().JUNCTIONS || []).filter((j) => S.isKnown(j.id)).map((j) => j.id)));
       const g = this.selected && this.selected !== this.at ? this.guideFor(this.at, this.selected) : null;
       const onRoute = new Set();
       if (g && St) for (let i = 0; i < g.path.length - 1; i++) onRoute.add(St.roadKey(g.path[i], g.path[i + 1]));
@@ -889,7 +896,7 @@
       const vy1 = v.cy + MH / 2 / v.z;
       const ik = L.ik;
       const pos = {};
-      W().LOCATIONS.forEach((l) => (pos[l.id] = l));
+      W().LOCATIONS.concat(W().JUNCTIONS || []).forEach((l) => (pos[l.id] = l));
 
       // paper grain (only what is in view), river on the west, hills on the north
       ctx.fillStyle = "rgba(0,0,0,0.05)";
@@ -957,6 +964,27 @@
       roadPass("rgba(15,16,18,0.55)", L.roadHalf * 2 + 2 * ik);
       roadPass("#4b5057", L.roadHalf * 2);
       roadPass("rgba(230,223,204,0.7)", 1.6 * ik, [8 * ik, 8 * ik]);
+      // a road that runs out of asphalt: brown dirt with wheel ruts from where the paving stops
+      if (ZSR.Streets) {
+        L.roads.forEach((rd) => {
+          const sf = ZSR.Streets.SURFACE[rd.key];
+          if (!sf) return;
+          const mx = rd.x0 + (rd.x1 - rd.x0) * sf.paved;
+          const my = rd.y0 + (rd.y1 - rd.y0) * sf.paved;
+          const seg = (color, w, dash) => {
+            ctx.strokeStyle = color;
+            ctx.lineWidth = w;
+            ctx.setLineDash(dash || []);
+            ctx.beginPath();
+            ctx.moveTo(mx, my);
+            ctx.lineTo(rd.x1, rd.y1);
+            ctx.stroke();
+            ctx.setLineDash([]);
+          };
+          seg("#8a6c4a", L.roadHalf * 2);
+          seg("rgba(79,59,39,0.8)", 1.4 * ik, [3 * ik, 4 * ik]);
+        });
+      }
       // side streets: short stubs that go nowhere, drawn like the roads they leave
       if (ZSR.Streets) {
         const St = ZSR.Streets;
@@ -1143,6 +1171,29 @@
       ctx.lineJoin = "round";
       ctx.lineWidth = 3;
       ctx.strokeStyle = INK;
+      if (l.type === "river") {
+        // River Landing: a dock out over the water, and a fish
+        ctx.fillStyle = "#8fb0c0";
+        ctx.beginPath();
+        ctx.ellipse(-size * 0.25, 0, size * 1.05, size * 0.75, 0, 0, TAU);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#a8825a";
+        ctx.fillRect(-size * 0.15, -size * 0.2, size * 1.25, size * 0.42);
+        ctx.strokeRect(-size * 0.15, -size * 0.2, size * 1.25, size * 0.42);
+        ctx.fillStyle = PAPER3;
+        ctx.beginPath();
+        ctx.ellipse(-size * 0.55, size * 0.38, size * 0.32, size * 0.15, 0, 0, TAU);
+        ctx.moveTo(-size * 0.25, size * 0.38);
+        ctx.lineTo(-size * 0.05, size * 0.22);
+        ctx.lineTo(-size * 0.05, size * 0.54);
+        ctx.closePath();
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.restore();
+        return;
+      }
       const roof = { base: "#5b6b3a", gas: "#b3261e", store: "#3f5a8a", shop: "#4b5057", station: "#8a3a30", school: "#8a6a2e", hospital: "#9aa39a", utility: "#5f6b6e", industrial: "#6e6a60", mall: "#6b3f8a", library: "#3f7a6a" }[l.type] || "#4b5057";
       // building body
       ctx.fillStyle = PAPER3;
@@ -1182,7 +1233,7 @@
         }
       }
       // cache marker
-      if (l.id !== "base" && fx.mapShowsCaches && !S.locState(l.id).cacheOpened) {
+      if (l.id !== "base" && !l.outdoor && fx.mapShowsCaches && !S.locState(l.id).cacheOpened) {
         ctx.fillStyle = "#b3261e";
         ctx.beginPath();
         ctx.arc(size, -size * 0.4, 7, 0, TAU);

@@ -63,7 +63,7 @@
       return s / 4294967296;
     };
   }
-  const loc = (id) => World().LOCATIONS.find((l) => l.id === id);
+  const loc = (id) => World().place(id); // a place, or a bare corner where roads meet
 
   const Game = {
     canvas: null,
@@ -533,18 +533,25 @@
       this.van.s = Math.max(0, this.van.s - dec.stop);
       this.van.d = 0;
       this.turn = { track: tp.track, main: false, cam0, cam1: 0 };
-      this.fail = { t: 0, msg: this.failText(opt) };
+      this.fail = { t: 0, msg: this.failText(opt, dec) };
       Audio().play("wrong");
     },
     placeName(id) {
       const l = loc(id);
       return l ? l.name : id;
     },
-    failText(opt) {
+    /** Where a road out of a junction leads: past a bare corner it runs on to the next place. */
+    roadEnd(dec, opt) {
+      return Streets().farPlace(dec.node, opt.to);
+    },
+    failText(opt, dec) {
       const St = Streets();
       const S = State();
       const dest = this.opts.name;
-      if (opt.kind === "road") return S.isKnown(opt.to) ? St.text("wrongWay", { place: this.placeName(opt.to), dest }) : St.text("wrongStreet", { street: opt.street, dest });
+      if (opt.kind === "road") {
+        const to = dec ? this.roadEnd(dec, opt) : opt.to;
+        return S.isKnown(to) && !World().isJunction(to) ? St.text("wrongWay", { place: this.placeName(to), dest }) : St.text("wrongStreet", { street: opt.street, dest });
+      }
       if (opt.kind === "side") return St.text("wrongSide", { street: opt.street, dest });
       if (opt.kind === "lot") return S.isKnown(opt.to) ? St.text("wrongPlace", { place: this.placeName(opt.to), dest }) : St.text("wrongLot", { dest });
       return St.text("missed", { dest });
@@ -553,7 +560,14 @@
     signFor(dec) {
       const St = Streets();
       const S = State();
-      if (dec.kind === "junction") return { style: "guide", rows: dec.options.map((o) => ({ rel: o.rel, text: S.isKnown(o.to) ? this.placeName(o.to) : o.street })) };
+      if (dec.kind === "junction")
+        return {
+          style: "guide",
+          rows: dec.options.map((o) => {
+            const to = this.roadEnd(dec, o);
+            return { rel: o.rel, text: S.isKnown(to) && !World().isJunction(to) ? this.placeName(to) : o.street };
+          }),
+        };
       const turn = dec.options.find((o) => o.kind !== "through" && o.kind !== "miss");
       if (dec.kind === "side") return { style: "street", rows: [{ rel: turn.rel, text: turn.street, badge: St.text(turn.sideKind), badgeKind: turn.sideKind }] };
       return { style: "place", rows: [{ rel: turn.rel, text: S.isKnown(dec.node) ? this.placeName(dec.node) : St.text("lot") }] };
@@ -921,14 +935,15 @@
       ctx.translate(-this.cam.x, -this.cam.y);
       D.ground(ctx, view, theme);
       D.cityRoads(ctx, this.drive, G, theme, view);
-      // lanes before each decision near the view
+      // lanes before each decision near the view (painted on dirt where the road has run out of paving)
+      const dirtTheme = Object.assign({}, theme || {}, { asphalt: "#7a5c3e" });
       this.drive.decisions.forEach((d, i) => {
         if (i < this.next - 1) return;
         const a = St.at(this.drive.track, d.stop);
         if (Math.hypot(a.x - view.x, a.y - view.y) > view.r + (d.stop - d.zoneStart) + 400) return;
         ctx.save();
         ctx.transform(-a.uy, a.ux, -a.ux, -a.uy, a.x, a.y);
-        D.laneZone(ctx, { len: d.stop - d.zoneStart, n: d.n, ourLeft: St.ourLeft(d.n), rels: d.lanes.map((w) => d.options[w].rel), ways: d.lanes }, G, theme);
+        D.laneZone(ctx, { len: d.stop - d.zoneStart, n: d.n, ourLeft: St.ourLeft(d.n), rels: d.lanes.map((w) => d.options[w].rel), ways: d.lanes }, G, this.onDirt(d) ? dirtTheme : theme);
         ctx.restore();
       });
       this.drive.lots.forEach((l) => {
@@ -992,6 +1007,18 @@
       this.hudFade(this.hud.top, 1 - dim);
       this.hudFade(this.hud.mini, (1 - dim) * this.miniAlpha());
       this.drawMinimap(k);
+    },
+    /** Is this decision's lane zone on the dirt part of a road (Frog Lane past its paving)? */
+    onDirt(dec) {
+      if (dec.onDirt != null) return dec.onDirt;
+      const sf = dec.road && Streets().SURFACE[dec.road];
+      const rd = sf && this.drive.roads.find((r) => r.key === dec.road);
+      if (!rd) return (dec.onDirt = false);
+      const p = Streets().at(this.drive.track, (dec.zoneStart + dec.stop) / 2);
+      const dx = rd.x1 - rd.x0;
+      const dy = rd.y1 - rd.y0;
+      const f = ((p.x - rd.x0) * dx + (p.y - rd.y0) * dy) / (dx * dx + dy * dy || 1);
+      return (dec.onDirt = f > sf.paved);
     },
     /** Opacity for a HUD element, set only when it changes; hidden (and so not clickable) once faded out. */
     hudFade(el, a) {
@@ -1214,7 +1241,7 @@
       ctx.rotate(-Math.PI / 2 - th);
       ctx.translate(-mx, -my);
       const pos = {};
-      Wd.LOCATIONS.forEach((l) => (pos[l.id] = l));
+      Wd.LOCATIONS.concat(Wd.JUNCTIONS || []).forEach((l) => (pos[l.id] = l));
       // a road is known when both its ends are; the road the van is on and every road out of the next
       // junction are always shown and named (the junction's sign may name them), whichever is the route
       const here = this.onMain ? this.roadHere() : null;

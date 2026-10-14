@@ -114,6 +114,8 @@
       house: { doors: 0, windows: 0, hp: {} }, // the cabin: door and window levels, and each one's strength ("x,y" in the yard; 0 is broken)
       houseRead: [], // notes on the cabin's walls already read (their words counted once)
       typing: { stage: 0, passes: 0, rounds: 0, tutorialSeen: false, v: 2 }, // the workbench typing game: stage, good rounds at it
+      rod: false, // Chief Dunn's fishing pole, once it is home (found in Station 12's equipment bay)
+      riverRest: null, // the day River Landing was fished out (WORLD.RIVER.cap fish on one trip); it rests restockDays
       labAcc: 0, // partial medical kits brewing in the Lab
       stats: { trips: 0, walkers: 0, notesRead: 0, wordsRead: 0, items: 0 },
       wave: 0, // waves survived during this stay at the base (escalation)
@@ -142,6 +144,11 @@
       s.typing.stage = ZSR.Typing && ZSR.Typing.migrate ? ZSR.Typing.migrate(s.typing.stage) : 0;
       s.typing.passes = 0;
       s.typing.v = fresh.typing.v;
+    }
+    // food crates used to land in storage, where the crew never ate them: they feed the crew now
+    if (s.inventory && s.inventory.food > 0) {
+      s.food = (s.food || 0) + s.inventory.food;
+      delete s.inventory.food;
     }
     Object.keys(fresh).forEach((k) => {
       if (s[k] == null) s[k] = fresh[k];
@@ -341,6 +348,8 @@
         revived: false,
         visited: [],
         keys: [], // stash keys picked up this trip (yours once you get home)
+        rod: false, // the fishing pole, picked up this trip (yours once you get home)
+        fish: 0, // fish caught at River Landing this trip (each one is a food in the cargo)
         tags: [], // item tags read this trip
         signs: [], // wall signs read this trip (counted once for words read)
         walkers: 0,
@@ -460,6 +469,8 @@
       return true;
     },
     isKnown(id) {
+      // a bare corner (a junction) is known once two of the places its roads lead to are
+      if (W().isJunction && W().isJunction(id)) return ZSR.Streets ? ZSR.Streets.neighbors(id).filter((n) => this.isKnown(n)).length >= 2 : false;
       return this.save.known.includes(id) || (this.trip && this.trip.revealed.includes(id));
     },
     reveal(ids) {
@@ -483,7 +494,13 @@
       const s = this.save;
       const t = this.trip;
       if (t) {
-        Object.entries(t.cargo).forEach(([k, n]) => (s.inventory[k] = (s.inventory[k] || 0) + n));
+        // food (crates and fish) goes to the crew's food; everything else into storage
+        Object.entries(t.cargo).forEach(([k, n]) => {
+          if (k === "food") s.food = (s.food || 0) + n;
+          else s.inventory[k] = (s.inventory[k] || 0) + n;
+        });
+        if (t.rod) s.rod = true;
+        if ((t.fish || 0) >= W().RIVER.cap) s.riverRest = s.day; // fished out: the river rests
         s.scrap += t.scrap;
         Object.entries(t.loc).forEach(([id, over]) => {
           const base = (s.loc[id] = s.loc[id] || { taken: {}, cacheOpened: false, cacheTaken: {}, visits: 0 });
@@ -637,7 +654,8 @@
       if (room === "walls") this.save.vanHp = Math.min(this.vanMaxHp(), this.save.vanHp + 30);
       if (room === "radio") {
         const fx = this.effects();
-        const unknown = W().LOCATIONS.filter((l) => !this.save.known.includes(l.id)).sort((a, b) => a.danger - b.danger);
+        // buildings only: River Landing is found by reading the fishing pole's tag
+        const unknown = W().LOCATIONS.filter((l) => !l.outdoor && !this.save.known.includes(l.id)).sort((a, b) => a.danger - b.danger);
         unknown.slice(0, fx.reveal >= 99 ? unknown.length : fx.reveal).forEach((l) => this.save.known.push(l.id));
       }
       this.commit();
@@ -744,6 +762,38 @@
       this.commit();
       return true;
     },
+    /* ---------- The fishing pole and the river ---------- */
+    /** Holding the pole: brought home, or picked up this trip. */
+    hasRod() {
+      return !!this.save.rod || (!!this.trip && !!this.trip.rod);
+    },
+    takeRod() {
+      if (this.hasRod()) return false;
+      if (this.trip) this.trip.rod = true;
+      else this.save.rod = true;
+      return true;
+    },
+    /** Fish still to catch at River Landing on this trip (0 while the river rests after being fished out). */
+    fishLeft() {
+      const R = W().RIVER;
+      if (this.save.riverRest != null && this.save.day - this.save.riverRest < R.restockDays) return 0;
+      return Math.max(0, R.cap - ((this.trip && this.trip.fish) || 0));
+    },
+    /** Days until the river has fish again (0 when it has). */
+    riverRestDays() {
+      const R = W().RIVER;
+      if (this.save.riverRest == null) return 0;
+      return Math.max(0, R.restockDays - (this.save.day - this.save.riverRest));
+    },
+    /** A fish on the line and landed: one food in the van. */
+    catchFish() {
+      if (!this.trip || this.fishLeft() <= 0) return false;
+      this.trip.fish = (this.trip.fish || 0) + 1;
+      this.trip.cargo.food = (this.trip.cargo.food || 0) + 1;
+      this.trip.items += 1;
+      return true;
+    },
+
     /* ---------- On-foot weapons ---------- */
     /** Weapons in hand right now: owned, plus anything picked up this trip. In slot order. */
     weaponsHeld() {
@@ -875,6 +925,18 @@
     if (e) return e[(variant || 0) % e.length];
     const f = ((ZSR.WORLD.ITEM_TAGS || {})[item] || [])[variant || 0];
     return f ? f.join(" ") : "";
+  };
+  /** River Landing's words: "sign" and "note" ({ title, text }), "rod" (the pole: { name, tag }), "blurb" (the city map). */
+  ZSR.riverText = function riverText(key) {
+    const e = ZSR.textAt((t) => {
+      const r = t.river && t.river[key];
+      return r && (typeof r === "string" || r.text || r.tag) ? r : null;
+    });
+    const f = ((ZSR.WORLD.RIVER_FACTS || {})[key] || []).join(" ");
+    if (key === "blurb") return e || "";
+    if (key === "rod") return e ? { name: e.name || "Fishing pole", tag: e.tag } : { name: "Fishing pole", tag: f };
+    if (e) return { title: e.title || "", text: e.text };
+    return { title: key === "sign" ? "River Landing" : "A note", text: f };
   };
   /** A note the Hollis family left on a wall of the cabin (WORLD.HOUSE.notes): { title, text }. */
   ZSR.houseNoteText = function houseNoteText(id) {

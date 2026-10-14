@@ -17,7 +17,8 @@
   const ORDINAL = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th" };
   let settingsReturn = "screen-title";
   let titleRaf = 0;
-  let active = null; // "yard" | "road" | "building" | null
+  let active = null; // "yard" | "road" | "building" | "river" | null
+  const firstPerson = () => active === "building" || active === "yard" || active === "river";
   let pendingSlot = null;
 
   function show(id) {
@@ -184,7 +185,7 @@
     };
     loop();
   }
-  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D, the arrow keys or the side buttons change lanes. Your left lane goes straight past side streets and lots. For a lot on the right, use the right lane; for one on the left, the turn lane that opens on the far left. Where roads meet there is one lane per road and yours may turn: match the arrow on the sign and be in that lane before the white stop line.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, M opens the map of a building, P or Esc pauses.", "E does it all: reads notes, opens and closes doors (the cabin's too), opens a cache once you have read its note, leaves a building, uses the computer and the things in the cabin, rings the dinner bell, starts the van, and fixes a hole in the fence (1 scrap) or a broken door or window (2 scrap).", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Guns: more guns are hidden in buildings around town. Walk over one to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns. Hold to draw the bow, let go to shoot. Mod guns with scrap in the cabin's Weapons tab.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
+  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D, the arrow keys or the side buttons change lanes. Your left lane goes straight past side streets and lots. For a lot on the right, use the right lane; for one on the left, the turn lane that opens on the far left. Where roads meet there is one lane per road and yours may turn: match the arrow on the sign and be in that lane before the white stop line.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, M opens the map of a building, P or Esc pauses.", "E does it all: reads notes, opens and closes doors (the cabin's too), opens a cache once you have read its note, leaves a building, uses the computer and the things in the cabin, rings the dinner bell, starts the van, and fixes a hole in the fence (1 scrap) or a broken door or window (2 scrap).", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Guns: more guns are hidden in buildings around town. Walk over one to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns. Hold to draw the bow, let go to shoot. Mod guns with scrap in the cabin's Weapons tab.", "Fishing: the pole is 6 (or Q). Click to cast at the water, click again when the float dips. Take a gun with the line out and the pole stays propped on the bank; E at it takes it back.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
   function renderHowto() {
     const t = ZSR.text();
     const body = $("howto-body");
@@ -383,8 +384,10 @@
       goYardWithDay({ firstCalm: W.DEFENSE.firstCalmSeconds }, () => Interior.toast("Home. " + cargo + " item" + (cargo === 1 ? "" : "s") + " unloaded. Day " + State.save.day + ". Saved.", 4));
       return;
     }
+    const dest = W.LOCATIONS.find((l) => l.id === destId);
+    if (dest.outdoor) return enterRiver(dest); // River Landing: no door, no note, just out of the van
     // back at a place already entered this trip: straight in, as you left it
-    if (State.trip.rooms && State.trip.rooms[destId]) enterBuilding(W.LOCATIONS.find((l) => l.id === destId));
+    if (State.trip.rooms && State.trip.rooms[destId]) enterBuilding(dest);
     else showDoor(destId);
   }
   /** The note at the door; parked outside until the player goes in or drives off. */
@@ -406,6 +409,7 @@
     if (!State.trip) return goYard();
     const loc = W.LOCATIONS.find((l) => l.id === destId);
     if (!loc || destId === "base") return;
+    if (loc.outdoor) return enterRiver(loc);
     if (State.noteRead(W.NOTES[destId].door.id)) enterBuilding(loc);
     else showDoor(destId);
   }
@@ -415,6 +419,14 @@
     showCanvas("fp");
     active = "building";
     Interior.enter(loc);
+  }
+  /** River Landing: out of the van on the dirt turnout, the dock and the river ahead. */
+  function enterRiver(loc) {
+    State.trip.atDoor = null;
+    hideScreens();
+    showCanvas("fp");
+    active = "river";
+    Interior.enterRiver(loc);
   }
 
   /* ---------- Building hooks ---------- */
@@ -442,12 +454,12 @@
   }
   function pauseActive() {
     if (active === "road" && Game.running && !Game.paused) Game.pause();
-    if ((active === "building" || active === "yard") && Interior.running && !Interior.paused) Interior.pause();
+    if (firstPerson() && Interior.running && !Interior.paused) Interior.pause();
   }
   function resumeActive() {
     hideScreens();
     if (active === "road") Game.resume();
-    if (active === "building" || active === "yard") Interior.resume();
+    if (firstPerson()) Interior.resume();
   }
   function onPause() {
     if (overlayOpen()) return;
@@ -483,7 +495,7 @@
       d.innerHTML = '<span class="v">' + v + '</span><span class="l">' + l + "</span>";
       stats.appendChild(d);
     });
-    $("death-text").textContent = active === "yard" ? "The fence gave and the yard filled up. Your last save at the cabin is still there." : active === "road" ? "The van is wrecked on the road. Everything since you left the cabin is gone." : "They got you inside. Everything since you left the cabin is gone.";
+    $("death-text").textContent = active === "yard" ? "The fence gave and the yard filled up. Your last save at the cabin is still there." : active === "road" ? "The van is wrecked on the road. Everything since you left the cabin is gone." : active === "river" ? "They got you down by the river. Everything since you left the cabin is gone." : "They got you inside. Everything since you left the cabin is gone.";
     active = null;
     show("screen-death");
   }

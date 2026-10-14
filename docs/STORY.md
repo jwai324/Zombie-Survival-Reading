@@ -74,7 +74,7 @@ walkers, so the texts always pair it with June's warning.
 | **Ms. Adler** | Lincoln Middle School | The twins' teacher. Led her students to the Public Library. |
 | **Mrs. Greer** | Public Library | The librarian. Took in Ms. Adler's class. Believes reading saved the building. |
 | **Sergeant Vega** | 4th Precinct | Organizing the **River Convoy**: boats and trucks meant to leave north along the river road. Practical, tired. |
-| **Chief Dunn** | Station 12 | Fire chief, works with Vega on the convoy. Keeps lists. |
+| **Chief Dunn** | Station 12 | Fire chief, works with Vega on the convoy. Keeps lists. His crew fished at River Landing on days off; his pole (in the equipment bay) and his note on the dock post teach fishing. |
 | **Luis** | Northgate Mall | Security guard who never left his post. Knows the mall crowd's habits. |
 | **Theo** | Water Tower | Tends the pumps. Fair, quiet. Gave Dev and Mr. Ortiz a place to stay. |
 | **Rosa** | Greenhouse Row | Grows seeds for anyone. Friends with June from before. |

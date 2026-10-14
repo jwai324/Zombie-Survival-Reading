@@ -169,6 +169,7 @@
         });
       }
       this.placeGun(loc, start);
+      this.placeRod(loc, tpl);
       S.tripLoc(loc.id).visits += 1;
       if (!S.trip.visited.includes(loc.id)) S.trip.visited.push(loc.id);
       this.hud.place.textContent = loc.name;
@@ -352,6 +353,16 @@
       this.gunPickup = { x, y, id, taken: false };
     },
 
+    /** Chief Dunn's fishing pole, on its layout's rod spot (Station 12's equipment bay) until you have it. */
+    placeRod(loc, tpl) {
+      const R = W().RIVER;
+      this.rodPickup = null;
+      if (!R || R.rod.at !== loc.id || !Array.isArray(tpl.rod) || State().hasRod()) return;
+      const [x, y] = tpl.rod;
+      this.rodPickup = { x: x + 0.5, y: y + 0.5, taken: false };
+      this.rodPickup.prop = this.addProp({ x: x + 0.5, y: y + 0.5, art: "rodItem", scale: 0.2, lift: 0 });
+    },
+
     noteWasRead(noteObj) {
       noteObj.read = true;
       const added = State().reveal(noteObj.reveals);
@@ -403,6 +414,24 @@
         if (kt.tag) {
           if (S.trip) S.trip.wordsRead += ZSR.wordCount(kt.tag);
           this.tagPanel = { key: "key:" + kp.from + ":" + this.time, kind: "tag", title: kt.name, status: "Opens " + target.stashName + " at " + target.name, text: kt.tag, until: this.time + this.readSecs(kt.tag, 8) };
+        }
+        Audio().play("buy");
+        this.updateHud();
+      }
+      const rp = this.rodPickup;
+      if (rp && !rp.taken && Math.hypot(rp.x - p.x, rp.y - p.y) < 0.6) {
+        // the pole is yours once it is home; its tag is how you learn where River Landing is
+        rp.taken = true;
+        rp.prop.hidden = true;
+        S.takeRod();
+        const added = S.reveal(W().RIVER.rod.reveals);
+        const rt = ZSR.riverText("rod");
+        const place = added.length ? " New place on the map: " + added.map((id) => W().LOCATIONS.find((l) => l.id === id).name).join(", ") + "." : "";
+        const msgs = ["Found: " + rt.name + "! Press 6 to hold it. Get it home to keep it." + place, "Found: " + rt.name + "! 6 holds it." + place, "Found: " + rt.name + "!"];
+        this.toastFit(msgs, this.readSecs(msgs[0], 5), true);
+        if (rt.tag) {
+          if (S.seeTag("rod") && S.trip) S.trip.wordsRead += ZSR.wordCount(rt.tag);
+          this.tagPanel = { key: "rod:" + this.time, kind: "tag", title: rt.name, status: "The tag says", text: rt.tag, until: this.time + this.readSecs(rt.tag, 9) };
         }
         Audio().play("buy");
         this.updateHud();

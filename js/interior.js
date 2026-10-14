@@ -4,7 +4,10 @@
    E to interact, 1 to 5, Q or the mouse wheel to switch guns, B for the backpack, P or Esc to pause.
    This file: canvas, input, movement, walker AI, the guns in hand (firing, range, spread, pierce,
    noise, switching), rendering, HUD plumbing.
-   building.js (buildings) and yard.js (the yard) mix their modes into ZSR.Interior;
+   The fishing pole is held in place of a gun (6, Q or the wheel; `tool` is "rod" while it is): a click
+   goes to the mode's RodClick (river.js fishes; elsewhere there is no water), RodAway runs before a gun
+   is taken back, RodSelect may refuse the pole, RodView says how it looks (bend, the line's end).
+   building.js (buildings), yard.js (the yard) and river.js (River Landing) mix their modes into ZSR.Interior;
    the core calls the active mode's hooks by name: buildingUpdate / yardUpdate, and
    likewise Facing, Interact, Hint, Goal, Key and Leave.
    Free slots for other modules: modeKey(k, paused) and drawOverlay(ctx, W, H).
@@ -52,7 +55,7 @@
   const IS_OPAQUE = flags(OPAQUE);
   const TEX_OF = { S: "shelf", X: "crate", G: "glass", L: "locked", E: "exit", T: "tree", H: "house", B: "door", V: "van", O: "doorClosed", W: "window", Q: "stash", U: "window" };
   const READ_REACH = 2.3; // how close a wall sign or a yard lot's sign must be to read it
-  const REACH = { note: 1.4, van: 2.0, hole: 1.8, crack: 1.8, lot: READ_REACH }; // how close E works; everything else 1.6
+  const REACH = { note: 1.4, van: 2.0, hole: 1.8, crack: 1.8, lot: READ_REACH, rod: 2.0 }; // how close E works; everything else 1.6
   const words = (t) => String(t || "").trim().split(/\s+/).filter(Boolean).length;
   ZSR.wordCount = words;
   // reading pace by reading level, in words a minute: a little under grade-level fluency, so a slow reader still finishes
@@ -77,7 +80,8 @@
     ctx: null,
     running: false,
     paused: false,
-    mode: null, // "building" | "yard"
+    mode: null, // "building" | "yard" | "river"
+    tool: null, // "rod" while the fishing pole is in your hands instead of a gun
     hooks: {},
     locked: false,
     planeRes: PLANE_RES,
@@ -191,7 +195,7 @@
         this.releasing = false;
       });
       // physical key positions, so WASD works on any keyboard layout
-      const CODE = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyE: "e", KeyB: "b", KeyM: "m", KeyP: "p", KeyT: "t", KeyR: "r", KeyQ: "q", Digit1: "1", Digit2: "2", Digit3: "3", Digit4: "4", Digit5: "5", Numpad1: "1", Numpad2: "2", Numpad3: "3", Numpad4: "4", Numpad5: "5", Space: " ", ShiftLeft: "shift", ShiftRight: "shift", ArrowUp: "arrowup", ArrowDown: "arrowdown", ArrowLeft: "arrowleft", ArrowRight: "arrowright", Escape: "escape" };
+      const CODE = { KeyW: "w", KeyA: "a", KeyS: "s", KeyD: "d", KeyE: "e", KeyB: "b", KeyM: "m", KeyP: "p", KeyT: "t", KeyR: "r", KeyQ: "q", Digit1: "1", Digit2: "2", Digit3: "3", Digit4: "4", Digit5: "5", Digit6: "6", Numpad1: "1", Numpad2: "2", Numpad3: "3", Numpad4: "4", Numpad5: "5", Numpad6: "6", Space: " ", ShiftLeft: "shift", ShiftRight: "shift", ArrowUp: "arrowup", ArrowDown: "arrowdown", ArrowLeft: "arrowleft", ArrowRight: "arrowright", Escape: "escape" };
       const keyOf = (e) => CODE[e.code] || e.key.toLowerCase();
       root.addEventListener("keydown", (e) => {
         if (!this.running) return;
@@ -219,6 +223,7 @@
           const id = ZSR.Weapons.ORDER.find((w) => ZSR.Weapons.WEAPONS[w].slot === Number(k));
           if (id) this.switchWeapon(id);
         }
+        if (k === "6") this.selectRod();
       });
       root.addEventListener("keyup", (e) => {
         this.keys[keyOf(e)] = false;
@@ -441,15 +446,42 @@
       this.gun = S.weaponStats();
       const maxHp = S.footMaxHp();
       this.player = { x, y, a, hp: clamp(S.trip ? S.trip.footHp : maxHp, 1, maxHp), maxHp, cooldown: 0, bob: 0, flash: 0, flashL: 0, flashR: 0, side: "L", draw: 0, raise: 1, hurt: 0, moving: false };
+      this.tool = null; // every scene starts with a gun in hand
+      this.rodHeld = false;
+      this.fishing = null; // a line left in the river (death there skips leave) never follows you out; river.js sets its own
     },
-    /** Put a held gun in your hands. */
+    /** The fishing pole in your hands in place of the gun (6). The mode may refuse it (RodSelect: false). */
+    selectRod() {
+      const S = State();
+      if (!this.player || this.tool === "rod") return false;
+      if (!S.hasRod()) {
+        this.toast("No fishing pole yet. There is one somewhere at Station 12.", 3);
+        Audio().play("wrong");
+        return false;
+      }
+      if (this.modeCall("RodSelect") === false) return false;
+      this.tool = "rod";
+      this.rodHeld = this.mouseDown || !!this.keys[" "]; // a click already held does not cast
+      const p = this.player;
+      p.raise = 1;
+      p.draw = 0;
+      Audio().play("equip");
+      this.toast("Fishing pole", 1.5);
+      this.updateHud();
+      return true;
+    },
+    /** Put a held gun in your hands (the pole goes down first: RodAway). */
     switchWeapon(id) {
       const S = State();
-      if (!this.player || id === this.gun.id) return false;
+      if (!this.player || (id === this.gun.id && !this.tool)) return false;
       if (!S.hasWeapon(id)) {
         this.toast(ZSR.Weapons.WEAPONS[id].name + ": not found yet. It is somewhere out there.", 2.5);
         Audio().play("wrong");
         return false;
+      }
+      if (this.tool) {
+        this.modeCall("RodAway");
+        this.tool = null;
       }
       S.equipWeapon(id);
       this.gun = S.weaponStats(id);
@@ -463,13 +495,18 @@
       return true;
     },
     cycleWeapon(dir) {
-      const held = State().weaponsHeld();
+      const S = State();
+      // the guns in slot order, then the fishing pole once you have it (not while it is propped on a bank)
+      const propped = !!(this.fishing && this.fishing.propped);
+      const held = S.weaponsHeld().concat(S.hasRod() && !propped ? ["rod"] : []);
       if (held.length < 2) {
         this.toast("Only the pistol so far. Other guns are out there in the city.", 2.5);
         return;
       }
-      const i = held.indexOf(this.gun.id);
-      this.switchWeapon(held[(i + dir + held.length) % held.length]);
+      const i = held.indexOf(this.tool === "rod" ? "rod" : this.gun.id);
+      const next = held[(i + dir + held.length) % held.length];
+      if (next === "rod") this.selectRod();
+      else this.switchWeapon(next);
     },
     makeWalker(type, x, y, hpMult) {
       const t = WALKER_TYPES[type];
@@ -756,7 +793,14 @@
       if (this.mode === "yard") p.hp = Math.min(p.maxHp, p.hp + (this.fx.footRegen || W().SETTINGS.yardRegen) * dt);
 
       const held = this.mouseDown || k[" "];
-      if (this.gun.draw) {
+      if (this.tool === "rod") {
+        // the pole: each click is one action (cast, reel in, hook a fish); there is nothing to fish without water
+        if (held && !this.rodHeld && p.raise <= 0 && this.modeCall("RodClick") === undefined) {
+          this.toast("No water to fish in here. Take the pole to River Landing.", 3);
+          Audio().play("wrong");
+        }
+        this.rodHeld = !!held;
+      } else if (this.gun.draw) {
         // the bow: hold to draw, let go to shoot; a tiny pull just lets the string back down
         if (held && p.cooldown <= 0 && p.raise <= 0) p.draw = Math.min(1, p.draw + dt / this.gun.draw);
         else if (!held && p.draw > 0) {
@@ -1169,7 +1213,7 @@
       const cargoN = S.trip ? Object.values(S.trip.cargo).reduce((a, b) => a + b, 0) : 0;
       h.cargo.textContent = cargoN;
       h.walkers.textContent = this.walkers.length;
-      if (h.gun && this.gun) h.gun.textContent = this.gun.slot + " " + this.gun.name;
+      if (h.gun && this.gun) h.gun.textContent = this.tool === "rod" ? "6 Fishing pole" : this.gun.slot + " " + this.gun.name;
       h.goal.textContent = this.modeCall("Goal") || "";
     },
 
@@ -1215,6 +1259,11 @@
         ctx.fillRect(0, 0, Wd, H);
       }
       ZSR.Draw.vignette(ctx, Wd, H);
+      if (this.tool === "rod" && ZSR.RiverArt) {
+        this.drawRod(ctx, Wd, H);
+        if (this.drawOverlay) this.drawOverlay(ctx, Wd, H);
+        return;
+      }
       const g = this.gun;
       const mods = State().save.weapons.mods[g.id]; // every mod tier shows on the gun in your hands
       D3().gun(ctx, Wd, H, { weapon: g.id, mods, bob: p.moving ? p.bob : 0, flash: p.flash, flashL: p.flashL, flashR: p.flashR, draw: p.draw, loaded: p.cooldown <= 0, raise: p.raise });
@@ -1222,6 +1271,48 @@
       const gap = 4 + g.spread * H * 0.5 * (p.moving ? 1.6 : 1) * (g.draw ? 2 - p.draw : 1);
       D3().crosshair(ctx, Wd / 2, H / 2, !!this.walkerAt(0, g.range), gap);
       if (this.drawOverlay) this.drawOverlay(ctx, Wd, H);
+    },
+    /** The pole in your hands and, while it is cast, its line out to the bobber wherever you look:
+        to the bobber on screen, or off the edge of the screen on its side when it is behind you. */
+    drawRod(ctx, Wd, H) {
+      const p = this.player;
+      const view = this.modeCall("RodView") || {};
+      const tip = ZSR.RiverArt.rodInHand(ctx, Wd, H, Object.assign({ bob: p.moving ? p.bob : 0, raise: p.raise }, view));
+      if (!view.line) return;
+      const q = this.project(view.line.x, view.line.y, 0.06);
+      const end = q ? { x: q.x, y: q.y } : { x: q === null && this.sideOf(view.line.x, view.line.y) < 0 ? -40 : Wd + 40, y: H * 0.75 };
+      const sag = Math.min(H * 0.25, Math.hypot(end.x - tip.x, end.y - tip.y) * 0.18) * (view.bend ? 0.2 : 1);
+      ctx.beginPath();
+      ctx.moveTo(tip.x, tip.y);
+      ctx.quadraticCurveTo((tip.x + end.x) / 2, Math.max(tip.y, end.y) + sag, end.x, end.y);
+      ctx.strokeStyle = "rgba(15,16,18,0.55)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      ctx.strokeStyle = "rgba(244,244,236,0.95)";
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    },
+    /** A point on the ground (lifted `lift` tiles) on screen: { x, y }, or null when it is behind you. */
+    project(x, y, lift) {
+      const p = this.player;
+      const dirX = Math.cos(p.a);
+      const dirY = Math.sin(p.a);
+      const k = Math.tan(FOV / 2);
+      const planeX = -dirY * k;
+      const planeY = dirX * k;
+      const invDet = 1 / (planeX * dirY - dirX * planeY);
+      const sx = x - p.x;
+      const sy = y - p.y;
+      const tx = invDet * (dirY * sx - dirX * sy);
+      const ty = invDet * (-planeY * sx + planeX * sy);
+      if (ty <= 0.1) return null;
+      const aspect = this.W / this.H;
+      return { x: (this.W / 2) * (1 + tx / ty / aspect), y: this.H / 2 + (this.H / ty) * (0.5 - (lift || 0)) };
+    },
+    /** Which side of your view a point is on: negative left, positive right. */
+    sideOf(x, y) {
+      const p = this.player;
+      return normAngle(Math.atan2(y - p.y, x - p.x) - p.a);
     },
 
     /** A texture by name for this scene (memoized; cleared when the scene or the van's look changes). */
@@ -1311,8 +1402,9 @@
       sc.ceilH = this.sky ? Infinity : 1; // under a ceiling a full-height wall hides everything behind it
       // daylight in the yard (thin haze: the back row of plots still reads from the cabin door); inside,
       // palette.light sets how fast it gets dark (0.5 keeps the old falloff)
-      sc.fogK = 1 / (this.mode === "yard" ? 32 : 5 + 17 * this.light);
-      sc.fogMax = this.mode === "yard" ? 0.8 : 0.8 + Math.max(0, 0.5 - this.light) * 0.2;
+      const outdoors = this.mode === "yard" || this.mode === "river";
+      sc.fogK = 1 / (outdoors ? 32 : 5 + 17 * this.light);
+      sc.fogMax = outdoors ? 0.8 : 0.8 + Math.max(0, 0.5 - this.light) * 0.2;
       // floor kinds in use (other modules may repaint tiles at any time)
       const fk = this.floorKind;
       const present = sc.present;

@@ -31,7 +31,7 @@ const warnings = [];
 const err = (c, m) => errors.push(c + ": " + m);
 const warn = (c, m) => warnings.push(c + ": " + m);
 const pos = {};
-W.LOCATIONS.forEach((l) => (pos[l.id] = l));
+W.LOCATIONS.concat(W.JUNCTIONS || []).forEach((l) => (pos[l.id] = l));
 const finite = (...xs) => xs.every((x) => typeof x === "number" && Number.isFinite(x));
 function distSeg(px, py, x0, y0, x1, y1) {
   const dx = x1 - x0;
@@ -87,8 +87,26 @@ Object.keys(S.STREET_NAMES).forEach((k) => {
   if (!roadKeys.includes(k)) err("STREET_NAMES", `${k} is not a road in WORLD.ROADS (keys follow the ROADS order)`);
 });
 const names = Object.values(S.STREET_NAMES);
+// a name is used once, except a street that runs on through a bare corner (a junction with no place):
+// both halves meet there, in a straight line
 names.forEach((n, i) => {
-  if (names.indexOf(n) !== i) err("STREET_NAMES", `"${n}" is used twice`);
+  const first = names.indexOf(n);
+  if (first === i) return;
+  const [a0, b0] = roadKeys[first].split("|");
+  const [a1, b1] = roadKeys[i].split("|");
+  const shared = [a0, b0].find((x) => x === a1 || x === b1);
+  if (!shared || !W.isJunction(shared)) return err("STREET_NAMES", `"${n}" is used twice`);
+  const o0 = a0 === shared ? b0 : a0;
+  const o1 = a1 === shared ? b1 : a1;
+  const u = [pos[shared].x - pos[o0].x, pos[shared].y - pos[o0].y];
+  const v = [pos[o1].x - pos[shared].x, pos[o1].y - pos[shared].y];
+  const bend = Math.abs(Math.atan2(u[0] * v[1] - u[1] * v[0], u[0] * v[0] + u[1] * v[1]));
+  if (bend > 0.1) err("STREET_NAMES", `"${n}" runs on through ${shared} but bends there (${bend.toFixed(2)} rad); a street through a corner goes straight`);
+});
+// a junction is a corner where roads meet with no place: at least three roads, never a destination
+(W.JUNCTIONS || []).forEach((j) => {
+  if (S.neighbors(j.id).length < 3) err("JUNCTIONS", `${j.id} has ${S.neighbors(j.id).length} roads (a corner needs 3 or more)`);
+  if (W.LOCATIONS.some((l) => l.id === j.id)) err("JUNCTIONS", `${j.id} is also a place`);
 });
 
 /* ---------- side streets ---------- */
@@ -179,7 +197,7 @@ for (let n = 2; n <= 4; n++) {
 }
 
 /* ---------- every route, slow van and fast van ---------- */
-const ids = W.LOCATIONS.map((l) => l.id);
+const ids = W.LOCATIONS.map((l) => l.id); // places only: a junction is never a destination
 const deg = (id) => S.neighbors(id).length;
 const SPEEDS = [1, 1.7]; // Upgrades: engine 0 .. 5
 let drives = 0;
@@ -222,12 +240,13 @@ for (const a of ids) {
       const time = (d.endS - d.startS) / v;
       maxTime = Math.max(maxTime, time);
       minTime = Math.min(minTime, time);
-      if (!(time >= 15 && time <= 125)) err(cs, `drive takes ${time.toFixed(0)} s (15..125)`);
+      // River Landing at the far west edge makes the longest drives (the mall to the river, about 137 s)
+      if (!(time >= 15 && time <= 140)) err(cs, `drive takes ${time.toFixed(0)} s (15..140)`);
       // the decisions expected along this route
       const want = { side: 0, lot: 0, junction: deg(a) >= 2 ? 1 : 0, dest: 1 }; // a place with two roads or more: the first turn is a junction too
       for (let i = 0; i < r.path.length - 1; i++) want.side += S.sideStreetsOn(r.path[i], r.path[i + 1]).length;
       for (let i = 1; i < r.path.length - 1; i++) {
-        want.lot++;
+        if (!W.isJunction(r.path[i])) want.lot++; // a bare corner has no lot
         if (deg(r.path[i]) >= 3) want.junction++;
       }
       const got = { side: 0, lot: 0, junction: 0, dest: 0 };
@@ -273,7 +292,8 @@ for (const a of ids) {
         x.options.forEach((o) => {
           if (!finite(o.rel)) err(cd, "turn angle not finite");
           // a sign row for each lane, whatever the player knows
-          const label = (known) => (o.kind === "road" ? (known ? pos[o.to] && pos[o.to].name : o.street) : o.kind === "side" ? o.street : o.kind === "lot" ? (known ? pos[o.to] && pos[o.to].name : S.ROAD_TEXT_FALLBACK.lot) : "go on");
+          // a road through a bare corner is signed with the place it runs on to
+          const label = (known) => (o.kind === "road" ? (known ? pos[S.farPlace(x.node, o.to)] && pos[S.farPlace(x.node, o.to)].name : o.street) : o.kind === "side" ? o.street : o.kind === "lot" ? (known ? pos[o.to] && pos[o.to].name : S.ROAD_TEXT_FALLBACK.lot) : "go on");
           if (!label(true) || !label(false)) err(cd, `lane ${o.lane} has nothing to put on the sign`);
           if (o.kind === "through") return;
           // the van's own path from anywhere in each of this way's lanes

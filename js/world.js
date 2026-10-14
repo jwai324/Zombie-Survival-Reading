@@ -362,7 +362,63 @@
       items: ["food", "meds", "wire"], cache: ["gunParts", "radioParts", "tools"], cacheName: "the security office", stash: ["armorPlate", "maps"], stashName: "the jewelry vault" },
     { id: "library", name: "Public Library", type: "library", x: 560, y: 180, danger: 4, template: "library",
       items: ["books", "books", "books"], cache: ["books", "maps", "books"], cacheName: "the archive room", stash: ["gunParts", "meds"], stashName: "the rare book room" },
+    // outdoors, not a building: the dirt road at the end of Frog Lane, a dock and the river (js/river.js).
+    // No notes, layout, key or stash; the fishing pole's tag (Station 12) reveals it.
+    { id: "river", name: "River Landing", type: "river", x: 88, y: 482, danger: 1, outdoor: true, items: [], cache: [] },
   ];
+  /** Where roads meet with no place there: on the road graph, never on the map as a place, never a destination. */
+  const JUNCTIONS = [{ id: "frog", x: 147, y: 429 }]; // Frog Lane leaves River Road here
+  /** A place or a junction by id. */
+  const place = (id) => LOCATIONS.find((l) => l.id === id) || JUNCTIONS.find((j) => j.id === id) || null;
+  const isJunction = (id) => JUNCTIONS.some((j) => j.id === id);
+
+  /* ---------- River Landing: fishing (js/river.js) ----------
+     The pole lies in Station 12's equipment bay (layouts: firehouse.rod). Cast, wait for a bite, click to
+     hook it. Each fish is 1 food once home. The river gives `cap` fish a visit, then rests `restockDays`. */
+  const RIVER = {
+    cap: 4,
+    restockDays: 3,
+    bite: [7, 20], // seconds from a cast to a bite
+    hook: 2, // seconds to click once the bobber dips
+    castMin: 2.5, // the bobber lands at least this far out (tiles), and on water
+    castMax: 6,
+    walkerEvery: [45, 90], // seconds between walkers out of the trees
+    pairChance: 0.25, // sometimes two at once
+    bellReach: 2.0, // E takes the propped rod back from this close
+    rod: { at: "firehouse", reveals: ["river"] }, // where the pole lies (on its layout's rod spot), and what its tag reveals
+    /* The bank, north up: T trees (the far bank, the edges, clumps for cover)  ~ water  = dock planks
+       , mud  : the dirt road and the turnout  . grass  V the van  P where you get out  S the sign
+       N the note on the dock post  z where walkers come out of the trees. */
+    grid: [
+      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+      "T~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~T",
+      "T~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~T",
+      "T~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~T",
+      "T~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~T",
+      "T~~~~~~~~~~~~~~~~==~~~~~~~~~~~~~~~~T",
+      "T~~~~~~~~~~~~~~~~==~~~~~~~~~~~~~~~~T",
+      "T~~~~~~~~~~~~~~~~==~~~~~~~~~~~~~~~~T",
+      "T~~~~~~~~~~~~~~~~==~~~~~~~~~~~~~~~~T",
+      "T,,,,,,,,,,,,,,,,==N,,,,,,,,,,,,,,,T",
+      "T................::................T",
+      "T...TT...........::.............T..T",
+      "Tz..T............::......TT........T",
+      "T................::..T....T.......zT",
+      "T........TT......::................T",
+      "T................::................T",
+      "T................::...........TT...T",
+      "Tz...........T...::....T...........T",
+      "T.....TT.........::...............zT",
+      "T................::................T",
+      "T................::................T",
+      "T..T........::S:::::::::....T......T",
+      "T...........:::::P::::::...........T",
+      "Tz..........:::::::VV:::..........zT",
+      "T.....z.....::::::::::::.....z.....T",
+      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+    ],
+    palette: { wall: "#5a4a3a", shelf: "#6b4a3a", counter: "#4b5057", floor: "#6b6a4a", ceiling: "#e8e2d4", sky: true, floorKind: "grass" },
+  };
 
   /* ---------- Keys and stashes ----------
      Every building hides one key (on its y spot, shown once its key note has been read) and
@@ -484,9 +540,10 @@
   const ROADS = [
     ["base", "gasngo"], ["base", "grocery"], ["gasngo", "pharmacy"], ["gasngo", "garden"], ["grocery", "hardware"],
     ["hardware", "autoshop"], ["hardware", "radioshack"], ["radioshack", "police"], ["radioshack", "school"],
-    ["pharmacy", "firehouse"], ["firehouse", "police"], ["firehouse", "hospital"], ["garden", "watertower"],
+    ["pharmacy", "firehouse"], ["firehouse", "police"], ["firehouse", "hospital"], ["garden", "frog"], ["frog", "watertower"],
     ["watertower", "hospital"], ["hardware", "lumberyard"], ["lumberyard", "mall"], ["school", "mall"],
     ["school", "library"], ["police", "library"], ["base", "radioshack"], ["pharmacy", "watertower"],
+    ["frog", "river"],
   ];
 
   const SETTINGS = {
@@ -517,5 +574,5 @@
     },
   };
 
-  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TEMPLATES, HOUSE, HOUSE_UPGRADES, YARD, DEFENSE, LOCATIONS, KEYS, NOTES, ROADS, SETTINGS };
+  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TEMPLATES, HOUSE, HOUSE_UPGRADES, YARD, DEFENSE, LOCATIONS, JUNCTIONS, place, isJunction, RIVER, KEYS, NOTES, ROADS, SETTINGS };
 })(typeof globalThis !== "undefined" ? globalThis : this);

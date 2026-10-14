@@ -428,8 +428,30 @@ function checkLevel(n) {
   });
   if (!base.bench || !isStr(base.bench.intro)) err(ctx, "base.bench.intro missing (one or two sentences shown at the garage workbench)");
   checkTyping(ctx, t.typing, spec);
+  // River Landing: the fishing pole's tag (reading it reveals the place), the sign by the parking and the
+  // chief's note on the dock post, each carrying its facts; the tag also gives the way there
+  {
+    const R = t.river;
+    const F = WORLD.RIVER_FACTS || {};
+    if (!R) err(ctx + " river", "missing");
+    else {
+      if (!isStr(R.blurb)) err(ctx + " river", "blurb missing (the city map)");
+      if (!R.rod || !isStr(R.rod.name)) err(ctx + " river rod", "name missing");
+      else {
+        checkText(ctx + " river rod", R.rod.tag, spec, 1, F.rod, [spec.tag[0], spec.lot[1]]);
+        ["Frog Lane", "River Road", "River Landing"].forEach((nm) => { if (!(R.rod.tag || "").includes(nm)) err(ctx + " river rod", `the tag must name "${nm}" (it gives the way there)`); });
+      }
+      ["sign", "note"].forEach((k) => {
+        if (!R[k] || !isStr(R[k].title)) return err(`${ctx} river ${k}`, "title missing");
+        checkText(`${ctx} river ${k}`, R[k].text, spec, 1, F[k], k === "sign" ? spec.sign : spec.day); // the note runs as long as a journal day
+      });
+      if (R.note && !hasNumber(WORLD.RIVER.cap, R.note.text || "")) err(ctx + " river note", `must give the fish a trip (${WORLD.RIVER.cap})`);
+      if (R.note && !hasNumber(WORLD.RIVER.restockDays, R.note.text || "")) err(ctx + " river note", `must give the days the river rests (${WORLD.RIVER.restockDays})`);
+    }
+    if (Array.isArray(t.controls) && !/pole/i.test(t.controls.join(" "))) err(ctx, "controls must say how to fish (the pole is 6)");
+  }
   if (!t.locations) return err(ctx, "locations missing");
-  WORLD.LOCATIONS.filter((l) => l.id !== "base").forEach((loc) => {
+  WORLD.LOCATIONS.filter((l) => l.id !== "base" && !l.outdoor).forEach((loc) => {
     const L = t.locations[loc.id];
     const lctx = `${ctx} ${loc.id}`;
     if (!L) return err(lctx, "missing");
@@ -494,12 +516,13 @@ function checkLevel(n) {
   if (total < floor) err(ctx, `in-world reading is ${total} words; it must be at least ${READING_FLOOR}x the old ${spec.baseline} (${floor})`);
   else console.log(`level ${n}: in-world reading ${total} words (${(total / spec.baseline).toFixed(1)}x the old ${spec.baseline})`);
   if (!errors.some((e) => e.startsWith(ctx))) {
-    const total = WORLD.LOCATIONS.filter((l) => l.id !== "base").reduce((n2, loc) => {
+    const buildings = WORLD.LOCATIONS.filter((l) => l.id !== "base" && !l.outdoor);
+    const total = buildings.reduce((n2, loc) => {
       const L = t.locations[loc.id];
       return n2 + words(L.door.text).length + Object.values(L.notes).reduce((m, x) => m + words(x.text).length, 0);
     }, 0);
     const ty = t.typing;
-    console.log(`level ${n}: ${WORLD.LOCATIONS.length - 1} locations, ${total} note words, typing ${ty.words.length} words / ${ty.phrases.length} phrases / ${ty.sentences.length} sentences`);
+    console.log(`level ${n}: ${buildings.length} buildings, ${total} note words, typing ${ty.words.length} words / ${ty.phrases.length} phrases / ${ty.sentences.length} sentences`);
   }
 }
 

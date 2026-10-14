@@ -262,3 +262,47 @@ won; the reading expansion was moved into them.
 - **Why the yard grew.** 45 x 33 tiles inside the fence (was 31 x 23), the same plots in the same
   places relative to each other, more open grass between them; the yard's haze thinned to match.
 
+## Owner decisions: Frog Lane, River Landing and fishing (2026-10-14)
+
+| Question | Answer |
+|----------|--------|
+| How does catching work? | Cast, wait for a bite, click within about 2 seconds to hook it. A miss lets it go and the line stays in. |
+| How much food? | 1 food a fish, 4 a trip; then the river rests 3 days, like the shelves. |
+| A gun with the line out? | The pole is propped on the bank and the line stays in. A bite rings its bell and holds until you take the pole back (E). |
+| How is the river found? | By reading: the pole's tag says where the crew fished, and reading it reveals River Landing. |
+| Where does Frog Lane leave? | Where its old "Road closed" sign was, halfway along River Road: a real corner with lanes, not a move to another place. |
+| Where is the pole? | In Station 12's equipment bay, the locked cache room (read Chief Dunn's note to open it). |
+| Walkers at the river? | Usually one, sometimes two, every 45 to 90 seconds. |
+| Reading there? | The pole's tag, a sign by the parking and Chief Dunn's note on the dock post, at all six levels. |
+
+- **Why a junction with no place.** Every road used to run from place to place. Frog Lane leaves
+  River Road where nothing stands, so the road graph gained `JUNCTIONS` (`frog`): a corner on the
+  route with one lane per road like any junction, no lot, never a destination and never drawn as a
+  place. Signs name the place a road runs on to (River Road through the corner is signed for the
+  Water Tower; `Streets.farPlace`). River Road keeps its name on both halves; the street validator
+  allows that only through a bare corner, in a straight line.
+- **Routes along River Road gained a decision.** Driving Greenhouse Row to the Water Tower now
+  meets the Frog Lane corner. By the house rule your usual lane takes the left road at a junction,
+  and Frog Lane is the left road there, so going straight on means moving right. The map's "way
+  there" shows that step and its lanes. Corn Lane moved from 0.35 to 0.55 of the way up River Road
+  so both directions keep 2.5 seconds of lanes before the new corner.
+- **Why River Landing is a place without a building.** It is in `LOCATIONS` (marked `outdoor`) so the
+  map, the route, the drive and the lot all work unchanged; it has no notes, layout, key or stash, and
+  the Radio room never reveals it (only the pole's tag does).
+- **The paving.** Frog Lane is asphalt for its first 18% (just through the corner), then dirt with
+  ruts and stones, and the lanes before the turnout are painted on dirt. The river itself is drawn on
+  the road, the same curve as the city map. **Assumption:** the dirt is looks only; it does not slow
+  the van.
+- **The longest drive grew.** The mall to River Landing is the longest route in the city (about 137 s
+  at the slowest van); the street validator's ceiling went from 125 to 140 s for it.
+- **Why the bell holds the fish.** Walking back from a fight takes longer than a 2-second hook window;
+  a fish that waits on a ringing bell keeps the propped pole worth using. Taken back, it gives a fresh
+  window.
+- **Fish are food, not an item.** A fish goes into the van's cargo as food and feeds the crew at home.
+  **Bug fixed on the way:** food crates from shelves landed in storage and never fed the crew (the
+  game said "bring food crates home" but only the Garden and Farm counted). Cargo food now adds to the
+  crew's food, and old saves move stray crates over on load.
+- **The pole is like a gun on the floor.** In your hands at once (6, or Q and the wheel after the
+  guns), yours once home, lost with a dead trip. It works only at River Landing; a click elsewhere
+  says there is no water.
+

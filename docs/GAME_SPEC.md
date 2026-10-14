@@ -178,6 +178,19 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
 - From the map, the place you are parked at offers "Go in" / "Go back in" (the door note is
   shown only the first time).
 
+## River Landing and fishing (2026-10-14)
+
+- Frog Lane leaves River Road at a corner with no place on it (`WORLD.JUNCTIONS`), runs paved
+  through the corner, then dirt, to a turnout at **River Landing** (an outdoor place: no building).
+- Chief Dunn's fishing pole lies in Station 12's equipment bay; its tag (read on pickup, kept in the
+  backpack) reveals River Landing. It is a trip item until home, like a gun.
+- At the bank, first person: the dock, a sign, the chief's note on the dock post. 6 (or Q) holds the
+  pole; click to cast onto water, wait 7 to 20 s for a bite, click within 2 s to land it. Taking a
+  gun props the pole on the bank (line in); a bite then rings its bell until the pole is taken back.
+- 1 food per fish, 4 a trip, then the river rests 3 days (`WORLD.RIVER`). Walkers come out of the
+  trees every 45 to 90 s, one or two.
+- Cargo food (crates and fish) adds to the crew's food at home.
+
 ## Guns
 
 | Key | Gun | What sets it apart | Hidden at danger |
