@@ -587,7 +587,7 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
     tomas: { van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [] },
     pip: { wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [] },
   };
-  const REPORTS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], hurt: ["who", "cost"], late: ["item"], heal: ["hp"] };
+  const REPORTS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], hurt: ["who", "cost"], late: ["item"], heal: ["hp"] };
   const PLACEHOLDERS = ["food", "days", "room", "needs", "hp", "max", "cost", "holes", "cracks", "broken", "keys", "size", "sides", "fixed", "scrap", "who", "item", "count", "reward", "dog"];
   const ART_KINDS = ["bag", "photo", "box", "book", "tin", "leash", "toolbox", "radio", "jar", "letter", "seeds", "blanket", "tape", "badge", "wrench"];
   const PERKS = ["foodPerDay", "medsPerDay", "footHp", "vanHp", "scrapPerDay", "crewRepairFree", "lookoutEarly", "healAmount", "crowbarCost"];
@@ -743,6 +743,8 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
         if (!e.id || errandIds.has(e.id) || questIds.has(e.id)) err(`${ctx}: needs an id no other errand or quest has`);
         errandIds.add(e.id);
         if (!W.ITEMS[e.item] || e.item === "food") err(`${ctx}: item "${e.item}" must be an ITEMS id, not food`);
+        // an errand is asked only once a known place's shelves stock its item (js/crewstate.js crewItemStocked)
+        else if (!W.LOCATIONS.some((l) => (l.items || []).includes(e.item))) err(`${ctx}: no place's shelves stock ${e.item} (caches and stashes never refill), so it would never be asked`);
         if (!(Array.isArray(e.count) && e.count.length === 2 && isInt(e.count[0], 1) && isInt(e.count[1], e.count[0]))) err(`${ctx}: count must be [min, max], 1 or more`);
         if (!isInt(e.days, 1)) err(`${ctx}: days must be a deadline of 1 day or more`);
         const rw = e.reward || {};
@@ -813,6 +815,20 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   // the dog is the one June's ledger hears barking past the trees, and the ledger never has it home: it comes
   // no earlier than the last JOURNAL page that mentions a dog (a page on a later day may not assume it is home)
   const dogPage = (Array.isArray(W.JOURNAL) ? W.JOURNAL : []).reduce((last, e, i) => (/\bdogs?\b/i.test((factsOf(e) || []).join(" ")) ? i + 1 : last), 0);
+  // ...but the ledger repeats its last pages (js/state.js cycleLoop: the last third), and once the dog is home the
+  // repeat skips the pages that wish for one (dogWish: true). Every repeating page that mentions a dog says whether
+  // it would read wrong with the dog at home (dogWish true or false), and at least one repeating page wishes for none
+  {
+    const J = Array.isArray(W.JOURNAL) ? W.JOURNAL : [];
+    const loop = Math.max(1, Math.min(J.length, Math.floor(J.length / 3)));
+    J.forEach((e, i) => {
+      const dog = /\bdogs?\b/i.test((factsOf(e) || []).join(" "));
+      if ("dogWish" in e && typeof e.dogWish !== "boolean") err(`JOURNAL ${e.id}: dogWish must be true or false`);
+      if (e.dogWish && !dog) err(`JOURNAL ${e.id}: dogWish, but the page never mentions a dog`);
+      if (i >= J.length - loop && dog && typeof e.dogWish !== "boolean") err(`JOURNAL ${e.id}: a repeating page that mentions a dog must say dogWish: true (it wishes for a dog, so it is skipped once the dog is home) or false`);
+    });
+    if (J.length && J.slice(J.length - loop).every((e) => e.dogWish)) err("JOURNAL: every repeating page wishes for a dog; once the dog is home the ledger has nothing left to repeat");
+  }
   const ids2 = new Set();
   const perPlace = {};
   const byGiver = {};
@@ -903,15 +919,20 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
     const spots = QUESTS.filter((q) => q.at === at && Array.isArray(q.spot)).map((q) => q.spot.join(","));
     if (new Set(spots).size !== spots.length) err(`QUESTS: two quests share a spot in ${at}`);
   });
-  // gating: each giver's quests in order of stars; the first two at places a new player can reach
+  // gating: each giver's quests in order of stars and days; the first two at places a new player can reach
   Object.entries(byGiver).forEach(([giver, list]) => {
     let prev = 0;
+    let prevDay = 0;
     list.forEach((q, i) => {
       const st = (q.when || {}).stars || 0;
       if (st < prev) err(`QUESTS ${q.id}: needs ${st} stars, fewer than ${giver}'s quest before it (${prev})`);
       // docs/CREW.md: quest 1 at 0 stars, 2 at 1, 3 at 2 ... (one more star each, while there are stars to give)
       if (starsMax != null && i < starsMax && st !== i) err(`QUESTS ${q.id}: ${giver}'s quest ${i + 1} comes at ${i} star${i === 1 ? "" : "s"} (has ${st})`);
       prev = st;
+      // the days pace the story: a giver's quests never open on an earlier day than the quest before (no day: day 1)
+      const day = (q.when || {}).day || 1;
+      if (day < prevDay) err(`QUESTS ${q.id}: comes on day ${day}, before ${giver}'s quest before it (day ${prevDay})`);
+      prevDay = Math.max(prevDay, day);
       if (i === 0 && !(st === 0 && isInt((q.when || {}).day, 2))) err(`QUESTS ${q.id}: ${giver}'s first quest comes at 0 stars, on day 2 or later`);
       if (i === 0 && !known.has(q.at)) err(`QUESTS ${q.id}: ${giver}'s first quest must be at a place known at the start (${[...known].filter((x) => x !== "base").join(", ")})`);
       if (i === 1 && !early.has(q.at)) err(`QUESTS ${q.id}: ${giver}'s second quest must be at a place the start places' main notes reveal (${[...early].filter((x) => x !== "base").join(", ")})`);

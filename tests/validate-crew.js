@@ -187,11 +187,13 @@ function fixture() {
       bo: { van: f("{hp} of {max}, {cost} scrap."), vanFree: f("{hp} of {max}, free."), fence: f("{holes} holes, {cracks} cracks."), cabin: f("{broken} broken."), crowbar: f("No crowbar."), fine: f("All fine.") },
       cy: { wave: f("{size} from {sides}."), keys: f("You hold {keys}."), walkers: f("{days} days."), radio: f("The radio.") },
     },
-    CREW_REPORTS: { fence: f("Bo fixed {fixed} for {scrap} scrap."), fenceFree: f("Bo fixed {fixed} free."), cabin: f("Bo fixed {fixed} doors for {scrap}."), hurt: f("{who} was hurt; it cost {cost}."), late: f("The {item} errand ran out."), heal: f("Back {hp}.") },
+    CREW_REPORTS: { fence: f("Bo fixed {fixed} for {scrap} scrap."), fenceFree: f("Bo fixed {fixed} free."), cabin: f("Bo fixed {fixed} doors for {scrap}."), cabinFree: f("Bo fixed {fixed} doors free."), hurt: f("{who} was hurt; it cost {cost}."), late: f("The {item} errand ran out."), heal: f("Back {hp}.") },
     ERRANDS: {
       ann: [
         { id: "ann-e1", item: "seeds", count: [2, 3], days: 3, reward: { scrap: 25 }, facts: ["Ann asks for {count} {item} within {days} days for {reward}."], done: ["Ann thanks you for the seeds."] },
         { id: "ann-e2", item: "soil", count: [1, 1], days: 2, reward: { kits: 1 }, facts: ["Ann asks for {count} {item}."], done: ["Ann pats the soil."] },
+        // nails: on the shelves of Reyes Hardware, known at the start (seeds and soil: Greenhouse Row, which is not)
+        { id: "ann-e3", item: "nails", count: [1, 1], days: 2, reward: { scrap: 15 }, facts: ["Ann asks for {count} {item}."], done: ["Ann hangs a picture."] },
       ],
       bo: [{ id: "bo-e1", item: "nails", count: [1, 1], days: 2, reward: { crowbars: 1 }, facts: ["Bo asks for {count} {item}."], done: ["Bo nails it."] }],
       cy: [],
@@ -372,9 +374,38 @@ group("tips", () => {
   // Pip's place: the wave (lookout job), keys, walkers, radio
   ok(same(tips("cy"), ["walkers"]), `tips: Cy's tips on a fresh save (${tips("cy")})`);
   const days = S.crewTips("cy").regular[0].vars.days;
-  const d = Math.min(...W.LOCATIONS.filter((l) => l.danger > 0).map((l) => l.danger));
+  // the known buildings (not River Landing, which has no walkers): the quietest is the last to fill
+  const buildings = () => W.LOCATIONS.filter((l) => l.danger > 0 && !l.outdoor && l.type !== "base" && S.isKnown(l.id));
+  const d = Math.min(...buildings().map((l) => l.danger));
   const wpl = (k) => W.SETTINGS.walkersPerLocation(d, S.save.day + k);
   ok(days > 0 && wpl(days) > wpl(0) && wpl(days - 1) === wpl(0), `tips: walkers in ${days} days is not when the count goes up`);
+  // full: a building whose count never rises again (SETTINGS.walkersPerLocation's cap)
+  const fullOn = (dd) => {
+    for (let day = 1; day <= 1000; day++) if (W.SETTINGS.walkersPerLocation(dd, day) === W.SETTINGS.walkersPerLocation(dd, day + 1000)) return day;
+    return null;
+  };
+  const day0 = S.save.day;
+  const known0 = S.save.known.slice();
+  const lastFull = fullOn(d);
+  if (ok(lastFull, "tips: the quietest known building never fills, so Pip's walkers tip can never be checked at the cap")) {
+    S.save.day = lastFull - 1;
+    ok(tips("cy").includes("walkers") && S.crewTips("cy").regular.find((t) => t.tip === "walkers").vars.days === 1, "tips: the walkers tip is not told the day before the last known building fills");
+    S.save.day = lastFull;
+    ok(!tips("cy").includes("walkers") && S.crewTip("cy") === null, `tips: Pip's walkers tip is told on day ${lastFull}, with every known building full`);
+  }
+  // only the known buildings count: with only the busiest building known, the tip stops once that one is full,
+  // while a quieter one, not yet known, still fills
+  const busy = W.LOCATIONS.filter((l) => l.danger > 0 && !l.outdoor && l.type !== "base").sort((a, b) => b.danger - a.danger)[0];
+  const busyFull = fullOn(busy.danger);
+  if (busyFull && busyFull < lastFull) {
+    S.save.known = ["base", busy.id];
+    S.save.day = busyFull;
+    ok(!tips("cy").includes("walkers"), `tips: Pip's walkers tip is told on day ${busyFull} with only ${busy.id} known, and it is full`);
+    S.save.known.push(known0.find((k) => W.LOCATIONS.some((l) => l.id === k && l.danger === d && !l.outdoor)));
+    ok(tips("cy").includes("walkers"), `tips: Pip's walkers tip is not told on day ${busyFull} with a quieter building known, not yet full`);
+  }
+  S.save.day = day0;
+  S.save.known = known0;
   const wave = { size: "a big wave", sides: "the north" };
   ok(tip("cy", { wave }).tip !== "wave", "tips: the wave is called without the lookout job");
   S.addTrust("cy", 3);
@@ -405,37 +436,47 @@ group("offers: order and gates", () => {
   const g = synthetic();
   const { S, W, sb } = g;
   const c = S.save.crew;
-  // day 1: Ann's first quest needs day 2, so an errand
-  const o1 = S.offer("ann");
-  ok(o1 && o1.kind === "errand" && o1.def.id === "ann-e1" && o1.count >= 2 && o1.count <= 3, `offer: day 1 should be Ann's first errand (${JSON.stringify(o1)})`);
-  vm.runInContext("Math.random = (() => { let i = 0; return () => (i++ % 7) / 7; })()", sb);
-  ok(same(S.offer("ann"), o1) && same(S.offer("ann"), o1), "offer: the errand count changes between calls (Math.random?)");
-  const counts = new Set();
-  for (let day = 1; day <= 40; day++) {
-    S.save.day = day;
-    counts.add(S.errandCount(o1.def));
-  }
-  ok(counts.has(2) && counts.has(3) && counts.size === 2, `errandCount: over 40 days not both ends of [2, 3] (${[...counts]})`);
-  S.save.day = 1;
+  // day 1: Ann's first quest needs day 2, and errands wait for her first story quest to be handed in
+  ok(S.offer("ann") === null, `offer: day 1, before Ann's first story quest is handed in, she asks for something (${JSON.stringify(S.offer("ann"))})`);
   ok(S.offer("bo").kind === "quest" && S.offer("bo").def.id === "bo-1", "offer: Bo's day-1 quest at a known place");
   ok(S.offer("cy").kind === "quest" && S.offer("cy").def.kind === "dog", "offer: Cy's dog quest");
   ok(S.offer("nobody") === null, "offer: an unknown crew member offers");
   S.save.day = 2;
   const o2 = S.offer("ann");
-  ok(o2.kind === "quest" && o2.def.id === "ann-1", "offer: day 2 should be Ann's first story quest (story quests come before errands)");
+  ok(o2.kind === "quest" && o2.def.id === "ann-1", "offer: day 2 should be Ann's first story quest");
   ok(S.accept("bo", { kind: "errand", def: { id: "bo-e1" }, count: 1 }) === false, "accept: a stale offer was accepted");
   ok(S.accept("ann", o2) === true && c.quests["ann-1"].state === "active" && c.quests["ann-1"].day === 2, "accept: the quest is not active from today");
-  ok(S.offer("ann") === null, "offer: offered more than requestsPerCrew");
+  ok(S.offer("ann") === null, "offer: with ann-1 open (not handed in), an errand or a second story quest is offered");
   ok(S.request("ann").kind === "quest" && S.request("ann").def.id === "ann-1" && S.handInReady("ann") === false, "request: the open quest");
-  // room for two requests, ann-2's star and building in hand: only ann-1 still open holds it back
+  // room for two story quests, ann-2's star and building in hand: ann-1 still open holds it back (in order)
   W.CREW_RULES.requestsPerCrew = 2;
   S.addTrust("ann", 3);
   S.save.known.push("pharmacy");
-  ok(S.offer("ann").kind === "errand", "offer: with ann-1 open, ann-2 is offered (or no errand with room for two)");
+  ok(S.offer("ann") === null, "offer: with ann-1 open, ann-2 is offered out of order (or an errand before ann-1 is handed in)");
   S.addTrust("ann", -3);
   S.save.known.pop();
   W.CREW_RULES.requestsPerCrew = 1;
   c.quests["ann-1"].state = "done";
+  // ann-1 handed in: no story quest to give (ann-2 needs a star and Mile 9 Pharmacy), so an errand. Seeds and soil are
+  // on no known shelf (Greenhouse Row is not known), so the turn passes over them to the nails
+  const o1 = S.offer("ann");
+  ok(o1 && o1.kind === "errand" && o1.def.id === "ann-e3" && o1.count === 1, `offer: with no story quest to give, not the first errand whose item a known place stocks (${JSON.stringify(o1 && o1.def.id)})`);
+  S.save.known.push("garden");
+  const o3 = S.offer("ann");
+  ok(o3 && o3.def.id === "ann-e1" && o3.count >= 2 && o3.count <= 3, `offer: once Greenhouse Row is known, the errand first in turn (seeds) is not asked (${JSON.stringify(o3 && o3.def.id)})`);
+  vm.runInContext("Math.random = (() => { let i = 0; return () => (i++ % 7) / 7; })()", sb);
+  ok(same(S.offer("ann"), o3) && same(S.offer("ann"), o3), "offer: the errand count changes between calls (Math.random?)");
+  const counts = new Set();
+  for (let day = 1; day <= 40; day++) {
+    S.save.day = day;
+    counts.add(S.errandCount(o3.def));
+  }
+  ok(counts.has(2) && counts.has(3) && counts.size === 2, `errandCount: over 40 days not both ends of [2, 3] (${[...counts]})`);
+  S.save.day = 2;
+  const was = S.save.known.slice();
+  S.save.known = was.filter((k) => k === "base");
+  ok(S.offer("ann") === null, "offer: an errand whose item no known place stocks is asked");
+  S.save.known = was.filter((k) => k !== "garden");
   ok(S.offer("ann").kind === "errand", "offer: ann-2 offered without its star");
   S.addTrust("ann", 3);
   ok(S.offer("ann").kind === "errand", "offer: ann-2 offered before its building is known");
@@ -443,8 +484,63 @@ group("offers: order and gates", () => {
   ok(S.offer("ann").kind === "quest" && S.offer("ann").def.id === "ann-2", "offer: ann-2 not offered once known, with the star");
   c.quests["ann-2"] = { state: "done", day: 2, doneDay: 2 };
   ok(S.offer("ann").kind === "errand", "offer: no errand once every story quest is done");
-  ok(S.accept("ann") === true && S.offer("ann") === null && c.errandNext.ann === 1, "accept: with no offer given, the current one is not opened");
+  ok(S.accept("ann") === true && S.offer("ann") === null && c.errand.ann.id === "ann-e3" && c.errandNext.ann === 3, `accept: with no offer given, the current one is not opened, or the turn does not move past the errands passed over (errandNext ${c.errandNext.ann})`);
   ok(S.offer("cy") && S.offer("cy").kind === "quest", "offer: Cy has no errands, but the dog quest stays");
+});
+
+group("requests: one story quest and one errand at once", () => {
+  const g = synthetic();
+  const { S } = g;
+  const c = S.save.crew;
+  const kinds = () => S.requests("ann").map((r) => r.kind + ":" + r.def.id);
+  S.save.day = 2;
+  S.accept("ann", S.offer("ann"));
+  c.quests["ann-1"].state = "found";
+  ok(S.offer("ann") === null, "requests: a found story quest not handed in opens errands");
+  ok(S.handIn("ann", "ann-e3") === null && S.handIn("ann", "ann-1").def.id === "ann-1", "handIn: with an id, not that request (or one that is not open)");
+  // no story quest to give (ann-2 needs a star): an errand (nails: the only item on a known shelf)
+  const e = S.offer("ann");
+  ok(e && e.kind === "errand" && e.def.id === "ann-e3", "requests: no errand once the first story quest is handed in");
+  S.accept("ann", e);
+  ok(c.errandNext.ann === 3, `accept: the turn does not move past the two errands passed over (errandNext ${c.errandNext.ann})`);
+  // the errand open never holds back the next story quest
+  S.addTrust("ann", 3);
+  S.save.known.push("pharmacy");
+  const q = S.offer("ann");
+  ok(q && q.kind === "quest" && q.def.id === "ann-2", "requests: an open errand holds back the story quest");
+  S.accept("ann", q);
+  ok(same(kinds(), ["quest:ann-2", "errand:ann-e3"]), `requests: not one open story quest and one open errand (${kinds()})`);
+  ok(S.offer("ann") === null, "offer: a third request with a story quest and an errand open");
+  ok(S.request("ann").def.id === "ann-2" && !S.handInReady("ann"), "request: with nothing filled, not the story quest first");
+  tripHome(S, { nails: 1 });
+  ok(S.request("ann").def.id === "ann-e3" && S.handInReady("ann"), "request: the filled errand is not shown first");
+  c.quests["ann-2"].state = "found";
+  ok(S.request("ann").def.id === "ann-2", "request: with both filled, not the story quest first");
+  const scrap = S.save.scrap;
+  const r1 = S.handIn("ann", "ann-e3");
+  ok(r1 && r1.kind === "errand" && S.save.scrap === scrap + 15 && same(kinds(), ["quest:ann-2"]), "handIn: with the errand's id, not the errand");
+  const r2 = S.handIn("ann");
+  ok(r2 && r2.def.id === "ann-2" && same(kinds(), []), "handIn: without an id, not the filled story quest");
+  // giving up without an id: an errand still open before a story quest still open; a filled errand last
+  const g2 = synthetic((Wd) => (Wd.QUESTS = Wd.QUESTS.map((x) => (x.id === "ann-2" ? Object.assign({}, x, { when: {} }) : x))));
+  const S2 = g2.S;
+  const c2 = S2.save.crew;
+  const kinds2 = () => S2.requests("ann").map((r) => r.kind + ":" + r.def.id);
+  S2.save.day = 2;
+  S2.save.known.push("pharmacy");
+  S2.accept("ann", S2.offer("ann"));
+  c2.quests["ann-1"].state = "done";
+  S2.accept("ann", S2.offer("ann")); // ann-2
+  S2.accept("ann", S2.offer("ann")); // the nails
+  ok(same(kinds2(), ["quest:ann-2", "errand:ann-e3"]), `giveUp: setup (${kinds2()})`);
+  S2.addTrust("ann", 20);
+  ok(S2.giveUp("ann") === true && same(kinds2(), ["quest:ann-2"]) && S2.trust("ann") === 17, "giveUp: without an id, the open errand is not the one dropped first");
+  ok(S2.offer("ann").kind === "errand", "giveUp: once the errand is given up, no next errand is asked");
+  S2.accept("ann", S2.offer("ann"));
+  S2.save.inventory.nails = 5;
+  c2.errand.ann.have = c2.errand.ann.count;
+  ok(S2.giveUp("ann") === true && same(kinds2().map((k) => k.split(":")[0]), ["errand"]), "giveUp: without an id, a filled errand is dropped before the story quest still open");
+  ok(S2.giveUp("ann", "nope") === false && S2.giveUp("ann", c2.errand.ann.id) === true && same(kinds2(), []), "giveUp: with an id, not that request");
 });
 
 group("story quest: accept, pick up, death, home, hand in, perk", () => {
@@ -509,6 +605,7 @@ group("give up", () => {
 group("errands", () => {
   const { S, W, ZSR: Z } = synthetic((Wd) => (Wd.QUESTS = Wd.QUESTS.filter((q) => q.giver !== "ann"))); // Ann: errands only
   const c = S.save.crew;
+  S.save.known.push("garden"); // Greenhouse Row's shelves hold the seeds and the soil
   tripHome(S, { seeds: 5 }); // brought home before the errand: does not count
   const o = S.offer("ann");
   ok(o.kind === "errand" && o.def.id === "ann-e1", "errands: Ann's first errand");
@@ -549,16 +646,28 @@ group("errands", () => {
   ok(S.crewReportItems("ann").some((x) => x.key === "late" && x.vars.item === W.ITEMS.soil.name), "crewReportItems: late");
   // filled but not handed in: never late
   const o3 = S.offer("ann");
+  ok(o3.def.id === "ann-e3", "errands: the third errand is not next in turn");
   S.accept("ann", o3);
-  tripHome(S, { seeds: 5 });
+  tripHome(S, { nails: 5 });
   for (let i = 0; i < 6; i++) tripHome(S);
-  ok(c.errand.ann && c.errand.ann.id === "ann-e1", "errands: a filled errand went late before it was handed in");
+  ok(c.errand.ann && c.errand.ann.id === "ann-e3", "errands: a filled errand went late before it was handed in");
+  ok(S.requestVars(S.request("ann")).days === 2, `requestVars: a filled errand past its day does not read as the deadline it was given (${S.requestVars(S.request("ann")).days} days)`);
+  // filled, then the items used from storage (a build, a packed kit, a raid's medical kit): it waits, never late
+  S.save.inventory.nails = 0;
+  ok(!S.handInReady("ann"), "errands: a filled errand with its items gone from storage can be handed in");
+  for (let i = 0; i < 3; i++) tripHome(S);
+  ok(c.errand.ann && c.errand.ann.id === "ann-e3" && S.crewReport("ann").late !== "nails", "errands: a filled errand went late once its items were used from storage");
+  ok(S.requestVars(S.request("ann")).days >= 1, "requestVars: a filled errand reads 0 days");
+  tripHome(S, { nails: 1 });
+  ok(S.handInReady("ann"), "errands: a filled errand is not ready once storage holds its count again");
   ok(S.giveUp("ann") === true && c.errand.ann === null && S.trust("ann") === 0, "giveUp: an errand is still open or trust went below 0");
-  // filled by the very trip that comes home on its due day: in time
+  // filled by the very trip that comes home on its due day: in time (the turn wraps round to the first errand)
   const o4 = S.offer("ann");
+  ok(o4.def.id === "ann-e1", "errands: the turn does not wrap round to the first errand");
   S.accept("ann", o4);
   tripHome(S);
-  tripHome(S, { soil: 1 });
+  tripHome(S);
+  tripHome(S, { seeds: o4.count });
   ok(S.save.day === c.errand.ann.due && S.handInReady("ann") && S.handIn("ann") && S.trust("ann") === 3, "errands: items brought home on the due day did not fill the errand in time");
   // reward kinds: kits and crowbars
   const b = S.offer("bo");
@@ -572,6 +681,25 @@ group("errands", () => {
   ok(S.save.crowbars === bars + 1, "handIn: an errand's crowbar not paid");
 });
 
+group("errands: two crew members asking for the same item share the cargo", () => {
+  const { S } = synthetic();
+  const c = S.save.crew;
+  S.save.day = 2;
+  c.quests["ann-1"] = { state: "done", day: 2, doneDay: 2 };
+  c.quests["bo-1"] = { state: "done", day: 1, doneDay: 1 };
+  const a = S.offer("ann");
+  const b = S.offer("bo");
+  ok(a && a.def.item === "nails" && b && b.def.item === "nails", `errands: setup, Ann and Bo both ask for nails (${a && a.def.id}, ${b && b.def.id})`);
+  S.accept("ann", a);
+  S.accept("bo", b);
+  S.save.inventory.nails = 0;
+  tripHome(S, { nails: 1 });
+  ok(c.errand.ann.have + c.errand.bo.have === 1, `errands: 1 Box of nails brought home counted for both (Ann ${c.errand.ann.have}, Bo ${c.errand.bo.have})`);
+  tripHome(S, { nails: 1 });
+  ok(c.errand.ann.have === 1 && c.errand.bo.have === 1 && S.handInReady("ann") && S.handInReady("bo"), "errands: the second Box of nails did not fill the other errand");
+  ok(S.handIn("ann") && S.handIn("bo") && S.save.inventory.nails === 0, "errands: both not handed in with the 2 brought home");
+});
+
 group("raids: crewHurt", () => {
   const { S } = synthetic();
   S.addTrust("bo", 10);
@@ -581,9 +709,10 @@ group("raids: crewHurt", () => {
   ok(S.crewHurt("bo") === "2 food" && S.save.food === 3 && S.trust("bo") === 4, "crewHurt: with no kit, not 2 food");
   S.save.food = 1;
   ok(S.crewHurt("bo") === "1 food" && S.save.food === 0 && S.trust("bo") === 1, "crewHurt: with 1 food left, not 1 food taken and said (or food went below 0)");
-  ok(S.crewHurt("bo") === "0 food" && S.save.food === 0 && S.trust("bo") === 0, "crewHurt: an empty pantry is said to lose food, or trust went below 0");
+  // nothing to take: the report says it cost nothing ("It cost the base nothing"), never "0 food"
+  ok(S.crewHurt("bo") === "nothing" && S.save.food === 0 && S.trust("bo") === 0, "crewHurt: an empty pantry is not said to cost nothing (\"0 food\"?), or trust went below 0");
   const items = S.crewReportItems("bo").filter((x) => x.key === "hurt");
-  ok(items.length === 4 && items[0].vars.who === "Bo" && items[0].vars.cost === "a medical kit" && items[1].vars.cost === "2 food" && items[2].vars.cost === "1 food", `crewReportItems: hurt ${JSON.stringify(items)}`);
+  ok(items.length === 4 && items[0].vars.who === "Bo" && items[0].vars.cost === "a medical kit" && items[1].vars.cost === "2 food" && items[2].vars.cost === "1 food" && items[3].vars.cost === "nothing", `crewReportItems: hurt ${JSON.stringify(items)}`);
   S.clearReport("bo");
   ok(same(S.crewReport("bo"), {}) && same(S.crewReportItems("bo"), []), "clearReport: the report is not empty");
 });
@@ -606,6 +735,18 @@ group("work, reports, repairs", () => {
   S.clearReport("bo");
   S.logWork("bo", "fence", 2, 0);
   ok(same(S.crewReportItems("bo"), [{ key: "fenceFree", vars: { fixed: 2 } }]), "logWork: fence work with crewRepairFree is not fenceFree");
+  S.clearReport("bo");
+  S.logWork("bo", "cabin", 1, S.crewRepairPay("cabin"));
+  S.logWork("bo", "cabin", 1, 0);
+  ok(same(S.crewReport("bo"), { cabinFree: 2 }) && same(S.crewReportItems("bo"), [{ key: "cabinFree", vars: { fixed: 2 } }]), `logWork: cabin work with crewRepairFree is not cabinFree (${JSON.stringify(S.crewReport("bo"))})`);
+  // a fix logged with no scrap paid is never told as "it took 0 scrap" (an old report, or a caller that paid nothing)
+  S.clearReport("bo");
+  Object.assign(S.crewReport("bo"), { fence: 2, cabin: 1, scrapBy: { fence: 2 } });
+  ok(same(S.crewReportItems("bo"), [{ key: "fence", vars: { fixed: 2, scrap: 2 } }, { key: "cabinFree", vars: { fixed: 1 } }]), `crewReportItems: a fix that took no scrap is told as costing scrap (${JSON.stringify(S.crewReportItems("bo"))})`);
+  S.clearReport("bo");
+  S.logWork("bo", "fence", 1, 1); // paid before the perk came: still told with its scrap
+  ok(same(S.crewReportItems("bo"), [{ key: "fence", vars: { fixed: 1, scrap: 1 } }]), "logWork: a paid fix with the perk active lost its scrap");
+  S.clearReport("bo");
   const scrap = S.save.scrap;
   tripHome(S);
   ok(S.save.scrap === scrap + 4, `returnHome: the scrapPerDay perk did not pay (${S.save.scrap - scrap})`);
@@ -672,6 +813,35 @@ group("the dog", () => {
   ok(S.nextTopic("ann").id === "ann-t1", "the dog: broke the topics");
 });
 
+group("the journal: pages that wish for a dog, once it is home", () => {
+  const { S } = synthetic();
+  const page = (id, dogWish) => ({ id, dogWish, facts: ["A page."] });
+  // nine pages: 1 to 6 once, then 7, 8 and 9 repeat (the last third); 3, 7 and 9 wish for a dog
+  const J = [1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => page("p" + i, [3, 7, 9].includes(i)));
+  const days = 20;
+  const plain = Array.from({ length: days }, (_, n) => S.cycleIndex(n, J.length));
+  const run = () => Array.from({ length: days }, (_, n) => S.journalIndex(n, J));
+  ok(same(run(), plain), `journalIndex: a page was skipped with no dog home (${run()})`);
+  S.save.crew.dog.home = true;
+  const dog = run();
+  ok(same(dog.slice(0, 6), plain.slice(0, 6)), `journalIndex: a one-time page before the repeat moved (${dog.slice(0, 6)})`);
+  ok(dog.slice(6).every((i) => i === 7), `journalIndex: with the dog home, the repeat is not the one page that wishes for none (${dog.slice(6)})`);
+  // only page 7 wishes for a dog: the first pass gives its day to page 8, and the repeat goes round 8 and 9 in turn,
+  // never the same page two days running
+  const two = J.map((p, i) => (i === 7 ? page("p8", false) : i === 8 ? page("p9", false) : p));
+  const dog2 = Array.from({ length: days }, (_, n) => S.journalIndex(n, two));
+  ok(same(dog2.slice(6, 9), [7, 7, 8]), `journalIndex: in the first pass a dog-wish page does not give way to the next page in the window (${dog2.slice(6, 9)})`);
+  const rep2 = dog2.slice(9);
+  ok(rep2.every((i, k) => (i === 7 || i === 8) && (!k || i !== rep2[k - 1])), `journalIndex: with the dog home, the repeat writes a page two days running or a page that wishes for a dog (${rep2})`);
+  // a longer window keeps its order: twelve pages, the last four repeat, the second of them wishes for a dog
+  const twelve = Array.from({ length: 12 }, (_, i) => page("q" + (i + 1), i === 9));
+  const rep3 = Array.from({ length: 9 }, (_, k) => S.journalIndex(12 + k, twelve));
+  ok(same(rep3, [8, 10, 11, 8, 10, 11, 8, 10, 11]), `journalIndex: the repeat with the dog home is not the window's other pages in order (${rep3})`);
+  const all = J.map((p, i) => (i >= 6 ? page(p.id, true) : p));
+  ok(same(Array.from({ length: days }, (_, n) => S.journalIndex(n, all)), plain), "journalIndex: with every repeating page wishing for a dog, the day's own page is not kept");
+  ok(S.journalIndex(0, []) === null, "journalIndex: an empty journal");
+});
+
 group("words: crewText falls back to the facts, crewFill fills", () => {
   const g = synthetic();
   const { S, ZSR: Z } = g;
@@ -707,7 +877,7 @@ group("words: crewText falls back to the facts, crewFill fills", () => {
   ok(T("errand", "ann-e1", "done") === "Done at three." && T("errand", "ann-e1", "title") === g.W.ITEMS.seeds.name && T("errand", "ann-e1", "brief") === "Ann asks for {count} {item} within {days} days for {reward}.", "crewText: errand");
   ok(T("dog", null, "ask") === "Name the dog." && T("dog", "named") === "{dog} at three." && T("dog", null, "pet") === "{dog} wags.", "crewText: dog");
   ok(T("talk", "nope") === "" && T("quest", "nope", "brief") === "" && T("weird", "x") === "", "crewText: an unknown text is not an empty string");
-  const filled = Z.crewFill(T("errand", "ann-e1", "brief"), S.requestVars(S.offer("ann")));
+  const filled = Z.crewFill(T("errand", "ann-e1", "brief"), S.requestVars({ kind: "errand", def: g.W.ERRANDS.ann[0], count: 2 }));
   ok(!/[{}]/.test(filled) && /25 scrap/.test(filled), `crewFill: ${filled}`);
   ok(Z.crewFill("Fixed 1 holes and 2 holes in {x}.", {}) === "Fixed 1 hole and 2 holes in {x}.", "crewFill: 1 holes, or an unknown placeholder was not left");
   ok(Z.crewFill("{dog} wags.", {}) === "the dog wags." && Z.crewFill("{dog}!", { dog: "Rex" }) === "Rex!", "crewFill: {dog} with no dog home, or given");
@@ -779,7 +949,7 @@ group("an empty roster and no quests", () => {
    ===================================================================================================== */
 // the placeholders the engine fills, by text (docs/CREW.md "Words"); {dog} is filled everywhere
 const TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [] };
-const REPORT_VARS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], hurt: ["who", "cost"], late: ["item"], heal: ["hp"] };
+const REPORT_VARS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], hurt: ["who", "cost"], late: ["item"], heal: ["hp"] };
 const ERRAND_VARS = ["count", "item", "days", "reward"];
 // {reward} only where the request or the thank-you is shown with its reward (the card, the bubble, the backpack); the tag
 // (building), the journal line (day page), the title and the payoff topic are shown with no request at hand
@@ -939,6 +1109,69 @@ group("real facts: every story quest through the state API", () => {
   });
 });
 
+group("real facts: June's ledger never wishes for a dog that is home", () => {
+  const g = loadGame();
+  const { S, W } = g;
+  const J = W.JOURNAL || [];
+  if (!J.length) return;
+  S.newGame(1, "Ledger");
+  const wish = (e) => !!(J[e.journal] && J[e.journal].dogWish);
+  for (let i = 0; i < J.length * 2; i++) tripHome(S);
+  const before = S.save.log.slice(-J.length);
+  ok(before.every((e) => e.journal === S.cycleIndex(e.day - 1, J.length)), "journal: with no dog home, a page is not the day's own");
+  ok(before.some(wish), "journal: no repeating page wishes for a dog (nothing for the skip to test)");
+  S.save.crew.dog.home = true;
+  for (let i = 0; i < J.length; i++) tripHome(S);
+  const after = S.save.log.slice(-J.length);
+  ok(!after.some(wish), `journal: with the dog home, a page that wishes for one was written (${after.filter(wish).map((e) => J[e.journal].id)})`);
+  const loop = S.cycleLoop(J.length);
+  ok(after.every((e) => e.journal >= J.length - loop), "journal: with the dog home, a page from outside the repeat was written");
+  ok(after.every((e, k) => !k || e.journal !== after[k - 1].journal), `journal: with the dog home, a page was written two days running (${after.map((e) => e.journal + 1)})`);
+});
+
+group("real facts: quests wait for their days, errands for the first quest", () => {
+  const g = loadGame();
+  const { S, W } = g;
+  const QUESTS = W.QUESTS || [];
+  if (!QUESTS.length) return;
+  S.newGame(1, "Gates");
+  W.LOCATIONS.forEach((l) => !S.save.known.includes(l.id) && S.save.known.push(l.id));
+  S.crewIds().forEach((id) => S.addTrust(id, 1000));
+  const c = S.save.crew;
+  // each giver's quests in order: not on the day before its `when.day`, then on that day
+  QUESTS.forEach((q) => {
+    const day = (q.when && q.when.day) || 1;
+    if (day > 1) {
+      S.save.day = day - 1;
+      const o = S.offer(q.giver);
+      ok(!(o && o.def.id === q.id), `quests: ${q.id} is offered on day ${day - 1}, before its day ${day}`);
+    }
+    S.save.day = day;
+    const o = S.offer(q.giver);
+    ok(o && o.kind === "quest" && o.def.id === q.id, `quests: ${q.id} is not offered on its day ${day} (${JSON.stringify(o && o.def.id)})`);
+    c.quests[q.id] = { state: "done", day, doneDay: day };
+  });
+  // errands: none before a crew member's first story quest is handed in, then one (whose item a known shelf holds)
+  const g2 = loadGame();
+  const S2 = g2.S;
+  S2.newGame(1, "Errands");
+  S2.save.day = 2;
+  S2.crewIds().forEach((id) => {
+    const first = QUESTS.find((q) => q.giver === id);
+    if (!first) return;
+    const o = S2.offer(id);
+    ok(o && o.kind === "quest" && o.def.id === first.id, `errands: ${id}'s first story quest is not offered on day 2`);
+    S2.accept(id, o);
+    ok(S2.offer(id) === null, `errands: ${id} asks for an errand before the first story quest is handed in`);
+    S2.save.crew.quests[first.id].state = "found";
+    S2.handIn(id);
+    S2.save.day = 3;
+    const e = S2.offer(id);
+    if (((W.ERRANDS || {})[id] || []).some((x) => S2.crewItemStocked(x.item))) ok(e && e.kind === "errand" && S2.crewItemStocked(e.def.item), `errands: ${id} asks for no errand, or one no known shelf stocks, after the first story quest (${JSON.stringify(e && e.def.id)})`);
+    S2.save.day = 2;
+  });
+});
+
 /* =====================================================================================================
    4. The engine with the crew: the yard and the buildings (js/crew.js, js/building.js)
    Add simulations here: const g = loadGame({ engine: true, content: true }); g.S.newGame(1, "Yard"); then
@@ -958,6 +1191,6 @@ if (errors.length) {
 }
 console.log(
   `OK: crew: ${checks} checks. State on a synthetic crew (trust and stars, talk once a day, topics and moods, tips, offers in order with their gates, ` +
-    `quests picked up, lost to a death, found at home and handed in with rewards and perks, errands, give up, raids, reports, the dog, words, old saves, an empty roster); ` +
-    (real.skipped ? "the real crew facts are still empty (skipped)." : `the real facts: ${real.texts} texts at every level, ${real.topics} topics told in order, ${real.quests} story quests run through.`)
+    `one story quest and one errand open at once, errands after the first quest and only for stocked items, quests picked up, lost to a death, found at home and handed in with rewards and perks, errands, give up, raids, reports (free fixes never "0 scrap"), the dog and the ledger, words, old saves, an empty roster); ` +
+    (real.skipped ? "the real crew facts are still empty (skipped)." : `the real facts: ${real.texts} texts at every level, ${real.topics} topics told in order, ${real.quests} story quests run through, each on its day, and a ledger that never wishes for a dog at home.`)
 );

@@ -24,6 +24,9 @@
   "use strict";
   const W = root.ZSR.WORLD;
 
+  /* Gates (docs/CREW.md): quest 1 at 0 stars on day 2, 2 at 1 star on day 4, 3 at 2 stars on day 8, 4 at 3 stars
+     on day 13, 5 at 4 stars on day 19 (the dog, pip-5, on day 28). Stars alone come fast to a player who talks
+     every day, so the days pace the story; within a giver they never go down (tests/validate-world.js). */
   W.QUESTS = [
     /* ---------- June: the garden, her knees, Rosa, first aid, seeds for everyone ---------- */
     {
@@ -63,7 +66,7 @@
       // not June's bag of knee pills: pharmacy-dead1 shows that bag in the cross aisle at every reading level
       id: "june-2", giver: "june",
       at: "pharmacy", spot: [4, 8], near: "the giant toothbrush", room: "STAFF ONLY",
-      when: { stars: 1 },
+      when: { day: 4, stars: 1 },
       object: { name: "Roll of knee tape", art: "tape" },
       reward: { scrap: 30, kits: 1, perk: { foodPerDay: 1 } },
       brief: [
@@ -96,7 +99,7 @@
     {
       id: "june-3", giver: "june",
       at: "garden", spot: [1, 18], near: "the big gnome",
-      when: { stars: 2 },
+      when: { day: 8, stars: 2 },
       object: { name: "Rosa's jar of beans", art: "jar" },
       reward: { scrap: 30, items: { seeds: 2, soil: 1 } },
       brief: [
@@ -128,7 +131,7 @@
     {
       id: "june-4", giver: "june",
       at: "library", spot: [33, 24], near: "the owl statue", room: "MEDIA",
-      when: { stars: 3 },
+      when: { day: 13, stars: 3 },
       object: { name: "First-aid book", art: "book" },
       reward: { scrap: 40, kits: 1, perk: { healAmount: 20 } },
       brief: [
@@ -161,7 +164,7 @@
     {
       id: "june-5", giver: "june",
       at: "school", spot: [5, 4], near: "the big brain", room: "SCIENCE",
-      when: { stars: 4 },
+      when: { day: 19, stars: 4 },
       object: { name: "Garden club seed box", art: "box" },
       reward: { scrap: 50, items: { seeds: 2, soil: 2 }, perk: { foodPerDay: 2 } },
       brief: [
@@ -229,7 +232,7 @@
       // not the photo of Mr. Ortiz: autoshop-dead3 shows that photo by the shop door from reading level 4
       id: "tomas-2", giver: "tomas",
       at: "autoshop", spot: [4, 6], near: "the engine crane", room: "PARTS",
-      when: { stars: 1 },
+      when: { day: 4, stars: 1 },
       object: { name: "Thank-you card", art: "letter" },
       reward: { scrap: 30, items: { parts: 1, wire: 1 } },
       brief: [
@@ -262,7 +265,7 @@
     {
       id: "tomas-3", giver: "tomas",
       at: "firehouse", spot: [29, 23], near: "the gear racks", room: "RESCUE",
-      when: { stars: 2 },
+      when: { day: 8, stars: 2 },
       object: { name: "Fire crew toolbox", art: "toolbox" },
       reward: { scrap: 40, crowbars: 1, perk: { crowbarCost: 10 } },
       brief: [
@@ -295,7 +298,7 @@
     {
       id: "tomas-4", giver: "tomas",
       at: "lumberyard", spot: [5, 5], near: "the band saw", room: "SAW SHOP",
-      when: { stars: 3 },
+      when: { day: 13, stars: 3 },
       object: { name: "Box of fence brackets", art: "box" },
       reward: { scrap: 45, items: { lumber: 2 }, traps: { spike: 2 }, perk: { crewRepairFree: true } },
       brief: [
@@ -328,7 +331,7 @@
     {
       id: "tomas-5", giver: "tomas",
       at: "hospital", spot: [32, 28], near: "the rescue van", room: "EMERGENCY",
-      when: { stars: 4 },
+      when: { day: 19, stars: 4 },
       object: { name: "Rescue van manual", art: "book" },
       reward: { scrap: 70, items: { parts: 2 }, perk: { vanHp: 40 } },
       brief: [
@@ -395,7 +398,7 @@
     {
       id: "pip-2", giver: "pip",
       at: "watertower", spot: [21, 20], near: "the rowboat", room: "WORKSHOP",
-      when: { stars: 1 },
+      when: { day: 4, stars: 1 },
       object: { name: "Binoculars", art: "bag" },
       reward: { scrap: 30, items: { radioParts: 1 }, perk: { lookoutEarly: 10 } },
       brief: [
@@ -428,7 +431,7 @@
     {
       id: "pip-3", giver: "pip",
       at: "radioshack", spot: [5, 7], near: "the TV wall", room: "REPAIRS",
-      when: { stars: 2 },
+      when: { day: 8, stars: 2 },
       object: { name: "Broken boom box", art: "radio" },
       reward: { scrap: 35, items: { books: 1 }, perk: { scrapPerDay: 3 } },
       brief: [
@@ -461,7 +464,7 @@
     {
       id: "pip-4", giver: "pip",
       at: "police", spot: [31, 23], near: "the riot shields", room: "GARAGE",
-      when: { stars: 3 },
+      when: { day: 13, stars: 3 },
       object: { name: "Dog leash", art: "leash" },
       reward: { scrap: 50, items: { wire: 1, books: 1 } },
       brief: [

@@ -11,6 +11,8 @@
      panel), the radio shelf (the old days), the typewriter (typing practice), the big bed (rest: full
      health for a minute of the calm), and the dinner bell on the porch (calls the next wave now).
    - The notes the Hollis family left are read up close, like wall signs (ZSR.houseNoteText).
+   - The crew shelter in the office closet in a wave (CREW_RULES.shelter, js/crew.js): some raiders go
+     for it (yardWalkerGoal) and force its shut door like any inner door.
    Art: js/houseart.js. */
 (function (root) {
   "use strict";
@@ -79,8 +81,9 @@
       f.prop(1.45, 4.45, "hLamp", { scale: 0.9, solid: true, cover: false });
     },
     officeCloset(f) {
-      f.prop(1.5, 6.5, "hBoxes", { scale: 0.6, solid: true });
-      f.prop(2.5, 6.5, "hBoxes", { scale: 0.45, solid: true });
+      // the big battery the office computer runs off (the office note), against the end wall and not solid:
+      // the closet's three tiles stay free, the crew's shelter in a wave (CREW_RULES.shelter, js/crew.js)
+      f.prop(1.16, 6.5, "yDrum", { opts: { c: "#2f3a44" }, scale: 0.4 });
     },
     dining(f) {
       f.low(13, 2, 2, 2, { h: 0.4, tex: { name: "hTableSide", opts: { c: "#8a5a2e" } }, top: "#9a6a3e" });
@@ -438,12 +441,20 @@
         return false;
       }
       S.save.scrap -= cost;
-      b.hp = b.max;
-      this.mendBarrier(key, b);
-      this.houseFaces();
+      this.fixBarrier(key);
       Audio().play("buy");
       this.updateHud();
       if (this.hooks.onYardChanged) this.hooks.onYardChanged();
+      return true;
+    },
+    /** A door or window back at full strength and in one piece (the player's repair above, and Tomas's
+        cabin job in js/crew.js). */
+    fixBarrier(key) {
+      const b = this.barriers[key];
+      if (!b) return false;
+      b.hp = b.max;
+      this.mendBarrier(key, b);
+      this.houseFaces();
       return true;
     },
     /** Fix every door and window the player can afford (the computer's button). Returns how many. */
@@ -479,9 +490,18 @@
         return null;
       }
       if (!z.raidSpot && this.raidSpots) {
-        // somewhere to stand: not on the furniture
-        const open = this.raidSpots.filter((s) => !this.solidAt(s.x, s.y));
-        if (open.length) z.raidSpot = open[Math.floor(Math.random() * open.length)];
+        // some go for the crew in the shelter (CREW_RULES.raidShelterShare, js/crew.js): they force its shut door
+        // like any inner door, and one among the crew too long hurts someone off-screen
+        const shelter = this.crewShelterSpots();
+        const share = (W().CREW_RULES && W().CREW_RULES.raidShelterShare) || 0;
+        if (shelter.length && Math.random() < share) {
+          z.raidSpot = shelter[Math.floor(Math.random() * shelter.length)];
+          z.raidShelter = true;
+        } else {
+          // somewhere to stand: not on the furniture
+          const open = this.raidSpots.filter((s) => !this.solidAt(s.x, s.y));
+          if (open.length) z.raidSpot = open[Math.floor(Math.random() * open.length)];
+        }
       }
       if (!z.raidSpot) return null;
       if (!z.inHouse && this.indoorAt(z.x, z.y)) {
@@ -524,6 +544,9 @@
         }
         ph.t = Math.min(ph.t, D.bellSeconds);
         ph.forced = true;
+        // the bell always brings a wave: a calm that was going to stay quiet rolls again, among some and many
+        // (a wave already rolled keeps its size and sides, so what Pip called stays true)
+        if (!ph.next || ph.next.size === "none") ph.next = this.rollWave(true);
         this.toast("You ring the dinner bell. It carries a long way. Here they come.", 3.5);
         Audio().play("haven");
         this.updateHud();

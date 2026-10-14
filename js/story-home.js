@@ -153,13 +153,14 @@
       "Pip's writing is big and messy, and June says that is fine.",
       "A ledger only has to be honest, not neat.",
     ] },
-    { id: "journal-25", facts: [
+    // dogWish: a page that wishes for a dog; once the dog is home the repeating ledger skips it (js/state.js journalIndex)
+    { id: "journal-25", dogWish: true, facts: [
       "A dog barked somewhere past the trees last night.",
       "Pip stood at the window for an hour, listening.",
       "Tomas said a dog that survived this long is smart enough to find the crew if it wants to.",
       "Pip left a bowl of water by the gate, just in case.",
     ] },
-    { id: "journal-26", facts: [
+    { id: "journal-26", dogWish: false, facts: [
       "The wind came hard from the north and rattled the windows all night.",
       "Nobody could sleep, so the crew told stories by the stove.",
       "Tomas told one about his father's garage, and June told one about her school garden.",
@@ -171,7 +172,7 @@
       "She says it helps to picture them reading by the window.",
       "Then she gets up and does the next job.",
     ] },
-    { id: "journal-28", facts: [
+    { id: "journal-28", dogWish: true, facts: [
       "Tomas says the van could make it up the river road if the convoy ever leaves.",
       "June asked the crew what they want.",
       "Pip said a dog, Tomas said a garage, and June said a garden.",

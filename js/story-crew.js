@@ -27,7 +27,7 @@
       jobs: [{ job: "heal", stars: 1 }],
       posts: [
         { id: "porch", house: [7, 1], pose: "sit", weight: 3 }, // on the porch, by the bench
-        { id: "kitchen", house: [14, 7], pose: "work", weight: 3 }, // at the stove
+        { id: "kitchen", house: [14, 7], pose: "stand", weight: 3 }, // at the stove (the work pose is a garden kneel)
         { id: "ledger", house: [17, 15], pose: "read", weight: 3 }, // in the living room, by the shelf with her ledger
         { id: "office", house: [3, 3], pose: "read", weight: 2 }, // the base plans at Kate's map desk
         { id: "lot", at: [13, 16], pose: "stand", weight: 2 }, // looking over the garden plot
@@ -42,7 +42,7 @@
       scale: 1.0,
       jobs: [{ job: "fence", stars: 0 }, { job: "cabin", stars: 2 }],
       posts: [
-        { id: "van", at: [21, 29], pose: "work", weight: 4 }, // under the van's hood, off its parking gravel
+        { id: "van", at: [21, 29], pose: "stand", weight: 4 }, // at the van's hood, off its parking gravel (the work pose kneels to nail a board)
         { id: "garage", at: [12, 31], pose: "work", weight: 3 }, // by the garage plot
         { id: "gusRoom", house: [22, 7], pose: "sit", weight: 3 }, // Gus's room, where he sleeps
         { id: "pingpong", house: [9, 10], pose: "stand", weight: 2 }, // at the ping pong table
@@ -61,7 +61,7 @@
         { id: "radioShelf", house: [16, 18], pose: "sit", weight: 3 }, // on the floor by the radio shelf
         { id: "radioLot", at: [12, 12], pose: "read", weight: 3 }, // the radio plot, with the list of voices
         { id: "radio", at: [12, 9], room: "radio", level: 1, pose: "work", weight: 3 }, // beside the radio shack
-        { id: "dining", house: [15, 3], pose: "sit", weight: 2 }, // the chair by the chore chart
+        { id: "dining", house: [15, 3], pose: "sit", weight: 2 }, // on the floor by the chore chart (the sit pose sits on the floor: the art draws no chair)
         { id: "finnRoom", house: [21, 17], pose: "read", weight: 2 }, // Finn's treehouse plan
         { id: "lucyRoom", house: [21, 22], pose: "stand", weight: 1 }, // the drawing of a dog with no name yet
         { id: "lookout", at: [27, 6], pose: "stand", weight: 2 }, // the back fence, watching the trees
@@ -85,7 +85,7 @@
     workSeconds: 4, // to fix one fence segment or cabin door or window
     lookoutSeconds: 15, // Pip calls the next wave this long before it comes
     healAmount: 40, // June patches you up this much, once per calm
-    requestsPerCrew: 1, // SCALE: open requests (quest or errand) per crew member
+    requestsPerCrew: 1, // SCALE: open requests of each kind (story quest, errand) per crew member; errands: 1 (one save slot)
     dogFoodEvery: 2, // the dog eats 1 food every this many days
     dogBarkRange: 10, // tiles: the dog barks when a walker is this close to the cabin in a wave
   };
@@ -147,7 +147,7 @@
           "June smiles at the last line, about her beans, and says Rosa never forgets a friend.",
           "Notes you bring home stay in your backpack, so you can read them again.",
         ] },
-        { id: "june-t9", when: { room: "garden", level: 1 }, facts: [
+        { id: "june-t9", when: { day: 14, room: "garden", level: 1 }, facts: [ // day 14: the River Convoy (JOURNAL day 14)
           "June says Kate Hollis's note asked whoever found the cabin to keep the garden going, and now there is one.",
           "Each new level of the Garden grows more food each day.",
           "June says a cabin with a garden is hard to leave, even for the River Convoy.",
@@ -218,7 +218,7 @@
         { id: "tomas-t10", when: { day: 16, stars: 3 }, facts: [
           "Tomas remembers the night walkers hit the fence from every side, and he wants traps out first next time.",
           "Spike traps need the Walls at level 2, and blast traps need level 3.",
-          "Make them at the office computer, then press T or R in the yard.",
+          "Make them at the workbench, from the office computer, then press T or R in the yard.", // the computer's Traps & tools tab opens the workbench (there is no bench to walk to)
         ] },
       ],
       moods: [
@@ -310,9 +310,9 @@
     tomas: {
       van: { facts: ["Tomas says the van has {hp} of {max} health.", "A full fix costs {cost} scrap, at the office computer or at the van."] },
       vanFree: { facts: ["Tomas says the van has {hp} of {max} health.", "With the Garage built, a fix costs nothing."] },
-      fence: { facts: ["Tomas counts {holes} holes and {cracks} cracked boards in the fence.", "Holes never close on their own, and each fix costs 1 scrap."] },
+      fence: { facts: ["Tomas counts {holes} holes and {cracks} cracked boards in the fence.", "Holes never close on their own, and each fix you make costs 1 scrap."] }, // his own are free with the brackets (tomas-4)
       cabin: { facts: ["Tomas counts the cabin's broken doors and windows: {broken}.", "Each fix costs 2 scrap: press E at it, or use the office computer."] },
-      crowbar: { facts: ["Tomas says you have no crowbar.", "A crowbar pries open one jammed lock and is used up; build one at the office computer."] },
+      crowbar: { facts: ["Tomas says you have no crowbar.", "A crowbar pries open one jammed lock and is used up; build one at the workbench, from the office computer."] }, // as tomas-t10
       fine: { facts: ["Tomas says the van, the fence and the cabin are all in good shape.", "Nothing needs fixing right now."] },
     },
     pip: {
@@ -320,7 +320,8 @@
       // still reads ("nowhere"), or skips the tip
       wave: { facts: ["Pip has been watching the trees from the lookout.", "Pip calls what comes next: {size}, from {sides}."] },
       keys: { facts: ["Pip says you are holding {keys}.", "Each key's note says which stash it opens, and your notes are in the backpack."] },
-      walkers: { facts: ["Pip keeps count: in {days} days, the buildings in town get one more walker each."] },
+      // told only while a known building is not yet full (js/crewstate.js crewWalkerDays), so "up to a limit" stays true
+      walkers: { facts: ["Pip keeps count: in {days} days, the buildings in town get one more walker each, up to a limit."] },
       radio: { facts: ["Pip says the radio plays a new broadcast each day you come home.", "Hear them all again at the radio shelf by the couch."] },
     },
   };
@@ -330,18 +331,24 @@
     fence: { facts: ["Tomas fixed {fixed} fence boards since you last talked.", "It took {scrap} scrap from the base."] },
     fenceFree: { facts: ["Tomas fixed {fixed} fence boards since you last talked.", "It cost no scrap at all."] },
     cabin: { facts: ["Tomas fixed broken doors and windows in the cabin: {fixed} in all.", "It took {scrap} scrap from the base."] },
-    // {cost} is "a medical kit" (from storage) or "2 food" (from the crew's food, not storage)
+    cabinFree: { facts: ["Tomas fixed broken doors and windows in the cabin: {fixed} in all.", "It cost no scrap at all."] },
+    // {cost} is "a medical kit" (from storage), "2 food" (from the crew's food, not storage; "1 food" when only 1 was
+    // left), or "nothing" when there was neither (js/crewstate.js crewHurt): the words must read with all three
     hurt: { facts: ["Walkers got into the closet during the wave, and {who} got hurt.", "It cost the base {cost}.", "Everyone is all right now."] },
     late: { facts: ["Time ran out on the errand: {item}.", "It is off the list now, and trust dropped a little."] },
     heal: { facts: ["June patched you up and gave you back {hp} health."] },
   };
 
   /* ---------- Errands: the ordinary asks once a crew member has no story quest to give ----------
+     Asked once their first story quest is handed in, and only while they have no story quest to give right
+     now (the next one is locked, or all are done); one errand and one story quest can be open at once.
      Repeatable, in turn (errandNext counts up on accept and wraps; a "Not now" offers the same one again).
+     An errand whose item no known place's shelves stock is passed over for the next in turn that is (and none
+     is asked while no known shelf stocks any), so every errand asked can be filled (js/crewstate.js).
      Items are ones that come back on town shelves (SETTINGS.restockDays), so a repeat errand can always be
      filled: never "food", and not radioParts or maps, which only come from caches and stashes that never
-     refill. Each crew member's first errand can come on day 1, before any story quest, so it asks for an
-     item whose shelves the start places, or the main notes at the start places, lead to (seeds and soil:
+     refill. Each crew member's first errand can come on day 3, after their first story quest, so it asks for
+     an item whose shelves the start places, or the main notes at the start places, lead to (seeds and soil:
      Greenhouse Row, from the Gas-N-Go note; parts: Ortiz Auto, the same; lumber: Reyes Hardware). Wire and
      books sit on shelves further out (Signal Electronics, the school, the library, the mall), so they come
      later in the turn. count: [min, max] rolled when offered (at most what about 2 restocks of the nearest

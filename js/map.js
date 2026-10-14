@@ -41,6 +41,17 @@
     return e;
   }
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  /** The crew's story quests whose object (or the dog) still waits in this building (js/crewstate.js questsAt). */
+  const questsAt = (id) => (State().questsAt ? State().questsAt(id) : []);
+  const crewColor = (giver) => ((W().CREW || {})[giver] || {}).color || AMBER;
+  /** "June asked you to find: Bag of sunflower seeds" / "Pip asked you to bring home the dog in here." (a stray:
+      not anyone's dog until it is home) */
+  function questLine(q) {
+    const who = ZSR.crewName ? ZSR.crewName(q.giver) : q.giver;
+    if (q.kind === "dog") return who + " asked you to bring home the dog in here.";
+    const title = ZSR.crewText ? ZSR.crewFill(ZSR.crewText("quest", q.id, "title")) : (q.object && q.object.name) || q.id;
+    return who + " asked you to find: " + title;
+  }
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const unit = (x, y) => {
     const d = Math.hypot(x, y) || 1;
@@ -446,7 +457,10 @@
         if (huge) {
           const list = el("div", "btn-col");
           W().LOCATIONS.filter((l) => S.isKnown(l.id) && l.id !== this.at).forEach((l) => {
-            const b = el("button", "btn", esc(l.name));
+            // the board (and its quest marks) is hidden at this size: the list says whose request waits there
+            // each giver once, even with two of their requests in one place
+            const who = Array.from(new Set(questsAt(l.id).map((q) => (ZSR.crewName ? ZSR.crewName(q.giver) : q.giver))));
+            const b = el("button", "btn", esc(l.name) + (who.length ? " (" + esc(who.join(", ")) + ")" : ""));
             b.addEventListener("click", () => this.select(l.id));
             list.appendChild(b);
           });
@@ -469,6 +483,12 @@
       info.appendChild(el("p", "small muted", esc(TYPE_LABEL[loc.type] || loc.type) + (loc.id === "base" ? "" : " · " + (fx.showDanger || S.locState(id).visits ? "danger " + loc.danger + " of 5" : "danger unknown"))));
       const blurb = loc.outdoor ? ZSR.riverText && ZSR.riverText("blurb") : t && t.locations && t.locations[id] && t.locations[id].blurb;
       if (blurb) info.appendChild(el("p", null, esc(blurb)));
+      // a crew request waiting in here, in the giver's color (the same mark as on the board)
+      questsAt(id).forEach((q) => {
+        const p = el("p", "small map-quest", esc(questLine(q)));
+        p.style.borderLeftColor = crewColor(q.giver);
+        info.appendChild(p);
+      });
       if (loc.outdoor) {
         // River Landing: no shelves, just the river; the pole is what you need
         const left = S.fishLeft();
@@ -1277,6 +1297,29 @@
         ctx.strokeStyle = INK;
         ctx.lineWidth = 2;
         ctx.stroke();
+      }
+      // crew quest markers: a diamond in the giver's color for each story object (or the dog) waiting inside,
+      // on the corner opposite the cache marker, side by side (at most two quest spots a building)
+      if (l.id !== "base") {
+        questsAt(l.id).forEach((q, i) => {
+          const x = -size - 2 + i * 21;
+          const y = -size * 0.75;
+          ctx.beginPath();
+          ctx.moveTo(x, y - 12);
+          ctx.lineTo(x + 10, y);
+          ctx.lineTo(x, y + 12);
+          ctx.lineTo(x - 10, y);
+          ctx.closePath();
+          ctx.fillStyle = crewColor(q.giver);
+          ctx.fill();
+          ctx.strokeStyle = INK;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, TAU);
+          ctx.fillStyle = PAPER3;
+          ctx.fill();
+        });
       }
       ctx.restore();
     },

@@ -421,7 +421,10 @@
       rmid.appendChild(el("div", "name", "Full repair"));
       const full = s.vanHp >= S.vanMaxHp();
       const cost = S.repairCost();
-      rmid.appendChild(el("div", "desc", fx.freeRepair ? "Ruby fixes the van for free. Back to full health." : esc(U().REPAIR.desc) + " Back to full health: 1 scrap for every " + W().SETTINGS.repairScrapPerHp + " missing."));
+      // who fixes it free: the crew member whose tip tells of the free fix (CREW_TIPS[id].vanFree: Tomas)
+      const fixer = Object.keys(W().CREW_TIPS || {}).find((id) => W().CREW_TIPS[id] && W().CREW_TIPS[id].vanFree && (W().CREW || {})[id]);
+      const fixerName = fixer && ZSR.crewName ? ZSR.crewName(fixer) : "The crew";
+      rmid.appendChild(el("div", "desc", fx.freeRepair ? esc(fixerName) + " fixes the van for free. Back to full health." : esc(U().REPAIR.desc) + " Back to full health: 1 scrap for every " + W().SETTINGS.repairScrapPerHp + " missing."));
       rep.appendChild(rmid);
       tip(rep, "<strong>Van repair</strong><span class='t-line'>Van health " + Math.round(s.vanHp) + " of " + S.vanMaxHp() + ".</span><span class='t-line'>" + (full ? "Nothing to fix." : fx.freeRepair ? "Free with the Garage room." : cost + " scrap brings it back to full.") + " No typing needed.</span>");
       const rbtn = el("button", "btn" + (!full && s.scrap >= cost ? " go" : ""), full ? "FULL" : cost ? cost + " scrap" : "Repair");
@@ -574,6 +577,8 @@
       Object.entries(W().TOOLS || {}).forEach(([key, def]) => {
         const txt = t && t.base && t.base.tools && t.base.tools[key];
         const can = S.canCraftTool(key);
+        // what it costs now: a crew perk (js/crewstate.js crowbarCost) can make it cheaper than def.scrap
+        const price = can.scrap != null ? can.scrap : def.scrap;
         const have = key === "crowbar" ? s.crowbars || 0 : 0;
         const desc = txt ? txt.desc : "Pries open one jammed lock: a cache door or a stash that a wrong move, code or key jammed. It breaks doing it. You carry every crowbar you have on every trip.";
         const card = el("div", "room");
@@ -582,20 +587,25 @@
         head.appendChild(el("span", "stock", "x" + have));
         card.appendChild(head);
         card.appendChild(el("p", "room-desc", esc(desc)));
-        tip(card, "<strong>" + esc(def.name) + "</strong><span class='t-line'>" + esc(desc) + "</span><span class='t-line'><strong>Needs:</strong> " + esc(needsText(def.needs, def.scrap)) + "</span>");
+        // the words give the usual price; say when it is less now
+        const perkBy = (W().QUESTS || []).find((q) => q && q.reward && q.reward.perk && q.reward.perk.crowbarCost != null && S.questState && S.questState(q.id) === "done");
+        const thanks = perkBy && ZSR.crewName ? ZSR.crewName(perkBy.giver) : "the crew";
+        const cheaper = price < def.scrap ? "Now " + price + " scrap instead of " + def.scrap + ", thanks to " + thanks + "." : "";
+        if (cheaper) card.appendChild(el("p", "room-desc", "<strong>" + esc(cheaper) + "</strong>"));
+        tip(card, "<strong>" + esc(def.name) + "</strong><span class='t-line'>" + esc(desc) + "</span>" + (cheaper ? "<span class='t-line'>" + esc(cheaper) + "</span>" : "") + "<span class='t-line'><strong>Needs:</strong> " + esc(needsText(def.needs, price)) + "</span>");
         const needs = el("ul", "needs");
         Object.entries(def.needs).forEach(([k, n]) => {
           const h = s.inventory[k] || 0;
           needs.appendChild(el("li", h >= n ? "ok" : "short", esc(itemName(k)) + " <span>" + h + " / " + n + "</span>"));
         });
-        needs.appendChild(el("li", s.scrap >= def.scrap ? "ok" : "short", "Scrap <span>" + s.scrap + " / " + def.scrap + "</span>"));
+        if (price > 0) needs.appendChild(el("li", s.scrap >= price ? "ok" : "short", "Scrap <span>" + s.scrap + " / " + price + "</span>"));
         card.appendChild(needs);
         const btn = el("button", "btn" + (can.ok ? " go" : ""), "Build one");
         btn.disabled = !can.ok;
         tip(btn, can.ok ? "<strong>Build at the workbench</strong><span class='t-line'>A short typing round. Nothing is spent until you finish.</span>" : "Missing: " + esc(Object.entries(can.missing).map(([k, n]) => n + " " + itemName(k)).concat(can.scrapShort ? [can.scrapShort + " scrap"] : []).join(", ")));
         btn.addEventListener("click", () => {
           if (!S.canCraftTool(key).ok) return;
-          this.craft("Build a " + def.name.toLowerCase(), needsText(def.needs, def.scrap), () => S.craftTool(key));
+          this.craft("Build a " + def.name.toLowerCase(), needsText(def.needs, S.canCraftTool(key).scrap), () => S.craftTool(key));
         });
         card.appendChild(btn);
         grid.appendChild(card);

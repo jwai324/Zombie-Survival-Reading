@@ -176,6 +176,7 @@
       <div class="caption">Backpack</div>
       <div id="backpack-kits"></div>
       <div id="backpack-keys"></div>
+      <div id="backpack-crew"></div>
       <h2>Notes you've read</h2>
       <div id="backpack-body"></div>
       <div id="backpack-days"></div>
@@ -252,6 +253,37 @@
         <button id="btn-lock-back" class="btn alt">Step back</button>
         <button id="btn-lock-go" class="btn big go">Try it</button>
       </div>
+    </div>
+  </section>
+
+  <!-- CREW CARD: a crew member asks you a favor, thanks you for one, or Pip names the dog. Pauses the yard;
+       Enter is the main button, Esc is "Not now" (js/main.js, the crew card) -->
+  <section id="screen-crew" class="screen hidden overlay">
+    <div id="crew-panel" class="panel crew-panel" role="dialog" aria-modal="true" aria-labelledby="crew-title">
+      <div id="crew-caption" class="caption">The crew</div>
+      <div class="cc-head">
+        <div id="crew-face" class="cc-face" aria-hidden="true"></div>
+        <div class="cc-who">
+          <div class="cc-name-row"><span id="crew-name" class="cc-name"></span><span id="crew-stars"></span></div>
+          <h2 id="crew-title" class="reading-title cc-title"></h2>
+        </div>
+      </div>
+      <div id="crew-text" class="paper reading cc-text"></div>
+      <div id="crew-names" class="cc-names hidden">
+        <div id="crew-dog" class="cc-dog" aria-hidden="true"></div>
+        <div id="crew-ideas" class="cc-ideas"></div>
+        <div class="cc-own">
+          <label for="crew-dogname" class="small">Or your own name</label>
+          <div class="cc-own-row">
+            <!-- maxlength: js/crewstate.js DOG_NAME_MAX (nameDog trims to it anyway) -->
+            <input type="text" id="crew-dogname" maxlength="14" autocomplete="off" spellcheck="false" placeholder="A name">
+            <button id="btn-crew-name" class="btn go">Name it</button>
+          </div>
+        </div>
+      </div>
+      <p id="crew-reward" class="cc-reward hidden"></p>
+      <p id="crew-hint" class="small cc-hint hidden" role="alert"></p>
+      <div id="crew-buttons" class="btn-row"></div>
     </div>
   </section>
 

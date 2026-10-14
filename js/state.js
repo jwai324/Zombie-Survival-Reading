@@ -630,15 +630,41 @@
     cycleIndex(n, len) {
       if (!len) return null;
       if (n < len) return n;
-      const loop = Math.max(1, Math.min(len, Math.floor(len / 3)));
+      const loop = this.cycleLoop(len);
       return len - loop + ((n - len) % loop);
+    },
+    /** How many entries at the end of a list of len repeat (the last third). */
+    cycleLoop(len) {
+      return Math.max(1, Math.min(len, Math.floor(len / 3)));
+    },
+    /** June's page for day index n (cycleIndex). Once the dog is home (js/crewstate.js), a repeating page that
+        wishes for a dog (JOURNAL dogWish: true) would read wrong, so the repeat goes round only the pages of the
+        window that do not, in order, so no page is written two days running (if every page there wishes for a
+        dog, the day's own page stays). Pages before the window are the one-time story: tests/validate-world.js
+        keeps the dog away until the last page that mentions a dog is written, so none of them needs skipping;
+        should one in the window's first pass still wish for a dog, the next page that does not takes its day. */
+    journalIndex(n, J) {
+      const i = this.cycleIndex(n, J.length);
+      if (i == null || !(this.dogHome && this.dogHome())) return i;
+      const loop = this.cycleLoop(J.length);
+      const start = J.length - loop;
+      if (i < start) return i;
+      const keep = [];
+      for (let k = 0; k < loop; k++) {
+        const j = start + ((i - start + k) % loop); // from the day's own page on, round the window
+        if (!(J[j] && J[j].dogWish)) keep.push(j);
+      }
+      if (!keep.length) return i;
+      if (n < J.length) return keep[0]; // the first pass: the day's own page, or the next one that wishes for none
+      keep.sort((a, b) => a - b);
+      return keep[(n - J.length) % keep.length];
     },
     /** Write today's entry (called when a day passes, and on Day 1). `trip` is null on Day 1. */
     logDay(trip) {
       const s = this.save;
       const J = W().JOURNAL || [];
       const R = W().RADIO || [];
-      const entry = { day: s.day, journal: this.cycleIndex(s.day - 1, J.length), radio: null, recap: null };
+      const entry = { day: s.day, journal: this.journalIndex(s.day - 1, J), radio: null, recap: null };
       if (s.rooms.radio > 0 && R.length) {
         entry.radio = this.cycleIndex(s.radioHeard || 0, R.length);
         s.radioHeard = (s.radioHeard || 0) + 1;

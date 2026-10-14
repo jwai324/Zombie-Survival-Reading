@@ -19,6 +19,9 @@
    More mode hooks: WalkerGoal(z) (where a walker heads instead of the player), Barrier(z) (what a
    walker that cannot reach its goal claws at instead of the fence), HitBarrier(key, damage),
    Door(d) and DoorHint(d) (a door of the mode's own: true when it handled E), Noise(tiles) (a shot).
+   A crew member's speech bubble at home (js/crew.js) rides on the read panel: this.talk while it is open,
+   crewSpeaker(talk) (where they stand), crewTalkKey(f) (E with it open), crewTalkEnd() (it closes);
+   a candidate with `aim` (right under the crosshair) counts that much nearer in facing().
    Everything reads and writes the trip through ZSR.State. */
 (function (root) {
   "use strict";
@@ -55,7 +58,7 @@
   const IS_OPAQUE = flags(OPAQUE);
   const TEX_OF = { S: "shelf", X: "crate", G: "glass", L: "locked", E: "exit", T: "tree", H: "house", B: "door", V: "van", O: "doorClosed", W: "window", Q: "stash", U: "window" };
   const READ_REACH = 2.3; // how close a wall sign or a yard lot's sign must be to read it
-  const REACH = { note: 1.4, van: 2.0, hole: 1.8, crack: 1.8, lot: READ_REACH, rod: 2.0 }; // how close E works; everything else 1.6
+  const REACH = { note: 1.4, van: 2.0, hole: 1.8, crack: 1.8, lot: READ_REACH, rod: 2.0, crew: 2.2, dog: 2.2 }; // how close E works; everything else 1.6
   const words = (t) => String(t || "").trim().split(/\s+/).filter(Boolean).length;
   ZSR.wordCount = words;
   // reading pace by reading level, in words a minute: a little under grade-level fluency, so a slow reader still finishes
@@ -85,6 +88,8 @@
     hooks: {},
     locked: false,
     planeRes: PLANE_RES,
+    REACH, // how close E works, by candidate kind (js/crew.js reads it)
+    talk: null, // a crew member's speech bubble while it is open (js/crew.js): { id, panel, ... }
 
     init(canvas, hooks) {
       this.canvas = canvas;
@@ -527,6 +532,7 @@
       this.readLot = null;
       this.readSpot = null;
       this.tagPanel = null;
+      this.talk = null; // a crew member's speech bubble never outlives the scene
       this.releasing = true;
       this.holdFrame = false;
       this.dropSceneCaches();
@@ -671,8 +677,9 @@
         if (d > (REACH[c.kind] || 1.6)) return;
         const diff = Math.abs(normAngle(Math.atan2(dy, dx) - p.a));
         if (diff > 0.95) return;
-        // nearest wins, except a note you have already read steps aside for the door behind it
-        const score = d + (c.kind === "note" && c.obj.read ? 1.5 : 0);
+        // nearest wins, except a note you have already read steps aside for the door behind it, and a candidate
+        // right under the crosshair (`aim`: a crew member, js/crew.js) counts that much nearer
+        const score = d + (c.kind === "note" && c.obj.read ? 1.5 : 0) - (c.aim || 0);
         if (!best || score < best.score) best = Object.assign({ d, score }, c);
       });
       return best;
@@ -721,6 +728,7 @@
     interact() {
       if (this.closePickup()) return;
       const f = this.facing();
+      if (this.talk && this.crewTalkKey && this.crewTalkKey(f)) return; // E again at an open speech bubble (js/crew.js)
       if (!f) return;
       if (f.kind === "idoor") {
         if (!this.modeCall("Door", f.obj)) this.toggleDoor(f.obj);
@@ -838,7 +846,8 @@
       if (sig !== this.hudSig) this.updateHud();
 
       const f = this.facing();
-      const hint = this.pickupShown() ? "Press E to close" : !f ? "" : f.kind === "idoor" ? this.modeCall("DoorHint", f.obj) || (f.obj.open ? "Press E to close the door" : "Press E to open the door") : this.modeCall("Hint", f) || "";
+      // (facing nothing with a long speech bubble open, E reads on: js/crew.js crewTalkKey)
+      const hint = this.pickupShown() ? "Press E to close" : !f ? (this.talk && this.talk.more ? "Press E to read on" : "") : f.kind === "idoor" ? this.modeCall("DoorHint", f.obj) || (f.obj.open ? "Press E to close the door" : "Press E to open the door") : this.modeCall("Hint", f) || "";
       if (this.hud.hint.textContent !== hint) this.hud.hint.textContent = hint;
       this.updatePanel();
     },
@@ -849,6 +858,14 @@
     nearReadable() {
       const p = this.player;
       let best = null;
+      // a crew member's speech bubble (js/crew.js) stays up until E again or you walk away from them
+      const talk = this.talk;
+      if (talk) {
+        const sp = this.crewSpeaker ? this.crewSpeaker(talk) : null;
+        if (sp && Math.hypot(sp.x - p.x, sp.y - p.y) <= READ_REACH + 0.4) return { talk };
+        if (this.crewTalkEnd) this.crewTalkEnd();
+        else this.talk = null;
+      }
       // a list opened with E (the cabin's pantry) stays up until E again or you walk away
       const spot = this.readSpot;
       if (spot) {
@@ -887,6 +904,7 @@
     /** A cheap identity for what the panel would show, so the panel is rebuilt only when it changes. */
     readableKey(t) {
       const S = State();
+      if (t.talk) return t.talk.panel.key;
       if (t.sign) return "sign:" + t.sign.id + ":" + S.settings.level;
       if (t.spot) return this.modeCall("SpotPanel", t.spot).key;
       const lvl = S.save.rooms[t.lot.room] || 0;
@@ -940,7 +958,7 @@
       const key = near ? this.readableKey(near) : tag ? tag.key : null;
       if (key === this.panelKey) return;
       this.panelKey = key;
-      const show = near ? (near.sign ? this.signPanel(near.sign) : near.spot ? this.modeCall("SpotPanel", near.spot) : this.lotPanel(near.lot)) : tag;
+      const show = near ? (near.talk ? near.talk.panel : near.sign ? this.signPanel(near.sign) : near.spot ? this.modeCall("SpotPanel", near.spot) : this.lotPanel(near.lot)) : tag;
       const el = this.hud.read;
       if (!el) return;
       if (!show) {
@@ -950,8 +968,9 @@
       if (show.house) State().seeHouseNote(show.id, words(show.text));
       else if (show.kind === "sign" || show.kind === "graffiti") State().seeSign(show.id, words(show.text));
       const esc = (x) => String(x).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-      el.className = "read-panel " + show.kind;
+      el.className = "read-panel " + show.kind + (show.cls ? " " + show.cls : ""); // cls: extra classes (a speech bubble's speaker)
       el.innerHTML = '<div class="rp-head"><span class="rp-title">' + esc(show.title) + "</span>" + (show.status ? '<span class="rp-status">' + esc(show.status) + "</span>" : "") + "</div>" + '<div class="rp-text">' + esc(show.text).split(/\n\s*\n/).map((x) => "<p>" + x + "</p>").join("") + "</div>" + (show.meta && show.meta.length ? '<ul class="rp-meta">' + show.meta.map(([h, v]) => "<li><strong>" + esc(h) + ":</strong> " + esc(v) + "</li>").join("") + "</ul>" : "");
+      el.scrollTop = 0; // a new panel starts at its top (a long speech bubble is read on with E: js/crew.js)
     },
 
     updateWalker(z, dt) {
