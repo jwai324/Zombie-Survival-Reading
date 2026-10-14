@@ -1,0 +1,192 @@
+/* June's first-run tutorial (js/tutorial-ui.js draws it; js/tutorial.js says what and when): the card, the ring on
+   a HUD button, the "Now you try" panel and the arrow. Built from the comic pieces in style.css and the crew card's
+   classes (.crew-panel, .cc-*); every size in rem, with px caps where a rem would grow past sense at Huge.
+   Layers (#app): the try panel and the arrow at 1, over the view and under the HUD (2), so toasts, the hint and the
+   speech bubble always show over them and every screen (5) or overlay (10) covers them; the card at 12, over any
+   overlay it opens on and under the full-screen button (20).
+   The pointers (the ring's and the arrow's) are border triangles, not clip-paths: a clip-path would cut away the
+   drop shadows that give them their ink edge. */
+
+/* ---------- The card ---------- */
+#screen-tutorial { z-index: 12; background: rgba(10, 10, 12, .6); }
+#screen-tutorial.has-ring { background: transparent; } /* the hole's shadow dims instead */
+/* the ringed button and the ring's pointer stay in view: the panel goes to the far side, and keeps clear of them
+   (--tut-clear: js/tutorial-ui.js measures it; a short window or Huge would otherwise cover the button) */
+:root #screen-tutorial.has-ring[data-at="top"] { align-items: flex-end; padding-top: max(.75rem, var(--tut-clear, 0px)); }
+:root #screen-tutorial.has-ring[data-at="bottom"] { align-items: flex-start; padding-bottom: max(.75rem, var(--tut-clear, 0px)); }
+:root.fs-btn #screen-tutorial.has-ring[data-at="top"] { padding-top: max(calc(var(--fs-at) + var(--fs) + .5rem), var(--tut-clear, 0px)); }
+/* the hole: a window onto the real button, the rest dimmed; the ring sits on it. Both pass clicks to the section
+   (the button stays unclickable while the card is up) */
+.tut-hole, .tut-ring { position: absolute; pointer-events: none; border-radius: .5rem; }
+.tut-hole { z-index: 0; box-shadow: 0 0 0 200vmax rgba(10, 10, 12, .6); }
+.tut-ring {
+  --pw: min(1.8rem, 32px); /* the pointer: how wide ... */
+  --ph: min(1.5rem, 26px); /* ... and how tall */
+  z-index: 2;
+  border: min(.3rem, 6px) solid var(--amber-2);
+  outline: min(.2rem, 4px) solid var(--ink);
+  animation: tutPulse 1s ease-in-out infinite;
+}
+.tut-ring::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  width: 0;
+  height: 0;
+  margin-left: calc(var(--pw) / -2);
+  border-left: calc(var(--pw) / 2) solid transparent;
+  border-right: calc(var(--pw) / 2) solid transparent;
+  filter: drop-shadow(2px 0 0 var(--ink)) drop-shadow(-2px 0 0 var(--ink)) drop-shadow(0 2px 0 var(--ink)) drop-shadow(0 -2px 0 var(--ink)) drop-shadow(2px 2px 0 var(--ink));
+}
+/* the button is in the top half: the pointer hangs below the ring, pointing up at it (and the reverse) */
+.tut-ring[data-side="below"]::after { top: calc(100% + .45rem); border-bottom: var(--ph) solid var(--amber-2); }
+.tut-ring[data-side="above"]::after { bottom: calc(100% + .45rem); border-top: var(--ph) solid var(--amber-2); }
+.tut-panel { z-index: 1; max-width: 38rem; max-height: 100%; display: flex; flex-direction: column; } /* the words scroll; Got it stays */
+.tut-panel:focus { outline: none; } /* it takes the focus only so Space and Enter never reach a button */
+.tut-panel .cc-head, .tut-panel .btn-row { flex: none; }
+.tut-panel .btn-row { align-items: center; }
+.tut-panel .cc-face { width: 5.5rem; height: 5.5rem; }
+.tut-pics { flex: none; display: flex; flex-wrap: wrap; gap: 1.2rem; align-items: center; justify-content: center; margin: .5rem 0 .2rem; }
+.tut-keys { display: flex; gap: .35rem; }
+/* W A S D as on the keyboard: W over S, A and D beside it */
+.tut-keys.wasd { display: grid; grid-template-columns: repeat(3, auto); }
+.tut-keys.wasd kbd:nth-child(1) { grid-area: 1 / 2; }
+.tut-keys.wasd kbd:nth-child(2) { grid-area: 2 / 1; }
+.tut-keys.wasd kbd:nth-child(3) { grid-area: 2 / 2; }
+.tut-keys.wasd kbd:nth-child(4) { grid-area: 2 / 3; }
+.tut-keys kbd { font: 700 1.5rem var(--font-head); min-width: 2.4rem; text-align: center; padding: .15rem .4rem; border-width: .19rem; box-shadow: .15rem .15rem 0 var(--ink); }
+.tut-keys kbd.wide { min-width: 7rem; }
+.tut-mouse { width: 3.6rem; height: auto; }
+.tut-mouse .body, .tut-mouse .tut-left { fill: var(--paper-3); stroke: var(--ink); stroke-width: 3; }
+.tut-mouse .tut-seam, .tut-mouse .tut-rays { fill: none; stroke: var(--ink); stroke-width: 3; stroke-linecap: round; }
+.tut-mouse .tut-move { fill: var(--ink); }
+.tut-mouse[data-mode="click"] .tut-left { fill: var(--amber-2); }
+/* the words scroll inside the paper (.tut-words, made by js/tutorial-ui.js), so its tape strips stay on its edge */
+.tut-text { flex: 1 1 auto; min-height: 3rem; display: flex; flex-direction: column; margin: .6rem 0 .3rem; font-size: 1.15rem; line-height: 1.5; }
+.tut-words { flex: 1 1 auto; min-height: 0; overflow: auto; }
+#btn-tut-go.arming { opacity: .55; } /* Got it does nothing for a moment after the card opens (js/tutorial.js TUNE.armMs) */
+.tut-enter { margin-left: .6rem; }
+
+/* ---------- "Now you try": under the HUD's top row (js/tutorial-ui.js sets --tut-top), on the right ---------- */
+.tut-try {
+  --crew: #5b8a3c;
+  position: absolute;
+  z-index: 1;
+  right: .6rem;
+  top: var(--tut-top, 4.2rem);
+  width: min(17rem, 42vw);
+  pointer-events: none;
+  background: var(--paper-3);
+  border: var(--border);
+  border-left: .5rem solid var(--crew);
+  box-shadow: var(--shadow);
+  padding: .45rem .7rem .55rem;
+  transform: rotate(.5deg);
+}
+/* E at the van too soon: the panel flashes (the outline stays when motion is reduced) */
+.tut-try.pulse { animation: pulse .5s 2; outline: .2rem solid var(--red); }
+.tut-try-head { display: flex; align-items: center; gap: .45rem; font: 1.15rem var(--font-comic); letter-spacing: .06em; }
+.tut-try-face { flex: none; width: 2rem; height: 2rem; border: .15rem solid var(--ink); background: var(--paper-2); overflow: hidden; }
+.tut-try-face canvas { width: 100%; height: 100%; display: block; }
+.tut-try-line { font-weight: 700; margin: .3rem 0; line-height: 1.35; }
+.tut-list { list-style: none; margin: .2rem 0 0; padding: .3rem 0 0; border-top: .125rem dashed rgba(15, 16, 18, .35); font-size: .92rem; }
+.tut-list li::before { content: "\2610\00a0"; }
+.tut-list li.done { color: var(--muted); text-decoration: line-through; }
+.tut-list li.done::before { content: "\2611\00a0"; }
+.tut-list li.now { font-weight: 700; }
+
+/* ---------- The arrow: #tut-arrow is a point (js/tutorial-ui.js moves it); the head's tip sits on it ---------- */
+.tut-arrow {
+  --aw: min(2.6rem, 48px); /* the head: how wide ... */
+  --ah: min(2.2rem, 40px); /* ... and how long */
+  position: absolute;
+  z-index: 1;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.tut-arrow-head {
+  position: absolute;
+  width: 0;
+  height: 0;
+  filter: drop-shadow(2px 0 0 var(--ink)) drop-shadow(-2px 0 0 var(--ink)) drop-shadow(0 2px 0 var(--ink)) drop-shadow(0 -2px 0 var(--ink)) drop-shadow(3px 3px 0 var(--ink));
+  animation: tutBob .9s ease-in-out infinite;
+}
+.tut-arrow-label {
+  position: absolute;
+  white-space: nowrap;
+  font: 700 .9rem var(--font-head);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  background: var(--paper);
+  border: .16rem solid var(--ink);
+  padding: .05rem .4rem;
+  box-shadow: .12rem .12rem 0 var(--ink);
+}
+/* on screen: pointing down at the target, the label over it */
+.tut-arrow[data-dir="down"] .tut-arrow-head,
+.tut-arrow:not([data-dir]) .tut-arrow-head {
+  left: calc(var(--aw) / -2);
+  bottom: 0;
+  border-left: calc(var(--aw) / 2) solid transparent;
+  border-right: calc(var(--aw) / 2) solid transparent;
+  border-top: var(--ah) solid var(--amber-2);
+}
+.tut-arrow[data-dir="down"] .tut-arrow-label,
+.tut-arrow:not([data-dir]) .tut-arrow-label { left: 0; bottom: calc(var(--ah) + .35rem); transform: translateX(-50%); }
+/* off screen (behind you or to one side): at that edge, pointing out, the label beside it */
+.tut-arrow[data-dir="left"] { --bob-x: .4rem; --bob-y: 0; }
+.tut-arrow[data-dir="left"] .tut-arrow-head {
+  left: 0;
+  top: calc(var(--aw) / -2);
+  border-top: calc(var(--aw) / 2) solid transparent;
+  border-bottom: calc(var(--aw) / 2) solid transparent;
+  border-right: var(--ah) solid var(--amber-2);
+}
+.tut-arrow[data-dir="left"] .tut-arrow-label { left: calc(var(--ah) + .45rem); top: 0; transform: translateY(-50%); }
+.tut-arrow[data-dir="right"] { --bob-x: -.4rem; --bob-y: 0; }
+.tut-arrow[data-dir="right"] .tut-arrow-head {
+  right: 0;
+  top: calc(var(--aw) / -2);
+  border-top: calc(var(--aw) / 2) solid transparent;
+  border-bottom: calc(var(--aw) / 2) solid transparent;
+  border-left: var(--ah) solid var(--amber-2);
+}
+.tut-arrow[data-dir="right"] .tut-arrow-label { right: calc(var(--ah) + .45rem); top: 0; transform: translateY(-50%); }
+
+@keyframes tutPulse { 50% { transform: scale(1.08); } }
+/* the head bobs away from its target and back */
+@keyframes tutBob { 50% { transform: translate(var(--bob-x, 0), var(--bob-y, -.4rem)); } }
+
+/* ---------- Huge: one inch letters; the pictures and the face shrink, the panel spans the width, the checklist
+   goes (the try panel keeps only its line). The crew card's Huge rules (style.css) fold the head for free: the face
+   and June's name, the title under them. The card is one scroll, as the crew card: the head, the words, the
+   pictures, then Got it (Enter works from anywhere; the arrow and Page keys scroll) ---------- */
+/* thin margins: at 800 px a word like "backpack" is half the window wide, and "June says" would wrap over the face
+   (the name beside the face says who). A word that still cannot fit breaks rather than scroll sideways */
+:root[data-size="huge"] #screen-tutorial { padding-left: .15rem; padding-right: .15rem; padding-bottom: .15rem; }
+:root[data-size="huge"] .tut-panel { max-width: 96vw; padding: .3rem .2rem; }
+:root[data-size="huge"] #tut-caption { display: none; }
+:root[data-size="huge"] .tut-words, :root[data-size="huge"] .tut-panel .cc-title { overflow-wrap: break-word; }
+:root[data-size="huge"] .tut-text { flex: none; min-height: 0; order: 1; }
+:root[data-size="huge"] .tut-words { overflow: visible; }
+:root[data-size="huge"] .tut-pics { order: 2; gap: .2rem; margin: .1rem 0; }
+:root[data-size="huge"] .tut-panel .btn-row { order: 3; }
+:root[data-size="huge"] .tut-keys { gap: .1rem; }
+:root[data-size="huge"] .tut-keys kbd { font-size: 1rem; min-width: 1.2rem; padding: 0 .1rem; border-width: .06rem; box-shadow: none; }
+:root[data-size="huge"] .tut-keys kbd.wide { min-width: 3rem; }
+:root[data-size="huge"] .tut-mouse { width: 1rem; }
+:root[data-size="huge"] .tut-text { font-size: 1rem; padding: .2rem .15rem; margin: .3rem 0; border-width: .06rem; }
+:root[data-size="huge"] .tut-text::before, :root[data-size="huge"] .tut-text::after { display: none; } /* the tape strips would cover the words */
+:root[data-size="huge"] #btn-tut-go { font-size: 1rem; padding: .05rem .3rem; border-width: .08rem; box-shadow: .08rem .08rem 0 var(--ink); }
+:root[data-size="huge"] .tut-enter { display: none; }
+:root[data-size="huge"] .tut-try { left: 2.5vw; right: 2.5vw; width: auto; font-size: 1rem; padding: .1rem .3rem; transform: none; border-width: .08rem; border-left-width: .15rem; box-shadow: .1rem .1rem 0 var(--ink); }
+:root[data-size="huge"] .tut-try-line { margin: 0; }
+:root[data-size="huge"] .tut-try-head, :root[data-size="huge"] .tut-list { display: none; }
+:root[data-size="huge"] .tut-ring { border-width: 4px; outline-width: 3px; }
+:root[data-size="huge"] .tut-arrow-label { font-size: 1rem; border-width: .06rem; padding: 0 .1rem; box-shadow: none; }
+
+/* prefers-reduced-motion: style.css already stops every animation (the ring and the arrow hold still, the pulse
+   keeps its outline); the arrow still follows its target */

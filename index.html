@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/bench.css">
   <link rel="stylesheet" href="css/crew.css">
+  <link rel="stylesheet" href="css/tutorial.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='18' width='52' height='30' rx='4' fill='%235b6b3a' stroke='%230f1012' stroke-width='5'/%3E%3Crect x='12' y='24' width='16' height='10' fill='%232b3540' stroke='%230f1012' stroke-width='4'/%3E%3Ccircle cx='18' cy='50' r='7' fill='%231f2023' stroke='%230f1012' stroke-width='4'/%3E%3Ccircle cx='46' cy='50' r='7' fill='%231f2023' stroke='%230f1012' stroke-width='4'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -208,6 +209,7 @@
         <button id="btn-resume" class="btn big">Keep going</button>
         <button id="btn-pause-backpack" class="btn">Backpack</button>
         <button id="btn-pause-howto" class="btn">Controls &amp; how it works</button>
+        <button id="btn-pause-tutorial" class="btn">Show tutorial again</button>
         <button id="btn-pause-settings" class="btn">Settings</button>
         <button id="btn-quit" class="btn alt">Quit to title</button>
       </div>
@@ -299,6 +301,28 @@
     </div>
   </section>
 
+  <!-- THE TUTORIAL (js/tutorial.js + js/tutorial-ui.js): June's card, her "Now you try" panel, the arrow -->
+  <div id="tut-try" class="tut-try hidden" aria-live="polite">
+    <div class="tut-try-head"><span id="tut-try-face" class="tut-try-face" aria-hidden="true"></span><strong id="tut-try-now"></strong></div>
+    <p id="tut-try-line" class="tut-try-line"></p>
+    <ul id="tut-try-list" class="tut-list"></ul>
+  </div>
+  <div id="tut-arrow" class="tut-arrow hidden" aria-hidden="true"><span class="tut-arrow-head"></span><span id="tut-arrow-label" class="tut-arrow-label"></span></div>
+  <section id="screen-tutorial" class="screen overlay tut-screen hidden">
+    <div id="tut-hole" class="tut-hole hidden" aria-hidden="true"></div>
+    <div id="tut-ring" class="tut-ring hidden" aria-hidden="true"></div>
+    <div id="tut-panel" class="panel crew-panel tut-panel" role="dialog" aria-modal="true" aria-labelledby="tut-title" tabindex="-1">
+      <div id="tut-caption" class="caption"></div>
+      <div class="cc-head">
+        <div id="tut-face" class="cc-face tut-face" aria-hidden="true"></div>
+        <div class="cc-who"><span id="tut-name" class="cc-name"></span><h2 id="tut-title" class="reading-title cc-title"></h2></div>
+      </div>
+      <div id="tut-pics" class="tut-pics" aria-hidden="true"></div>
+      <div id="tut-text" class="paper reading tut-text"></div>
+      <div class="btn-row"><button id="btn-tut-go" class="btn big go">Got it</button><span class="small muted tut-enter">or <kbd>Enter</kbd></span></div>
+    </div>
+  </section>
+
 </div>
 <button id="btn-fullscreen" class="hud-btn hidden" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square"/></svg></button>
 <div id="tip" class="tip hidden" role="tooltip"></div>
@@ -317,6 +341,8 @@
 <script src="js/content/level1-home.js"></script>
 <script src="js/content/level1-crew.js"></script>
 <script src="js/content/level1-quests.js"></script>
+<!-- June's first-run tutorial: level 1 only, read at every reading level (js/tutorial.js) -->
+<script src="js/content/level1-tutorial.js"></script>
 <script src="js/content/level2.js"></script>
 <script src="js/content/level2-places1.js"></script>
 <script src="js/content/level2-places2.js"></script>
@@ -375,6 +401,8 @@
 <script src="js/base.js"></script>
 <script src="js/bench.js"></script>
 <script src="js/typing.js"></script>
+<script src="js/tutorial.js"></script>
+<script src="js/tutorial-ui.js"></script>
 <script src="js/main.js"></script>
 </body>
 </html>

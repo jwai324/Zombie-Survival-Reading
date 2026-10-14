@@ -752,7 +752,7 @@
         dinner bell: that wave comes at once, and its own toast says where. */
     crewLookout() {
       const ph = this.phase;
-      if (!ph || ph.kind !== "calm" || !ph.next || ph.called || ph.forced) return;
+      if (!ph || this.yardHold || ph.kind !== "calm" || !ph.next || ph.called || ph.forced) return; // (a held calm is never called: js/tutorial.js)
       if (!ph.next.size || ph.next.size === "none") return;
       const S = State();
       if (ph.lookT == null) ph.lookT = S.crewLookoutSeconds();
@@ -1004,6 +1004,7 @@
     /** What they would ask of you now: { action: "handIn" | "name" | "offer", line } or null. A request filled
         first; then the dog's name (its quest's giver, once the dog is home); then a new request. */
     crewAction(id) {
+      if (this.yardHold) return null; // the first-run basics come first (js/tutorial.js)
       const S = State();
       const name = ZSR.crewName(id);
       if (S.handInReady(id)) {

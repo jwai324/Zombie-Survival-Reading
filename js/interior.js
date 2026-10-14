@@ -22,6 +22,9 @@
    A crew member's speech bubble at home (js/crew.js) rides on the read panel: this.talk while it is open,
    crewSpeaker(talk) (where they stand), crewTalkKey(f) (E with it open), crewTalkEnd() (it closes);
    a candidate with `aim` (right under the crosshair) counts that much nearer in facing().
+   Fields other modules set: `yardHold` (js/tutorial.js: the first-run basics hold the waves, the bell, the van
+   and the crew's cards), `eatClick` (the next click into the view only takes the mouse back); walker fields
+   `practice` and `floorHp` (a bite never takes you below it). startLoop and stop clear the first two.
    Everything reads and writes the trip through ZSR.State. */
 (function (root) {
   "use strict";
@@ -161,7 +164,9 @@
         if (!this.running || this.paused) return;
         if (e.button === 0) {
           Audio().unlock();
-          this.mouseDown = true;
+          const eat = this.eatClick && !this.locked; // only the click that takes the mouse back after a tutorial card (js/tutorial.js)
+          this.eatClick = false;
+          if (!eat) this.mouseDown = true;
           if (!this.locked && c.requestPointerLock) {
             try {
               const p = c.requestPointerLock();
@@ -196,6 +201,13 @@
       );
       document.addEventListener("pointerlockchange", () => {
         this.locked = document.pointerLockElement === c;
+        // a lock asked for just before a pause lands after it (Got it on a tutorial card, then P at once): the
+        // pause menu would have no mouse, so it goes straight back
+        if (this.locked && (!this.running || this.paused) && document.exitPointerLock) {
+          this.releasing = true;
+          document.exitPointerLock();
+          return;
+        }
         if (!this.locked && this.running && !this.paused && !this.releasing && this.hooks.onPause) this.hooks.onPause();
         this.releasing = false;
       });
@@ -441,6 +453,8 @@
       this.last = 0;
       this.keys = {};
       this.mouseDown = false;
+      this.yardHold = false; // only js/tutorial.js sets these, after the scene starts: never carried into a new one
+      this.eatClick = false;
       cancelAnimationFrame(this.raf);
       this.raf = requestAnimationFrame((ts) => this.frame(ts));
       this.updateHud();
@@ -525,6 +539,8 @@
       this.paused = false;
       this.keys = {};
       this.mouseDown = false;
+      this.yardHold = false;
+      this.eatClick = false;
       cancelAnimationFrame(this.raf);
       this.hud.root.classList.add("hidden");
       if (this.hud.read) this.hud.read.classList.add("hidden");
@@ -994,7 +1010,9 @@
       if (dist < 0.85) {
         if (z.cool <= 0) {
           z.cool = 1.1;
-          p.hp -= Math.round(z.dmg * this.fx.footDamage);
+          const bite = Math.round(z.dmg * this.fx.footDamage);
+          // the tutorial's practice walker (floorHp) never takes you below it; already below, it does nothing
+          p.hp -= z.floorHp != null ? Math.max(0, Math.min(bite, p.hp - z.floorHp)) : bite;
           p.hurt = 1;
           this.shake = State().settings.shake ? 8 : 0;
           Audio().play("crunch");

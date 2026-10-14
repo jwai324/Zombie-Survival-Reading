@@ -95,6 +95,8 @@ never reveal a place on the map. A story quest is offered only once its building
 | `js/map.js` | Quest markers and panel line |
 | `css/crew.css` | The speech bubble, the crew card |
 | `js/content/levelN-crew.js` | Words at six levels: `T.crew` |
+| `js/tutorial.js` | June's first-run tutorial: reads `Interior.talk` (the talk step) and `Interior.crew` (the arrow), sets `Interior.yardHold` (which `crewAction` and `crewLookout` obey), closes a stale bubble on a replay (`crewTalkEnd`) |
+| `js/content/level1-tutorial.js` | June's tutorial words: `T.tutorial`, level 1 only, read at every level |
 | `tests/validate-crew.js` | Crew engine tests (in `npm test`) |
 | `tests/validate-world.js`, `validate-text.js`, `validate-art.js` | Crew facts, words and art checks |
 
@@ -472,6 +474,31 @@ place, places known at the start, or the same giver's earlier quest places; no c
 stash; no "left of" or "right of" in a brief. Quest i needs exactly i stars. The dog quest's day is
 at least the last journal page that mentions a dog; its done facts give "every <dogFoodEvery> days"
 when they mention food. A `done` fact states each whole-number perk value.
+
+## June's tutorial (2026-10-14)
+
+June talks the player through the first-run tutorial (`js/tutorial.js`; owner decisions in `DESIGN.md`,
+"Owner decisions: the first-run tutorial"; the design in `docs/GAME_SPEC.md`).
+
+- **June is its voice.** `Tutorial.SPEAKER` is `"june"`: the card shows her portrait (`crewFace {
+  who: "june" }`, as the crew card does), her name (`ZSR.crewName`) and her accent (`CREW.june.color`),
+  and the van's refusal toast starts with her name. `tests/validate-text.js` fails if the speaker is
+  not in `CREW`.
+- **Its words follow the crew rules,** at level 1 for every reader (`T.tutorial`): no lock answer or
+  lock placeholder, no stash, no place name, no gore, Pip "they" (`checkPronouns`), all errors in
+  `checkTutorial`. They name no crew member and no count ("one of us"), so a fourth crew member never
+  makes them wrong; a crew member's arrow label is their name from the data.
+- **The hold.** While `Interior.yardHold` is set (the yard's basics are not all done), `crewAction`
+  returns null (no offer, no hand-in, no dog's name: the bubble has no "Press E again" and the hint no
+  "needs something") and `crewLookout` never calls the held calm. Talk, trust, tips, Tomas's jobs and
+  June's patch-up run as usual. Offers are recomputed each talk, so they are back after the release. A
+  bubble open when a replay starts the hold is closed (`crewTalkEnd(true)`).
+- **The talk step** ticks when `Interior.talk` is open on any crew member but the dog. During it the
+  yard's arrow points at the nearest crew member (it keeps its pick unless another is 3 tiles nearer)
+  and hides while a bubble is open. The next card waits for an open bubble (at most 20 s).
+- **The practice walker** comes in at least 1.2 tiles from every crew member and, like every walker,
+  ignores the crew. It is no raider and it is down before the hold ends, so no crew member is ever
+  hurt in the tutorial.
 
 ## Tests
 
