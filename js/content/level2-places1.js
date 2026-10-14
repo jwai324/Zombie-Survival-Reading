@@ -275,7 +275,7 @@
       blurb: "An electronics store downtown with wire, near the walker crowds.",
       door: {
         title: "Jo's Sign in the Window",
-        text: "Jo wrote this. Yes, that Jo. The voice on the radio.\n\nSpools of wire are between the two long middle shelves. One is on the TV wall side. One is on the robot side.\n\nAt least six walkers are inside. One stands near the right end of the counter, by the robot. Do not wake it up.\n\nThe manager's office is locked. The manager's note is on the counter at the back. Read it, and you are in.",
+        text: "Jo wrote this. Yes, that Jo. The voice on the radio.\n\nSpools of wire are between the two long middle shelves. One is on the TV wall side. One is on the robot side.\n\nAt least six walkers are inside. One stands near the right end of the counter, by the robot. Do not wake it up.\n\nThe manager's office is locked. The manager's note is on the counter at the back. Read it, and do just what it says.",
       },
       notes: {
         "radioshack-counter": {

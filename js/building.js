@@ -461,7 +461,7 @@
       }
       const a = Locks().answer(id);
       const opts = d.kind === "code"
-        ? { kind: "code", caption: "Keypad", title: cap(this.loc.cacheName), text: "Type the code, then press Try it.", pattern: d.pattern }
+        ? { kind: "code", caption: "Code lock", title: cap(this.loc.cacheName), text: "Type the code, then press Try it.", pattern: d.pattern }
         : { kind: "moves", caption: "Stuck", title: cap(this.loc.cacheName), text: "Pick the moves in order, then press Try it.", words: d.words, steps: a.moves.length };
       this.lockPrompt(opts, (r) => {
         if (r.cancel) return;

@@ -57,7 +57,7 @@
       },
       key: {
         name: "Small brass key, green tag",
-        tag: "The green plastic tag is scuffed white at the edges, and the words on it are printed in careful capitals: LEAVE SOME FOR THE NEXT ONE. The key itself is a small brass key, warm from the floor, its teeth worn smooth by many hands.",
+        tag: "The green plastic tag is scuffed white at the edges. The words on it are printed in careful capitals: LEAVE SOME FOR THE NEXT ONE. The key itself is a small brass key, warm from the floor, its teeth worn smooth by many hands.",
       },
     },
 
@@ -177,7 +177,7 @@
       blurb: "A small pharmacy with medical kits by the giant toothbrush and where the aisles cross, and a cabinet room behind a code lock.",
       door: {
         title: "Mr. Okafor's Door Note",
-        text: "This is Mr. Okafor, the pharmacist. I filled prescriptions here for nineteen years, and I am still careful, even now.\n\nTwo medical kits are still out on the floor. One is by the giant toothbrush, in the back left corner of the store. The other is in the middle, where the aisles cross, so you will be open on four sides while you grab it.\n\nAt least five walkers are inside, and most of them stay near the back of the store. They stand there as if they are still waiting for their names to be called. They are slow until they notice you. Then they are not.\n\nThe cabinet room is locked, and the lock takes a code. I wrote the code on my note behind the pharmacy counter. You cannot climb over that counter, so walk to its right end, by the wheelchairs, and slip around. Read the note before you try the keypad. Guessing wastes time, and time is what you have least of in here.",
+        text: "This is Mr. Okafor, the pharmacist. I filled prescriptions here for nineteen years, and I am still careful, even now.\n\nTwo medical kits are still out on the floor. One is by the giant toothbrush, in the back left corner of the store. The other is in the middle, where the aisles cross, so you will be open on four sides while you grab it.\n\nAt least five walkers are inside, and most of them stay near the back of the store. They stand there as if they are still waiting for their names to be called. They are slow until they notice you. Then they are not.\n\nThe cabinet room is locked, and the lock takes a code. I wrote the code on my note behind the pharmacy counter. You cannot climb over that counter, so walk to its right end, by the wheelchairs, and slip around. Read the note before you try the keypad. A wrong guess sets off the alarm, and then time is what you have least of in here.",
       },
       notes: {
         "pharmacy-counter": {
@@ -233,7 +233,7 @@
       blurb: "An auto repair shop on the east side, with engine parts on the workbenches and a generator hidden down in the service pit.",
       door: {
         title: "Dev's Chalk Note",
-        text: "Dev here, from the Gas-N-Go. I made it this far, and I am leaving a map for whoever comes next.\n\nEngine parts are on the workbenches. One bench is in the back right corner of the shop, by the red tool chest. The other is in the left bay, the first bay past the waiting room. The parts are greasy, so wipe your hands before you grab them, or they will slip.\n\nAt least five walkers are inside. One wanders the parts room by the engine crane, at the back left, weaving between the shelves like a lost shopper. Do not let it pin you in there, because those shelves leave you nowhere to run.\n\nThe service pit is covered by a locked hatch, a heavy steel plate set into the floor. Mr. Ortiz left a note in the office behind the waiting room. The hatch will not move until you read it. Trust me, I tried.",
+        text: "Dev here, from the Gas-N-Go. I made it this far, and I am leaving a map for whoever comes next.\n\nEngine parts are on the workbenches. One bench is in the back right corner of the shop, by the red tool chest. The other is in the left bay, the first bay past the waiting room. The parts are greasy, so wipe your hands before you grab them, or they will slip.\n\nAt least five walkers are inside. One wanders the parts room by the engine crane, at the back left, weaving between the shelves like a lost shopper. Do not let it pin you in there, because those shelves leave you nowhere to run.\n\nThe service pit is covered by a locked hatch, a heavy steel plate set into the floor. Mr. Ortiz left a note in the office behind the waiting room. It tells you how to work the hatch bolt. Work it any other way and it jams. Trust me, I tried.",
       },
       notes: {
         "autoshop-office": {
@@ -246,7 +246,7 @@
         },
         "autoshop-trail2": {
           title: "A Red Key for the Chief",
-          text: "Mr. Ortiz. Dev wanted me to write something nice for his sister. This is not that. This is business, and it is for anyone who reads.\n\nA key lies on the floor of the waiting room, beside the soda machine. It is a big key painted fire-engine red, on a brass ring. You cannot miss it, unless you are not looking, and most people are not. It opens the chief's locker at Station 12, north and west of here.\n\nHere is how I came to have it. I spent two long weeks fixing trucks for the River Convoy. Two fire trucks, both with brakes that squealed like a pig at a fair. Chief Dunn left this key with me as thanks. He could have paid me in canned beans. Instead he gave me the key to his own locker, and he told me to pass it on. A favor that stops with one person is only half a favor, he said.\n\nSo it waits here for the ring. No key stays in the building it opens, and no key stays in a pocket either.\n\nMind the lock. The chief's locker has an old lock that bites. The wrong key snaps off inside it and is gone for good.\n\nWalk back past this red tool chest, through the shop, to the waiting room by the front door. Pick up the red key. Drive north and west to Station 12, and open the chief's locker. Take what you need, and leave the rest. Chief Dunn will understand. He has spent his whole life giving things away.",
+          text: "Mr. Ortiz. Dev wanted me to write something nice for his sister. This is not that. This is business, and it is for anyone who reads.\n\nA key lies on the floor of the waiting room, beside the soda machine. It is a big key painted fire-engine red, on a brass ring. You cannot miss it, unless you are not looking, and most people are not. It opens the chief's locker at Station 12, north and west of here.\n\nHere is how I came to have it. I spent two long weeks fixing trucks for the River Convoy. Two fire trucks, both with brakes that squealed like a pig at a fair. Chief Dunn left this key with me as thanks. Instead of canned beans, he gave me the key to his own locker and told me to pass it on. A favor that stops with one person is only half a favor, he said.\n\nSo it waits here for the ring. No key stays in the building it opens, and no key stays in a pocket either.\n\nMind the lock. The chief's locker has an old lock that bites. The wrong key snaps off inside it and is gone for good.\n\nWalk back past this red tool chest, through the shop, to the waiting room by the front door. Pick up the red key. Drive north and west to Station 12, and open the chief's locker. Take what you need, and leave the rest. Chief Dunn will understand. He has spent his whole life giving things away.",
         },
         "autoshop-dead1": {
           title: "The Job Board",
@@ -289,7 +289,7 @@
       blurb: "An electronics store downtown with spools of wire on the shelves, close to the worst of the walker crowds.",
       door: {
         title: "Jo's Sign in the Window",
-        text: "Jo wrote this, and Jo does not scare easy. Still, this store gets my full attention, and it should get yours.\n\nSpools of wire are between the two long middle shelves, in the gap that runs across the store. One spool is on the TV wall side, to your left. The other is on the robot side, to your right. The crowds that cleaned this place out wanted phones and speakers, so they left the boring, useful stuff behind.\n\nAt least six walkers are inside. One waits near the right end of the counter, by the robot, as still as a cardboard cutout until the door chime wakes it. The others drift between the rows like slow fish in a tank. Be ready before you cross the floor.\n\nThe manager's office is locked. The manager left a note on the counter at the back. Read the note, and the office opens. The best parts in this store are behind that door.",
+        text: "Jo wrote this, and Jo does not scare easy. Still, this store gets my full attention, and it should get yours.\n\nSpools of wire are between the two long middle shelves, in the gap that runs across the store. One spool is on the TV wall side, to your left. The other is on the robot side, to your right. The crowds that cleaned this place out wanted phones and speakers, so they left the boring, useful stuff behind.\n\nAt least six walkers are inside. One waits near the right end of the counter, by the robot, as still as a cardboard cutout until the door chime wakes it. The others drift between the rows like slow fish in a tank. Be ready before you cross the floor.\n\nThe manager's office is locked. The manager left a note on the counter at the back. Read the note, and do exactly what it says. The best parts in this store are behind that door.",
       },
       notes: {
         "radioshack-counter": {
@@ -345,7 +345,7 @@
       blurb: "A row of greenhouses on the west side, with seeds, soil, and a potting shed behind a padlock.",
       door: {
         title: "Rosa Painted the Gate",
-        text: "Rosa here. I ran this greenhouse before the Fall, and I still think of it as mine, walkers or not.\n\nSeed packets are in the shop by the gate, near the big gnome, sorted and labeled in my handwriting. Soil bags are in the big greenhouse with the scarecrow, stacked between the long planting tables like sandbags against a flood. They are heavy, so take one at a time.\n\nAt least five walkers are inside. One stands at the back of the big greenhouse, still as a fence post, until it hears you. The others wander between the beds, following the warm patches of sun the way cats do.\n\nThe potting shed is locked, and it holds the best of what I saved. My note is on the potting bench by the palm tree, in the glass palm house at the back right. Read it, and the shed is yours. Please close the gate behind you. The rabbits are bad enough.",
+        text: "Rosa here. I ran this greenhouse before the Fall, and I still think of it as mine, walkers or not.\n\nSeed packets are in the shop by the gate, near the big gnome, sorted and labeled in my handwriting. Soil bags are in the big greenhouse with the scarecrow, stacked between the long planting tables like sandbags against a flood. They are heavy, so take one at a time.\n\nAt least five walkers are inside. One stands at the back of the big greenhouse, still as a fence post, until it hears you. The others wander between the beds, following the warm patches of sun the way cats do.\n\nThe potting shed is locked, and it holds the best of what I saved. My note is on the potting bench by the palm tree, in the glass palm house at the back right. Read it, and do exactly what it says. Please close the gate behind you. The rabbits are bad enough.",
       },
       notes: {
         "garden-bench": {
@@ -388,7 +388,7 @@
         },
         "garden-sign4": {
           title: "Potting Shed Sign",
-          text: "POTTING SHED. MIND THE STEP. The letters are painted in cheerful yellow on a slab of wood. A small blue watering can is painted next to the words, tipped as if it is pouring.",
+          text: "POTTING SHED. MIND THE STEP. The letters are painted in cheerful yellow on a slab of wood. A small watering can is painted next to the words, tipped as if it is pouring.",
         },
       },
       key: {

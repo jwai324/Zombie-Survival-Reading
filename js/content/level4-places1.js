@@ -238,7 +238,7 @@
       blurb: "Ortiz Auto, a repair shop on the east side with engine parts on the benches and a locked service pit.",
       door: {
         title: "Dev's Chalk on the Door",
-        text: "Hey. It's Dev, from the Gas-N-Go. Chalk is all I had, so I wrote big.\n\nEngine parts are on the workbenches. One bench is in the back right corner, by the red tool chest. The other is in the left bay.\n\nAt least five walkers are inside. One of them wanders the parts room by the engine crane, back and forth, all day. Wait until it turns away before you cross that side.\n\nThe service pit is covered by a locked hatch, a big steel one. Don't bother prying it. Mr. Ortiz left a note in the office behind the waiting room. It explains the trick. Read the note, and the hatch is yours.",
+        text: "Hey. It's Dev, from the Gas-N-Go. Chalk is all I had, so I wrote big.\n\nEngine parts are on the workbenches. One bench is in the back right corner, by the red tool chest. The other is in the left bay.\n\nAt least five walkers are inside. One of them wanders the parts room by the engine crane, back and forth, all day. Wait until it turns away before you cross that side.\n\nThe service pit is covered by a locked hatch, a big steel one. Don't bother prying it. Mr. Ortiz left a note in the office behind the waiting room. It explains the trick. Read the note, and do exactly what it says.",
       },
       notes: {
         "autoshop-office": {
@@ -395,7 +395,7 @@
         },
         "garden-sign4": {
           title: "Potting Shed Sign",
-          text: "A painted sign by the shed door: POTTING SHED. MIND THE STEP. A small green watering can is painted next to the words. Three blue drops fall from its spout.",
+          text: "A painted sign by the shed door: POTTING SHED. MIND THE STEP. A small watering can is painted next to the words. Three blue drops fall from its spout.",
         },
       },
       key: {

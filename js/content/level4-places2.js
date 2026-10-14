@@ -304,7 +304,7 @@
       blurb: "The Public Library north of downtown, with books, city maps, and a locked archive room.",
       door: {
         title: "Mrs. Greer's Book Drop",
-        text: "Mrs. Greer, head librarian, writing on the book drop because people still notice it.\n\nBooks are in the stacks on both sides of the main hall. There are more in the children's room, by the toy castle. Please take the ones marked for trade first.\n\nAt least eight walkers are inside. Two of them stand in the main hall, and you will meet them first. Be ready the moment you step in. Please do not knock over any shelves while you deal with them.\n\nThe archive room is locked. My note is on the reference desk by the giant globe, in the back left room. Read it carefully, and the archive will open for you. Return what you can, when you can.",
+        text: "Mrs. Greer, head librarian, writing on the book drop because people still notice it.\n\nBooks are in the stacks on both sides of the main hall. There are more in the children's room, by the toy castle. Please take the ones marked for trade first.\n\nAt least eight walkers are inside. Two of them stand in the main hall, and you will meet them first. Be ready the moment you step in. Please do not knock over any shelves while you deal with them.\n\nThe archive room is locked. My note is on the reference desk by the giant globe, in the back left room. Read it carefully, and do exactly what it says. Return what you can, when you can.",
       },
       notes: {
         "library-desk": {

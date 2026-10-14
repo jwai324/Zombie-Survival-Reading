@@ -259,7 +259,7 @@
         "garden-sign1": { title: "Wooden Sign", text: "Greenhouse Row. Plants, seeds, soil. Carved into an old board, with a painted vine. Below it: open from dawn to dusk." },
         "garden-sign2": { title: "Red Spray Paint", text: "Ruby's red R on the wall, with a 5 under it. Under that, in a quick hand: one at the back of the big greenhouse." },
         "garden-sign3": { title: "Chalk Circle", text: "A chalk circle with a key inside, by the seed vault door in the shop. Under it: the key is not here, read the notes." },
-        "garden-sign4": { title: "Potting Shed Sign", text: "POTTING SHED. MIND THE STEP. A small watering can is painted next to the words, in green. The step really is high." },
+        "garden-sign4": { title: "Potting Shed Sign", text: "POTTING SHED. MIND THE STEP. A small watering can is painted next to the words. The step really is high." },
       },
       key: { name: "Greasy steel key, wire loop", tag: "\"Fix something good.\" The greasy steel key hangs on a twisted loop of wire. It smells like motor oil and leaves marks on your fingers." },
     },
