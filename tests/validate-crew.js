@@ -8,8 +8,11 @@
      3. The REAL facts (js/story-crew.js, js/story-quests.js, js/content/levelN-crew.js): every text resolves
         at every level with only the placeholders the engine fills, every topic can be told, and every story
         quest runs through the state API in order with its reward and perk.
-     4. The engine loads with the crew (js/crew.js, js/building.js): add yard and building simulations here,
-        with loadGame({ engine: true }).
+     4. The engine with the real facts and words (js/crew.js, js/building.js), Math.random seeded: the yard (the crew's
+        props, every post at every room level, ten minutes of wandering, the fence and cabin jobs, the shelter in a
+        wave, a raid, Pip's calls, facing and E, the bubble and the card, the dog at home and its name), the buildings
+        (story objects placed once accepted and walked onto, a death, home; the dog through the doors; guns off the
+        quest spots) and a whole play-through (every story quest, errands, perks, the save loaded back each day).
    Prints one OK line, or the errors and exit 1. */
 "use strict";
 const fs = require("fs");
@@ -883,9 +886,37 @@ group("words: crewText falls back to the facts, crewFill fills", () => {
   ok(Z.crewFill("{dog} wags.", {}) === "the dog wags." && Z.crewFill("{dog}!", { dog: "Rex" }) === "Rex!", "crewFill: {dog} with no dog home, or given");
   ok(Z.crewFill("{dog} wags.", { dog: "" }) === "the dog wags.", "crewFill: {dog} given as an empty name is left unfilled");
   ok(Z.crewName("ann") === "Ann" && Z.crewName("zed") === "zed", "crewName");
-  ok(S.rewardWords({ scrap: 30, items: { lumber: 2 }, kits: 1 }) === "30 scrap, 2 " + g.W.ITEMS.lumber.name + " and 1 medical kit" && S.rewardWords({ crowbars: 2 }) === "2 crowbars", "rewardWords");
-  const spike = g.W.TRAPS.spike.name;
-  ok(S.rewardWords({ traps: { spike: 2 } }) === "2 " + spike + "s" && S.rewardWords({ traps: { spike: 1 } }) === "1 " + spike, `rewardWords: traps (${S.rewardWords({ traps: { spike: 2 } })})`);
+  // items counted in running text (ITEMS one / many), never the label: "2 pieces of lumber", not "2 Lumber"
+  const IT = g.W.ITEMS;
+  ok(S.rewardWords({ scrap: 30, items: { lumber: 2 }, kits: 1 }) === "30 scrap, 2 " + IT.lumber.many + " and 1 medical kit" && S.rewardWords({ crowbars: 2 }) === "2 crowbars", `rewardWords (${S.rewardWords({ scrap: 30, items: { lumber: 2 }, kits: 1 })})`);
+  ok(S.rewardWords({ scrap: 20, items: { seeds: 1 } }) === "20 scrap and 1 " + IT.seeds.one && S.rewardWords({ items: { soil: 2, nails: 1 } }) === "2 " + IT.soil.many + " and 1 " + IT.nails.one, `rewardWords: one and many (${S.rewardWords({ scrap: 20, items: { seeds: 1 } })}; ${S.rewardWords({ items: { soil: 2, nails: 1 } })})`);
+  const spike = g.W.TRAPS.spike.name.toLowerCase();
+  ok(S.rewardWords({ traps: { spike: 2 } }) === "2 " + spike + "s" && S.rewardWords({ traps: { spike: 1 } }) === "1 " + spike, `rewardWords: traps, in running text (${S.rewardWords({ traps: { spike: 2 } })})`);
+  ok(Z.itemCount("nails", 1) === "1 " + IT.nails.one && Z.itemCount("nails", 3) === "3 " + IT.nails.many && Z.itemCount("nope", 2) === "2 nope", "itemCount: one, many, or an unknown item");
+});
+
+group("the day's recap: counted items, and a day that brought home only a story object", () => {
+  const { S, W, ZSR: Z } = synthetic();
+  const IT = W.ITEMS;
+  // the fallback templates (this synthetic game has no recap words): "nothing" is the empty-handed line
+  const empty = Z.recapText({ items: 0, scrap: 0, notes: 0, keys: 0, food: 3, hungry: false, next: null });
+  ok(/nothing/i.test(empty), `recapText: an empty-handed day does not say so (${empty})`);
+  const quest = Z.recapText({ items: 0, scrap: 0, notes: 0, keys: 0, quests: 1, food: 3, hungry: false, next: null });
+  ok(!/nothing/i.test(quest) && quest.trim(), `recapText: a day that brought home a story object reads as empty-handed (${quest})`);
+  const next = { room: Object.keys(W.BASE_ROOMS)[0], missing: { lumber: 2, nails: 1 }, scrap: 40, ready: false };
+  const r = Z.recapText({ items: 3, scrap: 5, food: 3, hungry: false, next });
+  ok(r.includes("2 " + IT.lumber.many + ", 1 " + IT.nails.one + " and 40 scrap"), `recapText: what a build still needs is not counted in running text (${r})`);
+  // the day log: a trip that brings home only a story object keeps it in the recap (and entry.quests)
+  S.save.day = 2;
+  S.accept("ann", S.offer("ann"));
+  const entry = tripHome(S, {}, () => S.takeQuestObject("ann-1"));
+  ok(entry.recap.quests === 1 && same(entry.quests, ["ann-1"]) && !/nothing/i.test(Z.recapText(entry.recap)), `logDay: a day that brought home only ann-1 reads ${JSON.stringify(entry.recap)}: ${Z.recapText(entry.recap)}`);
+  const plain = tripHome(S);
+  ok(!("quests" in plain.recap) && !plain.quests && /nothing/i.test(Z.recapText(plain.recap)), "logDay: an empty-handed day after it is not empty-handed");
+  // the build tip's {needs}, counted the same way
+  S.save.inventory = {};
+  const tip = S.crewTips("ann").regular.find((t) => t.tip === "build");
+  ok(tip && !/\b\d+ [A-Z]/.test(tip.vars.needs), `tips: build {needs} gives an item's label after its count (${tip && tip.vars.needs})`);
 });
 
 group("words read: seeCrewTalk", () => {
@@ -1023,6 +1054,14 @@ group("real facts: every crew text at every level", () => {
     Object.keys((q.reward && q.reward.traps) || {}).forEach((k) => ok(W.TRAPS[k], `QUESTS ${q.id}: reward trap ${k} is not a TRAPS id`));
   });
   ok(new Set(QUESTS.map((q) => q.id)).size === QUESTS.length, "QUESTS: an id is used twice");
+  // every item counts in running text (ITEMS one / many: rewards, {needs}, the hand-in line), keeping the noun the
+  // briefs promise (tests/validate-world.js: the last word of the label, less a plural s)
+  Object.entries(W.ITEMS).forEach(([k, it]) => {
+    const noun = it.name.toLowerCase().split(/\s+/).pop().replace(/s$/, "");
+    ok(typeof it.one === "string" && typeof it.many === "string" && it.one.trim() && it.many.trim() && it.one !== it.many, `ITEMS.${k}: needs one and many, the item counted in running text ("1 ${it.name.toLowerCase()}", "2 ...")`);
+    ok(it.one === it.one.toLowerCase() && it.many === it.many.toLowerCase(), `ITEMS.${k}: one / many are running text, lower case (${it.one} / ${it.many})`);
+    ok(String(it.one).includes(noun) && String(it.many).includes(noun), `ITEMS.${k}: one / many (${it.one} / ${it.many}) lose the noun the briefs promise ("${noun}")`);
+  });
   ok(QUESTS.filter((q) => q.kind === "dog").length <= 1, "QUESTS: more than one dog quest (trip.dog is one dog)");
 });
 
@@ -1173,15 +1212,1314 @@ group("real facts: quests wait for their days, errands for the first quest", () 
 });
 
 /* =====================================================================================================
-   4. The engine with the crew: the yard and the buildings (js/crew.js, js/building.js)
-   Add simulations here: const g = loadGame({ engine: true, content: true }); g.S.newGame(1, "Yard"); then
-   g.I.enterYard(...), step g.I.yardUpdate(dt), and check g.I.crew. Keep each in its own group().
+   4. The engine with the crew: the yard and the cabin (js/crew.js), the buildings (js/building.js), and a whole
+      play-through. Every group runs the real engine with the real facts and the six levels' words
+      (loadGame({ engine: true, content: true })), Math.random seeded inside the sandbox so each run plays the same.
+      The yard is stepped with Interior.update(0.05) (20 frames a second, the loop stopped); in the buildings the
+      player walks with the real controls (W toward each next tile, a shut door opened as E opens it).
    ===================================================================================================== */
-group("engine: loads with the crew state", () => {
+const sim = { yard: 0, building: 0, loop: 0 }; // checks run in each part (for the summary)
+/** A group whose checks count toward one part of the summary. */
+function simGroup(part, name, fn) {
+  const c0 = checks;
+  group(name, fn);
+  sim[part] += checks - c0;
+}
+/** The sandbox's Math.random from a seed (a small LCG). */
+function seedRandom(g, seed) {
+  vm.runInContext(`Math.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(${seed >>> 0})`, g.sb);
+}
+/** The whole game in a sandbox with Math.random seeded, and stand-ins for what js/main.js gives the engine (it is not
+    loaded here): ZSR.Main.syncYard as main.js has it (the yard's fence, traps and cabin into the save, then a commit;
+    never in a wave; g.syncs counts the calls) and hooks.onCrewCard (g.cards records each card asked for). Every
+    toast is recorded (g.toasts: { text, t, phase, left }: the scene's time, the phase kind and its seconds left). */
+function engineGame(seed) {
+  const g = loadGame({ engine: true, content: true });
+  const { I, S } = g;
+  seedRandom(g, seed);
+  g.toasts = [];
+  const toast = I.toast;
+  I.toast = function (text, secs, pickup) {
+    g.toasts.push({ text: String(text), t: this.time, phase: this.phase ? this.phase.kind : null, left: this.phase ? this.phase.t : null });
+    return toast.call(this, text, secs, pickup);
+  };
+  g.cards = [];
+  I.hooks.onCrewCard = (id, action) => g.cards.push([id, action]);
+  g.syncs = 0;
+  g.ZSR.Main = {
+    syncYard() {
+      g.syncs++;
+      if (I.mode !== "yard" || !S.save || (I.phase && I.phase.kind === "wave")) return;
+      S.save.fence = I.fenceState();
+      S.save.yardTraps = I.traps.filter((t) => t.uses > 0).map((t) => ({ x: t.x, y: t.y, type: t.type, uses: t.uses }));
+      S.save.house.hp = I.houseState();
+      S.commit();
+    },
+  };
+  return g;
+}
+/** A new save (edit(S, W) on it first), then home to the yard as js/main.js goes there: no trip, a long first calm,
+    the loop stopped (the test steps it), and a player no walker can bring down. */
+function homeYard(g, edit) {
+  const { S, I } = g;
+  S.newGame(1, "Sim");
+  S.trip = null;
+  if (edit) edit(S, g.W);
+  I.enterYard({ firstCalm: 999 });
+  I.stop();
+  I.player.maxHp = I.player.hp = 1e9;
+  g.toasts.length = 0;
+  g.cards.length = 0;
+  return I;
+}
+/** Step the scene `secs` seconds at 20 frames a second; each(t) after every frame (return false to stop). */
+function stepFor(g, secs, each) {
+  let t = 0;
+  while (t < secs - 1e-9) {
+    g.I.update(0.05);
+    t += 0.05;
+    if (each && each(t) === false) break;
+  }
+  return t;
+}
+const crewOf = (g, id) => (g.I.crew || []).find((c) => c.id === id);
+/** Keep a crew member still at (x, y): at no post, dwelling a long while, with no job to look for. */
+function hold(g, id, x, y) {
+  const c = crewOf(g, id);
+  Object.assign(c, { x, y, state: "dwell", t: 1e6, jobT: 1e6, path: [], post: null, job: null });
+  g.I.crewPlace(c);
+  return c;
+}
+/** The player at (x, y), looking at (tx, ty). */
+function standAt(g, x, y, tx, ty) {
+  const p = g.I.player;
+  p.x = x;
+  p.y = y;
+  p.a = Math.atan2(ty - y, tx - x);
+  return p;
+}
+const tileKey = (e) => Math.floor(e.x) + "," + Math.floor(e.y);
+/** Whose job this is (CREW[id].jobs): { id, stars } of the first crew member with it, or null. */
+function jobOf(W, job) {
+  for (const [id, c] of Object.entries(W.CREW || {})) {
+    const j = (c.jobs || []).find((x) => x && x.job === job);
+    if (j) return { id, stars: j.stars || 0 };
+  }
+  return null;
+}
+/** Trust points for this many stars. */
+const trustFor = (W, stars) => (stars > 0 ? W.CREW_RULES.stars[stars - 1] : 0);
+/** The yard's tiles inside the fence ring ("x,y"): not on the fence line, and not reachable from the grid's edge
+    without crossing it (a hole is still the fence line). */
+function insideFence(W) {
+  const G = W.YARD.grid;
+  const h = G.length;
+  const w = Math.max(...G.map((r) => r.length));
+  const out = new Set();
+  const seen = new Set();
+  const q = [];
+  for (let x = 0; x < w; x++) q.push([x, 0], [x, h - 1]);
+  for (let y = 0; y < h; y++) q.push([0, y], [w - 1, y]);
+  q.forEach(([x, y]) => seen.add(x + "," + y));
+  while (q.length) {
+    const [x, y] = q.pop();
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const nx = x + dx;
+      const ny = y + dy;
+      const k = nx + "," + ny;
+      if (nx < 0 || ny < 0 || nx >= w || ny >= h || seen.has(k) || G[ny][nx] === "F") continue;
+      seen.add(k);
+      q.push([nx, ny]);
+    }
+  }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (G[y][x] !== "F" && !seen.has(x + "," + y)) out.add(x + "," + y);
+  return out;
+}
+/** The fence line's tiles [x, y], and a few picked from it: the middle of each side, and the corners. */
+function fenceTiles(W) {
+  const F = [];
+  W.YARD.grid.forEach((row, y) => [...row].forEach((ch, x) => ch === "F" && F.push([x, y])));
+  const xs = F.map(([x]) => x);
+  const ys = F.map(([, y]) => y);
+  const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+  const mid = (list) => list.sort((a, b) => a[0] - b[0] || a[1] - b[1])[list.length >> 1];
+  return {
+    all: F,
+    n: mid(F.filter(([, y]) => y === y0)),
+    s: mid(F.filter(([, y]) => y === y1)),
+    e: mid(F.filter(([x]) => x === x1)),
+    w: mid(F.filter(([x]) => x === x0)),
+    corner: F.find(([x, y]) => x === x0 && y === y0),
+  };
+}
+const shelterKeys = (I) => new Set(I.crewShelterTiles().map((t) => Math.floor(t.x) + "," + Math.floor(t.y)));
+const POSES = ["stand", "sit", "work", "read", "walk"];
+
+/* ---------- The yard ---------- */
+simGroup("yard", "engine: loads with the crew state", () => {
   const g = loadGame({ engine: true });
   g.S.newGame(1, "Engine");
   ok(g.I && typeof g.I.enterYard === "function", "engine: the Interior did not load");
   ok(g.S.save.crew && typeof g.S.offer === "function", "engine: the crew state did not load with the engine");
+});
+
+simGroup("yard", "yard: the crew's props, ten minutes of calm, a build", () => {
+  const g = engineGame(101);
+  const { I, S, W, ZSR: Z } = g;
+  homeYard(g);
+  const ids = Object.keys(W.CREW).filter((id) => (W.CREW[id].posts || []).length);
+  ok(ids.length && same(I.crew.map((c) => c.id), ids), `yard: the crew in the yard (${I.crew.map((c) => c.id)}) are not every CREW id with posts (${ids})`);
+  const scale = (Z.CREW_ART && Z.CREW_ART.scale && Z.CREW_ART.scale.crew) || 0;
+  ok(scale > 0, "yard: CREW_ART.scale.crew is missing");
+  // (a) the prop: in the scene, at their feet, the walkers' scale times theirs, 0.75 wide, never solid, and one
+  // cached picture per opts set ({ who, pose, f }, f exactly 0 or 1)
+  const propBad = [];
+  const props = (when) =>
+    I.crew.forEach((c) => {
+      const pr = c.prop;
+      const o = (pr && pr.opts) || {};
+      const why = !pr || !I.props.includes(pr) ? "not in the scene" : pr.art !== "crew" ? `art ${pr.art}` : Math.abs(pr.scale - W.CREW[c.id].scale * scale) > 1e-9 ? `scale ${pr.scale}` : pr.wide !== 0.75 ? `wide ${pr.wide}` : pr.solid || pr.lift ? "solid or lifted" : !same(Object.keys(o).sort(), ["f", "pose", "who"]) || o.who !== c.id || !POSES.includes(o.pose) || (o.f !== 0 && o.f !== 1) ? `opts ${JSON.stringify(o)}` : !pr.img ? "no picture" : pr.x !== c.x || pr.y !== c.y ? "not where they stand" : "";
+      if (why && !propBad.some((x) => x.startsWith(c.id + "'s"))) propBad.push(`${c.id}'s prop ${when}: ${why}`);
+    });
+  props("on entry");
+  ok(!I.crew.some((c) => I.blockers.has(tileKey(c))), "yard: a crew member's tile is solid (props are never solid)");
+  // (c) ten minutes of calm: never on a tile they may not stand on, always inside the fence, three posts or more each
+  const inside = insideFence(W);
+  const off = [];
+  const out = [];
+  const posts = {};
+  let frame = 0;
+  stepFor(g, 600, () => {
+    const pass = I.crewPass();
+    I.crew.forEach((c) => {
+      const [x, y] = [Math.floor(c.x), Math.floor(c.y)];
+      if (!pass(x, y) && off.length < 3) off.push(`${c.id} at ${c.x.toFixed(2)},${c.y.toFixed(2)}`);
+      if (!inside.has(x + "," + y) && out.length < 3) out.push(`${c.id} at ${c.x.toFixed(2)},${c.y.toFixed(2)}`);
+      if (c.state === "dwell" && c.post) (posts[c.id] = posts[c.id] || new Set()).add(c.post.id);
+    });
+    if (++frame % 3 === 0) props("in the calm"); // every pose and frame lasts longer than 3 frames
+  });
+  ok(!propBad.length, `yard: ${propBad.join("; ")}`);
+  ok(!off.length, `yard: in ten minutes of calm a crew member stood where crewPass() says no (${off.join("; ")})`);
+  ok(!out.length, `yard: in ten minutes of calm a crew member left the fence ring (${out.join("; ")})`);
+  ids.forEach((id) => ok(posts[id] && posts[id].size >= 3, `yard: ${id} kept to ${posts[id] ? [...posts[id]].join(", ") : "no post"} in ten minutes (3 or more posts)`));
+  ok(I.phase.kind === "calm" && !g.toasts.length, `yard: ten quiet minutes made toasts (${g.toasts.map((x) => x.text).join(" | ")})`);
+  // a build: every room to level 3 at once (refreshYard puts the builds up), with one of the crew caught where a
+  // build goes up and another walking a way planned across a plot before it was built; nobody is left inside a
+  // build or walks into one, and they go on
+  const rooms = (lv) => {
+    Object.keys(S.save.rooms).forEach((k) => (S.save.rooms[k] = lv));
+    I.refreshYard();
+  };
+  rooms(3);
+  const plots = Object.values(W.YARD.plots);
+  const built = [];
+  plots.forEach((pl) => {
+    for (let y = pl.y; y < pl.y + pl.h; y++) for (let x = pl.x; x < pl.x + pl.w; x++) if (I.solidAt(x + 0.5, y + 0.5)) built.push([x, y, pl]);
+  });
+  rooms(0);
+  const across = I.crew[1];
+  const way = built
+    .map(([x, y, pl]) => {
+      const pass0 = I.crewPass();
+      if (!pass0(pl.x - 1, y) || !pass0(pl.x + pl.w, y)) return null;
+      const path = I.crewPath(pl.x - 0.5, y + 0.5, pl.x + pl.w, y);
+      return path && path.length === 1 ? { path, from: [pl.x - 0.5, y + 0.5] } : null; // one straight walk over the plot
+    })
+    .find(Boolean);
+  if (ok(across && way, "yard: setup, no plot to plan a walk across")) {
+    Object.assign(across, { x: way.from[0], y: way.from[1], path: way.path, state: "walk", post: null, job: null });
+  }
+  rooms(3);
+  if (ok(built.length, "yard: setup, no build stands on a plot at level 3")) {
+    const c = I.crew[0];
+    c.x = built[0][0] + 0.5;
+    c.y = built[0][1] + 0.5;
+    c.state = "walk";
+    c.path = [];
+  }
+  I.update(0.05);
+  const pass = I.crewPass();
+  ok(I.crew.every((c) => pass(Math.floor(c.x), Math.floor(c.y))), `yard: after a build a crew member is stuck in it (${I.crew.filter((c) => !pass(Math.floor(c.x), Math.floor(c.y))).map((c) => c.id)})`);
+  ok(I.crew.every((c) => I.props.includes(c.prop)), "yard: after refreshYard a crew member is no longer in the scene (crewDress)");
+  const at = I.crew.map((c) => [c.x, c.y]);
+  const moved = new Set();
+  const off2 = [];
+  stepFor(g, 120, () => {
+    const ps = I.crewPass();
+    I.crew.forEach((c, i) => {
+      if (Math.hypot(c.x - at[i][0], c.y - at[i][1]) > 1) moved.add(c.id);
+      if (!ps(Math.floor(c.x), Math.floor(c.y)) && off2.length < 3) off2.push(c.id + " at " + c.x.toFixed(2) + "," + c.y.toFixed(2));
+    });
+  });
+  ok(!off2.length && moved.size === I.crew.length, `yard: after the build the crew do not wander freely (stuck: ${I.crew.filter((c) => !moved.has(c.id)).map((c) => c.id)}; on a blocked tile: ${off2})`);
+});
+
+simGroup("yard", "yard: every post at room levels 0 to 3 and mixes", () => {
+  const g = engineGame(102);
+  const { I, S, W } = g;
+  homeYard(g);
+  const inside = insideFence(W);
+  const H = W.HOUSE;
+  const [ax, ay] = H.at;
+  const spots = Object.entries(H.spots).map(([name, [sx, sy]]) => [name, ax + sx + 0.5, ay + sy + 0.5]);
+  const van = [];
+  W.YARD.grid.forEach((row, y) => [...row].forEach((ch, x) => ch === "V" && van.push([x + 0.5, y + 0.5])));
+  const sh = H.rooms[W.CREW_RULES.shelter].rect;
+  const rooms = Object.keys(S.save.rooms);
+  const rnd = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(77);
+  const configs = [0, 1, 2, 3].map((lv) => ["level " + lv, Object.fromEntries(rooms.map((k) => [k, lv]))]);
+  for (let i = 0; i < 4; i++) configs.push(["mix " + (i + 1), Object.fromEntries(rooms.map((k) => [k, Math.floor(rnd() * 4)]))]);
+  const all = [];
+  Object.entries(W.CREW).forEach(([id, c]) => (c.posts || []).forEach((post) => all.push({ id, post })));
+  ok(all.length >= Object.keys(W.CREW).length * 2, "posts: too few to check");
+  const bad = [];
+  configs.forEach(([name, lv]) => {
+    Object.assign(S.save.rooms, lv);
+    I.dressYard(); // the builds of these levels go up (and the crew are put back in the scene)
+    const pass = I.crewPass();
+    const reach = I.reachable(Math.floor(I.player.x), Math.floor(I.player.y), true); // the player, opening doors
+    all.forEach(({ id, post }) => {
+      const [x, y] = I.crewPostTile(post);
+      const cx = x + 0.5;
+      const cy = y + 0.5;
+      const near = (list) => list.find(([, px, py]) => Math.hypot(px - cx, py - cy) < 1.5);
+      const spot = near(spots);
+      const why =
+        I.grid[y][x] !== "." || I.solidAt(cx, cy) || !pass(x, y)
+          ? `not open floor ('${I.grid[y][x]}')`
+          : !reach.has(x + "," + y)
+            ? "out of the player's reach"
+            : !inside.has(x + "," + y)
+              ? "outside the fence"
+              : Object.values(W.YARD.plots).some((p) => x >= p.x && x < p.x + p.w && y >= p.y && y < p.y + p.h)
+                ? "on a plot"
+                : spot
+                  ? `within 1.5 tiles of the cabin's ${spot[0]}`
+                  : van.some(([vx, vy]) => Math.hypot(vx - cx, vy - cy) < 1.5)
+                    ? "within 1.5 tiles of the van"
+                    : x - ax >= sh[0] && x - ax <= sh[2] && y - ay >= sh[1] && y - ay <= sh[3]
+                      ? "in the shelter"
+                      : "";
+      if (why && bad.length < 6) bad.push(`${name}: ${id}'s post ${post.id} at ${x},${y} is ${why}`);
+    });
+    // the crew walk between their open posts: each one reaches every other on the crew's rules
+    Object.keys(W.CREW).forEach((id) => {
+      const open = all.filter((a) => a.id === id && I.crewPostOpen(a.post)).map((a) => I.crewPostTile(a.post));
+      if (!open.length) return;
+      const dist = I.crewDist(open[0][0], open[0][1], pass);
+      const lost = open.filter(([x, y]) => dist[y * I.gw + x] < 0);
+      if (lost.length && bad.length < 6) bad.push(`${name}: ${id} cannot walk between posts (${lost.map((t) => t.join(",")).join("; ")})`);
+    });
+  });
+  ok(!bad.length, `posts: ${bad.join("; ")}`);
+});
+
+simGroup("yard", "yard: the fence job mends holes and cracks, paying from the base's scrap", () => {
+  const g = engineGame(103);
+  const { I, S, W } = g;
+  const fx = jobOf(W, "fence");
+  if (!ok(fx, "repairs: nobody has the fence job")) return;
+  const cost = W.SETTINGS.fenceRepairScrap;
+  const FT = fenceTiles(W);
+  const key = (t) => t.join(",");
+  const hp0 = W.DEFENSE.fenceHp[0];
+  // two holes and one crack, scrap for two fixes
+  homeYard(g, (S) => {
+    S.addTrust(fx.id, trustFor(W, fx.stars));
+    S.save.fence = { [key(FT.n)]: 0, [key(FT.s)]: 0, [key(FT.e)]: Math.floor(hp0 * 0.3) };
+    S.save.scrap = 2 * cost;
+  });
+  const left = () => I.crewFenceDamage().length;
+  ok(left() === 3 && I.fenceHoles().length === 2, `repairs: setup, ${left()} damaged segments`);
+  const fixes = [];
+  let n = left();
+  let t0 = g.toasts.length;
+  stepFor(g, 240, (t) => {
+    const now = left();
+    if (now !== n) {
+      fixes.push({ t, toasts: g.toasts.slice(t0).map((x) => x.text) });
+      n = now;
+    }
+    t0 = g.toasts.length;
+    return fixes.length < 2;
+  });
+  const rep = S.crewReport(fx.id);
+  ok(fixes.length === 2 && left() === 1, `repairs: with scrap for two, ${fixes.length} fixed in 4 minutes (${left()} left)`);
+  ok(S.save.scrap === 0, `repairs: scrap left ${S.save.scrap} (two fixes paid, never below 0)`);
+  ok(rep.fence === 2 && rep.scrap === 2 * cost && !rep.fenceFree, `repairs: the report is ${JSON.stringify(rep)}, not { fence: 2, scrap: ${2 * cost} }`);
+  ok(fixes.every((f) => !f.toasts.length) && !g.toasts.length, `repairs: a toast at the moment of a fix (${g.toasts.map((x) => x.text).join(" | ")}); the report tells it`);
+  // the third waits for scrap, then is fixed
+  stepFor(g, 90);
+  ok(left() === 1 && !g.toasts.length, "repairs: a segment was fixed with no scrap to pay for it");
+  S.save.scrap = cost;
+  const t3 = stepFor(g, 180, () => left() > 0);
+  ok(left() === 0 && S.save.scrap === 0 && S.crewReport(fx.id).fence === 3, `repairs: once scrap was back the last segment was not fixed and paid for (${left()} left after ${t3.toFixed(0)} s, scrap ${S.save.scrap})`);
+  // with the crewRepairFree perk the fixes cost nothing and are told as free
+  const free = (W.QUESTS || []).find((q) => q.reward && q.reward.perk && q.reward.perk.crewRepairFree);
+  if (free) {
+    homeYard(g, (S) => {
+      S.addTrust(fx.id, trustFor(W, fx.stars));
+      S.save.crew.quests[free.id] = { state: "done", day: 1, doneDay: 1 };
+      S.save.fence = { [key(FT.n)]: 0, [key(FT.w)]: 0 };
+      S.save.scrap = 0;
+    });
+    stepFor(g, 240, () => left() > 0);
+    const r2 = S.crewReport(fx.id);
+    ok(left() === 0 && S.save.scrap === 0, `repairs: with crewRepairFree and no scrap, ${left()} holes left (scrap ${S.save.scrap})`);
+    ok(r2.fenceFree === 2 && !r2.fence && !r2.scrap && same(S.crewReportItems(fx.id).map((x) => x.key), ["fenceFree"]), `repairs: free fixes reported as ${JSON.stringify(r2)}`);
+  }
+});
+
+simGroup("yard", "yard: the cabin job fixes a smashed window, and a corner hole is reached", () => {
+  const g = engineGame(104);
+  const { I, S, W } = g;
+  const fx = jobOf(W, "fence");
+  const cx = jobOf(W, "cabin");
+  if (!ok(fx && cx && fx.id === cx.id, "repairs: the fence and cabin jobs are not one crew member's (this simulation needs both)")) return;
+  const FT = fenceTiles(W);
+  homeYard(g, (S) => {
+    S.addTrust(cx.id, trustFor(W, cx.stars));
+    S.save.fence = { [FT.corner.join(",")]: 0 };
+    S.save.scrap = 50;
+  });
+  const win = Object.keys(I.barriers).find((k) => I.barriers[k].kind === "window");
+  I.yardHitBarrier(win, 1e9);
+  const b = I.barriers[win];
+  ok(b.hp === 0, "repairs: setup, the window did not smash");
+  let cornerAt = null;
+  let winAt = null;
+  stepFor(g, 400, (t) => {
+    if (cornerAt == null && !I.crewFenceDamage().length) cornerAt = t;
+    if (winAt == null && b.hp >= b.max) winAt = t;
+    return winAt == null || cornerAt == null;
+  });
+  ok(cornerAt != null, `repairs: the corner hole at ${FT.corner} was never fixed (no tile beside it reached)`);
+  ok(winAt != null && winAt >= cornerAt, `repairs: the smashed window was ${winAt == null ? "never fixed" : "fixed before the fence"} at ${cx.stars} stars`);
+  const [wx, wy] = win.split(",").map(Number);
+  ok(I.grid[wy][wx] !== "U", "repairs: the fixed window still lets walkers climb in");
+  const rep = S.crewReport(cx.id);
+  ok(rep.cabin === 1 && rep.fence === 1 && rep.scrap === W.SETTINGS.houseRepairScrap + W.SETTINGS.fenceRepairScrap, `repairs: the report is ${JSON.stringify(rep)}, not { fence: 1, cabin: 1 } with their scrap`);
+  // below the cabin job's stars a smashed window waits for you
+  if (cx.stars > 0) {
+    homeYard(g, (S) => (S.save.scrap = 50));
+    I.yardHitBarrier(win, 1e9);
+    stepFor(g, 120);
+    ok(I.barriers[win].hp === 0, `repairs: the window was fixed below ${cx.stars} stars`);
+  }
+});
+
+simGroup("yard", "yard: a wave sends the crew (and the dog) into the shelter", () => {
+  const g = engineGame(105);
+  const { I, W } = g;
+  [false, true].forEach((dog) => {
+    homeYard(g, (S) => {
+      if (dog) S.save.crew.dog.home = true;
+    });
+    Object.assign(I.phase, { next: { size: "some", sides: ["n"] }, t: 0.01 });
+    const sh = shelterKeys(I);
+    ok(sh.size > 0, "shelter: no shelter tiles");
+    const off = [];
+    stepFor(g, 20, () => {
+      const pass = I.crewPass();
+      I.crew.forEach((c) => !pass(Math.floor(c.x), Math.floor(c.y)) && off.length < 3 && off.push(c.id));
+    });
+    const who = dog ? "with the dog home" : "";
+    ok(I.phase.kind === "wave", `shelter ${who}: no wave began`);
+    ok(I.crew.every((c) => c.state === "shelter" && sh.has(tileKey(c))), `shelter ${who}: after 20 s not every crew member is in the shelter (${I.crew.map((c) => c.id + ":" + c.state + "@" + tileKey(c)).join(", ")})`);
+    ok(I.crewShelterDoors().length && I.crewShelterDoors().every((d) => !d.open), `shelter ${who}: the shelter's door is not shut`);
+    ok(!off.length, `shelter ${who}: on the way a crew member stood where crewPass() says no (${off})`);
+    if (dog) {
+      const d = I.dog;
+      ok(d && d.home && sh.has(tileKey(d.home)) && Math.hypot(d.x - d.home.x, d.y - d.home.y) < 0.3, `shelter: the dog is not in the shelter (${d && d.x.toFixed(2)},${d && d.y.toFixed(2)})`);
+      const wave = g.toasts.find((x) => x.phase === "wave");
+      ok(wave && /bark/i.test(wave.text), `shelter: the wave toast does not bark (${wave && wave.text})`);
+    }
+  });
+});
+
+simGroup("yard", "yard: a raider in the shelter hurts one crew member, once", () => {
+  const g = engineGame(106);
+  const { I, S, W, store } = g;
+  const R = W.CREW_RULES;
+  const ids = Object.keys(W.CREW);
+  homeYard(g, (S) => {
+    S.save.inventory.meds = 1;
+    ids.forEach((id) => S.addTrust(id, 10));
+  });
+  S.commit();
+  // you out at the far fence, well away from the cabin (a raider near you comes for you instead)
+  const inside = [...insideFence(W)].map((k) => k.split(",").map(Number)).filter(([x, y]) => !I.solidAt(x + 0.5, y + 0.5) && !I.indoorAt(x + 0.5, y + 0.5));
+  const sh0 = I.crewShelterTiles()[0];
+  const far = inside.sort((a, b) => Math.hypot(b[0] - sh0.x, b[1] - sh0.y) - Math.hypot(a[0] - sh0.x, a[1] - sh0.y))[0];
+  standAt(g, far[0] + 0.5, far[1] + 0.5, sh0.x, sh0.y);
+  // a wave with nothing left to come out of the trees: it lasts until the test says so
+  I.phase = { kind: "wave", size: "some", total: 1, spawned: 0, spawnT: 1e9, t: 0, sides: ["n"] };
+  let commits = 0;
+  const commit = S.commit;
+  S.commit = function () {
+    if (I.phase && I.phase.kind === "wave") commits++;
+    return commit.apply(this, arguments);
+  };
+  const saved = store.get("zs.save.1");
+  stepFor(g, 30, () => !(I.crewWaveInfo && I.crewWaveInfo.shut));
+  const info = I.crewWaveInfo;
+  if (!ok(info && info.shut, "raid: the crew never shut themselves in")) return;
+  const door = I.crewShelterDoors()[0];
+  // a raider starts by the shelter's door, on the other side, and makes for a shelter tile
+  const tiles = shelterKeys(I);
+  const by = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [door.x + dx, door.y + dy]).find(([x, y]) => !tiles.has(x + "," + y) && !I.solidAt(x + 0.5, y + 0.5));
+  const raider = (spot) => {
+    const z = I.makeWalker("walker", by[0] + 0.5, by[1] + 0.5, 1);
+    Object.assign(z, { awake: true, raid: true, raidSpot: spot, raidShelter: true });
+    I.walkers.push(z);
+    return z;
+  };
+  const trust0 = Object.fromEntries(ids.map((id) => [id, S.trust(id)]));
+  const food0 = S.save.food;
+  const spots = I.crewShelterSpots();
+  raider(spots[0]);
+  let forced = false;
+  let firstAt = null;
+  stepFor(g, 60, (t) => {
+    if (door.open && !door.broken) forced = true;
+    if (firstAt == null && info.hurt.size) firstAt = t;
+    return firstAt == null || t < firstAt + 3 * R.hurtSeconds; // and a while longer among them
+  });
+  ok(forced, "raid: the raider did not force the shelter's door open (or broke it)");
+  const hurt = [...info.hurt];
+  ok(hurt.length === 1, `raid: one raider among the crew for ${(3 * R.hurtSeconds).toFixed(0)} s after the first hurt ${hurt.length} of them (${hurt}); a raider hurts one crew member`);
+  const h = hurt[0];
+  ok(h && S.save.inventory.meds === 0 && S.save.food === food0, `raid: the hurt did not cost the 1 medical kit in storage (meds ${S.save.inventory.meds}, food ${food0} -> ${S.save.food})`);
+  ok(h && S.trust(h) === trust0[h] - R.loss.hurt && ids.filter((id) => id !== h).every((id) => S.trust(id) === trust0[id]), `raid: trust did not drop by loss.hurt (${R.loss.hurt}) for ${h} alone (${ids.map((id) => id + " " + trust0[id] + "->" + S.trust(id))})`);
+  const shout = g.toasts.find((x) => /shout/i.test(x.text));
+  ok(shout && h && shout.text.includes(g.ZSR.crewName(h)), `raid: no shout toast naming ${h} (${g.toasts.map((x) => x.text).join(" | ")})`);
+  ok(same(S.crewReport(h).hurt, ["a medical kit"]), `raid: ${h}'s report ${JSON.stringify(S.crewReport(h))}`);
+  // more raiders, more hurt, but nobody twice: one more goes for the tile of the one already hurt, then one for each
+  // shelter tile; the hurts after the kit cost 2 food, and once every crew member is hurt, a raider hurts nobody
+  const hurtAt = I.crew.find((c) => c.id === h);
+  [{ x: hurtAt.x, y: hurtAt.y }].concat(spots).forEach((spot) => {
+    raider(spot);
+    stepFor(g, 25);
+  });
+  const reps = ids.map((id) => (S.crewReport(id).hurt || []).length);
+  ok(info.hurt.size === ids.length && reps.every((n) => n === 1), `raid: ${spots.length + 2} raiders hurt ${info.hurt.size} (hurts in the reports: ${ids.map((id, i) => id + " " + reps[i])}); every crew member once, nobody twice`);
+  ok(S.save.food === Math.max(0, food0 - R.hurtCost.food * (ids.length - 1)), `raid: the hurts after the kit ran out did not cost ${R.hurtCost.food} food each (${food0} -> ${S.save.food})`);
+  ok(commits === 0 && store.get("zs.save.1") === saved, `raid: the game saved mid-wave (${commits} commits)`);
+  // cleared: the door opens at once, and they come out
+  I.walkers.forEach((z) => I.hurtWalker(z, 1e6));
+  I.phase.spawned = I.phase.total;
+  door.open = false; // shut again, as the crew would have it (the raiders forced it)
+  I.grid[door.y][door.x] = "O";
+  I.maskDirty = true;
+  stepFor(g, 5, () => I.phase.kind !== "calm");
+  ok(I.phase.kind === "calm" && door.open, "raid: the shelter's door did not open once the wave was cleared");
+  let outAt = null;
+  stepFor(g, 40, (t) => {
+    if (I.crew.every((c) => !tiles.has(tileKey(c)))) outAt = t;
+    return outAt == null;
+  });
+  ok(outAt != null && outAt <= 30, `raid: the crew did not come out of the shelter within 30 s of the clear (${outAt})`);
+  S.commit = commit;
+});
+
+simGroup("yard", "yard: the lookout calls real waves only", () => {
+  const g = engineGame(107);
+  const { I, S, W, ZSR: Z } = g;
+  const lk = jobOf(W, "lookout");
+  if (!ok(lk, "lookout: nobody has the lookout job")) return;
+  const SIZE = { some: "a small wave", many: "a big wave" };
+  /** A calm 20 s from its end, with `next` rolled; Pip at `stars`; the bell rung if asked. Returns what was said. */
+  function calm(stars, next, bell) {
+    homeYard(g, (S) => S.addTrust(lk.id, trustFor(W, stars)));
+    Object.assign(I.phase, { t: 20, next, called: false, forced: false });
+    delete I.phase.lookT;
+    if (bell) I.houseInteract({ kind: "spot", obj: "bell", x: 0, y: 0 });
+    g.toasts.length = 0;
+    let wave = null;
+    stepFor(g, 22, () => {
+      if (!wave && I.phase.kind === "wave") wave = { size: I.phase.size, sides: I.phase.sides.slice() };
+    });
+    const said = g.toasts.filter((x) => x.phase === "calm" && !/still quiet/i.test(x.text));
+    return { said, wave };
+  }
+  const secs = S.crewLookoutSeconds();
+  const big = { size: "many", sides: ["n", "e"] };
+  const a = calm(lk.stars, big);
+  const call = a.said[0];
+  ok(a.said.length === 1, `lookout: at ${lk.stars} star(s), ${a.said.length} calls before the wave (${a.said.map((x) => x.text).join(" | ")})`);
+  if (call) {
+    ok(call.left <= secs + 1e-6 && call.left > secs - 0.1, `lookout: called with ${call.left.toFixed(2)} s left, not ${secs}`);
+    ok(call.text.includes(SIZE.many) && ["n", "e"].every((s) => call.text.includes(I.waveWhere([s]))), `lookout: the call does not name "${SIZE.many}" and both sides: ${call.text}`);
+  }
+  ok(a.wave && a.wave.size === "many" && same(a.wave.sides, ["n", "e"]), `lookout: the wave that came (${JSON.stringify(a.wave)}) is not the one called`);
+  if (lk.stars > 0) {
+    const b = calm(lk.stars - 1, big);
+    ok(!b.said.length && b.wave, `lookout: called below ${lk.stars} star(s) (${b.said.map((x) => x.text)})`);
+  }
+  const c = calm(lk.stars, { size: "none", sides: [] });
+  ok(!c.said.length && !c.wave && g.toasts.some((x) => /still quiet/i.test(x.text)), `lookout: a calm that stays quiet was called (${c.said.map((x) => x.text).join(" | ")})`);
+  const d = calm(lk.stars, big, true);
+  ok(!d.said.length && d.wave && d.wave.size === "many", `lookout: called after the dinner bell (${d.said.map((x) => x.text).join(" | ")})`);
+});
+
+/* ---------- Talking: E, the bubble, the card ---------- */
+/** An open stretch of yard with room around it: the inside tile farthest from anything solid (plots, the cabin,
+    the van, the fence), so a crew member held there and the player beside them see only each other. */
+function openGround(g) {
+  const { I, W } = g;
+  let best = null;
+  insideFence(W).forEach((k) => {
+    const [x, y] = k.split(",").map(Number);
+    let r = 0;
+    while (r < 6) {
+      let clear = true;
+      for (let dy = -r - 1; dy <= r + 1 && clear; dy++) for (let dx = -r - 1; dx <= r + 1 && clear; dx++) if (I.solidAt(x + dx + 0.5, y + dy + 0.5) || W.YARD.grid[y + dy][x + dx] === "F") clear = false;
+      if (!clear) break;
+      r++;
+    }
+    if (!best || r > best.r) best = { x: x + 0.5, y: y + 0.5, r };
+  });
+  return best;
+}
+
+simGroup("yard", "yard: facing a crew member, and never in the way of the cabin's spots or the van", () => {
+  const g = engineGame(108);
+  const { I, W } = g;
+  homeYard(g);
+  const heal = jobOf(W, "heal") || { id: Object.keys(W.CREW)[0] };
+  const who = heal.id;
+  const name = g.ZSR.crewName(who);
+  const o = openGround(g);
+  ok(o && o.r >= 3, "facing: no open ground in the yard to test on");
+  const c = hold(g, who, o.x, o.y);
+  standAt(g, o.x, o.y + 1.5, c.x, c.y);
+  let f = I.facing();
+  ok(f && f.kind === "crew" && f.obj === c, `facing: looking at ${name} 1.5 tiles away is ${f ? f.kind : "nothing"}`);
+  ok(f && I.yardHint(f).startsWith("Press E to talk to " + name), `facing: the hint is "${f && I.yardHint(f)}"`);
+  I.player.a += 0.5;
+  f = I.facing();
+  ok(!(f && f.kind === "crew"), "facing: a crew member 0.5 rad off the crosshair takes E");
+  // standing in the way of a cabin spot or the van, a crew member never takes E from it
+  const H = W.HOUSE;
+  const [ax, ay] = H.at;
+  const reach = I.reachable(Math.floor(I.player.x), Math.floor(I.player.y), true);
+  /** Every place to stand within `r` of (x, y) from which facing() is `want`, with `id` held between you and it. */
+  function between(id, x, y, r, want) {
+    let tried = 0;
+    let stolen = 0;
+    reach.forEach((v, k) => {
+      const [tx, ty] = k.split(",").map(Number);
+      const px = tx + 0.5;
+      const py = ty + 0.5;
+      if (Math.hypot(px - x, py - y) > r) return;
+      standAt(g, px, py, x, y);
+      hold(g, id, -50, -50); // out of the way first
+      const f0 = I.facing();
+      if (!f0 || !want(f0)) return;
+      [0.4, 0.5, 0.6].forEach((s) => {
+        hold(g, id, px + (x - px) * s, py + (y - py) * s);
+        const cand = [];
+        I.crewFacing(cand);
+        if (!cand.some((x0) => x0.kind === "crew")) return; // not in view from here: proves nothing
+        tried++;
+        const f1 = I.facing();
+        if (!f1 || !want(f1)) stolen++;
+      });
+    });
+    return { tried, stolen };
+  }
+  Object.entries(H.spots).forEach(([spot, [sx, sy]]) => {
+    const r = between(who, ax + sx + 0.5, ay + sy + 0.5, 1.5, (x) => x.kind === "spot" && x.obj === spot);
+    ok(r.tried > 0, `facing: ${name} could not be put between you and the cabin's ${spot}`);
+    ok(!r.stolen, `facing: ${name} in the way took E from the cabin's ${spot} (${r.stolen} of ${r.tried} places)`);
+  });
+  const fixer = (jobOf(W, "fence") || { id: who }).id;
+  const v = between(fixer, I.van.x + 1, I.van.y + 0.5, 2.0, (x) => x.kind === "van");
+  ok(v.tried > 0 && !v.stolen, `facing: ${g.ZSR.crewName(fixer)} in the way took E from the van (${v.stolen} of ${v.tried} places)`);
+});
+
+simGroup("yard", "yard: talking: June's patch-up, the bubble, words counted once, walking away", () => {
+  const g = engineGame(109);
+  const { I, S, W, ZSR: Z } = g;
+  const heal = jobOf(W, "heal");
+  if (!ok(heal, "talk: nobody has the heal job")) return;
+  const who = heal.id;
+  homeYard(g, (S) => S.addTrust(who, trustFor(W, Math.max(1, heal.stars))));
+  const o = openGround(g);
+  const c = hold(g, who, o.x, o.y);
+  const p = standAt(g, o.x, o.y + 1.5, c.x, c.y);
+  p.maxHp = S.footMaxHp();
+  p.hp = Math.max(1, p.maxHp - S.crewHealAmount() - 20);
+  I.update(0.05);
+  const hp0 = p.hp;
+  const w0 = S.save.stats.wordsRead;
+  I.interact();
+  ok(I.talk && I.talk.id === who, "talk: E at June did not open the bubble");
+  if (!I.talk) return;
+  ok(Math.abs(p.hp - hp0 - S.crewHealAmount()) < 1e-6, `talk: the patch-up gave ${(p.hp - hp0).toFixed(1)} health, not crewHealAmount() ${S.crewHealAmount()}`);
+  const panel = I.talk.panel;
+  I.update(0.05);
+  ok(String(I.hud.read.className).split(/\s+/).includes("talk") && I.panelKey === panel.key, `talk: the read panel is not the bubble (class "${I.hud.read.className}")`);
+  const max = W.CREW_RULES.stars.length;
+  ok(panel.status === "★".repeat(S.stars(who)) + "☆".repeat(max - S.stars(who)) && panel.title === Z.crewName(who), `talk: the bubble's stars or name: ${panel.title} ${panel.status}`);
+  ok(S.save.stats.wordsRead - w0 === Z.wordCount(panel.text), `talk: the first bubble counted ${S.save.stats.wordsRead - w0} words, not its ${Z.wordCount(panel.text)}`);
+  ok(!S.crewReportItems(who).some((r) => r.key === "heal"), "talk: the patch-up told now was logged to be told again");
+  // the yard runs on while the bubble is open
+  const left = I.phase.t;
+  stepFor(g, 2);
+  ok(I.talk && I.phase.t < left - 1.9, "talk: the calm's clock stopped while the bubble was open (or it closed)");
+  // more talks the same calm: no second patch-up, no heal report, and words already read never count again
+  I.interact();
+  ok(!I.talk, "talk: E again with nothing to ask did not close the bubble");
+  const healWords = Z.crewFill(Z.crewText("report", "heal"), { hp: S.crewHealAmount() }).trim();
+  let healed = 0;
+  let reported = 0;
+  let recounted = 0;
+  let quiet = 0;
+  for (let i = 0; i < 12; i++) {
+    p.hp = Math.max(1, p.maxHp - 60);
+    const hp1 = p.hp;
+    const w1 = S.save.stats.wordsRead;
+    const read1 = new Set(S.save.crew.read).size;
+    if (S.crewReportItems(who).some((r) => r.key === "heal")) reported++;
+    I.interact();
+    if (!I.talk) break;
+    if (p.hp !== hp1) healed++;
+    if (healWords && I.talk.panel.text.includes(healWords)) reported++;
+    if (new Set(S.save.crew.read).size === read1) {
+      quiet++;
+      if (S.save.stats.wordsRead !== w1) recounted++;
+    }
+    I.interact();
+  }
+  ok(!healed, `talk: patched up ${healed} more times in the same calm`);
+  ok(!reported, "talk: the patch-up was told again as a report");
+  ok(!recounted, `talk: ${recounted} bubbles with nothing new in them counted their words again`);
+  ok(quiet > 0, "talk: twelve talks never repeated a text (nothing to check words-once against)");
+  // walking three tiles away (backing off, S held) closes it
+  I.interact();
+  ok(I.talk, "talk: could not reopen the bubble");
+  const y0 = I.player.y;
+  I.keys.s = true;
+  stepFor(g, 3, () => I.player.y - y0 < 3);
+  I.keys.s = false;
+  ok(I.player.y - y0 >= 3 && !I.talk && I.panelKey == null, `talk: walking 3 tiles away (${(I.player.y - y0).toFixed(2)}) did not close the bubble`);
+  ok(c.state !== "talk", "talk: June stayed stopped after the bubble closed");
+});
+
+simGroup("yard", "yard: asking: the offer, the card, an errand's hand-in line", () => {
+  const g = engineGame(110);
+  const { I, S, W, ZSR: Z } = g;
+  const first = (W.QUESTS || []).find((q) => q.when && q.when.day);
+  if (!ok(first, "ask: no quest with a day to test the offer on")) return;
+  const who = first.giver;
+  const name = Z.crewName(who);
+  homeYard(g, (S) => {
+    S.save.day = first.when.day;
+    S.addTrust(who, trustFor(W, first.when.stars || 0));
+    if (!S.isKnown(first.at)) S.save.known.push(first.at);
+  });
+  ok(S.offer(who) && S.offer(who).def.id === first.id, `ask: setup, ${who} does not offer ${first.id}`);
+  const o = openGround(g);
+  const c = hold(g, who, o.x, o.y);
+  standAt(g, o.x, o.y + 1.5, c.x, c.y);
+  I.update(0.05);
+  const need = W.CREW[who].pronoun === "they" ? "they need something" : W.CREW[who].pronoun + " needs something";
+  ok(I.hud.hint.textContent === "Press E to talk to " + name + " (" + need + ")", `ask: the hint is "${I.hud.hint.textContent}"`);
+  I.interact();
+  ok(I.talk && I.talk.action === "offer" && same(I.talk.panel.meta[0], ["Press E again", name + " has a favor to ask"]), `ask: the bubble does not end with the favor (${JSON.stringify(I.talk && I.talk.panel.meta)})`);
+  I.update(0.05);
+  ok(I.hud.hint.textContent === "", `ask: with the question in the bubble the hint says "${I.hud.hint.textContent}"`);
+  I.interact();
+  ok(same(g.cards, [[who, "offer"]]), `ask: E again did not ask for the offer card (${JSON.stringify(g.cards)})`);
+  // the card (js/main.js): "I'll do it" accepts, then crewCardDone
+  const offer = S.offer(who);
+  const accepted = S.accept(who, offer);
+  I.crewCardDone(who, "offer", { accepted, kind: offer.kind, id: offer.def.id, title: "" });
+  ok(accepted && S.request(who) && S.request(who).def.id === first.id && S.questState(first.id) === "active", "ask: after the card the request is not open");
+  ok(!I.talk && c.state !== "talk", "ask: the bubble stayed open after the card");
+  ok(g.syncs > 0 && JSON.parse(g.store.get("zs.save.1")).crew.quests[first.id], "ask: the accepted request was not saved (syncYard)");
+  // an errand filled and in storage: the bubble's line counts its items in running text ("2 boxes of nails")
+  const errands = Object.entries(W.ERRANDS || {}).find(([, list]) => list && list.length);
+  if (errands) {
+    const [eid, list] = errands;
+    const e = list[0];
+    const IT = W.ITEMS[e.item];
+    [1, 2].forEach((n) => {
+      S.save.crew.errand[eid] = { id: e.id, item: e.item, count: n, have: n, day: S.save.day, due: S.save.day + 3 };
+      S.save.inventory[e.item] = n;
+      const act = I.crewAction(eid);
+      const want = "give " + Z.crewName(eid) + " " + n + " " + (n === 1 ? IT.one : IT.many);
+      ok(act && act.action === "handIn" && act.line === want, `ask: the errand's hand-in line is "${act && act.line}", not "${want}"`);
+    });
+    S.save.crew.errand[eid] = null;
+  }
+});
+
+simGroup("yard", "yard: the dog at home: near Pip, then trailing, sheltering, barking, petted", () => {
+  const g = engineGame(111);
+  const { I, S, W, ZSR: Z } = g;
+  const dq = (W.QUESTS || []).find((q) => q.kind === "dog");
+  if (!ok(dq && W.DOG, "dog: no dog quest")) return;
+  const lead = dq.giver;
+  const dogScale = Z.CREW_ART.scale.crewDog;
+  /** Run `secs` in the calm: the dog's distances to its leader while they walk (after 3 s) and at rest after a walk. */
+  function follow(named) {
+    homeYard(g, (S) => {
+      S.save.crew.dog.home = true;
+      S.save.crew.dog.name = named ? W.DOG.ideas[0] : "";
+    });
+    const c = crewOf(g, lead);
+    const d = I.dog;
+    const walking = [];
+    const rest = [];
+    const all = [];
+    let off = 0;
+    let props = "";
+    let walkT = 0;
+    let still = 0;
+    let walked = false;
+    stepFor(g, 200, () => {
+      const pass = I.crewPass();
+      const dist = Math.hypot(d.x - c.x, d.y - c.y);
+      all.push(dist);
+      if (!pass(Math.floor(d.x), Math.floor(d.y))) off++;
+      const o = d.prop.opts || {};
+      if (!props && (d.prop.art !== "crewDog" || Math.abs(d.prop.scale - dogScale) > 1e-9 || d.prop.solid || !I.props.includes(d.prop) || (o.f !== 0 && o.f !== 1) || ("left" in o && o.left !== true) || !same(Object.keys(o).filter((k) => k !== "left").sort(), ["f", "pose"]))) props = JSON.stringify({ art: d.prop.art, scale: d.prop.scale, opts: o });
+      if (c.state === "walk") {
+        walkT += 0.05;
+        still = 0;
+        walked = true;
+      } else {
+        walkT = 0;
+        still += 0.05;
+      }
+      if (walkT > 3) walking.push(dist);
+      if (walked && still > 3) rest.push(dist);
+    });
+    return { walking, rest, all, off, props, walked };
+  }
+  const st = (a) => (a.length ? `${Math.min(...a).toFixed(2)} to ${Math.max(...a).toFixed(2)}` : "none");
+  const u = follow(false);
+  ok(u.walked && Math.max(...u.all) <= 0.8, `dog: unnamed, it strayed from ${lead} (${st(u.all)} tiles); it sits right by them`);
+  ok(!u.off && !u.props, `dog: unnamed, ${u.off} frames on a blocked tile; prop ${u.props}`);
+  const n = follow(true);
+  const mean = n.walking.reduce((a, b) => a + b, 0) / Math.max(1, n.walking.length);
+  ok(n.walking.length && Math.min(...n.walking) >= 1.0 && Math.max(...n.walking) <= 1.8 && Math.abs(mean - 1.5) <= 0.2, `dog: named, it does not trail about 1.5 tiles behind ${lead} as they walk (${st(n.walking)}, mean ${mean.toFixed(2)})`);
+  ok(n.rest.length && Math.max(...n.rest) <= 1.7, `dog: named, at rest it is not by ${lead} (${st(n.rest)})`);
+  ok(!n.off && !n.props, `dog: named, ${n.off} frames on a blocked tile; prop ${n.props}`);
+  // a wave: its bark joins the wave's toast, and it shelters with them
+  Object.assign(I.phase, { next: { size: "some", sides: ["s"] }, t: 0.01 });
+  stepFor(g, 20);
+  const wave = g.toasts.find((x) => x.phase === "wave");
+  ok(wave && wave.text.includes(W.DOG.ideas[0] + " barks"), `dog: the wave's toast has no bark (${wave && wave.text})`);
+  const d = I.dog;
+  ok(d.home && shelterKeys(I).has(tileKey(d.home)) && Math.hypot(d.x - d.home.x, d.y - d.home.y) < 0.3, "dog: it did not shelter with the crew");
+  // E pets it
+  homeYard(g, (S) => {
+    S.save.crew.dog.home = true;
+    S.save.crew.dog.name = W.DOG.ideas[1];
+  });
+  const o = openGround(g);
+  hold(g, lead, o.x - 1, o.y);
+  I.dog.x = o.x + 0.6;
+  I.dog.y = o.y;
+  standAt(g, o.x + 0.6, o.y + 1.5, I.dog.x, I.dog.y);
+  const f = I.facing();
+  ok(f && f.kind === "dog" && I.yardHint(f) === "Press E to pet " + W.DOG.ideas[1], `dog: facing it gives ${f && f.kind} "${f && I.yardHint(f)}"`);
+  const w0 = S.save.stats.wordsRead;
+  I.interact();
+  ok(I.talk && I.talk.id === "dog" && I.talk.panel.title === W.DOG.ideas[1] && I.talk.panel.text.trim(), "dog: E did not pet it (its bubble)");
+  ok(I.talk && S.save.stats.wordsRead - w0 === Z.wordCount(I.talk.panel.text) && S.save.crew.read.includes("dog:pet"), "dog: the pat's words were not counted");
+});
+
+simGroup("yard", "yard: the dog quest handed in, then the dog named", () => {
+  const g = engineGame(112);
+  const { I, S, W, ZSR: Z } = g;
+  const dq = (W.QUESTS || []).find((q) => q.kind === "dog");
+  if (!ok(dq && W.DOG, "dog: no dog quest")) return;
+  const lead = dq.giver;
+  homeYard(g, (S) => {
+    S.save.day = Math.max(S.save.day, (dq.when && dq.when.day) || 1);
+    (W.QUESTS || []).filter((q) => q.giver === lead && q !== dq).forEach((q) => (S.save.crew.quests[q.id] = { state: "done", day: 2, doneDay: 2 }));
+    S.save.crew.quests[dq.id] = { state: "found", day: S.save.day, doneDay: null };
+    S.save.crew.dog.home = true;
+    S.addTrust(lead, trustFor(W, (dq.when && dq.when.stars) || 0));
+  });
+  const o = openGround(g);
+  const c = hold(g, lead, o.x, o.y);
+  I.dog.x = o.x + 0.6;
+  I.dog.y = o.y - 0.4;
+  standAt(g, o.x, o.y + 1.5, c.x, c.y);
+  const f = I.facing();
+  ok(f && f.kind === "crew" && f.obj === c, `dog: with the dog beside ${lead}, looking at ${lead} gives ${f && f.kind}`);
+  I.interact();
+  ok(I.talk && I.talk.action === "handIn", `dog: the bubble's question is ${I.talk && I.talk.action}, not handIn`);
+  I.interact();
+  ok(same(g.cards, [[lead, "handIn"]]), `dog: the cards asked for: ${JSON.stringify(g.cards)}`);
+  const res = S.handIn(lead, dq.id);
+  I.crewCardDone(lead, "handIn", res);
+  const thanks = g.toasts[g.toasts.length - 1];
+  ok(thanks && thanks.text.includes(S.rewardWords(dq.reward)) && !/\b\d+ [A-Z]/.test(thanks.text), `dog: the thank-you toast does not give the reward in running text (${thanks && thanks.text})`);
+  ok(I.talk && I.talk.action === "name", `dog: after the hand-in the bubble did not reopen to name the dog (${I.talk && I.talk.action})`);
+  I.update(0.05);
+  I.interact();
+  ok(same(g.cards[g.cards.length - 1], [lead, "name"]), `dog: E did not ask for the name card (${JSON.stringify(g.cards)})`);
+  const name = S.nameDog(W.DOG.ideas[2] || W.DOG.ideas[0]);
+  I.crewCardDone(lead, "name", { name });
+  const last = g.toasts[g.toasts.length - 1];
+  ok(name && last && last.text.includes(name), `dog: no toast names the dog (${last && last.text})`);
+  ok(!I.talk, "dog: the bubble stayed open after naming");
+  ok(JSON.parse(g.store.get("zs.save.1")).crew.dog.name === name, "dog: the name is not in the save");
+  ok(I.crewAction(lead) === null || I.crewAction(lead).action !== "name", "dog: the dog is asked for a name again");
+});
+
+/* ---------- The buildings ---------- */
+/** Tiles the player can walk to from a tile, opening shut doors on the way (never the cache or stash door):
+    Map "x,y" -> the tile it was reached from (null at the start). */
+function playerWays(I, from) {
+  const ok2 = (x, y) => x >= 0 && y >= 0 && x < I.gw && y < I.gh && (I.grid[y][x] === "O" || !I.solidForPlayer(x + 0.5, y + 0.5));
+  const prev = new Map([[from.join(","), null]]);
+  const q = [from];
+  for (let i = 0; i < q.length; i++) {
+    const [x, y] = q[i];
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const k = x + dx + "," + (y + dy);
+      if (prev.has(k) || !ok2(x + dx, y + dy)) continue;
+      prev.set(k, [x, y]);
+      q.push([x + dx, y + dy]);
+    }
+  }
+  return prev;
+}
+/** The tiles from the player's tile to `to` ([x, y]), or null when there is no way. */
+function playerPath(I, to) {
+  const from = [Math.floor(I.player.x), Math.floor(I.player.y)];
+  const prev = playerWays(I, from);
+  if (!prev.has(to.join(","))) return null;
+  const out = [];
+  for (let c = to; c; c = prev.get(c.join(","))) out.push(c);
+  return out.reverse();
+}
+/** Walk the player along tiles with the real controls: W held, facing the next tile's middle, each frame stepped;
+    a shut door ahead is opened as E opens it (the building's Door hook, then toggleDoor). each() runs after every
+    frame (false stops). True once at the last tile. */
+function walk(g, tiles, each) {
+  const { I } = g;
+  const p = I.player;
+  try {
+    for (let i = 1; i < tiles.length; i++) {
+      const [tx, ty] = tiles[i];
+      const door = I.doors.find((d) => d.x === tx && d.y === ty && !d.open);
+      if (door && !I.modeCall("Door", door)) I.toggleDoor(door);
+      for (let n = 0; Math.hypot(tx + 0.5 - p.x, ty + 0.5 - p.y) > 0.12; n++) {
+        if (n > 120) return false; // stuck on something
+        p.a = Math.atan2(ty + 0.5 - p.y, tx + 0.5 - p.x);
+        I.keys.w = true;
+        I.update(0.05);
+        if (each && each() === false) return false;
+      }
+    }
+    return true;
+  } finally {
+    I.keys.w = false;
+  }
+}
+/** Into a building on a trip (S.trip open): its walkers gone, so nothing gets in the way of the checks. */
+function enterBuilding(g, loc) {
+  const { I } = g;
+  I.enter(loc);
+  I.stop();
+  I.walkers.length = 0;
+  I.player.maxHp = I.player.hp = 1e9;
+  I.toastPickup = false;
+  return I;
+}
+const placeOf = (W, id) => W.LOCATIONS.find((l) => l.id === id);
+const accept = (S, q) => {
+  if (!S.isKnown(q.at)) S.save.known.push(q.at);
+  S.save.crew.quests[q.id] = { state: "active", day: S.save.day, doneDay: null };
+  S.commit();
+};
+
+simGroup("building", "buildings: a story object (or the dog) waits only once its quest is accepted", () => {
+  const g = engineGame(201);
+  const { I, S, W, ZSR: Z } = g;
+  const QS = W.QUESTS || [];
+  const qScale = Z.CREW_ART.scale.qObj;
+  QS.forEach((q) => {
+    S.newGame(1, "Sim");
+    const loc = placeOf(W, q.at);
+    if (!S.isKnown(q.at)) S.save.known.push(q.at);
+    S.startTrip();
+    enterBuilding(g, loc);
+    const none = !I.questPickups.length && !I.tripDog && !I.props.some((pr) => pr.art === "qObj");
+    ok(none, `buildings: in ${loc.id} before ${q.id} is accepted, a story object or the dog waits`);
+    S.trip = null;
+    accept(S, q);
+    S.startTrip();
+    enterBuilding(g, loc);
+    const x = q.spot[0] + 0.5;
+    const y = q.spot[1] + 0.5;
+    const giver = Z.crewName(q.giver);
+    if (q.kind === "dog") {
+      const d = I.tripDog;
+      ok(d && !d.follow && d.x === x && d.y === y && d.prop && !d.prop.solid && I.props.includes(d.prop), `buildings: ${q.id}: the dog does not sit on its spot ${q.spot} (${d && d.x},${d && d.y})`);
+      ok(!I.questPickups.length, `buildings: ${q.id}: a story object waits with the dog`);
+    } else {
+      const pk = I.questPickups.find((o) => o.id === q.id);
+      const pr = pk && pk.prop;
+      ok(I.questPickups.length === 1 && pr && pr.x === x && pr.y === y && I.props.includes(pr), `buildings: ${q.id}: its object is not on the spot ${q.spot} in ${loc.id}`);
+      ok(pr && pr.art === "qObj" && pr.opts && pr.opts.kind === q.object.art && Math.abs(pr.scale - qScale) < 1e-9 && !pr.solid && !pr.hidden && !I.solidAt(x, y), `buildings: ${q.id}: its prop is ${pr && JSON.stringify({ art: pr.art, opts: pr.opts, scale: pr.scale, solid: pr.solid })}`);
+      ok(!I.tripDog, `buildings: ${q.id}: the dog waits with a story object`);
+    }
+    ok(I.hud.goal.textContent.includes("Find") && I.hud.goal.textContent.includes(giver), `buildings: ${q.id}: the goal line does not say what to find for ${giver} ("${I.hud.goal.textContent}")`);
+    S.trip = null;
+  });
+});
+
+simGroup("building", "buildings: walking onto every story object, a death, a second trip, home", () => {
+  const g = engineGame(202);
+  const { I, S, W, ZSR: Z } = g;
+  const nothing = (Z.textAt((t) => (t.recap && t.recap.haul ? t.recap : null)) || {}).nothing;
+  (W.QUESTS || []).filter((q) => q.kind !== "dog").forEach((q) => {
+    S.newGame(1, "Sim");
+    accept(S, q);
+    const loc = placeOf(W, q.at);
+    S.startTrip();
+    enterBuilding(g, loc);
+    // nothing else to pick up or read on the way: only the object's tag counts toward words read
+    I.items.forEach((it) => (it.taken = true));
+    I.piles.forEach((pl) => (pl.taken = true));
+    [I.keyPickup, I.rodPickup, I.gunPickup].forEach((x) => x && (x.taken = true));
+    S.trip.signs = (S.trip.signs || []).concat(I.signs.map((sg) => sg.id));
+    const pk = I.questPickups.find((o) => o.id === q.id);
+    const path = playerPath(I, q.spot);
+    if (!ok(pk && path, `buildings: ${q.id}: no way to its spot ${q.spot} in ${loc.id}`)) return;
+    const w0 = S.trip.wordsRead;
+    let at = null;
+    const there = walk(g, path, () => {
+      if (S.trip.quest.includes(q.id)) {
+        at = Math.hypot(I.player.x - pk.x, I.player.y - pk.y);
+        return false;
+      }
+    });
+    ok(at != null && at < 0.6, `buildings: ${q.id}: walking onto it did not pick it up (${there ? "at the spot" : "the walk stopped"}; trip.quest ${S.trip.quest})`);
+    if (at == null) return;
+    I.update(0.05);
+    const tag = I.tagPanel;
+    ok(pk.prop.hidden && pk.taken, `buildings: ${q.id}: its prop still shows after the pick-up`);
+    // (a wall sign in reading reach takes the read panel first, as for any item's tag)
+    ok(tag && tag.title === q.object.name && tag.status.includes(Z.crewName(q.giver)) && (I.panelKey === tag.key || I.nearReadable()), `buildings: ${q.id}: the tag panel does not show ${q.object.name} for ${Z.crewName(q.giver)} (${tag && tag.title}, ${tag && tag.status})`);
+    ok(tag && S.trip.wordsRead - w0 === Z.wordCount(tag.text) && S.save.crew.read.includes("quest:" + q.id + ":tag"), `buildings: ${q.id}: its tag's words counted ${S.trip.wordsRead - w0}, not ${tag && Z.wordCount(tag.text)}`);
+    stepFor(g, 1);
+    ok(S.trip.wordsRead - w0 === Z.wordCount(tag ? tag.text : ""), `buildings: ${q.id}: its tag's words counted again`);
+    // back in on the same trip: nothing waits (you have it)
+    I.buildingLeave();
+    enterBuilding(g, loc);
+    ok(!I.questPickups.length && !I.props.some((pr) => pr.art === "qObj" && !pr.hidden), `buildings: ${q.id}: back in on the same trip, it waits again`);
+    // a death throws the trip away: on the next trip it waits again
+    S.abandonTrip();
+    ok(S.questState(q.id) === "active" && !S.questHeld(q.id), `buildings: ${q.id}: after a death it is not still waiting`);
+    S.startTrip();
+    enterBuilding(g, loc);
+    const again = I.questPickups.find((o) => o.id === q.id);
+    ok(again && !again.prop.hidden, `buildings: ${q.id}: after a death the next trip does not find it`);
+    I.items.forEach((it) => (it.taken = true));
+    I.piles.forEach((pl) => (pl.taken = true));
+    if (again) {
+      standAt(g, again.x, again.y, again.x, again.y - 1);
+      I.updatePickups();
+    }
+    I.buildingLeave();
+    // home: found, on the day page with June's ledger line, and a day that brought only it is not "nothing"
+    S.returnHome();
+    const entry = S.save.log[S.save.log.length - 1];
+    ok(S.questState(q.id) === "found" && entry && same(entry.quests, [q.id]), `buildings: ${q.id}: home, it is ${S.questState(q.id)} and the day log has ${JSON.stringify(entry && entry.quests)}`);
+    const recap = Z.recapText(entry.recap);
+    ok(recap && (!nothing || !recap.includes(nothing)), `buildings: ${q.id}: the day it came home reads "${nothing}"`);
+  });
+});
+
+simGroup("building", "buildings: the dog follows you through the doors and home", () => {
+  const g = engineGame(203);
+  const { I, S, W, ZSR: Z } = g;
+  const q = (W.QUESTS || []).find((x) => x.kind === "dog");
+  if (!ok(q, "dog: no dog quest")) return;
+  S.newGame(1, "Sim");
+  accept(S, q);
+  const loc = placeOf(W, q.at);
+  S.startTrip();
+  enterBuilding(g, loc);
+  const d = I.tripDog;
+  if (!ok(d && !d.follow, `dog: it does not wait in ${loc.id}`)) return;
+  // walk up to it, look at it, hold out the treats
+  const ways = playerWays(I, [Math.floor(I.player.x), Math.floor(I.player.y)]);
+  const near = [...ways.keys()].map((k) => k.split(",").map(Number)).filter(([x, y]) => {
+    const r = Math.hypot(x + 0.5 - d.x, y + 0.5 - d.y);
+    return r >= 1 && r <= 1.8 && I.lineClear(x + 0.5, y + 0.5, d.x, d.y) && !I.solidForPlayer(x + 0.5, y + 0.5);
+  });
+  const path = near.length && playerPath(I, near[0]);
+  if (!ok(path && walk(g, path), `dog: no way to walk up to the dog in ${loc.id}`)) return;
+  standAt(g, I.player.x, I.player.y, d.x, d.y);
+  const f = I.facing();
+  ok(f && f.kind === "dog" && I.buildingHint(f) === "Press E to hold out " + Z.crewName(q.giver) + "'s treats", `dog: facing it gives ${f && f.kind} "${f && I.buildingHint(f)}"`);
+  I.interact();
+  ok(S.trip.dog === true && d.follow, "dog: E with the treats did not make it follow you");
+  I.toastPickup = false;
+  // to the far end of the building (doors on the way) and back: never in a wall, never far, sits by you when you stop
+  const ways2 = playerWays(I, [Math.floor(I.player.x), Math.floor(I.player.y)]);
+  const steps = (k) => {
+    let n = 0;
+    for (let c = k.split(",").map(Number); ways2.get(c.join(",")); c = ways2.get(c.join(","))) n++;
+    return n;
+  };
+  const farKey = [...ways2.keys()].reduce((a, k) => (steps(k) > steps(a) ? k : a));
+  const start = [Math.floor(I.player.x), Math.floor(I.player.y)];
+  const bad = { wall: 0, far: 0 };
+  const watch = () => {
+    if (I.solidForPlayer(d.x, d.y)) bad.wall++;
+    if (Math.hypot(d.x - I.player.x, d.y - I.player.y) > 6.3) bad.far++;
+  };
+  const out = playerPath(I, farKey.split(",").map(Number));
+  const doorsOnWay = out ? out.filter(([x, y]) => I.grid[y][x] === "O").length : 0;
+  ok(out && walk(g, out, watch), `dog: could not walk to the far end of ${loc.id}`);
+  stepFor(g, 3, watch);
+  const sitFar = Math.hypot(d.x - I.player.x, d.y - I.player.y);
+  ok(d.pose === "sit" && sitFar <= 1.65, `dog: after 3 s still at the far end it is ${d.pose}, ${sitFar.toFixed(2)} tiles away`);
+  const back = playerPath(I, start);
+  ok(back && walk(g, back, watch), `dog: could not walk back from the far end of ${loc.id}`);
+  stepFor(g, 3, watch);
+  const sitBack = Math.hypot(d.x - I.player.x, d.y - I.player.y);
+  ok(d.pose === "sit" && sitBack <= 1.65, `dog: after 3 s still back at the start it is ${d.pose}, ${sitBack.toFixed(2)} tiles away`);
+  ok(doorsOnWay > 0, `dog: the walk in ${loc.id} went through no door (nothing to check the doors with)`);
+  ok(!bad.wall && !bad.far, `dog: on the walk it was in a wall ${bad.wall} frames and over 6.3 tiles away ${bad.far} frames`);
+  // a door shut with the dog in its doorway: the dog comes through to your side first
+  const door = I.doors.find((x) => out && out.some(([tx, ty]) => tx === x.x && ty === x.y));
+  if (door) {
+    if (!door.open) I.toggleDoor(door);
+    const ways3 = playerWays(I, [door.x, door.y]);
+    // the tile beside the door on your side (the nearer one)
+    const side = [[1, 0], [-1, 0], [0, 1], [0, -1]]
+      .map(([dx, dy]) => [door.x + dx, door.y + dy])
+      .filter(([x, y]) => ways3.has(x + "," + y) && !I.solidForPlayer(x + 0.5, y + 0.5))
+      .sort((a, b) => Math.hypot(a[0] + 0.5 - I.player.x, a[1] + 0.5 - I.player.y) - Math.hypot(b[0] + 0.5 - I.player.x, b[1] + 0.5 - I.player.y))[0];
+    const path3 = side && playerPath(I, side);
+    if (ok(path3 && walk(g, path3), "dog: could not stand beside the door")) {
+      d.x = door.x + 0.5;
+      d.y = door.y + 0.5;
+      d.prop.x = d.x;
+      d.prop.y = d.y;
+      standAt(g, I.player.x, I.player.y, door.x + 0.5, door.y + 0.5);
+      ok(I.dogInDoorway(door), "dog: setup, it is not in the doorway");
+      const f2 = I.facing();
+      ok(f2 && f2.kind === "idoor" && f2.obj === door, `dog: facing the door gives ${f2 && f2.kind}`);
+      I.interact();
+      const toYou = (d.x - door.x - 0.5) * (I.player.x - door.x - 0.5) + (d.y - door.y - 0.5) * (I.player.y - door.y - 0.5) > 0;
+      ok(!door.open && !I.dogInDoorway(door) && toYou && !I.solidForPlayer(d.x, d.y), `dog: E at the door with the dog in it: door ${door.open ? "open" : "shut"}, dog at ${d.x.toFixed(2)},${d.y.toFixed(2)} (${toYou ? "your side" : "the far side"})`);
+      // left behind the shut door (it got there first), you walk on: it catches up rather than stay shut in
+      const far = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [door.x + dx, door.y + dy]).find(([x, y]) => !I.solidForPlayer(x + 0.5, y + 0.5) && Math.hypot(x + 0.5 - I.player.x, y + 0.5 - I.player.y) > 1.5);
+      const mine = I.reachable(Math.floor(I.player.x), Math.floor(I.player.y), false); // this side of the shut door
+      const away = [...mine.entries()].filter(([, n]) => n >= 5 && n <= 8).map(([k]) => k.split(",").map(Number))[0];
+      const path4 = away && playerPath(I, away);
+      if (ok(far && path4 && !path4.some(([x, y]) => x === door.x && y === door.y), "dog: setup, nowhere to leave the dog behind the door")) {
+        d.x = far[0] + 0.5;
+        d.y = far[1] + 0.5;
+        d.trail.length = 0;
+        let worst = 0;
+        const track = () => {
+          worst = Math.max(worst, Math.hypot(d.x - I.player.x, d.y - I.player.y));
+          if (I.solidForPlayer(d.x, d.y)) bad.wall++;
+        };
+        walk(g, path4, track);
+        stepFor(g, 4, track);
+        const end = Math.hypot(d.x - I.player.x, d.y - I.player.y);
+        ok(worst <= 6.3 && end <= 1.65 && d.pose === "sit" && !door.open, `dog: shut behind a door it did not catch up (as far as ${worst.toFixed(2)} tiles, ${end.toFixed(2)} at the end, ${d.pose}; door ${door.open ? "open" : "shut"})`);
+      }
+    }
+  }
+  I.buildingLeave();
+  S.returnHome();
+  ok(S.dogHome() && S.questState(q.id) === "found" && same(S.save.log[S.save.log.length - 1].quests, [q.id]), "dog: home, it is not home or its quest not found");
+});
+
+simGroup("building", "buildings: a gun never lies on a story quest's spot, and keeps its tile", () => {
+  const g = engineGame(204);
+  const { I, S, W, ZSR: Z } = g;
+  const gun = Z.Weapons.ORDER.find((id) => Z.Weapons.WEAPONS[id].danger);
+  const QS = W.QUESTS || [];
+  const places = [...new Set(QS.map((q) => q.at))];
+  const tile = () => (I.gunPickup ? Math.floor(I.gunPickup.x) + "," + Math.floor(I.gunPickup.y) : null);
+  const bad = [];
+  places.forEach((at) => {
+    const loc = placeOf(W, at);
+    const spots = new Set(QS.filter((q) => q.at === at).map((q) => q.spot.join(",")));
+    S.newGame(1, "Sim");
+    S.save.weapons.where = { [gun]: at };
+    S.save.weapons.seed = 1;
+    if (!S.isKnown(at)) S.save.known.push(at);
+    // the same tile with no quest open, and with every quest here accepted
+    S.startTrip();
+    enterBuilding(g, loc);
+    const none = tile();
+    S.trip = null;
+    QS.filter((q) => q.at === at).forEach((q) => accept(S, q));
+    S.startTrip();
+    enterBuilding(g, loc);
+    const all = tile();
+    if (!none || none !== all) bad.push(`${at}: the gun lies at ${none} with no quest open and ${all} with them all accepted`);
+    // over a few seeds: where it lies is where it lay before the quests came, unless that is a quest's spot
+    const Q = W.QUESTS;
+    for (let seed = 1; seed <= 6; seed++) {
+      S.save.weapons.seed = seed;
+      W.QUESTS = [];
+      I.placeGun(loc, I.startPos);
+      const raw = tile();
+      W.QUESTS = Q;
+      I.placeGun(loc, I.startPos);
+      const now = tile();
+      if (spots.has(now)) bad.push(`${at} seed ${seed}: the gun lies on a quest's spot ${now}`);
+      else if (!spots.has(raw) && now !== raw) bad.push(`${at} seed ${seed}: the quests moved the gun from ${raw} to ${now}`);
+    }
+    // a quest spot right where the gun would lie: it takes the next tile instead
+    S.save.weapons.seed = 1;
+    W.QUESTS = [];
+    I.placeGun(loc, I.startPos);
+    const raw = tile();
+    W.QUESTS = Q.concat([{ id: "zz-test", giver: QS[0].giver, at, spot: raw.split(",").map(Number) }]);
+    I.placeGun(loc, I.startPos);
+    if (tile() === raw || !tile()) bad.push(`${at}: with a quest spot on the gun's tile ${raw}, it still lies there (or nowhere)`);
+    W.QUESTS = Q;
+    S.trip = null;
+  });
+  ok(!bad.length, `guns: ${bad.slice(0, 6).join("; ")}`);
+});
+
+/* ---------- A whole play-through ---------- */
+simGroup("loop", "play-through: every story quest, the errands, the perks and the save, day by day", () => {
+  const g = engineGame(301);
+  const { I, S, W, ZSR: Z } = g;
+  const QS = W.QUESTS || [];
+  if (!QS.length) return;
+  S.newGame(1, "Loop");
+  const ids = S.crewIds();
+  const toFind = W.LOCATIONS.filter((l) => l.type !== "base").map((l) => l.id);
+  const PERKS = Object.keys(S.crewFx());
+  const counts = { offers: 0, errands: 0, quests: 0, perks: 0, days: 0, saves: 0 };
+  const bad = [];
+  const fail = (m) => bad.length < 8 && bad.push(`day ${S.save.day}: ${m}`);
+  /** What a perk changes, read off the game (not crewFx): effects(), the van, your health, the crew's numbers. */
+  const perkNow = () => {
+    const fx = S.effects();
+    return { foodPerDay: fx.foodPerDay, medsPerDay: fx.medsPerDay, footHp: S.footMaxHp(), vanHp: S.vanMaxHp(), lookoutEarly: S.crewLookoutSeconds(), healAmount: S.crewHealAmount(), crowbarCost: S.canCraftTool("crowbar").scrap, crewRepairFree: S.crewRepairCost("fence") === 0, scrapPerDay: S.crewFx().scrapPerDay };
+  };
+  const maxDays = Math.max(40, ...QS.map((q) => ((q.when && q.when.day) || 1) + 15));
+  let oldChecked = false;
+  for (let n = 0; n < maxDays; n++) {
+    // home: talk to each of the crew; answer what they ask (the card, as js/main.js shows it)
+    S.trip = null;
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    ids.forEach((id) => {
+      const c = crewOf(g, id);
+      if (!c) return;
+      standAt(g, c.x, c.y + 0.5, c.x, c.y);
+      I.crewOpen(id);
+      for (let k = 0; I.talk && I.talk.action && k < 6; k++) {
+        const a = I.talk.action;
+        if (a === "offer") {
+          const o = S.offer(id);
+          counts.offers++;
+          if (o.kind === "errand") {
+            counts.errands++;
+            if (!S.crewErrandsOpen(id)) fail(`${id} asked for an errand (${o.def.id}) before the first story quest was handed in`);
+            if (!S.crewItemStocked(o.def.item)) fail(`${id} asked for ${o.def.item}, which no known shelf stocks`);
+          }
+          const yes = S.accept(id, o);
+          if (!yes) fail(`${id}'s offer ${o.def.id} could not be accepted`);
+          I.crewCardDone(id, "offer", { accepted: yes, kind: o.kind, id: o.def.id, title: "" });
+        } else if (a === "handIn") {
+          const r = S.request(id);
+          const was = perkNow();
+          const res = S.handIn(id, r.def.id);
+          if (!res) fail(`${id}: ${r.def.id} could not be handed in`);
+          I.crewCardDone(id, "handIn", res);
+          if (res && res.kind === "quest") {
+            counts.quests++;
+            const perk = (res.def.reward && res.def.reward.perk) || {};
+            const now = perkNow();
+            Object.entries(perk).forEach(([k, v]) => {
+              counts.perks++;
+              const okP = k === "crowbarCost" ? now[k] === Math.min(v, was[k]) : typeof v === "boolean" ? now[k] === v : Math.abs(now[k] - was[k] - v) < 1e-9;
+              if (!PERKS.includes(k) || !okP) fail(`${res.def.id}'s perk ${k} ${v} did not apply (${was[k]} -> ${now[k]})`);
+            });
+          }
+        } else if (a === "name") {
+          I.crewCardDone(id, "name", { name: S.nameDog(W.DOG.ideas[0]) });
+        }
+      }
+      if (I.talk) I.crewTalkEnd();
+    });
+    if (QS.every((q) => S.questState(q.id) === "done") && (!S.dogHome() || S.dogName())) break;
+    // a trip: every open story object (or the dog) picked up where it waits, each errand's items off the shelves,
+    // and one more place found (as a note would show it)
+    S.startTrip();
+    const picked = [];
+    QS.filter((q) => S.questState(q.id) === "active").forEach((q) => {
+      const loc = placeOf(W, q.at);
+      enterBuilding(g, loc);
+      if (q.kind === "dog") I.dogTreat(I.tripDog);
+      else {
+        standAt(g, q.spot[0] + 0.5, q.spot[1] + 0.5, 0, 0);
+        I.updatePickups();
+      }
+      if (S.questHeld(q.id)) picked.push(q.id);
+      else fail(`${q.id} could not be picked up in ${loc.id}`);
+      I.buildingLeave();
+    });
+    ids.forEach((id) => {
+      const e = S.save.crew.errand[id];
+      if (e && e.have < e.count) S.trip.cargo[e.item] = (S.trip.cargo[e.item] || 0) + e.count - e.have;
+    });
+    const next = toFind.find((id) => !S.isKnown(id));
+    if (next) S.reveal([next]);
+    S.returnHome();
+    counts.days++;
+    const entry = S.save.log[S.save.log.length - 1];
+    if (!same((entry.quests || []).slice().sort(), picked.slice().sort())) fail(`the day log's quests ${JSON.stringify(entry.quests)} are not the ${JSON.stringify(picked)} brought home`);
+    // the save, as written, loads back the same
+    const json = JSON.stringify(S.save);
+    S.loadSave(1);
+    counts.saves++;
+    if (JSON.stringify(S.save) !== json) fail("the save did not load back the same");
+    // once, mid-game: the same save from before the crew came (no crew field) loads into another slot and plays on
+    if (!oldChecked && S.save.day >= 6) {
+      oldChecked = true;
+      const old = JSON.parse(json);
+      delete old.crew;
+      g.store.set("zs.save.2", JSON.stringify(old));
+      S.loadSave(2);
+      const c = S.save.crew;
+      if (!c || !same(Object.keys(c.trust), ids) || !ids.every((id) => S.trust(id) === 0) || Object.keys(c.quests).length || c.dog.home) fail(`an old save without crew loaded as ${JSON.stringify(c && { trust: c.trust, quests: c.quests })}`);
+      tripHome(S);
+      if (S.save.day !== old.day + 1) fail("an old save without crew could not play a day");
+      S.loadSave(1);
+    }
+  }
+  const done = QS.filter((q) => S.questState(q.id) === "done").length;
+  ok(done === QS.length, `play-through: ${done} of ${QS.length} story quests done in ${counts.days} days (open: ${QS.filter((q) => S.questState(q.id) !== "done").map((q) => q.id + " " + S.questState(q.id))})`);
+  ok(!S.dogHome() || S.dogName(), "play-through: the dog came home but was never named");
+  ok(counts.errands > 0 && counts.perks > 0, `play-through: no errands (${counts.errands}) or perks (${counts.perks}) along the way`);
+  const fx = S.crewFx();
+  const want = {};
+  QS.forEach((q) => Object.entries((q.reward && q.reward.perk) || {}).forEach(([k, v]) => (want[k] = k === "crowbarCost" ? Math.min(want[k] == null ? v : want[k], v) : typeof v === "boolean" ? want[k] || v : (want[k] || 0) + v)));
+  ok(Object.entries(want).every(([k, v]) => (typeof v === "number" ? Math.abs(fx[k] - v) < 1e-9 : fx[k] === v)), `play-through: the perks at the end ${JSON.stringify(fx)} are not every quest's (${JSON.stringify(want)})`);
+  ok(oldChecked, "play-through: the old save was never tried");
+  ok(!bad.length, `play-through: ${bad.join("; ")}`);
+  sim.loopDays = counts.days;
+  sim.loopQuests = done;
+  sim.loopErrands = counts.errands;
 });
 
 if (errors.length) {
@@ -1192,5 +2530,8 @@ if (errors.length) {
 console.log(
   `OK: crew: ${checks} checks. State on a synthetic crew (trust and stars, talk once a day, topics and moods, tips, offers in order with their gates, ` +
     `one story quest and one errand open at once, errands after the first quest and only for stocked items, quests picked up, lost to a death, found at home and handed in with rewards and perks, errands, give up, raids, reports (free fixes never "0 scrap"), the dog and the ledger, words, old saves, an empty roster); ` +
-    (real.skipped ? "the real crew facts are still empty (skipped)." : `the real facts: ${real.texts} texts at every level, ${real.topics} topics told in order, ${real.quests} story quests run through, each on its day, and a ledger that never wishes for a dog at home.`)
+    (real.skipped ? "the real crew facts are still empty (skipped); " : `the real facts: ${real.texts} texts at every level, ${real.topics} topics told in order, ${real.quests} story quests run through, each on its day, and a ledger that never wishes for a dog at home; `) +
+    `the engine: the yard (${sim.yard} checks: props, posts at every room level, ten minutes of wandering, Tomas's repairs, the shelter, a raid, Pip's calls, facing, the bubble, the card, the dog), ` +
+    `the buildings (${sim.building} checks: every story object waits once accepted and is walked onto, a death, home; the dog through the doors; guns off the quest spots) ` +
+    `and a play-through (${sim.loop} checks: ${sim.loopQuests || 0} story quests and ${sim.loopErrands || 0} errands in ${sim.loopDays || 0} days, the save loaded back each day).`
 );

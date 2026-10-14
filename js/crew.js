@@ -106,10 +106,32 @@
         this.crewDogLook("sit", 0, false);
       }
     },
-    /** dressYard wiped the props: put the crew and the dog back (the same prop objects, their pictures kept). */
+    /** dressYard wiped the props: put the crew and the dog back (the same prop objects, their pictures kept). A
+        build may have gone up across a way planned before it: crewUpdate plans those again (crewReroute). */
     crewDress() {
       (this.crew || []).forEach((c) => c.prop && this.addProp(c.prop));
       if (this.dog && this.dog.prop) this.addProp(this.dog.prop);
+      this.crewRerouteDue = true;
+    },
+    /** After the yard is rebuilt: a walk planned before a build went up goes round it now (with no way left, they
+        stop and choose again), and the dog, if its leader's footsteps cross the build, joins them at once (it
+        would walk into the build). Nobody walks into something just built. */
+    crewReroute(pass) {
+      this.crewRerouteDue = false;
+      (this.crew || []).forEach((c) => {
+        if ((c.state !== "walk" && c.state !== "run") || !c.path || !c.path.length) return;
+        const end = c.path[c.path.length - 1];
+        const path = this.crewPath(c.x, c.y, Math.floor(end[0]), Math.floor(end[1]), end);
+        if (path) c.path = path;
+        else if (c.state === "walk") {
+          c.path = [];
+          c.job = null;
+          c.state = "idle";
+        }
+      });
+      const d = this.dog;
+      const lead = d && this.crewDogLeader();
+      if (lead && d.trail.some(([x, y]) => !pass(Math.floor(x), Math.floor(y)))) this.crewDogTo(lead.x + 0.3, lead.y + 0.15);
     },
     /** A sprite kind's prop scale from the art (ZSR.CREW_ART.scale), else the contract's. */
     crewArtScale(kind) {
@@ -380,6 +402,7 @@
       }
       const R = rules();
       const pass = this.crewPass();
+      if (this.crewRerouteDue) this.crewReroute(pass);
       this.crew.forEach((c) => this.crewStep(c, dt, R, pass, wave));
       if (this.dog) this.crewDogStep(dt, R, pass, wave);
       if (wave) {
@@ -675,12 +698,14 @@
       info.shut = true;
     },
     /** A walker among the sheltered crew (within HURT_RANGE, in sight) for hurtSeconds hurts one of them
-        off-screen, each at most once a wave: you hear a shout; State.crewHurt takes a kit (else food) and trust. */
+        off-screen: you hear a shout; State.crewHurt takes a kit (else food) and trust. One raider hurts one crew
+        member (docs/CREW.md: "if it stands among the crew for hurtSeconds, one crew member is hurt"), never all
+        of them in turn while you are out at the fence; each crew member is hurt at most once a wave. */
     crewRaid(dt, R) {
       const info = this.crewWaveInfo;
       if (!info) return;
       for (const z of this.walkers) {
-        if (z.hp <= 0) continue;
+        if (z.hp <= 0 || z.crewHurt) continue;
         // the nearest sheltered crew member not yet hurt this wave, close and in sight (no lists: every frame of a wave)
         let c = null;
         let best = Infinity;
@@ -699,6 +724,7 @@
         z.crewT = (z.crewT || 0) + dt;
         if (z.crewT < R.hurtSeconds) continue;
         z.crewT = 0;
+        z.crewHurt = true;
         info.hurt.add(c.id);
         State().crewHurt(c.id);
         const room = W().HOUSE.rooms[R.shelter];
@@ -708,11 +734,13 @@
     },
 
     /* ---------- The lookout ---------- */
-    /** Pip (the lookout job) calls the next wave (phase.next) lookoutSeconds (with perks) before it comes.
-        Not after the dinner bell: that wave comes at once, and its own toast says where. */
+    /** Pip (the lookout job) calls the next wave (phase.next) lookoutSeconds (with perks) before it comes. Only a
+        real wave: a calm that stays quiet is not called ("Still quiet" says so when it ends). Not after the
+        dinner bell: that wave comes at once, and its own toast says where. */
     crewLookout() {
       const ph = this.phase;
       if (!ph || ph.kind !== "calm" || !ph.next || ph.called || ph.forced) return;
+      if (!ph.next.size || ph.next.size === "none") return;
       const S = State();
       if (ph.lookT == null) ph.lookT = S.crewLookoutSeconds();
       if (ph.t > ph.lookT) return;
@@ -943,8 +971,10 @@
         if (r && r.kind === "quest" && r.def.kind === "dog") return { action: "handIn", line: name + " wants to thank you for the dog" };
         if (r && r.kind === "quest") what = inText(ZSR.crewText("quest", r.def.id, "title"), "the");
         else if (r) {
+          // the items counted in running text: "give Tomas 2 boxes of nails" (ITEMS one / many)
           const v = S.requestVars(r);
-          what = v.count + " " + v.item;
+          const item = (r.st && r.st.item) || r.def.item;
+          what = ZSR.itemCount ? ZSR.itemCount(item, v.count) : v.count + " " + v.item;
         }
         return { action: "handIn", line: "give " + name + " " + (what || "what you found") };
       }
@@ -954,7 +984,8 @@
       return null;
     },
     /** Live counts for the tips, and June's patch-up: she heals you now when the heal job is unlocked, you are
-        hurt and she has not yet this calm (State.crewHealAmount; logged for her report). */
+        hurt and she has not yet this calm (State.crewHealAmount). Her heal tip tells it as it happens, so it is
+        never logged for a report too (the next talk would tell it again). */
     crewTipCtx(id) {
       const S = State();
       const ph = this.phase;
@@ -997,7 +1028,6 @@
         p.hp = Math.min(p.maxHp, p.hp + ctx.heal);
         p.hurt = 0;
         this.phase.crewHealed = true;
-        S.logWork(id, "heal", ctx.heal);
         Audio().play("correct");
         this.updateHud();
       }

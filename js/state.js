@@ -617,7 +617,10 @@
           s.inventory.meds = (s.inventory.meds || 0) + 1;
         }
         if (this.crewDayPassed) this.crewDayPassed(); // late errands, the dog's food, the scrapPerDay perk
-        const entry = this.logDay({ items: Object.values(t.cargo).reduce((a, b) => a + b, 0), scrap: t.scrap, notes: t.notes.length, keys: (t.keys || []).length });
+        // quests: story objects (and the dog) brought home, so a day with only one of those is not "nothing"
+        const haul = { items: Object.values(t.cargo).reduce((a, b) => a + b, 0), scrap: t.scrap, notes: t.notes.length, keys: (t.keys || []).length };
+        if (crewHome.length) haul.quests = crewHome.length;
+        const entry = this.logDay(haul);
         if (crewHome.length) entry.quests = crewHome; // June's ledger line for each story object brought home
       }
       this.trip = null;
@@ -1080,7 +1083,17 @@
     const f = ((kind === "journal" ? ZSR.WORLD.JOURNAL : ZSR.WORLD.RADIO) || [])[idx];
     return { title: "", text: f ? f.facts.join(" ") : "" };
   };
-  /** The recap of a day, from the level's templates: {items} {scrap} {notes} {food} {room} {needs} {keys}. */
+  /** An item counted in running text: "1 box of nails", "2 boxes of nails" (WORLD.ITEMS one / many; an item
+      without them falls back to its label, "2 Generator"). For rewards, what a build still needs, and the crew. */
+  ZSR.itemCount = function itemCount(item, n) {
+    const it = ((ZSR.WORLD && ZSR.WORLD.ITEMS) || {})[item];
+    return n + " " + (it ? (n === 1 ? it.one : it.many) || it.name : String(item));
+  };
+  /** "a", "a and b", "a, b and c". */
+  const listWords = (parts) => (parts.length < 2 ? parts.join("") : parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1]);
+  /** The recap of a day, from the level's templates: {items} {scrap} {notes} {food} {room} {needs} {keys}.
+      r.quests: story objects (or the dog) brought home that day; with nothing else, the "nothing" line is left out
+      (June's ledger line for each follows the recap on the day page). */
   ZSR.recapText = function recapText(r) {
     if (!r) return "";
     const tpl = ZSR.textAt((t) => (t.recap && t.recap.haul ? t.recap : null)) || {
@@ -1096,10 +1109,11 @@
     const W2 = ZSR.WORLD;
     const fill = (s, o) => String(s || "").replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ? o[k] : m));
     const nb = r.next;
-    const needs = nb ? Object.entries(nb.missing || {}).map(([k, n]) => n + " " + W2.ITEMS[k].name).concat(nb.scrap ? [nb.scrap + " scrap"] : []).join(", ") : "";
+    const needs = nb ? listWords(Object.entries(nb.missing || {}).map(([k, n]) => ZSR.itemCount(k, n)).concat(nb.scrap ? [nb.scrap + " scrap"] : [])) : "";
     const o = Object.assign({}, r, { room: nb ? W2.BASE_ROOMS[nb.room].name : "", needs });
     const out = [];
-    out.push(fill(r.items || r.scrap ? tpl.haul : tpl.nothing, o));
+    if (r.items || r.scrap) out.push(fill(tpl.haul, o));
+    else if (!r.quests) out.push(fill(tpl.nothing, o));
     if (r.notes) out.push(fill(tpl.notes, o));
     if (r.keys) out.push(fill(tpl.keys, o));
     out.push(fill(r.hungry ? tpl.hungry : tpl.food, o));

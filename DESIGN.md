@@ -358,7 +358,8 @@ Judgment calls made while building the crew (each marked **Assumption** can chan
 - **The crew are not solid.** You and walkers pass through them and shots pass them by, so they
   never block a doorway, a fight or E at the cabin's spots (the crosshair has to be on them to talk).
 - **Harm in a raid** needs a raider among them for 6 seconds, at most once per crew member per wave,
-  and costs 1 medical kit from storage, else 2 food (less if the pantry is short). **Assumption:**
+  and one raider hurts at most one of them (one left in the closet would otherwise cost three kits
+  and nine trust); it costs 1 medical kit from storage, else 2 food (less if the pantry is short). **Assumption:**
   6 seconds, half the raiders go for the closet. The dog is never hurt.
 - **Talk earns trust once a day; stars at 3, 8, 15, 24 and 35 points.** A quest is worth 5, an
   errand 3, a talk 1; a hurt costs 3, a late errand 2, a request given up 3. Quest n needs n-1
@@ -377,6 +378,9 @@ Judgment calls made while building the crew (each marked **Assumption** can chan
   names, so June asks for knee tape and Tomas for his father's thank-you card.
 - **Tips:** an urgent one wins (June when you are hurt or the food is gone, Pip's wave call);
   the others that apply take turns, one per talk; a fallback only when nothing else applies.
+- **June's patch-up is told once,** in the bubble that heals you; it is not repeated as a report.
+- **A walk across a plot is re-planned when a build goes up there,** so nobody walks into a new
+  structure.
 - **Pip calls only real waves** as lookout, and not after the dinner bell (that wave's own toast
   names the sides).
 - **Tomas fixes only what the base can pay for,** never with a walker in the gap, and says nothing

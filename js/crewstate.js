@@ -29,22 +29,28 @@
     return null;
   }
   const talkOf = (id) => (W().CREW_TALK || {})[id] || {};
+  // an item's label ("Box of nails": an errand's {item}, "2 of these: Box of nails"), and the item counted in running
+  // text ("2 boxes of nails": rewards and {needs}; ZSR.itemCount in js/state.js, from ITEMS one / many)
   const itemName = (k) => (W().ITEMS && W().ITEMS[k] ? W().ITEMS[k].name : String(k));
+  const itemCount = (k, n) => (ZSR.itemCount ? ZSR.itemCount(k, n) : n + " " + itemName(k));
   const roomName = (k) => (W().BASE_ROOMS && W().BASE_ROOMS[k] ? W().BASE_ROOMS[k].name : String(k));
   /** "a", "a and b", "a, b and c". */
   function listWords(parts) {
     return parts.length < 2 ? parts.join("") : parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1];
   }
-  /** A reward in plain words: "30 scrap", "30 scrap, 2 Lumber and 1 medical kit". */
+  /** A reward in plain words: "30 scrap", "30 scrap, 2 pieces of lumber and 1 medical kit", as the briefs promise it. */
   function rewardWords(r) {
     r = r || {};
     const parts = [];
     if (r.scrap) parts.push(r.scrap + " scrap");
-    Object.entries(r.items || {}).forEach(([k, n]) => n && parts.push(n + " " + itemName(k)));
+    Object.entries(r.items || {}).forEach(([k, n]) => n && parts.push(itemCount(k, n)));
     if (r.kits) parts.push(r.kits === 1 ? "1 medical kit" : r.kits + " medical kits");
     if (r.crowbars) parts.push(r.crowbars === 1 ? "1 crowbar" : r.crowbars + " crowbars");
-    // trap names are singular ("Spike trap"): "1 Spike trap", "2 Spike traps"
-    Object.entries(r.traps || {}).forEach(([k, n]) => n && parts.push(n + " " + (W().TRAPS && W().TRAPS[k] ? W().TRAPS[k].name : k) + (n === 1 ? "" : "s")));
+    // trap names are singular labels ("Spike trap"): in running text "1 spike trap", "2 spike traps"
+    Object.entries(r.traps || {}).forEach(([k, n]) => {
+      const name = W().TRAPS && W().TRAPS[k] ? W().TRAPS[k].name : k;
+      if (n) parts.push(n + " " + name.charAt(0).toLowerCase() + name.slice(1) + (n === 1 ? "" : "s"));
+    });
     return listWords(parts);
   }
   /** A number in [0, 1) from this save's seed and a key: the same every time it is asked (FNV-1a, then mixed). */
@@ -112,7 +118,7 @@
     build: (S) => {
       const nb = S.nextBuild();
       if (!nb || nb.ready) return null;
-      const needs = Object.entries(nb.missing || {}).map(([k, n]) => n + " " + itemName(k)).concat(nb.scrap ? [nb.scrap + " scrap"] : []);
+      const needs = Object.entries(nb.missing || {}).map(([k, n]) => itemCount(k, n)).concat(nb.scrap ? [nb.scrap + " scrap"] : []);
       return needs.length ? { room: roomName(nb.room), needs: listWords(needs) } : null;
     },
     keys: (S) => {

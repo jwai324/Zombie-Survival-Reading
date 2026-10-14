@@ -201,14 +201,17 @@ quests or errands need facts and words, not engine changes, within these limits.
   rewriting those briefs at six levels. A gun that lands on a quest tile takes the next tile.
 - **Errands** need their item on some place's restocking shelves; offers skip items no known place
   stocks.
+- **A new item** needs `one` and `many` count forms in `WORLD.ITEMS` (`tests/validate-crew.js`
+  checks), used for rewards and the build tip.
 - **The yard.** Posts are hand-placed tiles: moving a plot, the van or a cabin room means
   rechecking them (`npm test` does).
 - `SCALE:` spots: `CREW_RULES.stars` (one entry per star), `requestsPerCrew` (one errand slot in the
   save), the `crew.read` list, the dog's trail lengths (`js/crew.js`, `js/building.js`), the walker
   look-ahead for Pip's tip (`js/crewstate.js`), `QUESTS_PER_PLACE`, and the How it works paragraph
   bound (`tests/validate-text.js`).
-- `npm test` drives a full play-through of every story quest on the real facts; it grows with the
-  number of quests.
+- `npm test` drives a full play-through of every story quest on the real facts and the crew in the
+  yard and every quest building (`tests/validate-crew.js`, about 10 of npm test's 46 seconds); it
+  grows with the number of quests.
 
 ## Refactors worth doing before the next big jump
 

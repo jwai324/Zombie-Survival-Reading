@@ -192,7 +192,7 @@ facts carry the placeholders exactly.
 | June | `hungry` | food is 0 | |
 | June | `food` | always (fallback) | `{food}` crates, `{days}` trips it lasts |
 | June | `ready` | a room can be built now | `{room}` |
-| June | `build` | the next build is short of items | `{room}`, `{needs}` ("2 Lumber and 1 Box of nails") |
+| June | `build` | the next build is short of items | `{room}`, `{needs}` ("2 pieces of lumber and 1 box of nails") |
 | June | `heal` | you are hurt and she can heal (job) | `{hp}` she gives back |
 | Tomas | `van` | the van is below full | `{hp}`, `{max}`, `{cost}` scrap to fix |
 | Tomas | `vanFree` | the van is below full, Garage built | `{hp}`, `{max}` |
@@ -370,6 +370,14 @@ As built, beyond the table (js/crewstate.js):
   `trip.dogQuest`. Nothing in js/crewstate.js commits: the caller calls `ZSR.Main.syncYard()` (at
   the base) after the bubble closes, a card closes, or a give-up.
 - `ZSR.crewFill`: `{dog}` is the dog's name or "the dog"; "1 holes" and the like become singular.
+- Counted item words come from `WORLD.ITEMS[k].one` / `.many` through `ZSR.itemCount(item, n)`
+  ("1 seed packet", "2 boxes of nails"): rewards, `{needs}`, the errand hand-in line. An errand's
+  `{item}` stays the item's name, used as a label ("2 of these: Box of nails").
+- June's heal is told by her `heal` tip in the bubble that heals you, not logged as a report.
+  Pip's lookout calls only real waves (never "none", never after the bell). One raider hurts at
+  most one crew member; each crew member is hurt at most once a wave. A walk is re-planned when a
+  build goes up across it. The day log keeps `recap.quests`, so a day that brought home only a
+  story object or the dog is not "empty-handed".
 - The journal: once the dog is home, `logDay` skips the pages that wish for a dog (`dogWish: true` in
   `JOURNAL`) when the ledger repeats.
 
