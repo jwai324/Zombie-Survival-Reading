@@ -473,7 +473,8 @@ Judgment calls made while building the tutorial (each marked **Assumption** can 
   backpack, talk, computer, shoot) is a checklist, not an order. Shooting third happens where you
   start, in the open yard, so the practice walker always has room and never has to find a player shut
   in the office; the trip into the cabin (crew, computer) then leads straight out to the van.
-  Reordering is the one array `YARD_STEPS` (saves store step ids, so they keep what is done).
+  Reordering is the one array `YARD_STEPS` (saves store step ids, so they keep what is done), and the
+  order the engine test's walk-through expects.
 - **A step done early counts and its card is skipped,** so a veteran who walks, opens the backpack
   and talks loses three cards. The backpack step counts only B or the HUD Backpack button (not the
   pause menu's Backpack or the radio shelf's), the talk step any crew member but the dog, the computer
@@ -499,7 +500,9 @@ Judgment calls made while building the tutorial (each marked **Assumption** can 
   could be the first prompt met.
 - **The first click after a first-person card is eaten only when it is the click that takes the
   mouse back** (the pointer is not locked at mousedown). If Got it already took pointer lock, the next
-  click fires as usual, so the first shot at the practice walker works. Space always fires. Refused
+  click fires as usual, so the first shot at the practice walker works; once that lock lands nothing is
+  left to eat, so the click that takes the mouse back after a later note, map, backpack or pause fires
+  too (`js/interior.js` pointerlockchange clears `eatClick`). Space always fires. Refused
   pointer lock (an embedded page, or Got it by Enter in a browser that refuses a lock from a keydown)
   makes the next click take the mouse without firing; mouse look works unlocked anyway.
 - **A card never interrupts another panel.** The next yard card waits while a speech bubble, a lot
@@ -531,8 +534,20 @@ Judgment calls made while building the tutorial (each marked **Assumption** can 
   The "June says" caption folds away (at 800 px it wrapped over the face) and the side margins are
   thin, so a word like "backpack" fits its line. A ringed button keeps its ring only while the card
   still has 40% of the window's height beside it; otherwise the ring goes and the card shows as usual
-  (**Assumption:** `MIN_ROOM` in `js/tutorial-ui.js`). On a window as small as 800 x 600 the try line
-  can run past the bottom edge (the HUD's top row takes two rows there).
+  (**Assumption:** `MIN_ROOM` in `js/tutorial-ui.js`). **Judgment call:** at Huge the "Now you try"
+  panel shows only the current checklist step (its item, such as "Open the backpack") along the bottom
+  of the window, not the try line: at one inch a try line runs three to five lines, and under the HUD's
+  top row it covered the crosshair and the practice walker, or ran off the bottom, on every common
+  window size. The card has just said the full words. The panel steps aside while the game's own E hint
+  (low at Huge too) has words, since that hint then says what to do; so at Huge the E-too-soon pulse
+  is hidden while you face the van, and June's toast still says what is left. The arrow keeps its
+  head at Huge but not its label (a one-inch label had no room outside the HUD row); the step names
+  the target. On an 800 x 600 window at Huge the HUD's second row of buttons can sit over the step.
+- **The arrow never hides under the HUD.** The HUD's boxes paint over the arrow, so an arrow pointing
+  down at a target in view keeps its head just below the HUD's top row (it then points at the
+  target's body, not over its head), and its label goes whenever it would reach that row (the try
+  line names the target) and is kept inside the window's sides. An edge arrow on a short window at
+  Normal can still touch the try panel's last row (about 30 px under 620 px tall); accepted.
 - **"Town map", not "city map":** the card uses the game's own word (How it works at level 1 and the
   wrong-turn button say town).
 - **The words never go stale:** no digits, no place names, no crew names and no crew count ("one of

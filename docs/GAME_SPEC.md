@@ -359,7 +359,9 @@ arrow `js/tutorial-ui.js` and `css/tutorial.css`, the words `js/content/level1-t
   once: death, quitting and a refresh keep it. A basic is marked when it is done, a card on Got it.
 - At Huge text the card is one scroll, as the crew card (June's face and name, the words, the
   pictures, then Got it; Enter works from anywhere), a ring is dropped for a hidden HUD button or when
-  the window leaves the card too little room beside it, and the try panel shows only its line.
+  the window leaves the card too little room beside it, the try panel shows only the current
+  checklist step along the bottom (the crosshair and the walker stay in view) and steps aside while the
+  game's E hint is up, and the arrow drops its label.
 
 ## The workbench (typing)
 

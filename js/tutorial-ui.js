@@ -19,6 +19,7 @@
   const MIN_ROOM = 0.4; // the card needs this share of the window's height beside a ringed button, or the ring goes
   const TRY_GAP = 6; // px between the HUD's top row and the "Now you try" panel
   const FACE_PX = 64; // the try panel's copy of June's face (a 2 rem box); the card's copy keeps the art's size
+  const BOB_PX = 8; // the arrow head bobs up to this far (css/tutorial.css .tut-arrow --bob: keep the two in step)
   const WASD = ["W", "A", "S", "D"];
 
   let built = false;
@@ -27,6 +28,9 @@
   let pulseTimer = 0;
   let lastTry = ""; // the try panel's model as drawn (JSON): a frame with the same model writes nothing
   let lastArrow = ""; // the arrow's rounded place, direction and label as drawn
+  let rowBottom = 0; // px: the bottom of the HUD's top row, as measureTop last saw it (0: not seen yet)
+  let headPx = 0; // the arrow head's height as drawn (css/tutorial.css --ah); 0: measure it again
+  let labBox = null; // the arrow label's { top (from the point), w } for its words and direction; null: measure again
   const faces = {}; // portrait copies by "who:px" (the sprite cache keeps its own canvas; a canvas has one parent)
 
   /** Show or hide an element, touching the DOM only on a change (tryPanel and arrow run every frame). */
@@ -262,7 +266,9 @@
       measureTop();
     }
   }
-  /** The arrow: { x, y (px in the view), dir: "down" | "left" | "right", label }, or null to hide it. */
+  /** The arrow: { x, y (px in the view), dir: "down" | "left" | "right", label }, or null to hide it. The HUD paints
+      over the arrow, so a "down" arrow keeps its head below the HUD's top row, and its label goes when it would reach
+      that row (the try panel names the target) and keeps inside the window's sides. */
   function arrow(p) {
     const el = $("tut-arrow");
     if (!el) return;
@@ -272,21 +278,44 @@
       return;
     }
     const x = Math.round(p.x) || 0;
-    const y = Math.round(p.y) || 0;
+    let y = Math.round(p.y) || 0;
     const dir = p.dir === "left" || p.dir === "right" ? p.dir : "down";
     const label = p.label ? String(p.label) : "";
-    const key = x + "," + y + "," + dir + "," + label;
-    if (key !== lastArrow) {
-      lastArrow = key;
-      el.style.transform = "translate(" + x + "px, " + y + "px)";
-      if (el.dataset.dir !== dir) el.dataset.dir = dir;
-      const lab = $("tut-arrow-label");
-      if (lab) {
-        if (lab.textContent !== label) lab.textContent = label;
-        showEl(lab, !!label);
-      }
+    const lab = $("tut-arrow-label");
+    if (el.dataset.dir !== dir) {
+      el.dataset.dir = dir;
+      headPx = 0;
+      labBox = null;
+    }
+    if (lab && lab.textContent !== label) {
+      lab.textContent = label;
+      labBox = null;
     }
     showEl(el, true);
+    if (dir === "down" && rowBottom > 0) {
+      if (!headPx) {
+        const head = el.querySelector(".tut-arrow-head");
+        headPx = head ? head.offsetHeight : 0;
+      }
+      y = Math.max(y, Math.ceil(rowBottom + headPx + BOB_PX + 2)); // even at the top of its bob
+    }
+    const key = x + "," + y + "," + dir + "," + label;
+    if (key === lastArrow) return;
+    lastArrow = key;
+    el.style.transform = "translate(" + x + "px, " + y + "px)";
+    if (!lab) return;
+    let fit = !!label;
+    if (fit && dir === "down") {
+      if (!labBox) {
+        showEl(lab, true);
+        labBox = { top: lab.offsetTop, w: lab.offsetWidth }; // offsets ignore transforms: the label as laid out
+      }
+      if (rowBottom > 0 && y + labBox.top < rowBottom) fit = false;
+      const half = labBox.w / 2;
+      const cx = Math.max(half + 2, Math.min(root.innerWidth - half - 2, x));
+      lab.style.setProperty("--lx", Math.round(cx - x) + "px");
+    }
+    showEl(lab, fit);
   }
   /** E at the van too soon: the try panel flashes for a second. */
   function pulse() {
@@ -300,13 +329,21 @@
   }
 
   /** The try panel's top: just under the HUD's top row, which wraps with the window width, the text size and the
-      full-screen button's room (style.css). A hidden HUD measures nothing and keeps the last value. */
+      full-screen button's room (style.css). The arrow keeps under that row too. A hidden HUD measures nothing and
+      keeps the last value. (At Huge the panel sits along the bottom instead: css/tutorial.css.) */
   function measureTop() {
+    // a new size or text size: the arrow measures its head and label again on its next frame
+    headPx = 0;
+    labBox = null;
+    lastArrow = "";
     const box = $("tut-try");
     const row = document.querySelector("#int-hud .hud-top");
     if (!box || !row) return;
     const b = row.getBoundingClientRect().bottom;
-    if (b > 0) box.style.setProperty("--tut-top", Math.round(b + TRY_GAP) + "px");
+    if (b > 0) {
+      rowBottom = b;
+      box.style.setProperty("--tut-top", Math.round(b + TRY_GAP) + "px");
+    }
   }
 
   /* ---------- Keys while a card is up ---------- */
@@ -346,16 +383,26 @@
     if (go) go.addEventListener("click", () => T() && T().press());
     root.addEventListener("keydown", onKey, true);
     root.addEventListener("keyup", onKeyUp, true);
-    // the full-screen button and F11 fire resize too
+    // the full-screen button and F11 fire resize too, but this listener runs before js/main.js syncFullscreen moves
+    // the HUD row for the button: the ring is placed again after that layout (the frame below, the observer)
     root.addEventListener("resize", () => {
-      if (UI.open) placeRing();
+      if (UI.open) {
+        placeRing();
+        if (root.requestAnimationFrame) root.requestAnimationFrame(() => UI.open && placeRing());
+      }
       measureTop();
     });
+    // the HUD's top row re-wraps on a resize, a text size, and the full-screen button's room coming or going (F11,
+    // Esc, the button): the ring and the panel follow it. placeRing never touches the row, so this cannot loop
     const row = document.querySelector("#int-hud .hud-top");
     try {
-      if (row && root.ResizeObserver) new root.ResizeObserver(() => measureTop()).observe(row);
+      if (row && root.ResizeObserver)
+        new root.ResizeObserver(() => {
+          measureTop();
+          if (UI.open) placeRing();
+        }).observe(row);
     } catch (e) {
-      /* no ResizeObserver: the resize event and each show of the panel still measure */
+      /* no ResizeObserver: the resize event (and the frame after it) and each show of the panel still measure */
     }
     measureTop();
     if (T()) T().view = UI;

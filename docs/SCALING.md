@@ -223,7 +223,7 @@ quests or errands need facts and words, not engine changes, within these limits.
 
 June's first-run tutorial (`js/tutorial.js`, `docs/GAME_SPEC.md`) is data-driven too: `YARD_STEPS` (the
 yard's basics, in order) and `CARDS` (every card, what it pictures, the HUD button it rings, what the
-arrow points at), with the words in `js/content/level1-tutorial.js` (level 1 only).
+arrow points at, what it pauses), with the words in `js/content/level1-tutorial.js` (level 1 only).
 
 - **Card ids are stored in saves** (`settings.tutorial`, per slot). Append; never rename or remove one
   (an old save would show the renamed card again, or keep a dead id). Saves store ids, not places, so
@@ -233,18 +233,25 @@ arrow points at), with the words in `js/content/level1-tutorial.js` (level 1 onl
   (`title`, `text`, its keys named as capitals), and one `Tutorial.enter("<id>")` or
   `Tutorial.first("<id>", next)` where the screen opens. `tests/validate-engine.js` fails if a
   non-yard card has no such call in `js/main.js` or `js/building.js`, and `tests/validate-text.js` if
-  its words are missing. It shows once to every save, old ones included.
+  its words are missing. It shows once to every save, old ones included. If the screen runs a game loop
+  (an `active = "<id>"` in `js/main.js`), give its card `pause: "fp"` (first person) or `pause: "road"`,
+  so the card freezes it and "Show tutorial again" works there (`tests/validate-engine.js` fails
+  without it); a first-person screen also goes in `js/main.js` `firstPerson()`.
 - **A new yard step stops every save at home until it is done,** veterans too, and the yard holds its
   waves until then. To teach veterans something new gently, add a screen card instead. A new step needs
   a completion the tutorial can see (polled in `tick`, or a `Tutorial.note(id)` from the event) and a
   "cannot be done" fallback so it is never a dead end (as `talk` and `computer` mark themselves when
-  there is no crew or no computer); the liveness test in `tests/validate-engine.js` must still pass.
+  there is no crew or no computer); the liveness test in `tests/validate-engine.js` must still pass, so
+  give its good player an action for the new step (its `act` table; without one the test says so and
+  skips the runs). The scripted walk-through above it names today's order (the cards shown, the last
+  basic, the step after walk and bag): update those ids on a new step or a reorder.
 - **The words never go stale:** no digits, no place names, no crew names or crew count (the validator
   errors on digits and places), so a bigger city, more crew or more guns leave them true.
 - `SCALE:` spots: `LIST_SHOWN` (the checklist's rows; today 6 rows for 6 entries, at the limit: a new
-  yard step makes the list a window around the current row), the practice walker's spawn search cap (it
-  stops a few steps out, so a bigger yard costs nothing), and the arrow's path search (one search over
-  the yard twice a second, about 2,500 tiles today; past about 10,000 tiles, cap it at 60 steps).
+  yard step makes the list a window of 6 rows around the current row, full to the end), the practice
+  walker's spawn search cap (it stops a few steps out, so a bigger yard costs nothing), and the arrow's
+  path search (one search over the yard twice a second, about 2,500 tiles today; past about 10,000
+  tiles, cap it at 60 steps).
 
 ## Refactors worth doing before the next big jump
 

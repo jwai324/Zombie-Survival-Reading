@@ -99,6 +99,7 @@
 .tut-arrow {
   --aw: min(2.6rem, 48px); /* the head: how wide ... */
   --ah: min(2.2rem, 40px); /* ... and how long */
+  --bob: min(.4rem, 8px); /* how far it bobs (js/tutorial-ui.js BOB_PX keeps a "down" head this far more below the HUD) */
   position: absolute;
   z-index: 1;
   left: 0;
@@ -134,10 +135,11 @@
   border-right: calc(var(--aw) / 2) solid transparent;
   border-top: var(--ah) solid var(--amber-2);
 }
+/* (--lx: js/tutorial-ui.js shifts the label in from the window's side) */
 .tut-arrow[data-dir="down"] .tut-arrow-label,
-.tut-arrow:not([data-dir]) .tut-arrow-label { left: 0; bottom: calc(var(--ah) + .35rem); transform: translateX(-50%); }
+.tut-arrow:not([data-dir]) .tut-arrow-label { left: 0; bottom: calc(var(--ah) + .35rem); transform: translateX(calc(-50% + var(--lx, 0px))); }
 /* off screen (behind you or to one side): at that edge, pointing out, the label beside it */
-.tut-arrow[data-dir="left"] { --bob-x: .4rem; --bob-y: 0; }
+.tut-arrow[data-dir="left"] { --bob-x: var(--bob); --bob-y: 0; }
 .tut-arrow[data-dir="left"] .tut-arrow-head {
   left: 0;
   top: calc(var(--aw) / -2);
@@ -146,7 +148,7 @@
   border-right: var(--ah) solid var(--amber-2);
 }
 .tut-arrow[data-dir="left"] .tut-arrow-label { left: calc(var(--ah) + .45rem); top: 0; transform: translateY(-50%); }
-.tut-arrow[data-dir="right"] { --bob-x: -.4rem; --bob-y: 0; }
+.tut-arrow[data-dir="right"] { --bob-x: calc(-1 * var(--bob)); --bob-y: 0; }
 .tut-arrow[data-dir="right"] .tut-arrow-head {
   right: 0;
   top: calc(var(--aw) / -2);
@@ -158,12 +160,14 @@
 
 @keyframes tutPulse { 50% { transform: scale(1.08); } }
 /* the head bobs away from its target and back */
-@keyframes tutBob { 50% { transform: translate(var(--bob-x, 0), var(--bob-y, -.4rem)); } }
+@keyframes tutBob { 50% { transform: translate(var(--bob-x, 0), var(--bob-y, calc(-1 * var(--bob)))); } }
 
-/* ---------- Huge: one inch letters; the pictures and the face shrink, the panel spans the width, the checklist
-   goes (the try panel keeps only its line). The crew card's Huge rules (style.css) fold the head for free: the face
-   and June's name, the title under them. The card is one scroll, as the crew card: the head, the words, the
-   pictures, then Got it (Enter works from anywhere; the arrow and Page keys scroll) ---------- */
+/* ---------- Huge: one inch letters; the pictures and the face shrink, the panel spans the width. The crew card's
+   Huge rules (style.css) fold the head for free: the face and June's name, the title under them. The card is one
+   scroll, as the crew card: the head, the words, the pictures, then Got it (Enter works from anywhere; the arrow and
+   Page keys scroll). The try panel shows only the current checklist step, along the bottom, so the crosshair and the
+   walker stay in view (a try line at one inch runs three to five lines); it steps aside while the game's own E hint
+   (low at Huge too) says what to do. The arrow keeps its head, not its label: the step names the target ---------- */
 /* thin margins: at 800 px a word like "backpack" is half the window wide, and "June says" would wrap over the face
    (the name beside the face says who). A word that still cannot fit breaks rather than scroll sideways */
 :root[data-size="huge"] #screen-tutorial { padding-left: .15rem; padding-right: .15rem; padding-bottom: .15rem; }
@@ -182,11 +186,14 @@
 :root[data-size="huge"] .tut-text::before, :root[data-size="huge"] .tut-text::after { display: none; } /* the tape strips would cover the words */
 :root[data-size="huge"] #btn-tut-go { font-size: 1rem; padding: .05rem .3rem; border-width: .08rem; box-shadow: .08rem .08rem 0 var(--ink); }
 :root[data-size="huge"] .tut-enter { display: none; }
-:root[data-size="huge"] .tut-try { left: 2.5vw; right: 2.5vw; width: auto; font-size: 1rem; padding: .1rem .3rem; transform: none; border-width: .08rem; border-left-width: .15rem; box-shadow: .1rem .1rem 0 var(--ink); }
-:root[data-size="huge"] .tut-try-line { margin: 0; }
-:root[data-size="huge"] .tut-try-head, :root[data-size="huge"] .tut-list { display: none; }
+:root[data-size="huge"] .tut-try { left: 2.5vw; right: 2.5vw; top: auto; bottom: .15rem; width: auto; max-height: calc(100% - .3rem); overflow: hidden; font-size: 1rem; padding: .1rem .3rem; transform: none; border-width: .08rem; border-left-width: .15rem; box-shadow: .1rem .1rem 0 var(--ink); }
+:root[data-size="huge"] .tut-try-head, :root[data-size="huge"] .tut-try-line { display: none; }
+:root[data-size="huge"] .tut-list { margin: 0; padding: 0; border: 0; font-size: 1rem; font-weight: 700; line-height: 1.1; }
+:root[data-size="huge"] .tut-list li:not(.now) { display: none; }
+:root[data-size="huge"] .tut-list li::before { content: none; }
+:root[data-size="huge"] #app:has(#int-hint:not(:empty)) > .tut-try { display: none; }
 :root[data-size="huge"] .tut-ring { border-width: 4px; outline-width: 3px; }
-:root[data-size="huge"] .tut-arrow-label { font-size: 1rem; border-width: .06rem; padding: 0 .1rem; box-shadow: none; }
+:root[data-size="huge"] .tut-arrow-label { display: none; }
 
 /* prefers-reduced-motion: style.css already stops every animation (the ring and the arrow hold still, the pulse
    keeps its outline); the arrow still follows its target */

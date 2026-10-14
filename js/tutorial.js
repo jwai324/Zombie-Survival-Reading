@@ -29,7 +29,9 @@
   const YARD_STEPS = ["walk", "bag", "shoot", "talk", "computer"];
   // Every card. keys: key caps pictured (the words must name each as a capital); mouse: "move" | "click" pictured;
   // ring: a real HUD button ringed while the card is up; arrow: what the yard's arrow points at during "Now you try";
-  // yard: a yard card (it has a try line and a checklist item); extra: more lines it may show.
+  // yard: a yard card (it has a try line and a checklist item); extra: more lines it may show;
+  // pause: a screen with a game loop (js/main.js `active`), which its card freezes ("fp" first person, "road" the
+  // road) and where "Show tutorial again" works. None: nothing runs there (the map), or the caller pauses (first()).
   // Ids are stored in saves (settings.tutorial): append, never rename or remove.
   const CARDS = {
     walk: { yard: true, keys: ["W", "A", "S", "D"], mouse: "move" },
@@ -39,11 +41,11 @@
     computer: { yard: true, keys: ["E"], arrow: "computer" },
     ready: { yard: true, keys: ["E", "P"], ring: "int-btn-pause", arrow: "van" }, // the last yard card (not a basic)
     map: { mouse: "click" },
-    road: { keys: ["A", "D"], mouse: "click" },
+    road: { keys: ["A", "D"], mouse: "click", pause: "road" },
     door: {},
-    building: { keys: ["E", "M"], ring: "int-btn-map" },
+    building: { keys: ["E", "M"], ring: "int-btn-map", pause: "fp" },
     lock: {},
-    river: { keys: ["E"], mouse: "click" },
+    river: { keys: ["E"], mouse: "click", pause: "fp" },
   };
   const ARROW_LABELS = ["van", "computer", "walker"]; // text keys arrow.<k>; a crew member's arrow shows their name
   // Assumption (DESIGN.md): feel numbers, cheap to change
@@ -60,7 +62,7 @@
     guideAhead: 4, // tiles along the path the arrow looks ahead
   };
   const PRACTICE = { speed: 0.5, bite: 5, floor: 0.5, steps: [6, 11] }; // share of walker speed; bite; floor share of max health; path steps from you
-  // SCALE: the checklist shows at most this many rows (today 6: five basics and the van); past it, a window around the current row
+  // SCALE: the checklist shows at most this many rows (today 6: five basics and the van); past it, a window of this many rows around the current row
   const LIST_SHOWN = 6;
   // the view before js/tutorial-ui.js replaces it (and in node): a card it cannot show is finished at once
   const SILENT_VIEW = { card: () => false, hideCard() {}, tryPanel() {}, arrow() {}, pulse() {} };
@@ -155,7 +157,7 @@
     const G = ZSR.Game;
     if (c.paused === "fp" && Im.running) {
       Im.resume();
-      Im.eatClick = true; // the click that takes the mouse back into the view never fires (js/interior.js mousedown)
+      Im.eatClick = true; // the click that takes the mouse back into the view never fires (js/interior.js mousedown); the lock landing clears it
       grab(Im); // inside the Got it click or Enter keydown: a user gesture
       if (c.missed) Im.toast(c.missed, Im.readSecs(c.missed, 3));
     }
@@ -425,7 +427,9 @@
     // "now" first: the van row stays the current one (not ticked) until the van leaves
     let rows = YARD_STEPS.concat("ready").map((id) => ({ label: (t[id] || {}).item || id, state: id === step ? "now" : done(id) ? "done" : "todo" }));
     if (rows.length > LIST_SHOWN) {
-      const i = Math.max(0, rows.findIndex((r) => r.state === "now") - 1);
+      // the row before the current one on top, but never so far down that the window comes up short at the end
+      const at = rows.findIndex((r) => r.state === "now");
+      const i = Math.max(0, Math.min(rows.length - LIST_SHOWN, at - 1));
       rows = rows.slice(i, i + LIST_SHOWN);
     }
     return { now: t.nowTry || "", line, rows };
@@ -471,7 +475,7 @@
       if (!screen) return; // death or quit: every tutorial element hidden, the queue dropped
       if (screen === "yard") return startYard(false);
       if (!CARDS[screen] || CARDS[screen].yard || done(screen)) return;
-      showCard(screen, screen === "road" ? "road" : screen === "building" || screen === "river" ? "fp" : null);
+      showCard(screen, CARDS[screen].pause || null);
     },
     /** "door" | "lock": a card before the action; next() runs exactly once (at once when the card was seen). */
     first(id, next) {
@@ -498,10 +502,12 @@
       const line = item ? String(t.vanWait || "").replace("{next}", item.charAt(0).toLowerCase() + item.slice(1)) : "";
       return crewName(SPEAKER) + ": " + (line || "Not yet.");
     },
-    /** The pause menu's "Show tutorial again": off on a card, and in a wave (owner call: no hiding in a menu). */
+    /** The pause menu's "Show tutorial again": in the yard and on every screen whose card freezes a game loop
+        (CARDS[..].pause); off on a card, and in a wave (owner call: no hiding in a menu). */
     canReplay(active) {
       const Im = I();
-      return ["yard", "building", "river", "road"].includes(active) && !cur && !(active === "yard" && Im && Im.phase && Im.phase.kind === "wave");
+      const screen = active === "yard" || !!(CARDS[active] && !CARDS[active].yard && CARDS[active].pause);
+      return screen && !cur && !(active === "yard" && Im && Im.phase && Im.phase.kind === "wave");
     },
     /** Everything starts over; this screen's card shows now (the yard's in a moment). */
     replay(active) {

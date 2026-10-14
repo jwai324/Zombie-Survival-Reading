@@ -72,8 +72,8 @@
       text: "Walkers may be in here, so be careful. Press E to open doors and read notes. Press M to see a map of this place. The map button at the top works too. Find the way out and press E to leave.",
     },
     lock: {
-      title: "A lock",
-      text: "This lock needs the right answer. Your notes tell you what to do. Read the note. Do just what it says. A wrong try can cost a lot. If you are not sure, click Step back. Then read your notes in the backpack.",
+      title: "Read the note first",
+      text: "This needs the right answer. Your notes tell you what to do. Read the note. Do just what it says. A wrong try can cost a lot. If you are not sure, click Step back. Then read your notes in the backpack.",
     },
     river: {
       title: "The river",

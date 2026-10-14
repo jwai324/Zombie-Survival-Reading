@@ -23,8 +23,9 @@
    crewSpeaker(talk) (where they stand), crewTalkKey(f) (E with it open), crewTalkEnd() (it closes);
    a candidate with `aim` (right under the crosshair) counts that much nearer in facing().
    Fields other modules set: `yardHold` (js/tutorial.js: the first-run basics hold the waves, the bell, the van
-   and the crew's cards), `eatClick` (the next click into the view only takes the mouse back); walker fields
-   `practice` and `floorHp` (a bite never takes you below it). startLoop and stop clear the first two.
+   and the crew's cards), `eatClick` (the next click into the view only takes the mouse back; a pointer lock that
+   lands while the scene runs clears it); walker fields `practice` and `floorHp` (a bite never takes you below
+   it). startLoop and stop clear the first two.
    Everything reads and writes the trip through ZSR.State. */
 (function (root) {
   "use strict";
@@ -208,6 +209,7 @@
           document.exitPointerLock();
           return;
         }
+        if (this.locked) this.eatClick = false; // the lock a card asked for landed: no click needs eating (js/tutorial.js)
         if (!this.locked && this.running && !this.paused && !this.releasing && this.hooks.onPause) this.hooks.onPause();
         this.releasing = false;
       });

@@ -261,8 +261,8 @@ text the game shows, and the validator wants exactly those keys.
 - **The crew rules** (see "The crew's words"): no place name, no stash, no lock answer, no gore, Pip
   "they". By writing rule, also no crew name and no crew count ("one of us"), so a fourth crew member
   or a bigger city never makes a card false. Old-world terms and a "patched" fence are banned here too.
-- **An item** runs inside `vanWait` with its first letter lowercased ("Next, talk to the crew."), so it
-  does not start with a name or a word in capitals.
+- **An item** (by writing rule; the validator does not check it) runs inside `vanWait` with its first
+  letter lowercased ("Next, talk to the crew."), so it does not start with a name or a word in capitals.
 
 Beyond the validator: every control and button name must be the game's own, checked against the code
 and the level-1 How it works and controls ("Drive there" on the map, "Step away" at the computer, "Step

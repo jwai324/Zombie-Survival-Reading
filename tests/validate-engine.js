@@ -1655,13 +1655,21 @@ try {
         lockChange();
         I.paused = false;
         if (pauses || I.locked) err(`tutorial: giving back a late pointer lock paused the game (${pauses}) or left it locked (${I.locked})`);
+        // the lock Got it asked for lands while the scene runs: nothing is left to eat, so the click that takes the
+        // mouse back after a later pause (a note, the map, the backpack) fires
+        I.eatClick = true;
+        sb.document.pointerLockElement = cv;
+        lockChange();
+        if (!I.running || I.eatClick) err(`tutorial: a pointer lock that landed while the scene runs kept the next click to be eaten (running ${I.running}, eatClick ${I.eatClick})`);
+        sb.document.pointerLockElement = null;
+        I.locked = false;
         delete sb.document.exitPointerLock;
         I.hooks = h0;
         I.releasing = false;
       }
     }
     frames(0.05);
-    if (!lastTry || !lastTry.rows || lastTry.rows.length !== T.YARD_STEPS.length + 1 || lastTry.rows[0].state !== "now") err(`tutorial: the "Now you try" checklist is wrong ${JSON.stringify(lastTry)}`);
+    if (!lastTry || !lastTry.rows || lastTry.rows.length !== Math.min(T.YARD_STEPS.length + 1, T.LIST_SHOWN) || lastTry.rows[0].state !== "now") err(`tutorial: the "Now you try" checklist is wrong ${JSON.stringify(lastTry)}`);
     else if (lastTry.line !== T.words().walk.try) err(`tutorial: the try line is "${lastTry.line}"`);
 
     // 4. the hold holds: no countdown, no wave, shots and the bell change nothing, Pip never calls it
@@ -1729,7 +1737,8 @@ try {
     const inFence = (w) => w.x > Math.min(...F.map((f) => f[0])) && w.x < Math.max(...F.map((f) => f[0])) + 1 && w.y > Math.min(...F.map((f) => f[1])) && w.y < Math.max(...F.map((f) => f[1])) + 1;
     if (practice.length !== 1) err(`tutorial: ${practice.length} practice walkers after the shoot card; want 1`);
     else {
-      if (z.speed > 1.25 * 1.1 * T.PRACTICE.speed + 1e-9) err(`tutorial: the practice walker is not slow (${z.speed})`);
+      // 1.1: makeWalker's top roll of a walker's speed
+      if (z.speed > I.WALKER_TYPES.walker.speed * 1.1 * T.PRACTICE.speed + 1e-9) err(`tutorial: the practice walker is not slow (${z.speed})`);
       if (z.dps !== 0 || z.scrap !== 0 || z.dmg !== T.PRACTICE.bite) err(`tutorial: the practice walker claws (${z.dps}), pays scrap (${z.scrap}) or bites too hard (${z.dmg})`);
       if (I.solidForPlayer(z.x, z.y) || !inFence(z)) err(`tutorial: the practice walker came in at ${z.x},${z.y}, not on open ground inside the fence`);
       if (I.indoorAt(z.x, z.y) !== I.indoorAt(I.player.x, I.player.y)) err("tutorial: the practice walker came in on the other side of the cabin walls");
@@ -1738,8 +1747,6 @@ try {
 
     // 10. it hurts a little, never below half health, and never touches the fence or the cabin
     if (z) {
-      const fence0 = JSON.stringify(I.fence);
-      const house0 = JSON.stringify(I.houseState());
       const p = I.player;
       const floor = Math.ceil(p.maxHp * T.PRACTICE.floor);
       let low = p.hp;
@@ -1750,7 +1757,6 @@ try {
         low = Math.min(low, p.hp);
       }
       if (!(low < p.maxHp) || low < floor || !I.running) err(`tutorial: the practice walker's bites took health to ${low} (want under ${p.maxHp}, never under ${floor})`);
-      if (JSON.stringify(I.fence) !== fence0 || JSON.stringify(I.houseState()) !== house0) err("tutorial: the practice walker damaged the fence or the cabin");
       p.hp = 40;
       let low2 = p.hp;
       for (let t = 0; t < 10; t += 0.05) {
@@ -1760,6 +1766,25 @@ try {
         low2 = Math.min(low2, p.hp);
       }
       if (low2 < 40) err(`tutorial: below half health a practice bite still hurt (${low2})`);
+      // out of reach (beyond the fence line, on your row): it waits; it never walks up to claw the fence or the cabin
+      {
+        const dps0 = z.dps;
+        z.dps = 50; // so clawing would show, if it happened
+        const fenceA = JSON.stringify(I.fence);
+        const houseA = JSON.stringify(I.houseState());
+        z.x = Math.min(...F.map((f) => f[0])) - 1.5; // outside the west fence line, whatever the yard's size
+        z.y = Math.floor(p.y) + 0.5;
+        z.pathT = 0;
+        const x0 = z.x;
+        const y0 = z.y;
+        let clawAim = false;
+        for (let t = 0; t < 3; t += 0.05) {
+          if (!I.paused) I.update(0.05);
+          if (z.fenceTarget) clawAim = true;
+        }
+        z.dps = dps0;
+        if (clawAim || Math.hypot(z.x - x0, z.y - y0) > 0.3 || JSON.stringify(I.fence) !== fenceA || JSON.stringify(I.houseState()) !== houseA) err(`tutorial: out of reach, the practice walker went to claw (aim ${clawAim}, moved to ${z.x.toFixed(2)},${z.y.toFixed(2)} from ${x0},${y0})`);
+      }
     }
 
     // 11. down: the step is done, and it paid nothing
@@ -1780,6 +1805,22 @@ try {
     if (!(I.phase.t < FIRST)) err("tutorial: the first calm does not count down after the basics");
     if (!lastTry || lastTry.line !== T.words().ready.try || lastTry.rows[lastTry.rows.length - 1].state !== "now" || lastTry.rows.slice(0, -1).some((r) => r.state !== "done")) err(`tutorial: the van line is wrong after the basics ${JSON.stringify(lastTry)}`);
     if (lastArrow && lastArrow.label !== T.words().arrow.van) err(`tutorial: the arrow points at "${lastArrow.label}", not the van`);
+    // a checklist longer than LIST_SHOWN (more yard steps one day): the window keeps LIST_SHOWN rows to the end
+    {
+      const extra = ["test-step-a", "test-step-b"];
+      const keep = S.settings.tutorial;
+      T.YARD_STEPS.push(...extra); // the same array js/tutorial.js reads
+      S.settings.tutorial = keep.concat(extra); // done, so nothing is held
+      try {
+        frames(0.05);
+        const rows = (lastTry && lastTry.rows) || [];
+        if (rows.length !== T.LIST_SHOWN || rows[rows.length - 1].state !== "now") err(`tutorial: past ${T.LIST_SHOWN} rows the checklist shows ${rows.length} at the van step (want ${T.LIST_SHOWN}, the van row last and current)`);
+      } finally {
+        T.YARD_STEPS.splice(T.YARD_STEPS.length - extra.length);
+        S.settings.tutorial = keep;
+      }
+      frames(0.05);
+    }
     I.yardInteract({ kind: "van" });
     if (left !== 1) err("tutorial: the van did not leave once the basics were done");
 
@@ -1875,8 +1916,10 @@ try {
     I.yardHold = true;
     I.stop();
     if (I.yardHold) err("tutorial: stopping the scene kept the hold");
+    I.yardHold = true; // as if a scene were entered straight from a held one: startLoop clears both
+    I.eatClick = true;
     I.enterYard({});
-    if (I.yardHold) err("tutorial: entering the yard without the tutorial held the waves");
+    if (I.yardHold || I.eatClick) err(`tutorial: entering the yard without the tutorial kept the hold or the eaten click (hold ${I.yardHold}, eatClick ${I.eatClick})`);
     I.stop();
     T.enter(null);
 
@@ -1886,6 +1929,14 @@ try {
       const hooked = src("main.js") + src("building.js");
       Object.keys(T.CARDS).filter((id) => !T.CARDS[id].yard).forEach((id) => {
         if (!new RegExp(`Tutorial\\.(enter|first)\\("${id}"`).test(hooked)) err(`tutorial: no Tutorial.enter("${id}") or Tutorial.first("${id}") in js/main.js or js/building.js: its card never shows`);
+      });
+      // every screen js/main.js plays but the yard (active = "<id>") has a card that freezes it (CARDS pause), so its
+      // card stops the game and "Show tutorial again" works there
+      const actives = [...src("main.js").matchAll(/\bactive = "(\w+)"/g)].map((m) => m[1]).filter((a) => a !== "yard");
+      if (!actives.length) err('tutorial: no active = "<screen>" found in js/main.js (the check below proves nothing)');
+      actives.forEach((a) => {
+        if (!(T.CARDS[a] && !T.CARDS[a].yard && T.CARDS[a].pause)) err(`tutorial: js/main.js plays the screen "${a}", but js/tutorial.js CARDS has no "${a}" card with a pause: its card would not freeze it, and Show tutorial again stays off there`);
+        if (!T.canReplay(a)) err(`tutorial: Show tutorial again is off on the screen "${a}"`);
       });
       if (!/kind !== "crowbar"[^\n]*Tutorial\.first\("lock"/.test(src("building.js"))) err("tutorial: js/building.js must show the lock card for every lock but the crowbar prompt");
       if (!/Tutorial\.tick\(this, dt\)/.test(src("yard.js"))) err("tutorial: js/yard.js yardUpdate does not call Tutorial.tick");
@@ -1974,8 +2025,37 @@ try {
         reenter();
         return true;
       };
+      // the good player's action for each yard step (docs/SCALING.md: a new step needs one here). Without one the
+      // runs below would only report a false soft-lock, so a missing action is one clear error and no runs
+      const act = {
+        walk(k) {
+          if (k % 12 === 11) Object.assign(I.player, home); // boxed in somewhere: back out into the yard
+          I.keys.w = true;
+          I.player.a += 0.3;
+          frames(0.25);
+          I.keys.w = false;
+        },
+        bag() {
+          T.note("bag");
+        },
+        shoot() {
+          const zz = I.walkers.find((w) => w.practice);
+          if (zz) I.hurtWalker(zz, 10);
+          frames(0.1);
+        },
+        talk() {
+          if (I.crew.length) talkTo(I.crew[0]);
+          frames(0.05);
+          if (I.talk) I.crewTalkEnd(true);
+        },
+        computer() {
+          T.note("computer");
+        },
+      };
+      const noAct = T.YARD_STEPS.filter((s) => !Object.prototype.hasOwnProperty.call(act, s));
+      noAct.forEach((s) => err(`tutorial liveness: no good-player action for the yard step "${s}"; add one to act in tests/validate-engine.js`));
       let stuck = 0;
-      for (let seed = 1; seed <= 25; seed++) {
+      for (let seed = 1; seed <= (noAct.length ? 0 : 25); seed++) {
         const rnd = mulberry32(seed * 7919);
         ctxMath.random = mulberry32(seed * 104729); // the engine's own dice: the same history every run
         S.newGame(1, "Tutorial");
@@ -2051,24 +2131,10 @@ try {
             I.walkers.slice().forEach((w) => I.hurtWalker(w, 1e6));
             frames(0.5);
           } else {
-            const step = T.YARD_STEPS.find((s) => !T.done(s)) || "ready";
-            if (step === "walk") {
-              if (k % 12 === 11) Object.assign(I.player, home); // boxed in somewhere: back out into the yard
-              I.keys.w = true;
-              I.player.a += 0.3;
-              frames(0.25);
-              I.keys.w = false;
-            } else if (step === "bag") T.note("bag");
-            else if (step === "shoot") {
-              const zz = I.walkers.find((w) => w.practice);
-              if (zz) I.hurtWalker(zz, 10);
-              frames(0.1);
-            } else if (step === "talk") {
-              if (I.crew.length) talkTo(I.crew[0]);
-              frames(0.05);
-              if (I.talk) I.crewTalkEnd(true);
-            } else if (step === "computer") T.note("computer");
+            const step = T.YARD_STEPS.find((s) => !T.done(s));
+            if (step) act[step](k);
             else {
+              // every basic done: the van
               const l0 = left;
               const held = I.yardHold;
               I.yardInteract({ kind: "van" });
