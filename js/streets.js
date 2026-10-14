@@ -22,7 +22,8 @@
     "pharmacy|firehouse": "Ash Street",
     "firehouse|police": "Union Street",
     "firehouse|hospital": "Park Road",
-    "garden|watertower": "River Road",
+    "garden|frog": "River Road", // River Road runs on through the Frog Lane corner to the Water Tower
+    "frog|watertower": "River Road",
     "watertower|hospital": "Hill Road",
     "hardware|lumberyard": "Cedar Road",
     "lumberyard|mall": "Birch Road",
@@ -31,7 +32,11 @@
     "police|library": "King Street",
     "base|radioshack": "Main Street",
     "pharmacy|watertower": "Lake Road",
+    "frog|river": "Frog Lane",
   };
+  /* Roads that are not paved all the way: the share of the road (from its first place) that is still
+     asphalt; past it the road is dirt (drawn so on the road and the map). */
+  const SURFACE = { "frog|river": { paved: 0.18 } }; // just past the corner the asphalt gives out
 
   /* ---------- Side streets: short stubs off a road that go nowhere ----------
      t: how far along road a->b (0..1); side: left or right of a->b. Placed so the lanes for
@@ -45,8 +50,7 @@
     { road: "hardware|radioshack", t: 0.5, side: "left", name: "Plum Court", kind: "deadEnd" },
     { road: "radioshack|school", t: 0.5, side: "left", name: "Bird Street", kind: "deadEnd" },
     { road: "firehouse|hospital", t: 0.55, side: "right", name: "Mint Street", kind: "noThrough" },
-    { road: "garden|watertower", t: 0.35, side: "right", name: "Corn Lane", kind: "deadEnd" },
-    { road: "garden|watertower", t: 0.55, side: "left", name: "Frog Lane", kind: "closed" },
+    { road: "garden|frog", t: 0.55, side: "right", name: "Corn Lane", kind: "deadEnd" },
     { road: "watertower|hospital", t: 0.45, side: "left", name: "Sand Street", kind: "closed" },
     { road: "watertower|hospital", t: 0.65, side: "right", name: "Wolf Court", kind: "deadEnd" },
     { road: "hardware|lumberyard", t: 0.55, side: "left", name: "Kite Lane", kind: "deadEnd" },
@@ -126,7 +130,7 @@
   };
 
   /* ---------- Small helpers ---------- */
-  const pos = (id) => W().LOCATIONS.find((l) => l.id === id);
+  const pos = (id) => W().place(id); // a place, or a junction where roads meet with no place
   function roadKey(a, b) {
     if (STREET_NAMES[a + "|" + b] != null) return a + "|" + b;
     if (STREET_NAMES[b + "|" + a] != null) return b + "|" + a;
@@ -443,11 +447,18 @@
       const pb = pos(b);
       return { key: a + "|" + b, a, b, name: STREET_NAMES[a + "|" + b], x0: pa.x * scale, y0: pa.y * scale, x1: pb.x * scale, y1: pb.y * scale };
     });
+    roads.forEach((r) => {
+      const sf = SURFACE[r.key];
+      if (sf) r.paved = sf.paved; // past this share of its length the road is dirt
+      if (W().place(r.b).type === "river") r.toRiver = true; // it runs out at the water
+    });
     const sides = SIDE_STREETS.map((s) => {
       const st = sideStub(s);
       return { road: s.road, name: s.name, kind: s.kind, side: s.side, x0: st.x0 * scale, y0: st.y0 * scale, x1: st.x1 * scale, y1: st.y1 * scale };
     });
-    const nodes = W().LOCATIONS.map((l) => ({ id: l.id, x: l.x * scale, y: l.y * scale, deg: neighbors(l.id).length }));
+    const nodes = W()
+      .LOCATIONS.concat(W().JUNCTIONS || [])
+      .map((l) => ({ id: l.id, x: l.x * scale, y: l.y * scale, deg: neighbors(l.id).length, junction: !!(W().isJunction && W().isJunction(l.id)) }));
     return { roads, sides, nodes };
   }
 
@@ -538,7 +549,11 @@
         list.push({ kind: "dest", p, stop, zone: Math.max(free, stop - winMax), place: sg.b });
       } else {
         const c = corner[i + 1];
-        if (c.junction) {
+        if (c.junction && W().isJunction(sg.b)) {
+          // a corner with no place on it (Frog Lane off River Road): no lot, the lanes get the whole window
+          const stopJ = sg.L - c.back;
+          list.push({ kind: "junction", p: sg.L, stop: stopJ, zone: Math.max(free, stopJ - winMax), place: sg.b, corner: c });
+        } else if (c.junction) {
           const stopJ = sg.L - c.back;
           const total = stopJ - free - G.turnBack - G.lotClear;
           const wj = Math.min(winMax, Math.max(total / 2, total - winMax));
@@ -692,6 +707,29 @@
     return best;
   }
 
+  /** The place a road out of `from` toward `to` leads to: through a bare corner it runs on along the same
+      street (River Road through the Frog Lane corner goes on to the Water Tower). */
+  function farPlace(from, to) {
+    let a = from;
+    let b = to;
+    for (let guard = 0; guard < 8 && W().isJunction(b); guard++) {
+      const street = streetName(a, b);
+      const pb = pos(b);
+      const [ux, uy] = unit(pb.x - pos(a).x, pb.y - pos(a).y);
+      const outs = neighbors(b).filter((n) => n !== a);
+      const same = outs.filter((n) => streetName(b, n) === street);
+      // the same street on, else the straightest way on
+      const pick = (same.length ? same : outs).map((n) => {
+        const [vx, vy] = unit(pos(n).x - pb.x, pos(n).y - pb.y);
+        return { n, bend: Math.abs(angle(ux, uy, vx, vy)) };
+      }).sort((p, q) => p.bend - q.bend)[0];
+      if (!pick) break;
+      a = b;
+      b = pick.n;
+    }
+    return b;
+  }
+
   /** Which side of the road the destination's lot is on at the end of a route (+1 right, -1 left). */
   function destSide(path) {
     return lotSide(path[path.length - 1], path[path.length - 2]);
@@ -704,7 +742,9 @@
     for (let i = 0; i < path.length - 1; i++) {
       const street = streetName(path[i], path[i + 1]);
       const to = path[i + 1];
-      out.push(known(to) || i === path.length - 2 ? text("routeTake", { street, place: nameOf(to) }) : text("routeTakeStreet", { street }));
+      // a bare corner has no name: the line names the street alone
+      const isPlace = !W().isJunction(to);
+      out.push(isPlace && (known(to) || i === path.length - 2) ? text("routeTake", { street, place: nameOf(to) }) : text("routeTakeStreet", { street }));
     }
     out.push(text("routeStraight"));
     out.push(text(destSide(path) > 0 ? "routeRight" : "routeLeft", { dest: nameOf(path[path.length - 1]) }));
@@ -722,6 +762,8 @@
   ZSR.Streets = {
     STREET_NAMES,
     SIDE_STREETS,
+    SURFACE,
+    farPlace,
     ROAD_TEXT_FALLBACK,
     GEOM,
     roadKey,

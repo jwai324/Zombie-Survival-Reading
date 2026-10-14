@@ -87,7 +87,7 @@ sb.window = sb;
 vm.createContext(sb);
 pixels = vm.runInContext("(w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) })", sb);
 const html = fs.readFileSync(path.join(ROOT, "index.html"), "utf8");
-const WANT = ["layouts.js", "world.js", "story.js", "story-home.js", "upgrades.js", "weapons.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "interior.js", "building.js", "yard.js", "house.js"].concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
+const WANT = ["layouts.js", "world.js", "story.js", "story-home.js", "upgrades.js", "weapons.js", "state.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "river.js"].concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
 const scripts = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]).filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -144,7 +144,7 @@ function renderAround(ctx) {
 }
 
 let entered = 0;
-W.LOCATIONS.filter((l) => l.id !== "base").forEach((loc) => {
+W.LOCATIONS.filter((l) => l.id !== "base" && !l.outdoor).forEach((loc) => {
   const ctx = loc.id;
   const lay = I.layoutFor(loc);
   if (!lay) return err(`${ctx}: no layout`);
@@ -992,7 +992,7 @@ try {
   const levelWas = S.settings.level;
   [1, 2, 4, 6].forEach((level) => {
     S.settings.level = level;
-    W.LOCATIONS.filter((l) => l.id !== "base").forEach((loc) => {
+    W.LOCATIONS.filter((l) => l.id !== "base" && !l.outdoor).forEach((loc) => {
       const ctx = `story ${loc.id} (reading level ${level})`;
       const N = W.NOTES[loc.id];
       S.startTrip();
@@ -1126,7 +1126,7 @@ try {
   });
   if (rolls.size < 4) err("locks: different saves rolled the same answers");
   S.save.lockSeed = seedWas;
-  W.LOCATIONS.filter((l) => l.id !== "base").forEach((loc) => {
+  W.LOCATIONS.filter((l) => l.id !== "base" && !l.outdoor).forEach((loc) => {
     const ctx = `lock ${loc.id}`;
     const L = W.LOCKS[loc.id];
     if (!L) return err(`${ctx}: no lock in WORLD.LOCKS`);
@@ -1382,9 +1382,143 @@ try {
   err(`pickup: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
 }
 
+/* ---------- River Landing: the pole in Station 12's bay, its tag, the bank, fishing, the cap, home ---------- */
+try {
+  const R = W.RIVER;
+  const river = W.LOCATIONS.find((l) => l.id === "river");
+  const step = (n, dt) => {
+    for (let i = 0; i < n; i++) I.update(dt || 1 / 30);
+  };
+  const click = () => {
+    I.mouseDown = false;
+    step(1);
+    I.mouseDown = true;
+    step(1);
+    I.mouseDown = false;
+    step(1);
+  };
+  S.newGame(1, "Fisher");
+  // without a pole: the bank, but no fishing
+  S.startTrip();
+  I.enterRiver(river);
+  if (!I.van) err("river: no van on the turnout");
+  if (I.solidForPlayer(I.player.x, I.player.y)) err("river: you get out of the van inside something solid");
+  if (I.riverSpots.length !== 2) err(`river: ${I.riverSpots.length} things to read (the sign and the note)`);
+  const water = I.water.reduce((a, b) => a + b, 0);
+  if (water < 100) err(`river: only ${water} tiles of water`);
+  for (let y = 0; y < I.gh; y++) for (let x = 0; x < I.gw; x++) if (I.water[y * I.gw + x] && !I.solidForPlayer(x + 0.5, y + 0.5)) err(`river: you can walk on the water at ${x},${y}`);
+  if (I.spawns.length < 4) err("river: walkers need 4+ places to come out of the trees");
+  if (I.selectRod()) err("river: the pole was picked up before it was found");
+  renderAround("river (no pole)");
+  ["sign", "note"].forEach((k) => {
+    const sp = I.riverSpots.find((x) => x.name === k);
+    const panel = I.riverSpotPanel(sp);
+    if (!panel.text || panel.text.length < 20) err(`river: the ${k} has no words`);
+  });
+  I.stop();
+  S.abandonTrip();
+  // the pole: behind the equipment bay's locked door at Station 12; picking it up reads its tag and reveals the river
+  S.startTrip();
+  const fh = W.LOCATIONS.find((l) => l.id === R.rod.at);
+  I.enter(fh);
+  I.walkers = [];
+  const rp = I.rodPickup;
+  if (!rp) err("river: no fishing pole in " + fh.id);
+  else {
+    const reach = I.reachable(Math.floor(I.startPos[0]), Math.floor(I.startPos[1]), true);
+    if (reach.has(Math.floor(rp.x) + "," + Math.floor(rp.y))) err("river: the pole can be reached without opening the equipment bay");
+    if (S.isKnown("river")) err("river: River Landing is on the map before the pole's tag is read");
+    Object.assign(I.player, { x: rp.x, y: rp.y });
+    I.updatePickups();
+    if (!S.hasRod()) err("river: walking over the pole did not pick it up");
+    if (!S.isKnown("river")) err("river: the pole's tag did not put River Landing on the map");
+    if (!I.tagPanel || I.tagPanel.text !== ZSR.riverText("rod").tag) err("river: the pole's tag is not shown");
+    renderAround("station with the pole held");
+    if (!I.selectRod() || I.tool !== "rod") err("river: 6 did not put the pole in your hands");
+    step(15);
+    click();
+    if (I.tool !== "rod") err("river: a click with the pole in a building put it down");
+    renderAround("the pole in a building");
+  }
+  I.stop();
+  // the bank, with the pole: cast from the end of the dock, a bite, a catch
+  I.enterRiver(river);
+  I.walkers = [];
+  I.riverSpawnT = 1e9;
+  Object.assign(I.player, { x: 17.5, y: 5.5, a: -Math.PI / 2 });
+  I.selectRod();
+  step(15);
+  click();
+  const f = I.fishing;
+  if (f.state !== "wait" || !f.bobber) err(`river: a click at the end of the dock did not cast (${f.state})`);
+  else if (!I.isWater(f.bobber.x, f.bobber.y)) err("river: the bobber landed on land");
+  renderAround("river, line out");
+  I.player.a = Math.PI / 2; // look back at the trees: the line stays out
+  I.render();
+  if (!f.bobber) err("river: looking around pulled the line in");
+  I.player.a = -Math.PI / 2;
+  f.t = 0.01;
+  step(2);
+  if (f.state !== "bite") err(`river: no bite when the wait ran out (${f.state})`);
+  click();
+  if (S.trip.fish !== 1 || S.trip.cargo.food !== 1) err(`river: hooking a bite did not land a fish as food (fish ${S.trip.fish}, food ${S.trip.cargo.food})`);
+  // a bite missed: it gets away and the line stays in
+  click();
+  f.t = 0.01;
+  step(2);
+  step(Math.ceil((R.hook + 0.2) * 30));
+  if (f.state !== "wait" || !f.bobber) err(`river: a missed bite should leave the line in (${f.state})`);
+  // a gun with the line out: the pole is propped on the bank, the bell rings, the fish stays on
+  I.switchWeapon("pistol");
+  if (I.tool || !f.propped || !f.bobber) err("river: taking a gun with the line out did not prop the pole on the bank");
+  renderAround("river, pole propped");
+  f.t = 0.01;
+  step(2);
+  step(R.hook * 30 * 3);
+  if (f.state !== "bite") err(`river: a propped pole lost its fish (${f.state})`);
+  if (I.selectRod()) err("river: 6 took the pole back from across the bank");
+  const near = I.facing();
+  if (!near || near.kind !== "rod") err("river: the propped pole cannot be picked up with E");
+  else I.interact();
+  if (I.tool !== "rod" || f.propped) err("river: E at the propped pole did not take it back");
+  step(10); // the pole comes up (the hook window is longer than that)
+  click();
+  if (S.trip.fish !== 2) err(`river: the fish on the propped pole was lost when taken back (${S.trip.fish})`);
+  // the cap: no more casting once the trip has its fish
+  S.trip.fish = R.cap;
+  click();
+  if (f.state !== "idle") err("river: a cast went out with the river fished out");
+  // walkers come out of the trees, onto land
+  I.riverSpawnT = 0;
+  step(1);
+  if (!I.walkers.length) err("river: no walker came out of the trees");
+  I.walkers.forEach((z) => I.solidAt(z.x, z.y) && err("river: a walker came out inside something solid"));
+  I.walkers = [];
+  // home: fish are food, the pole is kept, the river rests
+  I.leave();
+  const food0 = S.save.food;
+  const cargoFood = S.trip.cargo.food;
+  S.returnHome();
+  if (S.save.food !== Math.max(0, food0 - W.SETTINGS.foodPerTrip) + cargoFood) err(`river: fish brought home did not become food (${food0} -> ${S.save.food}, ${cargoFood} fish)`);
+  if (!S.save.rod) err("river: the pole was not kept at home");
+  S.startTrip();
+  if (S.fishLeft() !== 0 || S.riverRestDays() <= 0) err("river: a fished-out river has fish the next day");
+  S.save.day += R.restockDays;
+  if (S.fishLeft() !== R.cap) err("river: the river did not come back after resting");
+  S.abandonTrip();
+  // a food crate from a shelf feeds the crew too (it used to sit in storage)
+  S.startTrip();
+  S.trip.cargo.food = 2;
+  const f0 = S.save.food;
+  S.returnHome();
+  if (S.save.food !== Math.max(0, f0 - W.SETTINGS.foodPerTrip) + 2 || S.save.inventory.food) err("food: crates brought home did not feed the crew");
+} catch (e) {
+  err(`river: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
+}
+
 if (errors.length) {
   errors.forEach((e) => console.log("ERROR " + e));
   console.log(`\n${errors.length} engine problem(s).`);
   process.exit(1);
 }
-console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, and the cabin (every room, note and spot, a raid, a siege, a save).`);
+console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food).`);

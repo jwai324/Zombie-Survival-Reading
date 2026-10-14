@@ -20,6 +20,7 @@
       "E does it all: E reads notes. E opens and closes doors, the cabin's too. E uses keypads, locks, and drawers. At a stash, E lets you pick a key to try. E leaves a building and starts the van. E uses the computer and the things in the cabin. E rings the dinner bell. E fixes a broken door or window for 2 scrap. E also fixes a fence hole for 1 scrap.",
       "Traps in the yard: T sets a spike trap. R sets a blast trap. Each goes on the ground in front of you. It can go just past the fence, too.",
       "Guns: More guns are hidden in buildings around town. Walk over one to pick it up. Bring it home to keep it. Press 1 to 5 or Q to switch guns. Hold the mouse to pull back the bow. Let go to shoot. Spend scrap at the computer to make your guns better.",
+      "Fishing: 6 or Q holds the pole. Click to cast at the water. When the float dips, click fast. Pick a gun with the line out, and the pole stays propped on the bank. E picks it up again.",
       "Backpack: The notes you have read, your keys, item tags, and your medical kits. Use a kit to heal to full.",
       "Reading: Walk up to a sign to read it. The notes on the cabin walls work the same way. Press E to read a note. Item tags and keys are in the backpack.",
       "Computer: Press E at it to build and upgrade. Each one is a short typing round. Type what is on the screen. Beat the timer. Out of time just means try again.",

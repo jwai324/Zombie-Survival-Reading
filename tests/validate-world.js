@@ -194,8 +194,46 @@ Object.entries(W.TEMPLATES).forEach(([name, t]) => {
   }
 });
 
-// locations
-W.LOCATIONS.filter((l) => l.id !== "base").forEach((l) => {
+// River Landing and any other outdoor place: no building, no notes; reached by road, found by a pole's tag
+W.LOCATIONS.filter((l) => l.outdoor).forEach((l) => {
+  if (W.TEMPLATES[l.id]) err(`${l.id}: an outdoor place has no building layout`);
+  if ((l.items || []).length || (l.cache || []).length) err(`${l.id}: an outdoor place has no shelves or cache`);
+  if (W.KEYS[l.id] || Object.values(W.KEYS).includes(l.id)) err(`${l.id}: an outdoor place is not on the key ring`);
+});
+{
+  const R = W.RIVER;
+  if (!R || !(R.cap > 0) || !(R.restockDays > 0) || !(R.bite[0] > 0 && R.bite[1] > R.bite[0]) || !(R.hook > 0)) err("RIVER: needs cap, restockDays, bite [min, max] and hook");
+  const lay = R && W.TEMPLATES[R.rod.at];
+  if (!lay || !Array.isArray(lay.rod)) err(`RIVER.rod: layout ${R && R.rod.at} has no rod spot`);
+  else {
+    // the pole lies in the locked cache room: on floor, reached only through the L door
+    const g = lay.grid;
+    const [rx, ry] = lay.rod;
+    if (!g[ry] || ".".indexOf(g[ry][rx]) < 0) err(`RIVER.rod: spot ${rx},${ry} is not plain floor`);
+    const walk = (blockL) => {
+      const ex = g[g.length - 1].indexOf("E");
+      const seen = new Set([ex + "," + (g.length - 1)]);
+      const q = [[ex, g.length - 1]];
+      while (q.length) {
+        const [x, y] = q.shift();
+        for (const [dx, dy] of STEPS) {
+          const nx = x + dx;
+          const ny = y + dy;
+          const ch = g[ny] && g[ny][nx];
+          if (!ch || seen.has(nx + "," + ny) || "#WSXGCKRQ".includes(ch) || (blockL && ch === "L")) continue;
+          seen.add(nx + "," + ny);
+          q.push([nx, ny]);
+        }
+      }
+      return seen.has(rx + "," + ry);
+    };
+    if (walk(true)) err("RIVER.rod: the pole must sit behind the locked cache door (the equipment bay)");
+    if (!walk(false)) err("RIVER.rod: the pole cannot be reached even with the cache door open");
+  }
+  (R.rod.reveals || []).forEach((id) => { if (!ids.has(id)) err(`RIVER.rod reveals unknown ${id}`); });
+}
+// buildings
+W.LOCATIONS.filter((l) => l.id !== "base" && !l.outdoor).forEach((l) => {
   if (l.template !== l.id) err(`${l.id}: template must be its own id (is ${l.template})`);
   const t = W.TEMPLATES[l.template];
   if (!t) return err(`${l.id}: no layout ${l.template} in js/layouts.js`);
@@ -302,6 +340,8 @@ let grew = true;
 while (grew) {
   grew = false;
   [...known].forEach((id) => (W.NOTES[id] ? W.NOTES[id].notes : []).forEach((n) => (n.reveals || []).forEach((r) => { if (!known.has(r)) { known.add(r); grew = true; } })));
+  // the fishing pole's tag reveals River Landing once you can get to the pole's building
+  if (known.has(W.RIVER.rod.at)) W.RIVER.rod.reveals.forEach((r) => { if (!known.has(r)) { known.add(r); grew = true; } });
 }
 W.LOCATIONS.forEach((l) => { if (!known.has(l.id)) err(`${l.id}: never revealed by any note (only the Radio could find it)`); });
 // recipes
@@ -516,7 +556,8 @@ Object.values(W.BASE_ROOMS).forEach((r) => r.levels.forEach((lv) => Object.keys(
 Object.values(W.TRAPS || {}).forEach((t) => Object.keys(t.needs || {}).forEach((it) => { if (!available.has(it)) err(`trap item ${it} is needed but found nowhere`); }));
 // roads connect everything
 const adj = {};
-W.ROADS.forEach(([a, b]) => { (adj[a] = adj[a] || []).push(b); (adj[b] = adj[b] || []).push(a); if (!ids.has(a) || !ids.has(b)) err(`road ${a}-${b} names an unknown location`); });
+const nodeIds = new Set([...ids].concat((W.JUNCTIONS || []).map((j) => j.id)));
+W.ROADS.forEach(([a, b]) => { (adj[a] = adj[a] || []).push(b); (adj[b] = adj[b] || []).push(a); if (!nodeIds.has(a) || !nodeIds.has(b)) err(`road ${a}-${b} names an unknown location or junction`); });
 const reach = new Set(["base"]);
 const st = ["base"];
 while (st.length) { const a = st.pop(); (adj[a] || []).forEach((b) => { if (!reach.has(b)) { reach.add(b); st.push(b); } }); }

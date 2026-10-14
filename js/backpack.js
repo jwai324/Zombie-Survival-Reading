@@ -136,6 +136,14 @@
       if (!box) return;
       box.innerHTML = "";
       const S = State();
+      // the fishing pole's tag: the way to River Landing
+      if (S.hasRod() && ZSR.riverText) {
+        const rt = ZSR.riverText("rod");
+        const card = el("div", "tag-card");
+        card.appendChild(el("div", "note-title", esc(rt.name)));
+        card.appendChild(el("p", "key-tag", esc(rt.tag)));
+        box.appendChild(card);
+      }
       const seen = Object.keys(W().ITEMS).filter((k) => S.tagSeen(k));
       if (!seen.length) return;
       const det = el("details", "bp-section");

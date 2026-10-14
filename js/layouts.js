@@ -697,6 +697,7 @@
       scatter: { every: 5, keys: [["crack"], ["hoseRack"], ["vent"], ["poster", "TRAIN HARD"]] },
       spots: { 2: [5, 3], 3: [32, 13], 4: [4, 23], 5: [17, 14], 6: [5, 16], 7: [31, 22] },
       signs: [[18, 23, "e"], [18, 4, "e"], [7, 25, "n"], [30, 6, "s"]],
+      rod: [32, 4], // Chief Dunn's fishing pole, in the back corner of the equipment bay (WORLD.RIVER.rod)
       landmarks: {
         1: { name: "the brass pole", art: "firePole", solid: true, size: 0.98 },
         2: { name: "the fire truck", art: "fireTruck", solid: true, size: 0.98, foot: [3, 3] },

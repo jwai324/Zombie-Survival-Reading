@@ -912,7 +912,8 @@
 
   /* ---------- The city road, drawn in world space (js/game.js sets the camera) ---------- */
 
-  const ROOF = { base: "#5b6b3a", gas: "#b3261e", store: "#3f5a8a", shop: "#4b5057", station: "#8a3a30", school: "#8a6a2e", hospital: "#9aa39a", utility: "#5f6b6e", industrial: "#6e6a60", mall: "#6b3f8a", library: "#3f7a6a" };
+  const ROOF = { base: "#5b6b3a", gas: "#b3261e", store: "#3f5a8a", shop: "#4b5057", station: "#8a3a30", school: "#8a6a2e", hospital: "#9aa39a", utility: "#5f6b6e", industrial: "#6e6a60", mall: "#6b3f8a", library: "#3f7a6a", river: "#3f7aa0" };
+  const DIRT = "#7a5c3e"; // a road past its paving, and the river's turnout
   /** Dead ground around the view: a flat fill plus patches and tufts pinned to the world, so the land slides by. */
   function ground(ctx, view, theme) {
     const t = theme || {};
@@ -968,8 +969,45 @@
    * ink, gravel shoulder, asphalt, then paint. world: { roads, sides, nodes } from ZSR.Streets;
    * G: Streets.GEOM; view: { x, y, r } in world px.
    */
+  /** The river on the west of town, in world space: the same curve the city map draws (map units x scale). */
+  function riverBand(ctx, world, view) {
+    const k = world.scale || 1;
+    if (view.x - view.r > 140 * k) return; // all of it lies west of x = 140 map units
+    const path = () => {
+      ctx.beginPath();
+      ctx.moveTo(40 * k, 120 * k);
+      ctx.quadraticCurveTo(90 * k, 330 * k, 60 * k, 520 * k);
+      ctx.quadraticCurveTo(50 * k, 620 * k, 120 * k, 690 * k);
+    };
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    path();
+    ctx.strokeStyle = "#6b5a46"; // the muddy bank
+    ctx.lineWidth = 26 * k + 90;
+    ctx.stroke();
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 26 * k + 8;
+    ctx.stroke();
+    ctx.strokeStyle = "#4f7f99";
+    ctx.lineWidth = 26 * k;
+    ctx.stroke();
+    // current lines, pinned to the water
+    ctx.strokeStyle = "rgba(220,235,240,0.35)";
+    ctx.lineWidth = 6;
+    ctx.setLineDash([60, 140]);
+    [-0.22, 0.05, 0.28].forEach((f) => {
+      ctx.save();
+      ctx.translate(f * 26 * k, 0);
+      path();
+      ctx.stroke();
+      ctx.restore();
+    });
+    ctx.setLineDash([]);
+  }
+
   function cityRoads(ctx, world, G, theme, view) {
     const t = theme || {};
+    riverBand(ctx, world, view);
     const near = (s, pad) => distSeg(view.x, view.y, s.x0, s.y0, s.x1, s.y1) < view.r + pad;
     const roads = world.roads.filter((r) => near(r, G.half + 80));
     const sides = world.sides.filter((s) => near(s, G.sideHalf + 200));
@@ -998,6 +1036,56 @@
     pass(INK, 2 * G.shoulder + 8, G.boxR + 14, G.sideHalf + G.shoulder + 44);
     pass(t.shoulder || "#78736a", 2 * G.shoulder, G.boxR + 10, G.sideHalf + G.shoulder + 40);
     pass(t.asphalt || "#35363b", 0, G.boxR - 16, G.sideHalf + 40);
+    // a road that runs out of paving: packed dirt from there on, ruts and stones, to its end at the river
+    roads.forEach((r) => {
+      if (r.paved == null) return;
+      const mx = r.x0 + (r.x1 - r.x0) * r.paved;
+      const my = r.y0 + (r.y1 - r.y0) * r.paved;
+      const len = Math.hypot(r.x1 - r.x0, r.y1 - r.y0);
+      const ux = (r.x1 - r.x0) / len;
+      const uy = (r.y1 - r.y0) / len;
+      ctx.lineCap = "butt"; // a straight seam where the asphalt stops
+      ctx.strokeStyle = t.dirt || DIRT;
+      ctx.lineWidth = 2 * G.half + 2 * G.shoulder - 10;
+      line(ctx, mx, my, r.x1, r.y1);
+      ctx.beginPath();
+      ctx.arc(r.x1, r.y1, G.boxR - 4, 0, TAU);
+      ctx.fillStyle = t.dirt || DIRT;
+      ctx.fill();
+      // where the asphalt breaks up: ragged chunks
+      const rr0 = seeded(Math.round(mx * 7 + my) >>> 0);
+      ctx.fillStyle = t.asphalt || "#35363b";
+      for (let i = 0; i < 14; i++) {
+        // broken slabs, smaller the farther onto the dirt
+        const along = rr0() * 90;
+        const off = (rr0() - 0.5) * 2 * (G.half - 20);
+        const sz = (1 - along / 110) * (14 + rr0() * 14);
+        const cx = mx + ux * along - uy * off;
+        const cy = my + uy * along + ux * off;
+        const a0 = rr0() * TAU;
+        ctx.beginPath();
+        for (let k = 0; k < 5; k++) {
+          const a = a0 + (k * TAU) / 5;
+          const rad = sz * (0.6 + rr0() * 0.5);
+          ctx[k ? "lineTo" : "moveTo"](cx + Math.cos(a) * rad, cy + Math.sin(a) * rad);
+        }
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.lineCap = "butt";
+      // wheel ruts down both sides, and stones
+      ctx.strokeStyle = "rgba(60,44,28,0.55)";
+      ctx.lineWidth = 16;
+      ctx.setLineDash([90, 26]);
+      [-G.lane * 1.35, -G.lane * 0.65, G.lane * 0.65, G.lane * 1.35].forEach((o) => line(ctx, mx + ux * 90 - uy * o, my + uy * 90 + ux * o, r.x1 - ux * 120 - uy * o, r.y1 - uy * 120 + ux * o));
+      ctx.setLineDash([]);
+      const rs = seeded(Math.round(len) + 31);
+      ctx.fillStyle = "#a39a88";
+      for (let a = 100; a < len * (1 - r.paved); a += 30) {
+        const off = (rs() - 0.5) * 2 * (G.half + G.shoulder);
+        ctx.fillRect(mx + ux * a - uy * off, my + uy * a + ux * off, 6, 5);
+      }
+    });
     // worn lane bands, then paint
     roads.forEach((r) => {
       const len = Math.hypot(r.x1 - r.x0, r.y1 - r.y0);
@@ -1006,7 +1094,8 @@
       const nx = -uy;
       const ny = ux;
       const a = G.boxR - 10;
-      const b = len - G.boxR + 10;
+      // no paint on dirt
+      const b = (r.paved != null ? len * r.paved : len - G.boxR + 10);
       if (b <= a) return;
       const ln = (off) => line(ctx, r.x0 + ux * a + nx * off, r.y0 + uy * a + ny * off, r.x0 + ux * b + nx * off, r.y0 + uy * b + ny * off);
       ctx.setLineDash([]);
@@ -1217,6 +1306,11 @@
     const v1 = v0 + G.lotDepth;
     ctx.save();
     ctx.transform(L.ux, L.uy, nx, ny, L.qx, L.qy); // x along the road, y away from it toward the lot
+    if (look && look.type === "river") {
+      riverTurnout(ctx, G, v0, v1);
+      ctx.restore();
+      return;
+    }
     // driveway apron across the shoulder
     ctx.fillStyle = "#3b3c41";
     ctx.fillRect(-84, G.half - 14, 168, v0 - G.half + 30);
@@ -1261,6 +1355,35 @@
     ctx.fillStyle = INK;
     ctx.fillRect(-26, by - 4, 52, 10);
     ctx.restore();
+  }
+
+  /** River Landing's place to park: a dirt pull-off by the dirt road, log stops, a picnic table and a sign post. */
+  function riverTurnout(ctx, G, v0, v1) {
+    ctx.fillStyle = DIRT;
+    ctx.fillRect(-90, G.half - 20, 180, v0 - G.half + 36);
+    rr(ctx, -G.lotHalf, v0, G.lotHalf * 2, G.lotDepth, 40);
+    fillStroke(ctx, DIRT, 4);
+    const r = seeded(97);
+    ctx.fillStyle = "#a39a88";
+    for (let i = 0; i < 60; i++) ctx.fillRect(-G.lotHalf + 20 + r() * (G.lotHalf * 2 - 40), v0 + 14 + r() * (G.lotDepth - 28), 6, 5);
+    // log stops along the back edge
+    for (let x = -G.lotHalf + 30; x < G.lotHalf - 60; x += 74) {
+      rr(ctx, x, v1 - 52, 62, 20, 9);
+      fillStroke(ctx, "#6b4a2e", 3);
+      ctx.strokeStyle = "rgba(0,0,0,0.35)";
+      ctx.lineWidth = 2;
+      line(ctx, x + 10, v1 - 42, x + 52, v1 - 42);
+    }
+    // a picnic table and the sign post
+    rr(ctx, G.lotHalf - 120, v0 + 70, 90, 40, 4);
+    fillStroke(ctx, "#8a6a46", 3);
+    rr(ctx, G.lotHalf - 126, v0 + 54, 102, 12, 3);
+    fillStroke(ctx, "#8a6a46", 3);
+    rr(ctx, G.lotHalf - 126, v0 + 114, 102, 12, 3);
+    fillStroke(ctx, "#8a6a46", 3);
+    circle(ctx, -G.lotHalf + 46, v0 + 60, 12, "#5a4538", 3);
+    rr(ctx, -G.lotHalf + 20, v0 + 30, 52, 22, 3);
+    fillStroke(ctx, "#e6dfcc", 3);
   }
 
   /* ---------- Signs and cards: screen space, readable at any text size ---------- */

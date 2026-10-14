@@ -120,6 +120,22 @@
     click() {
       tone(900, 0.04, "square", 0.08);
     },
+    // fishing at River Landing: the cast's whip and plop, a bite's splash, the bell on a propped rod, the reel
+    cast() {
+      noise(0.22, 0.16, 2600, 500);
+      setTimeout(() => tone(320, 0.08, "sine", 0.18, 160), 380);
+    },
+    splash() {
+      noise(0.3, 0.32, 1800, 300);
+      tone(180, 0.12, "sine", 0.16, 90);
+    },
+    bell() {
+      tone(1568, 0.25, "triangle", 0.2);
+      setTimeout(() => tone(1568, 0.3, "triangle", 0.16), 160);
+    },
+    reel() {
+      for (let i = 0; i < 6; i++) setTimeout(() => tone(1400 + (i % 2) * 200, 0.025, "square", 0.06), i * 45);
+    },
     alarm() {
       // a building alarm: two hard tones, over and over while it rings
       tone(880, 0.32, "square", 0.16);

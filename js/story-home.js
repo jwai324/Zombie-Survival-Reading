@@ -643,4 +643,31 @@
       ],
     },
   };
+
+  /* River Landing and the fishing pole (js/river.js; WORLD.RIVER has the numbers these must match):
+     the tag on Chief Dunn's pole in Station 12's equipment bay (reading it reveals River Landing), the sign
+     by the parking, and the chief's note on the dock post. */
+  W.RIVER_FACTS = {
+    rod: [
+      "Chief Dunn's fishing pole, with his name on the tag.",
+      "His crew fished on their days off at River Landing.",
+      "Frog Lane leaves River Road between Greenhouse Row and the Water Tower.",
+      "Past the corner the pavement ends, and a dirt road runs down to the river.",
+      "Park on the dirt and walk down to the dock.",
+    ],
+    sign: [
+      "River Landing: a fishing dock and parking.",
+      "Fish from the dock, out past the reeds.",
+      "Keep 4 fish at most, and let the rest grow.",
+      "Do not drink the river water.",
+    ],
+    note: [
+      "Written by Chief Dunn for his crew.",
+      "Cast from the end of the dock, where the water is deep.",
+      "When the float dips under, pull right away; a slow pull loses the fish.",
+      "To put the pole down, prop it on the bank; the bell on its tip rings when a fish bites.",
+      "Walkers come out of the trees behind you, so look back between bites.",
+      "Take 4 fish at most, then let the river rest for 3 days.",
+    ],
+  };
 })(typeof globalThis !== "undefined" ? globalThis : this);

@@ -489,4 +489,16 @@
       },
     },
   };
+
+  /* River Landing (js/river.js): the fishing pole's tag, the sign by the parking, the chief's note on the
+     dock post, and the city map's line. Facts: WORLD.RIVER_FACTS in js/story-home.js. */
+  T.river = {
+    blurb: "A wooden dock at the end of a dirt road, right on the river. With a fishing pole, every fish you catch is food.",
+    rod: { name: "Chief Dunn's fishing pole", tag: "Chief Dunn's fishing pole, with his name on the tag. His crew fished at River Landing on their days off. Take River Road and turn onto Frog Lane. It is between Greenhouse Row and the Water Tower. Past the corner the pavement ends, and a dirt road runs down to the river. Park on the dirt and walk to the dock." },
+    sign: { title: "RIVER LANDING", text: "River Landing: fishing dock and parking. Fish from the dock, out past the reeds. Keep 4 fish at most and let the rest grow. Do not drink the river water." },
+    note: {
+      title: "Fishing, the station way",
+      text: "For my crew.\n\nCast from the end of the dock, where the water is deep. Then watch the float. When it dips under, pull right away. A slow pull loses the fish every time.\n\nNeed both hands? Prop the pole on the bank. Its bell rings when a fish bites. The fish stays on until you grab it.\n\nWalkers come out of the trees behind you, so look back between bites.\n\nTake 4 fish at most. Then let the river rest for 3 days.\n\n—Chief Dunn",
+    },
+  };
 })(typeof globalThis !== "undefined" ? globalThis : this);

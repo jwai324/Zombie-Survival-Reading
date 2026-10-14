@@ -51,7 +51,7 @@ road also work on touch.
    spread. The gun in your hands shows its own mods: a heavier muzzle, a longer barrel and
    sights, a smoother action, a steadier grip (the bow: broadheads, stronger limbs, a smoother
    draw, sight pins).
-2. **Map.** A fixed city of 15 places, with named streets and side streets. Only a few
+2. **Map.** A fixed city of 15 places and River Landing, with named streets and side streets. Only a few
    places are known at first; the notes you read and the Radio room reveal the rest. Pick a
    destination: the route is drawn and "The way there" lists it in words. Each step is
    numbered to match a badge on the board and shows the lanes its road sign will show, the
@@ -92,6 +92,16 @@ road also work on touch.
    Four more guns lie on the floor of four buildings, different ones in every save:
    double pistols, a machine gun, a heavy machine gun, and a bow and arrow. Walk over one
    to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns.
+   **Fishing.** Chief Dunn's fishing pole lies in Station 12's locked equipment bay (the chief's note says which key opens it). Its tag says
+   where his crew fished, and reading it puts **River Landing** on the map: Frog Lane leaves River
+   Road between Greenhouse Row and the Water Tower, the asphalt gives out just past the corner, and
+   a dirt road runs down to a turnout by the river. Get out, walk down the dock, and press 6 (or Q)
+   for the pole. Click to cast, then click again the moment the float dips (about 2 seconds). Look
+   around freely: the line stays out to the bobber. Take a gun with the line out and the pole is
+   propped on the bank; a bite rings its bell and the fish stays on until E at the pole takes it
+   back. Each fish is 1 food once home, 4 a trip, then the river rests 3 days. Walkers come out
+   of the trees now and then (one or two, every 45 to 90 seconds); a shot brings the next sooner.
+   Food crates and fish feed the crew when you get home.
 5. **Home again.** Cargo is unloaded, a day passes, the crew eats one food, the game
    saves, and you read the day's page: a recap, June's journal, and (once the Radio room is
    built) a broadcast from Jo or one of the town's voices. In the yard, each outdoor room
@@ -130,6 +140,10 @@ js/interior.js          first-person engine: raycaster, low see-over tiles, roof
 js/building.js          building mode: layouts, landmarks, decor, items, notes, cache, stash and key,
                         wall signs, guns on the floor, the M map
 js/yard.js              yard mode: plots and their builds per level, fence by Walls level, traps, waves, the bell and gunfire
+js/river.js             River Landing: the bank, walkers out of the trees, fishing (cast, bite, hook, the pole
+                        propped on the bank and its bell), the sign and the dock note
+js/riverart.js          River Landing art: water, the sign, the dock post, the bobber, trees and reeds, the pole
+                        lying on a floor and propped on a bank, and the pole in your hands
 js/house.js             the cabin in the yard: rooms and furniture, doors and windows (break, fix, upgrade), raiders,
                         what E does inside (computer, pantry, radio shelf, typewriter, bed, dinner bell), wall notes
 js/houseart.js          cabin art: siding, roof, doors and windows by level and damage, wallpapers, wall notes,
@@ -186,6 +200,10 @@ tests/                  world, weapons, text, streets, drive, engine and art val
 - The cabin: `HOUSE` (plan, rooms, notes, what E uses) and `HOUSE_UPGRADES` (door and window strength and
   cost) in `js/world.js`; furniture and room looks in `js/house.js`. A moved wall can strand a note or
   a doorway: `npm test` walks every room, reads every note and uses every spot.
+- Fishing and River Landing: `RIVER` in `js/world.js` (fish a trip, rest days, bite and hook seconds,
+  cast distance, walker timing, where the pole lies, the bank's grid). Frog Lane's paving: `SURFACE`
+  in `js/streets.js`. The words: `T.river` in each `js/content/levelN-home.js`, facts in
+  `RIVER_FACTS` (`js/story-home.js`).
 - Waves at the base: `DEFENSE` in `js/world.js` (fence strength, calm length, raiders, the bell, gunfire, rest, wave mix, counts,
   how many sides a wave comes from).
 - Road difficulty: `DIFF` and `ZOMBIE_TYPES` in `js/game.js`; lane and junction geometry:
