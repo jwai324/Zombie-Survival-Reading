@@ -20,14 +20,15 @@ carries at least four times the in-world reading it had before (`npm test` enfor
 
 | Level | Note (words) | Max sentence | Sign | Tag | Lot sign | Journal / radio | Dead-end notes per building |
 |-------|--------------|--------------|------|-----|----------|-----------------|-----------------------------|
-| 1 | 55 to 90 | 7 | 6 to 22 | 10 to 24 | 20 to 48 | 25 to 55 | 1 |
+| 1 | 65 to 130 | 9 | 6 to 22 | 10 to 24 | 20 to 48 | 25 to 55 | 2 |
 | 2 | 80 to 120 | 10 | 8 to 26 | 14 to 30 | 30 to 62 | 35 to 72 | 2 |
 | 3 | 110 to 160 | 14 | 10 to 32 | 18 to 36 | 40 to 82 | 50 to 95 | 2 |
 | 4 | 150 to 210 | 18 | 12 to 40 | 22 to 44 | 55 to 100 | 70 to 125 | 3 |
 | 5 | 190 to 260 | 22 | 15 to 46 | 26 to 52 | 70 to 120 | 90 to 150 | 3 |
 | 6 | 230 to 320 | 26 | 18 to 56 | 30 to 62 | 85 to 140 | 110 to 185 | 4 |
 
-Vocabulary: level 1 one or two syllables, sight words, present tense; level 2 simple past is
+Vocabulary: level 1 one or two syllables, sight words, present tense, and always complete
+sentences (see "Level 1: whole thoughts" below); level 2 simple past is
 fine; level 3 a few compound sentences; level 4 richer vocabulary, paragraphs; level 5
 figurative language, cause and effect; level 6 sophisticated vocabulary, voice, subtext.
 
@@ -38,8 +39,8 @@ covers wall signs and graffiti;
 three to six paragraphs at every level, and the `controls` list (one line per control group,
 "Head: text") is written at the level too.
 
-Dead-end notes are placed by reading level (`minLevel` in `js/story.js`): `dead1` at every
-level, `dead2` from level 2, `dead3` from level 4, `dead4` at level 6. A level file writes only
+Dead-end notes are placed by reading level (`minLevel` in `js/story.js`): `dead1` and `dead2`
+(the lock decoy) at every level, `dead3` from level 4, `dead4` at level 6. A level file writes only
 the notes its level places. Higher readers get more to sort through, including decoys: notes
 that look useful but are wrong or out of date. Judging what matters is part of reading.
 
@@ -59,18 +60,38 @@ at every level, in words a reader at that level can use. `npm test` checks numbe
   way, so the main note and the trail notes steer by landmarks, rooms and signs ("beside the
   tire tower", "in the break room", "under the PHARMACY sign"), never "left of" or "right of";
   each names at least one landmark (`npm test` checks).
-- How to open the cache, when the note has `unlocks`. The text must make clear that
-  the reader can now open that door (a code, a key location, a trick).
+- How to open the cache, when the note has `unlocks`, exactly as `WORLD.LOCKS` works it, and
+  what a mistake costs. The answers are rolled per save, so the words carry placeholders that
+  the game fills in: `{code}` `{codeSpoken}` `{move1}` `{move2}` `{moves}` `{pick}` `{button}`, and
+  in decoys `{decoyCode}` `{decoyMoves}` `{decoyMove1}` `{decoyMove2}` `{decoyPick}` `{decoyButton}`.
+  Copy each placeholder from the facts exactly, braces and all; never write a real code. Write
+  around them so the sentence reads well whatever they become ({moves} is "lift, then pull";
+  {pick} is "top drawer" or "red key"; {button} is a color: "press the {button} button").
+  The warning is part of the fact: the reader must learn that a wrong code sets off the alarm,
+  a wrong drawer is a deadly trap, a wrong move jams the lock (and a crowbar opens it), and so on.
+- The lock decoy (`dead2`, every level) gives a wrong answer from a placeholder and, later in
+  the note, a hint that it is out of date. A careful reader catches it; a skimmer pays.
 - Which other place to try, when the note has `reveals`, with a direction (north,
   east, downtown, the hills) so the player can find it on the map.
-- `trail1` says where `trail2` is; `trail2` says where the key is, what it looks like, and
-  names the stash (its `stashName`) and the place it opens.
+- `trail1` says where `trail2` is; `trail2` says where the key is, what it looks like, names
+  the stash (its `stashName`) and the place it opens, and warns what a wrong key does there.
+  This note is the only place that ties a key to its stash: the key's own name and tag say
+  how it looks, never what it opens, so the player has to remember or reread the note.
 - Decoys read as believable; they are allowed to be wrong.
 
 Door notes also give the walker count and rough positions. Keep numbers exact.
 
 See `docs/STORY.md` for the people and the five story threads, and `js/layouts.js` for the
 building maps (landmarks, rooms, note spots, signs, the stash and the key).
+
+## Level 1: whole thoughts
+
+Level 1 is short, not chopped. Every sentence is a complete sentence with a subject and a verb
+("There were five walkers when Ruby counted.", not "Five walkers then."). Say why and what
+next: join ideas with because, so, then, but, when. Use the full name of a thing the first time
+("medical kit", not "med kit"). Say who is talking, where things are, and what to do, in that
+order of need. If a fact needs two short sentences to be clear, use two; the note can run long.
+Read every level 1 note aloud: if a first grader would ask "what does that mean?", rewrite it.
 
 ## Schema
 

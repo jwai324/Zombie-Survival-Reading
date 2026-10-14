@@ -120,6 +120,11 @@
     click() {
       tone(900, 0.04, "square", 0.08);
     },
+    alarm() {
+      // a building alarm: two hard tones, over and over while it rings
+      tone(880, 0.32, "square", 0.16);
+      setTimeout(() => tone(660, 0.32, "square", 0.16), 420);
+    },
   };
 
   ZSR.Audio = {

@@ -168,7 +168,7 @@
 
       // tabs
       const tabs = el("div", "tabs");
-      const TABS = [["rooms", "Rooms", "Build the cabin's rooms with items plus scrap. Each build is a typing round at the workbench."], ["garage", "Garage", "Van and van-gun upgrades, and van repair. Upgrades are typing rounds; repairs are instant."], ["weapons", "Weapons", "The guns you carry on foot. Pick one, and mod it with scrap: damage, range, fire rate, accuracy."], ["traps", "Traps", "Craft traps at the workbench, then set them in the yard with T and R."], ["house", "House", "The cabin's doors and windows: make them stronger, and fix the broken ones."], ["inventory", "Cargo & stock", "Everything in storage, and what the next builds still need."]];
+      const TABS = [["rooms", "Rooms", "Build the cabin's rooms with items plus scrap. Each build is a typing round at the workbench."], ["garage", "Garage", "Van and van-gun upgrades, and van repair. Upgrades are typing rounds; repairs are instant."], ["weapons", "Weapons", "The guns you carry on foot. Pick one, and mod it with scrap: damage, range, fire rate, accuracy."], ["traps", "Traps & tools", "Craft traps at the workbench, then set them in the yard with T and R. Crowbars pry open jammed locks."], ["house", "House", "The cabin's doors and windows: make them stronger, and fix the broken ones."], ["inventory", "Cargo & stock", "Everything in storage, and what the next builds still need."]];
       TABS.forEach(([k, label, hint]) => {
         const b = tip(el("button", "tab" + (this.tab === k ? " on" : ""), label), "<strong>" + label + "</strong><span class='t-line'>" + hint + "</span>");
         b.addEventListener("click", () => {
@@ -566,6 +566,36 @@
         btn.addEventListener("click", () => {
           if (!S.canCraftTrap(key).ok) return;
           this.craft("Craft a " + def.name.toLowerCase(), needsText(def.needs, def.scrap), () => S.craftTrap(key));
+        });
+        card.appendChild(btn);
+        grid.appendChild(card);
+      });
+      // tools: a crowbar pries open one jammed lock on a trip, and breaks doing it
+      Object.entries(W().TOOLS || {}).forEach(([key, def]) => {
+        const txt = t && t.base && t.base.tools && t.base.tools[key];
+        const can = S.canCraftTool(key);
+        const have = key === "crowbar" ? s.crowbars || 0 : 0;
+        const desc = txt ? txt.desc : "Pries open one jammed lock: a cache door or a stash that a wrong move, code or key jammed. It breaks doing it. You carry every crowbar you have on every trip.";
+        const card = el("div", "room");
+        const head = el("div", "room-head");
+        head.appendChild(el("h3", null, esc(def.name)));
+        head.appendChild(el("span", "stock", "x" + have));
+        card.appendChild(head);
+        card.appendChild(el("p", "room-desc", esc(desc)));
+        tip(card, "<strong>" + esc(def.name) + "</strong><span class='t-line'>" + esc(desc) + "</span><span class='t-line'><strong>Needs:</strong> " + esc(needsText(def.needs, def.scrap)) + "</span>");
+        const needs = el("ul", "needs");
+        Object.entries(def.needs).forEach(([k, n]) => {
+          const h = s.inventory[k] || 0;
+          needs.appendChild(el("li", h >= n ? "ok" : "short", esc(itemName(k)) + " <span>" + h + " / " + n + "</span>"));
+        });
+        needs.appendChild(el("li", s.scrap >= def.scrap ? "ok" : "short", "Scrap <span>" + s.scrap + " / " + def.scrap + "</span>"));
+        card.appendChild(needs);
+        const btn = el("button", "btn" + (can.ok ? " go" : ""), "Build one");
+        btn.disabled = !can.ok;
+        tip(btn, can.ok ? "<strong>Build at the workbench</strong><span class='t-line'>A short typing round. Nothing is spent until you finish.</span>" : "Missing: " + esc(Object.entries(can.missing).map(([k, n]) => n + " " + itemName(k)).concat(can.scrapShort ? [can.scrapShort + " scrap"] : []).join(", ")));
+        btn.addEventListener("click", () => {
+          if (!S.canCraftTool(key).ok) return;
+          this.craft("Build a " + def.name.toLowerCase(), needsText(def.needs, def.scrap), () => S.craftTool(key));
         });
         card.appendChild(btn);
         grid.appendChild(card);

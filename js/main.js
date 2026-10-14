@@ -184,12 +184,12 @@
     };
     loop();
   }
-  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D, the arrow keys or the side buttons change lanes. Your left lane goes straight past side streets and lots. For a lot on the right, use the right lane; for one on the left, the turn lane that opens on the far left. Where roads meet there is one lane per road and yours may turn: match the arrow on the sign and be in that lane before the white stop line.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, M opens the map of a building, P or Esc pauses.", "E does it all: reads notes, opens and closes doors (the cabin's too), opens a cache once you have read its note, leaves a building, uses the computer and the things in the cabin, rings the dinner bell, starts the van, and fixes a hole in the fence (1 scrap) or a broken door or window (2 scrap).", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Guns: more guns are hidden in buildings around town. Walk over one to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns. Hold to draw the bow, let go to shoot. Mod guns with scrap in the cabin's Weapons tab.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
+  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D, the arrow keys or the side buttons change lanes. Your left lane goes straight past side streets and lots. For a lot on the right, use the right lane; for one on the left, the turn lane that opens on the far left. Where roads meet there is one lane per road and yours may turn: match the arrow on the sign and be in that lane before the white stop line.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, M opens the map of a building, P or Esc pauses.", "E does it all: reads notes, opens and closes doors (the cabin's too), uses keypads, stuck locks, drawers and alarm panels (do exactly what the note says), tries a key at a stash, leaves a building, uses the computer and the things in the cabin, rings the dinner bell, starts the van, and fixes a hole in the fence (1 scrap) or a broken door or window (2 scrap).", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Guns: more guns are hidden in buildings around town. Walk over one to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns. Hold to draw the bow, let go to shoot. Mod guns with scrap in the cabin's Weapons tab.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
   function renderHowto() {
     const t = ZSR.text();
     const body = $("howto-body");
     body.innerHTML = "";
-    const paras = (t && t.howto) || ["You run the last van out of a cabin at the edge of town. Drive to the places on the map, read the notes people left, clear the walkers, bring back what the base needs.", "Inside every building a note tells you how to open the locked room and where to go next. Back at the cabin, build at the computer between waves and hold the fence when they come.", "The game saves only at the cabin. If you go down, you are back at your last save."];
+    const paras = (t && t.howto) || ["You run the last van out of a cabin at the edge of town. Drive to the places on the map, read the notes people left, clear the walkers, bring back what the base needs.", "Inside every building a note tells you how to open the locked room and where to go next. Do exactly what it says: a wrong code sets off an alarm, a wrong drawer can be a trap, and a wrong move jams the lock (a crowbar from the workbench pries it open). Back at the cabin, build at the computer between waves and hold the fence when they come.", "The game saves only at the cabin. If you go down, you are back at your last save."];
     paras.forEach((p) => {
       const e = document.createElement("p");
       e.textContent = p;
@@ -438,7 +438,7 @@
 
   /* ---------- Shared: pause, backpack, death ---------- */
   function overlayOpen() {
-    return ["screen-pause", "screen-note", "screen-backpack", "screen-base", "screen-bench", "screen-confirm", "screen-wrong"].some((id) => $(id) && !$(id).classList.contains("hidden"));
+    return ["screen-pause", "screen-note", "screen-backpack", "screen-base", "screen-bench", "screen-confirm", "screen-wrong", "screen-lock"].some((id) => $(id) && !$(id).classList.contains("hidden"));
   }
   function pauseActive() {
     if (active === "road" && Game.running && !Game.paused) Game.pause();
@@ -483,7 +483,9 @@
       d.innerHTML = '<span class="v">' + v + '</span><span class="l">' + l + "</span>";
       stats.appendChild(d);
     });
-    $("death-text").textContent = active === "yard" ? "The fence gave and the yard filled up. Your last save at the cabin is still there." : active === "road" ? "The van is wrecked on the road. Everything since you left the cabin is gone." : "They got you inside. Everything since you left the cabin is gone.";
+    const reason = active !== "yard" && active !== "road" && Interior.deathReason;
+    Interior.deathReason = null;
+    $("death-text").textContent = reason ? reason + " Everything since you left the cabin is gone." : active === "yard" ? "The fence gave and the yard filled up. Your last save at the cabin is still there." : active === "road" ? "The van is wrecked on the road. Everything since you left the cabin is gone." : "They got you inside. Everything since you left the cabin is gone.";
     active = null;
     show("screen-death");
   }
