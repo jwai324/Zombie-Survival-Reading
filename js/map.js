@@ -16,6 +16,9 @@
   const PAPER3 = "#f3eee0";
   const AMBER = "#d9a21b";
   const TAU = Math.PI * 2;
+  // SCALE: the whole city fits this fixed board. index.html's canvas, the CSS aspect-ratio (10/7), the test bounds in
+  // tests/validate-streets.js and the hand-drawn river, hills, DISTRICTS and compass all assume it. A bigger city
+  // changes them together (docs/SCALING.md).
   const MW = 1000; // the board in map units
   const MH = 700;
   const ZMIN = 1;
@@ -933,6 +936,7 @@
       for (let y = 4 + Math.max(0, Math.floor((vy0 - 4) / 8)) * 8; y < Math.min(MH, vy1 + 8); y += 8)
         for (let x = 4 + ((y / 8) % 2) * 4 + Math.max(0, Math.floor((vx0 - 8) / 8)) * 8; x < Math.min(MW, vx1 + 8); x += 8) ctx.rect(x - 0.8 * ik, y - 0.8 * ik, 1.6 * ik, 1.6 * ik);
       ctx.fill();
+      // SCALE: the same curve, in map units, is drawn on the road (js/sprites.js riverBand): change both together
       const river = () => {
         ctx.beginPath();
         ctx.moveTo(40, 120);

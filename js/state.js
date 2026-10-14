@@ -125,7 +125,10 @@
       savedAt: Date.now(),
     };
   }
-  /** Fill in anything an older save lacks, so every field the game reads exists. */
+  /** Fill in anything an older save lacks, so every field the game reads exists.
+   *  SCALE: this only fills missing fields. As the city grows, old saves never learn of new places: `known` is
+   *  not replayed from notes already read or from a Radio room already built. Add that here, behind a version
+   *  bump, when new places ship (docs/SCALING.md, "Old saves must keep working"). */
   function upgradeSave(s) {
     ZSR.Weapons.upgradeSave(s, W().LOCATIONS); // before the fill-in below, so an old pistol keeps its gun upgrades
     const fresh = freshSave(s.label);
@@ -299,6 +302,7 @@
       return Object.values(this.save.rooms).reduce((a, b) => a + b, 0);
     },
     maxBaseLevel() {
+      // SCALE: assumes 3 levels per room (also Math.min(level, 3) in the room effects, js/base.js and the tests)
       return Object.keys(W().BASE_ROOMS).length * 3;
     },
 
@@ -705,6 +709,7 @@
       this.save.rooms[room] += 1;
       if (room === "walls") this.save.vanHp = Math.min(this.vanMaxHp(), this.save.vanHp + 30);
       if (room === "radio") {
+        // SCALE: reveal 99 means every unknown building at once; with many more places, make the steps smaller
         const fx = this.effects();
         // buildings only: River Landing is found by reading the fishing pole's tag
         const unknown = W().LOCATIONS.filter((l) => !l.outdoor && !this.save.known.includes(l.id)).sort((a, b) => a.danger - b.danger);

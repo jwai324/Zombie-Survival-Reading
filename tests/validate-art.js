@@ -17,7 +17,7 @@ const fs = require("fs");
 const path = require("path");
 const vm = require("vm");
 const ROOT = path.join(__dirname, "..");
-const ART_FILES = ["decor.js", "landmarks1.js", "landmarks2.js"];
+const ART_FILES = ["decor.js", "landmarks1.js", "landmarks2.js"]; // SCALE: add landmarks3.js ... here as places grow
 const HOUSE_FILE = "houseart.js";
 
 const errors = [];

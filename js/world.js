@@ -375,7 +375,10 @@
     waveSides: { some: 2, many: 4 },
   };
 
-  /* ---------- Locations on the city map (1000 x 700 units) ---------- */
+  /* ---------- Locations on the city map (1000 x 700 units) ----------
+     SCALE: the city will grow well past these 15 buildings. Never rename or remove an id (saves key on it),
+     never reorder a place's items / cache / stash (saves record them by index), and keep x/y inside the
+     board (js/map.js MW, MH). Adding a place touches about a dozen tables: docs/SCALING.md has the checklist. */
   const LOCATIONS = [
     { id: "base", name: "Home Base", type: "base", x: 500, y: 610, danger: 0, known: true },
     { id: "gasngo", name: "Gas-N-Go", type: "gas", x: 380, y: 545, danger: 1, known: true, template: "gasngo",
@@ -482,7 +485,9 @@
      Every building hides one key (on its y spot, shown once its key note has been read) and
      has one stash room (Q door, k spots) that only another building's key opens. The keys
      run in a ring, so each one points the player onward. Stash items never come back.
-     KEYS[where the key is found] = the location whose stash it opens. */
+     KEYS[where the key is found] = the location whose stash it opens.
+     SCALE: a new building goes into the ring by re-pointing one key, which changes two key notes and what that
+     key already opens in old saves (docs/SCALING.md). The texts say "fifteen keys": reword them as the ring grows. */
   const KEYS = {
     gasngo: "grocery", grocery: "pharmacy", pharmacy: "hardware", hardware: "garden", garden: "autoshop",
     autoshop: "firehouse", firehouse: "radioshack", radioshack: "watertower", watertower: "school", school: "police",
@@ -594,7 +599,10 @@
     },
   };
 
-  /* ---------- Map streets (pairs of location ids the road follows) ---------- */
+  /* ---------- Map streets (pairs of location ids the road follows) ----------
+     SCALE: at most 4 roads at a building, 5 at a bare junction (lanes: Streets.ourLeft). Each new road needs a
+     STREET_NAMES entry and can change shortest routes, which notes naming streets depend on. The drive-time,
+     lane-window and turn-arc limits in tests/validate-streets.js are already nearly reached. */
   const ROADS = [
     ["base", "gasngo"], ["base", "grocery"], ["gasngo", "pharmacy"], ["gasngo", "garden"], ["grocery", "hardware"],
     ["hardware", "autoshop"], ["hardware", "radioshack"], ["radioshack", "police"], ["radioshack", "school"],
@@ -627,6 +635,7 @@
     saveSlots: 4, // labeled saves, one per player
     // day 1: danger 1 -> 3, 2 -> 5, 3 -> 6, 4 -> 8, 5 -> 9; one more every three days, at most 14.
     // The interiors are big, so this is about the old density. Door notes promise "at least" the day-1 count.
+    // SCALE: danger runs 1..5 (map pips, gun bands, this formula); door notes at six levels quote the day-1 count.
     walkersPerLocation(danger, day) {
       return Math.min(14, 2 + danger + Math.floor(danger / 2) + Math.floor(day / 3));
     },

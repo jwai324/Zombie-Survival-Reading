@@ -5,7 +5,8 @@
   const W = root.ZSR.WORLD;
 
   /* June's journal: entry 1 is Day 1 (the night the crew finds the cabin), then one per day.
-     After entry 30 the game repeats entries 21 to 30, so those ten stand on their own. */
+     After entry 30 the game repeats entries 21 to 30, so those ten stand on their own.
+     SCALE: the repeat window is the last third of the list (js/state.js); append new entries, never insert (saves store indices). */
   W.JOURNAL = [
     { id: "journal-1", facts: [
       "June writes this first entry in her green ledger by candlelight.",
@@ -192,6 +193,7 @@
 
   /* The radio: one broadcast per day home once the Radio room is built.
      After broadcast 30 the game repeats broadcasts 21 to 30.
+     SCALE: as above, the last third repeats; append only. The key-ring tips here are checked against KEYS by hand.
      Key-ring tips (true, checked against KEYS and LOCATIONS): 3, 7, 10, 14, 18, 21, 23, 26. */
   W.RADIO = [
     { id: "radio-1", voice: "Jo", facts: [

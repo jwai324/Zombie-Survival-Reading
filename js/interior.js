@@ -219,6 +219,7 @@
         if ((k === "p" || k === "escape") && this.hooks.onPause) this.hooks.onPause();
         if (k === "b" && this.hooks.onBackpack) this.hooks.onBackpack();
         if (k === "q") this.cycleWeapon(1);
+        // SCALE: guns take keys 1..5 and the fishing pole 6; a sixth gun needs the pole moved first (docs/SCALING.md)
         if (k >= "1" && k <= "5" && k.length === 1) {
           const id = ZSR.Weapons.ORDER.find((w) => ZSR.Weapons.WEAPONS[w].slot === Number(k));
           if (id) this.switchWeapon(id);
