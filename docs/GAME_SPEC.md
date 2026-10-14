@@ -160,7 +160,8 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   straight at it. Aim assist (Settings) bends a shot only onto a walker right under the pointer;
   with no pointer yet it takes the walker closest to straight ahead.
 - The minimap (top left, under the HUD's top row) turns with the van, shows known roads, side
-  streets and places, and flags the destination. It never draws the route.
+  streets and places (each one's building, as on the city map, at the end of its own short drive), and flags
+  the destination. It never draws the route.
 
 ## Buildings: floor plans, landmarks, the map
 

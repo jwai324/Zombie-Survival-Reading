@@ -1180,7 +1180,8 @@
       });
     },
 
-    drawIcon(ctx, l, selected, hover, fx, k) {
+    /** A place's building at (l.x, l.y), icon scale k. bare: just the building (the road's minimap), no danger pips or cache marker. */
+    drawIcon(ctx, l, selected, hover, fx, k, bare) {
       const S = State();
       const size = iconSize(l);
       ctx.save();
@@ -1259,7 +1260,7 @@
       ctx.fillRect(-size * 0.75, -size * 0.1, size * 0.4, size * 0.35);
       ctx.fillRect(size * 0.35, -size * 0.1, size * 0.4, size * 0.35);
       // danger pips
-      if (l.id !== "base" && (fx.showDanger || S.locState(l.id).visits)) {
+      if (!bare && l.id !== "base" && (fx.showDanger || S.locState(l.id).visits)) {
         for (let i = 0; i < 5; i++) {
           ctx.fillStyle = i < l.danger ? (l.danger >= 4 ? "#b3261e" : AMBER) : PAPER3;
           ctx.fillRect(-size + i * 10, size * 0.95, 8, 6);
@@ -1269,7 +1270,7 @@
         }
       }
       // cache marker
-      if (l.id !== "base" && !l.outdoor && fx.mapShowsCaches && !S.locState(l.id).cacheOpened) {
+      if (!bare && l.id !== "base" && !l.outdoor && fx.mapShowsCaches && !S.locState(l.id).cacheOpened) {
         ctx.fillStyle = "#b3261e";
         ctx.beginPath();
         ctx.arc(size, -size * 0.4, 7, 0, TAU);

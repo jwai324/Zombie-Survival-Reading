@@ -1268,11 +1268,13 @@
         ctx.lineTo(pos[b].x, pos[b].y);
         ctx.stroke();
       });
-      // each known place's own drive, out of its corner to its building (and the one the van is on)
-      ctx.strokeStyle = "#4b5057";
-      ctx.lineWidth = 9 / zoom;
+      // each place's own drive, a smaller road out of its corner to its building, as on the city map: a known
+      // place's (and the one the van is on, and the next junction's, which its sign has a lane for), the rest faded
       this.drive.roads.forEach((rd) => {
-        if (!rd.drive || !(S.isKnown(rd.a) || rd.a === this.origin || rd.a === this.opts.to)) return;
+        if (!rd.drive) return;
+        const kn = S.isKnown(rd.a) || rd.a === this.origin || rd.a === this.opts.to || rd.a === jn;
+        ctx.strokeStyle = kn ? "#4b5057" : "rgba(75,80,87,0.18)";
+        ctx.lineWidth = (kn ? 6 : 4) / zoom;
         ctx.beginPath();
         ctx.moveTo(rd.x0 / scale, rd.y0 / scale);
         ctx.lineTo(rd.x1 / scale, rd.y1 / scale);
@@ -1357,29 +1359,33 @@
         ctx.fillText(name, 0, -fs * 0.9);
         ctx.restore();
       });
-      // known places at their buildings (the end of each one's drive), and the destination's flag (pinned to the edge when it is out of view)
+      // known places: the city map's buildings, upright, at the end of each one's drive; the destination's flag
+      // over its building (pinned to the edge when it is out of view)
       const endAt = {};
       this.drive.ends.forEach((e) => (endAt[e.id] = e));
+      const ik = 0.38 * k; // icon scale: about 20 px across at normal text size
       Wd.LOCATIONS.forEach((l) => {
         if (!S.isKnown(l.id)) return;
         const e = endAt[l.id];
         const p = e ? P(e.park.x / scale, e.park.y / scale) : P(l.x, l.y);
         const isDest = l.id === this.opts.to;
-        if (!inside(p, 4) && !isDest) return;
-        if (isDest) {
-          const q = { x: clamp(p.x, 14 * k, w - 14 * k), y: clamp(p.y, 16 * k, h - 10 * k) };
-          const off = q.x !== p.x || q.y !== p.y;
-          if (!off) {
-            ctx.beginPath();
-            ctx.arc(q.x, q.y, 9 * k, 0, Math.PI * 2);
-            ctx.fillStyle = "rgba(179,38,30,0.25)";
-            ctx.fill();
-          }
-          this.flag(ctx, q.x, q.y, k, off ? Math.atan2(p.y - q.y, p.x - q.x) : null);
-          return;
+        if (inside(p, -30 * ik) && ZSR.Map) {
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          if (l.type === "river") ctx.rotate(a); // the dock points out along its road, which turns with the map
+          ZSR.Map.drawIcon(ctx, Object.assign({}, l, { x: 0, y: 0 }), false, false, {}, ik, true);
+          ctx.restore();
         }
-        D.rr(ctx, p.x - 5 * k, p.y - 4 * k, 10 * k, 8 * k, 1.5);
-        D.fillStroke(ctx, D.ROOF[l.type] || "#4b5057", 1.5);
+        if (!isDest) return;
+        const q = { x: clamp(p.x, 14 * k, w - 14 * k), y: clamp(p.y, 16 * k, h - 10 * k) };
+        const off = q.x !== p.x || q.y !== p.y;
+        if (!off) {
+          ctx.beginPath();
+          ctx.arc(q.x, q.y - 12 * ik, 9 * k, 0, Math.PI * 2);
+          ctx.fillStyle = "rgba(179,38,30,0.25)";
+          ctx.fill();
+        }
+        this.flag(ctx, q.x, off ? q.y : q.y - 12 * ik, k, off ? Math.atan2(p.y - q.y, p.x - q.x) : null);
       });
       // the van: an arrow at the true place, pointing the way it faces
       ctx.save();
