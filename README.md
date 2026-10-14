@@ -121,7 +121,8 @@ Show tutorial again is in the pause menu.
    levels place more notes, some of them wrong or out of date.
    Four more guns lie on the floor of four buildings, different ones in every save:
    double pistols, a machine gun, a heavy machine gun, and a bow and arrow. Walk over one
-   to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns.
+   to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns (while a sign or note too long for its panel
+   is up, the wheel scrolls it instead).
    **Fishing.** Chief Dunn's fishing pole lies in Station 12's locked equipment bay (the chief's note says which key opens it). Its tag says
    where his crew fished, and reading it puts **River Landing** on the map: Frog Lane leaves River
    Road square to it between Greenhouse Row and the Water Tower, the asphalt gives out just past the
