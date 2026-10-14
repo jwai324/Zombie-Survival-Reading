@@ -57,8 +57,10 @@ at every level. The player is "you".
   is a trip item: yours once home, lost if you die. At home June writes a line about it in her
   ledger (the day page), and you hand it over by talking to the giver: supplies, sometimes a
   lasting perk, trust, and a new story topic (`after`).
-- **Errands.** When a crew member has no story quest to give (the next one is locked, or all five
-  are done), they ask for N of an ordinary item (`ERRANDS`). Items of that kind you bring home
+- **Errands.** Once a crew member's first story quest is handed in, and whenever they have no story
+  quest to give right now (the next one is locked, or all five are done), they ask for N of an
+  ordinary item (`ERRANDS`). A crew member can have one open story quest and one open errand at
+  once, so an errand never holds back a story quest. Items of that kind you bring home
   after accepting count toward it; hand them over by talking (they are taken from storage). Errands
   have a deadline in days; a late one is dropped and costs a little trust.
 - **Trust.** Points per crew member, shown as stars (0 to 5, `CREW_RULES.stars`). Gained by the
@@ -147,7 +149,7 @@ W.CREW_RULES = {
   workSeconds: 4, // to fix one fence segment or cabin door or window
   lookoutSeconds: 15, // Pip calls the next wave this long before it comes
   healAmount: 40, // June patches you up this much, once per calm
-  requestsPerCrew: 1, // SCALE: open requests (quest or errand) per crew member
+  requestsPerCrew: 1, // SCALE: open requests of each kind (story quest, errand) per crew member
   dogFoodEvery: 2, // the dog eats 1 food every this many days
   dogBarkRange: 10, // tiles: the dog barks when a walker is this close to the cabin in a wave
 };
@@ -252,8 +254,9 @@ W.QUESTS = [
 W.DOG = { ideas: ["...", "...", "..."], facts: { ask: [...], named: [...], pet: [...] } };
 ```
 
-- Five quests per crew member, 15 in all. Order by stars: quest 1 at 0 stars and day 2 or later,
-  2 at 1 star, 3 at 2, 4 at 3, 5 at 4. Early quests should target places known at the start
+- Five quests per crew member, 15 in all. Order by stars and days: quest 1 at 0 stars and day 2,
+  2 at 1 star and day 4, 3 at 2 stars and day 8, 4 at 3 stars and day 13, 5 at 4 stars and day 19
+  (the dog, pip-5, day 28: the journal still wants a dog on day 28). Early quests should target places known at the start
   (Gas-N-Go, Corner Grocery, Reyes Hardware) or found early; later ones may go further.
 - Each building holds at most two quest spots. A spot is plain floor (`.`) reachable from the
   entrance without passing the cache (`L`) or stash (`Q`) door, not a marker tile, note spot,
@@ -334,7 +337,41 @@ Crew state changes at the base are saved through `ZSR.Main.syncYard()` (never mi
 | `crewHurt(id)` | pay the cost (kit, else food), trust loss, report; returns the cost word |
 
 `State.effects()` adds `foodPerDay`, `medsPerDay`, `footHp` and `vanHp` from `crewFx()`. Crowbar
-cost: `craftTool` uses `crowbarCost` when a perk sets one.
+cost: `canCraftTool(type).scrap` and `craftTool` use `crowbarCost` when a perk sets one.
+
+As built, beyond the table (js/crewstate.js):
+
+- **Order of a talk.** When the bubble opens call `crewTalk(id)` once, then `crewReportItems(id)`
+  (then `clearReport(id)`), `crewTip(id, ctx)`, `nextTopic(id)` (then `markTopic`), `offer(id)` /
+  `request(id)` / `handInReady(id)`. Offers stay the same within a day.
+- `crewWhen(when, id)`: `id` is whose stars count.
+- `nextTopic(id)` tells a handed-in quest's payoff first: `{ id: qid, mood: false, quest: qid }`;
+  `crewText("talk", qid)` is that quest's `after`.
+- `crewTip(id, ctx)`: urgent tips win (June `heal` and `hungry`, Pip `wave`), the others that apply
+  take turns one per talk, and the fallback shows only when nothing else applies. `ctx`: `heal` (hp
+  June gives back now, only when she heals now), `wave: { size, sides }` (Pip's call in the calm),
+  live `holes`, `cracks`, `broken`. `crewTips(id, ctx)` lists every tip that applies.
+- Reports: `crewReportItems(id)` -> `[{ key, vars }]`, words through
+  `ZSR.crewFill(ZSR.crewText("report", key), vars)`. Jobs: `paid = crewRepairPay("fence" | "cabin")`
+  (0 with `crewRepairFree`; never below 0), then `logWork(id, "fence" | "cabin", 1, paid)` ("fence"
+  becomes `fenceFree` when free), `logWork(id, "heal", hp)`. `crewHealAmount()`,
+  `crewLookoutSeconds()` include the perks. `crewHurt(id)` returns the cost words ("a medical kit",
+  "2 food", or less food when the pantry is short).
+- Requests: `request(id)` (the one ready to hand in first), `requests(id)` (all open),
+  `requestVars(offerOrRequest)` -> `{ reward }` for a quest, `{ count, item, days, reward }` for an
+  errand (`days`: the deadline when offered; trips left once open). An errand is due on the day it
+  was accepted plus its days: come home that day with it unfilled and it is dropped (trust loss,
+  `late` report). A filled errand never goes late. A found story object cannot be given up.
+  `crewQuests(id)` -> `[{ def, st }]` for the backpack. After the dog quest is handed in the name
+  card is due while `dogHome() && !dogName()`.
+- Save extras: `crew.talks` (talk count per crew member: tips take turns), `crew.read` (text keys
+  whose words were counted, `seeCrewTalk(key, words)`; keys `talk:<id>`, `tip:<crew>:<tip>`,
+  `quest:<qid>:<sub>`, `errand:<eid>:<sub>`, `dog:<key>`), `crew.dog.fed`, `report[id].scrapBy`,
+  `trip.dogQuest`. Nothing in js/crewstate.js commits: the caller calls `ZSR.Main.syncYard()` (at
+  the base) after the bubble closes, a card closes, or a give-up.
+- `ZSR.crewFill`: `{dog}` is the dog's name or "the dog"; "1 holes" and the like become singular.
+- The journal: once the dog is home, `logDay` skips the pages that wish for a dog (`dogWish: true` in
+  `JOURNAL`) when the ledger repeats.
 
 ## Words (`T.crew` in `js/content/levelN-crew.js`)
 
@@ -364,7 +401,12 @@ then the facts), placeholders unfilled; `ZSR.crewFill(text, vars)` fills them.
 - `Interior.crew`: runtime list `[{ id, x, y, post, state, path, t, pose, f, prop, facing }]`
   plus `Interior.dog` once home. Built by `crewEnter()` from `enterYard`, re-added to props by
   `crewDress()` from `dressYard`, moved by `crewUpdate(dt)` from `yardUpdate`. Props are not solid.
-  Sprite: `D3().sprite("crew", { who, pose, f })`; dog `D3().sprite("crewDog", { pose, f })`.
+  Sprite: `D3().sprite("crew", { who, pose, f })` at scale `CREW[id].scale * CREW_ART.scale.crew`
+  (0.95, the walkers' scale), lift 0, wide 0.75; f is exactly 0 or 1 (every opts set is a cached
+  canvas). Dog: `D3().sprite("crewDog", { pose, f })` (pose stand | walk | sit | bark; add
+  `left: true` only to face left) at `CREW_ART.scale.crewDog` (0.36). Quest objects:
+  `qObj { kind }` at `CREW_ART.scale.qObj` (0.3). Portraits: `crewFace { who }`, 256 x 256.
+  The art's work, sit and read poses draw their own small floor props.
 - Facing: `crewFacing(cand)` from `yardFacing` pushes `{ kind: "crew", obj }` only when the
   crosshair is on them (angle within `atan2(0.45, dist)`), within `REACH.crew` (2.2) and in line
   of sight, so crew never steal E from the cabin's spots. `yardInteract` / `yardHint` route
@@ -375,6 +417,8 @@ then the facts), placeholders unfilled; `ZSR.crewFill(text, vars)` fills them.
 - E while the bubble is open and an action is pending calls `this.hooks.onCrewCard(id, action)`
   with action `"offer" | "handIn" | "name"`. `main.js` pauses, shows `#screen-crew`, and on close
   calls `Interior.crewCardDone()` then `Interior.resume()`, and `syncYard()`.
+- The shelter is the office closet (three tiles). Its two solid box stacks give way to the big
+  battery against the end wall (not solid), so three crew and the dog fit.
 - Waves: `crewWave(true)` at a wave's start (hurry to the shelter, shut its door once inside),
   `crewWave(false)` when cleared. `yardWalkerGoal` sends `raidShelterShare` of raiders to a shelter
   tile; `crewUpdate` times raiders among the crew and calls `State.crewHurt`.
@@ -388,6 +432,18 @@ then the facts), placeholders unfilled; `ZSR.crewFill(text, vars)` fills them.
   over it calls `State.takeQuestObject` and shows its tag. The dog: E at it calls `State.takeDog`,
   then it follows you (walkers ignore it); leaving with it puts it in the van. `placeGun` treats
   every quest spot as busy.
+
+## Fact rules the validators hold (tests/validate-world.js)
+
+Beyond the shapes above: a quest's brief facts contain the place name, `near` word for word, its
+`room`, the giver's name, "<n> scrap" and every reward count with its item's noun, and "<direction>
+of the cabin" (the 8-way bearing from the base on the city map, north up; within 10 degrees of an
+edge the neighbour is allowed). Spot distance is measured to the nearest landmark footprint tile
+(Chebyshev), and a spot may not touch a footprint, even diagonally. Quest texts name only their own
+place, places known at the start, or the same giver's earlier quest places; no crew fact names a
+stash; no "left of" or "right of" in a brief. Quest i needs exactly i stars. The dog quest's day is
+at least the last journal page that mentions a dog; its done facts give "every <dogFoodEvery> days"
+when they mention food. A `done` fact states each whole-number perk value.
 
 ## Tests
 
