@@ -15,7 +15,7 @@
       notes: {
         "gasngo-counter": {
           title: "Dev's Note at the Register",
-          text: "This is Dev. I was the clerk here. I ran this register for two years. I never thought I would write a note like this.\n\nThe storeroom key hangs on the hook under the counter. Reach under and feel for it. You can open the storeroom now. Inside there is more fuel. There is a spool of wire, too.\n\nGo up into the back hall. One end is by the ice machine. Walk to the far end. The storeroom is the last door before the garage.\n\nI went to Ortiz Auto. It is on the east side of town. The shop is still standing.\n\nNeed food? Rosa runs Greenhouse Row. It is west, past this gas station. She has seeds and soil.",
+          text: "This is Dev. I was the clerk here. I never thought I would write a note like this.\n\nThe storeroom key is in the {pick} of this counter. Those drawers are right under this note. That key opens the storeroom door.\n\nOpen no other drawer! My sister Ruby rigged the other two. Each one has a bomb trap for looters. Open the wrong one, and it kills you.\n\nThe storeroom has more fuel and a spool of wire. Go into the back hall at the ice machine end. Walk to the far end. The storeroom is the last door before the garage.\n\nI went to Ortiz Auto, on the east side of town. The shop is still standing.\n\nNeed food? Rosa runs Greenhouse Row. It is west, past this gas station. She has seeds and soil.",
         },
         "gasngo-trail1": {
           title: "Ruby Came Back",
@@ -23,15 +23,15 @@
         },
         "gasngo-trail2": {
           title: "For Anyone Who Reads",
-          text: "You read this far. Good. This one is for you.\n\nJo and I made a rule. Take what you need. Leave the rest. Every stash in town is locked. Its key is hidden in another building. A note there says where. So only people who read can find them.\n\nHere is your key. It lies on the floor in the garage. Look beside the tire tower. The key is small and brass. It hangs on a green plastic tag. It opens the staff locker at Corner Grocery. That is east of here.\n\nHana, the grocery manager, gave me this key. That was the first day of the ring.\n\nRuby",
+          text: "You read this far. Good.\n\nJo and I made a rule. Take what you need. Leave the rest. Every stash in town is locked. Its key is hidden in another building. A note there says where. So only people who read can find them.\n\nHere is your key. It lies on the floor in the garage, beside the tire tower. It is a small brass key on a green plastic tag. It opens the staff locker at Corner Grocery, east of here. Hana, the grocery manager, gave it to me. That was the first day of the ring.\n\nThe staff locker has a fussy lock. The wrong key jams it. Then only a crowbar opens it.\n\nRuby",
         },
         "gasngo-dead1": {
           title: "Dev's Last Shift List",
           text: "TO DO. Dev. My last shift before the Fall. I did not know it then.\n\nMop the floor. The whole floor, not just by the door. The boss checks under the shelves now.\n\nFill the coffee. Both pots. The truck drivers get grumpy at six.\n\nFix the ice machine. It keeps making that grinding sound. Kick it gently on the left side.\n\nAt the bottom, in bigger letters: Call Ruby back. She called three times today.\n\nNothing on the list is crossed off. The pen is still clipped to the page. The coffee pots are dry. The ice machine is quiet now. Everything is quiet now.",
         },
         "gasngo-dead2": {
-          title: "A Tip From a Friend",
-          text: "It is written in blue pen, very neat.\n\nHey. You look like you could use some luck. So here is a secret.\n\nThe key to the old safe room is not lost. It is under the mat outside the front door. Lift the mat and take it. Then all the good stuff is yours. Do not tell anyone else.\n\nSigned, a friend.\n\nSomeone has written across the note in red marker. One big word: NOPE.\n\nThey were right. There is no mat outside the front door anymore. There is only bare concrete and an old stain. Whoever this friend was, they were no friend of yours.",
+          title: "A Scrap of Receipt",
+          text: "A scrap of an old receipt, in shaky pencil. Nobody signed it.\n\nWant the storeroom? Here is the trick. The storeroom key is in the {decoyPick} of the counter. Just pull it open and grab the key. Easy. I did it myself.\n\nIt sounds like a good tip. But look at the date on the receipt. It is from the first week of the Fall.\n\nSince then, Ruby set her traps in the counter drawers. This scrap was written before that. The drawer it names is a trap now. Open it, and it kills you.\n\nDo not trust it. Dev's note on the counter says which drawer is safe now. Read that one first.",
         },
       },
       signs: {
@@ -49,12 +49,12 @@
         },
         "gasngo-sign4": {
           title: "STAFF ONLY",
-          text: "STAFF ONLY. A metal sign beside the storeroom door. Under it, in Dev's messy writing: Key on the hook. You know where.",
+          text: "STAFF ONLY. A metal sign beside the storeroom door. Under it, in Dev's writing: Key in the counter drawers. Read my note before you open one.",
         },
       },
       key: {
         name: "Small brass key, green tag",
-        tag: "A small brass key on a green plastic tag. The tag says: Staff locker. Leave some for the next one. The letters are small and neat.",
+        tag: "A small brass key on a green plastic tag. The tag says: Leave some for the next one. The letters are small and neat.",
       },
     },
 
@@ -68,7 +68,7 @@
       notes: {
         "grocery-counter": {
           title: "Hana's Cooler Trick",
-          text: "I am Hana, the store manager. I ran this store for six years. I know every squeak in it.\n\nThe walk-in cooler looks locked. It is not, really. The latch just sticks. Lift the latch while you pull the door. Do both at once. It opens every time. So you can open the cooler now.\n\nLeave this office. Walk down the back hall toward the forklift. The cooler is the next door.\n\nInside there is food. There is one medical kit, too. Please take only what you need.\n\nNext, try Mile 9 Pharmacy. It is west of here. Last week it still had medicine on its shelves. Mr. Okafor runs it. He is careful, but fair.",
+          text: "I am Hana, the store manager. I know every squeak in this store.\n\nThe walk-in cooler latch sticks. To open it, {moves}, in that order. Do it just like that. Work it any other way, and the latch jams tight. After that, only a crowbar opens the cooler.\n\nLeave this office. Walk down the back hall toward the forklift. The cooler is the next door.\n\nInside there is food. There is one medical kit, too. Please take only what you need.\n\nNext, try Mile 9 Pharmacy. It is west of here. Last week it still had medicine on its shelves. Mr. Okafor runs it. He is careful, but fair.",
         },
         "grocery-trail1": {
           title: "Doc Lin's Route",
@@ -76,15 +76,15 @@
         },
         "grocery-trail2": {
           title: "Hana's Key for the Ring",
-          text: "Hana again. You found the loading dock. Good.\n\nThere is a key in this store. It lies on the floor beside the gumball machine. That is near the front of the store. It is a long silver key on a red string.\n\nIt opens the narcotics safe at Mile 9 Pharmacy. That is west of here. Mr. Okafor gave me this key for the ring. He said I never took more than I needed. I was proud of that.\n\nThat is how the key ring works. No stash keeps its own key. Each key waits in another place, with a note. Take what you need. Leave the rest.",
+          text: "Hana again. You found the loading dock. Good.\n\nA key lies on the floor beside the gumball machine. That is near the front of the store. It is a long silver key on a red string.\n\nIt opens the narcotics safe at Mile 9 Pharmacy. That is west of here. Mr. Okafor gave me this key for the ring. He said I never took more than I needed.\n\nBe careful at that safe. Its old lock bites. The wrong key snaps off inside it. Then that key is gone for good.\n\nThat is how the ring works. Each key waits in another place, with a note. Take what you need. Leave the rest.",
         },
         "grocery-dead1": {
           title: "A Kid's Shopping List",
           text: "A shopping list on lined paper. The writing is big and wobbly. A kid wrote it in green crayon. A smiley face is drawn at the top.\n\nShopping list.\nPeanut butter, the crunchy kind.\nBatteries for my flashlight.\nApples, but not the green ones.\nDog food, a big bag.\n\nNext to dog food, a grown-up wrote in pen. We don't have a dog.\n\nUnder that, the kid wrote one word. It is pressed in hard: Yet.\n\nSomeone folded the list in half and kept it. Then they dropped it here. Maybe they left in a hurry. Maybe they found a dog.",
         },
         "grocery-dead2": {
-          title: "Cardboard Warning",
-          text: "A sheet of cardboard on the floor. It was cut from a cereal box. The letters are huge.\n\nCOOLER EMPTY. DON'T BOTHER. NOTHING LEFT. GO HOME.\n\nIt is not signed. No name, no mark, nothing.\n\nLook closer at the letters. They are shaky. Some lines wander off the edge. Someone wrote this in a hurry. Maybe they wanted to keep others away. Maybe they wanted the cooler for themselves. Who leaves a sign like that?\n\nSo is it true? Hana's own note is in the office. It says what is really in the cooler. Trust the manager, not the cardboard.",
+          title: "Cardboard Cooler Tip",
+          text: "A flap of cardboard on the floor. It was torn from a box. Nobody signed it.\n\nCOOLER TIP. The latch sticks, but there is a trick. To open it, {decoyMoves}. Easy. Works every time.\n\nIt sounds sure of itself. But the cardboard is old and soft. Water stains run across one corner.\n\nNow look at the cooler door. The latch on it is shiny and new. Hana put in a new latch after this was written. This was the trick for the old latch. Work the new one this way, and it jams.\n\nHana's note in the office has the trick that works now. Trust the manager, not the cardboard.",
         },
       },
       signs: {
@@ -102,12 +102,12 @@
         },
         "grocery-sign4": {
           title: "Cooler Door Sign",
-          text: "WALK-IN COOLER. KEEP THE DOOR CLOSED. Under it, in Hana's neat writing: Lift and pull. Both at once.",
+          text: "WALK-IN COOLER. KEEP THE DOOR CLOSED. Hana wrote under it: The trick is in my note in the office. Any other way, the latch jams.",
         },
       },
       key: {
         name: "Long silver key, red string",
-        tag: "A long silver key on a red string. The tag says: Medicine only. Count what you take. Someone wrote it in careful capitals.",
+        tag: "A long silver key on a red string. The tag says: Count what you take. Someone wrote it in careful capitals.",
       },
     },
 
@@ -121,7 +121,7 @@
       notes: {
         "hardware-paint": {
           title: "The Sticky Door Trick",
-          text: "Mr. Reyes again. Thank you for reading this far.\n\nThe back room door is not really locked. It just sticks. It always stuck, even before. Lift the handle up. Then push hard with your shoulder. You can open the back room now.\n\nTake the side door by the paint mixer. Walk past the lumber racks. The back room door is there.\n\nI left a water filter in there. There is a second tool kit, too. And there is some lumber.\n\nNeed more wood? Ridge Lumber is on the east ridge. It has stacks of lumber. Carla runs that yard. Need more filters? The Water Tower is on the west side. More filters are in its pump house.",
+          text: "Mr. Reyes again. Thank you for reading this far.\n\nThe back room door sticks in its frame. It always did. To open it, push it {move1}, then {move2}. Do it in that order. Push it any other way, and it jams for good. After that, only a crowbar opens it.\n\nTake the side door by the paint mixer. Walk past the lumber racks. The back room door is there.\n\nI left a water filter in there. There is a second tool kit, too. And there is some lumber.\n\nNeed more wood? Ridge Lumber is on the east ridge. It has stacks of lumber. Carla runs that yard. Need more filters? The Water Tower is on the west side. More filters are in its pump house.",
         },
         "hardware-trail1": {
           title: "Where the Keys Were Cut",
@@ -129,7 +129,7 @@
         },
         "hardware-trail2": {
           title: "The First Key I Cut",
-          text: "Mr. Reyes once more. Here is your key.\n\nLook on the floor beside the toilet display. It lies against the wall. It is a copper key. A leaf is scratched into its head.\n\nIt opens the seed vault at Greenhouse Row. That is far west, across town. Rosa keeps her best seeds there.\n\nIt was the very first key for the ring. Rosa asked me to keep it here. She laughed. She said a hardware store was perfect. It is the last place a seed thief would look. She was right.\n\nTake it to her vault. Then plant something.",
+          text: "Mr. Reyes once more. Here is your key.\n\nLook on the floor beside the toilet display. It lies against the wall. It is a copper key. A leaf is scratched into its head.\n\nIt opens the seed vault at Greenhouse Row. That is far west, across town.\n\nIt was the very first key for the ring. Rosa asked me to keep it here. She laughed. She said a hardware store was perfect. It is the last place a seed thief would look.\n\nThe seed vault has a plain lock. A wrong key just will not turn. Take this one to her vault. Then plant something.",
         },
         "hardware-dead1": {
           title: "Who Borrowed My Tools",
@@ -137,7 +137,7 @@
         },
         "hardware-dead2": {
           title: "A Pencil Tip",
-          text: "A note in pencil. Nobody signed it. The pencil marks are dark. The writer pressed hard, like they were sure.\n\nPsst. Want the paint vault? The key is not lost. It is hidden in a can of blue paint. Pry the lids off. It is in one of them. Trust me.\n\nLook at the shelves. Many blue paint cans have been pried open. Lids lie all over the floor. Blue paint has dried in puddles. Blue footprints run up and down the aisle.\n\nNone of the cans had a key inside. Not one. Someone wasted a whole day here. Do not waste yours.",
+          text: "A note in pencil. Nobody signed it. The writer pressed hard, like they were sure.\n\nPsst. The back room door is not locked. It just sticks. Push it {decoyMove1}, then {decoyMove2}. It pops right open. Trust me.\n\nLook at the date in the corner. It is from last spring. Now look at the back room door. Its frame is bent. A storm did that, after this note was written. The old way does not work on a bent frame. Push it this way, and it jams.\n\nMr. Reyes's note by the paint mixer has the way that works now. Read that one.",
         },
       },
       signs: {
@@ -155,12 +155,12 @@
         },
         "hardware-sign4": {
           title: "Marker on the Door",
-          text: "LIFT, THEN PUSH. Big marker letters on the back room door. Signed at the bottom, in the same marker: Mr. Reyes.",
+          text: "Marker on the back room door: It sticks. Read my note by the paint mixer before you push it. Signed: Mr. Reyes.",
         },
       },
       key: {
         name: "Copper key with a leaf",
-        tag: "A copper key with a leaf scratched into its head. The tag says: Seed vault. Seeds for anyone. The leaf is small but sharp.",
+        tag: "A copper key with a leaf scratched into its head. The tag says: Take only what you need. The leaf is small but sharp.",
       },
     },
 
@@ -174,7 +174,7 @@
       notes: {
         "pharmacy-counter": {
           title: "The Cabinet Room Code",
-          text: "Mr. Okafor again. I was the pharmacist here for twenty years. I am careful with codes. I have to be.\n\nThe cabinet room code is 4471. Say it twice in your head. Four, four, seven, one. Punch it in, and the door opens. You can open the cabinet room now. Its door is behind this counter. It is in the corner by the wheelchairs.\n\nInside are two more medical kits. There is a water filter, too.\n\nNeed more than that? Go north. St. Anne Annex is the hospital in the north hills. It still has medicine and a generator. But it is the most dangerous place in town. Do not go there alone.",
+          text: "Mr. Okafor again. I was the pharmacist here for twenty years. I am careful with codes.\n\nThe cabinet room keypad code is {code}. Say it in your head: {codeSpoken}. Use that code and no other. One wrong code sets off the alarm. Then walkers pour in, even through the front door. They keep coming until they get you.\n\nThe cabinet room door is behind this counter. It is in the corner, on the same side as the wheelchairs. Inside are two more medical kits. There is a water filter, too.\n\nNeed more? St. Anne Annex is the hospital in the north hills. It still has medicine and a generator. But it is the most dangerous place in town.",
         },
         "pharmacy-trail1": {
           title: "Doc Lin Turned Back",
@@ -182,7 +182,7 @@
         },
         "pharmacy-trail2": {
           title: "The Key With Blue Paint",
-          text: "Mr. Okafor, one more time. This note is about the key ring.\n\nA key lies on the floor beside the pill bottle. That is near the front of the store. It is a stubby iron key. It has drops of blue paint on it.\n\nIt opens the paint vault at Reyes Hardware. That is east of here, across town. Mr. Reyes cut this key himself. He keeps none of his own keys. Not one. That is how the ring works. Each key waits in another building, with a note.\n\nSo take it east. Then leave something for the next person.",
+          text: "Mr. Okafor, one more time. This note is about the key ring.\n\nA key lies on the floor beside the pill bottle. That is near the front of the store. It is a stubby iron key. It has drops of blue paint on it.\n\nIt opens the paint vault at Reyes Hardware. That is east of here, across town. Mr. Reyes cut this key himself. He keeps none of his own keys. Not one. That is how the ring works.\n\nThe paint vault has a fussy lock. The wrong key jams it. Then only a crowbar opens it. So take this key east. Then leave something for the next person.",
         },
         "pharmacy-dead1": {
           title: "A Bag for June",
@@ -190,7 +190,7 @@
         },
         "pharmacy-dead2": {
           title: "Yellow Sticky Note",
-          text: "A yellow sticky note, curled at the edges. The ink has faded.\n\nCabinet room code: 4417. Do NOT lose this.\n\nThe note looks old. It is from before. Mr. Okafor changed the code after this note was written. So this code does not work anymore.\n\nUnder it, in red pen, someone added a line. Tried it. It beeped at me. Loud. Bad idea. Two walkers came to look.\n\nDo not trust this one. The counter note has the code that works. Mr. Okafor wrote that one himself. He does not make mistakes. The sticky part of this note has lost its stick.",
+          text: "A yellow sticky note, curled at the edges.\n\nCabinet room code: {decoyCode}. Do NOT lose this.\n\nIt looks useful. It sits right inside the front door, where anyone would see it. The writing is neat, like Mr. Okafor's.\n\nBut the ink has faded. The sticky part has lost its stick. This note is old. Mr. Okafor changed the code after it was written. So this code is wrong now. Punch it in, and the alarm goes off.\n\nDo not trust this one. The code on the counter note is the one that works. Mr. Okafor wrote that one himself.",
         },
       },
       signs: {
@@ -213,7 +213,7 @@
       },
       key: {
         name: "Stubby iron key, blue paint",
-        tag: "A stubby iron key, with drops of blue paint. The tag says: Paint vault. Cut by Reyes. The paint is old and dry.",
+        tag: "A stubby iron key, with drops of blue paint. The tag says: Cut by Reyes. The paint is old and dry.",
       },
     },
 
@@ -227,7 +227,7 @@
       notes: {
         "autoshop-office": {
           title: "Mr. Ortiz on the Hatch",
-          text: "This is Mr. Ortiz. I ran this shop for thirty years. I know every bolt in it.\n\nThe hatch bolt looks stuck. It is not. Grab it and twist it to the left. It comes right out. Then lift the hatch. You can open the service pit now.\n\nThe pit room stands in the middle of the shop. Its hatch is on the front side, toward the oil drums.\n\nMy generator is down in the pit. There are spare parts and a fuel can with it. Treat them well.\n\nSignal Electronics is downtown. It still has wire and radio parts. But it is near the walker crowds. Go in fast. Get out faster.",
+          text: "This is Mr. Ortiz. I ran this shop for thirty years. I know every bolt in it.\n\nThe hatch bolt is tricky. To open it, {moves}, in that order. Do it just like that. Any other way bends the bolt. Then the hatch jams. After that, only a crowbar opens it.\n\nThe pit room stands in the middle of the shop. Its hatch is on the front side, toward the oil drums.\n\nMy generator is down in the pit. There are spare parts and a fuel can with it.\n\nSignal Electronics is downtown. It still has wire and radio parts. But it is near the walker crowds. Go in fast. Get out faster.",
         },
         "autoshop-trail1": {
           title: "Ruby, It Runs",
@@ -235,7 +235,7 @@
         },
         "autoshop-trail2": {
           title: "Chief Dunn's Red Key",
-          text: "Mr. Ortiz again. You read the boy's note. Good. Now read mine.\n\nA key lies on the floor of the waiting room. It is beside the soda machine. It is a big key, painted fire-engine red. It hangs on a brass ring.\n\nIt opens the chief's locker at Station 12. That is north and west of here. Chief Dunn left it with me. It was his thanks for fixing the convoy's trucks.\n\nI did not keep it for myself. It waits here for the key ring. That is the deal. Every key sits in a different building.\n\nTake it. Then go do some good.",
+          text: "Mr. Ortiz again. You read the boy's note. Good. Now read mine.\n\nA key lies on the floor of the waiting room. It is beside the soda machine. It is a big key, painted fire-engine red. It hangs on a brass ring.\n\nIt opens the chief's locker at Station 12. That is north and west of here. Chief Dunn left it with me. It was his thanks for fixing the convoy's trucks.\n\nIt waits here for the key ring. Every key sits in a different building.\n\nThe chief's locker has an old lock that bites. The wrong key snaps off inside it. Then that key is gone for good.",
         },
         "autoshop-dead1": {
           title: "Mr. Ortiz's Job Board",
@@ -243,7 +243,7 @@
         },
         "autoshop-dead2": {
           title: "Greasy Warning",
-          text: "A note on greasy paper. It is torn at the top. Nobody signed it. The paper smells like old oil.\n\nDon't waste your time on the pit. The hatch is welded shut. I saw the weld marks myself. Nobody is getting in there. Not with a bar. Not with a hammer. Just leave it.\n\nNow look close at the hatch. The marks are only paint, not a weld. It is a wavy line of silver paint. Someone painted it to fool people. Paint does not hold a hatch shut.\n\nMr. Ortiz's note by the office tells the real trick. Read that one instead.",
+          text: "A note on greasy paper. It is torn at the top. Nobody signed it. The paper smells like old oil.\n\nThe pit hatch is easy. The bolt comes out if you {decoyMoves}. I have done it ten times. Then just lift the hatch.\n\nIt sounds like someone who knows. But look at the bolt on the hatch. It is bright and clean, with no rust at all. Mr. Ortiz put in a new bolt. This note is about the old one. Work the new bolt that way, and it bends and jams.\n\nMr. Ortiz's note by the office tells the real trick. Read that one instead.",
         },
       },
       signs: {
@@ -261,12 +261,12 @@
         },
         "autoshop-sign4": {
           title: "Metal Plate",
-          text: "SERVICE PIT. KEEP THE HATCH SHUT. Words stamped on a metal plate. Under it, a chalk arrow curls to the left.",
+          text: "SERVICE PIT. KEEP THE HATCH SHUT. Under it, in chalk: The bolt bends if you work it wrong. Mr. Ortiz's note says how.",
         },
       },
       key: {
         name: "Big red key, brass ring",
-        tag: "A big key painted fire-engine red, on a brass ring. The tag says: Chief's locker. Return the favor. It is heavy in your hand.",
+        tag: "A big key painted fire-engine red, on a brass ring. The tag says: Return the favor. It is heavy in your hand.",
       },
     },
 
@@ -279,8 +279,8 @@
       },
       notes: {
         "radioshack-counter": {
-          title: "Priya's Key Under the Register",
-          text: "I am Priya, the manager. I fix things. I fixed things before the Fall, too. I built Jo's first transmitter on this counter.\n\nThe office key is taped under the register. Reach under and feel for the tape. Pull it off. Now you can open the manager's office. Its door is in the back wall, near the robot. Look for the MANAGER sign. Inside are two boxes of radio parts. There is more wire, too.\n\nTwo places are north of downtown. The 4th Precinct is the police station. It has gun parts. Lincoln Middle School has books. Both are worth the drive. Both have walkers, too.\n\nBe quick in here. The crowds outside listen for noise. Leave the shelves tidy, please.",
+          title: "Priya's Alarm and Code",
+          text: "I am Priya, the manager. I fix things. Do this in order.\n\nFirst, turn off the alarm. Its panel is on the right wall, by the big dish. Press the {button} button. Do that first!\n\nThen go to the office door. It is in the back wall near the robot, beside the MANAGER sign. The keypad code is {code}. Say it like this: {codeSpoken}.\n\nA wrong button sets off the alarm. So does a wrong code. So does opening the office with the alarm still on. Then walkers pour in, even through the front door. They come until they get you.\n\nThe office has two boxes of radio parts and more wire.\n\nTwo places are north of downtown. The 4th Precinct police station has gun parts. Lincoln Middle School has books.",
         },
         "radioshack-trail1": {
           title: "Jo on 88.1",
@@ -288,7 +288,7 @@
         },
         "radioshack-trail2": {
           title: "The Water Drop Key",
-          text: "Priya again. Jo told you about me. Most of it is true.\n\nHere is the key. It lies on the floor beside the arcade game. That is near the front of the store. It is a long, thin key. Its blue tag is shaped like a drop of water.\n\nIt opens the tool crib at the Water Tower. That is far west of here. Theo gave me this key. Jo and I needed his tools. We put an antenna on his tower.\n\nNow the key stays here, as part of the ring. Take it west. And bring the wrench back.",
+          text: "Priya again. Jo told you about me. Most of it is true.\n\nHere is the key. It lies on the floor beside the arcade game. That is near the front of the store. It is a long, thin key. Its blue tag is shaped like a drop of water.\n\nIt opens the tool crib at the Water Tower. That is far west of here. Theo gave me this key. Jo and I needed his tools. We put an antenna on his tower.\n\nNow the key stays here, as part of the ring.\n\nThe tool crib has an old lock that bites. The wrong key snaps off inside it. Then that key is gone for good.",
         },
         "radioshack-dead1": {
           title: "Jo's Show Plan",
@@ -296,7 +296,7 @@
         },
         "radioshack-dead2": {
           title: "Torn Envelope",
-          text: "A note on a torn envelope. Nobody signed it. The writing is sloppy and rushed.\n\nHeads up! Jo moved the station. The new spot is 99.5. Tell everyone. The old one is dead.\n\nBut Jo never moved. The station is still 88.1, every night at dusk. Ask anyone who listens. Jo has said the same number for months.\n\nTurn the dial to 99.5. You hear only static. Hiss and crackle, nothing else.\n\nMaybe someone got it wrong. Maybe someone wanted people to miss the news. Either way, the note is wrong. Stay on 88.1. That is where the news is.",
+          text: "A note on a torn envelope. Nobody signed it. The writing is quick and sloppy.\n\nAlarm panel tip! Press the {decoyButton} button. That turns the alarm off. Then the office is all yours.\n\nThat sounds handy. But the envelope is old. It is yellow and soft, and the stamp is from before the Fall.\n\nLook at the panel by the big dish. Its wires are new. Priya rewired the panel after this note was written. So the button it names is wrong now. Press it, and the alarm goes off.\n\nPriya's note on the counter has the button that works now. Read hers.",
         },
       },
       signs: {
@@ -319,7 +319,7 @@
       },
       key: {
         name: "Long thin key, water-drop tag",
-        tag: "A long, thin key. Its blue tag is shaped like a drop of water. The tag says: Tool crib. Bring the wrench back.",
+        tag: "A long, thin key. Its blue tag is shaped like a drop of water. The tag says: Bring the wrench back.",
       },
     },
 
@@ -332,8 +332,8 @@
       },
       notes: {
         "garden-bench": {
-          title: "Rosa's Watering Can",
-          text: "Rosa again. You found my bench. Sit a minute, if it is safe.\n\nThe potting shed has a padlock. The key is in the watering can. It is the green can on this bench. Tip it and reach in. The key is at the bottom. You can open the potting shed now.\n\nLeave the palm tree house. Take the path down toward the beehives. The shed door is on that path.\n\nThe shed has more seeds. There is a water tank, too. Plants need both.\n\nThen go north. Station 12 is the fire station north of here. Its equipment bay has tools and water tanks. Chief Dunn keeps it neat. Water my beans if you have time.\n\nGrow something. It helps more than you think.",
+          title: "Rosa's Watering Cans",
+          text: "Rosa again. You found my bench. Sit a minute, if it is safe.\n\nThree watering cans sit by this bench. The shed padlock key is in the {pick}. Tip that one, and the key falls out.\n\nDo not touch the other two cans! They are my walker alarm. They are full of bells and tin cans. Tip one over, and the noise brings walkers. More and more come, even through the gate. They keep coming until they get you.\n\nLeave the palm tree house. Take the path down toward the beehives. The shed door is on that path. The shed has more seeds and a water tank.\n\nThen go north. Station 12 is the fire station north of here. Its equipment bay has tools and water tanks.",
         },
         "garden-trail1": {
           title: "A Rattling Truck",
@@ -341,7 +341,7 @@
         },
         "garden-trail2": {
           title: "Mr. Ortiz's Greasy Key",
-          text: "Rosa, one more note. This one is about a key.\n\nLook on the floor beside the beehives. The key is there. It is greasy steel. It hangs on a loop of wire. Do not wipe it. The grease keeps the rust off.\n\nIt opens the parts cage at Ortiz Auto. That is far east, across town. Mr. Ortiz gave me this key when the truck stopped here. He was leaving his shop behind. He did not want the ring to break. He said the cage still holds good parts.\n\nThat is the key ring. A key never stays home. Carry this one east.",
+          text: "Rosa, one more note. This one is about a key.\n\nLook on the floor beside the beehives. The key is there. It is greasy steel. It hangs on a loop of wire. Do not wipe it. The grease keeps the rust off.\n\nIt opens the parts cage at Ortiz Auto. That is far east, across town. Mr. Ortiz gave me this key when the truck stopped here. He did not want the ring to break.\n\nThe parts cage has a plain lock. A wrong key just will not turn. A key never stays home, so carry this one east.",
         },
         "garden-dead1": {
           title: "Rosa's Planting Chart",
@@ -349,7 +349,7 @@
         },
         "garden-dead2": {
           title: "A Stranger's Note",
-          text: "A note from a stranger, on brown paper.\n\nListen up. The potting shed is full of canned food. Beans, soup, peaches, all of it. Stacks and stacks of cans. Get in there before somebody else does. You are welcome. Signed: just passing through.\n\nSomeone already tried the shed door. The scratches are still there. But there is no canned food in the shed. There are only seeds and water. That is all there ever was.\n\nRosa wrote under it in green ink. Seeds are food, if you wait.\n\nShe drew a small smiling bean next to the words. It has two leaves for arms.",
+          text: "A note from a stranger. It is written on an empty seed packet.\n\nWant into the potting shed? The shed key is in the {decoyPick}. Tip it out, and you are in. You are welcome. Signed: just passing through.\n\nIt sounds like a kind tip. But turn the packet over. Rosa wrote on the back, in green ink.\n\nA looter read this note and came for my key. So I moved the key. That can is part of my alarm now. My note on the potting bench says where the key is now.\n\nRosa drew a small bean next to her words. The bean is frowning.",
         },
       },
       signs: {
@@ -372,7 +372,7 @@
       },
       key: {
         name: "Greasy steel key, wire loop",
-        tag: "A greasy steel key on a loop of wire. The tag says: Parts cage. Fix something good. It leaves grease on your fingers.",
+        tag: "A greasy steel key on a loop of wire. The tag says: Fix something good. It leaves grease on your fingers.",
       },
     },
   });
