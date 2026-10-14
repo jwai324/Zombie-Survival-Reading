@@ -132,6 +132,15 @@ a bow and arrow, and double pistols.
   the map (more reading), then drives from memory, signs and the minimap. At Huge text the
   map board is hidden, so the words are the only route view there. **Assumption:** this can
   be turned off if the owner wants drives to rest on the road signs alone.
+- **Why the map shows each turn's lanes, heading up.** The map is north up; the road is heading
+  up. Each turn gets a numbered badge on the board and, in the list (and beside the badge
+  when zoomed in), the lanes exactly as that junction's sign will draw them, ours lit. They are
+  read off `Streets.buildDrive`, the drive the road builds, so the two cannot disagree. The
+  route line also starts on the first place's own drive and ends in the lot on its side.
+- **Why place names sit on paper tags beside their icon.** Each name takes the spot around its
+  icon that covers the fewest roads, icons, badges and other names, splitting to two lines
+  when that fits better; the tag keeps it readable where it must touch a road. On a small
+  board the names shrink to fit the whole city; zooming in brings them back to full size.
 - **Why the minimap turns with the van.** Left on the minimap is a left turn. A small N marks
   north.
 - **Why door notes no longer say where the cache room is.** The longer, landmark-based facts

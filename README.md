@@ -53,7 +53,11 @@ road also work on touch.
    draw, sight pins).
 2. **Map.** A fixed city of 15 places, with named streets and side streets. Only a few
    places are known at first; the notes you read and the Radio room reveal the rest. Pick a
-   destination: the route is drawn and "The way there" lists it in words.
+   destination: the route is drawn and "The way there" lists it in words. Each step is
+   numbered to match a badge on the board and shows the lanes its road sign will show, the
+   right one lit. The board zooms (+ and - buttons or keys, the wheel, a pinch) and drags;
+   Route frames the whole drive, 0 or All shows the whole city, and a step in the list zooms
+   to that turn.
 3. **Road.** Top-down driving. Aim with the mouse, hold to fire. The road does not show the
    route: before every junction, side street and parking lot a sign says where each lane
    goes, and A and D (or the arrows, or the side buttons) change lanes. Past side streets and
