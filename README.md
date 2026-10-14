@@ -55,17 +55,21 @@ road also work on touch.
    places are known at first; the notes you read and the Radio room reveal the rest. Pick a
    destination: the route is drawn and "The way there" lists it in words. Each step is
    numbered to match a badge on the board and shows the lanes its road sign will show, the
-   right one lit. The board zooms (+ and - buttons or keys, the wheel, a pinch) and drags;
+   right one lit. Every place sits at the end of its own short drive off the corner where its
+   roads meet (a place with one road, at the end of that road), so the route runs from its icon
+   down its drive, along the roads, and up the destination's drive to its icon. The board zooms (+ and - buttons or keys, the wheel, a pinch) and drags;
    Route frames the whole drive, 0 or All shows the whole city, and a step in the list zooms
    to that turn.
 3. **Road.** Top-down driving. Aim with the mouse, hold to fire. The road does not show the
-   route: before every junction, side street and parking lot a sign says where each lane
-   goes, and A and D (or the arrows, or the side buttons) change lanes. Past side streets and
-   parking lots your usual lane (the left one) goes straight; move right to turn right; a turn
-   lane opens on the far left to turn left. At a junction every road out gets its own lane,
-   left to right, each with a painted arrow, and your usual lane may be one that turns (with
-   two roads out it takes the left one), so match the arrow on the sign. Be in your lane
-   before the white stop line. A wrong turn or a missed lot lets you try again from where
+   route: before every junction and side street a sign says where each lane goes, and A and D
+   (or the arrows, or the side buttons) change lanes. You set out from the parking spot at the
+   end of your place's drive and drive up it to its corner. Past side streets your usual lane
+   (the left one) goes straight. At a junction every road out gets its own lane, left to right,
+   each with a painted arrow, and at a place its own drive gets one too; your usual lane may be
+   one that turns (with two roads out it takes the left one), so match the arrow on the sign.
+   At the end, take the lane for the destination's drive at its corner and park at the door
+   (River Landing and Ortiz Auto sit at the end of their one road: drive on to the end). Be in
+   your lane before the white stop line. A wrong turn lets you try again from where
    you set out (damage, scrap and kills stay), open the town map, or go back to that place. The minimap in the corner shows where you are
    and flags where you are going.
 4. **Building.** The note at the door tells you how many walkers wait inside and where the
@@ -94,8 +98,9 @@ road also work on touch.
    to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns.
    **Fishing.** Chief Dunn's fishing pole lies in Station 12's locked equipment bay (the chief's note says which key opens it). Its tag says
    where his crew fished, and reading it puts **River Landing** on the map: Frog Lane leaves River
-   Road between Greenhouse Row and the Water Tower, the asphalt gives out just past the corner, and
-   a dirt road runs down to a turnout by the river. Get out, walk down the dock, and press 6 (or Q)
+   Road square to it between Greenhouse Row and the Water Tower, the asphalt gives out just past the
+   corner, and a dirt road runs west to the river's edge. The van parks at the end; the river is west
+   of the dock, as on the map. Get out, walk down the dock, and press 6 (or Q)
    for the pole. Click to cast, then click again the moment the float dips (about 2 seconds). Look
    around freely: the line stays out to the bobber. Take a gun with the line out and the pole is
    propped on the bank; a bite rings its bell and the fish stays on until E at the pole takes it
@@ -160,7 +165,7 @@ js/base.js              the build menu at the cabin's computer (rooms, garage, w
 js/typing.js            the workbench typing game (finger lesson, stages, countdown, timer, retry, practice)
 js/bench.js             the garage workbench scene behind the typing game
 js/backpack.js          the backpack (medical kits, notes) and the note reader
-js/sprites.js           road drawing (van and its gun, walkers, scenery, lanes, signs, lots)
+js/sprites.js           road drawing (van and its gun, walkers, scenery, lanes, signs, each place's lot at the end of its drive)
 js/upgrades.js          van and van-gun upgrades (the road)
 js/weapons.js           guns carried on foot: stats, mods, where each one is hidden
 js/audio.js             synthesized sound effects

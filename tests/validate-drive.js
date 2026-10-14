@@ -153,25 +153,27 @@ for (const a of ids) {
     G.commit = orig;
     G.stop();
     failedAt[first || "none"] = (failedAt[first || "none"] || 0) + 1;
-    if (first === "side" || first === "lot") err(`${a} > ${b}`, `left alone, the van turned off at a ${first}`);
+    if (first === "side") err(`${a} > ${b}`, `left alone, the van turned off at a ${first}`);
   }
 }
 
-/* ---------- a wrong lane on purpose: fade, the panel, "try again", tallies kept, then arrive ---------- */
-[["base", "watertower"], ["base", "hardware"], ["hospital", "autoshop"], ["school", "base"]].forEach(([a, b]) => {
-  const c = `${a} > ${b} (wrong lane)`;
+/* ---------- a wrong lane on purpose: fade, the panel, "try again", tallies kept, then arrive ----------
+   (the last two take the drive of a place passed on the way, and a road out of the destination's corner) */
+[["base", "watertower"], ["base", "hardware"], ["hospital", "autoshop"], ["school", "base"], ["base", "autoshop", "drive"], ["river", "base", "dest"]].forEach(([a, b, how]) => {
+  const c = `${a} > ${b} (wrong ${how || "lane"})`;
   start(a, b);
   const t = ZSR.State.trip;
   t.walkers = 3;
   t.scrap = 7;
-  const target = G.drive.decisions.find((d) => d.kind === "junction" || d.kind === "dest");
+  const target = G.drive.decisions.find((d) => (how === "dest" ? d.kind === "dest" : how === "drive" ? d.options.some((o) => o.kind === "drive" && !o.correct) : d.kind === "junction" || d.kind === "dest"));
+  if (!target) return err(c, "no decision to get wrong");
   let failed = false;
   let restarted = false;
   let milesAtFail = 0;
   let held = 0;
   let heldS = 0;
   drive((dec) => {
-    if (G.attempt === 0 && dec === target) return dec.options.find((o) => !o.correct);
+    if (G.attempt === 0 && dec === target) return dec.options.find((o) => !o.correct && (how !== "drive" || o.kind === "drive"));
     return right(dec);
   }, 1.0, () => {
     if (G.fail && !failed) {

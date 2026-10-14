@@ -410,10 +410,10 @@
       items: ["books", "books", "books"], cache: ["books", "maps", "books"], cacheName: "the archive room", stash: ["gunParts", "meds"], stashName: "the rare book room" },
     // outdoors, not a building: the dirt road at the end of Frog Lane, a dock and the river (js/river.js).
     // No notes, layout, key or stash; the fishing pole's tag (Station 12) reveals it.
-    { id: "river", name: "River Landing", type: "river", x: 88, y: 482, danger: 1, outdoor: true, items: [], cache: [] },
+    { id: "river", name: "River Landing", type: "river", x: 80, y: 471, danger: 1, outdoor: true, items: [], cache: [] },
   ];
   /** Where roads meet with no place there: on the road graph, never on the map as a place, never a destination. */
-  const JUNCTIONS = [{ id: "frog", x: 147, y: 429 }]; // Frog Lane leaves River Road here
+  const JUNCTIONS = [{ id: "frog", x: 153, y: 446 }]; // Frog Lane leaves River Road here, square to it, west to the water
   /** A place or a junction by id. */
   const place = (id) => LOCATIONS.find((l) => l.id === id) || JUNCTIONS.find((j) => j.id === id) || null;
   const isJunction = (id) => JUNCTIONS.some((j) => j.id === id);
@@ -432,36 +432,48 @@
     pairChance: 0.25, // sometimes two at once
     bellReach: 2.0, // E takes the propped rod back from this close
     rod: { at: "firehouse", reveals: ["river"] }, // where the pole lies (on its layout's rod spot), and what its tag reveals
-    /* The bank, north up: T trees (the far bank, the edges, clumps for cover)  ~ water  = dock planks
-       , mud  : the dirt road and the turnout  . grass  V the van  P where you get out  S the sign
-       N the note on the dock post  z where walkers come out of the trees. */
+    /* The bank, north up, as the city map has it: the river on the west, Frog Lane coming in from the east
+       (its dirt road runs off between the trees on the east edge).
+       T trees (the far bank, the edges, clumps for cover)  ~ water  = dock planks  , mud
+       : the dirt road and the turnout  . grass  V the van (its cab on the west, facing the water)
+       P where you get out  S the sign  N the note on the dock post  z where walkers come out of the trees. */
     grid: [
-      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
-      "T~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~T",
-      "T~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~T",
-      "T~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~T",
-      "T~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~T",
-      "T~~~~~~~~~~~~~~~~==~~~~~~~~~~~~~~~~T",
-      "T~~~~~~~~~~~~~~~~==~~~~~~~~~~~~~~~~T",
-      "T~~~~~~~~~~~~~~~~==~~~~~~~~~~~~~~~~T",
-      "T~~~~~~~~~~~~~~~~==~~~~~~~~~~~~~~~~T",
-      "T,,,,,,,,,,,,,,,,==N,,,,,,,,,,,,,,,T",
-      "T................::................T",
-      "T...TT...........::.............T..T",
-      "Tz..T............::......TT........T",
-      "T................::..T....T.......zT",
-      "T........TT......::................T",
-      "T................::................T",
-      "T................::...........TT...T",
-      "Tz...........T...::....T...........T",
-      "T.....TT.........::...............zT",
-      "T................::................T",
-      "T................::................T",
-      "T..T........::S:::::::::....T......T",
-      "T...........:::::P::::::...........T",
-      "Tz..........:::::::VV:::..........zT",
-      "T.....z.....::::::::::::.....z.....T",
-      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
+      "T~~~~~~~~,...z....z....z.........T",
+      "T~~~~~~~~,.......................T",
+      "T~~~~~~~~,.T...............T.....T",
+      "T~~~~~~~~,......T................T",
+      "T~~~~~~~~,......T................T",
+      "T~~~~~~~~,....................T.zT",
+      "T~~~~~~~~,...........T...........T",
+      "T~~~~~~~~,.......................T",
+      "T~~~~~~~~,..TT............T......T",
+      "T~~~~~~~~,..T....................T",
+      "T~~~~~~~~,.......................T",
+      "T~~~~~~~~,.......T...::::........T",
+      "T~~~~~~~~,...........::::......T.T",
+      "T~~~~~~~~,...T.......::::........T",
+      "T~~~~~~~~,...........::::........T",
+      "T~~~~~~~~N...........:VV:........T",
+      "T~~~~=====:::::::::::::::::::::::T",
+      "T~~~~=====::::::::::::P::::::::::T",
+      "T~~~~~~~~,...........::::........T",
+      "T~~~~~~~~,...........::::........T",
+      "T~~~~~~~~,...........S:::........T",
+      "T~~~~~~~~,.......T...::::...T....T",
+      "T~~~~~~~~,...........::::........T",
+      "T~~~~~~~~,.......................T",
+      "T~~~~~~~~,....T................T.T",
+      "T~~~~~~~~,....T..................T",
+      "T~~~~~~~~,.......................T",
+      "T~~~~~~~~,........T..............T",
+      "T~~~~~~~~,........T........T....zT",
+      "T~~~~~~~~,.T.....................T",
+      "T~~~~~~~~,.TT....................T",
+      "T~~~~~~~~,...........T........T..T",
+      "T~~~~~~~~,.......................T",
+      "T~~~~~~~~,..z....z.....z.........T",
+      "TTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTTT",
     ],
     palette: { wall: "#5a4a3a", shelf: "#6b4a3a", counter: "#4b5057", floor: "#6b6a4a", ceiling: "#e8e2d4", sky: true, floorKind: "grass" },
   };

@@ -29,7 +29,7 @@
       this.loadGrid(R.grid, R.palette);
       this.water = new Uint8Array(this.gw * this.gh);
       this.riverSpots = []; // the sign and the note: read with E (the core's read panel, via readSpot)
-      let start = [17.5, 22.5, -Math.PI / 2];
+      let start = [22.5, 18.5, Math.PI]; // facing west, at the water
       const k = SIGN_SCALE[root.document && document.documentElement.getAttribute("data-size")] || 1;
       for (let y = 0; y < this.gh; y++) {
         for (let x = 0; x < this.gw; x++) {
@@ -56,7 +56,7 @@
           } else if (ch === "=") this.setFloor(x, y, "planks");
           else if (ch === "," || ch === ":") this.setFloor(x, y, "dirt");
           else if (ch === "P") {
-            start = [cx, cy, -Math.PI / 2];
+            start = [cx, cy, Math.PI];
             this.setFloor(x, y, "dirt");
           } else if (ch === "S") {
             this.setFloor(x, y, "dirt");
@@ -90,11 +90,12 @@
     dressBank() {
       let s = 7;
       const r = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
-      for (let x = 2; x < this.gw - 2; x++) {
-        if (x >= 16 && x <= 20) continue; // the dock and its post
+      // along the mud of the east bank (grid column 9), north to south
+      for (let y = 2; y < this.gh - 2; y++) {
+        if (y >= 15 && y <= 19) continue; // the dock and its post
         const roll = r();
-        if (roll < 0.45) this.addProp({ x: x + 0.3 + r() * 0.4, y: 9.55 + r() * 0.3, art: "reeds", scale: 0.55 + r() * 0.25 });
-        else if (roll < 0.55) this.addProp({ x: x + 0.5, y: 9.6, art: "rock", scale: 0.3 });
+        if (roll < 0.45) this.addProp({ x: 9.15 + r() * 0.3, y: y + 0.3 + r() * 0.4, art: "reeds", scale: 0.55 + r() * 0.25 });
+        else if (roll < 0.55) this.addProp({ x: 9.4, y: y + 0.5, art: "rock", scale: 0.3 });
       }
     },
 

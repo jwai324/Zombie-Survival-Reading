@@ -54,6 +54,15 @@
   const iconSize = (l) => (l.id === "base" ? 30 : 24);
   /** The box an icon covers, in its own units around its spot (roof, canopy, danger pips). */
   const ICON_BOX = [-1.25, -1.35, 1.25, 1.25];
+  /** Where a place's icon sits at icon scale ik: at the end of its own drive, out of its corner the way the van
+      leaves it (as on the road), the drive a little longer than the icon so it always shows; a place with one
+      road sits at the end of that road. { x, y, drive (it has one) }. */
+  function site(l, ik) {
+    const sd = ZSR.Streets && ZSR.Streets.startDir(l.id);
+    if (!sd) return { x: l.x, y: l.y, drive: false };
+    const len = (ICON_BOX[2] * iconSize(l) + 14) * ik;
+    return { x: l.x - sd[0] * len, y: l.y - sd[1] * len, drive: true };
+  }
 
   const Map = {
     canvas: null,
@@ -248,9 +257,10 @@
     /**
      * Every turn of the route from `from` to `to`, read off the drive the road builds:
      * { path, start (heading in on the first place's own drive, or null), steps }. One step per road
-     * (the turn onto it, at the place it leaves), then the destination's lot. Each step: { node, x, y
+     * (the turn onto it, at the place it leaves), then the last: the turn onto the destination's own drive
+     * at its corner (or, for a place with one road, the end of that road). Each step: { node, x, y
      * (map units), ox, oy (the way out), lanes: [{ rel, ok }] left to right, choice (a sign there) };
-     * the lot step also has lot: true, nx, ny (toward the lot) and side (+1 right, -1 left).
+     * the last step also has last: true.
      */
     guideFor(from, to) {
       const key = from + ">" + to;
@@ -263,7 +273,7 @@
       const drive = St.buildDrive(path, { scale, speed: St.GEOM.baseSpeed });
       const P = path.map((id) => W().place(id));
       const turnAt = {};
-      drive.decisions.forEach((d) => d.kind === "junction" && (turnAt[d.node] = d));
+      drive.decisions.forEach((d) => d.kind === "junction" && !turnAt[d.node] && (turnAt[d.node] = d));
       const lanesOf = (dec) => dec.lanes.map((k) => ({ rel: dec.options[k].rel, ok: !!dec.options[k].correct }));
       const steps = [];
       for (let i = 0; i < path.length - 1; i++) {
@@ -283,8 +293,15 @@
         steps.push({ node: path[i], x: P[i].x, y: P[i].y, ox, oy, lanes, choice: !!dec });
       }
       const dest = drive.decisions.find((d) => d.kind === "dest");
-      const side = dest.lot.side;
-      steps.push({ node: to, lot: true, x: dest.qx / scale, y: dest.qy / scale, ox: dest.ux, oy: dest.uy, nx: -dest.uy * side, ny: dest.ux * side, side, lanes: lanesOf(dest), choice: true });
+      const end = P[P.length - 1];
+      if (dest) {
+        const [ox, oy] = St.outDir(to);
+        steps.push({ node: to, last: true, x: end.x, y: end.y, ox, oy, lanes: lanesOf(dest), choice: true });
+      } else {
+        // the road runs on to the place at its end: nothing to choose
+        const [ox, oy] = unit(end.x - P[P.length - 2].x, end.y - P[P.length - 2].y);
+        steps.push({ node: to, last: true, x: end.x, y: end.y, ox, oy, lanes: [{ rel: 0, ok: true }], choice: false });
+      }
       const sd = St.startDir(path[0]);
       return (this.guides[key] = { path, dist: r.dist, start: sd, steps });
     },
@@ -353,8 +370,9 @@
       const g = this.selected ? this.guideFor(this.at, this.selected) : null;
       if (!g) return this.fitAll();
       this.focus = null;
-      const xs = g.steps.map((s) => s.x);
-      const ys = g.steps.map((s) => s.y);
+      const ends = [this.at, this.selected].map((id) => site(W().place(id), 1 / Math.sqrt(2.6)));
+      const xs = g.steps.map((s) => s.x).concat(ends.map((e) => e.x));
+      const ys = g.steps.map((s) => s.y).concat(ends.map((e) => e.y));
       const pad = 70;
       const x0 = Math.min(...xs) - pad;
       const x1 = Math.max(...xs) + pad;
@@ -368,7 +386,7 @@
       if (!g || !g.steps[i]) return;
       this.focus = i;
       const s = g.steps[i];
-      this.zoomTo(Math.max(this.view.z, 2.6), s.x + (s.lot ? 0 : s.ox * 30), s.y + (s.lot ? 0 : s.oy * 30));
+      this.zoomTo(Math.max(this.view.z, 2.6), s.x + s.ox * 30, s.y + s.oy * 30);
     },
     setCursor() {
       if (!this.canvas) return;
@@ -389,7 +407,8 @@
       let best = null;
       W().LOCATIONS.forEach((l) => {
         if (!State().isKnown(l.id)) return;
-        const d = Math.hypot(l.x - x, l.y - y);
+        const at = site(l, k);
+        const d = Math.hypot(at.x - x, at.y - y);
         if (d < 34 * k && (!best || d < best.d)) best = { d, id: l.id };
       });
       // a place's name picks it too
@@ -490,8 +509,8 @@
       else if (r) {
         // long routes are never squeezed below the road's minimum scale (lanes need time to read), so they can run past tripMaxSeconds
         const secs0 = this.tripSeconds(r.dist);
-        // ... and the drive out of this place to its first junction comes on top
-        const secs = Math.round(ZSR.Streets ? Math.max(secs0, (r.dist * ZSR.Streets.GEOM.minScale) / ZSR.Streets.GEOM.baseSpeed) + ZSR.Streets.startSeconds(this.at) : secs0);
+        // ... and the drives out of this place to its corner and in from the destination's corner come on top
+        const secs = Math.round(ZSR.Streets ? Math.max(secs0, (r.dist * ZSR.Streets.GEOM.minScale) / ZSR.Streets.GEOM.baseSpeed) + ZSR.Streets.startSeconds(this.at) + ZSR.Streets.endSeconds(id) : secs0);
         info.appendChild(el("p", "small muted", "Drive: about " + secs + " seconds by road" + (loc.id === "base" ? ". Cargo is unloaded and the day ends." : ".")));
         // the way in words: the road shows no route, so the player reads this here, then the signs out there.
         // Each numbered step matches a badge on the board and shows the lanes its sign will show, ours lit.
@@ -603,51 +622,61 @@
       const g = this.selected && this.selected !== this.at ? this.guideFor(this.at, this.selected) : null;
       const onRoute = new Set();
       if (g && St) for (let i = 0; i < g.path.length - 1; i++) onRoute.add(St.roadKey(g.path[i], g.path[i + 1]));
+      if (g) onRoute.add("drive|" + g.path[0]).add("drive|" + g.path[g.path.length - 1]);
       const roadKnown = (a, b) => (known.has(a) && known.has(b)) || onRoute.has(a + "|" + b);
-      const roads = W().ROADS.filter(([a, b]) => roadKnown(a, b)).map(([a, b]) => ({ a, b, key: a + "|" + b, x0: pos[a].x, y0: pos[a].y, x1: pos[b].x, y1: pos[b].y }));
+      // each known place at the end of its own drive, off its corner (drives are roads too: drawn and kept clear, never named)
+      const at = {};
+      knownIds.forEach((id) => (at[id] = site(pos[id], ik)));
+      const roads = W()
+        .ROADS.filter(([a, b]) => roadKnown(a, b))
+        .map(([a, b]) => ({ a, b, key: a + "|" + b, x0: pos[a].x, y0: pos[a].y, x1: pos[b].x, y1: pos[b].y }))
+        .concat(knownIds.filter((id) => at[id].drive).map((id) => ({ a: id, b: null, key: "drive|" + id, drive: true, x0: pos[id].x, y0: pos[id].y, x1: at[id].x, y1: at[id].y })));
       const stubs = St
         ? St.SIDE_STREETS.filter((ss) => roadKnown(...ss.road.split("|"))).map((ss) => Object.assign(St.sideStub(ss), { ss }))
         : [];
       const roadHalf = 5 * ik;
 
-      // the route as the van drives it: in on its own drive, along the roads, off into the lot on its side
+      // the route as the van drives it: from the first place's door down its own drive to its corner, along the
+      // roads, and up the destination's drive to its door (or on to the end of its road)
       let line = null;
       const badges = [];
       let van = null;
       if (g) {
         line = [];
-        const p0 = pos[g.path[0]];
-        if (g.start) {
-          const len = 60 * ik;
-          line.push([p0.x - g.start[0] * len, p0.y - g.start[1] * len]);
-          van = { x: p0.x - g.start[0] * len, y: p0.y - g.start[1] * len, ang: Math.atan2(g.start[1], g.start[0]) + Math.PI / 2 };
+        const a0 = at[g.path[0]];
+        const a1 = at[g.path[g.path.length - 1]];
+        if (a0.drive) {
+          // the van waits at the door, facing down the drive
+          line.push([a0.x, a0.y]);
+          van = { x: a0.x, y: a0.y, ang: Math.atan2(g.start[1], g.start[0]) + Math.PI / 2 };
+        } else {
+          // at the end of its one road, a little way up it, clear of the place's icon
+          const s0 = g.steps[0];
+          const off = (ICON_BOX[2] * iconSize(pos[g.path[0]]) + 6) * ik;
+          van = { x: a0.x + s0.ox * off, y: a0.y + s0.oy * off, ang: Math.atan2(s0.oy, s0.ox) + Math.PI / 2 };
+          line.push([van.x, van.y]);
         }
-        g.path.slice(0, -1).forEach((id) => line.push([pos[id].x, pos[id].y]));
-        const lot = g.steps[g.steps.length - 1];
-        const into = roadHalf + 12 * ik;
-        line.push([lot.x, lot.y], [lot.x + lot.nx * into, lot.y + lot.ny * into]);
-        // a numbered badge where each step turns: on its road out, just past the place's icon; the last at the lot
+        g.path.slice(a0.drive ? 0 : 1).forEach((id) => line.push([pos[id].x, pos[id].y]));
+        if (a1.drive) line.push([a1.x, a1.y]);
+        // a numbered badge where each step turns: on the way out of its corner (the last: on the drive in, before the icon)
         const br = Math.min((8.5 + 1.5 * z) * pxU * Math.sqrt(kSize), 13 / Math.pow(z, 0.6)); // a little bigger up close, never swamping a small board
         g.steps.forEach((s, i) => {
-          if (s.lot) badges.push({ i, x: lot.x + lot.nx * into, y: lot.y + lot.ny * into, r: br * 1.1, step: s });
-          else {
-            const off = iconSize(pos[s.node]) * 1.35 * ik + br + 3 * pxU;
-            badges.push({ i, x: s.x + s.ox * off, y: s.y + s.oy * off, r: br, step: s });
-          }
+          let off = s.last ? (s.choice ? roadHalf + br + 4 * ik : -(roadHalf + br + 4 * ik)) : roadHalf + br + 6 * ik;
+          if (i === 0 && !a0.drive) off = Math.hypot(van.x - s.x, van.y - s.y) + 14 * ik + br; // past the van waiting on the road
+          badges.push({ i, x: s.x + s.ox * off, y: s.y + s.oy * off, r: s.last ? br * 1.1 : br, step: s });
         });
       }
       if (!van) {
-        const here = pos[this.at];
+        const here = at[this.at] || pos[this.at];
         van = { x: here.x + 30 * ik, y: here.y - 26 * ik, ang: 0 };
       }
 
       // things a name should keep off, each a box [x0, y0, x1, y1, weight]
-      const icons = W()
-        .LOCATIONS.filter((l) => known.has(l.id))
-        .map((l) => {
-          const s = iconSize(l) * ik;
-          return { id: l.id, b: [l.x + ICON_BOX[0] * s, l.y + ICON_BOX[1] * s, l.x + ICON_BOX[2] * s, l.y + ICON_BOX[3] * s] };
-        });
+      const icons = knownIds.map((id) => {
+        const s = iconSize(pos[id]) * ik;
+        const p = at[id];
+        return { id, b: [p.x + ICON_BOX[0] * s, p.y + ICON_BOX[1] * s, p.x + ICON_BOX[2] * s, p.y + ICON_BOX[3] * s] };
+      });
       const vanBox = [van.x - 22 * ik, van.y - 26 * ik, van.x + 22 * ik, van.y + 26 * ik];
       ctx.font = FONT(10);
       const districtBoxes = DISTRICTS.map(([t, x, y]) => {
@@ -689,7 +718,7 @@
       // the route's places first, then the rest
       const order = knownIds.slice().sort((a, b) => (g && g.path.includes(b) ? 1 : 0) - (g && g.path.includes(a) ? 1 : 0));
       order.forEach((id) => {
-        const l = pos[id];
+        const l = Object.assign({}, pos[id], at[id]);
         const s = iconSize(l) * ik;
         const full = l.name.toUpperCase();
         const splits = [[full]];
@@ -833,9 +862,9 @@
           }
         };
         // the route's names first (always drawn), then the rest where they fit
-        roads.filter((rd) => onRoute.has(rd.key)).forEach(roadLabel);
+        roads.filter((rd) => !rd.drive && onRoute.has(rd.key)).forEach(roadLabel);
         stubs.filter((st) => onRoute.has(st.ss.road)).forEach(sideLabel);
-        roads.filter((rd) => !onRoute.has(rd.key)).forEach(roadLabel);
+        roads.filter((rd) => !rd.drive && !onRoute.has(rd.key)).forEach(roadLabel);
         stubs.filter((st) => !onRoute.has(st.ss.road)).forEach(sideLabel);
       }
 
@@ -863,7 +892,7 @@
         });
       }
 
-      this.layoutCache = { key, z, pxU, ik, kSize, roadHalf, g, onRoute, roads, stubs, line, badges, van, names: names.filter((n) => !n.card), streets, cards };
+      this.layoutCache = { key, z, pxU, ik, kSize, roadHalf, g, onRoute, roads, stubs, at, line, badges, van, names: names.filter((n) => !n.card), streets, cards };
       return this.layoutCache;
     },
 
@@ -1040,10 +1069,10 @@
       L.streets.forEach((s) => !s.late && street(s));
       const fx = S.effects();
       W().LOCATIONS.forEach((l) => {
-        if (!S.isKnown(l.id)) return;
-        this.drawIcon(ctx, l, l.id === this.selected, l.id === this.hover, fx, ik);
+        if (!S.isKnown(l.id) || !L.at[l.id]) return;
+        this.drawIcon(ctx, Object.assign({}, l, L.at[l.id]), l.id === this.selected, l.id === this.hover, fx, ik);
       });
-      // you are here: the van, on its own drive facing in when a route is picked
+      // you are here: the van, at its door facing down its own drive when a route is picked
       ctx.save();
       ctx.translate(L.van.x, L.van.y);
       ctx.rotate(L.van.ang);
@@ -1067,7 +1096,7 @@
       ctx.setTransform(1, 0, 0, 1, 0, 0);
     },
 
-    /** The picked route: in on the first place's own drive, along each road, off into the lot. */
+    /** The picked route: down the first place's own drive, along each road, up the destination's drive to its door. */
     drawRoute(ctx, L) {
       const pts = L.line;
       const ik = L.ik;
@@ -1116,15 +1145,6 @@
         }
         carry = Math.max(h, s - len);
       }
-      // the lot: a parking square on its side of the road
-      const lot = pts[pts.length - 1];
-      const s = 9 * ik;
-      ctx.fillStyle = "#3f5a8a";
-      ctx.strokeStyle = INK;
-      ctx.lineWidth = 2 * ik;
-      ZSR.Draw.rr(ctx, lot[0] - s, lot[1] - s, s * 2, s * 2, 2 * ik);
-      ctx.fill();
-      ctx.stroke();
     },
     /** Numbered badges at each turn (the list on the side shows the same numbers), the lanes beside them up close. */
     drawBadges(ctx, L) {
@@ -1143,12 +1163,12 @@
         }
         ctx.beginPath();
         ctx.arc(b.x, b.y, b.r, 0, TAU);
-        ctx.fillStyle = b.step.lot ? "#3f5a8a" : INK;
+        ctx.fillStyle = b.step.last ? "#3f5a8a" : INK;
         ctx.fill();
         ctx.lineWidth = b.r * 0.22;
-        ctx.strokeStyle = b.step.lot ? INK : AMBER;
+        ctx.strokeStyle = b.step.last ? INK : AMBER;
         ctx.stroke();
-        ctx.fillStyle = b.step.lot ? PAPER3 : AMBER;
+        ctx.fillStyle = b.step.last ? PAPER3 : AMBER;
         ctx.font = FONT(b.r * 1.3);
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -1172,24 +1192,36 @@
       ctx.lineWidth = 3;
       ctx.strokeStyle = INK;
       if (l.type === "river") {
-        // River Landing: a dock out over the water, and a fish
-        ctx.fillStyle = "#8fb0c0";
-        ctx.beginPath();
-        ctx.ellipse(-size * 0.25, 0, size * 1.05, size * 0.75, 0, 0, TAU);
-        ctx.fill();
-        ctx.stroke();
+        // River Landing: where Frog Lane ends at the river's bank, a dock out over the water (the board's river), and a fish
+        const o = ZSR.Streets ? ZSR.Streets.outDir(l.id) : [-1, 0];
+        ctx.rotate(Math.atan2(o[1], o[0]));
         ctx.fillStyle = "#a8825a";
-        ctx.fillRect(-size * 0.15, -size * 0.2, size * 1.25, size * 0.42);
-        ctx.strokeRect(-size * 0.15, -size * 0.2, size * 1.25, size * 0.42);
+        ctx.fillRect(-size * 0.2, -size * 0.24, size * 1.3, size * 0.48);
+        ctx.strokeRect(-size * 0.2, -size * 0.24, size * 1.3, size * 0.48);
+        ctx.lineWidth = 1.5;
+        for (let x = size * 0.1; x < size * 1.1; x += size * 0.26) {
+          ctx.beginPath();
+          ctx.moveTo(x, -size * 0.24);
+          ctx.lineTo(x, size * 0.24);
+          ctx.stroke();
+        }
+        ctx.lineWidth = 2;
+        ctx.fillStyle = "#5a4538";
+        [[size * 0.15, -size * 0.32], [size * 0.15, size * 0.32], [size * 0.95, -size * 0.32], [size * 0.95, size * 0.32]].forEach(([x, y]) => {
+          ctx.beginPath();
+          ctx.arc(x, y, size * 0.11, 0, TAU);
+          ctx.fill();
+          ctx.stroke();
+        });
+        // a fish jumping off the end of the dock
         ctx.fillStyle = PAPER3;
         ctx.beginPath();
-        ctx.ellipse(-size * 0.55, size * 0.38, size * 0.32, size * 0.15, 0, 0, TAU);
-        ctx.moveTo(-size * 0.25, size * 0.38);
-        ctx.lineTo(-size * 0.05, size * 0.22);
-        ctx.lineTo(-size * 0.05, size * 0.54);
+        ctx.ellipse(size * 1.45, size * 0.5, size * 0.3, size * 0.14, 0, 0, TAU);
+        ctx.moveTo(size * 1.15, size * 0.5);
+        ctx.lineTo(size * 0.97, size * 0.36);
+        ctx.lineTo(size * 0.97, size * 0.64);
         ctx.closePath();
         ctx.fill();
-        ctx.lineWidth = 2;
         ctx.stroke();
         ctx.restore();
         return;

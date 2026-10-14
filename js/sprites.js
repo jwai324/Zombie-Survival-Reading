@@ -913,7 +913,7 @@
   /* ---------- The city road, drawn in world space (js/game.js sets the camera) ---------- */
 
   const ROOF = { base: "#5b6b3a", gas: "#b3261e", store: "#3f5a8a", shop: "#4b5057", station: "#8a3a30", school: "#8a6a2e", hospital: "#9aa39a", utility: "#5f6b6e", industrial: "#6e6a60", mall: "#6b3f8a", library: "#3f7a6a", river: "#3f7aa0" };
-  const DIRT = "#7a5c3e"; // a road past its paving, and the river's turnout
+  const DIRT = "#7a5c3e"; // a road past its paving
   /** Dead ground around the view: a flat fill plus patches and tufts pinned to the world, so the land slides by. */
   function ground(ctx, view, theme) {
     const t = theme || {};
@@ -1011,7 +1011,7 @@
     const near = (s, pad) => distSeg(view.x, view.y, s.x0, s.y0, s.x1, s.y1) < view.r + pad;
     const roads = world.roads.filter((r) => near(r, G.half + 80));
     const sides = world.sides.filter((s) => near(s, G.sideHalf + 200));
-    const nodes = world.nodes.filter((n) => n.deg > 0 && Math.hypot(n.x - view.x, n.y - view.y) < view.r + G.boxR + 80);
+    const nodes = world.nodes.filter((n) => n.deg > 0 && !n.water && Math.hypot(n.x - view.x, n.y - view.y) < view.r + G.boxR + 80);
     const ends = sides.filter((s) => s.kind === "deadEnd");
     ctx.lineCap = "butt";
     ctx.lineJoin = "round";
@@ -1047,11 +1047,7 @@
       ctx.lineCap = "butt"; // a straight seam where the asphalt stops
       ctx.strokeStyle = t.dirt || DIRT;
       ctx.lineWidth = 2 * G.half + 2 * G.shoulder - 10;
-      line(ctx, mx, my, r.x1, r.y1);
-      ctx.beginPath();
-      ctx.arc(r.x1, r.y1, G.boxR - 4, 0, TAU);
-      ctx.fillStyle = t.dirt || DIRT;
-      ctx.fill();
+      line(ctx, mx, my, r.x1, r.y1); // a square end at the water's edge
       // where the asphalt breaks up: ragged chunks
       const rr0 = seeded(Math.round(mx * 7 + my) >>> 0);
       ctx.fillStyle = t.asphalt || "#35363b";
@@ -1298,20 +1294,22 @@
     });
   }
 
-  /** A parking lot beside the road with its building. lot: { qx, qy, ux, uy, side }; look: { type }. */
+  /** A place's building at the end of its own drive (or its road), facing down it: its lot and the building
+      beyond. lot: { qx, qy, ux, uy, side } (streets.js endLot: x along the lot's front, y away from the drive's
+      end, which is at y = G.half); look: { type }. River Landing has no building: a dock out over the water. */
   function lot(ctx, L, G, look) {
     const nx = -L.uy * L.side;
     const ny = L.ux * L.side;
     const v0 = G.half + G.shoulder + G.lotGap;
     const v1 = v0 + G.lotDepth;
     ctx.save();
-    ctx.transform(L.ux, L.uy, nx, ny, L.qx, L.qy); // x along the road, y away from it toward the lot
+    ctx.transform(L.ux, L.uy, nx, ny, L.qx, L.qy);
     if (look && look.type === "river") {
-      riverTurnout(ctx, G, v0, v1);
+      riverDock(ctx, G);
       ctx.restore();
       return;
     }
-    // driveway apron across the shoulder
+    // apron from the end of the drive into the lot
     ctx.fillStyle = "#3b3c41";
     ctx.fillRect(-84, G.half - 14, 168, v0 - G.half + 30);
     ctx.strokeStyle = INK;
@@ -1351,38 +1349,38 @@
       ctx.fillStyle = "#b3261e";
       ctx.fillRect(-G.lotHalf + 50, v0 + 20, 150, 16);
     }
-    // the door, facing the road
+    // the door, facing the drive
     ctx.fillStyle = INK;
     ctx.fillRect(-26, by - 4, 52, 10);
     ctx.restore();
   }
 
-  /** River Landing's place to park: a dirt pull-off by the dirt road, log stops, a picnic table and a sign post. */
-  function riverTurnout(ctx, G, v0, v1) {
-    ctx.fillStyle = DIRT;
-    ctx.fillRect(-90, G.half - 20, 180, v0 - G.half + 36);
-    rr(ctx, -G.lotHalf, v0, G.lotHalf * 2, G.lotDepth, 40);
-    fillStroke(ctx, DIRT, 4);
-    const r = seeded(97);
-    ctx.fillStyle = "#a39a88";
-    for (let i = 0; i < 60; i++) ctx.fillRect(-G.lotHalf + 20 + r() * (G.lotHalf * 2 - 40), v0 + 14 + r() * (G.lotDepth - 28), 6, 5);
-    // log stops along the back edge
-    for (let x = -G.lotHalf + 30; x < G.lotHalf - 60; x += 74) {
-      rr(ctx, x, v1 - 52, 62, 20, 9);
+  /** River Landing, where Frog Lane's dirt road runs out at the water's edge (y = G.half): log stops across the
+      road in front of the parked van, the sign post, and the dock out over the water. */
+  function riverDock(ctx, G) {
+    const y0 = G.half - 110;
+    // log stops
+    for (let x = -150; x < 150; x += 80) {
+      rr(ctx, x, y0, 66, 20, 9);
       fillStroke(ctx, "#6b4a2e", 3);
-      ctx.strokeStyle = "rgba(0,0,0,0.35)";
-      ctx.lineWidth = 2;
-      line(ctx, x + 10, v1 - 42, x + 52, v1 - 42);
     }
-    // a picnic table and the sign post
-    rr(ctx, G.lotHalf - 120, v0 + 70, 90, 40, 4);
-    fillStroke(ctx, "#8a6a46", 3);
-    rr(ctx, G.lotHalf - 126, v0 + 54, 102, 12, 3);
-    fillStroke(ctx, "#8a6a46", 3);
-    rr(ctx, G.lotHalf - 126, v0 + 114, 102, 12, 3);
-    fillStroke(ctx, "#8a6a46", 3);
-    circle(ctx, -G.lotHalf + 46, v0 + 60, 12, "#5a4538", 3);
-    rr(ctx, -G.lotHalf + 20, v0 + 30, 52, 22, 3);
+    // the dock: planks out from the bank, on posts
+    const d0 = y0 + 50;
+    const d1 = d0 + 520;
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.fillRect(-52, d0 + 10, 112, d1 - d0);
+    rr(ctx, -60, d0, 120, d1 - d0, 4);
+    fillStroke(ctx, "#a8825a", 4);
+    ctx.strokeStyle = "rgba(60,40,20,0.5)";
+    ctx.lineWidth = 3;
+    for (let y = d0 + 26; y < d1; y += 26) line(ctx, -58, y, 58, y);
+    [d0 + 40, (d0 + d1) / 2, d1 - 20].forEach((y) => {
+      circle(ctx, -60, y, 10, "#5a4538", 3);
+      circle(ctx, 60, y, 10, "#5a4538", 3);
+    });
+    // the sign post by the end of the road
+    circle(ctx, 190, y0 - 60, 12, "#5a4538", 3);
+    rr(ctx, 160, y0 - 100, 64, 26, 3);
     fillStroke(ctx, "#e6dfcc", 3);
   }
 

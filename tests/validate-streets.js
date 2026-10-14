@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 /* Validates js/streets.js against js/world.js: every road is named, side streets are
    well formed and stay clear of other roads, the road text keys are complete, and for
-   EVERY ordered pair of places the drive is well formed at slow and fast vans: the first turn out of a
-   place with two roads or more is a junction on its own drive (which keeps clear of everything else), lanes,
-   one right way per decision, the left lane always goes straight on past side streets and
-   driveways, the van's own path through every turn from every lane is a smooth arc that
+   EVERY ordered pair of places the drive is well formed at slow and fast vans: every place's building sits at
+   the end of its own drive off its corner (or at the end of its one road), and every drive and lot keeps clear
+   of everything else; the first turn out of a place with two roads or more is its corner, and the last turn is
+   the destination's drive at its corner; at every place passed, its drive is one more lane; lanes,
+   one right way per decision, the left lane always goes straight on past side streets, the van's own path through every turn from every lane is a smooth arc that
    leads somewhere (and back onto the route the right way), signs name something, the
    written directions name every road, geometry is finite, and the drive time is in range.
    Exit 1 on any error. */
@@ -149,8 +150,8 @@ if (S.SIDE_STREETS.length < roadKeys.length * 0.7) err("SIDE_STREETS", `only ${S
 
 /* ---------- road text keys ---------- */
 const TOKENS = ["place", "street", "dest", "origin"];
-const NEED = { to: ["dest"], wrongWay: ["place"], wrongStreet: ["street"], wrongSide: ["street"], wrongPlace: ["place", "dest"], wrongLot: ["dest"], missed: ["dest"], goBack: ["origin"], routeTake: ["street", "place"], routeTakeStreet: ["street"], routeLeft: ["dest"], routeRight: ["dest"] };
-const REQUIRED = ["to", "here", "home", "fog", "night", "hungry", "deadEnd", "noThrough", "closed", "lot", "hint", "wrongWay", "wrongStreet", "wrongSide", "wrongPlace", "wrongLot", "missed", "wrongTitle", "tryAgain", "townMap", "goBack", "routeHead", "routeTake", "routeTakeStreet", "routeStraight", "routeLeft", "routeRight"];
+const NEED = { to: ["dest"], wrongWay: ["place"], wrongStreet: ["street"], wrongSide: ["street"], wrongPlace: ["place", "dest"], wrongLot: ["dest"], goBack: ["origin"], routeTake: ["street", "place"], routeTakeStreet: ["street"], routeDrive: ["dest"], routeEnd: ["dest", "street"] };
+const REQUIRED = ["to", "here", "home", "fog", "night", "hungry", "deadEnd", "noThrough", "closed", "lot", "hint", "wrongWay", "wrongStreet", "wrongSide", "wrongPlace", "wrongLot", "wrongTitle", "tryAgain", "townMap", "goBack", "routeHead", "routeTake", "routeTakeStreet", "routeStraight", "routeDrive", "routeEnd"];
 const tokensOf = (s) => [...String(s).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort();
 const F = S.ROAD_TEXT_FALLBACK;
 REQUIRED.forEach((k) => {
@@ -205,8 +206,8 @@ let minWin = Infinity;
 let maxTime = 0;
 let minTime = Infinity;
 let minLot = Infinity;
+let minDrive = Infinity;
 let minArc = Infinity;
-let minStart = Infinity;
 for (const a of ids) {
   for (const b of ids) {
     if (a === b) continue;
@@ -240,22 +241,19 @@ for (const a of ids) {
       const time = (d.endS - d.startS) / v;
       maxTime = Math.max(maxTime, time);
       minTime = Math.min(minTime, time);
-      // River Landing at the far west edge makes the longest drives (the mall to the river, about 137 s)
-      if (!(time >= 15 && time <= 140)) err(cs, `drive takes ${time.toFixed(0)} s (15..140)`);
-      // the decisions expected along this route
-      const want = { side: 0, lot: 0, junction: deg(a) >= 2 ? 1 : 0, dest: 1 }; // a place with two roads or more: the first turn is a junction too
+      // River Landing at the far west edge makes the longest drives (the mall to the river and back, about 140 s)
+      if (!(time >= 15 && time <= 150)) err(cs, `drive takes ${time.toFixed(0)} s (15..150)`);
+      // the decisions expected along this route: a place with two roads or more is a corner with its drive
+      // off it, so the first turn out of it, every place passed and the last turn into it are all junctions
+      const want = { side: 0, junction: (deg(a) >= 2 ? 1 : 0) + r.path.length - 2, dest: deg(b) >= 2 ? 1 : 0 };
       for (let i = 0; i < r.path.length - 1; i++) want.side += S.sideStreetsOn(r.path[i], r.path[i + 1]).length;
-      for (let i = 1; i < r.path.length - 1; i++) {
-        if (!W.isJunction(r.path[i])) want.lot++; // a bare corner has no lot
-        if (deg(r.path[i]) >= 3) want.junction++;
-      }
-      const got = { side: 0, lot: 0, junction: 0, dest: 0 };
+      const got = { side: 0, junction: 0, dest: 0 };
       d.decisions.forEach((x) => (got[x.kind] = (got[x.kind] || 0) + 1));
       Object.keys(want).forEach((k) => {
         if (got[k] !== want[k]) err(cs, `${got[k]} ${k} decisions, expected ${want[k]}`);
       });
       const lastDec = d.decisions[d.decisions.length - 1];
-      if (!lastDec || lastDec.kind !== "dest" || lastDec.node !== b) err(cs, "the last decision must be the destination's driveway");
+      if (deg(b) >= 2 && (!lastDec || lastDec.kind !== "dest" || lastDec.node !== b)) err(cs, "the last decision must be the destination's corner");
       if (deg(a) >= 2 && !(d.decisions[0].kind === "junction" && d.decisions[0].node === a && d.decisions[0].start)) err(cs, "the first decision must be the junction out of the place it starts from");
       let prevStop = d.startS;
       d.decisions.forEach((x, k) => {
@@ -281,8 +279,8 @@ for (const a of ids) {
         if (S.ourLeft(x.n) < -G.half) err(cd, "more lanes than the road holds");
         const right = x.options.filter((o) => o.correct);
         if (right.length !== 1) err(cd, `${right.length} right ways (exactly 1)`);
-        // left alone the van keeps to the left lane: past a side street or a driveway that lane must go straight on
-        if (x.kind === "side" || x.kind === "lot") {
+        // left alone the van keeps to the left lane: past a side street that lane must go straight on
+        if (x.kind === "side") {
           const w = x.options[x.lanes[S.laneOf(S.laneCenter(0, 2), x.n)]];
           if (!w || w.kind !== "through") err(cd, "the left lane must go straight on");
         }
@@ -293,7 +291,7 @@ for (const a of ids) {
           if (!finite(o.rel)) err(cd, "turn angle not finite");
           // a sign row for each lane, whatever the player knows
           // a road through a bare corner is signed with the place it runs on to
-          const label = (known) => (o.kind === "road" ? (known ? pos[S.farPlace(x.node, o.to)] && pos[S.farPlace(x.node, o.to)].name : o.street) : o.kind === "side" ? o.street : o.kind === "lot" ? (known ? pos[o.to] && pos[o.to].name : S.ROAD_TEXT_FALLBACK.lot) : "go on");
+          const label = (known) => (o.kind === "road" ? (known ? pos[S.farPlace(x.node, o.to)] && pos[S.farPlace(x.node, o.to)].name : o.street) : o.kind === "side" ? o.street : o.kind === "drive" ? (known ? pos[o.to] && pos[o.to].name : S.ROAD_TEXT_FALLBACK.lot) : "go on");
           if (!label(true) || !label(false)) err(cd, `lane ${o.lane} has nothing to put on the sign`);
           if (o.kind === "through") return;
           // the van's own path from anywhere in each of this way's lanes
@@ -317,12 +315,13 @@ for (const a of ids) {
               // the camera rides beside the path: from where it sits in the lanes to its place after the turn
               const cam0 = (S.ourLeft(x.n) + G.half) / 2 - dv;
               const cam1 = o.correct && x.kind === "junction" ? (S.ourLeft(2) + G.half) / 2 - tp.d1 : 0;
+              if (o.kind === "drive" && tp.rejoin != null) err(cl, "a turn onto a drive never rejoins the route");
               if (!glides(tr, cam0) || !glides(tr, cam1)) err(cl, "the camera would step backward through the turn");
               const end = S.at(tr, tr.len);
               if (Math.hypot(end.ux - o.aim.vx, end.uy - o.aim.vy) > 0.02) err(cl, "the turn does not end heading down its road");
               if (!o.correct) {
-                // a wrong lot ends parked; a wrong road or side street is driven a while before the fade
-                const need = o.kind === "lot" ? 300 : 500;
+                // a wrong drive ends parked at its door; a wrong road or side street is driven a while before the fade
+                const need = o.kind === "drive" ? 300 : 500;
                 if (tr.len < need) err(cl, `the wrong way is only ${tr.len.toFixed(0)} px (needs ${need})`);
               } else if (x.kind === "junction") {
                 // the right way rejoins the route in a lane of the next road, before its next lanes
@@ -338,67 +337,69 @@ for (const a of ids) {
             });
           });
         });
-        if (x.kind === "junction") {
+        if (x.kind === "junction" || x.kind === "dest") {
+          // one lane per road out, and one for the place's own drive (never back up the drive the van came down)
           const outs = S.neighbors(x.node).filter((nb) => nb !== r.path[r.path.indexOf(x.node) - 1]);
+          if (!x.start && S.startDir(x.node)) outs.push(x.node);
           const tos = x.options.map((o) => o.to).sort();
-          if (tos.join() !== outs.sort().join()) err(cd, `lanes go to ${tos.join(",")}, roads out are ${outs.join(",")}`);
+          if (tos.join() !== outs.sort().join()) err(cd, `lanes go to ${tos.join(",")}, ways out are ${outs.join(",")}`);
           for (let i = 1; i < x.options.length; i++) if (x.options[i].rel < x.options[i - 1].rel) err(cd, "lanes are not sorted left to right");
+          x.options.forEach((o) => {
+            if ((o.kind === "drive") !== (o.to === x.node)) err(cd, `the lane to ${o.to} is a ${o.kind}`);
+          });
           const ok = x.options.find((o) => o.correct);
-          if (ok && ok.to !== r.path[r.path.indexOf(x.node) + 1]) err(cd, "the right lane does not follow the route");
+          const want = x.kind === "dest" ? x.node : r.path[r.path.indexOf(x.node) + 1];
+          if (ok && ok.to !== want) err(cd, "the right lane does not follow the route");
         }
-        if (x.kind === "dest" && !x.options.some((o) => o.correct && o.kind === "lot")) err(cd, "the destination's right lane must turn into its lot");
-        if ((x.kind === "lot" || x.kind === "side") && !x.options.some((o) => o.correct && o.kind === "through")) err(cd, "going straight on must be the right lane");
+        if (x.kind === "dest" && !x.options.some((o) => o.correct && o.kind === "drive")) err(cd, "the destination's right lane must turn onto its drive");
+        if (x.kind === "side" && !x.options.some((o) => o.correct && o.kind === "through")) err(cd, "going straight on must be the right lane");
       });
-      // the place's own drive (the start) keeps clear of every road but its own, every side street and every other place
-      const startRoad = d.roads.find((rd) => rd.start);
-      if (deg(a) >= 2 && !startRoad) err(cs, "no drive out of the place it starts from");
-      if (startRoad) {
-        if (!finite(startRoad.x0, startRoad.y0, startRoad.x1, startRoad.y1)) err(cs, "the drive out is not finite");
+      // every place's own drive keeps clear of every road but its place's own, every side street, every other
+      // corner and every other drive; every lot keeps clear of every road and side street but its own drive or road
+      const drivesOut = d.roads.filter((rd) => rd.drive);
+      W.LOCATIONS.forEach((l) => {
+        if ((deg(l.id) >= 2) !== drivesOut.some((rd) => rd.a === l.id)) err(cs, `${l.id} ${deg(l.id) >= 2 ? "has no drive" : "has a drive but one road"}`);
+      });
+      drivesOut.forEach((dv) => {
+        if (!finite(dv.x0, dv.y0, dv.x1, dv.y1)) return err(cs, `the drive of ${dv.a} is not finite`);
         let m = Infinity;
         d.roads.forEach((rd) => {
-          if (rd !== startRoad && rd.a !== a && rd.b !== a) m = Math.min(m, segDist(startRoad, rd) - 2 * (G.half + G.shoulder));
+          if (rd !== dv && rd.a !== dv.a && rd.b !== dv.a) m = Math.min(m, segDist(dv, rd) - 2 * (G.half + G.shoulder));
         });
-        d.sides.forEach((sd) => (m = Math.min(m, segDist(startRoad, sd) - G.half - G.sideHalf - 2 * G.shoulder)));
+        d.sides.forEach((sd) => (m = Math.min(m, segDist(dv, sd) - G.half - G.sideHalf - 2 * G.shoulder)));
         d.nodes.forEach((nd) => {
-          if (nd.id !== a) m = Math.min(m, distSeg(nd.x, nd.y, startRoad.x0, startRoad.y0, startRoad.x1, startRoad.y1) - G.half - G.boxR);
+          if (nd.id !== dv.a) m = Math.min(m, distSeg(nd.x, nd.y, dv.x0, dv.y0, dv.x1, dv.y1) - G.half - G.boxR);
         });
-        minStart = Math.min(minStart, m);
-        if (m < 0) err(cs, `the drive out of ${a} runs ${(-m).toFixed(0)} px into another road, side street or place`);
-      }
-      // lots stay clear of the other roads and side streets
+        minDrive = Math.min(minDrive, m);
+        if (m < 0) err(cs, `the drive of ${dv.a} runs ${(-m).toFixed(0)} px into another road, side street or place`);
+      });
       d.lots.forEach((lot) => {
-        const own = S.roadKey(lot.from, lot.node);
         let m = Infinity;
         lot.corners.forEach(([x, y]) => {
           if (!finite(x, y)) err(cs, `lot of ${lot.node} not finite`);
           d.roads.forEach((rd) => {
-            if (rd.key !== own) m = Math.min(m, distSeg(x, y, rd.x0, rd.y0, rd.x1, rd.y1) - G.half - G.shoulder);
+            if (rd.a !== lot.node && rd.b !== lot.node) m = Math.min(m, distSeg(x, y, rd.x0, rd.y0, rd.x1, rd.y1) - G.half - G.shoulder);
           });
           d.sides.forEach((sd) => (m = Math.min(m, distSeg(x, y, sd.x0, sd.y0, sd.x1, sd.y1) - G.sideHalf - G.shoulder)));
         });
         minLot = Math.min(minLot, m);
-        if (m < 0) err(cs, `the lot of ${lot.node} (from ${lot.from}) overlaps another road by ${(-m).toFixed(0)} px`);
+        if (m < 0) err(cs, `the lot of ${lot.node} overlaps another road by ${(-m).toFixed(0)} px`);
       });
-      // the right way ends parked inside the destination's lot
-      const end = S.at(d.track, d.endS);
-      const lot = d.lots.find((l) => l.dest);
-      if (!lot) err(cs, "no destination lot");
-      else {
-        const [[x0, y0], [x1, y1], , [x3, y3]] = lot.corners;
-        const ax = x1 - x0;
-        const ay = y1 - y0;
-        const bx = x3 - x0;
-        const by = y3 - y0;
-        const u = ((end.x - x0) * ax + (end.y - y0) * ay) / (ax * ax + ay * ay);
-        const w = ((end.x - x0) * bx + (end.y - y0) * by) / (bx * bx + by * by);
-        if (!(u > 0 && u < 1 && w > 0 && w < 1)) err(cs, "the drive does not end inside the destination's lot");
-      }
+      // the drive starts in the first place's parking spot and ends in the last one's
+      const e0 = d.ends.find((e) => e.id === a);
+      const e1 = d.ends.find((e) => e.id === b);
+      const s0 = S.at(d.track, 0);
+      const s1 = S.at(d.track, d.endS);
+      if (Math.hypot(s0.x - e0.park.x, s0.y - e0.park.y) > 1) err(cs, "the drive does not start in its place's parking spot");
+      if (Math.hypot(s1.x - e1.park.x, s1.y - e1.park.y) > 1) err(cs, "the drive does not end in the destination's parking spot");
+      if (Math.hypot(s1.ux - e1.ox, s1.uy - e1.oy) > 0.02) err(cs, "the van does not park facing its building");
+      if (d.startS >= d.decisions.concat([{ zoneStart: d.endS }])[0].zoneStart) err(cs, "the van starts past its first lanes");
     }
   }
 }
 
 console.log(`streets: ${roadKeys.length} roads named, ${S.SIDE_STREETS.length} side streets, ${drives} drives checked`);
-console.log(`         shortest lane window ${minWin.toFixed(2)} s, drive time ${minTime.toFixed(0)}..${maxTime.toFixed(0)} s, closest lot ${minLot.toFixed(0)} px from another road, tightest turn ${minArc.toFixed(0)} px, drives out of a place ${minStart.toFixed(0)} px clear`);
+console.log(`         shortest lane window ${minWin.toFixed(2)} s, drive time ${minTime.toFixed(0)}..${maxTime.toFixed(0)} s, closest lot ${minLot.toFixed(0)} px from another road, tightest turn ${minArc.toFixed(0)} px, places' drives ${minDrive.toFixed(0)} px clear`);
 warnings.forEach((w) => console.log("warn  " + w));
 errors.slice(0, 60).forEach((e) => console.log("ERROR " + e));
 if (errors.length > 60) console.log(`... ${errors.length - 60} more errors`);
