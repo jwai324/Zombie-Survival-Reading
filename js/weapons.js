@@ -88,7 +88,8 @@
       };
     },
 
-    /** A new save's weapons: the pistol in hand, the rest hidden in random buildings. */
+    /** A new save's weapons: the pistol in hand, the rest hidden in random buildings.
+     *  SCALE: rolled once per save; buildings added later never get one of these guns in an old save. */
     fresh(locations) {
       return { owned: ["pistol"], equipped: "pistol", mods: freshMods(), where: this.roll(locations), seed: Math.floor(Math.random() * 1e9) };
     },

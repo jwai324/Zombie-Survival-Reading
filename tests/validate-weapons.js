@@ -17,6 +17,7 @@ const err = (m) => errors.push(m);
 const slots = new Set();
 Object.entries(WP.WEAPONS).forEach(([id, w]) => {
   if (!w.name || !w.desc) err(`${id}: needs a name and a description`);
+  // SCALE: key 6 is the fishing pole (js/interior.js), so slots stop at 5 until the pole moves
   if (!(w.slot >= 1 && w.slot <= 5) || slots.has(w.slot)) err(`${id}: slot ${w.slot} must be 1..5 and unique (it is the number key)`);
   slots.add(w.slot);
   if (!(w.damage > 0 && w.interval > 0 && w.range > 0)) err(`${id}: damage, interval and range must be positive`);

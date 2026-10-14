@@ -161,7 +161,9 @@
     return fill(s, tokens);
   }
 
-  /** Shortest road route (Dijkstra). Returns { path: [ids], dist } in map units, or null. */
+  /** Shortest road route (Dijkstra). Returns { path: [ids], dist } in map units, or null.
+   *  SCALE: rebuilds the graph and scans for the minimum on every call; fine for hundreds of nodes. For a much
+   *  bigger city, build the graph once and use a heap. */
   function route(from, to) {
     const graph = {};
     W().ROADS.forEach(([a, b]) => {
@@ -220,7 +222,9 @@
   }
 
   /* ---------- Lanes ---------- */
-  /** Left edge of our side of the road with n lanes (the road center is 0, right is +). */
+  /** Left edge of our side of the road with n lanes (the road center is 0, right is +).
+   *  SCALE: 4 lanes fill our half exactly (half 220, lane 110), so a decision has at most 4 ways out: a building
+   *  at most 4 roads, a bare junction at most 5. A busier corner needs a wider road or two junctions. */
   const ourLeft = (n) => GEOM.half - Math.max(2, n) * GEOM.lane;
   const laneCenter = (i, n) => ourLeft(n) + GEOM.lane * (i + 0.5);
   /** Which of n lanes a van at lateral offset d is in (0 = leftmost). */

@@ -246,7 +246,9 @@
       this.placeCam(1);
     },
 
-    /** Trees, wrecks and junk along every road near the route, and the supply crates on it. */
+    /** Trees, wrecks and junk along every road near the route, and the supply crates on it.
+     *  SCALE: walks every road in the city (D.roads), so its cost grows with the whole city, not the route;
+     *  cull to the route's area if drives start slowly on a bigger map. The minimap likewise draws every road. */
     buildScenery() {
       const D = this.drive;
       const G = Streets().GEOM;

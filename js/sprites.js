@@ -972,7 +972,7 @@
   /** The river on the west of town, in world space: the same curve the city map draws (map units x scale). */
   function riverBand(ctx, world, view) {
     const k = world.scale || 1;
-    if (view.x - view.r > 140 * k) return; // all of it lies west of x = 140 map units
+    if (view.x - view.r > 140 * k) return; // all of it lies west of x = 140 map units (SCALE: tied to js/map.js's river)
     const path = () => {
       ctx.beginPath();
       ctx.moveTo(40 * k, 120 * k);

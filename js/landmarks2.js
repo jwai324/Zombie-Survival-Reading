@@ -2,7 +2,8 @@
    School, Station 12, St. Anne Annex, the Water Tower, Ridge Lumber, Northgate Mall and the
    Public Library (art keys from ZSR.LAYOUT_ART in layouts.js), drawn in the comic style (flat
    fills, thick ink, halftone) and registered with ZSR.Draw3.registerSprite. landmarks1.js
-   draws the other seven buildings.
+   draws the other seven buildings. SCALE: art for new places goes in landmarks3.js ... (a script tag
+   in index.html, and ART_FILES in tests/validate-art.js), not in this file.
 
    Every art is authored in units: 128 units tall (the bottom edge is the floor, the top edge
    the landmark's `size`), rendered at RES pixels per unit, on a transparent background.

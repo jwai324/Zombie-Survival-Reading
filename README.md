@@ -173,6 +173,8 @@ js/main.js              screen flow
 docs/GAME_SPEC.md       the design as agreed
 docs/TEXT_GUIDE.md      how to write the six reading levels from the facts
 docs/STORY.md           the people, the story threads and the key ring
+docs/SCALING.md         growing the game: limits the city is near, add-a-place checklist, save compatibility
+CLAUDE.md               standing notes for future builds (the game will grow; read docs/SCALING.md first)
 tests/                  world, weapons, text, streets, drive, engine and art validators, script syntax check,
                         word counter
 ```
@@ -192,7 +194,7 @@ tests/                  world, weapons, text, streets, drive, engine and art val
   level must keep at least four times its pre-expansion reading (`npm test` checks).
 - **Change a story fact** (a trail note, a sign, a key, a journal day, a broadcast): edit
   `js/story.js` or `js/story-home.js`, then the six levels. See `docs/STORY.md`.
-- **Add a location:** add it to `LOCATIONS`, `NOTES`, `KEYS` and `ROADS` in `js/world.js`, give
+- **Add a location** (the full checklist and the save rules are in `docs/SCALING.md`): add it to `LOCATIONS`, `NOTES`, `KEYS` and `ROADS` in `js/world.js`, give
   it a street name (and side streets if you like) in `js/streets.js`, draw its floor plan,
   landmarks and story places in `js/layouts.js` (and their art), add its story in
   `js/story.js`, then write its texts at all six levels.

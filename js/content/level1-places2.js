@@ -1,5 +1,6 @@
 /* Reading level 1: places, part 2 (police, school, firehouse, hospital, watertower, lumberyard, mall, library).
-   Facts: js/world.js and js/story.js. See docs/TEXT_GUIDE.md. */
+   Facts: js/world.js and js/story.js. See docs/TEXT_GUIDE.md.
+   SCALE: new places go in a new part file (level1-places3.js ...) with its own script tag, not in this one. */
 (function (root) {
   root.ZSR = root.ZSR || {};
   root.ZSR.TEXT = root.ZSR.TEXT || {};
