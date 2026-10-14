@@ -1247,10 +1247,8 @@
     crewBubbleScroller() {
       const t = this.talk;
       const el = this.hud && this.hud.read;
-      if (!t || !el || this.panelKey !== t.panel.key || typeof el.querySelector !== "function") return null;
-      const words = el.querySelector(".rp-text");
-      if (words && words.scrollHeight > words.clientHeight + 2) return words;
-      return el.scrollHeight > el.clientHeight + 2 ? el : null;
+      if (!t || !el || this.panelKey !== t.panel.key) return null;
+      return this.readScroller();
     },
     /** Words still below the bubble's edge. */
     crewBubbleMore() {
@@ -1258,7 +1256,7 @@
       return !!s && s.scrollTop + s.clientHeight < s.scrollHeight - 2;
     },
     /** E with words below the edge: on by a page (the last line read stays in view). True if it moved on. The
-        read panel never takes the mouse (it is locked to the view), so E is the way through a long bubble. */
+        read panel never takes the mouse (it is locked to the view), so E (or the wheel) is the way through a long bubble. */
     crewBubblePage() {
       const s = this.crewBubbleScroller();
       const t = this.talk;

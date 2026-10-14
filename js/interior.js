@@ -192,6 +192,12 @@
         (e) => {
           if (!this.running || this.paused) return;
           e.preventDefault();
+          // a sign or list too long for the read panel: the wheel scrolls it, and never switches guns while it is up
+          const s = this.readScroller();
+          if (s) {
+            s.scrollTop += e.deltaY * (e.deltaMode === 1 ? 20 : e.deltaMode === 2 ? s.clientHeight : 1);
+            return;
+          }
           const now = performance.now();
           if (now - (this.wheelT || 0) < 150) return; // one notch, one gun
           this.wheelT = now;
@@ -987,6 +993,15 @@
       el.className = "read-panel " + show.kind + (show.cls ? " " + show.cls : ""); // cls: extra classes (a speech bubble's speaker)
       el.innerHTML = '<div class="rp-head"><span class="rp-title">' + esc(show.title) + "</span>" + (show.status ? '<span class="rp-status">' + esc(show.status) + "</span>" : "") + "</div>" + '<div class="rp-text">' + esc(show.text).split(/\n\s*\n/).map((x) => "<p>" + x + "</p>").join("") + "</div>" + (show.meta && show.meta.length ? '<ul class="rp-meta">' + show.meta.map(([h, v]) => "<li><strong>" + esc(h) + ":</strong> " + esc(v) + "</li>").join("") + "</ul>" : "");
       el.scrollTop = 0; // a new panel starts at its top (a long speech bubble is read on with E: js/crew.js)
+    },
+    /** The box that scrolls when the read panel's words run past its edge: the words (a speech bubble on a wide
+        screen), the whole panel, or null when it is closed or all of it shows. */
+    readScroller() {
+      const el = this.hud && this.hud.read;
+      if (!el || !this.panelKey || (el.classList && el.classList.contains("hidden")) || typeof el.querySelector !== "function") return null;
+      const words = el.querySelector(".rp-text");
+      if (words && words.scrollHeight > words.clientHeight + 2) return words;
+      return el.scrollHeight > el.clientHeight + 2 ? el : null;
     },
 
     updateWalker(z, dt) {

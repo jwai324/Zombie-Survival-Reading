@@ -572,3 +572,12 @@ sandbox in `js/state.js`, `godBegin` / `godGo` / `godExit` in `js/main.js`; test
   phrase, js/locks.js, still opens any lock), showing lock answers, and setting room levels.
 - **Judgment call:** a lock prompt must be closed (Esc) before the menu can move you, because the
   prompt closes only through its own keys.
+
+## Owner decisions: the wheel on a sign, E at the computer (2026-10-14)
+
+- **The wheel scrolls a long read panel.** Looking at a sign in the yard (or any note, list or
+  speech bubble too long for the read panel), the mouse wheel scrolls it. While it can scroll, the
+  wheel never switches guns; once it closes, or when it all fits, the wheel switches guns as before.
+- **E steps away from the computer.** E opens the office computer and E closes it, like B and the
+  backpack. Not while the workbench, the backpack, a question, a tutorial card or a lock prompt sits
+  over the menu: those keep their own keys.
