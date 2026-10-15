@@ -403,7 +403,8 @@
      mix: its weight in a building (danger, day) and a yard wave (day, heavy) before the place's theme
      (WALKER_THEMES); the river reads RIVER.walkerMix, an alarm ALARM.mix, the road `road.w`. walkerWeights adds
      them up. road (js/game.js, the van's top-down view): speed px/s, r px, dmg to the van, scrap, reach px past
-     its radius, w [base, perN]: its road weight is base + perN * n (n: the trip's danger and day). */
+     its radius, w [base, perN]: its road weight is base + perN * n (n: the trip's danger and day), armor (optional,
+     0..1): the share of its non-fatal hits that also glance off its gear in grey sparks, with less blood. */
   const WALKER_TYPES = {
     walker: {
       name: "Walker", hp: 30, speed: 1.25, r: 0.32, bite: 12, reach: 0.85, fenceDps: 6, scrap: 2, knock: 1, scream: false,
@@ -430,7 +431,7 @@
     armored: {
       name: "Armored", hp: 60, speed: 1.0, r: 0.36, bite: 14, reach: 0.85, fenceDps: 10, scrap: 4, knock: 0.35, scream: false,
       mix: { building: (danger, day) => (danger >= 3 && day >= 5 ? 0.12 : 0), yard: (day, heavy) => (day >= 5 ? (heavy ? 0.22 : 0.15) : 0) },
-      road: { speed: 44, r: 21, dmg: 6, scrap: 3, reach: 0, w: [0.02, 0.03] },
+      road: { speed: 44, r: 21, dmg: 6, scrap: 3, reach: 0, w: [0.02, 0.03], armor: 0.5 },
     },
     // weak, but it screams when it spots you: every walker near it speeds up (SCREAM)
     screamer: {

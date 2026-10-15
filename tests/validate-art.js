@@ -935,7 +935,7 @@ let roadDraws = 0;
   });
   const Dr = ZSR.Draw;
   const WD = ZSR.WORLD;
-  if (!Dr || !WD || typeof Dr.zombie !== "function" || typeof Dr.zombieDown !== "function" || !Dr.ZOMBIE_LOOK || typeof Dr.zombieLook !== "function") err("js/sprites.js does not export Draw.zombie, zombieDown, zombieLook and ZOMBIE_LOOK");
+  if (!Dr || !WD || typeof Dr.zombie !== "function" || typeof Dr.zombieShadow !== "function" || typeof Dr.zombieDown !== "function" || !Dr.ZOMBIE_LOOK || typeof Dr.zombieLook !== "function") err("js/sprites.js does not export Draw.zombie, zombieShadow, zombieDown, zombieLook and ZOMBIE_LOOK");
   else {
     const kinds = Object.keys(WD.WALKER_TYPES);
     const hex = (c) => (typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c) ? [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)) : null);
@@ -1011,6 +1011,25 @@ let roadDraws = 0;
                 const b = p.find((q) => bloody(q.col));
                 if (b) err(`${what}: gore is off but it paints ${b.col}`);
               } else red += p.filter((q) => bloody(q.col)).length;
+              // the road draws every walker's shadow (or frenzy glow) on the ground first, then the bodies without
+              // one: the two together are the walker, the shadow just where its own would be
+              const body = roadDraw(what + " (no shadow)", (ctx) => Dr.zombie(ctx, z, t, true));
+              const sh = roadDraw(what + " (shadow)", (ctx) => Dr.zombieShadow(ctx, z, t));
+              if (!body || !sh) return;
+              const fills = (o) => o.filter((q) => q.k === "fill").length;
+              if (sh.map((q) => q.k).join() !== "beginPath,ellipse,fill") err(`${what}: its shadow is ${sh.map((q) => q.k).join(", ")} (one filled ellipse expected)`);
+              else if (fills(body) !== fills(ops) - 1 || body.length !== ops.length - sh.length) err(`${what}: drawn without its shadow it still paints ${fills(body)} of ${fills(ops)} fills`);
+              else {
+                const rot = ops.find((q) => q.k === "rotate");
+                const own = ops.find((q) => q.k === "ellipse");
+                const e = sh[1].args;
+                const a = rot ? rot.args[0] : NaN;
+                const cx = z.x + own.args[0] * Math.cos(a) - own.args[1] * Math.sin(a);
+                const cy = z.y + own.args[0] * Math.sin(a) + own.args[1] * Math.cos(a);
+                const near = (u, v) => Math.abs(u - v) < 1e-6;
+                if (!(near(e[0], cx) && near(e[1], cy) && near(e[2], own.args[2]) && near(e[3], own.args[3]) && near(e[4], a + own.args[4]))) err(`${what}: its shadow on the ground (${e.slice(0, 5).map((v) => v.toFixed(2)).join(", ")}) is not where its own is (${[cx, cy, own.args[2], own.args[3], a + own.args[4]].map((v) => v.toFixed(2)).join(", ")})`);
+                if (sh[2].fillStyle !== ops[ops.indexOf(own) + 1].fillStyle) err(`${what}: its shadow is ${sh[2].fillStyle}, its own ${ops[ops.indexOf(own) + 1].fillStyle}`);
+              }
             });
           });
           if (gore && !red) err(`road walker ${id} seed ${seed}: gore on, but no blood anywhere on it`);
@@ -1030,6 +1049,18 @@ let roadDraws = 0;
               if (!ops) return;
               maxOps = Math.max(maxOps, ops.length);
               const p = paints(ops);
+              // the road draws every downed walker's ground (its pool, its shadow) before any body: the two parts
+              // together are the whole, the ground is only blood and shadow, and the body has no pool
+              const gr = roadDraw(what + " (ground)", (ctx) => Dr.zombieDown(ctx, f, "ground"));
+              const bd = roadDraw(what + " (body)", (ctx) => Dr.zombieDown(ctx, f, "body"));
+              if (gr && bd) {
+                const pg = paints(gr);
+                const pb = paints(bd);
+                if (pg.length + pb.length !== p.length) err(`${what}: ground ${pg.length} + body ${pb.length} paints, the whole ${p.length}`);
+                const odd = pg.find((q) => q.k !== "fill" || !(bloody(q.col) || /^rgba\(0,0,0,/.test(q.col)));
+                if (odd) err(`${what}: its ground part paints ${odd.k} ${odd.col} (only the pool and a shadow belong there)`);
+                if (bd.some((o, i) => o.k === "fill" && bloody(o.fillStyle) && i > 0 && bd[i - 1].k === "ellipse" && Math.min(bd[i - 1].args[2], bd[i - 1].args[3]) > R.r * 0.8)) err(`${what}: its body part has the pool in it`);
+              }
               if (!gore && p.some((q) => bloody(q.col))) err(`${what}: gore is off but it paints blood`);
               if (age >= 1 && p.some((q) => q.a > 0)) err(`${what}: still drawn at the end of its life`);
               if (age > 0.7 && age < 1 && p.some((q) => q.a >= 0.999)) err(`${what}: not fading (something drawn at full alpha)`);

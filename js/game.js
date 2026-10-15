@@ -498,6 +498,7 @@
         scrap: R.scrap,
         reach: R.reach || 0, // px past its radius that it hits the van from (the lanky's long arms)
         knock: T.knock == null ? 1 : T.knock, // how far a shot or the bumper throws it back
+        armor: R.armor || 0, // the share of its hits that glance off its gear (grey sparks, less blood)
         scream: !!T.scream,
         screamT: 0, // till it can scream again
         yell: 0, // screaming now (arms up, standing): counts down from SCREAM.yell
@@ -551,13 +552,15 @@
       Audio().play("scream");
       if (State().settings.shake) this.shake = Math.max(this.shake, 5);
     },
-    /** A bullet into a walker at x, y flying (vx, vy): with walker gore on, a short spray of blood out the far side
-        (an armored one throws grey sparks off its gear half the time instead). Skipped past ROAD_PARTICLE_CAP. */
+    /** A bullet into a walker at x, y flying (vx, vy): with walker gore on, a short spray of blood out the far side,
+        every hit. A walker with armor (its road row's share) has that share of its non-fatal hits also glance off
+        a helmet or a vest: grey sparks (gore on or off) and a smaller spray. Skipped past ROAD_PARTICLE_CAP. */
     blood(z, x, y, vx, vy, kill) {
+      const glance = !kill && z.armor > 0 && Math.random() < z.armor;
+      if (glance) this.sparks(x, y, SPARK_ARMOR);
       if (World().SETTINGS.walkerGore === false || this.particles.length > ROAD_PARTICLE_CAP) return;
-      if (z.knock < 0.5 && Math.random() < 0.5 && !kill) return this.sparks(x, y, SPARK_ARMOR);
       const a0 = Math.atan2(vy, vx);
-      const n = kill ? 9 : 5;
+      const n = kill ? 9 : glance ? 3 : 5;
       // the drops fly on with the walker (it keeps up with the van); what lands stays on the road
       const v = this.van;
       const cx = v ? Math.cos(v.heading) * (this.curSpeed || 0) * DIFF.chase : 0;
@@ -1092,11 +1095,7 @@
         return q.x > -m && q.x < W + m && q.y > -m && q.y < H + m;
       };
       for (const p of this.props) if (Math.abs(p.x - view.x) < pr && Math.abs(p.y - view.y) < pr && onScreen(p, 90)) drawFaced(p, () => D.prop(ctx, Object.assign({}, p, { x: 0, y: 0 })));
-      for (const f of this.fallen) D.zombieDown(ctx, f);
-      for (const c of this.crates) drawFaced(c, () => D.prop(ctx, { kind: "crate", x: 0, y: 0, t: c.t }));
-      for (const z of this.zombies) D.zombie(ctx, z, this.time);
-      for (const b of this.bullets) D.bullet(ctx, b);
-      for (const p of this.particles) D.particle(ctx, p);
+      this.drawCrowd(ctx, D, (c) => drawFaced(c, () => D.prop(ctx, { kind: "crate", x: 0, y: 0, t: c.t })));
       ctx.restore();
       // the van, upright on screen at its place on the road
       const vs = this.toScreen(van.x, van.y);
@@ -1288,7 +1287,22 @@
       }
       return boxes;
     },
-    /** Walkers behind the sign are drawn again on top of it, so the sign never hides one coming at the van. */
+    /** The walkers, the downed, the crates, the rounds and the particles (world space), in layers. What lies on
+        the road comes first, under every body: blood splats, the pools and shadows of the downed, each walker's
+        shadow (or its frenzy's glow). Then the bodies (the downed, the crates, the walkers), the rounds, and what
+        flies over them. crate(c) draws one crate. */
+    drawCrowd(ctx, D, crate) {
+      for (const p of this.particles) if (p.splat) D.particle(ctx, p);
+      for (const f of this.fallen) D.zombieDown(ctx, f, "ground");
+      for (const z of this.zombies) D.zombieShadow(ctx, z, this.time);
+      for (const f of this.fallen) D.zombieDown(ctx, f, "body");
+      for (const c of this.crates) crate(c);
+      for (const z of this.zombies) D.zombie(ctx, z, this.time, true);
+      for (const b of this.bullets) D.bullet(ctx, b);
+      for (const p of this.particles) if (!p.splat) D.particle(ctx, p);
+    },
+    /** Walkers behind the sign are drawn again on top of it, so the sign never hides one coming at the van
+        (their bodies only: a shadow or a frenzy's glow over the sign would tint its words). */
     drawOverSign(ctx, rects) {
       const D = Draw();
       const hit = this.zombies.filter((z) => {
@@ -1305,7 +1319,7 @@
       ctx.scale(this.zoom, this.zoom);
       ctx.rotate(-Math.PI / 2 - this.cam.th);
       ctx.translate(-this.cam.x, -this.cam.y);
-      for (const z of hit) D.zombie(ctx, z, this.time);
+      for (const z of hit) D.zombie(ctx, z, this.time, true);
       ctx.restore();
     },
 
@@ -1611,6 +1625,7 @@
     DIFF,
     ROAD_PARTICLE_CAP,
     ROAD_FALLEN_MAX,
+    SPARK_ARMOR,
     fallSecs,
   };
   function distSeg(px, py, x0, y0, x1, y1) {

@@ -388,7 +388,8 @@ for (const a of ids) {
     z.hp = z.maxHp = 1e6;
     if (how === "shot") {
       place(z, 250, 0);
-      const [fx, fy] = fwd();
+      // a shot at 45 degrees on the map, so both of the push's parts count (whichever way the van is heading)
+      const [fx, fy] = [Math.SQRT1_2, Math.SQRT1_2];
       const v = 1000;
       G.bullets.length = 0;
       G.bullets.push({ x: z.x - fx * v * (1 / 60), y: z.y - fy * v * (1 / 60), vx: fx * v, vy: fy * v, cx: 0, cy: 0, dmg: 1 });
@@ -461,6 +462,78 @@ for (const a of ids) {
       if (i % 20 === 0) G.update(1 / 60);
     }
     if (worst > G.ROAD_PARTICLE_CAP + 12) err(c, `${worst} particles on the road (cap ${G.ROAD_PARTICLE_CAP})`);
+  }
+  // every hit bleeds with gore on (a short spray on every hit), whatever the kind; a kind with armor (its road
+  // row's share) also throws grey sparks off its gear on about that share of its hits that do not kill it, gore on
+  // or off; a kind without armor never does, and a killing shot never glances
+  {
+    const N = 400;
+    for (const gore of [true, false]) {
+      W.SETTINGS.walkerGore = gore;
+      kinds.forEach((id) => {
+        G.zombies.length = 0;
+        const z = G.addZombie(id, G.van.x, G.van.y - 300);
+        const share = TYPES[id].road.armor || 0;
+        let dry = 0;
+        let glances = 0;
+        let killGlances = 0;
+        for (let i = 0; i < N; i++) {
+          G.particles.length = 0;
+          G.blood(z, z.x, z.y, 100, 0, false);
+          if (!G.particles.some((p) => p.blood)) dry++;
+          if (G.particles.some((p) => p.color === G.SPARK_ARMOR)) glances++;
+          G.particles.length = 0;
+          G.blood(z, z.x, z.y, 100, 0, true);
+          if (G.particles.some((p) => p.color === G.SPARK_ARMOR)) killGlances++;
+        }
+        if (gore && dry) err(c, `${id}: ${dry} of ${N} hits with walker gore on sprayed no blood`);
+        if (!gore && dry !== N) err(c, `${id}: ${N - dry} of ${N} hits with walker gore off sprayed blood`);
+        if (!share && glances) err(c, `${id} has no armor (road.armor), but ${glances} of ${N} hits threw grey sparks off its gear`);
+        if (share && Math.abs(glances / N - share) > 0.1) err(c, `${id}: ${glances} of ${N} hits glanced off its gear (gore ${gore ? "on" : "off"}; road.armor ${share})`);
+        if (killGlances) err(c, `${id}: ${killGlances} killing shots glanced off its gear`);
+      });
+    }
+    W.SETTINGS.walkerGore = true;
+    G.zombies.length = 0;
+    G.particles.length = 0;
+  }
+  // drawn in layers: everything that lies on the road (splats, pools, shadows and frenzy glows) under every body,
+  // the bodies (downed, crates, walkers without their own shadow), then the rounds and what flies
+  {
+    const calls = [];
+    const D = new Proxy({}, { get: (o, k) => (...a) => calls.push({ k, a }) });
+    G.zombies.length = 0;
+    G.fallen.length = 0;
+    G.particles.length = 0;
+    const zs = [G.addZombie(kinds[0], G.van.x, G.van.y - 300), G.addZombie(kinds[kinds.length - 1], G.van.x + 40, G.van.y - 320)];
+    zs[1].frenzyT = 2;
+    G.killZombie(G.zombies.indexOf(G.addZombie(kinds[0], G.van.x - 40, G.van.y - 280)), 0);
+    G.killZombie(G.zombies.indexOf(G.addZombie(kinds[1 % kinds.length], G.van.x - 80, G.van.y - 280)), 0);
+    const splat = { x: 0, y: 0, vx: 0, vy: 0, life: 1, maxLife: 1.4, size: 4, color: "#a3201a", blood: true, splat: true };
+    const drop = { x: 0, y: 0, vx: 50, vy: 0, life: 0.3, maxLife: 0.4, size: 4, color: "#a3201a", blood: true };
+    const dust = { x: 0, y: 0, vx: 50, vy: 0, life: 0.3, maxLife: 0.4, size: 4, color: "#6b675c", grow: true };
+    G.particles.push(drop, splat, dust, Object.assign({}, splat));
+    const crates0 = G.crates;
+    const bullets0 = G.bullets;
+    G.crates = [{ x: 0, y: 0, t: 0 }];
+    G.bullets = [{ x: 0, y: 0, vx: 1, vy: 0 }];
+    G.drawCrowd({}, D, (cr) => calls.push({ k: "crate", a: [cr] }));
+    G.crates = crates0;
+    G.bullets = bullets0;
+    const ground = (q) => (q.k === "particle" && q.a[1].splat) || (q.k === "zombieDown" && q.a[2] === "ground") || q.k === "zombieShadow";
+    const fly = (q) => (q.k === "particle" && !q.a[1].splat) || q.k === "bullet";
+    const lastGround = calls.map(ground).lastIndexOf(true);
+    const firstBody = calls.findIndex((q) => !ground(q) && !fly(q));
+    const lastBody = calls.map((q) => !ground(q) && !fly(q)).lastIndexOf(true);
+    const firstFly = calls.findIndex(fly);
+    const n = (k, f) => calls.filter((q) => q.k === k && (!f || f(q))).length;
+    if (!(lastGround < firstBody && lastBody < firstFly)) err(c, `the road's layers are out of order: ${calls.map((q) => q.k + (q.k === "zombieDown" ? ":" + q.a[2] : q.k === "particle" && q.a[1].splat ? ":splat" : "")).join(", ")}`);
+    if (n("zombieShadow") !== zs.length || n("zombie", (q) => q.a[3] === true) !== zs.length || n("zombie") !== zs.length) err(c, `${zs.length} walkers drew ${n("zombieShadow")} shadows and ${n("zombie")} bodies (${n("zombie", (q) => q.a[3] === true)} without their own shadow)`);
+    if (n("zombieDown", (q) => q.a[2] === "ground") !== G.fallen.length || n("zombieDown", (q) => q.a[2] === "body") !== G.fallen.length) err(c, `${G.fallen.length} downed walkers drew ${n("zombieDown", (q) => q.a[2] === "ground")} grounds and ${n("zombieDown", (q) => q.a[2] === "body")} bodies`);
+    if (n("particle") !== G.particles.length || n("crate") !== 1 || n("bullet") !== 1) err(c, `drew ${n("particle")} of ${G.particles.length} particles, ${n("crate")} crates, ${n("bullet")} rounds`);
+    G.zombies.length = 0;
+    G.fallen.length = 0;
+    G.particles.length = 0;
   }
 
   // a kill: off the road's list, a downed body of its kind for FALL secs, the trip's tally up one

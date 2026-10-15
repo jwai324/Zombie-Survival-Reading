@@ -1253,37 +1253,69 @@
     if (!back) drawFace(ey, my, 1);
   }
 
+  /** A screamer's scream pose, 0..1, eased in and out (z.yell counts down from SCREAM.yell). */
+  function yellPose(z) {
+    const Y = yellSecs();
+    const yl = Math.min(Y, z.yell || 0);
+    return yl > 0 ? Math.max(0, Math.min(1, (Y - yl) / 0.15, yl / 0.25)) : 0;
+  }
+  /** Where a road walker is in its step at time t (a frenzy hurries it; a twitchy one's tempo stutters). */
+  function stepPhase(L, z, t, frenzy) {
+    const ph0 = z.phase || 0;
+    const sp = L.bob * (frenzy ? 1.5 : 1);
+    const ph = t * sp + ph0;
+    return L.jerk ? ph + Math.sin(t * sp * 0.43 + ph0 * 2) * 0.9 : ph;
+  }
+  /** The way a road walker's body is turned: at the van, swaying with its lurch (still while it screams). */
+  function bodyTurn(L, z, t, ph, yw) {
+    const lurch = Math.sin(ph * 0.5) * L.lurch + (L.sway ? Math.sin(t * 1.3 + (z.phase || 0)) * L.sway : 0);
+    return z.angle + Math.PI / 2 + lurch * (1 - yw);
+  }
+  /** The ground under a road walker turned by a, its centre at x, y: a shadow, which a frenzy reddens (amber with
+      gore off, so it never reads as a pool of blood). */
+  function shadowAt(ctx, L, r, frenzy, a, x, y) {
+    const S = L.shoulders * r;
+    const k = frenzy ? 1.15 : 1;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const ox = r * 0.22;
+    const oy = r * 0.45;
+    ctx.fillStyle = frenzy ? (walkerGore() ? "rgba(170,24,12,0.42)" : "rgba(214,120,30,0.4)") : "rgba(0,0,0,0.3)";
+    ctx.beginPath();
+    ctx.ellipse(x + ox * c - oy * s, y + ox * s + oy * c, S * 1.05 * k, r * 1.2 * k, a, 0, TAU);
+    ctx.fill();
+  }
+  /** Just a road walker's shadow (or its frenzy's glow): the road draws every walker's first, then the walkers
+      with noShadow, so no shadow or glow lies over a body. */
+  function zombieShadow(ctx, z, t) {
+    const L = zombieLook(z.type, z.seed);
+    const frenzy = z.frenzyT > 0;
+    shadowAt(ctx, L, z.r, frenzy, bodyTurn(L, z, t, stepPhase(L, z, t, frenzy), yellPose(z)), z.x, z.y);
+  }
+
   /* A walker on the road: its look, a stepping walk, arms clawing at the van. z: { type, seed, x, y, r, angle,
      phase, hit, hp, maxHp, yell (a screamer's scream, counting down), frenzyT (sped up by a scream) }. With gore on
-     (WORLD.SETTINGS.walkerGore) its smears are blood and its rips show ribs; off, grime and bare skin. */
-  function zombie(ctx, z, t) {
+     (WORLD.SETTINGS.walkerGore) its smears are blood and its rips show ribs; off, grime and bare skin. noShadow:
+     the caller drew its shadow already (zombieShadow) or wants none. */
+  function zombie(ctx, z, t, noShadow) {
     const L = zombieLook(z.type, z.seed);
     const r = z.r;
     const gore = walkerGore();
     const frenzy = z.frenzyT > 0;
-    const Y = yellSecs();
-    const yl = Math.min(Y, z.yell || 0);
-    const yw = yl > 0 ? Math.max(0, Math.min(1, (Y - yl) / 0.15, yl / 0.25)) : 0; // the scream pose, eased in and out
+    const yw = yellPose(z);
     const ph0 = z.phase || 0;
-    const sp = L.bob * (frenzy ? 1.5 : 1);
-    let ph = t * sp + ph0;
-    if (L.jerk) ph += Math.sin(t * sp * 0.43 + ph0 * 2) * 0.9; // twitchy: the tempo stutters
+    const ph = stepPhase(L, z, t, frenzy);
     const s1 = Math.sin(ph);
     const s2 = Math.sin(ph + 2.6);
-    const lurch = Math.sin(ph * 0.5) * L.lurch + (L.sway ? Math.sin(t * 1.3 + ph0) * L.sway : 0);
     const S = L.shoulders * r;
     const hr = L.head * r;
     const seed = Number(z.seed) || 0;
     ctx.save();
     ctx.translate(z.x, z.y);
-    ctx.rotate(z.angle + Math.PI / 2 + lurch * (1 - yw));
+    ctx.rotate(bodyTurn(L, z, t, ph, yw));
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
-    // shadow (a frenzy reddens the ground under it: amber with gore off, so it is never a pool of blood)
-    ctx.fillStyle = frenzy ? (gore ? "rgba(170,24,12,0.42)" : "rgba(214,120,30,0.4)") : "rgba(0,0,0,0.3)";
-    ctx.beginPath();
-    ctx.ellipse(r * 0.22, r * 0.45, S * 1.05 * (frenzy ? 1.15 : 1), r * 1.2 * (frenzy ? 1.15 : 1), 0, 0, TAU);
-    ctx.fill();
+    if (!noShadow) shadowAt(ctx, L, r, frenzy, 0, 0, 0);
     // a frenzy: speed lines trailing behind
     if (frenzy) {
       ctx.beginPath();
@@ -1344,9 +1376,11 @@
      (counting down from max), max (Walker3D.FALL_SECS) }. It goes over its kind's way in the first TIP of its time
      (a brute topples stiff like a tree, a lanky folds over forward, an armored one drops to its knees then pitches
      forward, a runner tumbles, a walker or a screamer crumples back), lies still, and fades out over the last FADE.
-     With gore on a pool of blood spreads under it. */
+     With gore on a pool of blood spreads under it. part: "ground" draws only what lies on the road (the pool, the
+     shadow while it goes over), "body" only the rest; anything else both. The road draws every downed walker's
+     ground before any body, so no pool lies over another body. */
   const DOWN = { tip: 0.25, fade: 0.35 };
-  function zombieDown(ctx, f) {
+  function zombieDown(ctx, f, part) {
     const L = zombieLook(f.type, f.seed);
     const r = f.size || 18;
     const max = f.max > 0 ? f.max : 2;
@@ -1390,8 +1424,9 @@
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.globalAlpha = alpha;
+    const ground = part !== "body";
     // the pool, spreading once it is down
-    if (gore && age > DOWN.tip * 0.8) {
+    if (ground && gore && age > DOWN.tip * 0.8) {
       const g = Math.min(1, (age - DOWN.tip * 0.8) / 0.3);
       const gs = g * (2 - g);
       const cy = (yT + yH) / 2 - 0.3 * r;
@@ -1405,11 +1440,15 @@
       ctx.fill();
     }
     // a shadow while it goes over
-    if (k < 1) {
+    if (ground && k < 1) {
       ctx.fillStyle = "rgba(0,0,0," + (0.3 * (1 - k)).toFixed(3) + ")";
       ctx.beginPath();
       ctx.ellipse(0.2 * r, (yHead + yFoot) / 2 + 0.3 * r, S * 1.05, Math.abs(yFoot - yHead) / 2 + r * 0.6, 0, 0, TAU);
       ctx.fill();
+    }
+    if (part === "ground") {
+      ctx.restore();
+      return;
     }
     // the legs: straight out, knees bent for a crumple, folded under for a fold
     const hx = (L.hip || 0.3) * r;
@@ -2298,5 +2337,5 @@
     ctx.restore();
   }
 
-  ZSR.Draw = { road, prop, van, zombie, zombieDown, zombieLook, zombieExtent, ZOMBIE_LOOK, ZOMBIE_DOWN: DOWN, walkerGore, bullet, particle, burst, vignette, fog, night, rr, circle, star, fillStroke, INK, ROOF, ground, cityRoads, laneZone, laneArrow, lot, signArrow, layoutSign, roadSign, signNote, nameBoard, card, wrapText };
+  ZSR.Draw = { road, prop, van, zombie, zombieShadow, zombieDown, zombieLook, zombieExtent, ZOMBIE_LOOK, ZOMBIE_DOWN: DOWN, walkerGore, bullet, particle, burst, vignette, fog, night, rr, circle, star, fillStroke, INK, ROOF, ground, cityRoads, laneZone, laneArrow, lot, signArrow, layoutSign, roadSign, signNote, nameBoard, card, wrapText };
 })(typeof globalThis !== "undefined" ? globalThis : this);
