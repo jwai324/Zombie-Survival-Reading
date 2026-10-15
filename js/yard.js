@@ -961,14 +961,17 @@
     /** Walkers queue at a gap. Two that keep pushing against each other without getting anywhere (both making
         for the same one-tile hole, say) sort it out: the one farther from its next step backs off for a moment
         and the other goes through. The core steers each walker on its own; this is the yard's crowd, where
-        a breach can draw a whole side's walkers. Uses the walkers' path / pathT (the core re-paths when
-        pathT runs out). */
+        a breach can draw a whole side's walkers. One stuck with nobody beside it is caught on a corner (a
+        build's prop, the fence): the core's straight-line shortcut clears the corner by the walker's middle,
+        not by its shoulders, so it walks the tile middles round it for a moment instead. Uses the walkers'
+        path / pathT (the core re-paths when pathT runs out). */
     yardUnjam(dt) {
       const p = this.player;
       const stalled = [];
       for (const z of this.walkers) {
-        // only walkers on their way somewhere: not clawing at the fence or a build, not already at the player
-        if (!z.awake || z.fenceTarget || this.wreckAtSpot(z) || !z.path || !z.path.length || Math.hypot(z.x - p.x, z.y - p.y) < 1.5) {
+        // only walkers on their way somewhere (walking last frame): not clawing at the fence or a build, not
+        // waiting where they were sent, not already at the player
+        if (!z.awake || z.act !== "walk" || z.fenceTarget || this.wreckAtSpot(z) || !z.path || !z.path.length || Math.hypot(z.x - p.x, z.y - p.y) < 1.5) {
           z.yardJam = null;
           continue;
         }
@@ -980,8 +983,20 @@
       for (const z of stalled) {
         if (z.yardJam.t <= 1.2) continue; // already sorted out with another this frame
         const o = this.walkers.find((w) => w !== z && Math.hypot(w.x - z.x, w.y - z.y) < z.r + w.r + 0.35);
-        // stuck alone (on a corner): the core's steering sorts that out; behind one at the player: that is a queue
-        if (!o || Math.hypot(o.x - p.x, o.y - p.y) < 1.5) continue;
+        if (!o) {
+          // stuck alone, on a corner: round it by the tile middles to where it was going (the end of its path;
+          // the goal is not asked for again, so a raider's spot is not re-rolled), held like a back-off
+          const [gx, gy] = z.path[z.path.length - 1];
+          const route = this.bfs(z, { x: gx, y: gy }, this.yardPathBlock(z));
+          if (route.length) {
+            z.path = route;
+            z.pathT = 1.1;
+          }
+          z.yardJam.t = 0;
+          continue;
+        }
+        // behind one at the player: that is a queue
+        if (Math.hypot(o.x - p.x, o.y - p.y) < 1.5) continue;
         // both stuck: the one farther from its next step gives way; else the stuck one does
         const both = o.yardJam && o.yardJam.t > 1.2;
         const back = both && gap(z) <= gap(o) ? o : z;

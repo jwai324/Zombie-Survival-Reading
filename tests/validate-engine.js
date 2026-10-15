@@ -771,6 +771,7 @@ try {
    computer, Tomas: js/crew.js), it shows (cracks, the plaque's tape, debris) and a save keeps it; every wrecker comes
    for you when hurt, near, or DEFENSE.wreckSeconds after getting in; "Can't die" means nothing gives. Math.random is
    seeded here. */
+let wreckSpotsTried = 0;
 {
   const ctxMath = vm.runInContext("Math", sb);
   const realRandom = ctxMath.random;
@@ -944,6 +945,8 @@ try {
       if (share ? debris.length : debris.length < plotted.length) err(`yard: ${debris.length} debris props with every build ${name}`);
       if (debris.some((pr) => pr.solid)) err("yard: debris is solid");
       if (!share && I.yardAnims.some((a) => a.kind === "blink")) err("yard: a wrecked build's lights still blink");
+      // one order for every list of them (the HUD and toasts read State.wreckedRooms, Tomas's tip buildDamage)
+      if (!share && JSON.stringify(I.buildDamage().wrecked) !== JSON.stringify(S.wreckedRooms())) err(`yard: the wrecked builds are listed in two orders (${I.buildDamage().wrecked} vs ${S.wreckedRooms()})`);
     });
     S.save.builds = {};
 
@@ -1186,6 +1189,38 @@ try {
       const b = S.loadSave(S.activeSlot());
       const want = built[1] ? { [built[1]]: 7 } : {};
       if (JSON.stringify(b.builds) !== JSON.stringify(want)) err(`old save: builds ${JSON.stringify(old.builds)} loaded as ${JSON.stringify(b.builds)}, want ${JSON.stringify(want)}`);
+    }
+    // from every wreck spot a walker reaches you: a wrecker turns on you there, and one caught on a build's corner
+    // would keep its wave from ever ending (the straight-line shortcut clears a corner by a walker's middle, not its
+    // shoulders; js/yard.js yardUnjam walks it round by the tile middles). Every room at each level, a walker of
+    // each kind in turn at every spot, you at the yard's start. Only the walker's step and the yard's unjam run: the
+    // rest of a frame is not what this tests, and costs about seven times as much.
+    {
+      const types = Object.keys(W.WALKER_TYPES);
+      const top = Math.max(...ROOMS.map((k) => W.BASE_ROOMS[k].levels.length));
+      const stuck = [];
+      let tried = 0;
+      for (let lvl = 1; lvl <= top; lvl++) {
+        const q = yardWith(Object.fromEntries(ROOMS.map((k) => [k, Math.min(lvl, W.BASE_ROOMS[k].levels.length)])), []);
+        const start = [q.x, q.y];
+        const spots = [].concat(...Object.entries(I.wreckSpots).map(([target, list]) => list.map((sp) => [target, sp])));
+        spots.forEach(([target, sp], i) => {
+          I.walkers.length = 0;
+          q.x = start[0];
+          q.y = start[1];
+          const z = put(types[i % types.length], [sp.tx, sp.ty]);
+          for (let t = 0; t < 60 && !atPlayer(z, q); t += 0.05) {
+            I.updateWalker(z, 0.05);
+            I.yardUnjam(0.05);
+          }
+          tried++;
+          if (!atPlayer(z, q)) stuck.push(`a ${z.type} from the ${target} spot ${sp.tx},${sp.ty} (rooms at ${lvl}) is at ${z.x.toFixed(1)},${z.y.toFixed(1)}`);
+        });
+      }
+      I.walkers.length = 0;
+      if (!tried) err("yard: no wreck spots to start a walker from");
+      if (stuck.length) err(`yard: from ${stuck.length} of ${tried} wreck spots a walker never reached you in 60 s: ${stuck.slice(0, 3).join("; ")}`);
+      wreckSpotsTried = tried;
     }
   } catch (e) {
     err(`yard breach and wreckers: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
@@ -3089,4 +3124,4 @@ if (errors.length) {
   console.log(`\n${errors.length} engine problem(s).`);
   process.exit(1);
 }
-console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock), and ${kindsChecked} walker kinds (stats, spawned in front of you in a building, the yard and the river, the scream, downed walkers and blood, heading, gait, the river's and the alarm's kinds, the alarm's cap, a return visit), and ${countsChecked} checks that walkers are never counted (no HUD box, the wave label, the river's toast), the scream's toast, kinds met, and no bite round a corner.`);
+console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), the breach rule (3/6/12/30 steps, a mend, a corner hole, raiders and wreckers, two holes), wreckers (the builds, the van's floor, provoked, Can't die), wrecked builds and their repairs, a walker reaching you from all ${wreckSpotsTried} wreck spots, and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock), and ${kindsChecked} walker kinds (stats, spawned in front of you in a building, the yard and the river, the scream, downed walkers and blood, heading, gait, the river's and the alarm's kinds, the alarm's cap, a return visit), and ${countsChecked} checks that walkers are never counted (no HUD box, the wave label, the river's toast), the scream's toast, kinds met, and no bite round a corner.`);

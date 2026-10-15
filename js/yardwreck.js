@@ -43,10 +43,12 @@
       const hp = S.buildHp(room);
       return hp <= 0 ? 2 : hp < max * 0.5 ? 1 : 0;
     },
-    /** { wrecked: [rooms], cracked: [rooms] } (the computer's row, the crew's tip, the toasts). */
+    /** { wrecked: [rooms], cracked: [rooms] } (the computer's row, the crew's tip, the toasts), in WORLD.BASE_ROOMS
+        order like State.wreckedRooms, so every list of them reads the same. */
     buildDamage() {
       const out = { wrecked: [], cracked: [] };
-      Object.keys(W().YARD.plots).forEach((room) => {
+      const plots = W().YARD.plots;
+      Object.keys(W().BASE_ROOMS).filter((room) => plots[room]).forEach((room) => {
         const d = this.buildDmg(room);
         if (d === 2) out.wrecked.push(room);
         else if (d === 1) out.cracked.push(room);

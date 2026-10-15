@@ -863,6 +863,8 @@ function checkLevel(n) {
     if (crewNeed) CONTROLS_CREW_MUST.forEach(([test, what]) => { if (!test(t.controls.map(String))) crewNeed(ctx, `controls must mention ${what}`); });
     CABIN_BANNED.forEach(([re, what]) => { if (re.test(allC)) err(ctx, `controls ${what}`); });
     if (!hasNumber(WORLD.SETTINGS.fenceRepairScrap, allC)) warn(ctx, "controls: the fence repair cost is not given");
+    // E fixes a wrecked build too (js/yardwreck.js): said in one sentence with its cost
+    if (!allC.split(/[.!?]/).some((s) => /\bwrecked\b/i.test(s) && hasNumber(WORLD.SETTINGS.buildRepairScrap, s))) warn(ctx, `controls: fixing a wrecked build (${WORLD.SETTINGS.buildRepairScrap} scrap) is not given`);
   }
   const base = t.base || {};
   if (!isStr(base.intro)) err(ctx, "base.intro missing");
