@@ -160,9 +160,13 @@ js/landmarks1.js        landmark art: gas station, grocery, hardware, pharmacy, 
 js/landmarks2.js        landmark art: precinct, school, fire station, hospital, water tower, lumber, mall, library
 js/yardart.js           yard art: every plot at every level, fence by Walls level
 js/game.js              the road: world-space drive, lanes, signs, turns, wrong-way restarts, minimap
-js/perspective.js       a test of an angled road camera (Home Base to Corner Grocery only): the ground warped
-                        down the road, buildings, the interiors' walkers and the yard van's faces standing up,
-                        the roof gun on the van and its aim
+js/perspective.js       a test of an angled road camera (Home Base to Corner Grocery only): the camera, the ground
+                        warped on the 2D canvas when there is no WebGL, everything standing (plants, wrecked cars,
+                        barriers, barrels, signs, crates, buildings, walkers, the van and its roof gun), the aim,
+                        where walkers come from
+js/perspective-gl.js    the angled camera's ground on the graphics card: squares of the road's art drawn once, kept
+js/perspective-art.js   the angled camera's pictures: trees, bushes, tall grass, barrels, sign boards, barrier
+                        stripes; the overgrowth on the ground; the plants scattered over the land
 js/map.js               the city map, street names, side streets, "The way there"
 js/base.js              the build menu at the cabin's computer (rooms, garage, weapons, traps, house, stock, repairs, hover tips)
 js/typing.js            the workbench typing game (finger lesson, stages, countdown, timer, retry, practice)

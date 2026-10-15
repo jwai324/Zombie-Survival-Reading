@@ -57,6 +57,9 @@
   const HIT_WORDS = ["BLAM!", "KRAK!", "THUD!"];
   // a test of the angled camera (js/perspective.js): only these drives use it; every other drive stays flat
   const PERSP_ROUTES = ["base>grocery"];
+  // ... and on them: the van a little faster, its shots much faster (far down the road they look slow), walkers
+  // coming a little more often (they are seen from further off, so take longer to arrive)
+  const PERSP = { pace: 1.25, shot: 1.6, spawns: 1.4, range: 2600, keepUp: 900 };
   const SIZE = { normal: 1, large: 1.3, huge: 2 };
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -195,10 +198,10 @@
       const path = r.path;
       let dist = 0;
       for (let i = 0; i < path.length - 1; i++) dist += Math.hypot(loc(path[i]).x - loc(path[i + 1]).x, loc(path[i]).y - loc(path[i + 1]).y);
-      this.speed = DIFF.roadScroll * this.stats.speed;
+      this.persp = !!ZSR.Persp && PERSP_ROUTES.includes(path.join(">"));
+      this.speed = DIFF.roadScroll * this.stats.speed * (this.persp ? PERSP.pace : 1);
       const secs = opts.seconds || clamp(dist * World().SETTINGS.tripSecondsPerUnit, World().SETTINGS.tripMinSeconds, World().SETTINGS.tripMaxSeconds);
       this.drive = St.buildDrive(path, { scale: St.scaleFor(dist, secs, this.speed), speed: this.speed });
-      this.persp = !!ZSR.Persp && PERSP_ROUTES.includes(path.join(">"));
       this.origin = path[0];
       this.van = { s: 0, d: 0, x: 0, y: 0, heading: 0, vd: 0, w: 66, h: 118, aim: -Math.PI / 2, hurt: 0, cooldown: 0, flash: 0 };
       this.cam = { x: 0, y: 0, th: 0, d: 110, rel: 0 };
@@ -487,9 +490,8 @@
         sx = side === "left" ? -40 : this.W + 40;
         sy = rand(this.H * 0.05, this.H * 0.6);
       }
-      // just off the flat camera's screen, on every drive: the angled camera sees farther, so there walkers
-      // come from the same places (and as far from the van) and fade in
-      const w = this.flatToWorld(sx, sy);
+      // just off the screen; the angled camera sees far down the road, so there they come from far off and fade in
+      const w = this.persp ? ZSR.Persp.spawn(this) : this.flatToWorld(sx, sy);
       const hp = Math.round(base.hp * this.diff.hpMult);
       this.zombies.push({ type, x: w.x, y: w.y, r: base.r, hp, maxHp: hp, speed: base.speed * this.diff.speedMult * rand(0.85, 1.15), dmg: base.dmg, scrap: base.scrap, angle: this.cam.th + Math.PI, phase: Math.random() * 6.28, hit: 0, cool: 0, kx: 0, ky: 0, born: this.time });
     },
@@ -721,7 +723,8 @@
         const cy = Math.sin(van.heading) * this.curSpeed;
         for (let i = 0; i < n; i++) {
           const a = gun.angle + (i - (n - 1) / 2) * ZSR.Upgrades.SPREAD;
-          const shot = { x: gun.x + Math.cos(a) * 24 - cx * dt, y: gun.y + Math.sin(a) * 24 - cy * dt, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, cx, cy, dmg: stats.damage };
+          const bs = stats.bulletSpeed * (this.persp ? PERSP.shot : 1);
+          const shot = { x: gun.x + Math.cos(a) * 24 - cx * dt, y: gun.y + Math.sin(a) * 24 - cy * dt, vx: Math.cos(a) * bs, vy: Math.sin(a) * bs, cx, cy, dmg: stats.damage };
           // the angled camera's shots have a height: they leave the barrels and drop toward what the pointer is on
           if (gun.dz != null) Object.assign(shot, { z: gun.z + gun.dz * 24, dz: gun.dz });
           this.bullets.push(shot);
@@ -739,15 +742,15 @@
         this.spawnTimer -= dt;
         if (this.spawnTimer <= 0) {
           this.spawnZombie();
-          this.spawnTimer = this.diff.interval * rand(0.7, 1.3);
+          this.spawnTimer = (this.diff.interval * rand(0.7, 1.3)) / (this.persp ? PERSP.spawns : 1);
         }
       }
       for (let i = this.bullets.length - 1; i >= 0; i--) {
         const b = this.bullets[i];
         b.x += (b.vx + b.cx) * dt;
         b.y += (b.vy + b.cy) * dt;
-        if (b.dz) b.z = Math.max(6, b.z + b.dz * stats.bulletSpeed * dt);
-        if (Math.hypot(b.x - van.x, b.y - van.y) > 1300) {
+        if (b.dz) b.z = Math.max(6, b.z + b.dz * Math.hypot(b.vx, b.vy) * dt);
+        if (Math.hypot(b.x - van.x, b.y - van.y) > (this.persp ? PERSP.range : 1300)) {
           this.bullets.splice(i, 1);
           continue;
         }
@@ -775,14 +778,17 @@
       const rx = -fy;
       const ry = fx;
       const chase = this.curSpeed * DIFF.chase;
+      if (this.persp) ZSR.Persp.setup(this);
       for (let i = this.zombies.length - 1; i >= 0; i--) {
         const z = this.zombies[i];
         const dx = van.x - z.x;
         const dy = van.y - z.y;
         const dist = Math.hypot(dx, dy) || 1;
         z.angle = Math.atan2(dy, dx);
-        let vx = (dx / dist) * z.speed + fx * chase + z.kx;
-        let vy = (dy / dist) * z.speed + fy * chase + z.ky;
+        // on the angled camera, walkers far off just walk in; they keep up with the van once near it
+        const keep = this.persp ? clamp((PERSP.keepUp - dist) / 400, 0, 1) : 1;
+        let vx = (dx / dist) * z.speed + fx * chase * keep + z.kx;
+        let vy = (dy / dist) * z.speed + fy * chase * keep + z.ky;
         for (let j = 0; j < this.zombies.length; j++) {
           if (i === j) continue;
           const o = this.zombies[j];
@@ -822,8 +828,14 @@
           this.hurtVan(z.dmg, z.x, z.y);
           if (this.gameOverAt != null) return;
         }
-        const zs = this.flatToScreen(z.x, z.y);
-        if (zs.y > this.H + 120 || zs.x < -220 || zs.x > this.W + 220 || zs.y < -900) this.zombies.splice(i, 1);
+        if (this.persp) {
+          // gone once well behind the camera, or far off to a side
+          const q = ZSR.Persp.local(z.x, z.y);
+          if (q.Y < -500 || Math.abs(q.X) > 4500) this.zombies.splice(i, 1);
+        } else {
+          const zs = this.flatToScreen(z.x, z.y);
+          if (zs.y > this.H + 120 || zs.x < -220 || zs.x > this.W + 220 || zs.y < -900) this.zombies.splice(i, 1);
+        }
       }
       for (let i = this.crates.length - 1; i >= 0; i--) {
         const c = this.crates[i];
@@ -956,12 +968,20 @@
       const k = textSize();
       const theme = this.mods.night ? { grass: "#3f3e2c", asphalt: "#2b2c30" } : this.mods.fog ? { grass: "#67654a" } : null;
       ctx.save();
-      if (this.shake > 0.5) ctx.translate(rand(-this.shake, this.shake), rand(-this.shake, this.shake));
+      // a shake: the angled camera shakes its whole view (ground on the card too), the flat one the canvas
+      const shook = this.shake > 0.5;
+      if (shook && this.persp) {
+        this.shakeX = rand(-this.shake, this.shake);
+        this.shakeY = rand(-this.shake, this.shake);
+      } else if (shook) ctx.translate(rand(-this.shake, this.shake), rand(-this.shake, this.shake));
       // the world: through the angled camera on its test drive (js/perspective.js), else flat from straight above
       if (this.persp) {
         ZSR.Persp.drawWorld(this, ctx, theme);
         ZSR.Persp.drawNames(this, ctx, k);
-      } else this.drawFlat(ctx, theme, k);
+      } else {
+        if (ZSR.PerspGL) ZSR.PerspGL.hide(this);
+        this.drawFlat(ctx, theme, k);
+      }
       for (const b of this.bursts) {
         const p = this.toScreen(b.x, b.y);
         D.burst(ctx, Object.assign({}, b, { x: p.x, y: p.y }));
@@ -983,6 +1003,7 @@
       this.hudFade(this.hud.top, 1 - dim);
       this.hudFade(this.hud.mini, (1 - dim) * this.miniAlpha());
       this.drawMinimap(k);
+      this.shakeX = this.shakeY = 0;
     },
     /** The world from straight above, heading up: ground, roads, lanes, lots, scenery, walkers, the van, the names. */
     drawFlat(ctx, theme, k) {

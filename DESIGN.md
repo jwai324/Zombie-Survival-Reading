@@ -349,5 +349,19 @@ won; the reading expansion was moved into them.
   armor, rack and paint from the upgrades), its roof the road's top-down art, and the roof gun stands on it
   (more barrels with Spread Shot, longer with Heavier Rounds) and turns and tips toward the aim.
   Trees are still their top-down drawings on a trunk.
-- **Speed.** It draws more than the flat road. On a slow computer (no graphics card) the ground layers
-  soften themselves to keep the frame rate up.
+- **Speed.** The ground is on the graphics card (`js/perspective-gl.js`): squares of the road's art,
+  each drawn once and kept, laid down through the camera with their smaller copies blended, so the far
+  road does not shimmer and turning costs nothing. Without WebGL the ground is warped on the 2D canvas
+  each frame instead, without the overgrowth's fine marks, softening itself on a slow computer.
+
+## Owner decisions: the angled drive, overgrown (2026-10-15, later)
+
+| Question | Answer |
+|----------|--------|
+| What stands up? | Everything by the road: trees (leafy and dead), bushes, tall grass, wrecked cars (wheels, body, cabin, windows, rust), barriers, barrels, road signs with their words facing the van, supply crates, buildings, walkers, the van. |
+| How overgrown? | Weeds and grass over all the ground, creeping onto the road's edges and up through cracks in the asphalt (sparse there, so lanes and arrows still read), and plants over all the land the route can see, thickest at the verges. |
+| Where do walkers come from? | Far down the road in the haze, and out of the overgrowth at the edges of the view; small at first, they walk in, and only keep up with the van once near it. |
+| Faster? | On the angled drive only: the van 25% faster, shots 60% faster (they fly up to 2600 units); walkers come 40% more often, since they are seen from further off. |
+
+- **Nothing is drawn right under the camera.** A walker that close would otherwise cast a shadow over the
+  whole screen.
