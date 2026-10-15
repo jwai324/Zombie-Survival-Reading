@@ -46,7 +46,9 @@ at every level. The player is "you".
   "You're welcome" (the card opens once the hand-in is paid); or Pip's dog names. Locked during a wave.
 - **Helping.** Jobs unlock with trust stars (`CREW[id].jobs`). Tomas walks to fence holes and
   cracked segments in the calm and fixes them, paying `SETTINGS.fenceRepairScrap` from base scrap
-  each (never below 0); at 2 stars he also fixes the cabin's broken doors and windows
+  each (never below 0); once the fence is whole he fixes the room builds walkers wrecked (`builds`,
+  no star gate, `buildRepairScrap` each; a build only cracked still works, and you brace it); at 2
+  stars, once the fence and the builds are done, he also fixes the cabin's broken doors and windows
   (`houseRepairScrap`). He tells you about it the next time you talk. June patches you up when you
   talk to her while hurt (once per calm). Pip, as lookout, calls out the next wave's size and sides
   `lookoutSeconds` before it comes.
@@ -114,7 +116,7 @@ W.CREW = {
   june: {
     name: "June", pronoun: "she", color: "#5b8a3c", // bubble and map accent
     scale: 0.9, // sprite height as a share of a walker's (Pip about 0.74)
-    jobs: [{ job: "heal", stars: 1 }], // engine jobs: fence, cabin, heal, lookout
+    jobs: [{ job: "heal", stars: 1 }], // engine jobs: fence, builds, cabin, heal, lookout
     posts: [
       // where they spend the calm; `at` is a yard tile [x, y] or `house` a cabin tile [hx, hy]
       // (yard = HOUSE.at + house); `room` and `level`: shown only once that room is built that far;
@@ -148,7 +150,7 @@ W.CREW_RULES = {
   hurtCost: { meds: 1, food: 2 }, // 1 medical kit from storage, else 2 food
   walkSpeed: 1.1, runSpeed: 2.6, // tiles a second (run: to the shelter)
   dwell: [20, 50], // seconds at a post
-  workSeconds: 4, // to fix one fence segment or cabin door or window
+  workSeconds: 4, // to fix one fence segment, wrecked build, or cabin door or window
   lookoutSeconds: 15, // Pip calls the next wave this long before it comes
   healAmount: 40, // June patches you up this much, once per calm
   requestsPerCrew: 1, // SCALE: open requests of each kind (story quest, errand) per crew member
@@ -201,22 +203,28 @@ facts carry the placeholders exactly.
 | Tomas | `fence` | holes or cracks | `{holes}`, `{cracks}` |
 | Tomas | `cabin` | broken doors or windows | `{broken}` |
 | Tomas | `crowbar` | no crowbars | |
+| Tomas | `wrecked` | a room build is wrecked (live from the yard, else `State.wreckedRooms`) | `{rooms}` ("Garden and Well"), `{cost}` scrap to fix them all yourself |
+| Tomas | `lanky` | told once: after the first lanky walker is met (`save.met`), until its words are read | |
+| Tomas | `armored` | told once: after the first armored walker is met | |
 | Tomas | `fine` | always (fallback) | |
 | Pip | `wave` | lookout job and a wave is coming in the calm | `{size}` ("a small wave" / "a big wave" / "no wave"), `{sides}` |
 | Pip | `keys` | holding stash keys | `{keys}` |
 | Pip | `walkers` | while a known building is below the walker limit | `{days}` days until the town gets more walkers |
-| Pip | `radio` | Radio room built, until it has been read once | |
+| Pip | `radio` | Radio room built and not wrecked, until it has been read once | |
+| Pip | `screamer` | told once: after the first screamer is met (`save.met`) | |
+| Pip | `wreckers` | told once: as soon as any room with a yard plot is built | |
 | Pip | `full` | every known building is at the walker limit (fallback) | |
 
 ### `CREW_REPORTS` (js/story-crew.js)
 
 What a crew member says they did since you last talked. Keys: `fence` (`{fixed}` segments,
 `{scrap}` scrap), `fenceFree` (`{fixed}`, a perk made it free), `cabin` (`{fixed}`, `{scrap}`),
+`cabinFree`, `builds` (`{fixed}` wrecked builds, `{scrap}`), `buildsFree` (`{fixed}`),
 `hurt` (`{who}` was hurt in a raid, `{cost}` what it took: "a medical kit" / "2 food"), `late`
 (`{item}`, an errand ran out). Each is `{ facts: [...] }`. One `hurt` report covers every hurt
 since the last talk, its `{cost}` summed ("2 medical kits and 2 food"). June's patch-up is told by
-her `heal` tip, not a report. The fence and cabin reports name their fixer (Tomas) and use his
-pronoun: giving those jobs to someone else means passing `who` for them and rewording them at six
+her `heal` tip, not a report. They are told in the order fence, cabin, builds. The fence, cabin
+and builds reports name their fixer (Tomas) and use his pronoun: giving those jobs to someone else means passing `who` for them and rewording them at six
 levels (`tests/validate-world.js` checks the reports name the job holder).
 
 ### `ERRANDS` (js/story-crew.js)
@@ -300,7 +308,7 @@ crew: {
   quests: { "june-1": { state: "active" | "found" | "done", day, doneDay } },
   errand: { june: null | { id, item, count, have, day, due } },
   errandNext: { june: 0, ... },            // which errand comes next
-  report: { june: {}, ... },               // { fence, fenceFree, cabin, scrap, hurt: [..], late: item }
+  report: { june: {}, ... },               // { fence, fenceFree, cabin, builds, buildsFree, scrap, hurt: [..], late: item }
   ledger: [],                              // quest ids handed in since the last day page (June's lines)
   dog: { home: false, name: "" },
 }
@@ -328,7 +336,7 @@ Crew state changes at the base are saved through `ZSR.Main.syncYard()` (never mi
 | `nextTopic(id)` | `{ id, mood }` the next topic to tell, or the next mood |
 | `markTopic(id, topicId)` | record it told (topic heard, or mood index advanced) |
 | `crewTip(id)` | `{ tip, vars }` the tip that applies now |
-| `crewJobs(id)` | job keys unlocked by stars |
+| `crewJobs(id)` | job keys unlocked by stars (fence, builds, cabin, heal, lookout) |
 | `crewFx()` | perk totals from done quests: `{ foodPerDay, medsPerDay, footHp, vanHp, scrapPerDay, crewRepairFree, lookoutEarly, healAmount, crowbarCost }` |
 | `request(id)` | the open request: `{ kind: "quest" | "errand", def, st }` or null |
 | `offer(id)` | what they would ask now: `{ kind: "quest", def }` or `{ kind: "errand", def, count }` or null |
@@ -359,11 +367,15 @@ As built, beyond the table (js/crewstate.js):
 - `crewTip(id, ctx)`: urgent tips win (June `heal` and `hungry`, Pip `wave`), the others that apply
   take turns one per talk, and the fallback shows only when nothing else applies. `ctx`: `heal` (hp
   June gives back now, only when she heals now), `wave: { size, sides }` (Pip's call in the calm),
-  live `holes`, `cracks`, `broken`. `crewTips(id, ctx)` lists every tip that applies.
+  live `holes`, `cracks`, `broken`, `wrecked` (room ids). `crewTips(id, ctx)` lists every tip that
+  applies. Told-once tips (Tomas `lanky` and `armored`, Pip `screamer` and `wreckers`) are urgent:
+  told at the next talk once they apply, then never again once their words were read
+  (`crew.read` keeps `tip:<crew>:<tip>`, as for Pip's `radio`). The walker kinds' tips wait for
+  `save.met[type]` (the day one of that kind was first seen or hurt, `State.meetWalker`).
 - Reports: `crewReportItems(id)` -> `[{ key, vars }]`, words through
-  `ZSR.crewFill(ZSR.crewText("report", key), vars)`. Jobs: `paid = crewRepairPay("fence" | "cabin")`
-  (0 with `crewRepairFree`; never below 0), then `logWork(id, "fence" | "cabin", 1, paid)` ("fence"
-  becomes `fenceFree` when free), `logWork(id, "heal", hp)`. `crewHealAmount()`,
+  `ZSR.crewFill(ZSR.crewText("report", key), vars)`. Jobs: `paid = crewRepairPay("fence" | "builds" |
+  "cabin")` (0 with `crewRepairFree`; never below 0), then `logWork(id, kind, 1, paid)` ("fence"
+  becomes `fenceFree` when free, "builds" `buildsFree`, "cabin" `cabinFree`), `logWork(id, "heal", hp)`. `crewHealAmount()`,
   `crewLookoutSeconds()` include the perks. `crewHurt(id)` returns the cost words ("a medical kit",
   "2 food", or less food when the pantry is short).
 - Requests: `request(id)` (the one ready to hand in first), `requests(id)` (all open),
@@ -452,8 +464,10 @@ bubble open first pages through it ("Press E to read on"); the crew card's DOM i
 - Waves: `crewWave(true)` at a wave's start (hurry to the shelter, shut its door once inside),
   `crewWave(false)` when cleared. `yardWalkerGoal` sends `raidShelterShare` of raiders to a shelter
   tile; `crewUpdate` times raiders among the crew and calls `State.crewHurt`.
-- Jobs: `crewUpdate` walks Tomas to the nearest hole or crack (then broken cabin door or window at
-  2 stars), works `workSeconds`, fixes it through the yard's repair path without the player's
+- Jobs: `crewUpdate` walks Tomas to the nearest hole or crack, then (fence whole) to a tile beside
+  the nearest wrecked room build (`builds`: `Interior.plotSolid`, `buildDmg`; fixed with `mendBuild`,
+  js/yardwreck.js), then (at 2 stars, once the fence and the builds are done) to a broken cabin door
+  or window, works `workSeconds`, fixes it through the yard's repair path without the player's
   toast, pays from `save.scrap` (or free with `crewRepairFree`), `State.logWork`, then
   `hooks.onYardChanged()`. Lookout: the calm pre-rolls the next wave (`phase.next = { size,
   sides }`), and Pip's call (`CREW_TIPS.pip.wave` words) is a toast `lookoutSeconds` (+perk)
@@ -508,4 +522,7 @@ out after; a raider among them costs a kit (else 2 food) and trust, once per mem
 fixes holes and pays scrap, not below 0, and reports it; talk trust once a day; topics in order and
 `when`; every quest offered in order, its object hidden until accepted, picked up, found at home,
 handed in with its reward and perk; errands count cargo and expire; the dog follows, comes home,
-is named and eats; an old save without `crew` loads; every crew text resolves at every level.
+is named and eats; an old save without `crew` loads; every crew text resolves at every level; the
+builds job fixes a wrecked build after the fence, pays (or is free with the perk), never in a wave,
+and leaves a build only cracked to you; the told-once tips (the walker kinds, the wreckers) and the
+wrecked tip (from the save and the yard's live list).

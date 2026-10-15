@@ -598,12 +598,12 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   const QUESTS = Array.isArray(W.QUESTS) ? W.QUESTS : [];
   const DOG = W.DOG || {};
   const POSES = ["stand", "sit", "work", "read"];
-  const JOBS = ["fence", "cabin", "heal", "lookout"];
+  const JOBS = ["fence", "builds", "cabin", "heal", "lookout"];
   const PRONOUNS = ["she", "he", "they"];
   const WHEN_KEYS = ["day", "stars", "quest", "note", "room", "level", "dog"];
   // CREW_TIPS: every tip id the engine gives (js/crewstate.js), with the placeholders its facts carry. One table for
   // every crew member; the same as CREW_TIP_VARS in tests/validate-text.js and TIP_VARS in tests/validate-crew.js
-  const TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [], full: [] };
+  const TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [], full: [], lanky: [], armored: [], wrecked: ["rooms", "cost"], screamer: [], wreckers: [] };
   // tips the engine gives only with a job (js/crewstate.js TIP_RULES): June's patch-up happens only as her heal tip
   // is told (js/crew.js crewOpen), and the lookout's wave call reads the wave tip (js/crew.js crewLookout)
   const TIP_JOB = { heal: "heal", wave: "lookout" };
@@ -611,8 +611,8 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   // tips of the jobs they hold, and at least one tip)
   const CONTRACT_TIPS = {
     june: ["hungry", "food", "ready", "build", "heal"],
-    tomas: ["van", "vanFree", "fence", "cabin", "crowbar", "fine"],
-    pip: ["wave", "keys", "walkers", "radio", "full"],
+    tomas: ["van", "vanFree", "fence", "cabin", "crowbar", "fine", "lanky", "armored", "wrecked"],
+    pip: ["wave", "keys", "walkers", "radio", "full", "screamer", "wreckers"],
   };
   // the tip ids js/crewstate.js gives: a rule in TIP_RULES and a place in URGENT, REGULAR or FALLBACK (read from its
   // source, as PEOPLE is read from tests/validate-text.js below); null when the source cannot be read
@@ -646,9 +646,9 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
     Object.keys(TIP_VARS).filter((t) => !ENGINE_TIPS.includes(t)).forEach((t) => err(`crew: TIP_VARS has tip ${t}, which js/crewstate.js does not give (a rule in TIP_RULES and a place in URGENT, REGULAR or FALLBACK)`));
   }
   // what a crew member says they did since you last talked (js/crewstate.js crewReportItems), with its placeholders
-  const REPORTS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], hurt: ["who", "cost"], late: ["item"] };
+  const REPORTS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], builds: ["fixed", "scrap"], buildsFree: ["fixed"], hurt: ["who", "cost"], late: ["item"] };
   // the repair jobs whose reports name their fixer: CREW_REPORTS[job] and CREW_REPORTS[job + "Free"]
-  const FIX_JOBS = ["fence", "cabin"];
+  const FIX_JOBS = ["fence", "cabin", "builds"];
   // the words' validator holds the same two tables (CREW_TIP_VARS, CREW_REPORT_VARS): they must agree
   {
     let src = "";
@@ -672,7 +672,7 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
       if (off.length) err(`crew: ${here} here and ${name} in tests/validate-text.js differ at ${off.map((k) => `${k} (here ${k in mine ? canon(mine[k]) : "none"}, there ${k in theirs ? canon(theirs[k]) : "none"})`).join(", ")}: make them the same`);
     });
   }
-  const PLACEHOLDERS = ["food", "days", "room", "needs", "hp", "max", "cost", "holes", "cracks", "broken", "keys", "size", "sides", "fixed", "scrap", "who", "item", "count", "reward", "dog"];
+  const PLACEHOLDERS = ["food", "days", "room", "needs", "hp", "max", "cost", "holes", "cracks", "broken", "keys", "size", "sides", "rooms", "fixed", "scrap", "who", "item", "count", "reward", "dog"];
   const ART_KINDS = ["bag", "photo", "box", "book", "tin", "leash", "toolbox", "radio", "jar", "letter", "seeds", "blanket", "tape", "badge", "wrench"];
   const PERKS = ["foodPerDay", "medsPerDay", "footHp", "vanHp", "scrapPerDay", "crewRepairFree", "lookoutEarly", "healAmount", "crowbarCost"];
   const REWARD_KEYS = ["scrap", "items", "kits", "crowbars", "traps", "perk"];

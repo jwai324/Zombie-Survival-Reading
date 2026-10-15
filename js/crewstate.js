@@ -95,7 +95,7 @@
   // (one more every 60 days or more) needs this longer, or Pip's walkers tip goes quiet
   const WALKER_LOOKAHEAD = 60;
   // a repair report and its words when the fix cost no scrap (CREW_REPORTS keys), in the order they are told
-  const FREE_REPORT = { fence: "fenceFree", cabin: "cabinFree" };
+  const FREE_REPORT = { fence: "fenceFree", cabin: "cabinFree", builds: "buildsFree" };
   const CREW_FIELDS = ["trust", "talkDay", "talks", "heard", "mood", "quests", "errand", "errandNext", "report", "dog", "read", "ledger"]; // save.crew
 
   /* ---------- Tips: the one piece of useful live information in every talk ----------
@@ -110,8 +110,15 @@
      - FALLBACK only when nothing else applies, the first of the speaker's in list order: Tomas's "fine" (all
        is well), Pip's "full" (every known building is as full of walkers as it gets).
      `ctx` is what only the yard knows: { heal: hp June gives back now, wave: { size, sides } (the next
-     wave's words, in the calm), holes, cracks, broken (live counts; else they are read from the save) }.
+     wave's words, in the calm), holes, cracks, broken (live counts; else they are read from the save), wrecked
+     (the wrecked builds' room ids; else State.wreckedRooms) }.
+     A tip told once (lanky, armored, screamer, wreckers) is told until its words have been read (seeCrewTalk keeps
+     "tip:<crew>:<tip>"); the walker kinds' tips wait for the first one met (save.met, js/interior.js).
      A new tip id needs a rule here and a place in one of the three lists. */
+  /** A tip told once, after the player first met that kind of walker (save.met[type]). */
+  const metOnce = (S, id, tip, type) => ((S.save.met || {})[type] != null && !S.crewSave().read.includes("tip:" + id + ":" + tip) ? {} : null);
+  /** The wrecked builds' room ids: the yard's live list, else the save's. */
+  const wreckedOf = (S, ctx) => (ctx && Array.isArray(ctx.wrecked) ? ctx.wrecked : S.wreckedRooms ? S.wreckedRooms() : []);
   const TIP_RULES = {
     // June's patch-up: only with the heal job unlocked (CREW[id].jobs), whatever the yard passes
     heal: (S, ctx, id) => (ctx.heal > 0 && S.crewJobs(id).includes("heal") ? { hp: Math.round(ctx.heal) } : null),
@@ -151,7 +158,8 @@
     crowbar: (S) => (S.crowbarsLeft() < 1 ? {} : null),
     // the Radio room built: told until its words have been read once (seeCrewTalk keeps the key), so a fixed
     // line does not come back every other talk for the rest of the game
-    radio: (S, ctx, id) => ((S.save.rooms.radio || 0) > 0 && !S.crewSave().read.includes("tip:" + id + ":radio") ? {} : null),
+    // (a wrecked Radio tower hears nothing: roomLevel is 0 until it is fixed)
+    radio: (S, ctx, id) => ((S.roomLevel ? S.roomLevel("radio") : S.save.rooms.radio || 0) > 0 && !S.crewSave().read.includes("tip:" + id + ":radio") ? {} : null),
     food: (S) => {
       const per = (W().SETTINGS && W().SETTINGS.foodPerTrip) || 1;
       return { food: S.save.food, days: Math.floor(Math.max(0, S.save.food) / per) };
@@ -163,9 +171,22 @@
     },
     // the walkers tip has nothing left to count: every known building is at its walker cap (or none is known)
     full: (S) => (S.crewWalkerDays() ? null : {}),
+    // the walker kinds, told once each after the first one met (save.met): Tomas the lanky and the armored, Pip the screamer
+    lanky: (S, ctx, id) => metOnce(S, id, "lanky", "lanky"),
+    armored: (S, ctx, id) => metOnce(S, id, "armored", "armored"),
+    screamer: (S, ctx, id) => metOnce(S, id, "screamer", "screamer"),
+    // the wreckers, told once, as soon as a yard build stands (something for them to wreck)
+    wreckers: (S, ctx, id) => (Object.keys((W().YARD && W().YARD.plots) || {}).some((r) => (S.save.rooms[r] || 0) > 0) && !S.crewSave().read.includes("tip:" + id + ":wreckers") ? {} : null),
+    // while a build is wrecked: {rooms} names them ("Garden and Well"), {cost} the scrap to fix them all yourself
+    wrecked: (S, ctx) => {
+      const rooms = wreckedOf(S, ctx);
+      if (!rooms.length) return null;
+      const each = (W().SETTINGS && W().SETTINGS.buildRepairScrap) || 0;
+      return { rooms: listWords(rooms.map(roomName)), cost: each * rooms.length };
+    },
   };
-  const URGENT = ["heal", "hungry", "wave"];
-  const REGULAR = ["van", "vanFree", "fence", "cabin", "ready", "build", "keys", "crowbar", "food", "walkers", "radio"];
+  const URGENT = ["heal", "hungry", "wave", "lanky", "armored", "screamer", "wreckers"];
+  const REGULAR = ["van", "vanFree", "fence", "wrecked", "cabin", "ready", "build", "keys", "crowbar", "food", "walkers", "radio"];
   const FALLBACK = ["fine", "full"];
 
   const CrewState = {
@@ -366,7 +387,7 @@
     },
 
     /* ---------- Jobs and perks ---------- */
-    /** Job keys (fence, cabin, heal, lookout) this crew member's stars unlock. */
+    /** Job keys (fence, builds, cabin, heal, lookout) this crew member's stars unlock. */
     crewJobs(id) {
       const st = this.stars(id);
       return ((roster()[id] || {}).jobs || []).filter((j) => j && st >= (j.stars || 0)).map((j) => j.job);
@@ -397,11 +418,12 @@
     crewLookoutSeconds() {
       return (rules().lookoutSeconds || 0) + this.crewFx().lookoutEarly;
     },
-    /** Scrap one crew repair costs: "fence" (a hole or crack) or "cabin" (a door or window); 0 with the perk. */
+    /** Scrap one crew repair costs: "fence" (a hole or crack), "builds" (a wrecked room build: a cracked one still
+        works; the player braces it) or "cabin" (a door or window); 0 with the perk. */
     crewRepairCost(kind) {
       if (this.crewFx().crewRepairFree) return 0;
       const SET = W().SETTINGS || {};
-      return (kind === "cabin" ? SET.houseRepairScrap : SET.fenceRepairScrap) || 0;
+      return (kind === "cabin" ? SET.houseRepairScrap : kind === "builds" ? SET.buildRepairScrap : SET.fenceRepairScrap) || 0;
     },
     /** Pay for one crew repair from the base's scrap, never below 0. Returns the scrap paid. */
     crewRepairPay(kind) {
@@ -726,16 +748,16 @@
     clearReport(id) {
       this.crewSave().report[id] = {};
     },
-    /** Add work to the report. kind: "fence" or "cabin" (n fixed, scrap paid; a fix that paid nothing because
-        it cost nothing, with the crewRepairFree perk, is logged as "fenceFree" or "cabinFree"), "fenceFree" or
-        "cabinFree". (June's patch-up is told by her heal tip in the bubble that heals you, never as a report.)
-        Returns the report. */
+    /** Add work to the report. kind: "fence", "builds" or "cabin" (n fixed, scrap paid; a fix that paid nothing
+        because it cost nothing, with the crewRepairFree perk, is logged as "fenceFree", "buildsFree" or
+        "cabinFree"), or one of those free keys. (June's patch-up is told by her heal tip in the bubble that heals
+        you, never as a report.) Returns the report. */
     logWork(id, kind, n, scrap) {
       const c = this.crewSave();
       const r = (c.report[id] = c.report[id] || {});
       const count = n == null ? 1 : n;
       let k = kind;
-      if ((k === "fence" || k === "cabin") && !(scrap > 0) && this.crewRepairCost(k) === 0) k = FREE_REPORT[k];
+      if (k in FREE_REPORT && !(scrap > 0) && this.crewRepairCost(k) === 0) k = FREE_REPORT[k];
       r[k] = (r[k] || 0) + count;
       if (scrap > 0) {
         const by = (r.scrapBy = r.scrapBy || {});

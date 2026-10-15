@@ -186,8 +186,8 @@ must use every one its facts carry. Copy them exactly, braces and all: the game 
 
 | Text | Placeholders |
 |------|--------------|
-| Tips | June: `hungry` none, `food` `{food} {days}`, `ready` `{room}`, `build` `{room} {needs}`, `heal` `{hp}`. Tomas: `van` `{hp} {max} {cost}`, `vanFree` `{hp} {max}`, `fence` `{holes} {cracks}`, `cabin` `{broken}`, `crowbar` and `fine` none. Pip: `wave` `{size} {sides}`, `keys` `{keys}`, `walkers` `{days}`, `radio` and `full` none |
-| Reports | `fence` `{fixed} {scrap}`, `fenceFree` `{fixed}`, `cabin` `{fixed} {scrap}`, `cabinFree` `{fixed}`, `hurt` `{who} {cost}` (every hurt since the last talk), `late` `{item}` |
+| Tips | June: `hungry` none, `food` `{food} {days}`, `ready` `{room}`, `build` `{room} {needs}`, `heal` `{hp}`. Tomas: `van` `{hp} {max} {cost}`, `vanFree` `{hp} {max}`, `fence` `{holes} {cracks}`, `cabin` `{broken}`, `wrecked` `{rooms} {cost}`, `crowbar`, `fine`, `lanky` and `armored` none. Pip: `wave` `{size} {sides}`, `keys` `{keys}`, `walkers` `{days}`, `radio`, `full`, `screamer` and `wreckers` none |
+| Reports | `fence` `{fixed} {scrap}`, `fenceFree` `{fixed}`, `cabin` `{fixed} {scrap}`, `cabinFree` `{fixed}`, `builds` `{fixed} {scrap}`, `buildsFree` `{fixed}`, `hurt` `{who} {cost}` (every hurt since the last talk), `late` `{item}` |
 | Errand brief and done | `{count} {item} {days} {reward}` |
 | Quest brief and done | `{reward} {dog}` |
 | Talk and quest `after` | `{dog}` |
@@ -207,8 +207,10 @@ must use every one its facts carry. Copy them exactly, braces and all: the game 
   over several waves ("2 medical kits and 2 food"), or "nothing";
   `{needs}` a list that may end with scrap ("2 pieces of lumber, 1 box of nails and 20 scrap");
   `{reward}` a list ("30 scrap, 2 pieces of lumber and 1 medical kit"); `{keys}` "1 stash key" or "3 stash keys";
-  `{room}` a room's name ("Garden"); `{who}` a crew member's name; `{item}` an item's name; the
-  rest are numbers. An errand's `{days}` is its deadline when offered and the days left when the
+  `{room}` a room's name ("Garden"); `{rooms}` one or more rooms' names as a list ("Garden",
+  "Garden and Well": Tomas's `wrecked` tip, so write it as a label after a colon, never as a
+  subject that needs "is" or "are"); `{who}` a crew member's name; `{item}` an item's name; the
+  rest are numbers (Tomas's `wrecked` `{cost}` is the scrap to fix every wrecked build yourself). An errand's `{days}` is its deadline when offered and the days left when the
   brief is read again from the backpack (at least 1; once the errand is filled, the deadline it
   was given). Write around them so the sentence
   reads well whatever they become. A count that can be 1 goes where no plural hangs on it, or
@@ -279,7 +281,7 @@ words count toward level 1's reading floor but not toward a player's words read.
 
 ## Schema
 
-Each level is six files, loaded in this order (`index.html`):
+Each level is seven files, loaded in this order (`index.html`):
 
 - `js/content/levelN.js`: `level`, `howto`, `controls`, `base` (rooms, traps, bench), `typing`.
 - `js/content/levelN-places1.js`: locations gasngo, grocery, hardware, pharmacy, autoshop,
@@ -288,6 +290,10 @@ Each level is six files, loaded in this order (`index.html`):
   lumberyard, mall, library.
 - `js/content/levelN-home.js`: `yard`, `journal`, `radio`, `tags`, `recap`.
 - `js/content/levelN-crew.js`: `crew` talk, tips, reports and dog.
+- `js/content/levelN-crew2.js`: more crew tips and reports (the walker kinds, the wreckers and the
+  wrecked builds: Tomas `lanky`, `armored`, `wrecked`; Pip `screamer`, `wreckers`; reports `builds`,
+  `buildsFree`). It merges into each crew member's tips (`tips.tomas = Object.assign(tips.tomas ||
+  {}, { ... })`), never replacing them.
 - `js/content/levelN-quests.js`: `crew` quests and errands.
 - `js/content/level1-tutorial.js` (level 1 only, read at every reading level): `tutorial`, June's
   first-run tutorial. It merges into `ZSR.TEXT[1]` and loads after `level1.js`.

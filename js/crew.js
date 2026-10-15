@@ -527,15 +527,24 @@
 
     /* ---------- Jobs ---------- */
     /** A job for this crew member now (their stars unlock it; never in a wave): the nearest fence segment to
-        fix, else (cabin job) the nearest damaged door or window, that the base can pay for. Sets off; true if so. */
+        fix, else (builds job) the nearest wrecked room build, else (cabin job) the nearest damaged door or window,
+        that the base can pay for. Sets off; true if so. (A build only cracked still works: you brace it, E or the
+        computer's "Fix all"; the crew's words say Tomas fixes wrecked ones.) */
     crewTryJob(c) {
       const S = State();
       const jobs = S.crewJobs(c.id);
-      const kinds = ["fence", "cabin"].filter((k) => jobs.includes(k) && this.crewCanPay(k));
+      const kinds = ["fence", "builds", "cabin"].filter((k) => jobs.includes(k) && this.crewCanPay(k));
       if (!kinds.length) return false;
       const targets = [];
       if (kinds.includes("fence")) this.crewFenceDamage().forEach(([x, y]) => targets.push({ kind: "fence", key: x + "," + y, x, y }));
-      // the fence first: the cabin's doors and windows only once the fence is whole
+      // then the room builds the wreckers wrecked (js/yardwreck.js), from beside any solid tile of the build
+      if (!targets.length && kinds.includes("builds")) {
+        Object.entries(this.plotSolid || {}).forEach(([room, tiles]) => {
+          if (this.buildDmg(room) !== 2) return;
+          tiles.forEach(([x, y]) => targets.push({ kind: "builds", key: room, x, y }));
+        });
+      }
+      // the fence first, then the builds: the cabin's doors and windows only once both are whole
       if (!targets.length && kinds.includes("cabin")) {
         Object.entries(this.barriers || {}).forEach(([key, b]) => {
           if (b.kind === "inner" || b.hp >= b.max) return;
@@ -600,6 +609,7 @@
         const hp = this.fence[job.key];
         return hp == null || hp < this.fenceMax * 0.5;
       }
+      if (job.kind === "builds") return this.buildDmg(job.key) === 2; // still wrecked
       const b = this.barriers && this.barriers[job.key];
       return !!b && b.hp < b.max;
     },
@@ -613,13 +623,15 @@
       if (this.walkerOnTile(job.x, job.y)) return false; // wait for it to move
       const paid = S.crewRepairPay(job.kind);
       if (job.kind === "fence") this.mendFence(job.x, job.y);
+      else if (job.kind === "builds") this.mendBuild(job.key); // whole again: its room bonus is back
       else this.fixBarrier(job.key);
       S.logWork(c.id, job.kind, 1, paid);
       this.updateHud();
       if (this.hooks.onYardChanged) this.hooks.onYardChanged();
       return true;
     },
-    /** The name of a crew member whose stars unlock this job ("fence", "cabin"), or null (the wave-cleared toast). */
+    /** The name of a crew member whose stars unlock this job ("fence", "builds", "cabin"), or null (the wave-cleared
+        toast, a wrecked build's sign). */
     crewFixer(job) {
       const S = State();
       const c = (this.crew || []).find((m) => S.crewJobs(m.id).includes(job));
@@ -1039,7 +1051,8 @@
         if (hp == null) holes++;
         else if (hp < half) cracks++;
       });
-      const ctx = { holes, cracks, broken: this.houseDamage().broken };
+      // wrecked: the builds walkers wrecked (Tomas's wrecked tip; js/yardwreck.js)
+      const ctx = { holes, cracks, broken: this.houseDamage().broken, wrecked: this.buildDamage().wrecked };
       const p = this.player;
       if (ph && ph.kind === "calm" && !ph.crewHealed && p && p.hp < p.maxHp - 0.5 && S.crewJobs(id).includes("heal")) {
         const hp = Math.round(Math.min(S.crewHealAmount(), p.maxHp - p.hp));

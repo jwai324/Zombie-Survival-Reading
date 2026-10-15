@@ -389,13 +389,13 @@ const CREW_MODE = (() => {
    run) and as TIP_VARS and REPORTS in tests/validate-world.js (compared there). Every placeholder in a text's facts must be in its words. {dog} (the dog's name, or "the dog" before it has
    one) is filled everywhere, but only these texts may use it: talk (topics, moods and a quest's payoff), a quest's
    brief and thanks, and the dog's own named and pet lines; titles and tags are shown as written, so never any. */
-const CREW_TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [], full: [] };
-const CREW_REPORT_VARS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], hurt: ["who", "cost"], late: ["item"] };
+const CREW_TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [], full: [], lanky: [], armored: [], wrecked: ["rooms", "cost"], screamer: [], wreckers: [] };
+const CREW_REPORT_VARS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], builds: ["fixed", "scrap"], buildsFree: ["fixed"], hurt: ["who", "cost"], late: ["item"] };
 const CREW_ERRAND_VARS = ["count", "item", "days", "reward"];
 const CREW_QUEST_VARS = { brief: ["reward"], done: ["reward"], title: [], tag: [], journal: [], after: [] };
 const CREW_DOG_SUBS = ["brief", "done", "after"]; // the quest texts that may also say {dog}
 // every crew placeholder (docs/CREW.md "Words")
-const CREW_VARS = ["food", "days", "room", "needs", "hp", "max", "cost", "holes", "cracks", "broken", "keys", "size", "sides", "fixed", "scrap", "who", "item", "count", "reward", "dog"];
+const CREW_VARS = ["food", "days", "room", "needs", "hp", "max", "cost", "holes", "cracks", "broken", "keys", "size", "sides", "rooms", "fixed", "scrap", "who", "item", "count", "reward", "dog"];
 const CREW_TITLE_WORDS = [2, 6]; // words in a talk or errand title
 const QUEST_TITLE_WORDS = [1, 6]; // a quest title is the object's name ("Binoculars", "Bag of sunflower seeds")
 // the crew are hurt off-screen and nobody dies (DESIGN.md): never gore or a bite (a bite means turning); words of
@@ -863,6 +863,8 @@ function checkLevel(n) {
     if (crewNeed) CONTROLS_CREW_MUST.forEach(([test, what]) => { if (!test(t.controls.map(String))) crewNeed(ctx, `controls must mention ${what}`); });
     CABIN_BANNED.forEach(([re, what]) => { if (re.test(allC)) err(ctx, `controls ${what}`); });
     if (!hasNumber(WORLD.SETTINGS.fenceRepairScrap, allC)) warn(ctx, "controls: the fence repair cost is not given");
+    // E fixes a wrecked build too (js/yardwreck.js): said in one sentence with its cost
+    if (!allC.split(/[.!?]/).some((s) => /\bwrecked\b/i.test(s) && hasNumber(WORLD.SETTINGS.buildRepairScrap, s))) warn(ctx, `controls: fixing a wrecked build (${WORLD.SETTINGS.buildRepairScrap} scrap) is not given`);
   }
   const base = t.base || {};
   if (!isStr(base.intro)) err(ctx, "base.intro missing");

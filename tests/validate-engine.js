@@ -93,7 +93,7 @@ const PAGE = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m)
 // the fact files: js/layouts.js, js/world.js and every js/story*.js the page loads (a split fact file, story-quests2.js,
 // is run too; tests/validate-world.js reads the same list), then the engine
 const FACT_FILES = ["layouts.js", "world.js"].concat(PAGE.filter((f) => /^story[\w-]*\.js$/.test(f)));
-const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
+const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
 const scripts = PAGE.filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -497,7 +497,9 @@ try {
   const realRandom = ctxMath.random;
   ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(4242);
   const raidShare = W.DEFENSE.raidShare;
+  const wreckShare = W.DEFENSE.wreckShare;
   W.DEFENSE.raidShare = 0; // here every walker comes for the player; the cabin's raiders are checked below
+  W.DEFENSE.wreckShare = 0; // and none goes for the builds or the van (js/yardwreck.js: checked on their own below)
   for (const sides of [["n", "e"], ["s", "w"], ["n", "e", "s", "w"]]) {
     S.save.fence = {};
     I.enterYard({ firstCalm: 999 });
@@ -736,6 +738,7 @@ try {
     S.save.house.windows = 0;
   }
   W.DEFENSE.raidShare = raidShare;
+  W.DEFENSE.wreckShare = wreckShare;
   S.save.house.hp = {};
   ctxMath.random = realRandom;
 
@@ -756,6 +759,480 @@ try {
   if (S.save.yardV !== Y.version) err("yard: a new game does not record the yard version");
 } catch (e) {
   err(`yard: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+}
+
+/* ---------- The yard: a breach draws only the walkers near it; wreckers and the builds ----------
+   Owner, 2026-10-15 (js/yard.js yardPathBlock, js/yardwreck.js). A fence hole draws only the walkers outside the
+   fence within DEFENSE.breachRange tiles of it, walking along the outside: of walkers placed 3, 6, 12 and 30 steps
+   from one hole, the near ones go through it and the far ones claw their own segment; mending it sends them back to
+   clawing; a corner hole leads nowhere and is never used; raiders and wreckers obey the same rule; with two holes in
+   range a walker takes the nearer, even when the other is on the shorter way to you. Wreckers inside the fence claw
+   the builds and the van (never below the van's floor); a wrecked build gives nothing until it is fixed (E, the
+   computer, Tomas: js/crew.js), it shows (cracks, the plaque's tape, debris) and a save keeps it; every wrecker comes
+   for you when hurt, near, or DEFENSE.wreckSeconds after getting in; "Can't die" means nothing gives. Math.random is
+   seeded here. */
+let wreckSpotsTried = 0;
+{
+  const ctxMath = vm.runInContext("Math", sb);
+  const realRandom = ctxMath.random;
+  const D = W.DEFENSE;
+  const shares = { raidShare: D.raidShare, wreckShare: D.wreckShare };
+  const god0 = S.god;
+  try {
+    ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(9090);
+    S.trip = null;
+    const N4 = N8.slice(0, 4);
+    const range = D.breachRange;
+    const [hax, hay] = W.HOUSE.at;
+    /** A fresh yard: rooms (a level for all, or a map), the fence whole but for `holes` ([[x, y]]) and too strong for
+        new ones (unless opts.weakFence), a wave phase that never spawns, and a player no walker brings down. */
+    const yardWith = (rooms, holes, opts) => {
+      setRooms(rooms);
+      S.save.builds = {};
+      S.save.fence = Object.fromEntries((holes || []).map(([x, y]) => [x + "," + y, 0]));
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      if (!(opts && opts.weakFence)) Object.keys(I.fence).forEach((k) => (I.fence[k] = 1e9));
+      I.player.maxHp = I.player.hp = 1e9;
+      I.phase = { kind: "wave", size: "some", total: 0, spawned: 0, spawnT: 0, t: 0, sides: ["n"] };
+      return I.player;
+    };
+    const tileOf = (z) => [Math.floor(z.x), Math.floor(z.y)];
+    const idx = (x, y) => y * I.gw + x;
+    const isInside = (z) => !!I.yardInside[idx(...tileOf(z))];
+    /** Steps along open ground outside the fence from the fence tile (hx, hy) to every tile (-1: no way). */
+    const outsideDist = (hx, hy) => {
+      const m = I.solidMask();
+      const d = new Int32Array(I.gw * I.gh).fill(-1);
+      const q = [idx(hx, hy)];
+      d[q[0]] = 0;
+      for (let k = 0; k < q.length; k++) {
+        const x = q[k] % I.gw;
+        const y = (q[k] / I.gw) | 0;
+        N4.forEach(([dx, dy]) => {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= I.gw || ny >= I.gh) return;
+          const j = idx(nx, ny);
+          if (d[j] >= 0 || m[j] || I.yardInside[j] || Y.grid[ny][nx] === "F") return;
+          d[j] = d[q[k]] + 1;
+          q.push(j);
+        });
+      }
+      return d;
+    };
+    /** A tile exactly `n` steps away (one beside the fence when there is one), or null. */
+    const tileAt = (dist, n) => {
+      let any = null;
+      for (let i = 0; i < dist.length; i++) {
+        if (dist[i] !== n) continue;
+        const x = i % I.gw;
+        const y = (i / I.gw) | 0;
+        if (N4.some(([dx, dy]) => (Y.grid[y + dy] || "")[x + dx] === "F")) return [x, y];
+        any = any || [x, y];
+      }
+      return any;
+    };
+    const put = (type, [x, y], role) => {
+      const z = I.makeWalker(type || "walker", x + 0.5, y + 0.5, 1);
+      z.awake = true;
+      z.pathT = 0;
+      if (role === "raid") z.raid = true;
+      if (role === "wreck") z.wreck = true;
+      I.walkers.push(z);
+      return z;
+    };
+    const via = (z, [hx, hy]) => (z.path || []).some(([x, y]) => Math.floor(x) === hx && Math.floor(y) === hy);
+    const run = (secs, each) => {
+      for (let t = 0; t < secs - 1e-9; t += 0.05) {
+        I.update(0.05);
+        if (each && each(t + 0.05) === false) break;
+      }
+    };
+    // the fence: a hole in the middle of the top row, and its corner
+    const F = [];
+    Y.grid.forEach((row, y) => [...row].forEach((ch, x) => ch === "F" && F.push([x, y])));
+    const fy0 = Math.min(...F.map(([, y]) => y));
+    const top = F.filter(([, y]) => y === fy0).sort((a, b) => a[0] - b[0]);
+    const hole = top[top.length >> 1];
+    const corner = top[0];
+    const [hx, hy] = hole;
+    yardWith(0, [hole]);
+    if (!I.breach || !I.breach.usable.includes(idx(hx, hy))) err(`yard breach: the hole at ${hole} is not usable`);
+    if (!I.yardInside || I.yardInside[idx(hx, hy + 1)] !== 1 || I.yardInside[idx(hx, hy - 1)] !== 0) err("yard breach: the inside of the fence is wrong");
+    const dist = outsideDist(hx, hy);
+    const at = {};
+    [3, 6, 12, 30].forEach((n) => (at[n] = tileAt(dist, n)));
+    if ([3, 6, 12, 30].some((n) => !at[n])) err(`yard breach: no tiles at 3, 6, 12 and 30 steps from the hole (${JSON.stringify(at)})`);
+    else {
+      const near = (n) => n <= range;
+      // 1. attackers 3, 6, 12 and 30 steps out: the near ones go through the hole, the far ones claw their own segment
+      const zs = [3, 6, 12, 30].map((n) => ({ n, z: put("walker", at[n]) }));
+      run(0.5);
+      zs.forEach(({ n, z }) => {
+        if (near(n) && (!via(z, hole) || z.fenceTarget)) err(`yard breach: a walker ${n} steps from the hole does not make for it (path ${JSON.stringify(z.path.slice(0, 3))}, clawing ${!!z.fenceTarget})`);
+        if (!near(n) && (via(z, hole) || !z.fenceTarget)) err(`yard breach: a walker ${n} steps from the hole (more than ${range}) goes for it instead of clawing its own segment`);
+      });
+      const inAt = new Map();
+      run(25, (t) => zs.forEach(({ z }) => !inAt.has(z) && isInside(z) && inAt.set(z, t)));
+      zs.forEach(({ n, z }) => {
+        if (near(n) && !inAt.has(z)) err(`yard breach: a walker ${n} steps from the hole never got in through it`);
+        if (!near(n) && inAt.has(z)) err(`yard breach: a walker ${n} steps from the hole got in through it`);
+        if (!near(n) && (!z.fenceTarget || Math.hypot(z.fenceTarget[0] - z.x, z.fenceTarget[1] - z.y) > 1)) err(`yard breach: a walker ${n} steps from the hole is not clawing at its own segment (at ${z.x.toFixed(1)},${z.y.toFixed(1)})`);
+      });
+      // 2. mended while they are on their way: back to clawing where they stand, and nobody gets in
+      yardWith(0, [hole]);
+      const two = [3, 6].map((n) => put("walker", at[n]));
+      run(0.5);
+      if (I.walkerOnTile(hx, hy)) err("yard breach: setup, a walker is already in the hole");
+      I.mendFence(hx, hy);
+      I.fence[hx + "," + hy] = 1e9;
+      if (two.some((z) => z.pathT !== 0)) err("yard breach: mending a hole did not send every walker to find its way again at once");
+      run(1);
+      two.forEach((z, i) => {
+        if (!z.fenceTarget || via(z, hole) || isInside(z)) err(`yard breach: a walker on its way to a hole just mended (${[3, 6][i]} steps) did not go back to clawing (clawing ${!!z.fenceTarget}, inside ${isInside(z)})`);
+      });
+      run(10);
+      if (two.some(isInside)) err("yard breach: a walker got in after the hole was mended");
+      // 3. raiders and wreckers obey it too: in range they go through, out of range they claw
+      yardWith(0, [hole]);
+      const roles = [];
+      ["raid", "wreck"].forEach((role) => [3, 12].forEach((n) => roles.push({ role, n, z: put("walker", at[n], role) })));
+      run(0.5);
+      const roleName = (role) => (role === "raid" ? "raider" : "wrecker");
+      roles.forEach(({ role, n, z }) => {
+        if (near(n) !== via(z, hole) || near(n) === !!z.fenceTarget) err(`yard breach: a ${roleName(role)} ${n} steps from the hole ${near(n) ? "does not go" : "goes"} for it`);
+      });
+      run(20);
+      roles.forEach(({ role, n, z }) => near(n) !== isInside(z) && err(`yard breach: a ${roleName(role)} ${n} steps from the hole is ${isInside(z) ? "" : "not "}inside after 20 s`));
+      // 4. two holes in range: the nearer one, even with the other on the shorter way to the player
+      const holeB = top.find(([x]) => x === hx + 6);
+      if (holeB) {
+        const p = yardWith(0, [hole, holeB]);
+        p.x = holeB[0] + 0.5; // the player straight in from the farther hole
+        p.y = hy + 20.5;
+        const z = put("walker", [hx + 2, hy - 1]); // 3 steps from the first hole, 5 from the second
+        run(0.5);
+        if (!via(z, hole) || via(z, holeB)) err(`yard breach: with two holes in range a walker did not take the nearer one (via ${via(z, hole) ? "the nearer" : via(z, holeB) ? "the farther" : "neither"})`);
+      }
+      // 5. a corner hole leads nowhere: never usable, never walked into
+      yardWith(0, [corner]);
+      if (I.breach.usable.length || !I.breach.holes.includes(idx(...corner))) err(`yard breach: the corner hole at ${corner} counts as a way in`);
+      const cz = put("walker", tileAt(outsideDist(...corner), 2));
+      let inCorner = false;
+      run(8, () => {
+        const [x, y] = tileOf(cz);
+        if (x === corner[0] && y === corner[1]) inCorner = true;
+      });
+      if (inCorner || isInside(cz) || !cz.fenceTarget) err(`yard breach: a walker beside the corner hole went into it (${inCorner}) or got in (${isInside(cz)}), or is not clawing`);
+      I.walkers.length = 0;
+    }
+
+    /* the builds and the wreckers */
+    const plotted = ROOMS.filter((k) => Y.plots[k]);
+    // every build wrecked, every build cracked: the builds stay on their plots, every art name is drawn, frames render
+    [["wrecked", 0], ["cracked", 0.3]].forEach(([name, share]) => {
+      setRooms(3);
+      S.save.builds = Object.fromEntries(plotted.map((k) => [k, Math.floor(S.buildMax(k) * share)]));
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      yardCheck("yard all 3, every build " + name);
+      plotted.forEach((k) => {
+        const plaque = I.props.find((pr) => pr.art === "yPlaque" && pr.opts.t === W.BASE_ROOMS[k].name.toUpperCase());
+        if (!plaque || plaque.opts.dmg !== (share ? 1 : 2)) err(`yard: the ${k} plaque does not show the build ${name} (${plaque && plaque.opts.dmg})`);
+      });
+      const debris = I.props.filter((pr) => pr.art === "yDebris");
+      if (share ? debris.length : debris.length < plotted.length) err(`yard: ${debris.length} debris props with every build ${name}`);
+      if (debris.some((pr) => pr.solid)) err("yard: debris is solid");
+      if (!share && I.yardAnims.some((a) => a.kind === "blink")) err("yard: a wrecked build's lights still blink");
+      // one order for every list of them (the HUD and toasts read State.wreckedRooms, Tomas's tip buildDamage)
+      if (!share && JSON.stringify(I.buildDamage().wrecked) !== JSON.stringify(S.wreckedRooms())) err(`yard: the wrecked builds are listed in two orders (${I.buildDamage().wrecked} vs ${S.wreckedRooms()})`);
+    });
+    S.save.builds = {};
+
+    // a wave of nothing but wreckers, every room built, you far off in the cabin's living room and not shooting
+    D.raidShare = 0;
+    D.wreckShare = 1;
+    const p = yardWith(3, [], { weakFence: true });
+    const far = [hax + 14.5, hay + 14.5];
+    const fx0 = JSON.stringify(S.effects());
+    const vanMax = S.vanMaxHp();
+    const floor = Math.round(vanMax * D.vanWreckFloor);
+    p.x = far[0];
+    p.y = far[1];
+    I.phase = { kind: "wave", size: "many", total: 10, spawned: 0, spawnT: 0, t: 0, sides: ["n", "e"] };
+    const inside = new Map();
+    const flip = new Map();
+    let clawed = 0;
+    let vanLow = Infinity;
+    let t = 0;
+    while (t < 300 && I.phase.kind === "wave") {
+      I.update(0.05);
+      t += 0.05;
+      vanLow = Math.min(vanLow, S.save.vanHp);
+      I.walkers.forEach((z) => {
+        if (z.wreckIn != null && !inside.has(z)) inside.set(z, z.wreckIn);
+        if (inside.has(z) && !z.wreck && !flip.has(z)) flip.set(z, I.time - inside.get(z));
+        if (z.act === "claw" && I.wreckAtSpot(z)) clawed++;
+        if (atPlayer(z, p)) I.hurtWalker(z, 1e6); // close: you shoot it
+      });
+    }
+    const wrecked = S.wreckedRooms();
+    if (!clawed) err("wreckers: none ever stood clawing at a build or the van");
+    if (!wrecked.length && !Object.keys(S.save.builds).length) err("wreckers: a wave of them never touched a build");
+    if (I.phase.kind === "wave") err(`wreckers: the wave never ended (${I.walkers.length} left after ${t.toFixed(0)} s)`);
+    if (inside.size < 10) err(`wreckers: only ${inside.size} of 10 got inside the fence`);
+    const late = [...inside.keys()].filter((z) => !flip.has(z) || flip.get(z) > D.wreckSeconds + 0.1);
+    if (late.length) err(`wreckers: ${late.length} did not come for the player within ${D.wreckSeconds} s of getting inside`);
+    if (vanLow < floor) err(`wreckers: the van went below its floor (${vanLow} < ${floor})`);
+    if (!wrecked.length) err("wreckers: a wave of ten wrecked no build");
+    else {
+      const fx = S.effects();
+      if (JSON.stringify(fx) === fx0) err(`wreckers: wrecking the ${wrecked.join(", ")} changed no room bonus`);
+      if (JSON.stringify(I.fx) !== JSON.stringify(fx)) err("wreckers: the yard's own copy of the room bonuses (I.fx) was not updated");
+      wrecked.forEach((k) => S.roomLevel(k) !== 0 && err(`wreckers: roomLevel(${k}) is not 0 while wrecked`));
+    }
+    // the van alone (nothing built): clawed down to its floor and no further, said once, then it comes for you
+    {
+      const q = yardWith(0, [hole], { weakFence: true });
+      q.x = far[0];
+      q.y = far[1];
+      const vanFloor = Math.round(S.vanMaxHp() * D.vanWreckFloor);
+      S.save.vanHp = S.vanMaxHp();
+      const sp = I.wreckSpots.van[0];
+      const vz = put("brute", [sp.tx, sp.ty], "wreck");
+      vz.dps = 1e4; // a very strong one: the floor must hold all the same
+      let toldVan = 0;
+      const toast = I.toast;
+      I.toast = function (text, secs) {
+        if (/wrecking the van/.test(text)) toldVan++;
+        return toast.call(this, text, secs);
+      };
+      let low = Infinity;
+      run(5, () => (low = Math.min(low, S.save.vanHp)));
+      I.toast = toast;
+      if (vz.wreck) err("wreckers: with only the van to wreck, one kept at it at its floor");
+      if (low !== vanFloor) err(`wreckers: the van ended at ${low}, not its floor ${vanFloor}`);
+      if (toldVan !== 1) err(`wreckers: "They are wrecking the van!" was said ${toldVan} times in one wave`);
+      I.walkers.length = 0;
+      S.save.vanHp = S.vanMaxHp();
+    }
+    // provoked: hurt (a trap too) at once; you within wreckProvoke tiles; never a wrecker again
+    {
+      const q = yardWith(3, []);
+      q.x = far[0];
+      q.y = far[1];
+      const spot = I.wreckSpots[plotted[0]][0];
+      const a = put("walker", [spot.tx, spot.ty], "wreck");
+      const b = put("walker", [spot.tx, spot.ty], "wreck");
+      run(0.2);
+      if (!a.wreck || !a.wreckSpot) err("wreckers: one standing inside by a build did not pick a target");
+      I.hurtWalker(a, 1, { x: a.x + 1, y: a.y });
+      run(0.1);
+      if (a.wreck || a.wreckSpot) err("wreckers: a hurt wrecker did not turn on the player at once");
+      q.x = b.x + D.wreckProvoke - 0.5;
+      q.y = b.y;
+      run(0.1);
+      if (b.wreck) err(`wreckers: one with the player ${D.wreckProvoke - 0.5} tiles off did not turn on the player`);
+      I.walkers.length = 0;
+    }
+    // a hurt lasts: a screamer wrecker shot as its yell starts (the yell outlasts hurtT, and the core asks for no
+    // goal while it yells) still turns on you once the yell ends, with you out of wreckProvoke but in its sight
+    {
+      const SC = W.SCREAM;
+      const q = yardWith(3, []);
+      q.x = far[0];
+      q.y = far[1];
+      const spot = I.wreckSpots[plotted[0]][0];
+      const z = put("screamer", [spot.tx, spot.ty], "wreck");
+      run(0.2);
+      if (!z.wreck || z.wreckIn == null || z.yell > 0) err(`wreckers: a screamer wrecker inside by a build did not settle to wreck (wreck ${z.wreck}, yell ${z.yell})`);
+      // you: between wreckProvoke and the scream's spotting range, a clear line, open ground inside the fence
+      const d = (D.wreckProvoke + SC.spot) / 2;
+      let stand = null;
+      for (let i = 0; i < 64 && !stand; i++) {
+        const a = (i / 64) * Math.PI * 2;
+        const x = z.x + Math.cos(a) * d;
+        const y = z.y + Math.sin(a) * d;
+        if (x < 0 || y < 0 || x >= I.gw || y >= I.gh || !I.yardInside[idx(Math.floor(x), Math.floor(y))]) continue;
+        if (!I.solidForPlayer(x, y) && I.lineClear(z.x, z.y, x, y)) stand = [x, y];
+      }
+      if (!stand) err(`wreckers: no open ground ${d} tiles from the ${plotted[0]} build's first wreck spot in clear sight`);
+      else {
+        q.x = stand[0];
+        q.y = stand[1];
+        run(0.05);
+        if (!(z.yell > 0)) err(`wreckers: a screamer wrecker with you ${d} tiles off in clear sight did not scream (yell ${z.yell})`);
+        else {
+          I.hurtWalker(z, 1, q); // shot as the yell starts
+          run(SC.yell + 0.3);
+          if (z.yell > 0) err("wreckers: the screamer's yell did not end");
+          if (z.wreck || z.wreckSpot) err(`wreckers: a screamer wrecker shot during its yell (you ${d} tiles off) went back to wrecking once it ended`);
+        }
+      }
+      I.walkers.length = 0;
+    }
+    // god mode's "Can't die": they claw, nothing gives
+    {
+      S.god = { base: null, cheats: { noDie: true }, offer: {}, onCommit: null };
+      const q = yardWith(3, []);
+      q.x = far[0];
+      q.y = far[1];
+      S.save.vanHp = vanMax;
+      [I.wreckSpots[plotted[0]][0], I.wreckSpots.van[0]].forEach((sp) => put("brute", [sp.tx, sp.ty], "wreck"));
+      run(5);
+      if (Object.keys(S.save.builds).length || S.save.vanHp !== vanMax) err(`wreckers: with Can't die on, a build or the van took harm (${JSON.stringify(S.save.builds)}, van ${S.save.vanHp})`);
+      S.god = god0;
+      I.walkers.length = 0;
+    }
+    D.raidShare = shares.raidShare;
+    D.wreckShare = shares.wreckShare;
+
+    // a wrecked build: its bonus is gone, it shows, a save keeps it, E fixes it (not while clawed at, not without
+    // the scrap), the computer fixes what the scrap pays for, and a new level puts it up whole
+    {
+      const room = plotted.find((k) => W.BASE_ROOMS[k].levels[0].effect.foodPerDay) || plotted[0];
+      const q = yardWith(1, []);
+      const fxWhole = S.effects();
+      I.hitBuild(room, 1e9);
+      if (!S.roomWrecked(room) || S.save.builds[room] !== 0) err(`wrecked build: ${room} is not wrecked after a hit past its strength`);
+      if (JSON.stringify(S.effects()) === JSON.stringify(fxWhole)) err(`wrecked build: the ${room}'s bonus still counts`);
+      S.commit();
+      S.save = S.loadSave(S.activeSlot());
+      if (S.save.builds[room] !== 0) err("wrecked build: a save did not keep it wrecked");
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      const plaque = I.props.find((pr) => pr.art === "yPlaque" && pr.opts.t === W.BASE_ROOMS[room].name.toUpperCase());
+      if (!plaque || plaque.opts.dmg !== 2) err("wrecked build: the plaque does not show it wrecked after a reload");
+      // its sign says so and how to fix it; the panel's key changes once it is fixed
+      const lot = I.lots.find((l) => l.room === room);
+      const panel = I.lotPanel(lot);
+      if (!/wrecked/.test(panel.status) || panel.meta[0][0] !== "Wrecked") err(`wrecked build: the plaque's panel does not say so (${panel.status} / ${panel.meta[0]})`);
+      const key0 = I.readableKey({ lot });
+      const scrap0 = S.save.scrap;
+      // E beside one of its solid tiles
+      const me = I.player;
+      me.maxHp = me.hp = 1e9;
+      const [sx, sy] = I.plotSolid[room][0];
+      const stand = N4.map(([dx, dy]) => [sx + dx, sy + dy]).find(([x, y]) => !I.solidForPlayer(x + 0.5, y + 0.5));
+      me.x = stand[0] + 0.5;
+      me.y = stand[1] + 0.5;
+      me.a = Math.atan2(sy - stand[1], sx - stand[0]);
+      const f = I.facing();
+      if (!f || f.kind !== "wreck" || f.obj !== room) err(`wrecked build: E beside it does not offer to fix it (${f && f.kind})`);
+      else if (!/fix the wrecked/.test(I.yardHint(f))) err(`wrecked build: the hint is "${I.yardHint(f)}"`);
+      const cost = W.SETTINGS.buildRepairScrap;
+      S.save.scrap = cost - 1;
+      if (I.repairBuild(room) || !S.roomWrecked(room)) err("wrecked build: fixed without the scrap for it");
+      S.save.scrap = cost + 5;
+      const sp = I.wreckSpots[room][0];
+      const claw = put("walker", [sp.tx, sp.ty], "wreck");
+      claw.wreckTarget = room;
+      claw.wreckSpot = sp;
+      if (I.repairBuild(room) || !S.roomWrecked(room)) err("wrecked build: fixed while a wrecker clawed at it");
+      I.walkers.length = 0;
+      if (!I.repairBuild(room) || S.roomWrecked(room) || S.save.scrap !== 5) err(`wrecked build: E did not fix it for ${cost} scrap (scrap ${S.save.scrap})`);
+      if (JSON.stringify(S.effects()) !== JSON.stringify(fxWhole) || JSON.stringify(I.fx) !== JSON.stringify(fxWhole)) err("wrecked build: fixed, its bonus did not come back");
+      const scrapNow = S.save.scrap;
+      S.save.scrap = scrap0; // the same scrap: only the build changed
+      if (I.readableKey({ lot: I.lots.find((l) => l.room === room) }) === key0) err("wrecked build: the plaque's panel key did not change once it was fixed");
+      S.save.scrap = scrapNow;
+      // the computer's "Fix all": as many as the scrap pays for
+      plotted.forEach((k) => I.hitBuild(k, 1e9));
+      S.save.scrap = cost * 2;
+      if (I.repairAllBuilds() !== 2 || S.wreckedRooms().length !== plotted.length - 2 || S.save.scrap !== 0) err(`wrecked build: Fix all with scrap for two fixed ${plotted.length - S.wreckedRooms().length}`);
+      // a new level goes up whole
+      const up = S.wreckedRooms()[0];
+      const nextDef = W.BASE_ROOMS[up].levels[S.save.rooms[up]];
+      Object.assign(S.save.inventory, nextDef.needs);
+      S.save.scrap = nextDef.scrap;
+      Object.entries(nextDef.requires || {}).forEach(([r, l]) => (S.save.rooms[r] = Math.max(S.save.rooms[r], l)));
+      if (!S.upgradeRoom(up) || S.roomWrecked(up) || up in S.save.builds) err(`wrecked build: building the ${up} up a level left it wrecked`);
+      S.save.builds = {};
+      // a wrecked Radio tower hears no broadcast that day; fixed, the next day's comes
+      S.save.rooms.radio = 1;
+      S.save.builds.radio = 0;
+      const heard = S.save.radioHeard;
+      S.startTrip();
+      S.returnHome();
+      if (S.save.log[S.save.log.length - 1].radio != null || S.save.radioHeard !== heard) err("wrecked build: a wrecked Radio tower still brought a broadcast");
+      delete S.save.builds.radio;
+      S.startTrip();
+      S.returnHome();
+      if (S.save.log[S.save.log.length - 1].radio == null) err("wrecked build: the fixed Radio tower brought no broadcast");
+      S.trip = null;
+    }
+    // the van's dents: its faces change as wreckers claw it down
+    {
+      yardWith(0, []);
+      S.save.vanHp = S.vanMaxHp();
+      const whole = ZSR.Draw3.texture("vanBody", I.palette);
+      S.save.vanHp = Math.round(S.vanMaxHp() * D.vanWreckFloor);
+      if (ZSR.Draw3.texture("vanBody", I.palette) === whole) err("wreckers: the van shows no dents at its floor");
+      S.save.vanHp = S.vanMaxHp();
+    }
+    // an old save: no builds field, or junk in it
+    {
+      const old = JSON.parse(JSON.stringify(S.save));
+      delete old.builds;
+      sb.localStorage.setItem("zs.save." + S.activeSlot(), JSON.stringify(old));
+      const a = S.loadSave(S.activeSlot());
+      if (!a.builds || Object.keys(a.builds).length) err(`old save: builds is ${JSON.stringify(a.builds)}, not {}`);
+      const built = plotted.filter((k) => old.rooms[k] > 0);
+      const unbuilt = plotted.find((k) => !old.rooms[k]);
+      old.builds = { walls: 0, nowhere: 3 };
+      if (unbuilt) old.builds[unbuilt] = 0;
+      if (built[0]) old.builds[built[0]] = 1e9; // past its strength: whole
+      if (built[1]) old.builds[built[1]] = 7;
+      if (built[2]) old.builds[built[2]] = -4;
+      sb.localStorage.setItem("zs.save." + S.activeSlot(), JSON.stringify(old));
+      const b = S.loadSave(S.activeSlot());
+      const want = built[1] ? { [built[1]]: 7 } : {};
+      if (JSON.stringify(b.builds) !== JSON.stringify(want)) err(`old save: builds ${JSON.stringify(old.builds)} loaded as ${JSON.stringify(b.builds)}, want ${JSON.stringify(want)}`);
+    }
+    // from every wreck spot a walker reaches you: a wrecker turns on you there, and one caught on a build's corner
+    // would keep its wave from ever ending (the straight-line shortcut clears a corner by a walker's middle, not its
+    // shoulders; js/yard.js yardUnjam walks it round by the tile middles). Every room at each level, a walker of
+    // each kind in turn at every spot, you at the yard's start. Only the walker's step and the yard's unjam run: the
+    // rest of a frame is not what this tests, and costs about seven times as much.
+    {
+      const types = Object.keys(W.WALKER_TYPES);
+      const top = Math.max(...ROOMS.map((k) => W.BASE_ROOMS[k].levels.length));
+      const stuck = [];
+      let tried = 0;
+      for (let lvl = 1; lvl <= top; lvl++) {
+        const q = yardWith(Object.fromEntries(ROOMS.map((k) => [k, Math.min(lvl, W.BASE_ROOMS[k].levels.length)])), []);
+        const start = [q.x, q.y];
+        const spots = [].concat(...Object.entries(I.wreckSpots).map(([target, list]) => list.map((sp) => [target, sp])));
+        spots.forEach(([target, sp], i) => {
+          I.walkers.length = 0;
+          q.x = start[0];
+          q.y = start[1];
+          const z = put(types[i % types.length], [sp.tx, sp.ty]);
+          for (let t = 0; t < 60 && !atPlayer(z, q); t += 0.05) {
+            I.updateWalker(z, 0.05);
+            I.yardUnjam(0.05);
+          }
+          tried++;
+          if (!atPlayer(z, q)) stuck.push(`a ${z.type} from the ${target} spot ${sp.tx},${sp.ty} (rooms at ${lvl}) is at ${z.x.toFixed(1)},${z.y.toFixed(1)}`);
+        });
+      }
+      I.walkers.length = 0;
+      if (!tried) err("yard: no wreck spots to start a walker from");
+      if (stuck.length) err(`yard: from ${stuck.length} of ${tried} wreck spots a walker never reached you in 60 s: ${stuck.slice(0, 3).join("; ")}`);
+      wreckSpotsTried = tried;
+    }
+  } catch (e) {
+    err(`yard breach and wreckers: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+  } finally {
+    D.raidShare = shares.raidShare;
+    D.wreckShare = shares.wreckShare;
+    S.god = god0;
+    ctxMath.random = realRandom;
+    I.walkers.length = 0;
+    S.newGame(S.activeSlot(), "Test");
+    S.trip = null;
+  }
 }
 
 /* ---------- Every upgrade step shows on the guns and the van ----------
@@ -3432,4 +3909,4 @@ if (errors.length) {
   console.log(`\n${errors.length} engine problem(s).`);
   process.exit(1);
 }
-console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock), and ${kindsChecked} walker kinds (stats, spawned in front of you in a building, the yard and the river, the scream, downed walkers and blood, heading, gait, the river's and the alarm's kinds, the alarm's cap, a return visit), and ${countsChecked} checks that walkers are never counted (no HUD box, the wave label, the river's toast), the scream's toast, kinds met, and no bite round a corner.`);
+console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), the breach rule (3/6/12/30 steps, a mend, a corner hole, raiders and wreckers, two holes), wreckers (the builds, the van's floor, provoked, Can't die), wrecked builds and their repairs, a walker reaching you from all ${wreckSpotsTried} wreck spots, and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock), and ${kindsChecked} walker kinds (stats, spawned in front of you in a building, the yard and the river, the scream, downed walkers and blood, heading, gait, the river's and the alarm's kinds, the alarm's cap, a return visit), and ${countsChecked} checks that walkers are never counted (no HUD box, the wave label, the river's toast), the scream's toast, kinds met, and no bite round a corner.`);
