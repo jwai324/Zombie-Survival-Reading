@@ -255,8 +255,8 @@ W.LOCATIONS.filter((l) => l.outdoor).forEach((l) => {
 }
 /* Walker rules (NOTES[id].walkers; zones in the layout's walkerZones; js/building.js planWalkers places them): what the
    door notes, notes and graffiti say about where walkers stand stays true on every visit, every day.
-   R1 ids: `says` names this building's door note, notes and signs. R2 coverage: a door's walker fact or a red-R
-   graffiti that puts walkers somewhere ("in the", "by the", ...) is in some rule's `says`. R3 zones: known, inside
+   R1 ids: `says` names this building's door note, notes and signs. R2 coverage: any door fact about walkers, or a
+   red-R graffiti, that puts walkers somewhere ("in the", "by the", ...) is in some rule's `says`. R3 zones: known, inside
    the grid, with floor a walker can start on; no zone left unused. R4 anchors: a real z tile, inside its zone, by
    the landmark its rule names. R5 kinds: known; `only` needs a `type`. R6 room: a rule's tiles hold its walkers
    spaced out (one tile spare for a gun), and so do the tiles left for the others. R7 totals: the rules never want
@@ -268,6 +268,8 @@ W.LOCATIONS.filter((l) => l.outdoor).forEach((l) => {
 const RULE_DAYS = 120; // SCALE: the last day whose walker count is checked (walkersPerLocation stops growing on day 36)
 const RULE_FIELDS = ["says", "z", "r", "zone", "n", "share", "exact", "type", "only", "all", "near"];
 const RULE_POS = /\b(in|by|at|along|near|to) the\b/i; // a fact that puts walkers somewhere
+const RULE_BY = 2; // "one by the robot": an exact rule with `near` keeps every other walker this many steps or more from it
+const RULE_WALKERS = /\b(walkers?|big ones?|crowds?|stands?|gathers?|wanders?|waits?|sleeps?|lurks?)\b/i; // a door fact about walkers
 function checkWalkerRules(l, t, N) {
   const ctx = `${l.id} walkers`;
   const WS = W.SETTINGS.walkerSpawn;
@@ -394,8 +396,17 @@ function checkWalkerRules(l, t, N) {
       });
     } else if (r.near != null) err(`${c}: near needs anchors (z)`);
     const area = rings.length ? [].concat(...rings) : own(pool);
-    area.forEach(([x, y]) => closed.add(key(x, y)));
-    if (r.exact) (Z ? own(pool) : area).forEach(([x, y]) => closed.add(key(x, y)));
+    const shut = r.exact && Z ? own(pool) : area;
+    shut.concat(area).forEach(([x, y]) => closed.add(key(x, y)));
+    // R8 "one by the robot": an exact rule closes the floor round its landmark too (within RULE_BY steps, doors shut)
+    if (r.exact && r.near != null && marks[r.near]) {
+      const [x0, y0, x1, y1] = marks[r.near];
+      const mine = new Set(shut.map(([x, y]) => key(x, y)));
+      const by = new Set();
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) walk(x, y, false, RULE_BY).forEach((_, k) => by.add(k));
+      const open = [...by].filter((k) => inPool.has(k) && !mine.has(k));
+      if (open.length) err(`${c}: exact, but other walkers can start ${RULE_BY} or fewer steps from ${r.near} (${open.slice(0, 4).join(" ")}): give the rule a zone that covers them`);
+    }
     // R6 room: every count it may need, with a tile to spare for a gun (each anchor its share)
     const most = Math.max(...counts.map((n) => want(r, n)));
     if (rings.length) rings.forEach((ring, k) => {
@@ -405,9 +416,9 @@ function checkWalkerRules(l, t, N) {
     else if (fits(area, WS.groupGap) < most + 1) err(`${c}: zone ${r.zone} has room for ${fits(area, WS.groupGap)} walkers ${WS.groupGap} apart, needs ${most + 1}`);
     return Z ? own(pool) : area;
   });
-  // R2 coverage: the door's walker fact, and each red-R graffiti, that puts walkers somewhere is kept by a rule
-  const doorFact = N.door.facts.find((f) => /walker/i.test(f) && /at least \w+/i.test(f)) || "";
-  if (RULE_POS.test(doorFact) && !said.has(N.door.id)) err(`${ctx}: the door note says where walkers are ("${doorFact}"), but no rule says ${N.door.id}`);
+  // R2 coverage: each door fact about walkers, and each red-R graffiti, that puts walkers somewhere is kept by a rule
+  const doorFacts = N.door.facts.filter((f) => RULE_WALKERS.test(f));
+  doorFacts.forEach((f) => { if (RULE_POS.test(f) && !said.has(N.door.id)) err(`${ctx}: the door note says where walkers are ("${f}"), but no rule says ${N.door.id}`); });
   (N.signs || []).forEach((s) => {
     if (s.kind === "graffiti" && /red R/.test(s.facts[0]) && s.facts.slice(1).some((f) => RULE_POS.test(f)) && !said.has(s.id)) err(`${ctx}: graffiti ${s.id} says where walkers are, but no rule says it`);
   });
@@ -421,7 +432,7 @@ function checkWalkerRules(l, t, N) {
   });
   // R8 "most": a text the rule keeps that says most of the walkers are there needs a share above half
   rules.forEach((r, i) => {
-    const facts = (r.says || []).flatMap((id) => (id === N.door.id ? [doorFact] : (N.notes.concat(N.signs || []).find((x) => x.id === id) || { facts: [] }).facts));
+    const facts = (r.says || []).flatMap((id) => (id === N.door.id ? doorFacts : (N.notes.concat(N.signs || []).find((x) => x.id === id) || { facts: [] }).facts));
     const most = facts.find((f) => /\bmost (of|near|by|at|in)\b/i.test(f));
     if (most && !(r.share > 0.5)) err(`${ctx} rule ${i + 1}: keeps "${most}", so its share must be above 0.5 (most of them)`);
   });

@@ -219,7 +219,7 @@
       scatter: { every: 6, keys: [["crack"], ["vent"], ["poster", "ICE COLD"], ["pipes"], ["graffiti", "NO GAS"]] },
       spots: { 2: [8, 13], 3: [7, 19], 4: [9, 7], 5: [14, 18], 6: [18, 18], 7: [4, 1] },
       signs: [[4, 8, "s"], [11, 21, "n"], [9, 5, "s"], [18, 5, "s"]],
-      walkerZones: { garage: [[20, 1, 28, 20]] },
+      walkerZones: { liftEnd: [[20, 1, 28, 8]] },
       landmarks: {
         1: { name: "the ice machine", art: "iceMachine", solid: true, size: 0.7, label: "ICE" },
         2: { name: "the car lift", art: "carLift", solid: true, size: 0.98, foot: [3, 3], color: "#3f6fb0" },
@@ -480,6 +480,7 @@
       scatter: { every: 4, keys: [["crack"], ["vent"], ["poster", "CABLES"], ["tvScreen"], ["pipes"]] },
       spots: { 2: [28, 16], 3: [12, 17], 4: [14, 12], 5: [1, 10], 6: [10, 20], 7: [24, 8] },
       signs: [[9, 21, "n"], [0, 16, "e"], [29, 9, "w"], [25, 6, "s"]],
+      walkerZones: { robot: [[19, 7, 28, 10]] },
       landmarks: {
         1: { name: "the TV wall", art: "tvWall", solid: true, size: 0.98, foot: [3, 1] },
         2: { name: "the robot", art: "robotMascot", solid: true, size: 0.95, label: "SIG" },

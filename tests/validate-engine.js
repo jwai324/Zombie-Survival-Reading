@@ -393,6 +393,19 @@ try {
    the doors shut): its count in its rings or zone (share), each anchor its part, exact, all, type and only (the
    police: exactly one brute, in its garage ring). Math.random is seeded here, so every run checks the same visits. */
 const SPAWN_TRIPS = 6; // SCALE: fresh visits per building and day (each one an enter(): about 5 ms)
+/** Why a walker the alarm just brought starts where it should not ("" when it is fine; js/building.js updateAlarm):
+    it comes through the way out, or from floor it can walk to you from with the doors as they stand (walkers
+    cannot open doors); only when no such floor lies farther than ALARM.farFrom from you, from floor walkable from
+    the way in through the doors, never inside a locked room. */
+function alarmStartWhyNot(z) {
+  const k = Math.floor(z.x) + "," + Math.floor(z.y);
+  if (Math.hypot(z.x - I.startPos[0], z.y - I.startPos[1]) < 1) return ""; // through the way out
+  const p = I.player;
+  const here = I.reachable(Math.floor(p.x), Math.floor(p.y), false);
+  if (here.has(k)) return "";
+  if (I.floors.some(([x, y]) => here.has(Math.floor(x) + "," + Math.floor(y)) && Math.hypot(x - p.x, y - p.y) > W.ALARM.farFrom)) return "behind a shut door, though there is floor on your side of the doors";
+  return I.reachable(Math.floor(I.startPos[0]), Math.floor(I.startPos[1]), true).has(k) ? "" : "inside a locked room, where it can never get to you";
+}
 {
   const ctxMath = vm.runInContext("Math", sb);
   const realRandom = ctxMath.random;
@@ -504,20 +517,24 @@ const SPAWN_TRIPS = 6; // SCALE: fresh visits per building and day (each one an 
       const garage = (I.layoutFor(police).walkerZones || {}).garage;
       if (brutes.length !== 1 || !garage || !inRects(garage, Math.floor(brutes[0].x), Math.floor(brutes[0].y))) err(`police walkers: want exactly one brute, in the garage (got ${brutes.length})`);
       // and its alarm, rung for 200 s: no second brute, never past the cap (one walker less, so a tick that brings two
-      // comes one short of it), every walker where it can get to you
+      // comes one short of it), every walker where it can get to you: first with every door open, then (before the cap
+      // fills) with every door you can shut shut, so no walker may start behind one while there is floor on your side
       I.walkers.pop();
+      const inner = I.doors.filter((d) => !d.cache && !d.stash);
+      inner.forEach((d) => d.open || I.toggleDoor(d));
       I.startAlarm();
       if (I.alarm.mix.brute) err("police walkers: the alarm's mix still holds brutes");
-      const inReach = I.reachable(Math.floor(I.startPos[0]), Math.floor(I.startPos[1]), true);
       const seen = new Set(I.walkers);
       for (let t = 0; t < 200; t += 0.25) {
+        if (t === 8) inner.forEach((d) => d.open && I.toggleDoor(d));
         I.buildingUpdate(0.25);
         if (I.walkers.length > W.ALARM.cap) err(`police walkers: the alarm passed ALARM.cap (${I.walkers.length})`);
         I.walkers.forEach((z) => {
           if (seen.has(z)) return;
           seen.add(z);
           if (z.type === "brute") err("police walkers: the alarm brought a second brute");
-          if (!inReach.has(Math.floor(z.x) + "," + Math.floor(z.y))) err(`police walkers: an alarm walker starts at ${Math.floor(z.x)},${Math.floor(z.y)}, where it can never get to you`);
+          const why = alarmStartWhyNot(z);
+          if (why) err(`police walkers: an alarm walker starts at ${Math.floor(z.x)},${Math.floor(z.y)}, ${why}`);
         });
       }
       if (seen.size < W.ALARM.cap) err(`police walkers: the alarm brought too few walkers (${seen.size})`);
@@ -1354,18 +1371,19 @@ try {
       if (fail === "alarm") {
         if (!I.alarm) err(`${ctx}: the wrong ${st} should set off the alarm`);
         const n0 = I.walkers.length;
-        // every walker the alarm brings starts where it can get to you (walkable from the way in through the doors,
-        // never inside a locked room), the cap is never passed, and a kind a note keeps to one walker never comes
+        // every walker the alarm brings starts where it can get to you (on your side of the doors as they stand when
+        // there is room there, never inside a locked room), the cap is never passed, and a kind a note keeps to one
+        // walker never comes
         const before = new Set(I.walkers);
         const only = (W.NOTES[loc.id].walkers || []).filter((r) => r.only && r.type).map((r) => r.type);
-        const inReach = I.reachable(Math.floor(I.startPos[0]), Math.floor(I.startPos[1]), true);
         for (let i = 0; i < 40; i++) {
           I.buildingUpdate(0.25);
           if (I.walkers.length > W.ALARM.cap) err(`${ctx}: the alarm passed ALARM.cap (${I.walkers.length})`);
           I.walkers.forEach((z) => {
             if (before.has(z)) return;
             before.add(z);
-            if (!inReach.has(Math.floor(z.x) + "," + Math.floor(z.y))) err(`${ctx}: an alarm walker starts at ${Math.floor(z.x)},${Math.floor(z.y)}, where it can never get to you`);
+            const why = alarmStartWhyNot(z);
+            if (why) err(`${ctx}: an alarm walker starts at ${Math.floor(z.x)},${Math.floor(z.y)}, ${why}`);
             if (only.includes(z.type)) err(`${ctx}: the alarm brought a ${z.type}; the notes keep that kind to one walker`);
           });
         }

@@ -598,19 +598,81 @@
       };
       // one through the way out, so there is no leaving
       add(this.startPos[0] + rand(-0.15, 0.15), this.startPos[1] + rand(-0.15, 0.15));
-      // and one from somewhere deeper in the building: floor walkable from the way in through the doors (never
-      // inside a locked room, where it could never get to you), farther than farFrom from you, on a tile no
-      // walker stands on when there is one
+      // and one from somewhere deeper in the building, farther than farFrom from you, on a tile no walker stands on
+      // when there is one: floor it can walk to you from with the doors as they stand (walkers cannot open doors);
+      // when you are shut in with no such floor, floor walkable from the way in through the doors (never a locked
+      // room), where it waits for you behind a door
       if (this.walkers.length >= AL.cap) return;
-      const reach = this.reachable(Math.floor(this.startPos[0]), Math.floor(this.startPos[1]), true);
-      const far = this.floors.filter(([x, y]) => reach.has(Math.floor(x) + "," + Math.floor(y)) && Math.hypot(x - p.x, y - p.y) > AL.farFrom);
-      const taken = new Set(this.walkers.map((z) => Math.floor(z.x) + "," + Math.floor(z.y)));
-      const free = far.filter(([x, y]) => !taken.has(Math.floor(x) + "," + Math.floor(y)));
-      const from = free.length ? free : far;
-      if (from.length) {
+      const area = this.alarmAreas(A);
+      const gw = this.gw;
+      const taken = new Set();
+      this.walkers.forEach((z) => taken.add(Math.floor(z.y) * gw + Math.floor(z.x)));
+      const ins = [Math.floor(p.y) * gw + Math.floor(p.x), Math.floor(this.startPos[1]) * gw + Math.floor(this.startPos[0])];
+      const floors = this.floors;
+      const px = p.x;
+      const py = p.y;
+      const r2 = AL.farFrom * AL.farFrom;
+      const far = [];
+      const free = [];
+      for (let k = 0; k < 2; k++) {
+        const lab = k ? area.through : area.here;
+        const id = lab[ins[k]];
+        if (id < 0) continue;
+        for (let i = 0; i < floors.length; i++) {
+          const f = floors[i]; // a tile centre
+          const t = Math.floor(f[1]) * gw + Math.floor(f[0]);
+          if (lab[t] !== id || (f[0] - px) * (f[0] - px) + (f[1] - py) * (f[1] - py) <= r2) continue;
+          far.push(f);
+          if (!taken.has(t)) free.push(f);
+        }
+        if (!far.length) continue;
+        const from = free.length ? free : far;
         const [x, y] = from[Math.floor(Math.random() * from.length)];
         add(x, y);
+        return;
       }
+    },
+    /** The building's walkable areas for the alarm's deeper walkers: `here` numbers each tile's area with the doors
+        as they stand, `through` with every closed door open (locked doors stay walls), as reachable() walks them;
+        -1 is solid. Kept on the alarm until a door opens or shuts, so a spawn tick does no search of the grid. */
+    alarmAreas(A) {
+      const sig = this.doors.map((d) => this.grid[d.y][d.x]).join("");
+      if (A.areas && A.areas.sig === sig && A.areas.here.length === this.gw * this.gh) return A.areas;
+      A.areas = { sig, here: this.areaLabels(false), through: this.areaLabels(true) };
+      return A.areas;
+    },
+    /** Each tile's walkable area (Int32Array, -1 solid): 4-way connected floor of the movement mask, with closed
+        doors passable when throughDoors. */
+    areaLabels(throughDoors) {
+      const m = this.solidMask();
+      const gw = this.gw;
+      const n = gw * this.gh;
+      const lab = new Int32Array(n).fill(-1);
+      const q = new Int32Array(n);
+      const open = (i) => !m[i] || (throughDoors && this.grid[(i / gw) | 0][i % gw] === "O");
+      let id = 0;
+      let tail = 0;
+      const push = (j) => {
+        if (lab[j] >= 0 || !open(j)) return;
+        lab[j] = id;
+        q[tail++] = j;
+      };
+      for (let s = 0; s < n; s++) {
+        if (lab[s] >= 0 || !open(s)) continue;
+        let head = 0;
+        tail = 0;
+        push(s);
+        while (head < tail) {
+          const i = q[head++];
+          const x = i % gw;
+          if (x > 0) push(i - 1);
+          if (x < gw - 1) push(i + 1);
+          if (i >= gw) push(i - gw);
+          if (i + gw < n) push(i + gw);
+        }
+        id++;
+      }
+      return lab;
     },
     /** The cache door: whatever its lock asks for (WORLD.LOCKS). */
     cacheInteract() {

@@ -653,13 +653,14 @@
        exact   no other walker starts in the zone (no zone: in the rule's rings)
        type    their kind (WALKER_TYPES); only: no other walker of that kind in the building, its alarm too
        all     every walker starts in the zone (and the rule places none of its own)
-       near    the landmark the anchor stands by (checked by the validator only)
+       near    the landmark the anchor stands by (checked by the validator only; with exact, the zone must
+               also cover the floor round that landmark, so "one by the robot" never has a second one beside it)
      A rule's own tiles are closed to the other walkers, so "one by the robot" stays one. Door-note
      counts ("at least eight") never change: SETTINGS.walkersPerLocation keeps them. */
   const NOTES = {
     gasngo: {
       door: { id: "gasngo-door", found: "taped to the front door", facts: ["Written by Ruby.", "At least three walkers inside, one in the garage by the car lift; more come as the days pass.", "One fuel can is by the slushie machine; the other is in the garage, by the tire tower.", "The storeroom is locked; the clerk's note is on the counter by the front door."] },
-      walkers: [{ says: ["gasngo-door"], z: [1], n: 1, zone: "garage", near: "the car lift" }],
+      walkers: [{ says: ["gasngo-door", "gasngo-counter"], z: [1], n: 1, zone: "liftEnd", exact: true, near: "the car lift" }],
       notes: [
         { id: "gasngo-counter", found: "on the counter right of the front door", unlocks: "gasngo", reveals: ["autoshop", "garden"], facts: ["Written by the clerk, Dev.", "The storeroom key is in the {pick} of the counter, right under this note; it opens the storeroom door.", "Open no other drawer: Ruby rigged the other two with a bomb trap for looters, and it kills whoever opens one.", "There is more fuel and a spool of wire in the storeroom.", "The storeroom is at the far end of the back hall from the ice machine, the last door before the garage.", "Dev went to Ortiz Auto on the east side of town; the shop is still standing.", "Rosa at Greenhouse Row, west past the gas station, has seeds and soil."] },
       ],
@@ -694,7 +695,7 @@
     },
     radioshack: {
       door: { id: "radioshack-door", found: "on a cardboard sign in the window", facts: ["Written by Jo.", "Spools of wire are between the two long middle shelves: one on the TV wall side, one on the robot side.", "At least six walkers inside; one near the right end of the counter, by the robot.", "The manager's office is locked; the manager left a note on the counter at the back."] },
-      walkers: [{ says: ["radioshack-door", "radioshack-sign2"], z: [2], n: 1, exact: true, near: "the robot" }],
+      walkers: [{ says: ["radioshack-door", "radioshack-sign2"], z: [2], n: 1, zone: "robot", exact: true, near: "the robot" }],
       notes: [
         { id: "radioshack-counter", found: "under the register on the back counter", unlocks: "radioshack", reveals: ["police", "school"], facts: ["Written by the manager, Priya.", "First turn off the alarm: its panel is on the right wall, by the big dish; press the {button} button.", "Then the office keypad code is {code}: {codeSpoken}.", "A wrong button, a wrong code, or opening the office with the alarm still on sets off the alarm, and walkers pour in, even through the front door, until they get you.", "The office has two boxes of radio parts and more wire.", "The office door is in the back wall near the robot, beside the MANAGER sign.", "The 4th Precinct police station and Lincoln Middle School are both north of downtown; the school has books and the station has gun parts."] },
       ],
@@ -710,7 +711,7 @@
       door: { id: "police-door", found: "on a notice board by the door", facts: ["Written by Sergeant Vega.", "Gun parts are in the squad room, left of the long hall; an armor plate is in the garage on the right, by the riot shields.", "At least eight walkers inside, and a big one by the police bike in the garage.", "The armory is locked; the sergeant left the combination on a note at the front desk."] },
       walkers: [
         // "a big one by the police bike", and "One of them is big": the only brute in the building
-        { says: ["police-door", "police-sign1"], z: [0], n: 1, zone: "garage", type: "brute", only: true, near: "the police bike" },
+        { says: ["police-door", "police-sign1", "police-desk", "police-dead2"], z: [0], n: 1, zone: "garage", type: "brute", only: true, near: "the police bike" },
       ],
       notes: [
         { id: "police-desk", found: "on the front desk", unlocks: "police", reveals: ["library"], facts: ["Written by Sergeant Vega.", "First turn off the alarm: its panel is on the left wall, by the coffee machine; press the {button} button.", "Then the armory combination is {code}.", "A wrong button, a wrong number, or opening the armory with the alarm still on sets off the station alarm, and walkers pour in, even through the front door, until they get you.", "The armory has gun parts and an armor plate.", "The armory is near the end of the back hall toward the police bike: the last door before the garage.", "The Public Library north of downtown has books in its archive room; the librarian stayed."] },
@@ -747,8 +748,8 @@
       door: { id: "lumberyard-door", found: "spray-painted on the gate", facts: ["Written by Ruby.", "Lumber is in the long racks in the middle, and one more stack is out back by the log pile.", "At least eight walkers inside; a crowd gathers by the loading dock and the flatbed truck, and a big one stands by the log pile.", "The kiln shed is locked; the yard boss left a note on a clipboard by the band saw."] },
       walkers: [
         // the big one by the log pile, and the dock crowd: most of them ("Most of them gather by the loading dock")
-        { says: ["lumberyard-door"], z: [0], n: 1, zone: "yard", type: "brute", near: "the log pile" },
-        { says: ["lumberyard-door", "lumberyard-sign2", "lumberyard-rack", "lumberyard-dead1", "lumberyard-dead4"], n: 3, share: 0.55, zone: "dock" },
+        { says: ["lumberyard-door", "lumberyard-trail1", "lumberyard-trail2"], z: [0], n: 1, zone: "yard", type: "brute", near: "the log pile" },
+        { says: ["lumberyard-door", "lumberyard-sign2", "lumberyard-rack", "lumberyard-dead1", "lumberyard-dead4", "lumberyard-trail1"], n: 3, share: 0.55, zone: "dock" },
       ],
       notes: [
         { id: "lumberyard-rack", found: "on the clipboard by the band saw", unlocks: "lumberyard", facts: ["Written by the yard boss, Carla.", "The kiln shed padlock opens with the code {code}: {codeSpoken}.", "A wrong code locks the old padlock up for good; after that only a crowbar opens it.", "The shed has dry lumber and nails.", "The kiln shed door is in the back wall of the rack hall; from the band saw shop door, follow that wall toward the log pile.", "Do not run the saws; the noise brings the whole dock crowd."] },
