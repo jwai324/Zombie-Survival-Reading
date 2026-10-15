@@ -226,11 +226,17 @@ missing. Growth rules:
 10. Walkers. Every other walker starts at random, so only texts that say where walkers stand need a
     rule: give `NOTES[id].walkers` one for each door note, note or graffiti that puts walkers somewhere
     ("one by the robot", "two in the truck bay", "most near the back"), naming it in `says` (the fields
-    are defined above `NOTES` in `js/world.js`). validate-world (R1-R8) checks: a position word (in, by,
-    at, along, near, to the ...) needs a rule; "most" needs a `share` over 0.5; an `exact` "one by the X"
-    needs a zone that covers the floor round X (`RULE_BY` 2); every rule has room for its count on every
-    day up to `RULE_DAYS`. Optional: a kind of its own in `WALKER_THEMES[id]` (validate-world then wants
-    it the likeliest after the plain walker there on day 5).
+    are defined above `NOTES` in `js/world.js`). A text that puts a walker by a landmark ("one by the
+    robot") gets `near` with the landmark's exact name: the rule's walkers then start within `ring` (3)
+    steps of the landmark's footprint, doors shut, inside the zone, so the zone must hold floor within
+    `ring` steps of that landmark; its z anchor must still stand within `walkerSpawn.near` (5) tiles of
+    the landmark and in the zone (R4), and marks the rule's room. validate-world (R1-R8) checks: a
+    position word (in, by, at, along, near, to the ...) needs a rule; "most" needs a `share` over 0.5; an
+    `exact` "one by the X" needs a zone that covers the floor round X (`RULE_BY` 2); every rule has room
+    for its count on every day up to `RULE_DAYS`. Give every rule's zone floor out of earshot of the door
+    (at least `Interior.HEAR` + 0.5 tiles from the start in a straight line): validate-engine errs on a
+    walker that starts within `HEAR`. Optional: a kind of its own in `WALKER_THEMES[id]` (validate-world
+    then wants it the likeliest after the plain walker there on day 5).
 11. A new `type` needs an entry in each of:
     - `js/map.js` `TYPE_LABEL` and roof colours
     - `js/sprites.js` `ROOF` and the lot art
@@ -260,7 +266,8 @@ reads `Object.keys(WALKER_TYPES)`, so nothing in the code says "six". The design
 | `ALARM.cap` | 40 | `js/world.js` | Walkers in a building while its alarm rings (a frame-time knob); at least the biggest `walkersPerLocation` + 6 |
 | `DEFENSE.buildHp` | 0, 120, 180, 260 | `js/world.js` | A room build's strength by level; one entry per room level |
 | `DEFENSE.breachRange` | 8 tiles | `js/world.js` | How far outside the fence a hole draws walkers from (walking distance); tuned for the 55 x 68 yard |
-| `SETTINGS.walkerSpawn` | minSteps 6, gap 3, groupGap 1.5, ring 3, near 5 | `js/world.js` | Building spawn spacing, tuned for 30-42 wide interiors |
+| `SETTINGS.walkerSpawn` | minSteps 6, gap 3, groupGap 1.5, ring 3, near 5 | `js/world.js` | Building spawn spacing, tuned for 30-42 wide interiors: `ring` steps round a rule's z anchor, or round the landmark's footprint for a `near` rule; `near` tiles at most from an anchor to its rule's landmark (validate-world R4) |
+| `HEAR` (with `HEAR_SPRINT`) | 6 tiles (9 sprinting) | `js/interior.js`, on `Interior` | A sleeping walker this near you in a straight line wakes, through walls; a building's walkers start at least `HEAR` + 0.5 tiles from the door where there is room (`planWalkers`), and validate-engine errs on one within `HEAR`. Raising it needs every rule's zone to hold floor that far out |
 | `FALLEN_MAX`, `BLOOD_MAX` | 24, 200 | `js/interior.js` | Downed walkers and blood drops at once (the oldest go) |
 | `LIVE_MAX_PX`, `LIVE_STEP`, `LIVE_SPARE` | 320 px, 32 px, 8 | `js/interior.js` | The tallest live render; the step a live canvas grows and shrinks by; spare canvases kept |
 | `LOD_PX` | 160, 64 px | `js/interior.js` | On-screen heights for full and mid detail (shorter: a silhouette) |
@@ -270,7 +277,7 @@ reads `Object.keys(WALKER_TYPES)`, so nothing in the code says "six". The design
 | `CC_N` | 16384 | `js/walker3d.js` | Colour strings kept; keep it a few times what a busy scene uses |
 | `ENV_MAX` | 24 | `js/walker3d.js` | Fit-envelope points kept per kind |
 | `ROAD_PARTICLE_CAP`, `ROAD_FALLEN_MAX` | 400, 24 | `js/game.js` | Road dust, sparks and blood; downed road walkers |
-| `breachChanged` | one search out to `breachRange` round each hole | `js/yard.js` | Runs on every hole change (about 0.5 ms); its arrays are one entry per yard tile |
+| `breachChanged` | one search out to `breachRange` round each hole | `js/yard.js` | Runs on every hole change (about 0.5 ms); its arrays (two Int32Arrays that swap, so nothing is made per change) are one entry per yard tile; it resets `pathT` only for the walkers the change touches (below) |
 | `pickWreckTarget` | one yard search a pick | `js/yardwreck.js` | A wrecker picks once inside and again only when its target falls, never every frame |
 | `WALKER_FILES` | `walker3d.js`, `walker3d-looks.js` | `tests/validate-art.js` | Add `walker3d-looks2.js` and on here |
 | `WALKER_OPS` | 600, 350, 160 | `tests/validate-art.js` | Canvas calls one figure may make at lod 0 / 1 / 2 (563 / 304 / 116 today) |
@@ -279,6 +286,29 @@ reads `Object.keys(WALKER_TYPES)`, so nothing in the code says "six". The design
 | `ROAD_OPS` | 360 | `tests/validate-art.js` | Canvas calls one road walker, standing or downed (253 today) |
 | `SPAWN_TRIPS` | 6 | `tests/validate-engine.js` | Fresh visits per building on days 1 and 40 (about 5 ms each) |
 | `RULE_DAYS` | 120 | `tests/validate-world.js` | Walker rules are checked for every count up to this day (the count stops growing by day 33 today) |
+
+### Walker paths: the hooks and the re-path bursts
+
+A path search that fails walks every tile it can reach, so at 2-3x the yard and the waves, who
+searches and when matters more than how fast one search is.
+
+- **`PathBlock(z, goal)`** (a mode hook, `js/interior.js`'s header) returns tile indices this walker's
+  search treats as solid (the yard: every hole but the nearest one in range), `null` (nothing extra),
+  or `true`: there is no way to that goal at all, so the core runs neither the path search nor the
+  `Barrier` search and the walker claws `nearestFence`. The yard answers `true` for a walker outside
+  the fence with no hole in range (or no holes) whose goal is inside the fence (never the practice
+  walker). A new mode with a closed perimeter should answer `true` the same way rather than let its
+  walkers flood-fill the outside every 0.4 s.
+- **`breachChanged`** resets `pathT` only for a walker on the fence line, a walker outside whose nearest
+  hole in range changed, a walker whose path steps on a hole that opened or closed, and every walker
+  the first time its arrays are made. Everyone else keeps their own re-path clock, so a wave's
+  searches stay spread over frames.
+- **Still a burst:** a cabin door or window broken or forced (`js/house.js`), and a door opened or shut
+  by you or the crew (`js/interior.js`, `js/crew.js`), reset every walker's `pathT`, so every walker
+  searches in the same frame and their clocks stay in step after. Walkers outside the fence skip their
+  search now, so it costs less; resetting only the walkers whose path crosses that door or window is
+  the fix when bigger waves need it. Measurements: `DESIGN.md` ("Walkers v2", the yard).
+- `nearestFence` keeps the parsed fence keys (`FENCE_KEYS`, one entry per fence tile ever seen).
 
 ### Add a walker kind: the checklist
 
