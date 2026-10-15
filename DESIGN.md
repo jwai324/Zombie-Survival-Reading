@@ -9,7 +9,7 @@ marked **Assumption** can be changed cheaply.
 | Question | Answer |
 |----------|--------|
 | Title | Zombie Survival. The word "Reading" is out of the title; reading stays as the core mechanic. |
-| Audience | Teens. Grounded survival comic. No gore, no on-page deaths, no profanity. |
+| Audience | Teens. Grounded survival comic. No gore, no on-page deaths, no profanity. (Narrowed 2026-10-15: walker art may show blood and ribs behind `SETTINGS.walkerGore`; the reading text keeps this rule. See "Walkers v2".) |
 | Reading levels | 1st to 6th grade, switchable any time. Every in-world text (notes, door notes, base room texts, How it works) exists at all six levels. Facts never change, only the words. |
 | Questions | None anywhere. Reading is useful, never quizzed. |
 | Structure | Map hub with top-down driving between stops. One fixed city that unlocks as you go. |
@@ -50,6 +50,8 @@ marked **Assumption** can be changed cheaply.
   raycaster with billboard sprites gives it with zero dependencies, runs from a file,
   and keeps the comic look (flat fills, ink edges, halftone) consistent with the road.
   The fence in the yard is drawn as a half-height wall the player can shoot over.
+  **Walkers changed 2026-10-15:** each is a live 3D model drawn into its own pooled canvas, which then
+  goes up as a sprite like any other (see "Walkers v2").
 - **Why caches need the note.** A locked cache room that opens only after the inside note
   has been read is what makes reading load-bearing without a quiz. The note also reveals
   the next place on the map. Both are facts in `js/world.js`, so every level carries them.
@@ -69,6 +71,9 @@ marked **Assumption** can be changed cheaply.
   sockets with milky glowing eyes, a slack jaw with bad teeth, ragged grimy clothes and bony
   clawed hands. There is still no blood and no wounds: fear comes from the face, the reach
   and the silhouette, which keeps to the owner's no-gore rule for a teen audience.
+  **Superseded 2026-10-15** by the owner's gore decision: walkers are now live 3D models with
+  blood smears, ribs through torn shirts, a spray on a hit and a pool when downed, all behind
+  `SETTINGS.walkerGore`; the reading text still has no gore (see "Walkers v2").
 - **Why the pistol is a projected 3D model.** A flat drawing could not look like a real
   handgun from the shooter's eye. A small modelled pistol (slide, frame, raked grip, sights)
   drawn in perspective gets proportions, foreshortening and recoil right with no image
@@ -165,8 +170,9 @@ a bow and arrow, and double pistols.
   the robot, the engine crane, the fire truck, the blue pump). Every landmark is still in its
   own quarter of the building. **Assumption:** these can move into the true corners, at the
   cost of rewriting those notes at all six levels.
-- **Why heavy waves come from every side.** The fence is twice as long (112 segments); waves
-  from all sides spread walkers along it instead of jamming them at one hole.
+- **Why heavy waves come from every side.** The fence is long (210 segments round today's 55 x 68
+  yard); waves from all sides spread walkers along it instead of jamming them at one hole. Since
+  2026-10-15 a hole draws only the walkers within `DEFENSE.breachRange` of it (see "Walkers v2").
 - **Why footprint landmarks are measured in tiles of floor.** The first-person view is about
   1.4 times taller than wide; measuring a footprint in floor tiles keeps a fire truck on its
   tiles instead of reaching into the walls.
@@ -566,8 +572,11 @@ sandbox in `js/state.js`, `godBegin` / `godGo` / `godExit` in `js/main.js`; test
 - **Crew:** set the day and each crew member's stars; per story quest, Offer now (the giver asks the
   next time you talk, past its gates and order), Jump to it (accepted, and you stand facing its
   object), or Reset.
-- **Cheats:** can't die (no harm to you, the van, the fence or the cabin; booby traps only toast),
-  hold the calm, start a wave now, clear all walkers, heal to full.
+- **Cheats:** can't die (no harm to you, the van, the fence, the room builds or the cabin; booby
+  traps only toast), hold the calm, start a wave now, clear all walkers (in the yard, a building,
+  the river or on the road; the downed ones and the blood go too), spawn walker (pick any
+  `WALKER_TYPES` kind; one awake plain attacker in front of you on foot, or ahead of the van on the
+  road; the kind picked stays picked), heal to full.
 - **Not in it, by the owner's choice:** opening caches or stashes (the lock prompt's own "god mode"
   phrase, js/locks.js, still opens any lock), showing lock answers, and setting room levels.
 - **Judgment call:** a lock prompt must be closed (Esc) before the menu can move you, because the
@@ -613,3 +622,346 @@ story for all 6 levels."
   journal and radio details, late rooms, crowbars, traps, the House tab and the van's cargo.
 - **Judgment call:** the convoy is written as "meant to carry people north", never as gone or
   still waiting, since the Hollises left with it and its departure stays off screen.
+
+## Walkers v2 (2026-10-15)
+
+The owner asked for walkers in 3D that can be seen from every side, six kinds with walks of their
+own, random spawns, only the walkers near a fence hole going through it, and no walker counts on
+screen. The facts are in `js/world.js` (`WALKER_TYPES`, `SCREAM`, `ALARM`, `WALKER_THEMES`,
+`RIVER.walkerMix`, `NOTES[id].walkers`, `DEFENSE`'s breach and wreck numbers, `SETTINGS.walkerGore`
+and `walkerSpawn`); the models are `js/walker3d.js` and `js/walker3d-looks.js`; the live drawing, the
+governor, the screamer, the downed and the blood are in `js/interior.js`; the wreckers and the builds'
+strength are `js/yardwreck.js`; building spawns are `planWalkers` in `js/building.js`; the road's walkers
+are `js/game.js` and `js/sprites.js`. The design is `docs/GAME_SPEC.md` ("Walkers"); growing it is
+`docs/SCALING.md` ("Add a walker kind").
+
+| Question | Owner's answer |
+|----------|----------------|
+| How are walkers drawn? | Live 3D jointed models drawn every frame, seen from every side, in the game's ink-outline comic style with 3D shading. No dependencies, no WebGL, no image assets: canvas 2D code only. |
+| Gore? | Allowed in walker ART: blood smears, exposed ribs through torn shirts (as in the reference picture), a short dark-red spray on every hit, a blood pool under a downed walker. All of it behind ONE switch, `SETTINGS.walkerGore` (on). Off: grime instead of blood, no ribs, no spray, no pool. The text rules do not change: no gore words in reading text (`CREW_GORE` and the rest stay), no on-page human deaths. |
+| Which kinds? | Six: `walker`, `runner`, `brute` (the old ids, restyled to the reference) plus `lanky`, `armored` and `screamer`, each with its own gait, health, size, damage, speed and look. |
+| The screamer? | It screams when it first spots you, and again after a cooldown. Frenzy: every AWAKE walker within about 10 tiles (itself too) moves 30% faster for 5 s. It wakes no sleepers. Everywhere, the road included. |
+| Downed walkers? | They collapse (each kind its own way), then fade over about 2 s. No bodies are left. |
+| Which kinds where? | By danger and day, plus themed places: armored at the police station and the fire station, lanky at the hospital and the library, screamers at the school and the mall, brutes leaning at the lumberyard. The road gets all six. |
+| Yard roles? | Each wave walker: 25% raiders (as before), 25% WRECKERS, 50% attackers. Once inside the fence, wreckers attack the VAN and the ROOM BUILDS. A wrecked build gives no room bonus until it is fixed for scrap (E at it, the office computer's "Fix all", or Tomas in the calm). A wrecker turns on the player when hurt, when the player is within 5 tiles, or 30 s after it got inside. |
+| Breaches? | EVERY walker (any role) goes to a fence hole only when one is within about 8 tiles' walk outside the fence; everyone else keeps clawing their own segment. Checked all the time; the nearest hole in range; a fixed hole sends its walkers back to clawing where they stand. |
+| Buildings? | Walkers start at random spots every visit (spread out, never on items, notes or quest spots, at least 6 steps from the door). Walkers a door note or graffiti NAMES start within about 3 steps of the named spot. Door-note counts and Ruby's numbers stay. |
+| Counts on screen? | Removed: the HUD WALKERS box (every scene), the yard's "WAVE · N left" (now "WAVE" or "HEAVY WAVE"), the river's "Two walkers" toast (now "Something is coming out of the trees!" or "Branches snap behind you. Something is coming."). |
+| The crew? | New Pip and Tomas tips about the new kinds and the wrecked builds, at all six reading levels. The crew stay flat 2D. |
+| Practice walker, god mode? | The tutorial's practice walker stays a plain `walker`. God mode gets "Spawn walker: [kind]". |
+| Defaults the owner was told | Lanky 40 health, speed 1.5, bite 14, a longer reach (1.25 tiles); armored 60, 1.0, 14; screamer 22, 1.35, 8; walker, runner and brute unchanged. A lanky can be only a little taller than a walker indoors (1-tile ceilings): it reads tall by thinness and long arms. |
+
+### Approved by the lead (deviations from the build spec)
+
+- **Theme weights.** The spec's multipliers failed its own rule (on day 5 a themed place's kind is
+  the likeliest after the plain walker) at 6 of 7 places, because the runner weighs 0.45 from danger 2.
+  Built: a themed kind weighs `max(its formula, WALKER_THEME_FLOOR 0.15) x multiplier`, with police
+  3.5, firehouse 3.5, hospital 3, library 3, school 3.5, mall 3.5, lumberyard 2.25. On day 5 the
+  themed kinds weigh 0.495 to 0.525 against the runner's 0.45 (validate-world holds the rule); the
+  floor also gives a themed kind still gated off by the day its 0.15 base, and stops its weight
+  dropping the day the gate opens (0.12 is under 0.15).
+- **The render budget** (the starting row sits below the spec's numbers). `LIVE_RENDERS_MAX` 10 live
+  redraws a frame (spec 24), `LIVE_MAX_PX` 320 (spec 400; a nearer walker's picture is scaled up
+  unsmoothed, about 1.65x at 1.25 tiles on a 720p screen, the floor's own grain), `LIVE_NEAR` 3 (only
+  the 3 nearest full-detail walkers redraw every frame they change; spec: every lod-0 walker),
+  `FAR_LOD` 1 (every other walker takes turns, at most every `FAR_EVERY` 2 frames, with no fingers,
+  ribs or sheen), governor cap rows 10 -> 8 -> 6 (spec 24 -> 16 -> 12). Why: with the spec's settings
+  stress render p95 measured 3.5x the old sprites (target 2.5x); each near walker costs 2-4 ms on a
+  software canvas. In melee with 4 or 5 walkers within about 1.5 tiles, the 4th and 5th animate every
+  other frame at lod 1. A fast machine still reaches the spec's settings: two governor rows sit above
+  the defaults. `LIVE_NEAR` 4 measured 2.38x against 2.30x, too little margin on a loaded machine.
+
+  Measured A/B (headless Chromium 141, `--disable-gpu`, 1280 x 720, the walker perf harness with the
+  governor pinned on its starting row, interleaved against the commit before integration, which drew
+  the old cached sprites; 3 runs each, medians, a 4-core container shared with three other builds):
+
+  | Scenario | Build | Render mean | Render p95 | drawScene mean | Redraws a frame | Ratio mean / p95 | Target |
+  |----------|-------|-------------|------------|----------------|-----------------|------------------|--------|
+  | stress, 40 on screen | old sprites | 8.29 ms | 12.9 ms | 2.04 ms | - | | |
+  | stress, 40 on screen | live | 20.84 ms | 28.4 ms | 14.01 ms | 10.0 | 2.51x / 2.20x | p95 <= 2.5x: met |
+  | heavy wave, 30 | old sprites | 9.77 ms | 16.1 ms | 1.54 ms | - | | |
+  | heavy wave, 30 | live | 10.30 ms | 14.5 ms | 2.17 ms | 2.57 | 1.05x / 0.90x | mean <= 1.35x, p95 <= 1.5x: met |
+
+  How the defaults were reached (stress p95 against the old sprites): the spec's settings 3.5x; a
+  cap of 12, oldest first 2.5-3.0x; plus 320 px 2.4-2.7x; 3 near, cap 10, turn-takers at lod 1, 320 px
+  (chosen) 2.30x; 4 near, cap 10, lod 1, 288 px 2.38x. Retained heap over 20 s of stress: +0.5 MB (the
+  colour-string table filling; it converges), old sprites +0.1 MB. Turning to face a crowd: at most
+  10 redraws in the first frame back (38 before the fix). Unpinned on this container the governor
+  stepped to its last row (render 16.1 / 25.6 ms); pinned on row 0 it measured 31.8 / 45.3 ms.
+
+  The governor's rows (`LIVE_LEVELS`, richest first; it starts on row 2, `LIVE_START`):
+
+  | Row | near | farLod | far every | max redraws | maxPx | scale | LOD heights |
+  |-----|------|--------|-----------|-------------|-------|-------|-------------|
+  | 0 | 6 | 0 | 2 | 24 | 400 | 1 | 160, 64 |
+  | 1 | 4 | 1 | 2 | 16 | 400 | 1 | 160, 64 |
+  | 2 (start) | 3 | 1 | 2 | 10 | 320 | 1 | 160, 64 |
+  | 3 | 3 | 1 | 3 | 10 | 320 | 1 | 160, 64 |
+  | 4 | 3 | 1 | 3 | 8 | 320 | 1 | 160, 64 |
+  | 5 | 3 | 1 | 3 | 6 | 320 | 1 | 160, 64 |
+  | 6 | 3 | 1 | 3 | 6 | 320 | 0.7 | 160, 64 |
+  | 7 | 3 | 1 | 3 | 6 | 320 | 0.7 | 224, 96 |
+
+  One row down after 120 slow frames in a row (smoothed render over 12 ms or frames over 24 ms, the
+  floor's own quality thresholds); one row up after 300 fast frames (both under 0.75 of those) with
+  at least `liveNear` walkers on screen. Only frames that redrew live walkers count, so a calm yard
+  neither lifts nor drops it. A row it had to leave takes 2, 4, then 8 times as long to climb back to
+  (`GOV_BACKOFF`), so a machine on the edge does not see-saw. The near walkers draw every frame at
+  every row.
+- **The road's blood colour.** Road drops and splats are `#a3201a` and `#7d1610` (`BLOOD` in
+  `js/game.js`), brighter than the 3D figures' (118, 18, 14): the darker reds did not show on the
+  asphalt at road scale. The pool under a downed road walker keeps the 3D colour. The owner asked for
+  "a short dark-red spray", so this is one line to darken if wanted.
+- **Armor sparks stay on with gore off.** Grey sparks off an armored walker's helmet or vest on the
+  road show whatever `walkerGore` says: they are not gore. Only the blood is under the switch.
+- **The police station's brute is the only one** (`only: true` on its rule). "A big one by the police
+  bike" and the graffiti's "One of them is big" were false with the old two or three brutes; now no
+  other brute comes from the place's mix, nor from its alarm.
+
+### Judgment calls: the facts and the engine
+
+- **A kind is one row.** `WALKER_TYPES[id]` carries its stats, its building and yard weights
+  (`mix: { building(danger, day), yard(day, heavy) }`) and its road row, so a new kind needs no code;
+  the river reads `RIVER.walkerMix`, an alarm `ALARM.mix`, the road `road.w`. A kind missing from
+  `ALARM.mix` keeps its building weight; an unknown `where` counts as a building; an unknown kind is a
+  plain walker everywhere (never a throw).
+- **The alarm's mix multiplies the place's building weights** (as the spec said), so alarms bring more
+  runners than the old flat 30% (a danger-2 building on day 1: about 47%), and armored walkers at the
+  police station. No screamers in an alarm: the siren is loud enough.
+- **`DEFENSE.fenceDps` and `SETTINGS.footDamage*` moved into the rows** (`fenceDps`, `bite`); the
+  Medbay's `footDamage` multiplier stays. validate-world fails if the old keys come back, if
+  `WALKER_TYPES`' first key is not `walker` (`pickWalkerType`'s fallback) or if a radius reaches 0.5
+  (a walker must fit a one-tile doorway).
+- **The screamer stands to scream.** `stepWalker` returns act "scream" while it yells
+  (`SCREAM.yell` 1.2 s): it stops, faces you and does not bite; `screamT` is the cooldown (12 s). It
+  screams when awake, you are within `SCREAM.spot` (8 tiles) and in its line of sight.
+- **Frenzy never touches the practice walker,** neither when set nor when speed is worked out; a
+  Medbay revive clears frenzy and the yell; "A scream! Walkers near it speed up." shows at most once
+  every 20 s a scene (`SCREAM_TOAST_GAP`): the sound and the pose are the cue after that.
+- **A kind counts as met** (`save.met`, for the crew's told-once tips) when an awake walker of it is
+  within `MEET_RANGE` 12 tiles, inside the view and in clear sight (checked every 0.4 s, and never for
+  a kind already met), when one is hurt, when god mode spawns one, or when one comes on screen, is hit
+  or rams the van on the road. It is written straight to the save in memory: home keeps it, a death
+  throws it away with the trip.
+- **`z.aim`** is the player object or the claw target `[x, y]` (a fence, a door, a build, the van), so
+  nothing is allocated per frame.
+- **A downed walker is the same object** moved from `walkers` to `fallen` (never targetable, solid or
+  counted), with `fallT` and `fallDir` (away from the killing shot; with no source, backwards from its
+  heading). It goes at `FALL_SECS` (2); `FALLEN_MAX` 24, the oldest first. A wave ends one frame after
+  its last kill, as before.
+- **Blood is data in the engine** (`this.blood`, only with gore on): `round((4 + min(8, dmg / 5)) x
+  (kill ? 1.5 : 1))` drops a hit, flung away from the shot; a drop that lands lies as a splat for 3 s;
+  `BLOOD_MAX` 200, the oldest first.
+- **A lanky's bite past a plain walker's reach needs a clear line,** so its 1.25-tile reach never bites
+  round a wall's corner; within a walker's 0.85 it bites as before.
+- **A walker that screamed comes back screamed.** The trip snapshot keeps each walker's `seed`,
+  `heading` and a `screamed` flag; on a return visit its cooldown starts full, so it does not scream the
+  moment you walk back in.
+- **God mode's road contract** is `ZSR.Game.spawnWalkerAhead(type)` (the same shape as
+  `Interior.spawnWalkerAhead`): it returns the walker or null when there is no room. God spawns are
+  plain attackers (no raid, no wrecking). On foot the spot must be reachable in a straight line the
+  player could walk (never past the fence or a counter) with the body's corners clear, and its health
+  uses the scene's multiplier.
+- **"A" or "An" by the kind's name** in every message ("An armored in front of you.").
+
+### Judgment calls: the 3D models (js/walker3d.js, js/walker3d-looks.js)
+
+- **No squash to the view's stretch.** The model keeps screen proportions (`box.w` is in screen
+  tiles); dividing by `STRETCH` would make every walker about 30% too thin.
+- **Perspective inside the figure,** clamped to 0.6..1.6 a point (`K_MIN`, `K_MAX`): a reaching hand is
+  bigger up close; a body lying toward the camera uses half of it, so a near head does not balloon.
+- **The fit to its picture depends only on the kind and the camera,** never the pose: every pose of a
+  kind is sampled into one envelope at load, so a figure never zooms when a bite starts. To keep full
+  size at 2-3 tiles the boxes widened (walker 1.12, brute 1.56, lanky 1.5, screamer 1.1 tiles); the
+  heights are the spec's (walker 0.92, runner 0.9, brute 1.05, lanky 1.15, armored 0.95, screamer 0.9).
+- **Nothing is drawn below the feet line,** so a foot stepping toward the camera or a body falling
+  toward it sits on the floor; every point is clamped into the region.
+- **Eyes keep their glow under fog** (the hit flash still whitens them): they read in the dark.
+- **Gore off** means grime-coloured smears (no strong red, tested), dark skin in the rips, no ribs,
+  no pool and no mouth dribble.
+- **The head sorts by its real depth when turned away,** with the neck rising into the back of the
+  skull; the brute's neck was raised so its skull clears its shoulders from behind (its chin still sits
+  low at the front). Backs of heads have their own cues (hair to the nape, ears, a darker bald skull
+  with a scar, a hood's seam).
+- **Variants by seed:** armored is riot gear (even seed) or a firefighter (odd); lanky a hospital gown
+  (even) or a long coat (odd). No real organisation names or logos.
+- **Each kind falls its own way:** walker and screamer crumple, the brute topples like a tree, the
+  lanky folds forward over its knees, the armored drops to its knees then forward, the runner tumbles;
+  each lands lying flat with limp arms on the floor, the pool (gore only) longer along the body.
+- **The scream pose stays inside the 0.9 box** (arms out at head height), so the figure never shrinks
+  mid-scream; any other kind asked to scream bites instead.
+- **The lanky is 1.15 tiles tall** but capped at 0.98 indoors, so it reads tall by thinness, a long
+  neck and arms past its knees.
+- **The runner's hood in pure profile** shows only a sliver of face and one eye: accepted, it reads as
+  a hood.
+- **Three levels of detail:** lod 0 everything (fingers, ribs, sheen, teeth, pupils); lod 1 no fingers,
+  ribs, sheen or shading crescents; lod 2 a silhouette, the head and the eyes. Canvas calls a figure
+  stay under 600 / 350 / 160 (563 / 304 / 116 today).
+- **The engine eases poses** through `st.poseW` (0 = the walk, ramped over `POSE_BLEND` 0.15 s), and
+  fog is drawn in 1/32 steps (`FOG_STEPS`), so the engine skips a redraw for a fog change under a step.
+- **The road's top-down looks copy the 3D looks' skin, shirt and hair** (`js/walker3d-looks.js`,
+  checked by validate-art), matched to the reference picture: indigo hoodie, ochre tank, maroon top.
+
+### Judgment calls: drawing them live (js/interior.js)
+
+- **Every walker and downed walker on screen is a live sprite:** Walker3D draws it into the walker's own
+  pooled canvas at its size on screen, and the picture goes through the same projection, depth sort and
+  per-column wall clipping as every other sprite.
+- **Culled behind walls:** a walker no column of which shows past the walls gets no render and no
+  canvas.
+- **Fog is baked into its colours;** a pooled canvas never goes through `Draw3.dim` (tested).
+- **Under a ceiling and in the cabin a walker is capped at 0.98 tiles** (`CEIL_CAP`, props use the
+  same): the whole figure shrinks, drawn as if seen from farther off.
+- **The health bar sits just over the head** (`box.head`) and is the hit width wide (`box.bar`).
+- **Level of detail goes by height on screen,** not by render height, so the governor's 0.7 resolution
+  step lowers resolution only.
+- **Old pictures wait, first in line.** A picture of a walker taking turns that is out of date (not on
+  screen last frame, grown over 15% on screen, or with less detail than it now gets) shows a frame or
+  two longer, scaled, ahead of the rest of the wait list; past the frame's cap a never-drawn picture is
+  drawn at lod 2 first. Turning to face a crowd used to redraw all of it in one frame.
+- **Must-draws, never capped:** a picture never drawn, a near walker's old picture, and a hit flash
+  starting or ending (at most two a hit).
+- **A walker near last frame counts 5% nearer** (`NEAR_STICK` 0.95) when the near ones are picked, so
+  two at about the same depth do not swap detail every frame.
+- **Bodies take near places only while collapsing** (0.9 s); a settled body keeps the detail it was
+  drawn with (no pop) and is not drawn again while it lies still.
+- **Poses ease both ways:** from walking straight into the new pose; from any other pose out to the
+  walk first, then in. Between bites a walker holds the lunge's end (arms out, at you); asleep it is
+  idle and still, so it is drawn once; awake and idle it breathes.
+- **Each look's own turn and claw rates** (a brute turns at 4 rad/s, a runner at 9), not one engine
+  constant.
+- **The hit spray splashes back too:** one drop in three flies back out to the sides from the front
+  of the body, since a spray thrown only away from the shot hid behind the walker's own body. It starts
+  at the walker's drawn height, so a capped lanky or brute bleeds at the chest, not the head.
+- **Canvases grow in place** (no new canvas as walkers come nearer), shrink only inside a draw that
+  happens anyway (after 30 renders under half size), and go back to the spares after 60 frames unused
+  (`LIVE_SPARE` 8 kept); leaving a scene lets every one go.
+- **The tutorial's arrow** over the practice walker lifts by its drawn height + 0.3 tiles, not a fixed
+  1.25.
+- **The old walker art is gone** (`Draw3.walker`, its looks and the two-frame toggle); `seededRng`
+  stays for the muzzle effects.
+- **The crew no longer size by the walkers:** `WALKER_TOP` became `PERSON_TOP` (122, unchanged), a
+  grown-up about 0.905 tiles tall at prop scale.
+- **A sprite's edge column samples inside its picture** (it read up to 0.7 px past it): invisible on
+  a cleared live canvas, a sub-pixel change elsewhere.
+
+### Judgment calls: the yard (breaches, wreckers, wrecked builds)
+
+- **Walking distance outside the fence** is counted in 4-way steps along open ground outside, from the
+  hole (the tile just outside it is 1); one search from every usable hole at once keeps each outside
+  tile's nearest hole (ties: the first in grid order). A walker outside is denied every other hole, so
+  with two in range it takes the nearer even when the other lies on the shorter way to you.
+- **A usable hole** joins open ground outside to open ground inside (4-way); a corner hole never does.
+  A walker standing in a hole tile counts as inside the line, and goes on through.
+- **New core hooks:** `PathBlock(z)` (tile indices one walker's path search treats as solid; the
+  straight-line shortcut is skipped while it returns a list), `Breach(x, y)` (a segment gave way), and a
+  `WalkerGoal` with `aim` [x, y] clawed once the walker stands there. Other modes behave as before.
+- **Every walker re-paths when the holes change** (a breach, a mend by you or Tomas, `patchFence`,
+  coming home); the nearest-hole search costs about 0.5 ms.
+- **Wreckers can be provoked outside the fence too** (hurt, or you within 5 tiles), and "hurt" lasts
+  (`hp < maxHp`), so a screamer wrecker shot mid-yell still turns once the yell ends; traps provoke.
+- **A wrecker's target** is the nearest free spot by walking distance at a build still standing or at
+  the van above its floor (one wrecker a spot); it picks again only when its target falls; with
+  nothing left it comes for you.
+- **The van's floor** is `round(vanMaxHp x vanWreckFloor)` (30%): wreckers stop there, so a trip never
+  starts wrecked. "They are wrecking the van!" once a wave; the wave-cleared toast adds where to fix it.
+  Dents show under 75% and 50% health, after a hard drive home too (it is just true).
+- **Damage persists between waves** (`save.builds` keeps the number): under half a build looks
+  cracked and E braces it; at 0 it is wrecked (taped plaque, cracks, debris, dark beacons), keeps its
+  footprint (paths stay valid) and gives no bonus. Upgrading a damaged room rebuilds it whole.
+- **The built level still counts** for room requirements, crew gates and posts, the radio shelf's art,
+  the plot's build and the base card's pips: only the bonus goes (`State.effects`, `roomLevel`).
+- **A wrecked Radio** logs no broadcast that day (none is lost: the order is kept), cannot be tuned in,
+  and Pip's radio tip waits until it is fixed.
+- **Tomas fixes wrecked builds only,** after the fence and before the cabin (job `builds`, no star gate,
+  never in a wave): the crew's words say "wrecked builds" at every level; a build only cracked still
+  works and the player braces it.
+- **Repairs cost 3 scrap a build** (`buildRepairScrap`). E works mid-wave like the fence, but not while a
+  wrecker claws at that build ("Clear the walkers off it first."); Fix all does wrecked builds first,
+  then cracked ones, as far as the scrap goes.
+- **God mode's "Can't die" protects the builds and the van:** wreckers claw and nothing gives.
+- **Tips:** the told-once tips (Tomas `lanky` and `armored`, Pip `screamer` and `wreckers`) are urgent,
+  told at the next talk; `wreckers` applies once any room with a yard plot is built (the Walls have
+  none); Tomas's `wrecked` tip is a regular one after `fence`, with `{rooms}` and `{cost}`.
+- **One order for wrecked builds** (`WORLD.BASE_ROOMS` order) in the HUD goal, the toasts, the computer,
+  Tomas's tip and his job, so every list reads "Garage and Radio" the same way.
+- **The Garage tab** says "Fix the Garage" when an upgrade is capped by a Garage built far enough but
+  wrecked.
+- **A walker caught alone on a corner** (stalled 1.2 s while walking, nobody beside it) gets a route
+  through tile middles to the end of its path (`yardUnjam`): the engine's straight-line shortcut checks
+  the line through a walker's middle while it collides by its radius, and beside a build's corner it
+  could swap for ever between the two. Yard-local, so other modes keep their behaviour.
+- **The controls list** (E's line at six levels and the fallback) says E fixes a wrecked build for 3
+  scrap; plain-English UI literals (toasts, hints, the HUD goal's " · wrecked: Garden and Well").
+
+### Judgment calls: the road (js/game.js, js/sprites.js)
+
+- **Stats and mix from the table:** speed, radius, damage, scrap and reach from each kind's `road` row;
+  `ZOMBIE_TYPES` and the runner and brute steps in `DIFF` are gone. `DIFF.pxPerTile` 56 (a walker's
+  18 px over its 0.32 tiles) turns the scream's tiles into px: it screams on screen within 448 px of
+  the van and frenzies walkers within 560 px.
+- **Frenzy speeds only the walker's own approach,** not its keeping up with the van or its knockback;
+  worst case about 2.5x base speed, not clamped.
+- **No toast on the road:** the scream's cue is a "SKREE!" burst, the sound and the frenzy look (red
+  eyes, a red ground aura, or amber with gore off, speed lines).
+- **Faces tip up toward the van,** heads 0.54-0.68 r (were 0.82) so the shoulders and the shirt colour
+  that tells the kinds apart show, and the eyes glow yellow as on foot.
+- **Every hit bleeds with gore on,** 5 drops a hit and 9 a kill; the drops carry the walker's keep-up
+  speed so the spray stays with it; half leave a splat that scrolls away with the road.
+- **Armor is in the data:** `road.armor` (only the armored kind, 0.5) is the share of its non-fatal hits
+  that also glance off its gear in grey sparks with a smaller spray (3 drops); a killing shot never
+  glances. The brute's low knockback does not make it armored: it bleeds like any other.
+- **Downed road walkers** go over in the first quarter of their 2 s, lie still, and fade over the last
+  35%. Crumple, tree and tumble fall away from the shot, face up (the ribs show); fold and kneel pitch
+  forward toward the van, face down, as their 3D falls do. The kill dust is 5 small puffs (7 big ones
+  hid the fall).
+- **Drawn in layers:** splats, the downed walkers' pools and shadows and every walker's shadow or
+  frenzy glow go under every body, so nothing on the road ever lies over a walker.
+- **God spawns on the road are plain walkers,** like every road walker (no raid or wreck roles there).
+- **The title screen** shows every kind, two at a time, changing every 4 s (`SHOWCASE_SECS`), from the
+  table; the still garage view keeps walker and runner.
+
+### Judgment calls: building spawns (js/building.js, NOTES[id].walkers)
+
+- **Rules carry the texts' positions.** `NOTES[id].walkers` lists, for each door note, note or
+  graffiti that puts walkers somewhere, the rule that keeps it true (`says`, `z` anchors, `zone`, `n`,
+  `share`, `exact`, `type`, `only`, `all`, `near`): every building but the water tower has one, the
+  lumberyard two. A rule's own tiles are closed to the other walkers, so "one by the robot" stays one.
+- **Shares for "most" and "many":** the lumberyard dock and the pharmacy back take `share` 0.55 ("most"
+  needs over half; validate-world checks the word against the share), the mall's main hall `n` 4,
+  `share` 0.4 ("many"), the hospital `all` in its dark rooms.
+- **"One by the X" needs a zone round X:** Signal Electronics' robot and Gas-N-Go's car lift rules are
+  `exact` with a zone covering the landmark's surroundings, so no other walker starts within 2 tiles
+  of it (validate-world R8 "by"). The named walker can still start anywhere in its 3-step ring, so
+  another walker 3+ tiles off may stand nearer the robot than it on some visits: recorded, not fixed.
+- **The danger 4+ brute at the first spot is gone:** police and lumberyard keep theirs by rule; the
+  library, hospital and mall get brutes only from their mix.
+- **The gun, the pole and the quest objects are placed first,** and no walker starts on a busy tile:
+  item, cache, stash, key, scrap and note spots (any reading level), landmark anchors, quest spots (any
+  state), the gun and the pole.
+- **No "on the anchor itself" fallback:** a taken anchor tile would stack a walker or put it on the gun;
+  a rule with no free tile places fewer and the rest keeps the door-note count (validate-world R6 makes
+  sure today's layouts always have room).
+- **`planWalkers` takes the day** (the mix needs it) and returns data only: nothing new is saved or
+  snapshotted, and a rule's tag is not kept on the walker.
+- **The alarm's deeper walker** starts more than `ALARM.farFrom` from you on floor that walks to you with
+  the doors as they stand (walkers cannot open doors), a free tile first; only when you are shut in a
+  small room does it start on floor reachable from the way in through the doors, behind a door; never
+  in a locked room. The areas are cached and rebuilt only when a door moves (about 0.45 -> 0.02 ms a
+  spawn tick). An alarm brings no `only` kind, and `ALARM.cap` 40 is checked before each spawn.
+- **Text claims the engine still does not keep** (out of scope, the texts were not rewritten): pacing
+  at the school, auto shop and hardware (walkers stand until they wake); the firehouse's "the others
+  wander the back rooms" (close: the truck bay is exact); the garden's "They are not quick" (danger 2
+  has runners); Gas-N-Go's decoy note's "the walker in the garage" (the garage below the lift end can
+  hold more than one).
+
+### Tests changed on purpose
+
+- validate-engine: a walker within its own bite reach counts as "at the player" (the lanky's 1.25
+  tiles, where the tests used 1.2); the practice walker's speed bound reads the table and
+  `SPEED_JITTER`; the heavy waves and the siege set `wreckShare` 0 beside `raidShare` 0 (a quarter
+  wrecking breaks "16 reach the player"); "a biting walker faces you" runs `max(0.5, pi / turnRate +
+  0.1)` s (a brute turns at 4 rad/s); the older governor checks put a crowd on screen first.
+- validate-world: the "2+ z tiles" and "z count <= day-1 count" checks gave way to the walker rules
+  (R1-R8).
+- validate-god: the road stub is `spawnWalkerAhead(type)`; a null return now means no room.

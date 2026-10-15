@@ -1,8 +1,10 @@
 # Zombie Survival: Game Spec (v3)
 
 Decisions confirmed with the owner on 2026-10-12 (v2: map, cabin defense, first-person
-buildings) and 2026-10-13 (v3: the world shows every upgrade, unique buildings with
-landmarks and a map, driving by lanes and signs).
+buildings), 2026-10-13 (v3: the world shows every upgrade, unique buildings with
+landmarks and a map, driving by lanes and signs) and 2026-10-15 (walkers v2: six kinds drawn as
+live 3D models, wreckers and wrecked builds, breaches that draw only the walkers near them,
+random spawns in buildings, no walker counts on screen).
 
 ## Pitch
 
@@ -32,19 +34,23 @@ useful.
    bed heals fully for a minute of the calm. The computer, radio shelf and typewriter wait
    while a wave is on. Doors open and shut with E; walkers break shut doors, smash windows
    and climb in, and walk through open doors. A quarter of each wave's walkers make for the
-   cabin, break in and wait inside until you come for them. The base is the only
+   cabin, break in and wait inside until you come for them; another quarter are wreckers,
+   which claw the van and the room builds once inside the fence (see "Wreckers and wrecked
+   builds"). A fence hole draws only the walkers within 8 tiles' walk of it outside; the rest
+   keep clawing their own segment. The base is the only
    place the game saves: on arrival, after every build action, and after every wave.
 2. **Map.** A fixed, hand-drawn city of 15 locations plus the base, with named streets and
    side streets. Only some are known at first; notes and the Radio room reveal the rest.
    Pick a known destination; the route is drawn and listed in words ("The way there").
 3. **Road.** Top-down driving in world space, the camera turned so the van always heads up.
    Length is set by map distance, walker density by the destination's danger and the day
-   count. The road never shows the route: the player navigates by lanes and signs (see
-   Driving below).
+   count; every walker kind comes, the rarer ones more often as danger and days grow. The road
+   never shows the route: the player navigates by lanes and signs (see Driving below).
 4. **Location.** A door note is shown first (added to the backpack). Then free-roam
    first person inside a building with its own floor plan: WASD to move, mouse to look,
    click to fire, E to interact, M for the map of what you have seen. Four landmarks, one
-   per corner, are what the notes steer by. Walkers inside come for you. Items sit on
+   per corner, are what the notes steer by. Walkers inside start at random spots on every
+   fresh visit (the ones a note names, by the spot it names) and come for you. Items sit on
    shelves and floors; a locked cache room holds the best items and opens only when you do
    what its note says (see **Locks** below). Scrap piles give scrap. Press E at the entrance
    to leave. Shelf and floor items come back three days after they are taken; scrap piles
@@ -68,7 +74,8 @@ tension.
 - No questions anywhere.
 - **Backpack**: every note read is kept with its title, the location, and where in the
   building it was found. Opens from the base, the map, and inside a building (pauses).
-- **Why read**: the door note says how many walkers and where the items are, by landmark;
+- **Why read**: the door note says how many walkers (at least; where it or a graffiti says
+  some stand, they do) and where the items are, by landmark;
   the inside note says how to open the cache (a code, a stuck lock's moves, which drawer, which
   alarm button; the lock holds you to it), what a mistake costs, what is
   in the cache, the way from the note to the cache door, and often which other location to
@@ -102,8 +109,9 @@ cabin, about 25 x 26 tiles, sits at the south end).
 Level 0 is a staked lot with the room's name on a big sign; levels 1 to 3 are distinct,
 bigger builds made of walls, roofs, see-over low tiles and props, with a name plaque and
 stars. They go up the moment the room is built. Builds are solid: walkers path around them
-and they are cover. Walls levels 0 to 3 change the fence (pickets, braced planks,
-corrugated metal with spikes, concrete blocks with razor wire, each with a cracked look).
+and they are cover, and wreckers claw them down (below). Walls levels 0 to 3 change the fence
+(pickets, braced planks, corrugated metal with spikes, concrete blocks with razor wire, each
+with a cracked look).
 The cabin's doors (a bar, steel sheets, a security door) and windows (boards, shutters,
 steel plates) have their own levels in the House tab. The van in the
 driveway shows armor plates, the ram plow, engine gear (rack, exhaust, snorkel, light bar)
@@ -118,6 +126,12 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   pays for it: 1 scrap per hole, either by standing at the gap and pressing E or with the
   "Fix all" button in the cabin menu. A cracked segment (under half strength) can be braced
   the same way. Building Walls up rebuilds the whole fence. Fence state is part of the save.
+- **Breaches draw only the walkers near them** (`DEFENSE.breachRange`, 8). A walker outside the
+  fence goes for a hole only when one is within 8 steps' walk of it along open ground outside,
+  and then for the nearest; every other walker keeps clawing its own segment. A corner hole
+  (no open ground on both sides) is never used. Every walker re-plans when a hole opens or is
+  mended, so a mended hole sends its walkers back to clawing where they stand. Raiders and
+  wreckers obey the same rule outside the fence.
 - **Traps** are crafted at the workbench (Walls 2 for spike traps, Walls 3 for blast traps)
   and set in the yard with T (spike) and R (blast) on the ground in front of you, or just
   past the fence line. A spike trap hurts the walker that steps on it (45, three uses); a
@@ -128,6 +142,32 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   (at least 5), free once the Garage room is built. Do it in the cabin's Garage tab, or at
   the van: starting it with less than full health asks "Fix the van?" first (Fix it / Go as
   is; Esc stays in the yard). Short on scrap, the fix button is greyed out.
+
+## Wreckers and wrecked builds (2026-10-15)
+
+- **Roles.** Each wave walker rolls once: 25% raiders (the cabin), 25% wreckers, 50% attackers
+  (`DEFENSE.raidShare`, `wreckShare`). Outside the fence a wrecker is an ordinary attacker.
+- **Inside the fence** a wrecker claws the nearest free spot of a room build or the van, by walking
+  distance (one wrecker a spot), at its claw rate (`fenceDps x wreckDps`). It turns on you for
+  good once hurt (traps too), once you are within 5 tiles (`wreckProvoke`), or 30 s after it got
+  inside (`wreckSeconds`); with nothing left standing it comes for you.
+- **A build's strength** is `DEFENSE.buildHp` by its level (120, 180, 260) and lasts between waves
+  (`save.builds`). Under half it shows cracks; at 0 it is wrecked: a taped "WRECKED" plaque, cracks,
+  debris, dark beacons. It keeps its footprint. A wrecked build gives no room bonus until it is
+  fixed; its built level still counts for room requirements, the crew's gates and the art. A
+  wrecked Radio hears no broadcast that day and cannot be tuned in.
+- **Fixing:** 3 scrap a build (`SETTINGS.buildRepairScrap`). E at it in the yard ("Press E to fix
+  the wrecked Garden (3 scrap)", or brace a cracked one), mid-wave too, but not while a wrecker
+  claws it; the office computer's Builds row ("Fix all": wrecked first, then cracked, as far as the
+  scrap goes); or Tomas in the calm (wrecked builds only, after the fence). Upgrading a room puts its
+  build up whole.
+- **The van.** Wreckers stop at 30% of its health (`vanWreckFloor`), so a trip never starts
+  wrecked; "They are wrecking the van!" once a wave. Its body dents under 75% and 50% health.
+- **Where it shows.** The HUD goal adds " · wrecked: Garden and Well"; a toast when a build falls and
+  when it is fixed; the lot panel's status and a "Wrecked" row; the room card in the build menu;
+  the Garage tab says "Fix the Garage" when a wrecked Garage caps an upgrade. Pip warns about
+  wreckers once a room with a plot is built; Tomas lists the wrecked builds and what fixing them
+  costs.
 
 ## Driving: lanes, signs, side streets
 
@@ -182,10 +222,76 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
 - Every doorway inside a building is a real door, closed until opened. E opens and closes
   it; a door cannot close on the player or a walker. Walkers cannot open doors. An unlocked
   cache door becomes a normal door.
-- Leaving a building stores its state for the rest of the trip (walkers, scrap piles,
-  doors). Going back in on the same trip finds it exactly as left. Driving home clears it.
+- Leaving a building stores its state for the rest of the trip (walkers with their kind,
+  health, look and facing, scrap piles, doors). Going back in on the same trip finds it exactly
+  as left. Driving home clears it.
 - From the map, the place you are parked at offers "Go in" / "Go back in" (the door note is
   shown only the first time).
+
+## Walkers (2026-10-15)
+
+The owner's decisions are in `DESIGN.md` ("Walkers v2"). The kinds are facts, one row each in
+`WORLD.WALKER_TYPES`; every mix, menu, look and test reads its keys, so a new kind is a new row
+(`docs/SCALING.md`, "Add a walker kind"). In-world the word is always "walker".
+
+| Kind | Health | Speed (tiles/s) | Bite | Reach (tiles) | Claw (a second) | Scrap | Look and walk |
+|------|--------|-----------------|------|---------------|-----------------|-------|---------------|
+| Walker | 30 | 1.25 | 12 | 0.85 | 6 | 2 | messy brown hair, torn blue-grey tee ripped over the ribs, torn jeans; a shuffling limp, one arm reaching |
+| Runner | 18 | 2.4 | 9 | 0.85 | 4 | 3 | lean, an indigo hoodie with the hood up; a fast sprint, leaning forward, arms pumping |
+| Brute | 90 | 0.95 | 22 | 0.9 | 14 | 5 | huge shoulders and hands, a small bald head, a torn ochre tank; a slow heavy stomp |
+| Lanky | 40 | 1.5 | 14 | 1.25 | 7 | 3 | very tall and thin, arms past the knees, long stringy hair, a hospital gown or a long coat; a long stiff stride |
+| Armored | 60 | 1.0 | 14 | 0.85 | 10 | 4 | riot gear (helmet, cracked visor, vest, pads) or a firefighter's helmet and turnout coat; a stiff march |
+| Screamer | 22 | 1.35 | 8 | 0.85 | 4 | 3 | thin and ashen, long tangled hair, a torn maroon top, a very wide mouth; jerky and twitchy |
+
+Health grows with the day (x (1 + 0.1 (day - 1)) in buildings and alarms, 0.08 in the yard and at
+the river; `WALKER_HP_STEP`); each walker's speed is its kind's +-10%; the Medbay cuts bites; claws
+hit the fence, the cabin's doors and windows, the room builds and the van. Glowing yellow eyes on
+every kind.
+
+- **Where each kind comes from** (`WORLD.walkerWeights`, then `pickWalkerType`):
+  - Buildings, by danger and day: runners from danger 2 (danger 1 from day 6), lanky from danger 2
+    and day 3, screamers from danger 2 and day 4, brutes from danger 3 (danger 2 from day 10),
+    armored from danger 3 and day 5; a danger-1 place on day 1 has plain walkers only. Themed
+    places (`WALKER_THEMES`): armored at the police station and the fire station, lanky at the
+    hospital and the library, screamers at the school and the mall, brutes at the lumberyard; there
+    the kind comes from day 1, and by day 5 it is the likeliest after the plain walker.
+  - A building's alarm: the place's weights times `ALARM.mix` (more runners, fewer brutes and
+    armored, no screamers).
+  - Yard waves, by day: runners from day 2, lanky 3, screamers 4, armored 5, brutes 6 (a heavy wave
+    brings brutes from day 1).
+  - River Landing (`RIVER.walkerMix`): walkers, then runners from day 2, lanky 3, screamers 4,
+    brutes 6; never armored.
+  - The road: every kind on every trip, the rarer ones more often with the trip's danger and day
+    (`road.w`).
+- **The screamer.** An awake screamer that sees you within 8 tiles screams (again after 12 s): it
+  stands 1.2 s, head back and arms up, and every awake walker within 10 tiles, itself included,
+  moves 30% faster for 5 s (frenzy, `WORLD.SCREAM`). Sleepers sleep on. On foot a toast says "A
+  scream! Walkers near it speed up." (at most every 20 s); on the road a "SKREE!" burst, the sound,
+  and frenzied walkers show red eyes, a glow on the ground and speed lines.
+- **The lanky** bites from 1.25 tiles, but never round a wall's corner.
+- **On the road** each kind has its own top-down look in the same colours, its own speed, size,
+  damage to the van and knockback (the brute and the armored hardly move when hit); the lanky reaches
+  the van from farther off, and half of an armored walker's hits glance off its gear in grey sparks.
+- **Downed walkers** collapse their kind's way (walker and screamer crumple, the brute topples like
+  a tree, the lanky folds forward, the armored drops to its knees and pitches forward, the runner
+  tumbles) and fade over 2 s. No bodies stay; a downed walker is never shot at, solid or counted.
+- **Gore** (`SETTINGS.walkerGore`, on): blood smears and ribs through torn shirts on the models, a
+  short dark-red spray on every hit that lands as splats, a pool under a downed walker. Off: grime
+  instead, no ribs, no spray, no pool. Grey sparks off armor show either way. The reading text has
+  no gore at all.
+- **No walker counts on screen.** The HUD has no walker box in any scene; the yard's phase box says
+  WAVE or HEAVY WAVE; the river's toast says something is coming. Door notes and Ruby's graffiti keep
+  their counts ("at least eight"), which grow with the day (`SETTINGS.walkersPerLocation`).
+- **Where a building's walkers start.** Every fresh visit puts the count on random floor you can
+  walk to (never in a locked room), at least 6 steps from the door, about 3 tiles apart, never on an
+  item, a note spot, a quest spot, the gun or the pole. A walker a door note, a note or a graffiti
+  names (`NOTES[id].walkers`) starts within 3 steps of the named spot, in its room, or inside the
+  named area: "one by the
+  robot" is one, and nobody else starts beside the robot; "most near the back" is over half; the
+  hospital's walkers all stand in the dark rooms; the police station's big one is its only brute. Going
+  back in on the same trip finds them as you left them (kind, health, look and facing).
+- **Practice and god mode.** The tutorial's practice walker is a plain walker. God mode's Spawn
+  walker puts any kind in front of you, or on the road ahead of the van.
 
 ## River Landing and fishing (2026-10-14)
 
@@ -197,7 +303,8 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   pole; click to cast onto water, wait 7 to 20 s for a bite, click within 2 s to land it. Taking a
   gun props the pole on the bank (line in); a bite then rings its bell until the pole is taken back.
 - 1 food per fish, 4 a trip, then the river rests 3 days (`WORLD.RIVER`). Walkers come out of the
-  trees every 45 to 90 s, one or two.
+  trees every 45 to 90 s, one or two, their kinds by the day (`RIVER.walkerMix`); the toast never
+  counts them ("Something is coming out of the trees!").
 - Cargo food (crates and fish) adds to the crew's food at home.
 
 ## Guns
@@ -264,7 +371,10 @@ the game and none of it is quizzed.
   right, lift, pull, twist left ...); a search at a fixture beside the main note (which drawer,
   watering can, key, breaker box or book) that finds the door's key or badge; an alarm panel on a
   named wall (press the right button first). A mistake costs what the note warns: the alarm
-  (walkers pour in, through the way out too, so there is no leaving: you go down), a booby trap
+  (walkers pour in, through the way out too, so there is no leaving: you go down; their kinds are
+  the place's alarm mix, never a kind a note keeps to one, at most `ALARM.cap` 40 inside at once,
+  and the ones from deeper in start on floor that walks to you with the doors as they stand, else
+  behind a door, never in a locked room), a booby trap
   (you go down), or a jam (only a crowbar opens it; crowbars are built at the workbench, 20 scrap,
   carried on every trip, spent on use). Jams and broken keys are saved. Every building's `dead2`
   note is a decoy with a clearly different wrong answer, at every reading level. Typing "god mode"
@@ -294,7 +404,10 @@ June, Tomas and Pip live at the cabin. The full design and the contract between 
   moves on. Not solid: walkers ignore them and shots pass them by.
 - **Talking.** Look at one and press E: a comic speech bubble (the read panel), the yard running:
   what they did for you since you last talked, one useful tip with live numbers, and the next
-  story topic (or a mood line). The first talk each day earns trust. A long bubble pages with E.
+  story topic (or a mood line). Tomas tells about the lanky and the armored, and Pip about the
+  screamer, at the first talk after one is first met (`save.met`); Pip warns about wreckers once a
+  room with a yard plot is built, and Tomas lists wrecked builds. The first talk each day earns
+  trust. A long bubble pages with E.
   When they ask something, take something, or Pip wants to name the dog, E again opens the crew
   card (it pauses; Yes / Not now; locked in a wave).
 - **Story quests.** Five per crew member, in order, gated by trust stars and days (2, 4, 8, 13, 19;
@@ -309,7 +422,8 @@ June, Tomas and Pip live at the cabin. The full design and the contract between 
 - **Trust.** Points shown as 0 to 5 stars. Up: a talk a day, errands, quests. Down: hurt in a raid,
   an errand late, a request given up (in the backpack's Crew section).
 - **Jobs.** Tomas fixes fence holes and cracks in the calm at the usual scrap when the base can pay,
-  and the cabin's doors and windows from two stars; he tells you in his next bubble. June patches
+  then wrecked room builds (3 scrap each, no star needed; a cracked one is left to you), and the
+  cabin's doors and windows from two stars; he tells you in his next bubble. June patches
   you up once a calm (one star). Pip calls the next wave's size and sides as lookout (one star).
 - **Waves.** The crew hurry into the office closet and shut its door. A raider that forces it and
   stands among them for 6 seconds hurts one off-screen (at most once each per wave): a shout, 1
@@ -400,12 +514,32 @@ Landmarks and yard props are sprites; a footprint landmark is spread over its ti
 floor (the view is 2 tan(FOV / 2) times taller than wide). Art registers through
 `ZSR.Draw3` (`registerTexture`, `registerSprite`, `registerFloor`).
 
+**Walkers are live 3D models** (2026-10-15; owner decision 1). `ZSR.Walker3D` (`js/walker3d.js`,
+the six looks as data in `js/walker3d-looks.js`) draws a jointed figure with plain canvas 2D calls
+(no WebGL, no image assets) in the ink-outline comic style with simple light shading, from any
+side: walk cycles per kind, idle breathing, bite, claw, scream, the hit flash and the fall. Each
+walker and downed walker on screen gets its own pooled canvas, redrawn at its size on screen only
+when it looks different, then projected, depth-sorted and clipped per column like any sprite; a
+walker hidden by walls gets no render. Fog is baked into its colours (its eyes keep their glow).
+Under a ceiling and in the cabin a walker is capped at 0.98 tiles (the whole figure shrinks). Its
+health bar sits just over its head, as wide as it is to hit. Detail goes by height on screen:
+full (fingers, ribs, sheen) over 160 px, less over 64 px, a silhouette with head and eyes below.
+**The redraw budget:** the 3 nearest full-detail walkers redraw every frame they change; the rest
+take turns, each at most every 2nd frame, at most 10 redraws a frame in all, with less detail; a
+picture never drawn yet, a hit's flash and a near walker's out-of-date picture draw at once. A
+frame-time governor (`LIVE_LEVELS`) steps to fewer redraws, a 0.7 resolution and less detail when
+frames stay slow, and up to the first design's settings (24 redraws, 400 px pictures, full detail
+for every walker) when they stay fast. Blood drops and splats are cached sprites, drawn only with
+gore on. On the road walkers stay top-down drawings (`js/sprites.js`), one look per kind in the 3D
+looks' colours.
+
 ## First person (desktop)
 
 Raycast renderer on canvas, no engine, no dependencies. Grid interiors from
 `js/layouts.js`, comic shading (flat colors, ink edges, halftone). Mouse look
-via pointer lock, with arrow keys as a fallback for turning. Walkers are billboard
-sprites (gaunt, grimy, no gore); they path to the player. Hits are tested along the
+via pointer lock, with arrow keys as a fallback for turning. Walkers are live 3D models
+seen from every side (see Rendering notes and Walkers); they path to the player, and a hit
+tests the walker's radius, not its picture. Hits are tested along the
 crosshair line within the gun's range: walls and cover (tall solid props, landmark
 footprints) stop a shot, counters and the fence do not. The gun in hand is a small 3D
 model drawn in perspective; at rest it is drawn once per look and screen size and moved
@@ -434,21 +568,27 @@ packed bitset), stash keys found, item tags read, the day log (journal and radio
 index, recap numbers), broadcasts heard, backpack notes, packed kits, fence health per segment,
 trap stock and set traps, the crew (trust, talks, topics told, quests and errands, reports, the
 dog), the yard grid version (`yardV`: an older yard's fence is rebuilt whole
-and its set traps return to stock), typing progress, best score. Only written at the base. An
+and its set traps return to stock), each room build's strength (`builds`: room id to health left;
+no key = whole, 0 = wrecked), the walker kinds met (`met`: kind id to the day one was first seen or
+hurt; kept on a trip only if it gets home), typing progress, best score. Only written at the base. An
 older save gets guns on load: the pistol, with mods carried over from its gun upgrades.
 `zs.settings.<n>` holds slot n's settings; `tutorial` there is `null` (none done) or the done tutorial
 card ids, written at once (missing in an older slot = none done, so it does the tutorial too).
 
 ## Content files
 
-`js/world.js` holds the facts (item names included); `js/layouts.js` holds the floor plans,
-the landmarks the facts point at, and the story places (note spots, signs, stash, key);
+`js/world.js` holds the facts (item names included, and the walker kinds, their mixes and the
+rules that keep the notes' walker positions true); `js/layouts.js` holds the floor plans,
+the landmarks the facts point at, the story places (note spots, signs, stash, key) and the walker
+anchors and zones those rules name;
 `js/story.js` and `js/story-home.js` hold the story facts; `js/streets.js` holds street names
 and side streets. `js/content/levelN*.js` hold the words at each level: How it works,
 controls, base room texts, road signs and cards (`levelN.js`), every building's notes, signs
 and key (`levelN-places1.js`, `levelN-places2.js`), and the journal, radio, tags and plot
-signs (`levelN-home.js`); June's first-run tutorial is `level1-tutorial.js` alone, read at every
+signs (`levelN-home.js`), and the crew's talk, tips, reports and quests (`levelN-crew.js`,
+`levelN-crew2.js`, `levelN-quests.js`); June's first-run tutorial is `level1-tutorial.js` alone, read at every
 level. `npm test` checks that every level has the same keys as the world,
 that lengths match the level, that notes name their building's landmarks, that every story
-note, key, stash and sign works in every building, that every route drives correctly, and
-that every piece of art exists.
+note, key, stash and sign works in every building, that every note's walker positions hold on
+every visit, that every route drives correctly, and that every piece of art exists (every walker
+kind with a 3D look and a road look in matching colours).
