@@ -721,7 +721,10 @@
         const cy = Math.sin(van.heading) * this.curSpeed;
         for (let i = 0; i < n; i++) {
           const a = gun.angle + (i - (n - 1) / 2) * ZSR.Upgrades.SPREAD;
-          this.bullets.push({ x: gun.x + Math.cos(a) * 24 - cx * dt, y: gun.y + Math.sin(a) * 24 - cy * dt, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, cx, cy, dmg: stats.damage });
+          const shot = { x: gun.x + Math.cos(a) * 24 - cx * dt, y: gun.y + Math.sin(a) * 24 - cy * dt, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, cx, cy, dmg: stats.damage };
+          // the angled camera's shots have a height: they leave the barrels and drop toward what the pointer is on
+          if (gun.dz != null) Object.assign(shot, { z: gun.z + gun.dz * 24, dz: gun.dz });
+          this.bullets.push(shot);
         }
         van.flash = 0.07;
         Audio().play("shoot");
@@ -729,6 +732,7 @@
       van.flash = Math.max(0, van.flash - dt);
       van.drawAim = gun.screen;
       van.aimW = gun.angle;
+      van.aimDz = gun.dz || 0;
 
       // walkers keep coming down the destination's drive, until the van is nearly at the door
       if (!this.arrive || this.track.len - van.s > DIFF.quietAtDoor) {
@@ -742,6 +746,7 @@
         const b = this.bullets[i];
         b.x += (b.vx + b.cx) * dt;
         b.y += (b.vy + b.cy) * dt;
+        if (b.dz) b.z = Math.max(6, b.z + b.dz * stats.bulletSpeed * dt);
         if (Math.hypot(b.x - van.x, b.y - van.y) > 1300) {
           this.bullets.splice(i, 1);
           continue;

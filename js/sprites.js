@@ -531,66 +531,68 @@
     ctx.fillRect(-w * 0.42, h / 2 - 8, 12, 5);
     ctx.fillRect(w * 0.42 - 12, h / 2 - 8, 12, 5);
 
-    // turret
-    const aim = opts.aim == null ? -Math.PI / 2 : opts.aim;
-    const ty = h * 0.1;
-    circle(ctx, 0, ty, 13, "#2f3136", 3);
-    ctx.save();
-    ctx.translate(0, ty);
-    ctx.rotate(aim);
-    // every gun upgrade shows: Heavier Rounds lengthen the barrels (a brake from 3), Spread Shot adds
-    // barrels, Rate of Fire adds a vented jacket (1), a drum magazine (2), cooling fins (3), a bigger drum
-    // with a brass ring (4) and a copper jacket (5)
-    const barrels = 1 + (u.spread || 0);
-    const len = 24 + (u.damage || 0) * 3;
-    const rof = u.fireRate || 0;
-    if (rof >= 2) {
-      const big = rof >= 4;
-      const r = big ? 9.5 : 7;
-      circle(ctx, -3, 14 + (big ? 2 : 0), r, big ? "#3a3d42" : "#5d636b", 2.5);
-      circle(ctx, -3, 14 + (big ? 2 : 0), r * 0.4, "#2f3136", 2);
-      if (big) {
-        for (let k = 0; k < 8; k++) {
-          const a = (k / 8) * Math.PI * 2;
-          ctx.fillStyle = "#d9a21b";
-          ctx.fillRect(-3 + Math.cos(a) * r * 0.72 - 1, 16 + Math.sin(a) * r * 0.72 - 1, 2.2, 2.2);
+    // turret (the angled road camera draws its own, standing on the roof: opts.gun false)
+    if (opts.gun !== false) {
+      const aim = opts.aim == null ? -Math.PI / 2 : opts.aim;
+      const ty = h * 0.1;
+      circle(ctx, 0, ty, 13, "#2f3136", 3);
+      ctx.save();
+      ctx.translate(0, ty);
+      ctx.rotate(aim);
+      // every gun upgrade shows: Heavier Rounds lengthen the barrels (a brake from 3), Spread Shot adds
+      // barrels, Rate of Fire adds a vented jacket (1), a drum magazine (2), cooling fins (3), a bigger drum
+      // with a brass ring (4) and a copper jacket (5)
+      const barrels = 1 + (u.spread || 0);
+      const len = 24 + (u.damage || 0) * 3;
+      const rof = u.fireRate || 0;
+      if (rof >= 2) {
+        const big = rof >= 4;
+        const r = big ? 9.5 : 7;
+        circle(ctx, -3, 14 + (big ? 2 : 0), r, big ? "#3a3d42" : "#5d636b", 2.5);
+        circle(ctx, -3, 14 + (big ? 2 : 0), r * 0.4, "#2f3136", 2);
+        if (big) {
+          for (let k = 0; k < 8; k++) {
+            const a = (k / 8) * Math.PI * 2;
+            ctx.fillStyle = "#d9a21b";
+            ctx.fillRect(-3 + Math.cos(a) * r * 0.72 - 1, 16 + Math.sin(a) * r * 0.72 - 1, 2.2, 2.2);
+          }
         }
       }
-    }
-    // the barrels fan out from the mount, each along the line its bullet flies (Upgrades.SPREAD apart)
-    for (let i = 0; i < barrels; i++) {
-      ctx.save();
-      ctx.rotate((i - (barrels - 1) / 2) * ZSR.Upgrades.SPREAD);
-      rr(ctx, 8, -3, len, 6, 1.5);
-      fillStroke(ctx, "#3b3d44", 2.5);
-      if (u.damage >= 3) {
-        rr(ctx, 8 + len - 6, -4.5, 7, 9, 1.5);
-        fillStroke(ctx, "#5a5d66", 2);
+      // the barrels fan out from the mount, each along the line its bullet flies (Upgrades.SPREAD apart)
+      for (let i = 0; i < barrels; i++) {
+        ctx.save();
+        ctx.rotate((i - (barrels - 1) / 2) * ZSR.Upgrades.SPREAD);
+        rr(ctx, 8, -3, len, 6, 1.5);
+        fillStroke(ctx, "#3b3d44", 2.5);
+        if (u.damage >= 3) {
+          rr(ctx, 8 + len - 6, -4.5, 7, 9, 1.5);
+          fillStroke(ctx, "#5a5d66", 2);
+        }
+        ctx.restore();
+      }
+      if (rof >= 1) {
+        const half = ((barrels - 1) / 2) * 7 + 4.5;
+        const jl = Math.min(len - 8, 14 + rof);
+        if (rof >= 3) {
+          ctx.fillStyle = rof >= 5 ? "#e0a066" : "#9ea3aa";
+          for (let k = 0; k < 3; k++) {
+            ctx.fillRect(12 + k * (jl / 3), -half - 3.5, 3, 3.5);
+            ctx.fillRect(12 + k * (jl / 3), half, 3, 3.5);
+          }
+        }
+        rr(ctx, 9, -half, jl, half * 2, 2);
+        fillStroke(ctx, rof >= 5 ? "#b8733a" : "#4b5057", 2);
+        ctx.fillStyle = rof >= 5 ? "#5a2a12" : "#0f1012";
+        for (let x = 12; x < 9 + jl - 3; x += 4.5) ctx.fillRect(x, -1.2, 2.2, 2.4);
+      }
+      if (opts.flash > 0) {
+        star(ctx, 8 + len + 6, 0, 6, 12 + opts.flash * 60, 5, t * 20);
+        ctx.fillStyle = "rgba(255,236,170,0.95)";
+        ctx.fill();
       }
       ctx.restore();
+      circle(ctx, 0, ty, 5, "#9ea3aa", 2);
     }
-    if (rof >= 1) {
-      const half = ((barrels - 1) / 2) * 7 + 4.5;
-      const jl = Math.min(len - 8, 14 + rof);
-      if (rof >= 3) {
-        ctx.fillStyle = rof >= 5 ? "#e0a066" : "#9ea3aa";
-        for (let k = 0; k < 3; k++) {
-          ctx.fillRect(12 + k * (jl / 3), -half - 3.5, 3, 3.5);
-          ctx.fillRect(12 + k * (jl / 3), half, 3, 3.5);
-        }
-      }
-      rr(ctx, 9, -half, jl, half * 2, 2);
-      fillStroke(ctx, rof >= 5 ? "#b8733a" : "#4b5057", 2);
-      ctx.fillStyle = rof >= 5 ? "#5a2a12" : "#0f1012";
-      for (let x = 12; x < 9 + jl - 3; x += 4.5) ctx.fillRect(x, -1.2, 2.2, 2.4);
-    }
-    if (opts.flash > 0) {
-      star(ctx, 8 + len + 6, 0, 6, 12 + opts.flash * 60, 5, t * 20);
-      ctx.fillStyle = "rgba(255,236,170,0.95)";
-      ctx.fill();
-    }
-    ctx.restore();
-    circle(ctx, 0, ty, 5, "#9ea3aa", 2);
 
     // hurt flash
     if (opts.hurt > 0) {

@@ -6,8 +6,10 @@
    van) are drawn after, far to near, at their projected spot: a shadow on the ground, a body, and the top-down
    art lifted to its height. The road sign, the names over the buildings, the HUD and the minimap stay flat.
    The camera is pitched down cfg.pitch degrees; the van sits at cfg.vanAt of the screen's height, drawn
-   cfg.scale times the road's zoom; ground past cfg.far fades into haze. The roof gun's shots fly at GUN_Z,
-   so a shot goes where the pointer is on the screen. */
+   cfg.scale times the road's zoom; ground past cfg.far fades into haze.
+   Walkers are the interiors' standing sprites (sprites3d.js Draw3.walker); the van is a box in the yard van's
+   own faces (Draw3.texture), the top-down art on its roof and a roof gun standing on it. A shot leaves the
+   barrels and drops to chest height (AIM_Z) where the pointer is, so on the screen it flies at the pointer. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -19,14 +21,16 @@
     const f = (v) => Math.max(0, Math.min(255, Math.round(v + amt)));
     return "rgb(" + f(n >> 16) + "," + f((n >> 8) & 255) + "," + f(n & 255) + ")";
   }
-  const BODY = { walker: "#4a4f3a", runner: "#5a3d38", brute: "#3d4048" };
-  const GUN_Z = 36; // the height shots fly at: walkers' heads are drawn at 32, the van's roof at 50
-  const VAN_Z = 50;
+  const VAN_Z = 50; // the van's roof
+  const GUN_Z = VAN_Z + 9; // the roof gun's barrels
+  const AIM_Z = 26; // what a shot drops to where the pointer is: a walker's chest
   const FADE_IN = 0.5; // seconds a new walker takes to come out of the weeds
+  const TEX_RES = 3; // the van's faces, drawn sharper than the yard's
 
   const Persp = {
     cfg: { pitch: 30, fov: 60, vanAt: 0.8, scale: 1.55, far: 3600 },
     GUN_Z,
+    AIM_Z,
     res: 1, // ground layer resolution: eased down while frames run slow, back up when they don't
     canvases: [],
 
@@ -87,7 +91,8 @@
     },
 
     /** The roof gun: its mount (h * 0.1 behind the van's middle, as sprites.js draws it), the world angle to what
-        is under the pointer at the height shots fly, and that angle on the screen (for the headlights at night).
+        is under the pointer at chest height, the barrels' height and how much a shot drops per unit it flies to
+        reach that, and the aim's angle on the screen (for the headlights at night).
         Aim assist: with a pointer, a walker right under it; keys only, the walker closest to straight ahead. */
     aim(g, assist) {
       const k = this.setup(g);
@@ -100,7 +105,7 @@
       let ty = my + k.Fy * 600;
       const p = g.pointer;
       if (p.seen) {
-        const t = this.unproject(p.x, p.y, GUN_Z);
+        const t = this.unproject(p.x, p.y, AIM_Z);
         tx = t.x;
         ty = t.y;
       }
@@ -109,7 +114,7 @@
         const ahead = Math.atan2(ty - my, tx - mx);
         for (const z of g.zombies) {
           if (p.seen) {
-            const q = this.project(z.x, z.y, 20);
+            const q = this.project(z.x, z.y, this.walkerH(z) / 2);
             const d = q ? Math.hypot(q.x - p.x, q.y - p.y) : Infinity;
             if (q && d < z.r * q.s + 28 && d < best) {
               best = d;
@@ -128,8 +133,14 @@
         }
       }
       const s0 = this.project(mx, my, GUN_Z);
-      const s1 = this.project(tx, ty, GUN_Z);
-      return { x: mx, y: my, angle: Math.atan2(ty - my, tx - mx), screen: s0 && s1 ? Math.atan2(s1.y - s0.y, s1.x - s0.x) : -Math.PI / 2 };
+      const s1 = this.project(tx, ty, AIM_Z);
+      const dz = (AIM_Z - GUN_Z) / Math.max(60, Math.hypot(tx - mx, ty - my));
+      return { x: mx, y: my, angle: Math.atan2(ty - my, tx - mx), z: GUN_Z, dz, screen: s0 && s1 ? Math.atan2(s1.y - s0.y, s1.x - s0.x) : -Math.PI / 2 };
+    },
+    /** How tall a walker stands, in world units: about the van's roof (50), brutes well over it. A little over
+        life size, so a walker down the road still reads as a target. */
+    walkerH(z) {
+      return z.r * 3.2;
     },
 
     /** Ground layers from the bottom of the screen to the far edge, each reaching twice as deep as the last. */
@@ -279,29 +290,58 @@
         ctx.stroke();
       }
     },
+    /** Does the wall from ground point a to b of a box around (cx, cy) face the camera? */
+    faces(a, b, cx, cy) {
+      const k = this.k;
+      const mx = (a[0] + b[0]) / 2;
+      const my = (a[1] + b[1]) / 2;
+      // the outward normal: away from the box's middle
+      let nx = b[1] - a[1];
+      let ny = a[0] - b[0];
+      if (nx * (mx - cx) + ny * (my - cy) < 0) {
+        nx = -nx;
+        ny = -ny;
+      }
+      return nx * (k.ox - k.Fx * k.b - mx) + ny * (k.oy - k.Fy * k.b - my) > 0;
+    },
     /** The walls of a box that face the camera; corners: 4 ground points in order around it. */
     boxSides(ctx, corners, z0, z1, faceFill, onFace) {
-      const k = this.k;
-      const camX = k.ox - k.Fx * k.b;
-      const camY = k.oy - k.Fy * k.b;
       const cx = corners.reduce((s, c) => s + c[0], 0) / 4;
       const cy = corners.reduce((s, c) => s + c[1], 0) / 4;
       for (let i = 0; i < 4; i++) {
         const a = corners[i];
         const b = corners[(i + 1) % 4];
-        const mx = (a[0] + b[0]) / 2;
-        const my = (a[1] + b[1]) / 2;
-        // the outward normal: away from the box's middle
-        let nx = b[1] - a[1];
-        let ny = a[0] - b[0];
-        if (nx * (mx - cx) + ny * (my - cy) < 0) {
-          nx = -nx;
-          ny = -ny;
-        }
-        if (nx * (camX - mx) + ny * (camY - my) <= 0) continue;
+        if (!this.faces(a, b, cx, cy)) continue;
         this.poly(ctx, [[a[0], a[1], z0], [b[0], b[1], z0], [b[0], b[1], z1], [a[0], a[1], z1]], faceFill(i), 3);
         if (onFace) onFace(i, a, b);
       }
+    },
+    /** A wall from ground point `left` to `right` (as seen from outside), z0 to z1, papered with textures laid
+        left to right ({ img, flip }), each in a few strips so the perspective holds. */
+    texWall(ctx, left, right, z0, z1, pieces) {
+      const S = 4;
+      const n = pieces.length;
+      const at = (t) => [left[0] + (right[0] - left[0]) * t, left[1] + (right[1] - left[1]) * t];
+      pieces.forEach((pc, i) => {
+        const W = pc.img.width;
+        const sw = W / S;
+        for (let j = 0; j < S; j++) {
+          const A = at((i + j / S) / n);
+          const B = at((i + (j + 1) / S) / n);
+          const tl = this.project(A[0], A[1], z1);
+          const tr = this.project(B[0], B[1], z1);
+          const bl = this.project(A[0], A[1], z0);
+          if (!tl || !tr || !bl) return;
+          ctx.save();
+          ctx.transform(tr.x - tl.x, tr.y - tl.y, bl.x - tl.x, bl.y - tl.y, tl.x, tl.y);
+          if (pc.flip) {
+            ctx.translate(1, 0);
+            ctx.scale(-1, 1);
+          }
+          ctx.drawImage(pc.img, pc.flip ? W - (j + 1) * sw : j * sw, 0, sw, pc.img.height, 0, 0, 1.04, 1);
+          ctx.restore();
+        }
+      });
     },
     /** An upright post facing the camera: half-width w0 at the foot, w1 at the top (world units). */
     column(ctx, x, y, z0, z1, w0, w1, fill, lw) {
@@ -360,40 +400,44 @@
       this.column(ctx, p.x, p.y, 0, 62, 4, 5, "#4a3a2c", 2);
       this.flat(ctx, p.x, p.y, 64, () => ZSR.Draw.prop(ctx, { kind: "tree", x: p.x, y: p.y, size: p.size, seed: p.seed }));
     },
-    /** A walker: shadow, body, and the top-down head and shoulders at head height. New ones fade in; one right
-        behind the van (between it and the camera) is see-through, so it never hides the van. */
+    /** A walker: the interiors' standing sprite on its feet, two walk frames at their pace and a lurch. New ones
+        fade in; one right behind the van (between it and the camera) is see-through, so it never hides the van. */
     walker(g, ctx, z) {
-      const r = z.r;
       let a = z.born == null ? 1 : clamp((g.time - z.born) / FADE_IN, 0, 1);
       const v = this.project(g.van.x, g.van.y, 0);
-      const q = this.project(z.x, z.y, 0);
-      if (v && q && q.Y < v.Y && Math.hypot(z.x - g.van.x, z.y - g.van.y) < 170) a *= 0.45;
-      if (a <= 0) return;
+      const foot = this.project(z.x, z.y, 0);
+      if (v && foot && foot.Y < v.Y && Math.hypot(z.x - g.van.x, z.y - g.van.y) < 170) a *= 0.45;
+      const H = this.walkerH(z);
+      const head = this.project(z.x, z.y, H);
+      if (a <= 0 || !foot || !head) return;
+      const hpx = Math.hypot(head.x - foot.x, foot.y - head.y);
+      const wpx = (H * 0.75 * (foot.s + head.s)) / 2;
+      const frame = Math.floor((g.time + z.phase) / ((0.35 * 55) / Math.max(20, z.speed))) % 2;
       ctx.save();
       ctx.globalAlpha *= a;
       this.flat(ctx, z.x, z.y, 0, () => {
-        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        ctx.fillStyle = "rgba(0,0,0,0.18)";
         ctx.beginPath();
-        ctx.ellipse(z.x, z.y, r * 1.05, r * 0.85, 0, 0, TAU);
+        ctx.ellipse(z.x, z.y, z.r * 0.95, z.r * 0.7, 0, 0, TAU);
         ctx.fill();
       });
-      this.column(ctx, z.x, z.y, 0, 30, r * 0.5, r * 0.8, z.hit > 0 ? "#ffffff" : BODY[z.type] || BODY.walker, 2.5);
-      this.flat(ctx, z.x, z.y, 32, () => ZSR.Draw.zombie(ctx, z, g.time));
+      ctx.translate(foot.x, foot.y);
+      // upright lines lean in toward the bottom of the screen; a sprite taking all of it looks to be falling over
+      ctx.rotate(0.4 * Math.atan2(head.x - foot.x, foot.y - head.y) + Math.sin(g.time * 2.4 + z.phase) * 0.05);
+      ctx.drawImage(ZSR.Draw3.walker(z.type, frame, z.hit > 0), -wpx / 2, -hpx, wpx, hpx);
       ctx.restore();
     },
-    /** The van as a box: its top-down art on the ground (shadow, wheels, plow), its walls, then on its roof. */
+    /** The van as a box in the yard van's own faces (cab and body down each side, the doors at the back, the nose
+        at the front), its top-down art on the roof, and the roof gun standing on that. */
     van(g, ctx) {
       const D = ZSR.Draw;
+      const T = (kind) => ZSR.Draw3.texture(kind, null, null, TEX_RES);
       const van = g.van;
       const u = ZSR.State.save.upgrades;
-      const looks = ZSR.Upgrades.PAINT_LOOKS;
-      const look = looks[Math.min(u.paint || 0, looks.length - 1)];
       const fx = Math.cos(van.heading);
       const fy = Math.sin(van.heading);
       // the van's own frame, as sprites.js draws it: x to its right, y toward its back
       const L = (lx, ly) => [van.x - fy * lx - fx * ly, van.y + fx * lx - fy * ly];
-      const aimW = van.aimW == null ? van.heading : van.aimW;
-      const opts = { upgrades: u, aim: aimW - van.heading - Math.PI / 2, t: g.time, hurt: van.hurt, flash: van.flash, scale: 1, moving: !(g.arrive && g.arrive.parked) };
       const at = (z, fn) => {
         const e = 4;
         const a = L(e, 0);
@@ -407,28 +451,71 @@
         fn();
         ctx.restore();
       };
-      at(0, () => D.van(ctx, 0, 0, opts));
-      const foot = [L(-33, -59), L(33, -59), L(33, 59), L(-33, 59)]; // front left, front right, back right, back left
-      const side = shade(look.body, -30);
-      this.boxSides(ctx, foot, 4, VAN_Z, (i) => (i === 2 ? shade(look.body, -45) : side), (i, a, b) => {
-        const lerp = (t, z) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, z];
-        if (i === 2) {
-          // the back doors: window, tail lights, bumper
-          this.poly(ctx, [lerp(0.18, 28), lerp(0.82, 28), lerp(0.82, 44), lerp(0.18, 44)], "#2b3540", 2);
-          this.poly(ctx, [lerp(0.04, 16), lerp(0.16, 16), lerp(0.16, 26), lerp(0.04, 26)], "#c0392b", 2);
-          this.poly(ctx, [lerp(0.84, 16), lerp(0.96, 16), lerp(0.96, 26), lerp(0.84, 26)], "#c0392b", 2);
-          this.poly(ctx, [lerp(0, 4), lerp(1, 4), lerp(1, 11), lerp(0, 11)], "#2f3136", 2);
-        } else if (i === 1 || i === 3) {
-          // side windows up by the cab
-          const t0 = i === 1 ? 0.06 : 0.62;
-          this.poly(ctx, [lerp(t0, 30), lerp(t0 + 0.3, 30), lerp(t0 + 0.3, 45), lerp(t0, 45)], "#2b3540", 2);
-        }
+      at(0, () => {
+        ctx.fillStyle = "rgba(0,0,0,0.3)";
+        D.rr(ctx, -30, -54, 72, 126, 10);
+        ctx.fill();
       });
+      const FL = L(-33, -59);
+      const FR = L(33, -59);
+      const BR = L(33, 59);
+      const BL = L(-33, 59);
+      // each wall as seen from outside, left to right: the nose is on the left of the yard van's side faces
+      const walls = [
+        [BL, BR, [{ img: T("vanBack") }]],
+        [FL, BL, [{ img: T("vanCab") }, { img: T("vanBody") }]],
+        [BR, FR, [{ img: T("vanBodyR"), flip: true }, { img: T("vanCab"), flip: true }]],
+        [FR, FL, [{ img: T("vanFront") }]],
+      ];
+      ctx.imageSmoothingQuality = "medium";
+      for (const [left, right, pieces] of walls) if (this.faces(left, right, van.x, van.y)) this.texWall(ctx, left, right, 0, VAN_Z, pieces);
+      const aimW = van.aimW == null ? van.heading : van.aimW;
       at(VAN_Z, () => {
         D.rr(ctx, -33, -59, 66, 118, 8);
         ctx.clip();
-        D.van(ctx, 0, 0, opts);
+        D.van(ctx, 0, 0, { upgrades: u, aim: aimW - van.heading - Math.PI / 2, t: g.time, hurt: van.hurt, flash: van.flash, scale: 1, moving: !(g.arrive && g.arrive.parked), gun: false });
       });
+      this.gun(g, ctx);
+    },
+    /** The roof gun standing on the van: a ring and a post, then the barrels (one more per Spread Shot, longer with
+        Heavier Rounds) along the aim and tipped down toward it, a flash at their tips as it fires. */
+    gun(g, ctx) {
+      const D = ZSR.Draw;
+      const van = g.van;
+      const u = ZSR.State.save.upgrades;
+      const mx = van.x - Math.cos(van.heading) * van.h * 0.1;
+      const my = van.y - Math.sin(van.heading) * van.h * 0.1;
+      this.flat(ctx, mx, my, VAN_Z, () => D.circle(ctx, mx, my, 13, "#2f3136", 3));
+      this.column(ctx, mx, my, VAN_Z, GUN_Z, 5, 5, "#3a3d42", 2);
+      const p0 = this.project(mx, my, GUN_Z);
+      if (!p0) return;
+      const aim = van.aimW == null ? van.heading : van.aimW;
+      const dz = van.aimDz || 0;
+      const n = 1 + (u.spread || 0);
+      const len = 26 + (u.damage || 0) * 3;
+      const w = 5.5 * p0.s;
+      const breech = () => D.circle(ctx, p0.x, p0.y, 7.5 * p0.s, "#2f3136", 2.5);
+      // aimed back toward the camera, the barrels are in front of the breech
+      const back = Math.cos(aim) * this.k.Fx + Math.sin(aim) * this.k.Fy < 0;
+      if (back) breech();
+      ctx.lineCap = "round";
+      const tips = [];
+      for (let i = 0; i < n; i++) {
+        const a = aim + (i - (n - 1) / 2) * ZSR.Upgrades.SPREAD;
+        const p1 = this.project(mx + Math.cos(a) * len, my + Math.sin(a) * len, GUN_Z + dz * len);
+        if (!p1) continue;
+        [[w + 3.5, INK], [w, "#4b5057"], [w * 0.3, "rgba(255,255,255,0.28)"]].forEach(([lw, c]) => {
+          ctx.strokeStyle = c;
+          ctx.lineWidth = lw;
+          ctx.beginPath();
+          ctx.moveTo(p0.x, p0.y);
+          ctx.lineTo(p1.x, p1.y);
+          ctx.stroke();
+        });
+        tips.push(p1);
+      }
+      if (!back) breech();
+      if (van.flash > 0) for (const t of tips) D.circle(ctx, t.x, t.y, 8 * t.s, "#ffd25a", 2);
     },
 
     /** The whole world for one frame (game.js draw): ground, standing things far to near, then shots in the air. */
@@ -456,8 +543,9 @@
         const q = this.project(g.van.x, g.van.y, 0);
         if (q) items.push({ d: q.d, draw: () => this.van(g, ctx) });
       }
+      ctx.imageSmoothingQuality = "medium"; // the walkers' sprites are drawn well down from their size
       items.sort((a, b) => b.d - a.d).forEach((it) => it.draw());
-      for (const b of g.bullets) this.flat(ctx, b.x, b.y, GUN_Z, () => ZSR.Draw.bullet(ctx, b));
+      for (const b of g.bullets) this.flat(ctx, b.x, b.y, b.z == null ? AIM_Z : b.z, () => ZSR.Draw.bullet(ctx, b));
       this.pace(performance.now() - t0);
     },
     /** Slow frames (a computer without a graphics card) get softer ground layers; a check every 30 frames. */
@@ -483,7 +571,7 @@
     drawOverSign(g, ctx, rects) {
       this.setup(g);
       const hit = g.zombies.filter((z) => {
-        const p = this.project(z.x, z.y, 20);
+        const p = this.project(z.x, z.y, this.walkerH(z) / 2);
         const m = p ? z.r * 1.6 * p.s : 0;
         return p && rects.some((r) => p.x > r.x - m && p.x < r.x + r.w + m && p.y > r.y - m && p.y < r.y + r.h + m);
       });

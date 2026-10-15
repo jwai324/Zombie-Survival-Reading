@@ -262,20 +262,24 @@ for (const deg of [0, 45, 90, 135, 180, 225, 270, 315]) {
   // the pointer around the gun as the screen shows it, on the roof
   P.setup(G);
   const m = P.project(G.van.x - Math.cos(G.van.heading) * G.van.h * 0.1, G.van.y - Math.sin(G.van.heading) * G.van.h * 0.1, P.GUN_Z);
+  if (!m) err("persp gun", "the gun is behind the camera");
   const a = (deg * Math.PI) / 180;
   Object.assign(G.pointer, { x: m.x + Math.cos(a) * 220, y: m.y + Math.sin(a) * 220, seen: true, down: true });
   G.van.cooldown = 0;
   G.update(1 / 60);
   G.pointer.down = false;
   const b = G.bullets[G.bullets.length - 1];
-  const at = () => (P.setup(G), P.project(b.x, b.y, P.GUN_Z));
+  // a shot drops from the barrels toward chest height under the pointer: seen at its own height, it flies
+  // straight at the pointer until it levels off near the ground
+  if (b.z == null || !(b.dz < 0)) err("persp gun", "a shot on the angled camera has no height or does not drop");
+  const at = () => (P.setup(G), P.project(b.x, b.y, b.z));
   const from = at();
   const ux = G.pointer.x - from.x;
   const uy = G.pointer.y - from.y;
   const len = Math.hypot(ux, uy);
   for (let i = 0; i < 12; i++) {
     G.update(1 / 60);
-    if (!G.bullets.includes(b)) break;
+    if (!G.bullets.includes(b) || b.z <= 6) break;
     const p = at();
     if (p) worstPersp = Math.max(worstPersp, Math.abs(((p.x - from.x) * uy - (p.y - from.y) * ux) / len));
   }

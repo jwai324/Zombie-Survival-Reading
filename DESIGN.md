@@ -339,10 +339,15 @@ won; the reading expansion was moved into them.
   screen), so they reach the van as soon as they did; the angled camera sees farther, so they fade in.
   **Assumption:** half a second.
 - **A walker right behind the van is see-through,** so it never hides the van.
-- **Aim.** A shot flies to what is under the pointer at the gun's height (`Persp.GUN_Z`), so on the
-  screen it goes straight at the pointer. **Bug fixed on the way:** a new shot took a frame of the van's
-  speed after the camera had moved, so it flew a few pixels ahead of the pointer's line on every drive.
-- **The art is still drawn from above.** Walkers and trees are their top-down drawings stood up on a
-  body or a trunk. Real side-on art is the big cost of keeping this camera.
+- **Aim.** A shot leaves the roof gun's barrels and drops to chest height where the pointer is
+  (`Persp.AIM_Z`), so on the screen it goes straight at the pointer; hitting stays as on the flat road.
+  **Bug fixed on the way:** a new shot took a frame of the van's speed after the camera had moved, so it
+  flew a few pixels ahead of the pointer's line on every drive.
+- **Walkers and the van stand up in the art the game already has.** Walkers are the interiors' standing
+  sprites (two walk frames, the hit flash), a little over life size so one down the road still reads as a
+  target. The van's walls are the yard van's faces (cab, body with its door and number, the back doors,
+  armor, rack and paint from the upgrades), its roof the road's top-down art, and the roof gun stands on it
+  (more barrels with Spread Shot, longer with Heavier Rounds) and turns and tips toward the aim.
+  Trees are still their top-down drawings on a trunk.
 - **Speed.** It draws more than the flat road. On a slow computer (no graphics card) the ground layers
   soften themselves to keep the frame rate up.

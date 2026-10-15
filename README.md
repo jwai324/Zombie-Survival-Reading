@@ -161,7 +161,8 @@ js/landmarks2.js        landmark art: precinct, school, fire station, hospital, 
 js/yardart.js           yard art: every plot at every level, fence by Walls level
 js/game.js              the road: world-space drive, lanes, signs, turns, wrong-way restarts, minimap
 js/perspective.js       a test of an angled road camera (Home Base to Corner Grocery only): the ground warped
-                        down the road, buildings, walkers and the van standing up, the roof gun's aim
+                        down the road, buildings, the interiors' walkers and the yard van's faces standing up,
+                        the roof gun on the van and its aim
 js/map.js               the city map, street names, side streets, "The way there"
 js/base.js              the build menu at the cabin's computer (rooms, garage, weapons, traps, house, stock, repairs, hover tips)
 js/typing.js            the workbench typing game (finger lesson, stages, countdown, timer, retry, practice)
