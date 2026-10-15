@@ -2068,9 +2068,12 @@ try {
    building, the yard and the cabin without a throw; each walker's canvas is reused (none made while walkers come
    closer) and let go with the scene; a walker behind a wall is never drawn; nothing stands taller than the ceiling
    (indoors and in the cabin); the pose and its ease; a downed walker falls and fades; a live picture never goes
-   through Draw3.dim or dimOwn; a still walker is drawn once; the redraws a frame stay under the cap without leaving
-   anyone out, and the near ones draw every frame at every governor level; the governor steps down in the order the
-   spec gives and back up; the health bar sits over the head; the blood is drawn only with SETTINGS.walkerGore. */
+   through Draw3.dim or dimOwn; a still walker (and a body lying still) is drawn once; the redraws a frame stay under
+   the cap without leaving anyone out, also the frame the governor goes back to sharper pictures; the near ones draw
+   every frame at every governor level, bodies at your feet take no near place, two at the edge of the near ones do
+   not swap detail as they jostle, and a hit flashes at once on anyone; the governor starts on the defaults, steps
+   down in the order the spec gives, climbs to richer rows when fast, and waits longer each time before climbing back
+   to a row it could not hold; the health bar sits over the head; the blood is drawn only with SETTINGS.walkerGore. */
 let liveChecked = 0;
 try {
   const WT = W.WALKER_TYPES;
@@ -2100,7 +2103,7 @@ try {
   };
   try {
     W3.draw = function (g, type, st, cam) {
-      draws.push({ type, seed: st.seed, lod: st.lod, pose: st.pose, poseT: st.poseT, poseW: st.poseW, fall: st.fall, fallDir: st.fallDir, fog: st.fog, yaw: st.yaw, w: cam.w, h: cam.h, px: cam.px, dist: cam.dist, eye: cam.eye, frame: I.frameNo });
+      draws.push({ type, seed: st.seed, lod: st.lod, pose: st.pose, poseT: st.poseT, poseW: st.poseW, hit: st.hit, fall: st.fall, fallDir: st.fallDir, fog: st.fog, yaw: st.yaw, w: cam.w, h: cam.h, px: cam.px, dist: cam.dist, eye: cam.eye, frame: I.frameNo });
       return drawWas.call(this, g, type, st, cam);
     };
     sb.document.createElement = function (tag) {
@@ -2406,6 +2409,20 @@ try {
         if (d) ok(Math.abs(d.fall - Math.min(1, t / W3.COLLAPSE_SECS)) < 1e-9 && Math.abs(Math.atan2(Math.sin(d.fallDir), Math.cos(d.fallDir)) - Math.atan2(Math.sin(z.fallDir - z.heading), Math.cos(z.fallDir - z.heading))) < 1e-9, `a downed walker at ${t.toFixed(2)} s is drawn at fall ${d.fall}, direction ${d.fallDir}`);
       });
       ok(draws.length <= 1, "a settled, fading walker is drawn again every frame");
+      // one that stood idle and awake when it fell (it breathed): its picture holds still once it lies there
+      clear();
+      const y = put("walker", 27.5, 28.5, { seed: 2501, heading: Math.PI / 2, act: "idle", pose: "idle", poseW: 1 });
+      I.hurtWalker(y, 1e6, p);
+      I.update(0.05);
+      Object.assign(y, { fallT: W3.COLLAPSE_SECS + 0.05, hit: 0 });
+      frame();
+      draws = [];
+      for (let f = 0; f < 8; f++) {
+        I.time += 0.1; // as the scene's clock and the fall's run on
+        y.fallT += 0.1;
+        frame();
+      }
+      ok(!draws.some((d) => d.seed === 2501), `a downed walker that fell idle was drawn ${draws.filter((d) => d.seed === 2501).length} times more as it lay still (its breathing kept going)`);
     }
     // blood: cached sprites only with SETTINGS.walkerGore (Draw3's bloodDrop / bloodSplat; fog through D.dim is fine)
     {
@@ -2448,8 +2465,10 @@ try {
       for (let lvl = 0; lvl < I.LIVE_LEVELS.length; lvl++) {
         I.setLiveLevel(lvl);
         const L = I.LIVE_LEVELS[lvl];
-        step(); // a new level may resize pictures: one frame to settle
-        step();
+        if (!lvl) {
+          step(); // every picture new: the first frame draws them all
+          step();
+        } // (a new row changes no one's size on screen: its first frame stays under its cap too)
         draws = [];
         const perFrame = [];
         const F = 24;
@@ -2472,9 +2491,21 @@ try {
           return fr.some((v, i) => i && v - fr[i - 1] < L.far);
         });
         ok(!tooOften.length, `governor level ${lvl}: ${tooOften.length} far walkers drawn more often than every ${L.far} frames (${JSON.stringify(tooOften.slice(0, 2).map((z) => [z.seed, draws.filter((d) => d.seed === z.seed).map((d) => d.frame + ":" + d.lod + ":" + d.h)]))})`);
-        ok(!draws.some((d) => d.h > Math.ceil(I.LIVE_MAX_PX * L.scale) + 1), `governor level ${lvl}: a picture taller than ${I.LIVE_MAX_PX} x ${L.scale}`);
+        ok(!draws.some((d) => d.h > Math.ceil(L.maxPx * L.scale) + 1), `governor level ${lvl}: a picture taller than ${L.maxPx} x ${L.scale}`);
       }
-      I.setLiveLevel(0);
+      // stepping back up to full resolution (and to bigger pictures) is no burst of redraws: the sharper pictures
+      // take their turns, under the cap
+      // (canvases new at the low resolution, so many are too small for the sharper pictures: they grow on their turn)
+      [I.LIVE_START, 0].forEach((lvl) => {
+        I.setLiveLevel(I.LIVE_LEVELS.length - 1);
+        I.liveRelease();
+        for (let f = 0; f < 6; f++) step();
+        I.setLiveLevel(lvl);
+        draws = [];
+        step();
+        ok(draws.length <= I.LIVE_LEVELS[lvl].max, `back up to governor level ${lvl} (from a lower resolution): ${draws.length} redraws in its first frame (cap ${I.LIVE_LEVELS[lvl].max})`);
+      });
+      I.setLiveLevel(I.LIVE_START);
       // five in full-detail range: the liveNear nearest draw every frame in full detail, the others take turns at
       // lod 1 at most
       clear();
@@ -2491,50 +2522,162 @@ try {
         if (i < I.liveNear) ok(mine.length === 12 && mine.every((d) => d.lod === 0), `the ${i + 1}th nearest walker (of ${I.liveNear} near) was drawn ${mine.length} times in 12 frames, lods ${[...new Set(mine.map((d) => d.lod))]}`);
         else ok(mine.length >= 2 && mine.length <= 6 && mine.every((d) => d.lod >= 1), `the ${i + 1}th nearest walker (past the ${I.liveNear} near ones) was drawn ${mine.length} times in 12 frames, lods ${[...new Set(mine.map((d) => d.lod))]} (want turns, lod 1 at most)`);
       });
+      // a hit on one taking turns shows at once, and so does the end of its flash (not on its next turn)
+      {
+        const z = five[five.length - 1];
+        let f = 0;
+        for (draws = []; f < 6 && !draws.some((d) => d.seed === z.seed && d.frame === I.frameNo); f++) step5();
+        z.hit = 0.12;
+        draws = [];
+        step5();
+        ok(draws.some((d) => d.seed === z.seed && d.hit === 1), `a walker taking turns, just drawn and then hit, did not flash in the next frame (${JSON.stringify(draws.filter((d) => d.seed === z.seed))})`);
+        z.hit = 0;
+        draws = [];
+        step5();
+        ok(draws.some((d) => d.seed === z.seed && d.hit === 0), "a walker taking turns kept its hit flash past the hit");
+      }
+      // bodies at your feet take no near place: two settled ones nearer than three walkers leave all three drawn every
+      // frame in full detail (and are not drawn again while they lie still)
+      {
+        clear();
+        const three = [1.1, 1.2, 1.3].map((d, i) => put(kinds[i % kinds.length], 27.5 + (i % 2 ? 0.4 : -0.4), 30.5 - d, { seed: 3300 + i, move: 1 }));
+        const bodies = [0.75, 0.85].map((d, i) => {
+          const z = I.makeWalker(kinds[(i + 1) % kinds.length], 27.5 + (i ? 0.3 : -0.3), 30.5 - d, 1);
+          z.seed = 3310 + i;
+          I.downWalker(z);
+          z.fallT = W3.COLLAPSE_SECS + 0.1;
+          return z;
+        });
+        const step3 = () => {
+          three.forEach((z) => (z.gait = (z.gait + 0.047) % 1));
+          frame();
+        };
+        step3();
+        draws = [];
+        for (let f = 0; f < 12; f++) step3();
+        three.forEach((z) => {
+          const mine = draws.filter((d) => d.seed === z.seed);
+          ok(mine.length === 12 && mine.every((d) => d.lod === 0), `with two bodies nearer, a walker ${(30.5 - z.y).toFixed(1)} tiles off was drawn ${mine.length} times in 12 frames, lods ${[...new Set(mine.map((d) => d.lod))]} (want every frame at lod 0)`);
+        });
+        ok(!draws.some((d) => bodies.some((b) => b.seed === d.seed)), "settled bodies lying still were drawn again");
+        // one still collapsing does take a place (it moves every frame): the farthest of the three takes turns
+        bodies[0].fallT = 0.1;
+        step3();
+        draws = [];
+        for (let f = 0; f < 12; f++) {
+          bodies[0].fallT += 0.05;
+          step3();
+        }
+        const falls = draws.filter((d) => d.seed === bodies[0].seed);
+        const last = draws.filter((d) => d.seed === three[2].seed);
+        ok(falls.length === 12 && falls.every((d) => d.lod === 0), `a body collapsing at your feet was drawn ${falls.length} times in 12 frames (want every frame, full detail)`);
+        ok(last.length < 12 && last.every((d) => d.lod >= 1), `with a body collapsing nearer, the third walker was still drawn ${last.length} times in 12 frames (want turns)`);
+        // settled, it gives its place back but keeps its full detail (no pop as it lands)
+        bodies[0].fallT = W3.COLLAPSE_SECS + 0.05;
+        draws = [];
+        for (let f = 0; f < 6; f++) step3();
+        const landed = draws.filter((d) => d.seed === bodies[0].seed);
+        ok(landed.length >= 1 && landed.every((d) => d.lod === 0), `a body that landed at your feet was drawn at lods ${JSON.stringify(landed.map((d) => d.lod))} (want its full detail kept)`);
+        ok(draws.filter((d) => d.seed === three[2].seed && d.lod === 0).length >= 5, "a body that landed did not give its near place back");
+      }
+      // two at about the same depth at the edge of the near ones keep their places: no detail flicker as they jostle;
+      // one clearly nearer does take the place
+      {
+        clear();
+        const a = put("walker", 27.1, 30.5 - 1.0, { seed: 3400, move: 1 });
+        const b = put("runner", 27.9, 30.5 - 1.1, { seed: 3401, move: 1 });
+        const c = put("lanky", 27.0, 30.5 - 1.25, { seed: 3402, move: 1 });
+        const d = put("screamer", 28.0, 30.5 - 1.26, { seed: 3403, move: 1 });
+        const stepJ = (f) => {
+          [a, b, c, d].forEach((z) => (z.gait = (z.gait + 0.047) % 1));
+          d.y = 30.5 - (f % 2 ? 1.24 : 1.26); // nearer than c every other frame, by a hair
+          frame();
+        };
+        stepJ(0);
+        draws = [];
+        for (let f = 1; f <= 12; f++) stepJ(f);
+        const lodsOf = (z) => [...new Set(draws.filter((x) => x.seed === z.seed).map((x) => x.lod))];
+        ok(draws.filter((x) => x.seed === c.seed).length === 12 && lodsOf(c).join() === "0", `a near walker swapped out by one a hair nearer: drawn ${draws.filter((x) => x.seed === c.seed).length} times, lods ${lodsOf(c)}`);
+        ok(!lodsOf(d).includes(0), `a walker a hair nearer every other frame took the near place: lods ${lodsOf(d)}`);
+        d.y = 30.5 - 1.05;
+        frame();
+        draws = [];
+        for (let f = 0; f < 6; f++) {
+          [a, b, c, d].forEach((z) => (z.gait = (z.gait + 0.047) % 1));
+          frame();
+        }
+        ok(draws.filter((x) => x.seed === d.seed && x.lod === 0).length === 6 && !lodsOf(c).includes(0), `a walker clearly nearer did not take the near place (${lodsOf(d)} / ${lodsOf(c)})`);
+      }
     }
-    // the governor: slow frames step it down a row at a time, in the spec's order (far ones less often, fewer
-    // redraws, a lower resolution, less detail), never below the last row; fast frames step it back up to the first
+    // the governor: it starts on the defaults (LIVE_START); slow frames step it down a row at a time, in the spec's
+    // order (far ones less often, fewer redraws, a lower resolution, less detail), never below the last row; fast
+    // frames step it back up, past the defaults to the richest row (the first design's settings) on a fast machine;
+    // a row it could not hold takes twice as long to climb back to each time, up to GOV_BACKOFF x
     {
       const was = [I.planeRes, I.renderN, I.renderMs, I.frameMs];
+      const fresh = () => {
+        I.renderN = 0;
+        I.renderMs = null;
+        I.frameMs = null;
+        I.liveLevel = null;
+        I.liveUpWait = null;
+      };
       I.planeRes = 3; // (the floor's own step is checked above)
-      I.renderN = 0;
-      I.renderMs = null;
-      I.frameMs = null;
-      I.setLiveLevel(0);
+      fresh();
+      I.adaptQuality(5, 16);
+      ok(I.liveLevel === I.LIVE_START, `a fresh governor starts on row ${I.liveLevel}, not the defaults (${I.LIVE_START})`);
       const rows = I.LIVE_LEVELS;
-      const changed = (a, b) => ["far", "max", "scale", "lodPx"].filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
-      const order = [];
-      for (let i = 1; i < rows.length; i++) order.push(changed(rows[i - 1], rows[i]));
-      const flat = order.map((c) => c.join("+"));
-      ok(JSON.stringify(flat) === JSON.stringify(["far", "max", "max", "scale", "lodPx"]), `the governor's rows step ${JSON.stringify(flat)}, not far, max, max, scale, lodPx`);
-      ok(rows[0].far === I.FAR_EVERY && rows[0].max === I.LIVE_RENDERS_MAX && rows[0].scale === 1 && rows[0].lodPx === I.LOD_PX, "the governor's first row is not the defaults");
-      ok(rows.every((r, i) => !i || (r.far >= rows[i - 1].far && r.max <= rows[i - 1].max && r.scale <= rows[i - 1].scale && r.lodPx[0] >= rows[i - 1].lodPx[0])), "a governor row is not cheaper than the one before it");
-      const levels = [];
+      const S0 = I.LIVE_START;
+      const keys = ["near", "farLod", "far", "max", "maxPx", "scale", "lodPx"];
+      const changed = (a, b) => keys.filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+      const flat = [];
+      for (let i = S0 + 1; i < rows.length; i++) flat.push(changed(rows[i - 1], rows[i]).join("+"));
+      ok(JSON.stringify(flat) === JSON.stringify(["far", "max", "max", "scale", "lodPx"]), `below the defaults the governor's rows step ${JSON.stringify(flat)}, not far, max, max, scale, lodPx`);
+      const R = rows[S0];
+      ok(R.near === I.LIVE_NEAR && R.farLod === I.FAR_LOD && R.far === I.FAR_EVERY && R.max === I.LIVE_RENDERS_MAX && R.maxPx === I.LIVE_MAX_PX && R.scale === 1 && R.lodPx === I.LOD_PX, "the governor's starting row is not the defaults");
+      ok(S0 > 0 && rows[0].max >= 24 && rows[0].maxPx >= 400 && rows[0].farLod === 0 && rows[0].far <= I.FAR_EVERY && rows[0].near > I.LIVE_NEAR, `the governor's richest row is not the first design's settings (24 redraws, 400 px, full detail): ${JSON.stringify(rows[0])}`);
+      const cheaper = (r, q) => r.near <= q.near && r.farLod >= q.farLod && r.far >= q.far && r.max <= q.max && r.maxPx <= q.maxPx && r.scale <= q.scale && r.lodPx[0] >= q.lodPx[0] && changed(r, q).length > 0;
+      ok(rows.every((r, i) => !i || cheaper(r, rows[i - 1])), "a governor row is not cheaper than the one before it");
+      ok(rows.every((r) => r.near >= 1 && r.max > r.near), "a governor row draws no near walkers every frame, or leaves no room past them");
+      // slow: down from the defaults to the last row, a row at a time
+      const levels = [I.liveLevel];
       let n = 0;
       for (; n < 4000 && I.liveLevel < rows.length - 1; n++) {
         I.adaptQuality(40, 60);
         if (levels[levels.length - 1] !== I.liveLevel) levels.push(I.liveLevel);
       }
-      ok(JSON.stringify(levels) === JSON.stringify(rows.map((r, i) => i)), `slow frames stepped the governor through ${JSON.stringify(levels)}`);
-      ok(n <= I.QUALITY_WAIT + I.GOV_WAIT * (rows.length - 1) + 2, `the governor took ${n} slow frames to reach its last row`);
-      ok(I.liveFar === rows[rows.length - 1].far && I.liveMax === rows[rows.length - 1].max && I.liveScale === rows[rows.length - 1].scale && I.liveLodPx === rows[rows.length - 1].lodPx, "the last row's settings are not in place");
+      ok(JSON.stringify(levels) === JSON.stringify(rows.map((r, i) => i).slice(S0)), `slow frames stepped the governor through ${JSON.stringify(levels)}`);
+      ok(n <= I.QUALITY_WAIT + I.GOV_WAIT * (rows.length - 1 - S0) + 2, `the governor took ${n} slow frames to reach its last row`);
+      const L = rows[rows.length - 1];
+      ok(I.liveNear === L.near && I.liveFarLod === L.farLod && I.liveFar === L.far && I.liveMax === L.max && I.liveMaxPx === L.maxPx && I.liveScale === L.scale && I.liveLodPx === L.lodPx, "the last row's settings are not in place");
       for (let i = 0; i < 500; i++) I.adaptQuality(40, 60);
       ok(I.liveLevel === rows.length - 1, "still slow, the governor left its last row");
-      // a frame or two fast in a slow run does not step it up; staying fast does, one row at a time
+      // a frame or two fast in a slow run does not step it up; staying fast does, one row at a time, to the top
       I.adaptQuality(1, 16);
       ok(I.liveLevel === rows.length - 1, "one fast frame stepped the governor up");
       const up = [I.liveLevel];
-      for (let i = 0; i < 6000 && I.liveLevel > 0; i++) {
+      for (let i = 0; i < 20000 && I.liveLevel > 0; i++) {
         I.adaptQuality(2, 16);
         if (up[up.length - 1] !== I.liveLevel) up.push(I.liveLevel);
       }
       ok(JSON.stringify(up) === JSON.stringify(rows.map((r, i) => i).reverse()), `fast frames stepped the governor up through ${JSON.stringify(up)}`);
-      ok(I.liveFar === I.FAR_EVERY && I.liveMax === I.LIVE_RENDERS_MAX && I.liveScale === 1, "back on its first row, the governor's settings are not the defaults");
+      ok(I.liveNear === rows[0].near && I.liveFarLod === rows[0].farLod && I.liveMax === rows[0].max && I.liveMaxPx === rows[0].maxPx && I.liveScale === 1, "on its richest row, the governor's settings are not that row's");
+      // too slow up there: it steps back down; each time it climbs back to a row it had to leave, it waits longer
+      const climbs = [];
+      for (let k = 0; k < 5; k++) {
+        for (let i = 0; i < 1000 && I.liveLevel === 0; i++) I.adaptQuality(40, 60);
+        let m = 0;
+        for (; m < 20000 && I.liveLevel > 0; m++) I.adaptQuality(2, 16);
+        climbs.push(m);
+      }
+      const smooth = 200; // fast frames before the smoothed times are fast again
+      ok(climbs.every((m, k) => m >= Math.min(I.GOV_BACKOFF, 2 ** (k + 1)) * I.GOV_WAIT_UP && m <= Math.min(I.GOV_BACKOFF, 2 ** (k + 1)) * I.GOV_WAIT_UP + smooth), `climbing back to a row it had to leave took ${JSON.stringify(climbs)} fast frames (want ${I.GOV_WAIT_UP} x 2, 4, 8 ... up to ${I.GOV_BACKOFF})`);
       // in between (neither slow nor fast) it holds
-      I.setLiveLevel(2);
+      I.setLiveLevel(S0 + 2);
       for (let i = 0; i < 1000; i++) I.adaptQuality(10, 20);
-      ok(I.liveLevel === 2, `frames neither slow nor fast moved the governor (${I.liveLevel})`);
-      I.setLiveLevel(0);
+      ok(I.liveLevel === S0 + 2, `frames neither slow nor fast moved the governor (${I.liveLevel})`);
+      fresh();
+      I.setLiveLevel(S0);
       [I.planeRes, I.renderN, I.renderMs, I.frameMs] = was;
       I.sizePlane();
     }
@@ -2569,7 +2712,8 @@ try {
     I.dimOwn = dimOwnWas;
     I.ctx.fillRect = fillWas;
     W.SETTINGS.walkerGore = goreWas;
-    I.setLiveLevel(0);
+    I.liveUpWait = null;
+    I.setLiveLevel(I.LIVE_START);
     ctxMath.random = realRandom;
     I.walkers.length = 0;
     I.fallen.length = 0;

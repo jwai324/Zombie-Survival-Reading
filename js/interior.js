@@ -28,7 +28,7 @@
    Walkers (their kinds and stats: WORLD.WALKER_TYPES): stepWalker decides what one does each frame and animWalker
    turns that into how it looks (heading, gait, pose timers) for the walker art (js/walker3d.js draws each one live
    into a pooled canvas when it looks different: walkerSprite, liveRenderAll; adaptQuality's governor trims how often
-   far ones redraw when frames run slow); a screamer's scream speeds up the
+   far ones redraw when frames run slow, and draws more when they run fast); a screamer's scream speeds up the
    awake walkers near it (WORLD.SCREAM); a killed walker leaves `walkers` at once for `fallen` (collapsing, then
    gone after FALL_SECS), and `blood` holds a hit's spray (only with SETTINGS.walkerGore).
    Everything reads and writes the trip through ZSR.State. */
@@ -68,36 +68,48 @@
   // looks different, then goes up like any sprite (clipped by walls, sorted, fogged in its own colours)
   const CEIL_CAP = 0.98; // tiles: under a ceiling (and inside the cabin) nothing drawn stands taller; it shrinks to fit
   const LIVE_MAX_PX = 320; // SCALE: tallest live render, px; a nearer walker's picture is scaled up (cost grows with pixels)
-  const LIVE_STEP = 32; // px: a live canvas grows and shrinks in steps of this
+  const LIVE_STEP = 32; // SCALE: px a live canvas grows and shrinks in steps of (coarser: fewer resizes, more memory per walker)
   const LIVE_SPARE = 8; // SCALE: spare live canvases kept for the next walkers (the rest are let go)
   const LIVE_IDLE = 60; // frames a walker's canvas is kept while it is not drawn (behind you, behind a wall)
   const LIVE_SHRINK = 30; // renders in a row at under half its canvas before the canvas is made smaller
   const LOD_PX = [160, 64]; // SCALE: on-screen height (px) for detail lod 0 / lod 1; shorter: lod 2
+  // the governor's first row (LIVE_START, below), the one the perf A/B measured; a fast machine climbs to richer rows
   const LIVE_NEAR = 3; // SCALE: the nearest this many lod-0 walkers draw every frame they change; the rest take turns
+  const NEAR_STICK = 0.95; // a walker near last frame counts as this much nearer when the near ones are picked (no swaps)
   const FAR_LOD = 1; // the most detail a walker taking turns is drawn with (full detail is for the near ones)
   const FAR_EVERY = 2; // SCALE: every other walker draws again only every Nth frame (1 = every frame)
   const LIVE_RENDERS_MAX = 10; // SCALE: live redraws a frame (the near ones count, and go first); the rest keep their picture
   const LIVE_SCALE_LOW = 0.7; // the governor's resolution step: live pictures at 70% (drawn up unsmoothed)
   const POSE_BLEND = 0.15; // seconds into (and out of) a pose (Walker3D.POSE_BLEND when loaded)
   // the frame-time governor (adaptQuality): slow = the smoothed render over QUALITY_RENDER_MS or frames slower than
-  // QUALITY_FRAME_MS; each LIVE_LEVELS row is a whole setting, cheapest change first; it steps down one row when slow
-  // for GOV_WAIT frames and back up when fast (under GOV_FAST x both) for GOV_WAIT_UP frames. Near walkers (lod 0,
-  // the LIVE_NEAR nearest) draw every frame they change at every level.
+  // QUALITY_FRAME_MS; each LIVE_LEVELS row is a whole setting, richest first. It starts on LIVE_START (the defaults
+  // above), steps down one row when slow for GOV_WAIT frames and up one when fast (under GOV_FAST x both) for
+  // GOV_WAIT_UP frames; a row it had to leave takes twice as long to climb back to each time (up to GOV_BACKOFF x),
+  // so a machine on the edge does not see-saw. Near walkers (lod 0, the liveNear nearest) draw every frame they change
+  // at every row.
   const QUALITY_RENDER_MS = 12;
   const QUALITY_FRAME_MS = 24;
   const QUALITY_WAIT = 180; // frames before the first quality step (the floor's, then the governor's)
   const GOV_WAIT = 120;
   const GOV_WAIT_UP = 300;
   const GOV_FAST = 0.75;
-  // SCALE: the governor's steps; more walkers on screen may need another row (fewer redraws, lower LOD_PX)
+  const GOV_BACKOFF = 8;
+  const LIVE_DEFAULT = { near: LIVE_NEAR, farLod: FAR_LOD, far: FAR_EVERY, max: LIVE_RENDERS_MAX, maxPx: LIVE_MAX_PX, scale: 1, lodPx: LOD_PX };
+  // SCALE: the governor's rows; more walkers on screen may need another row below (fewer redraws, lower LOD_PX), a
+  // faster target machine another above. Above the defaults, for a machine that stays fast: richer, up to the first
+  // design's settings (24 redraws a frame, 400 px pictures, full detail for every walker big enough). Below: cheaper,
+  // the cheapest change first
   const LIVE_LEVELS = [
-    { far: FAR_EVERY, max: LIVE_RENDERS_MAX, scale: 1, lodPx: LOD_PX },
-    { far: 3, max: LIVE_RENDERS_MAX, scale: 1, lodPx: LOD_PX },
-    { far: 3, max: 8, scale: 1, lodPx: LOD_PX },
-    { far: 3, max: 6, scale: 1, lodPx: LOD_PX },
-    { far: 3, max: 6, scale: LIVE_SCALE_LOW, lodPx: LOD_PX },
-    { far: 3, max: 6, scale: LIVE_SCALE_LOW, lodPx: [224, 96] },
+    { near: 6, farLod: 0, far: FAR_EVERY, max: 24, maxPx: 400, scale: 1, lodPx: LOD_PX },
+    { near: 4, farLod: FAR_LOD, far: FAR_EVERY, max: 16, maxPx: 400, scale: 1, lodPx: LOD_PX },
+    LIVE_DEFAULT,
+    Object.assign({}, LIVE_DEFAULT, { far: 3 }),
+    Object.assign({}, LIVE_DEFAULT, { far: 3, max: 8 }),
+    Object.assign({}, LIVE_DEFAULT, { far: 3, max: 6 }),
+    Object.assign({}, LIVE_DEFAULT, { far: 3, max: 6, scale: LIVE_SCALE_LOW }),
+    Object.assign({}, LIVE_DEFAULT, { far: 3, max: 6, scale: LIVE_SCALE_LOW, lodPx: [224, 96] }),
   ];
+  const LIVE_START = LIVE_LEVELS.indexOf(LIVE_DEFAULT);
   // what Walker3D gets (one object each, refilled per draw: nothing is made per walker per frame)
   const LIVE_ST = { yaw: 0, gait: 0, move: 0, pose: "idle", poseT: 0, poseW: 1, claw: 0, hit: 0, fall: 0, fallDir: Math.PI, seed: 0, lod: 0, fog: 0, gore: true };
   const LIVE_CAM = { w: 0, h: 0, px: 0, dist: 1, eye: 0.5 };
@@ -915,33 +927,40 @@
       }
       this.governLive(slow);
     },
-    /** The live walkers' frame-time governor: one LIVE_LEVELS row down after GOV_WAIT slow frames in a row at a
-        row (far walkers less often, fewer redraws a frame, a lower resolution, then less detail), one row up after
-        GOV_WAIT_UP fast ones. Its state is the row (liveLevel) and the settings it puts in place (setLiveLevel). */
+    /** The live walkers' frame-time governor. It starts on LIVE_START; one LIVE_LEVELS row down after GOV_WAIT slow
+        frames in a row (far walkers less often, fewer redraws a frame, a lower resolution, then less detail), one row
+        up after enough fast ones (GOV_WAIT_UP, doubled for a row each time it had to step down from it, up to
+        GOV_BACKOFF x). Its state is the row (liveLevel), the waits to climb back (liveUpWait, one a row) and the
+        settings it puts in place (setLiveLevel). */
     governLive(slow) {
-      if (this.liveLevel == null) this.setLiveLevel(0);
+      if (this.liveLevel == null) this.setLiveLevel(LIVE_START);
       if (this.renderN <= QUALITY_WAIT) return;
       const fast = this.renderMs < QUALITY_RENDER_MS * GOV_FAST && !(this.frameMs >= QUALITY_FRAME_MS * GOV_FAST);
       if (!slow) this.liveSlowN = 0;
       else this.liveSlowN = (this.liveSlowN || 0) + 1;
       if (!fast) this.liveFastN = 0;
       else this.liveFastN = (this.liveFastN || 0) + 1;
-      if (this.liveSlowN >= GOV_WAIT && this.liveLevel < LIVE_LEVELS.length - 1) this.setLiveLevel(this.liveLevel + 1);
-      else if (this.liveFastN >= GOV_WAIT_UP && this.liveLevel > 0) this.setLiveLevel(this.liveLevel - 1);
+      const upWait = this.liveUpWait || (this.liveUpWait = []);
+      const at = this.liveLevel;
+      if (this.liveSlowN >= GOV_WAIT && at < LIVE_LEVELS.length - 1) {
+        upWait[at] = Math.min(GOV_WAIT_UP * GOV_BACKOFF, (upWait[at] || GOV_WAIT_UP) * 2); // this row was too much
+        this.setLiveLevel(at + 1);
+      } else if (at > 0 && this.liveFastN >= (upWait[at - 1] || GOV_WAIT_UP)) this.setLiveLevel(at - 1);
     },
-    /** Put one governor row in place: liveFar (all but the near ones draw at most every Nth frame), liveMax (redraws
-        a frame), liveScale (picture resolution) and liveLodPx (the LOD heights); and the fixed liveNear, liveMaxPx and
-        liveFarLod (instance fields, so a perf run can try other values). */
+    /** Put one governor row in place: liveNear (how many draw every frame), liveFarLod (the most detail for the
+        rest), liveFar (they draw at most every Nth frame), liveMax (redraws a frame), liveMaxPx (the tallest
+        picture), liveScale (picture resolution) and liveLodPx (the LOD heights). Instance fields, so a perf run can
+        try other values. */
     setLiveLevel(i) {
       const L = LIVE_LEVELS[clamp(i | 0, 0, LIVE_LEVELS.length - 1)];
       this.liveLevel = LIVE_LEVELS.indexOf(L);
+      this.liveNear = L.near;
+      this.liveFarLod = L.farLod;
       this.liveFar = L.far;
       this.liveMax = L.max;
+      this.liveMaxPx = L.maxPx;
       this.liveScale = L.scale;
       this.liveLodPx = L.lodPx;
-      this.liveNear = LIVE_NEAR;
-      this.liveMaxPx = LIVE_MAX_PX;
-      this.liveFarLod = FAR_LOD;
       this.liveSlowN = 0;
       this.liveFastN = 0;
     },
@@ -2528,7 +2547,8 @@
       if (pose === "bite") st.poseT = clamp(1 - (z.biteT || 0) / ((M && M.BITE_SECS) || BITE_SECS), 0, 1);
       else if (pose === "scream") st.poseT = clamp(1 - (z.yell || 0) / W().SCREAM.yell, 0, 1);
       else if (pose === "claw") st.poseT = st.claw;
-      else if (pose === "idle" && z.awake) st.poseT = (this.time * 0.25 + (z.seed % 997) * 0.618) % 1; // it sways and breathes
+      // awake it sways and breathes; a downed one stops where it was when it fell (a settled body is one still picture)
+      else if (pose === "idle" && z.awake) st.poseT = ((s.falling ? this.time - (z.fallT || 0) : this.time) * 0.25 + (z.seed % 997) * 0.618) % 1;
       else st.poseT = 0; // asleep it stands still (the same picture every frame)
       st.hit = z.hit > 0 ? 1 : 0;
       st.fall = s.falling ? clamp((z.fallT || 0) / ((M && M.COLLAPSE_SECS) || 0.9), 0, 1) : 0;
@@ -2540,20 +2560,21 @@
       return st;
     },
     /** Redraw the live walkers that need it (q: the ones that show this frame) and point each sprite at its picture.
-        First, nearest first: a picture never drawn, one too far off its size or one not shown last frame draws at
-        once, and so do the near ones (lod 0 and among the liveNear nearest) when they look different. Then the
-        others that look different and whose turn it is (liveFar frames or more since their last picture), the
-        longest-waiting first, while this frame's redraws last (liveMax: the near ones count too). Returns how many
-        drew. */
+        First, nearest first: a picture never drawn, one grown too big for its picture, one not shown last frame or
+        one just hit (or its flash over) draws at once, and so do the near ones (lod 0 and picked by liveNearOnes)
+        when they look different. Then the others that look different and whose turn it is (liveFar frames or more
+        since their last picture), the longest-waiting first, while this frame's redraws last (liveMax: the near ones
+        count too). Returns how many drew. */
     liveRenderAll(q) {
-      if (this.liveLevel == null) this.setLiveLevel(0);
+      if (this.liveLevel == null) this.setLiveLevel(LIVE_START);
       q.sort((a, b) => a.ty - b.ty);
+      this.liveNearOnes(q);
       const wait = this.liveWait || (this.liveWait = []);
       wait.length = 0;
       let drawn = 0;
       for (let i = 0; i < q.length; i++) {
         const s = q[i];
-        const want = this.liveCheck(s, i);
+        const want = this.liveCheck(s);
         if (want === 1) {
           this.liveDraw(s);
           drawn++;
@@ -2577,26 +2598,56 @@
       wait.length = 0;
       return drawn;
     },
+    /** Pick the near ones (s.near; q is nearest first): the liveNear nearest walkers that stand, or are still
+        collapsing. A settled body takes no place (it keeps its picture until it looks different, then takes turns),
+        so bodies at your feet never push a walker out. One near last frame counts as NEAR_STICK nearer, so two at
+        about the same depth do not swap places (and detail) frame by frame. */
+    liveNearOnes(q) {
+      const M = W3();
+      const settled = (M && M.COLLAPSE_SECS) || 0.9;
+      const pool = this.livePool;
+      const last = this.frameNo - 1;
+      const pick = this.liveNearQ || (this.liveNearQ = []);
+      pick.length = 0;
+      for (let i = 0; i < q.length; i++) {
+        const s = q[i];
+        s.near = false;
+        if (s.falling && s.live.fallT >= settled) continue;
+        const t = pool && pool.get(s.live);
+        s.nearKey = t && t.nearAt === last ? s.ty * NEAR_STICK : s.ty;
+        pick.push(s);
+      }
+      if (pick.length > this.liveNear) pick.sort((a, b) => a.nearKey - b.nearKey);
+      for (let i = 0; i < pick.length && i < this.liveNear; i++) pick[i].near = true;
+      pick.length = 0;
+    },
     /** What one live walker needs this frame: 0 keep its picture, 1 draw now, 2 draw if this frame's redraws last.
-        Works out its render size (liveScale, at most LIVE_MAX_PX tall), detail (liveLodPx by its height on
-        screen) and canvas (liveTarget), kept on the sprite for liveDraw. */
-    liveCheck(s, rank) {
+        Works out its render size (liveScale, at most liveMaxPx tall), detail (liveLodPx by its height on screen)
+        and canvas (liveTarget), kept on the sprite for liveDraw. */
+    liveCheck(s) {
       const z = s.live;
       const M = W3();
       const k = Math.min(this.liveScale, this.liveMaxPx / s.sh); // render px per screen px (<= 1)
       const rw = (s.rw = Math.max(2, Math.ceil(s.sw * k)));
       const rh = (s.rh = Math.max(2, Math.ceil(s.sh * k)));
       const lodPx = this.liveLodPx;
-      // full detail for the near ones; one taking turns gets at most liveFarLod (FAR_LOD)
-      const lod = (s.lod = Math.max(s.sh >= lodPx[0] ? 0 : s.sh >= lodPx[1] ? 1 : 2, rank < this.liveNear ? 0 : this.liveFarLod));
       const t = (s.liveT = this.liveTarget(z, rw, rh));
+      if (s.near) t.nearAt = this.frameNo;
+      // full detail for the near ones; one taking turns gets at most liveFarLod. A downed one keeps the detail it was
+      // last drawn with (no pop as it settles and gives up its near place), until it is smaller on screen
+      let most = s.near ? 0 : this.liveFarLod;
+      if (s.falling && t.lh && t.sLod < most) most = t.sLod;
+      const lod = (s.lod = Math.max(s.sh >= lodPx[0] ? 0 : s.sh >= lodPx[1] ? 1 : 2, most));
       s.liveAge = this.frameNo - (t.drawnAt || 0);
-      // never drawn, not on screen last frame (its picture may be old), or grown past what scaling up hides: at once
-      // (a picture that is too big just scales down, so a walker going away waits its turn)
-      if (!t.lh || rh > t.lh * 1.15 || rw > t.lw * 1.15 || t.used < this.frameNo - 1) return 1;
+      // at once: never drawn, not on screen last frame (its picture may be old), or grown on screen past what scaling
+      // up hides. Only growth on screen counts: a picture the governor wants sharper (liveScale, liveMaxPx) waits its
+      // turn, and one too big just scales down, so a walker going away waits too
+      if (!t.lh || t.used < this.frameNo - 1 || (rh > t.lh * 1.15 && s.sh > t.shAt * 1.15) || (rw > t.lw * 1.15 && s.sw > t.swAt * 1.15)) return 1;
+      const st = this.walkerState(z, s, lod);
       const sized = Math.abs(rh - t.lh) <= Math.max(2, rh * 0.02) && Math.abs(rw - t.lw) <= Math.max(2, rw * 0.02);
-      if (sized && sameSig(t, this.walkerState(z, s, lod), M.FOG_STEPS || 32)) return 0; // nothing it shows has changed
-      if (lod === 0 && rank < this.liveNear) return 1;
+      if (sized && sameSig(t, st, M.FOG_STEPS || 32)) return 0; // nothing it shows has changed
+      if (t.sHit !== st.hit) return 1; // a hit's flash shows at once, and goes at once (two redraws a hit at most)
+      if (lod === 0 && s.near) return 1;
       return s.liveAge >= this.liveFar ? 2 : 0;
     },
     /** Draw one live walker into its canvas (liveCheck set its size, detail and canvas). */
@@ -2609,13 +2660,22 @@
       const rh = s.rh;
       const bw = Math.ceil(rw / LIVE_STEP) * LIVE_STEP;
       const bh = Math.ceil(rh / LIVE_STEP) * LIVE_STEP;
-      t.small = t.c.height >= 2 * bh || t.c.width >= 2 * bw ? t.small + 1 : 0;
-      if (t.small >= LIVE_SHRINK) {
-        // drawn this small for a while: a smaller canvas (a new size clears it; it is drawn right after)
-        t.c.width = bw;
-        t.c.height = bh;
+      const c = t.c;
+      if (c.width < rw || c.height < rh) {
+        // bigger than its canvas: the canvas grows (a new size clears it; it is drawn right after). Only here, so the
+        // old picture shows, scaled up, until this one's turn
+        c.width = Math.max(c.width, bw);
+        c.height = Math.max(c.height, bh);
         t.small = 0;
-      } else t.g.clearRect(0, 0, Math.max(t.lw, rw), Math.max(t.lh, rh));
+      } else {
+        t.small = c.height >= 2 * bh || c.width >= 2 * bw ? t.small + 1 : 0;
+        if (t.small >= LIVE_SHRINK) {
+          // drawn this small for a while: a smaller canvas
+          c.width = bw;
+          c.height = bh;
+          t.small = 0;
+        } else t.g.clearRect(0, 0, Math.max(t.lw, rw), Math.max(t.lh, rh));
+      }
       const shrink = s.scale / s.boxH; // < 1 under a ceiling: drawn as the whole figure, seen from farther off
       const cam = LIVE_CAM;
       cam.w = rw;
@@ -2626,12 +2686,14 @@
       M.draw(t.g, z.type, st, cam);
       t.lw = rw;
       t.lh = rh;
+      t.shAt = s.sh; // its size on screen when drawn
+      t.swAt = s.sw;
       t.drawnAt = this.frameNo;
       saveSig(t, st, M.FOG_STEPS || 32);
     },
-    /** This walker's canvas, at least rw x rh: its own (grown in LIVE_STEP steps; liveDraw makes it smaller after
-        LIVE_SHRINK renders at under half of it), else a spare one, else a new one. A canvas given a new size is blank
-        (lw = lh = 0). */
+    /** This walker's canvas: its own, else a spare one, else a new one rw x rh (in LIVE_STEP steps). liveDraw grows
+        it when a picture needs more room, and makes it smaller after LIVE_SHRINK renders at under half of it. A
+        canvas new to this walker has no picture yet (lw = lh = 0). */
     liveTarget(z, rw, rh) {
       const pool = this.livePool || (this.livePool = new Map());
       let t = pool.get(z);
@@ -2642,18 +2704,12 @@
           const c = document.createElement("canvas");
           c.width = Math.ceil(rw / LIVE_STEP) * LIVE_STEP;
           c.height = Math.ceil(rh / LIVE_STEP) * LIVE_STEP;
-          t = { c, g: c.getContext("2d"), lw: 0, lh: 0, used: 0, drawnAt: 0, small: 0 };
+          t = { c, g: c.getContext("2d"), lw: 0, lh: 0, shAt: 0, swAt: 0, used: 0, drawnAt: 0, nearAt: -1, small: 0 };
         }
         t.lw = t.lh = 0;
         t.small = 0;
+        t.nearAt = -1;
         pool.set(z, t);
-      }
-      const c = t.c;
-      if (c.width < rw || c.height < rh) {
-        c.width = Math.max(c.width, Math.ceil(rw / LIVE_STEP) * LIVE_STEP);
-        c.height = Math.max(c.height, Math.ceil(rh / LIVE_STEP) * LIVE_STEP);
-        t.lw = t.lh = 0;
-        t.small = 0;
       }
       return t;
     },
@@ -2817,9 +2873,12 @@
     FAR_EVERY,
     LIVE_RENDERS_MAX,
     LIVE_LEVELS,
+    LIVE_START,
+    NEAR_STICK,
     QUALITY_WAIT,
     GOV_WAIT,
     GOV_WAIT_UP,
+    GOV_BACKOFF,
     SOLID,
     OPAQUE,
   };
