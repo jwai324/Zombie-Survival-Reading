@@ -930,16 +930,18 @@
     /** The live walkers' frame-time governor. It starts on LIVE_START; one LIVE_LEVELS row down after GOV_WAIT slow
         frames in a row (far walkers less often, fewer redraws a frame, a lower resolution, then less detail), one row
         up after enough fast ones (GOV_WAIT_UP, doubled for a row each time it had to step down from it, up to
-        GOV_BACKOFF x). Its state is the row (liveLevel), the waits to climb back (liveUpWait, one a row) and the
-        settings it puts in place (setLiveLevel). */
+        GOV_BACKOFF x). Only frames that redrew live walkers count (a calm yard or an empty room says nothing about
+        them, and leaves both runs as they are); a fast one counts toward a climb only with liveNear or more of them
+        on screen, so a climb means the machine kept up with a crowd. Its state is the row (liveLevel), the waits to
+        climb back (liveUpWait, one a row) and the settings it puts in place (setLiveLevel). */
     governLive(slow) {
       if (this.liveLevel == null) this.setLiveLevel(LIVE_START);
-      if (this.renderN <= QUALITY_WAIT) return;
+      if (this.renderN <= QUALITY_WAIT || !this.liveDrawn) return;
       const fast = this.renderMs < QUALITY_RENDER_MS * GOV_FAST && !(this.frameMs >= QUALITY_FRAME_MS * GOV_FAST);
       if (!slow) this.liveSlowN = 0;
       else this.liveSlowN = (this.liveSlowN || 0) + 1;
       if (!fast) this.liveFastN = 0;
-      else this.liveFastN = (this.liveFastN || 0) + 1;
+      else if ((this.liveShown || 0) >= this.liveNear) this.liveFastN = (this.liveFastN || 0) + 1;
       const upWait = this.liveUpWait || (this.liveUpWait = []);
       const at = this.liveLevel;
       if (this.liveSlowN >= GOV_WAIT && at < LIVE_LEVELS.length - 1) {
@@ -1430,8 +1432,7 @@
     bleed(z, dmg, from, kill) {
       if (!W().SETTINGS.walkerGore) return;
       const blood = this.blood || (this.blood = []);
-      const M = W3();
-      const h = M && M.box ? M.box(z.type, false).h : 0.95;
+      const h = this.walkerHeight(z); // as drawn: capped under a ceiling and in the cabin
       const away = from ? Math.atan2(z.y - from.y, z.x - from.x) : normAngle(z.heading + Math.PI);
       const n = Math.round((4 + Math.min(8, dmg / 5)) * (kill ? 1.5 : 1));
       for (let i = 0; i < n; i++) {
@@ -2451,6 +2452,7 @@
       // the live walkers that show draw again only if they look different: nearest first, the near ones and any
       // picture that must be drawn at once; then the others whose turn it is (liveFar frames since their last
       // picture), the longest-waiting first, while this frame's redraws last (liveMax); the rest keep theirs
+      this.liveShown = liveQ.length; // (the governor counts only frames with live walkers on screen)
       this.liveDrawn = liveQ.length ? this.liveRenderAll(liveQ) : 0;
       list.sort((a, b) => b.ty - a.ty);
       // Painter's order, far to near, per column. Every draw stays inside its own 2-px column, so the order
@@ -2519,7 +2521,7 @@
         const fade = M.FADE_SECS || 0.7;
         dim = clamp((z.fallT - (fallSecs - fade)) / fade, 0, 1);
       }
-      return { x: z.x, y: z.y, live: z, falling, img: null, im: null, iw: 0, ih: 0, scale, lift: 0, wide: box.w / box.h, boxH: box.h, head: box.head * shrink, barW: box.bar * shrink, hp: falling ? null : z.hp / z.maxHp, dim, fog: 0, rw: 0, rh: 0, lod: 0, liveT: null, liveAge: 0 };
+      return { x: z.x, y: z.y, live: z, falling, img: null, im: null, iw: 0, ih: 0, scale, lift: 0, wide: box.w / box.h, boxH: box.h, head: box.head * shrink, barW: box.bar * shrink, hp: falling ? null : z.hp / z.maxHp, dim, fog: 0, rw: 0, rh: 0, lod: 0, liveT: null, liveAge: 0, liveFirst: false };
     },
     /** Does any column of this sprite show past the opaque faces in front of it (and under an opening's top)? */
     liveVisible(s) {
@@ -2560,11 +2562,13 @@
       return st;
     },
     /** Redraw the live walkers that need it (q: the ones that show this frame) and point each sprite at its picture.
-        First, nearest first: a picture never drawn, one grown too big for its picture, one not shown last frame or
-        one just hit (or its flash over) draws at once, and so do the near ones (lod 0 and picked by liveNearOnes)
-        when they look different. Then the others that look different and whose turn it is (liveFar frames or more
-        since their last picture), the longest-waiting first, while this frame's redraws last (liveMax: the near ones
-        count too). Returns how many drew. */
+        First, nearest first: a picture never drawn and one just hit (or its flash over) draw at once, and so do the
+        near ones (lod 0 and picked by liveNearOnes) when they look different. A first picture past this frame's
+        redraws (liveMax) is drawn at lod 2, the cheapest. Then, while this frame's redraws last (the near ones count
+        too): the others with an old picture (not shown last frame, less detail than they now get, or grown on
+        screen), then those that look different and whose turn it is (liveFar frames or more since their last
+        picture), the longest-waiting first. So turning to face a crowd is no burst: each shows its old picture until
+        its turn. Returns how many drew. */
     liveRenderAll(q) {
       if (this.liveLevel == null) this.setLiveLevel(LIVE_START);
       q.sort((a, b) => a.ty - b.ty);
@@ -2576,12 +2580,15 @@
         const s = q[i];
         const want = this.liveCheck(s);
         if (want === 1) {
+          // a first picture past this frame's redraws (a crowd seen again after its canvases were let go): the
+          // cheapest detail now (it must show something), its own on its next turn
+          if (!s.near && !s.liveT.lh && drawn >= this.liveMax) s.lod = 2;
           this.liveDraw(s);
           drawn++;
         } else if (want === 2) wait.push(s);
       }
       if (wait.length && drawn < this.liveMax) {
-        wait.sort((a, b) => b.liveAge - a.liveAge || a.ty - b.ty);
+        wait.sort((a, b) => b.liveFirst - a.liveFirst || b.liveAge - a.liveAge || a.ty - b.ty);
         for (let i = 0; i < wait.length && drawn < this.liveMax; i++) {
           this.liveDraw(wait[i]);
           drawn++;
@@ -2639,16 +2646,21 @@
       if (s.falling && t.lh && t.sLod < most) most = t.sLod;
       const lod = (s.lod = Math.max(s.sh >= lodPx[0] ? 0 : s.sh >= lodPx[1] ? 1 : 2, most));
       s.liveAge = this.frameNo - (t.drawnAt || 0);
-      // at once: never drawn, not on screen last frame (its picture may be old), or grown on screen past what scaling
-      // up hides. Only growth on screen counts: a picture the governor wants sharper (liveScale, liveMaxPx) waits its
-      // turn, and one too big just scales down, so a walker going away waits too
-      if (!t.lh || t.used < this.frameNo - 1 || (rh > t.lh * 1.15 && s.sh > t.shAt * 1.15) || (rw > t.lw * 1.15 && s.sw > t.swAt * 1.15)) return 1;
+      // an old picture: not on screen last frame (behind you, behind a wall), drawn with less detail than it now gets
+      // (a first picture past the cap, one coming nearer), or grown on screen past what scaling up hides. Only growth
+      // on screen counts: a picture the governor wants sharper (liveScale, liveMaxPx) waits its turn, and one too big
+      // just scales down, so a walker going away waits too
+      const old = (s.liveFirst = t.used < this.frameNo - 1 || t.sLod > lod || (rh > t.lh * 1.15 && s.sh > t.shAt * 1.15) || (rw > t.lw * 1.15 && s.sw > t.swAt * 1.15));
+      // at once: a picture never drawn (there is nothing to show yet), or a near one's old picture
+      if (!t.lh || (old && s.near)) return 1;
       const st = this.walkerState(z, s, lod);
       const sized = Math.abs(rh - t.lh) <= Math.max(2, rh * 0.02) && Math.abs(rw - t.lw) <= Math.max(2, rw * 0.02);
       if (sized && sameSig(t, st, M.FOG_STEPS || 32)) return 0; // nothing it shows has changed
       if (t.sHit !== st.hit) return 1; // a hit's flash shows at once, and goes at once (two redraws a hit at most)
       if (lod === 0 && s.near) return 1;
-      return s.liveAge >= this.liveFar ? 2 : 0;
+      // one taking turns with an old picture shows it a frame or two longer: first in the wait, under this frame's
+      // cap (so turning to face a crowd is no burst of redraws); the rest when their turn comes
+      return old || s.liveAge >= this.liveFar ? 2 : 0;
     },
     /** Draw one live walker into its canvas (liveCheck set its size, detail and canvas). */
     liveDraw(s) {
@@ -2867,6 +2879,7 @@
     LIVE_MAX_PX,
     LIVE_STEP,
     LIVE_SPARE,
+    LIVE_IDLE,
     LOD_PX,
     LIVE_NEAR,
     FAR_LOD,
