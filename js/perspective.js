@@ -281,8 +281,10 @@
       ctx.beginPath();
       s.forEach((p, i) => (i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)));
       ctx.closePath();
-      ctx.fillStyle = fill;
-      ctx.fill();
+      if (fill) {
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
       if (lw) {
         ctx.strokeStyle = INK;
         ctx.lineWidth = lw;
@@ -317,14 +319,16 @@
       }
     },
     /** A wall from ground point `left` to `right` (as seen from outside), z0 to z1, papered with textures laid
-        left to right ({ img, flip }), each in a few strips so the perspective holds. */
+        left to right ({ img, flip, crop: [from, to] as shares of its width }), each in a few strips so the
+        perspective holds. Each strip but the last reaches a little into the next, so no seam shows. */
     texWall(ctx, left, right, z0, z1, pieces) {
       const S = 4;
       const n = pieces.length;
       const at = (t) => [left[0] + (right[0] - left[0]) * t, left[1] + (right[1] - left[1]) * t];
       pieces.forEach((pc, i) => {
         const W = pc.img.width;
-        const sw = W / S;
+        const [u0, u1] = pc.crop || [0, 1];
+        const sw = (W * (u1 - u0)) / S;
         for (let j = 0; j < S; j++) {
           const A = at((i + j / S) / n);
           const B = at((i + (j + 1) / S) / n);
@@ -338,7 +342,8 @@
             ctx.translate(1, 0);
             ctx.scale(-1, 1);
           }
-          ctx.drawImage(pc.img, pc.flip ? W - (j + 1) * sw : j * sw, 0, sw, pc.img.height, 0, 0, 1.04, 1);
+          const over = i < n - 1 || j < S - 1 ? 1.04 : 1;
+          ctx.drawImage(pc.img, pc.flip ? W * u1 - (j + 1) * sw : W * u0 + j * sw, 0, sw, pc.img.height, 0, 0, over, 1);
           ctx.restore();
         }
       });
@@ -427,13 +432,13 @@
       ctx.drawImage(ZSR.Draw3.walker(z.type, frame, z.hit > 0), -wpx / 2, -hpx, wpx, hpx);
       ctx.restore();
     },
-    /** The van as a box in the yard van's own faces (cab and body down each side, the doors at the back, the nose
-        at the front), its top-down art on the roof, and the roof gun standing on that. */
+    /** The van as one closed box: walls in the yard van's own faces (cab and body down each side, the doors at the
+        back, the nose at the front), the road's top-down art laid on the roof, every edge where its neighbour's is,
+        and the roof gun standing on top. */
     van(g, ctx) {
       const D = ZSR.Draw;
       const T = (kind) => ZSR.Draw3.texture(kind, null, null, TEX_RES);
       const van = g.van;
-      const u = ZSR.State.save.upgrades;
       const fx = Math.cos(van.heading);
       const fy = Math.sin(van.heading);
       // the van's own frame, as sprites.js draws it: x to its right, y toward its back
@@ -461,21 +466,55 @@
       const BR = L(33, 59);
       const BL = L(-33, 59);
       // each wall as seen from outside, left to right: the nose is on the left of the yard van's side faces
+      // the end faces leave a sliver clear down each side: crop it, so the corners close
+      const END = [2 / 64, 62 / 64];
       const walls = [
-        [BL, BR, [{ img: T("vanBack") }]],
+        [BL, BR, [{ img: T("vanBack"), crop: END }]],
         [FL, BL, [{ img: T("vanCab") }, { img: T("vanBody") }]],
         [BR, FR, [{ img: T("vanBodyR"), flip: true }, { img: T("vanCab"), flip: true }]],
-        [FR, FL, [{ img: T("vanFront") }]],
+        [FR, FL, [{ img: T("vanFront"), crop: END }]],
       ];
       ctx.imageSmoothingQuality = "medium";
       for (const [left, right, pieces] of walls) if (this.faces(left, right, van.x, van.y)) this.texWall(ctx, left, right, 0, VAN_Z, pieces);
-      const aimW = van.aimW == null ? van.heading : van.aimW;
-      at(VAN_Z, () => {
-        D.rr(ctx, -33, -59, 66, 118, 8);
-        ctx.clip();
-        D.van(ctx, 0, 0, { upgrades: u, aim: aimW - van.heading - Math.PI / 2, t: g.time, hurt: van.hurt, flash: van.flash, scale: 1, moving: !(g.arrive && g.arrive.parked), gun: false });
-      });
+      this.roof(g, ctx, L);
+      this.poly(ctx, [FL, FR, BR, BL].map((c) => c.concat(VAN_Z)), null, 3);
       this.gun(g, ctx);
+    },
+    /** The van's roof: the road's top-down van (paint, decal, windows, rack, the hurt flash) drawn into the van's
+        own footprint, then laid on the walls' top edges in strips front to back, so its corners are theirs. */
+    roof(g, ctx, L) {
+      const D = ZSR.Draw;
+      const van = g.van;
+      const u = ZSR.State.save.upgrades;
+      const looks = ZSR.Upgrades.PAINT_LOOKS;
+      const R = TEX_RES;
+      const c = this.roofCanvas || (this.roofCanvas = document.createElement("canvas"));
+      if (c.width !== 66 * R) {
+        c.width = 66 * R;
+        c.height = 118 * R;
+      }
+      const x = c.getContext("2d");
+      x.setTransform(R, 0, 0, R, 33 * R, 59 * R);
+      x.fillStyle = looks[Math.min(u.paint || 0, looks.length - 1)].body;
+      x.fillRect(-33, -59, 66, 118);
+      const aimW = van.aimW == null ? van.heading : van.aimW;
+      D.van(x, 0, 0, { upgrades: u, aim: aimW - van.heading - Math.PI / 2, t: g.time, hurt: van.hurt, flash: van.flash, scale: 1, moving: !(g.arrive && g.arrive.parked), gun: false });
+      const N = 6;
+      const step = 118 / N;
+      for (let j = 0; j < N; j++) {
+        const y0 = -59 + j * step;
+        const a = L(-33, y0);
+        const b = L(33, y0);
+        const d = L(-33, y0 + step);
+        const tl = this.project(a[0], a[1], VAN_Z);
+        const tr = this.project(b[0], b[1], VAN_Z);
+        const bl = this.project(d[0], d[1], VAN_Z);
+        if (!tl || !tr || !bl) return;
+        ctx.save();
+        ctx.transform(tr.x - tl.x, tr.y - tl.y, bl.x - tl.x, bl.y - tl.y, tl.x, tl.y);
+        ctx.drawImage(c, 0, j * step * R, 66 * R, step * R, 0, 0, 1, j < N - 1 ? 1.04 : 1);
+        ctx.restore();
+      }
     },
     /** The roof gun standing on the van: a ring and a post, then the barrels (one more per Spread Shot, longer with
         Heavier Rounds) along the aim and tipped down toward it, a flash at their tips as it fires. */
