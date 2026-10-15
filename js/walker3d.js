@@ -15,7 +15,8 @@
      poseT   0..1 through a bite or a scream; for idle, a slow breathing cycle (0 is fine)
      claw    0..1 through a pair of overhead swipes (pose "claw")
      hit     0 | 1: the white flash of a shot landing
-     fall    0..1 the collapse (0 standing); fallDir: rad relative to its forward (pi = backwards)
+     fall    0..1 the collapse (0 standing); fallDir: rad relative to its forward (pi = backwards; + toward its
+             right, the yaw sense: in the model, x its right and z its forward, fallDir fd points (sin fd, 0, cos fd))
      seed    int: which arm reaches, which gear, grime, hair
      lod     0 full | 1 no sheen, ribs or fingers | 2 silhouette, head and eyes
      fog     0..0.9: every colour times (1 - fog); the eyes keep their glow
@@ -639,9 +640,8 @@
   /* ---------- Projection ---------- */
   let QX = 0;
   let QY = 0;
-  let QD = 0;
   let QK = 1;
-  /** Model point -> screen (QX, QY), depth QD (+ farther), scale QK. rb: how far the part reaches below the point,
+  /** Model point -> screen (QX, QY) and scale QK (px per tile = PXS * QK). rb: how far the part reaches below the point,
       so nothing is drawn under the floor line. */
   function proj(x, y, z, rb) {
     const X = -(x * CYAW + z * SYAW);
@@ -654,7 +654,6 @@
     // nothing under the floor line: a part nearer than the feet sits on it
     const low = CH - rb * PXS * k * FIT;
     if (QY > low) QY = low;
-    QD = D;
     QK = k * FIT;
   }
   const projJ = (j) => proj(J[j * 3], J[j * 3 + 1], J[j * 3 + 2], JR[j]);
@@ -1787,20 +1786,26 @@
     G.lineWidth = Math.max(0.8, OUT * 1.2);
     G.stroke();
     if (LOD === 0 && GORE && look.ribs) {
-      // ribs: pale curved bars across the hole, inked
+      // the hole is deep: dark under its top edge
+      torsoPoint(th0 + 0.04 * sw, v0 + 0.3 * sv, 0.003);
+      G.beginPath();
+      ellA(QX, QY, T.build.chest[0] * sw * 0.32 * PXS * QK, T.build.torso * 0.62 * sv * 0.12 * PXS * QK, 0.1, 0, TAU);
+      G.fillStyle = col(BLACK, 1, 0.45);
+      G.fill();
+      // ribs: thin pale curved bars across the hole, lightly inked, ends tucked under the cloth
       G.beginPath();
       for (let r = 0; r < 4; r++) {
-        const v = v0 + (0.3 - r * 0.2) * sv;
-        torsoPoint(th0 - 0.36 * sw, v - 0.04 * sv, 0.004);
+        const v = v0 + (0.27 - r * 0.19) * sv;
+        torsoPoint(th0 - 0.3 * sw, v - 0.05 * sv, 0.004);
         mt(QX, QY);
-        torsoPoint(th0, v + 0.03 * sv, 0.004);
+        torsoPoint(th0 - 0.02 * sw, v + 0.03 * sv, 0.004);
         lt(QX, QY);
-        torsoPoint(th0 + 0.34 * sw, v - 0.02 * sv, 0.004);
+        torsoPoint(th0 + 0.28 * sw, v - 0.03 * sv, 0.004);
         lt(QX, QY);
       }
-      const rw = Math.max(1, 0.0085 * PXS * QK);
-      G.strokeStyle = INKS;
-      G.lineWidth = rw + OUT * 1.1;
+      const rw = Math.max(0.9, 0.0065 * PXS * QK);
+      G.strokeStyle = col(INK, 1, 0.8);
+      G.lineWidth = rw + OUT * 0.8;
       G.stroke();
       G.strokeStyle = col(look.bone, 1, 1);
       G.lineWidth = rw;
@@ -2721,7 +2726,7 @@
     mouth: [34, 12, 16],
     teeth: [214, 200, 150],
     nail: [40, 36, 26],
-    flesh: [112, 34, 32],
+    flesh: [84, 22, 24],
     bone: [226, 214, 184],
     blood: [118, 18, 14],
     grime: [62, 54, 40],
