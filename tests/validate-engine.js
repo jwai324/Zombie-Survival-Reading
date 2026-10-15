@@ -1760,9 +1760,12 @@ try {
       if (walked < 1) err(`heading: a ${id} walked only ${walked.toFixed(2)} tiles in 1.2 s`);
       if (turnErr(z.heading, dir) > 0.2) err(`heading: a ${id} walking at you faces ${z.heading.toFixed(2)}, travels ${dir.toFixed(2)}`);
       if (Math.abs(gait - walked / I.walkerStride(id)) > 1e-6) err(`gait: a ${id} took ${gait.toFixed(3)} strides over ${walked.toFixed(2)} tiles (stride ${I.walkerStride(id)})`);
-      // up close: it faces you while it bites, even turned away
+      // up close: it faces you while it bites, even turned away (each kind turns at its look's turnRate: a brute
+      // takes longer to come round than a runner)
       Object.assign(z, { x: 27.5, y: 30.5 - z.reach * 0.7, heading: -Math.PI / 2, cool: 0, screamT: SC.cooldown }); // (a screamer would scream first)
-      run(0.5);
+      const look = W3 && W3.TYPES && (W3.TYPES[id] || W3.TYPES.walker);
+      const turnRate = (look && look.gait && look.gait.turnRate) || I.TURN_RATE;
+      run(Math.max(0.5, Math.PI / turnRate + 0.1));
       if (z.act !== "bite" || turnErr(z.heading, Math.atan2(p.y - z.y, p.x - z.x)) > 0.2) err(`heading: a biting ${id} does not face you (${z.act}, ${z.heading.toFixed(2)})`);
     });
     // clawing: it faces the fence segment it claws (outside the north fence, the yard whole)
@@ -2058,6 +2061,506 @@ try {
   }
 } catch (e) {
   err(`counts: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
+}
+
+/* ---------- Live walkers on screen (js/walker3d.js through the renderer) ----------
+   Every kind, near and far, behind you, biting, clawing, screaming, falling and in a spray of blood, drawn in a
+   building, the yard and the cabin without a throw; each walker's canvas is reused (none made while walkers come
+   closer) and let go with the scene; a walker behind a wall is never drawn; nothing stands taller than the ceiling
+   (indoors and in the cabin); the pose and its ease; a downed walker falls and fades; a live picture never goes
+   through Draw3.dim or dimOwn; a still walker is drawn once; the redraws a frame stay under the cap without leaving
+   anyone out, and the near ones draw every frame at every governor level; the governor steps down in the order the
+   spec gives and back up; the health bar sits over the head; the blood is drawn only with SETTINGS.walkerGore. */
+let liveChecked = 0;
+try {
+  const WT = W.WALKER_TYPES;
+  const kinds = Object.keys(WT);
+  const W3 = ZSR.Walker3D;
+  const ctxMath = vm.runInContext("Math", sb);
+  const realRandom = ctxMath.random;
+  ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(5150);
+  const drawWas = W3.draw;
+  const makeWas = sb.document.createElement;
+  const dimWas = D.dim;
+  const dimOwnWas = I.dimOwn;
+  const fillWas = I.ctx.fillRect;
+  const goreWas = W.SETTINGS.walkerGore;
+  const ok = (cond, msg) => {
+    liveChecked++;
+    if (!cond) err(`live walkers: ${msg}`);
+  };
+  let draws = [];
+  let made = 0;
+  let dimmedLive = 0;
+  const pooled = () => {
+    const set = new Set();
+    I.livePool.forEach((t) => set.add(t.c));
+    (I.liveSpare || []).forEach((t) => set.add(t.c));
+    return set;
+  };
+  try {
+    W3.draw = function (g, type, st, cam) {
+      draws.push({ type, seed: st.seed, lod: st.lod, pose: st.pose, poseT: st.poseT, poseW: st.poseW, fall: st.fall, fallDir: st.fallDir, fog: st.fog, yaw: st.yaw, w: cam.w, h: cam.h, px: cam.px, dist: cam.dist, eye: cam.eye, frame: I.frameNo });
+      return drawWas.call(this, g, type, st, cam);
+    };
+    sb.document.createElement = function (tag) {
+      if (String(tag).toLowerCase() === "canvas") made++;
+      return makeWas(tag);
+    };
+    D.dim = function (img, lvl) {
+      if (pooled().has(img)) dimmedLive++;
+      return dimWas.call(this, img, lvl);
+    };
+    I.dimOwn = function (img, lvl) {
+      if (pooled().has(img)) dimmedLive++;
+      return dimOwnWas.call(this, img, lvl);
+    };
+    const p0 = () => I.player;
+    const put = (type, x, y, o) => {
+      const z = I.makeWalker(type, x, y, 1);
+      z.awake = true;
+      Object.assign(z, o || {});
+      I.walkers.push(z);
+      return z;
+    };
+    const ahead = (d, side) => {
+      const p = p0();
+      return [p.x + Math.cos(p.a) * d - Math.sin(p.a) * (side || 0), p.y + Math.sin(p.a) * d + Math.cos(p.a) * (side || 0)];
+    };
+    const frame = () => {
+      I.frameNo = I.frameNo || 0;
+      I.render();
+    };
+    const clear = () => {
+      I.walkers.length = 0;
+      I.fallen.length = 0;
+      I.blood.length = 0;
+    };
+    /** Look along the longest clear line from where you stand (so walkers ahead of you are in the open). */
+    const lookLongest = () => {
+      const p = p0();
+      let best = 0;
+      for (let k = 0; k < 32; k++) {
+        const a = (k / 32) * Math.PI * 2;
+        let d = 0;
+        while (d < 30 && !I.solidAt(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d) && !I.solidAt(p.x + Math.cos(a) * d - Math.sin(a) * 0.6, p.y + Math.sin(a) * d + Math.cos(a) * 0.6) && !I.solidAt(p.x + Math.cos(a) * d + Math.sin(a) * 0.6, p.y + Math.sin(a) * d - Math.cos(a) * 0.6)) d += 0.25;
+        if (d > best) (best = d), (p.a = a);
+      }
+      return best;
+    };
+    /** Every kind all around you and in every state; frames from four sides must not throw. */
+    const crowd = (where) => {
+      clear();
+      const p = p0();
+      let n = 0;
+      [0.35, 1, 3, 8, 20].forEach((d, di) => {
+        kinds.forEach((type, ki) => {
+          const a = p.a + ((ki + di * kinds.length) / (kinds.length * 5)) * Math.PI * 2;
+          const x = p.x + Math.cos(a) * d;
+          const y = p.y + Math.sin(a) * d;
+          if (I.solidAt(x, y)) return;
+          const z = put(type, x, y, { heading: a * 3, gait: (ki * 0.17) % 1, move: di % 2, seed: 1000 + n++ });
+          const k = (ki + di) % 5;
+          if (k === 1) Object.assign(z, { act: "bite", biteT: 0.2, pose: "bite", poseW: 0.5 });
+          if (k === 2) Object.assign(z, { act: "claw", clawPh: 0.4, pose: "claw", aim: [x + 1, y] });
+          if (k === 3) Object.assign(z, { yell: 0.6, act: "scream", pose: "scream" });
+          if (k === 4) Object.assign(z, { awake: false, act: "sleep", pose: "idle", hp: z.maxHp * 0.4, hit: 0.1 });
+        });
+      });
+      // three downed walkers (just hit, half down, nearly gone) and a spray
+      [0, 1, 1.9].forEach((t, i) => {
+        const [x, y] = ahead(2 + i, (i - 1) * 0.8);
+        if (I.solidAt(x, y)) return;
+        const z = I.makeWalker(kinds[i % kinds.length], x, y, 1);
+        z.hp = 0;
+        z.fallDir = p.a + i;
+        I.downWalker(z);
+        z.fallT = t;
+      });
+      const z = put("walker", ...ahead(2.5, 0));
+      for (let i = 0; i < 3; i++) I.hurtWalker(z, 5, p);
+      I.updateBlood(0.1);
+      renderAround(`live walkers ${where}`);
+      I.update(0.05);
+      renderAround(`live walkers ${where}, a frame later`);
+      ok(draws.length > 0, `${where}: no walker was drawn`);
+    };
+
+    /* a building: under a ceiling */
+    const building = W.LOCATIONS.find((l) => l.id !== "base" && !l.outdoor && I.layoutFor(l));
+    S.startTrip();
+    I.enter(building);
+    I.stop();
+    p0().maxHp = p0().hp = 1e9;
+    lookLongest();
+    draws = [];
+    crowd(`in ${building.id}`);
+    // nothing stands taller than the ceiling: every kind's sprite (standing and falling) and what it is drawn at
+    kinds.forEach((type) => {
+      const z = I.makeWalker(type, p0().x + 1, p0().y, 1);
+      [false, true].forEach((falling) => {
+        const s = I.walkerSprite(z, falling);
+        ok(s.scale <= I.CEIL_CAP + 1e-9, `in ${building.id}: a ${type}${falling ? " (down)" : ""} stands ${s.scale} tiles under a ceiling (cap ${I.CEIL_CAP})`);
+        ok(Math.abs(s.scale - Math.min(W3.box(type, falling).h, I.CEIL_CAP)) < 1e-9, `in ${building.id}: a ${type} is not drawn at its box's height, capped`);
+      });
+      ok(I.walkerHeight(z) <= I.CEIL_CAP + 1e-9, `in ${building.id}: walkerHeight(${type}) ${I.walkerHeight(z)} is over the ceiling`);
+    });
+    // what Walker3D was asked for: the whole box in its region, at the walker's distance (seen from farther off when
+    // it is capped), in view of its own feet
+    const badCam = draws.filter((d) => !(d.w >= 2 && d.h >= 2 && d.h <= I.LIVE_MAX_PX + 1 && d.px > 0 && d.dist > 0.1 && d.eye > 0 && Number.isFinite(d.yaw) && d.fog >= 0 && d.fog <= 0.9 && [0, 1, 2].includes(d.lod) && W3.POSES.includes(d.pose)));
+    ok(!badCam.length, `in ${building.id}: ${badCam.length} draws with an odd region or state (${JSON.stringify(badCam[0])})`);
+    // a walker behind a wall is never drawn; one in the open is
+    {
+      clear();
+      const p = p0();
+      let spot = null;
+      for (let gy = 1; gy < I.gh - 1 && !spot; gy++) {
+        for (let gx = 1; gx < I.gw - 1 && !spot; gx++) {
+          const px = gx + 0.5;
+          const py = gy + 0.5;
+          if (I.solidAt(px, py)) continue;
+          for (let k = 0; k < 8 && !spot; k++) {
+            const a = (k / 8) * Math.PI * 2;
+            const wx = px + Math.cos(a) * 3.2;
+            const wy = py + Math.sin(a) * 3.2;
+            if (I.solidAt(wx, wy) || I.opaqueAt(wx, wy)) continue;
+            // walled off: no line from you to any point its picture spans (its box is about 1.6 tiles wide on the
+            // floor, sideways: Walker3D.box(...).w in screen tiles, times STRETCH)
+            let hidden = true;
+            for (let s = -1; s <= 1 && hidden; s += 0.125) {
+              const sx = wx - Math.sin(a) * s * 0.9;
+              const sy = wy + Math.cos(a) * s * 0.9;
+              if (I.lineClear(px, py, sx, sy)) hidden = false;
+            }
+            if (hidden) spot = [px, py, a, wx, wy];
+          }
+        }
+      }
+      ok(!!spot, `in ${building.id}: no spot with a walker right behind a wall to test`);
+      if (spot) {
+        [p.x, p.y, p.a] = spot;
+        const hid = put("walker", spot[3], spot[4], { seed: 777, heading: 0 });
+        const [ox, oy] = [p.x + Math.cos(p.a) * 0.9, p.y + Math.sin(p.a) * 0.9];
+        if (I.lineClear(p.x, p.y, ox, oy) && !I.solidAt(ox, oy)) put("walker", ox, oy, { seed: 778 });
+        draws = [];
+        frame();
+        frame();
+        ok(!draws.some((d) => d.seed === 777), `in ${building.id}: a walker behind a wall was drawn (${draws.filter((d) => d.seed === 777).length} times)`);
+        ok(I.walkers.length < 2 || draws.some((d) => d.seed === 778), `in ${building.id}: a walker in front of you was not drawn`);
+        ok(!I.livePool.has(hid), `in ${building.id}: a walker behind a wall got a canvas`);
+      }
+    }
+    // a walker's canvas is reused: six kinds coming at you from 3 tiles to 1.5 (their pictures double in size) make
+    // no canvas after the first frame; each one's own canvas grows instead
+    lookLongest();
+    clear();
+    I.liveRelease(); // no spares from the walkers above: each of the six starts on a canvas its own size
+    const six = kinds.map((type, i) => put(type, ...ahead(3, (i - (kinds.length - 1) / 2) * 0.25), { move: 1, seed: 2000 + i, heading: p0().a + Math.PI }));
+    frame();
+    const firstH = six.map((z) => (I.livePool.get(z) ? I.livePool.get(z).c.height : 0));
+    made = 0;
+    for (let f = 0; f < 30; f++) {
+      six.forEach((z) => {
+        z.x -= Math.cos(p0().a) * 0.05;
+        z.y -= Math.sin(p0().a) * 0.05;
+        z.gait = (z.gait + 0.07) % 1;
+      });
+      frame();
+    }
+    ok(made === 0, `in ${building.id}: ${made} canvases made while six walkers came closer (each keeps its own)`);
+    ok(I.livePool.size === six.length, `in ${building.id}: ${I.livePool.size} pooled canvases for ${six.length} walkers`);
+    ok(six.every((z, i) => I.livePool.get(z) && I.livePool.get(z).c.height > firstH[i]), `in ${building.id}: coming closer, the walkers' canvases did not grow (${firstH} -> ${six.map((z) => I.livePool.get(z) && I.livePool.get(z).c.height)})`);
+    // the picture shown is the one drawn: the top-left iw x ih of the walker's own canvas, and nothing past it goes
+    // on screen (the canvas is bigger than the picture: it grows in steps and keeps old pictures' size)
+    {
+      const seen = [];
+      const ds = I.drawSprite;
+      I.drawSprite = function (ctx, s) {
+        if (s.live) seen.push(s);
+        return ds.call(this, ctx, s);
+      };
+      const own = new Map();
+      I.livePool.forEach((t) => own.set(t.c, t));
+      let outside = 0;
+      let blits = 0;
+      I.ctx.drawImage = function (img, sx, sy, sw, sh) {
+        const t = own.get(img);
+        if (!t || arguments.length < 9) return;
+        blits++;
+        if (sx < -1e-6 || sy < -1e-6 || sx + sw > t.lw + 1e-6 || sy + sh > t.lh + 1e-6) outside++;
+      };
+      frame();
+      delete I.ctx.drawImage;
+      I.drawSprite = ds;
+      const bad = seen.filter((s) => !(s.im && s.im === I.livePool.get(s.live).c && s.iw > 0 && s.ih > 0 && s.iw <= s.im.width && s.ih <= s.im.height));
+      ok(seen.length && !bad.length, `in ${building.id}: ${bad.length} of ${seen.length} live sprites point at an empty or wrong picture`);
+      ok(blits > 0 && !outside, `in ${building.id}: ${outside} of ${blits} draws of a live picture read past its drawn part`);
+    }
+    // a still walker (asleep) is drawn once, then keeps its picture
+    clear();
+    const still = put("walker", ...ahead(5, 0), { awake: false, act: "sleep", pose: "idle", seed: 2100 });
+    draws = [];
+    for (let f = 0; f < 6; f++) frame();
+    ok(draws.filter((d) => d.seed === still.seed).length === 1, `in ${building.id}: a sleeping walker was drawn ${draws.filter((d) => d.seed === still.seed).length} times in 6 frames (want once)`);
+    // fog: farther is darker (in its own colours)
+    const len = lookLongest();
+    clear();
+    put("walker", ...ahead(2, 0), { seed: 2201 });
+    put("walker", ...ahead(Math.min(12, len - 1), 0), { seed: 2202 });
+    draws = [];
+    frame();
+    const fNear = draws.find((d) => d.seed === 2201);
+    const fFar = draws.find((d) => d.seed === 2202);
+    ok(fNear && fFar && fFar.fog > fNear.fog, `in ${building.id}: a far walker is not foggier than a near one (${fNear && fNear.fog}, ${fFar && fFar.fog})`);
+    I.stop();
+    ok(I.livePool.size === 0 && !(I.liveSpare || []).length, `in ${building.id}: leaving kept ${I.livePool.size} walker canvases (+${(I.liveSpare || []).length} spare)`);
+    S.abandonTrip();
+
+    /* the yard: open sky, the dirt path north of the cabin door */
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    const p = p0();
+    p.maxHp = p.hp = 1e9;
+    Object.assign(p, { x: 27.5, y: 30.5, a: -Math.PI / 2 });
+    draws = [];
+    crowd("in the yard");
+    Object.assign(p, { x: 27.5, y: 30.5, a: -Math.PI / 2 });
+    kinds.forEach((type) => {
+      const z = I.makeWalker(type, 27.5, 26.5, 1);
+      ok(Math.abs(I.walkerSprite(z, false).scale - W3.box(type, false).h) < 1e-9, `in the yard: a ${type} under the open sky is not its full height`);
+    });
+    // the health bar sits just over the head (the look's head top), as wide as the walker is to hit
+    {
+      clear();
+      const z = put("brute", 27.5, 27.5, { seed: 2300, heading: Math.PI / 2 });
+      z.hp = z.maxHp / 2;
+      const bars = [];
+      I.ctx.fillRect = function (x, y, w, h) {
+        if (this.fillStyle === "#b3261e" && h === 5) bars.push({ x, y, w });
+      };
+      frame();
+      I.ctx.fillRect = fillWas;
+      const s = I.walkerSprite(z, false);
+      const head = I.project(z.x, z.y, s.head);
+      const unit = I.project(z.x, z.y, 0).y - I.project(z.x, z.y, 1).y; // px per tile tall here
+      ok(bars.length === 1, `in the yard: ${bars.length} health bars for one hurt brute`);
+      if (bars.length === 1 && head) {
+        ok(Math.abs(bars[0].y - (head.y - 9)) < 0.5, `in the yard: the health bar is at ${bars[0].y.toFixed(1)}, not just over the head (${(head.y - 9).toFixed(1)})`);
+        ok(Math.abs(bars[0].w - unit * s.barW * 0.5) < 0.5 && Math.abs(bars[0].x + unit * s.barW / 2 - head.x) < 1, `in the yard: the health bar is ${bars[0].w.toFixed(1)} px from ${bars[0].x.toFixed(1)}, not half of ${(unit * s.barW).toFixed(1)} centred over it`);
+      }
+    }
+    // the pose: what a walker does picks it; from walking straight in, from anything else out first (POSE_BLEND)
+    {
+      clear();
+      const z = put("walker", 27.5, 27.5, { seed: 2400 });
+      const blend = W3.POSE_BLEND || 0.15;
+      const want = (o) => I.walkerPose(Object.assign(I.makeWalker("walker", 0, 0, 1), { awake: true }, o));
+      ok(want({ yell: 0.5, biteT: 0.2, act: "bite" }) === "scream", "a yelling walker does not scream");
+      ok(want({ biteT: 0.2, act: "walk" }) === "bite" && want({ act: "bite" }) === "bite", "a biting walker does not bite");
+      ok(want({ act: "claw" }) === "claw", "a clawing walker does not claw");
+      ok(["sleep", "idle", "wait"].every((act) => want({ act }) === "idle"), "a still walker is not idle");
+      ok(want({ act: "walk" }) === "walk" && want({ act: "something-new" }) === "walk", "a walking walker (or one doing a mode's own thing) does not walk");
+      Object.assign(z, { pose: "walk", poseW: 1, act: "walk" });
+      const dt = blend / 6;
+      I.animWalker(z, dt, z.x, z.y, "claw");
+      ok(z.pose === "claw" && z.poseW === 0, `from walking into a claw: ${z.pose} at ${z.poseW} (want claw at 0)`);
+      for (let i = 0; i < 7; i++) I.animWalker(z, dt, z.x, z.y, "claw");
+      ok(z.pose === "claw" && z.poseW === 1, `a claw is not all the way in after POSE_BLEND (${z.poseW})`);
+      I.animWalker(z, dt, z.x, z.y, "walk");
+      ok(z.pose === "claw" && z.poseW < 1 && z.poseW > 0, `out of a claw: it did not ease out first (${z.pose} at ${z.poseW})`);
+      for (let i = 0; i < 7; i++) I.animWalker(z, dt, z.x, z.y, "walk");
+      ok(z.pose === "walk", `out of a claw: still ${z.pose} after POSE_BLEND`);
+      // a claw at anything (a mode's own target: a build, the van) faces it and swipes at its look's rate
+      [[30.5, 27.5], { x: 30.5, y: 27.5 }].forEach((aim) => {
+        Object.assign(z, { heading: Math.PI, aim, clawPh: 0, pose: "walk", poseW: 1 });
+        for (let i = 0; i < 20; i++) I.animWalker(z, 0.05, z.x, z.y, "claw");
+        const L = W3.TYPES.walker.gait;
+        ok(Math.abs(Math.atan2(Math.sin(z.heading), Math.cos(z.heading))) < 0.2, `a walker clawing at ${JSON.stringify(aim)} does not face it (${z.heading.toFixed(2)})`);
+        ok(Math.abs(z.clawPh - ((20 * 0.05 * L.clawRate) % 1)) < 1e-9, `a clawing walker swipes at ${z.clawPh}, not its look's clawRate ${L.clawRate}`);
+        ok(z.pose === "claw", `a walker clawing at ${JSON.stringify(aim)} shows ${z.pose}`);
+      });
+      // drawn as it is: the pose, its ease, the bite's time
+      Object.assign(z, { pose: "bite", poseW: 0.5, biteT: (W3.BITE_SECS || 0.45) / 2, act: "bite", heading: Math.PI / 2 });
+      draws = [];
+      frame();
+      const d = draws.find((x) => x.seed === 2400);
+      ok(d && d.pose === "bite" && Math.abs(d.poseW - 0.5) < 1e-9 && Math.abs(d.poseT - 0.5) < 1e-9, `a biting walker is drawn as ${JSON.stringify(d && [d.pose, d.poseW, d.poseT])}`);
+      ok(d && Math.abs(d.yaw) < 1e-6, `a walker facing you is drawn turned ${d && d.yaw}`);
+    }
+    // a downed walker falls (by COLLAPSE_SECS), away from the shot, then fades over FADE_SECS; no health bar
+    {
+      clear();
+      const z = put("armored", 27.5, 27.5, { seed: 2500, heading: Math.PI / 2 });
+      I.hurtWalker(z, 1e6, p);
+      I.update(0.05);
+      ok(I.fallen.includes(z), "a dead walker is not falling");
+      const fallSecs = W3.FALL_SECS;
+      const fade = W3.FADE_SECS;
+      [[0.05, 0], [W3.COLLAPSE_SECS / 2, 0], [fallSecs - fade - 0.01, 0], [fallSecs - fade / 2, 0.5], [fallSecs - 0.01, 0.99]].forEach(([t, dim]) => {
+        z.fallT = t;
+        const s = I.walkerSprite(z, true);
+        ok(Math.abs(s.dim - dim) < 0.02 && s.hp == null, `a downed walker at ${t.toFixed(2)} s fades ${s.dim.toFixed(2)} (want ${dim}), bar ${s.hp}`);
+        draws = [];
+        frame();
+        const d = draws.find((x) => x.seed === 2500);
+        if (d) ok(Math.abs(d.fall - Math.min(1, t / W3.COLLAPSE_SECS)) < 1e-9 && Math.abs(Math.atan2(Math.sin(d.fallDir), Math.cos(d.fallDir)) - Math.atan2(Math.sin(z.fallDir - z.heading), Math.cos(z.fallDir - z.heading))) < 1e-9, `a downed walker at ${t.toFixed(2)} s is drawn at fall ${d.fall}, direction ${d.fallDir}`);
+      });
+      ok(draws.length <= 1, "a settled, fading walker is drawn again every frame");
+    }
+    // blood: cached sprites only with SETTINGS.walkerGore (Draw3's bloodDrop / bloodSplat; fog through D.dim is fine)
+    {
+      const shown = (gore) => {
+        clear();
+        W.SETTINGS.walkerGore = gore;
+        const z = put("walker", 27.5, 27.5, { seed: 2600, hp: 1000, maxHp: 1000 });
+        I.hurtWalker(z, 20, p);
+        if (!gore) I.blood.push({ x: 27.6, y: 27.6, h: 0.5, vx: 0, vy: 0, vh: 0, t: 0, life: 1, size: 0.05, splat: false }); // left over from before
+        I.updateBlood(0.05);
+        const imgs = new Set([D.sprite("bloodDrop"), D.sprite("bloodSplat")]);
+        let n = 0;
+        const ds = I.drawSprite;
+        I.drawSprite = function (ctx, s) {
+          if (imgs.has(s.img)) n++;
+          return ds.call(this, ctx, s);
+        };
+        frame();
+        I.drawSprite = ds;
+        return n;
+      };
+      ok(shown(true) > 0, "a hit's spray is not drawn with SETTINGS.walkerGore on");
+      ok(shown(false) === 0, "blood is drawn with SETTINGS.walkerGore off");
+      W.SETTINGS.walkerGore = goreWas;
+    }
+    // the redraws a frame: under the cap after the first frame, nobody left out, the near ones every frame at every
+    // governor level (thirty walkers ahead in the open, walking on the spot, three of them near)
+    {
+      clear();
+      Object.assign(p, { x: 27.5, y: 30.5, a: -Math.PI / 2 });
+      const crowdZ = [];
+      for (let i = 0; i < 30; i++) crowdZ.push(put(kinds[i % kinds.length], 27.5 + ((i % 5) - 2) * 0.7, 30.5 - 4 - Math.floor(i / 5) * 1.6, { seed: 3000 + i, move: 1, heading: Math.PI / 2 }));
+      // (the test view is 270 px tall: lod 0 is within about 1.5 tiles, 1.1 on the governor's last row)
+      const near = [put("walker", 27.15, 29.65, { seed: 3100, move: 1 }), put("runner", 27.85, 29.65, { seed: 3101, move: 1 }), put("brute", 27.5, 29.55, { seed: 3102, move: 1 })];
+      const all = crowdZ.concat(near);
+      const step = () => {
+        all.forEach((z) => (z.gait = (z.gait + 0.047) % 1)); // over a step of its picture's gait (1/32) every frame
+        frame();
+      };
+      for (let lvl = 0; lvl < I.LIVE_LEVELS.length; lvl++) {
+        I.setLiveLevel(lvl);
+        const L = I.LIVE_LEVELS[lvl];
+        step(); // a new level may resize pictures: one frame to settle
+        step();
+        draws = [];
+        const perFrame = [];
+        const F = 24;
+        for (let f = 0; f < F; f++) {
+          const n0 = draws.length;
+          step();
+          perFrame.push(draws.length - n0);
+        }
+        const most = Math.max(...perFrame);
+        ok(most <= L.max, `governor level ${lvl}: ${most} redraws in one frame (cap ${L.max})`);
+        near.forEach((z) => {
+          const n = draws.filter((d) => d.seed === z.seed).length;
+          const lod0 = draws.filter((d) => d.seed === z.seed && d.lod === 0).length;
+          ok(n === F && lod0 === F, `governor level ${lvl}: a near ${z.type} was drawn ${n} times (${lod0} at lod 0) in ${F} frames (want every frame)`);
+        });
+        const starved = crowdZ.filter((z) => draws.filter((d) => d.seed === z.seed).length < 2);
+        ok(!starved.length, `governor level ${lvl}: ${starved.length} of the crowd drawn under twice in ${F} frames (one every ${Math.ceil(crowdZ.length / Math.max(1, L.max - near.length))} frames or so, want no one left out)`);
+        const tooOften = crowdZ.filter((z) => {
+          const fr = draws.filter((d) => d.seed === z.seed).map((d) => d.frame);
+          return fr.some((v, i) => i && v - fr[i - 1] < L.far);
+        });
+        ok(!tooOften.length, `governor level ${lvl}: ${tooOften.length} far walkers drawn more often than every ${L.far} frames (${JSON.stringify(tooOften.slice(0, 2).map((z) => [z.seed, draws.filter((d) => d.seed === z.seed).map((d) => d.frame + ":" + d.lod + ":" + d.h)]))})`);
+        ok(!draws.some((d) => d.h > Math.ceil(I.LIVE_MAX_PX * L.scale) + 1), `governor level ${lvl}: a picture taller than ${I.LIVE_MAX_PX} x ${L.scale}`);
+      }
+      I.setLiveLevel(0);
+    }
+    // the governor: slow frames step it down a row at a time, in the spec's order (far ones less often, fewer
+    // redraws, a lower resolution, less detail), never below the last row; fast frames step it back up to the first
+    {
+      const was = [I.planeRes, I.renderN, I.renderMs, I.frameMs];
+      I.planeRes = 3; // (the floor's own step is checked above)
+      I.renderN = 0;
+      I.renderMs = null;
+      I.frameMs = null;
+      I.setLiveLevel(0);
+      const rows = I.LIVE_LEVELS;
+      const changed = (a, b) => ["far", "max", "scale", "lodPx"].filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+      const order = [];
+      for (let i = 1; i < rows.length; i++) order.push(changed(rows[i - 1], rows[i]));
+      const flat = order.map((c) => c.join("+"));
+      ok(JSON.stringify(flat) === JSON.stringify(["far", "max", "max", "scale", "lodPx"]), `the governor's rows step ${JSON.stringify(flat)}, not far, max, max, scale, lodPx`);
+      ok(rows[0].far === I.FAR_EVERY && rows[0].max === I.LIVE_RENDERS_MAX && rows[0].scale === 1 && rows[0].lodPx === I.LOD_PX, "the governor's first row is not the defaults");
+      ok(rows.every((r, i) => !i || (r.far >= rows[i - 1].far && r.max <= rows[i - 1].max && r.scale <= rows[i - 1].scale && r.lodPx[0] >= rows[i - 1].lodPx[0])), "a governor row is not cheaper than the one before it");
+      const levels = [];
+      let n = 0;
+      for (; n < 4000 && I.liveLevel < rows.length - 1; n++) {
+        I.adaptQuality(40, 60);
+        if (levels[levels.length - 1] !== I.liveLevel) levels.push(I.liveLevel);
+      }
+      ok(JSON.stringify(levels) === JSON.stringify(rows.map((r, i) => i)), `slow frames stepped the governor through ${JSON.stringify(levels)}`);
+      ok(n <= I.QUALITY_WAIT + I.GOV_WAIT * (rows.length - 1) + 2, `the governor took ${n} slow frames to reach its last row`);
+      ok(I.liveFar === rows[rows.length - 1].far && I.liveMax === rows[rows.length - 1].max && I.liveScale === rows[rows.length - 1].scale && I.liveLodPx === rows[rows.length - 1].lodPx, "the last row's settings are not in place");
+      for (let i = 0; i < 500; i++) I.adaptQuality(40, 60);
+      ok(I.liveLevel === rows.length - 1, "still slow, the governor left its last row");
+      // a frame or two fast in a slow run does not step it up; staying fast does, one row at a time
+      I.adaptQuality(1, 16);
+      ok(I.liveLevel === rows.length - 1, "one fast frame stepped the governor up");
+      const up = [I.liveLevel];
+      for (let i = 0; i < 6000 && I.liveLevel > 0; i++) {
+        I.adaptQuality(2, 16);
+        if (up[up.length - 1] !== I.liveLevel) up.push(I.liveLevel);
+      }
+      ok(JSON.stringify(up) === JSON.stringify(rows.map((r, i) => i).reverse()), `fast frames stepped the governor up through ${JSON.stringify(up)}`);
+      ok(I.liveFar === I.FAR_EVERY && I.liveMax === I.LIVE_RENDERS_MAX && I.liveScale === 1, "back on its first row, the governor's settings are not the defaults");
+      // in between (neither slow nor fast) it holds
+      I.setLiveLevel(2);
+      for (let i = 0; i < 1000; i++) I.adaptQuality(10, 20);
+      ok(I.liveLevel === 2, `frames neither slow nor fast moved the governor (${I.liveLevel})`);
+      I.setLiveLevel(0);
+      [I.planeRes, I.renderN, I.renderMs, I.frameMs] = was;
+      I.sizePlane();
+    }
+    I.stop();
+    ok(I.livePool.size === 0, "leaving the yard kept walker canvases");
+
+    /* the cabin: the tall kinds inside stay under its ceiling (Interior.indoorAt) */
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    let cabin = null;
+    for (let y = 0; y < I.gh && !cabin; y++) for (let x = 0; x < I.gw && !cabin; x++) if (I.indoorAt(x + 0.5, y + 0.5) && !I.solidAt(x + 0.5, y + 0.5)) cabin = [x + 0.5, y + 0.5];
+    ok(!!cabin, "no floor inside the cabin to test");
+    if (cabin) {
+      clear();
+      Object.assign(p0(), { x: cabin[0], y: cabin[1], hp: 1e9, maxHp: 1e9 });
+      kinds.forEach((type) => {
+        const z = I.makeWalker(type, cabin[0], cabin[1], 1);
+        ok(I.walkerSprite(z, false).scale <= I.CEIL_CAP + 1e-9 && I.walkerHeight(z) <= I.CEIL_CAP + 1e-9, `in the cabin: a ${type} stands ${I.walkerSprite(z, false).scale} tiles, over its ceiling`);
+      });
+      lookLongest();
+      draws = [];
+      crowd("in the cabin");
+    }
+    I.stop();
+    ok(dimmedLive === 0, `a live walker's canvas went through Draw3.dim or dimOwn ${dimmedLive} times (a frozen walker and a leak)`);
+    ok(I.livePool.size === 0 && !(I.liveSpare || []).length, "Interior.stop() kept walker canvases");
+    I.dropSceneCaches();
+  } finally {
+    W3.draw = drawWas;
+    sb.document.createElement = makeWas;
+    D.dim = dimWas;
+    I.dimOwn = dimOwnWas;
+    I.ctx.fillRect = fillWas;
+    W.SETTINGS.walkerGore = goreWas;
+    I.setLiveLevel(0);
+    ctxMath.random = realRandom;
+    I.walkers.length = 0;
+    I.fallen.length = 0;
+    I.blood.length = 0;
+  }
+} catch (e) {
+  err(`live walkers: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
 }
 
 /* ---------- June's first-run tutorial (js/tutorial.js) ----------
@@ -2648,3 +3151,4 @@ if (errors.length) {
   process.exit(1);
 }
 console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock), and ${kindsChecked} walker kinds (stats, spawned in front of you in a building, the yard and the river, the scream, downed walkers and blood, heading, gait, the river's and the alarm's kinds, the alarm's cap, a return visit), and ${countsChecked} checks that walkers are never counted (no HUD box, the wave label, the river's toast), the scream's toast, kinds met, and no bite round a corner.`);
+console.log(`OK: live walkers: ${liveChecked} checks (every kind in every state drawn in a building, the yard and the cabin; canvases reused and let go; walls hide; ceilings cap; poses ease; the fallen fade; no Draw3.dim; still walkers drawn once; the redraw cap, the near ones and the governor; the health bar; blood only with gore).`);

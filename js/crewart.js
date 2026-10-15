@@ -1,11 +1,11 @@
 /* Art for the crew at home base: June, Tomas and Pip, the dog, their portraits, and the objects their
-   story quests ask for. Registered with ZSR.Draw3 (js/sprites3d.js), in the comic style of the walkers
+   story quests ask for. Registered with ZSR.Draw3 (js/sprites3d.js), in the game's comic style
    (flat fills, ink edges, tube limbs with a soft highlight, a little halftone). Design: docs/CREW.md
    ("How they look"). Sprites (names and opts are the contract with js/crew.js and js/building.js):
-   - "crew" { who, pose, f }: a full figure, front view, 192 x 256 like a walker (about 2 px a unit,
-     feet on the bottom edge, the standing head's top exactly where a walker's is), so the runtime
-     draws it as it draws a walker (wide 0.75) at CREW[id].scale times the walker's 0.95
-     (CREW_ART.scale.crew). Poses: stand, walk, work, sit, read; frames f 0 and 1 (breathing, a step,
+   - "crew" { who, pose, f }: a full figure, front view, 192 x 256 (about 2 px a unit, feet on the
+     bottom edge, the standing head's top at PERSON_TOP: a grown-up's height), so the runtime draws it
+     as a prop (wide 0.75) at CREW[id].scale times 0.95 (CREW_ART.scale.crew): a share of a grown-up
+     about 0.905 tiles tall. Poses: stand, walk, work, sit, read; frames f 0 and 1 (breathing, a step,
      the hammer up and down ...); pass f as exactly 0 or 1 (Draw3 caches a canvas per opts set).
      `sit` sits on the floor itself, knees up or legs crossed, so it needs no furniture under it;
      sit and work are drawn lower inside the same canvas, at the same scale.
@@ -157,10 +157,10 @@
      rx, ry: the head's radii; shW: half the shoulders; waist, hem: half widths of the top; hipW: each
      leg's distance from the middle; ua, fa: upper arm and forearm (to the hand's center). top: the
      highest point of the standing figure, hair and bun included (measured from the drawing: re-measure
-     it after changing a head or its hair). The sprite scales each figure by WALKER_TOP / top, so every
-     crew member's standing head reaches exactly as high in the canvas as a walker's: drawn at
-     CREW[id].scale times a walker's prop scale, they stand CREW[id].scale as tall as a walker. */
-  const WALKER_TOP = 122; // units: a walker's head top (js/sprites3d.js walker(), 192 x 256 at 2 px a unit)
+     it after changing a head or its hair). The sprite scales each figure by PERSON_TOP / top, so every
+     crew member's standing head reaches exactly as high in the canvas: drawn at CREW[id].scale times
+     the crew's prop scale, each stands CREW[id].scale of a grown-up (about 0.905 tiles). */
+  const PERSON_TOP = 122; // units: a grown-up's head top in a 192 x 256 figure canvas at 2 px a unit (0.905 tiles tall at prop scale 0.95)
   const PEOPLE = {
     // in her sixties, grey hair in a bun, round glasses, a green cardigan over a work shirt, canvas
     // gardening gloves, the green ledger under her arm
@@ -1223,7 +1223,7 @@
     const L = PEOPLE[o.who] || OTHER;
     const pose = POSES.includes(o.pose) ? o.pose : "stand";
     const f = o.f ? 1 : 0;
-    const k = 2 * (WALKER_TOP / L.P.top); // 2 px a unit, fitted so the standing head tops a walker's
+    const k = 2 * (PERSON_TOP / L.P.top); // 2 px a unit, fitted so the standing head reaches PERSON_TOP
     LWK = 1;
     ctx.save();
     ctx.translate(w / 2, h);
@@ -1812,9 +1812,10 @@
     dogPoses: DOG_POSES.slice(),
     kinds: KINDS.slice(),
     // canvas sizes, and the prop scale (tiles tall) each is drawn at, lift 0 and wide unset (the
-    // image's own aspect): crew is a walker's prop scale (js/interior.js draws walkers at 0.95), to
-    // multiply by CREW[id].scale, since every crew member's standing head tops a walker's in the
-    // canvas (June at 0.9 stands 0.9 as tall as a walker, and stays under the cabin's 0.98 ceiling cap);
+    // image's own aspect): crew is a grown-up's prop scale, to multiply by CREW[id].scale, since every
+    // crew member's standing head reaches PERSON_TOP in the canvas (June at 0.9 stands 0.9 of a grown-up,
+    // about 0.81 tiles, and stays under the cabin's 0.98 ceiling cap; the walkers' sizes are their own,
+    // js/walker3d-looks.js);
     // the dog's back comes to a grown-up's knee at 0.36; a quest object lies on the floor at 0.3
     size: { crew: [192, 256], crewDog: [160, 128], crewFace: [256, 256], qObj: [128, 96] },
     scale: { crew: 0.95, crewDog: 0.36, qObj: 0.3 },
