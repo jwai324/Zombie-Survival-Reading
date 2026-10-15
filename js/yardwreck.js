@@ -35,25 +35,13 @@
     },
 
     /* ---------- What the save says about a build ---------- */
-    /** 0 whole (or not built), 1 cracked (under half strength), 2 wrecked. */
+    /** 0 whole (or not built), 1 cracked (under half strength), 2 wrecked (State.buildDmg). */
     buildDmg(room) {
-      const S = State();
-      const max = S.buildMax(room);
-      if (!max) return 0;
-      const hp = S.buildHp(room);
-      return hp <= 0 ? 2 : hp < max * 0.5 ? 1 : 0;
+      return State().buildDmg(room);
     },
-    /** { wrecked: [rooms], cracked: [rooms] } (the computer's row, the crew's tip, the toasts), in WORLD.BASE_ROOMS
-        order like State.wreckedRooms, so every list of them reads the same. */
+    /** { wrecked: [rooms], cracked: [rooms] } (State.buildDamage: the computer's row, the crew's tip, the toasts). */
     buildDamage() {
-      const out = { wrecked: [], cracked: [] };
-      const plots = W().YARD.plots;
-      Object.keys(W().BASE_ROOMS).filter((room) => plots[room]).forEach((room) => {
-        const d = this.buildDmg(room);
-        if (d === 2) out.wrecked.push(room);
-        else if (d === 1) out.cracked.push(room);
-      });
-      return out;
+      return State().buildDamage();
     },
     /** The wrecked builds' names as words ("Garden and Well"), or "". */
     wreckedWords() {
@@ -329,15 +317,15 @@
       if (this.hooks.onYardChanged) this.hooks.onYardChanged();
       return true;
     },
-    /** Fix every wrecked, then every cracked build the scrap pays for (the computer's button). Returns how many. */
+    /** Fix every wrecked, then every cracked build the scrap pays for (the computer's button: State.buildFixAll, the
+        rule its price and Tomas's tip read too). Returns how many. */
     repairAllBuilds() {
       const S = State();
-      const cost = W().SETTINGS.buildRepairScrap;
-      const dmg = this.buildDamage();
+      const all = S.buildFixAll(this.buildDamage());
       let n = 0;
-      for (const room of dmg.wrecked.concat(dmg.cracked)) {
-        if (S.save.scrap < cost) break;
-        S.save.scrap -= cost;
+      for (const room of all.rooms) {
+        if (S.save.scrap < all.each) break;
+        S.save.scrap -= all.each;
         if (S.save.builds) delete S.save.builds[room];
         n++;
       }

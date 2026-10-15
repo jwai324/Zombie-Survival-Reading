@@ -475,14 +475,15 @@ group("tips: the walker kinds and the wreckers, told once; the wrecked builds", 
   ok(tip("cy").tip === "wreckers", `wreckers: not told once the ${plot} is built (${tip("cy").tip})`);
   S.seeCrewTalk("tip:cy:wreckers", 14);
   ok(tip("cy").tip !== "wreckers", "wreckers: told again after it was read");
-  // wrecked builds: from the save, or the yard's live list; one or two, and the scrap to fix them all
+  // wrecked builds: from the save, or the yard's live list; one or two, and the scrap to fix it all (the computer's
+  // Fix all: the Well, only cracked at 5, is fixed by it too, so it is in the price)
   const each = W.SETTINGS.buildRepairScrap;
   ok(!tips("bo").includes("wrecked"), "wrecked: told with nothing wrecked");
   S.save.rooms.garden = 1;
   S.save.rooms.well = 1;
   S.save.builds = { garden: 0, well: 5 };
   const one = S.crewTips("bo").regular.find((t) => t.tip === "wrecked");
-  ok(one && same(one.vars, { rooms: W.BASE_ROOMS.garden.name, cost: each }), `wrecked: from the save ${JSON.stringify(one && one.vars)}`);
+  ok(one && same(one.vars, { rooms: W.BASE_ROOMS.garden.name, cost: 2 * each }), `wrecked: from the save ${JSON.stringify(one && one.vars)}`);
   const two = S.crewTips("bo", { wrecked: ["garden", "well"] }).regular.find((t) => t.tip === "wrecked");
   ok(two && same(two.vars, { rooms: W.BASE_ROOMS.garden.name + " and " + W.BASE_ROOMS.well.name, cost: 2 * each }), `wrecked: the yard's live list ${JSON.stringify(two && two.vars)}`);
   ok(!tips("bo", { wrecked: [] }).includes("wrecked"), "wrecked: told when the yard says nothing is wrecked");
@@ -506,6 +507,44 @@ group("tips: the walker kinds and the wreckers, told once; the wrecked builds", 
   S.save.builds = { garden: 1 };
   ok(S.crewWhen({ room: "garden", level: 1 }, "bo"), "crewWhen: a room topic waits while its build is only cracked (it still works)");
   S.save.builds = {};
+});
+
+group("tips: Tomas's wrecked tip prices the office computer's Fix all", () => {
+  // one build wrecked and one only cracked: the computer's "Fix all for N scrap" (js/base.js buildsRow) fixes both, so
+  // Tomas's {cost} is that N, from the save and from the yard's live lists alike (State.buildFixAll, one rule)
+  const { S, W, sb } = synthetic();
+  vm.runInContext(fs.readFileSync(path.join(ROOT, "js", "base.js"), "utf8"), sb, { filename: "js/base.js" });
+  const each = W.SETTINGS.buildRepairScrap;
+  S.save.rooms.garden = 1;
+  S.save.rooms.well = 1;
+  S.save.builds = { garden: 0, well: Math.floor(S.buildMax("well") * 0.3) };
+  const dmg = S.buildDamage();
+  ok(same(dmg, { wrecked: ["garden"], cracked: ["well"] }), `Fix all: setup is not one wrecked and one cracked build ${JSON.stringify(dmg)}`);
+  // the computer's row, as the office computer draws it: the button's words carry its price
+  const made = [];
+  const create = sb.document.createElement;
+  sb.document.createElement = (t) => {
+    const e = create(t);
+    made.push(e);
+    return e;
+  };
+  sb.ZSR.Base.hooks = {};
+  try {
+    sb.ZSR.Base.buildsRow();
+  } finally {
+    sb.document.createElement = create;
+  }
+  const button = made.find((e) => /^Fix all for \d+ scrap$/.test(String(e.innerHTML || "")));
+  const computer = button ? +button.innerHTML.match(/\d+/)[0] : NaN;
+  ok(computer === 2 * each, `Fix all: the computer's button does not price both builds (${button ? button.innerHTML : "no button"}, ${each} scrap each)`);
+  const cost = (ctx) => {
+    const t = S.crewTips("bo", ctx).regular.find((x) => x.tip === "wrecked");
+    return t ? t.vars.cost : null;
+  };
+  ok(cost() === computer, `Fix all: Tomas's wrecked tip says ${cost()} scrap, the computer's Fix all ${computer} (from the save)`);
+  ok(cost({ wrecked: ["garden"], cracked: ["well"] }) === computer, `Fix all: Tomas's wrecked tip says ${cost({ wrecked: ["garden"], cracked: ["well"] })} scrap, the computer's Fix all ${computer} (the yard's live lists)`);
+  // and the button fixes what it prices: every wrecked, then every cracked build
+  ok(same(S.buildFixAll(dmg).rooms, ["garden", "well"]) && S.buildFixAll(dmg).cost === computer, `Fix all: the button's rooms or price ${JSON.stringify(S.buildFixAll(dmg))}`);
 });
 
 group("jobs", () => {

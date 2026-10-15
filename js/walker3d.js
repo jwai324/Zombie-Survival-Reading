@@ -3254,6 +3254,12 @@
   let HEADBACK = false; // the head is behind the shoulders (drawn before the torso)
   let FACEDOWN = false; // the head points well down (a body falling or lying on its face): no face shows
   const FACE_DOWN = -0.7; // the head's forward points lower than this (up is +1): its face is toward the floor (upright poses stay above -0.6)
+  // Lying flat, the head rests on the floor, so a face turned less far down is already against it: the line rises from
+  // FACE_DOWN (standing) to this (flat) with how far over the body has gone (RG[LYING]). Without it a heap's head
+  // tucked back under its chest (the lanky's fold, the runner's tumble: forward about -0.6, toward its own feet)
+  // showed its face upside down from behind and from the side. A body on its side has its face about level (above
+  // -0.3) and one on its back faces up, so both still show their faces.
+  const FACE_DOWN_LYING = -0.4;
   let LEGPAIR = false;
   const pOrd = new Int32Array(NP);
   function drawPart(p) {
@@ -3331,9 +3337,10 @@
     // facing the camera, the head goes after the torso (its chin over the chest). Turned away with the head behind
     // the shoulders (a hunched walker from behind), it goes by its real depth: the torso and the near shoulder
     // cover its lower part and the top of the skull shows over them
-    // A head pointing well down (falling or lying on its face) shows no face from anywhere, so it goes by its real
-    // depth too: lying away from you, the body covers it (drawn after the torso it would sit between the boots)
-    FACEDOWN = HF[7] < FACE_DOWN;
+    // A head pointing well down (falling or lying on its face: below FACE_DOWN, rising to FACE_DOWN_LYING as the body
+    // goes flat) shows no face from anywhere, so it goes by its real depth too: lying away from you, the body covers
+    // it (drawn after the torso it would sit between the boots)
+    FACEDOWN = HF[7] < FACE_DOWN + (FACE_DOWN_LYING - FACE_DOWN) * RG[LYING];
     HEADBACK = FACEDOWN || (facing(HF[6], HF[8]) < 0 && jDepth(HED) > jDepth(CHE));
     if (HEADBACK) pKey[PT_HEAD] = jDepth(HED);
     else pKey[PT_HEAD] = Math.min(jDepth(HED) - 0.12, pKey[PT_TORSO] - 0.001);
@@ -3571,11 +3578,14 @@
   if (D3 && D3.registerSprite) Object.keys(SPRITES).forEach((k) => D3.registerSprite(k, SPRITES[k].w, SPRITES[k].h, SPRITES[k]));
 
   /** For the art tests only: the last draw's fit, the joints (model tiles) and their projections (px), the head's
-      frame (hf: across, up, forward, 3 each) and whether the head was drawn by its real depth (headBack). Reused. */
-  const PROBE = { fit: 1, fitEnv: 1, j: J, s: S, hf: HF, headBack: false };
+      frame (hf: across, up, forward, 3 each), how far over the body has gone (lying, 0..1), whether its face counted
+      as toward the floor (faceDown) and whether the head was drawn by its real depth (headBack). Reused. */
+  const PROBE = { fit: 1, fitEnv: 1, j: J, s: S, hf: HF, lying: 0, faceDown: false, headBack: false };
   function probe() {
     PROBE.fit = RG[FIT];
     PROBE.fitEnv = RG[FIT_ENV];
+    PROBE.lying = RG[LYING];
+    PROBE.faceDown = FACEDOWN;
     PROBE.headBack = HEADBACK;
     return PROBE;
   }
@@ -3589,6 +3599,7 @@
     POSE_BLEND,
     FOG_STEPS,
     FACE_DOWN,
+    FACE_DOWN_LYING,
     FOV,
     POSES,
     TYPES,

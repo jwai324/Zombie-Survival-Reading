@@ -132,6 +132,7 @@
       savedAt: Date.now(),
     };
   }
+  const BUILD_CRACKED = 0.5; // a yard build under this share of its strength is cracked: it still works, it shows cracks
   /** A room's build strength at its built level in save `s` (DEFENSE.buildHp; the last entry past its end), 0 for a
       room with no yard plot (the Walls) or not built yet. */
   function buildMaxOf(s, room) {
@@ -397,6 +398,34 @@
     /** The wrecked rooms, in WORLD.BASE_ROOMS order. */
     wreckedRooms() {
       return Object.keys(W().BASE_ROOMS).filter((room) => this.roomWrecked(room));
+    },
+    /** 0 whole (or not built, or no plot), 1 cracked (under BUILD_CRACKED of its strength), 2 wrecked. */
+    buildDmg(room) {
+      const max = this.buildMax(room);
+      if (!max) return 0;
+      const hp = this.buildHp(room);
+      return hp <= 0 ? 2 : hp < max * BUILD_CRACKED ? 1 : 0;
+    },
+    /** { wrecked: [rooms], cracked: [rooms] } (the computer's row, the crew's tips, the toasts), in WORLD.BASE_ROOMS
+        order like wreckedRooms, so every list of them reads the same. */
+    buildDamage() {
+      const out = { wrecked: [], cracked: [] };
+      Object.keys(W().BASE_ROOMS).forEach((room) => {
+        const d = this.buildDmg(room);
+        if (d === 2) out.wrecked.push(room);
+        else if (d === 1) out.cracked.push(room);
+      });
+      return out;
+    },
+    /** The office computer's "Fix all" for damage `dmg` ({ wrecked, cracked }; the save's when left out): every
+        wrecked, then every cracked build (rooms, a room in both lists once), at SETTINGS.buildRepairScrap each (each),
+        and the scrap for them all (cost). The one rule for the computer's button, what it fixes
+        (js/yardwreck.js repairAllBuilds) and Tomas's wrecked tip ({cost}, js/crewstate.js). */
+    buildFixAll(dmg) {
+      const d = dmg || this.buildDamage();
+      const rooms = d.wrecked.concat(d.cracked.filter((room) => !d.wrecked.includes(room)));
+      const each = W().SETTINGS.buildRepairScrap || 0;
+      return { rooms, each, cost: rooms.length * each };
     },
 
     /* ---------- Derived effects of the base rooms ---------- */

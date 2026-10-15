@@ -216,7 +216,7 @@ must use every one its facts carry. Copy them exactly, braces and all: the game 
   `{room}` a room's name ("Garden"); `{rooms}` one or more rooms' names as a list ("Garden",
   "Garden and Well": Tomas's `wrecked` tip, so write it as a label after a colon, never as a
   subject that needs "is" or "are"); `{who}` a crew member's name; `{item}` an item's name; the
-  rest are numbers (Tomas's `wrecked` `{cost}` is the scrap to fix every wrecked build yourself). An errand's `{days}` is its deadline when offered and the days left when the
+  rest are numbers (Tomas's `wrecked` `{cost}` is the office computer's "Fix all" price: every wrecked and every cracked build, so write "fixing it all", not "fixing them"). An errand's `{days}` is its deadline when offered and the days left when the
   brief is read again from the backpack (at least 1; once the errand is filled, the deadline it
   was given). Write around them so the sentence
   reads well whatever they become. A count that can be 1 goes where no plural hangs on it, or

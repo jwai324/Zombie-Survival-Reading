@@ -204,7 +204,7 @@ facts carry the placeholders exactly.
 | Tomas | `fence` | holes or cracks | `{holes}`, `{cracks}` |
 | Tomas | `cabin` | broken doors or windows | `{broken}` |
 | Tomas | `crowbar` | no crowbars | |
-| Tomas | `wrecked` | a room build is wrecked (live from the yard, else `State.wreckedRooms`) | `{rooms}` ("Garden and Well"), `{cost}` scrap to fix them all yourself |
+| Tomas | `wrecked` | a room build is wrecked (live from the yard, else `State.buildDamage`) | `{rooms}` ("Garden and Well"), `{cost}` the office computer's "Fix all" price: every wrecked and cracked build (`State.buildFixAll`, the one rule the button reads too) |
 | Tomas | `lanky` | told once: after the first lanky walker is met (`save.met`), until its words are read | |
 | Tomas | `armored` | told once: after the first armored walker is met | |
 | Tomas | `fine` | the fallback, while no yard build is cracked (under half strength) or wrecked (live from the yard, else the save) | |
@@ -526,4 +526,5 @@ handed in with its reward and perk; errands count cargo and expire; the dog foll
 is named and eats; an old save without `crew` loads; every crew text resolves at every level; the
 builds job fixes a wrecked build after the fence, pays (or is free with the perk), never in a wave,
 and leaves a build only cracked to you; the told-once tips (the walker kinds, the wreckers) and the
-wrecked tip (from the save and the yard's live list).
+wrecked tip (from the save and the yard's live list; its `{cost}` is the computer's Fix all price, one wrecked and
+one cracked build).

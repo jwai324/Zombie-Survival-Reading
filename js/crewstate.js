@@ -90,7 +90,7 @@
   // the perks a story quest can give (docs/CREW.md "Perks"), with their value when none is active
   const PERKS = { foodPerDay: 0, medsPerDay: 0, footHp: 0, vanHp: 0, scrapPerDay: 0, crewRepairFree: false, lookoutEarly: 0, healAmount: 0, crowbarCost: null };
   const DOG_NAME_MAX = 14; // letters in the dog's name (the card's text box and the HUD)
-  const CRACKED = 0.5; // a fence segment (or a yard build) below this share of its health is cracked (as js/yard.js yardFacing, js/yardwreck.js buildDmg)
+  const CRACKED = 0.5; // a fence segment below this share of its health is cracked (as js/yard.js yardFacing; a yard build: State.buildDmg)
   // days Pip looks ahead for the town's next walker (SETTINGS.walkersPerLocation). SCALE: a slower walker curve
   // (one more every 60 days or more) needs this longer, or Pip's walkers tip goes quiet
   const WALKER_LOOKAHEAD = 60;
@@ -117,19 +117,18 @@
      A new tip id needs a rule here and a place in one of the three lists. */
   /** A tip told once, after the player first met that kind of walker (save.met[type]). */
   const metOnce = (S, id, tip, type) => ((S.save.met || {})[type] != null && !S.crewSave().read.includes("tip:" + id + ":" + tip) ? {} : null);
-  /** The wrecked builds' room ids: the yard's live list, else the save's. */
-  const wreckedOf = (S, ctx) => (ctx && Array.isArray(ctx.wrecked) ? ctx.wrecked : S.wreckedRooms ? S.wreckedRooms() : []);
-  /** Any yard build wrecked, or cracked (under CRACKED of its strength, as js/yardwreck.js buildDmg): the yard's live
-      lists (ctx.wrecked, ctx.cracked), else the save's. The game says such a build needs fixing (the lot panel, the
-      computer's Fix all), so Tomas's "nothing needs fixing" is not said while one is. */
+  /** The damaged yard builds { wrecked, cracked } (room ids): each the yard's live list (ctx.wrecked, ctx.cracked),
+      else the save's (State.buildDamage). */
+  const damageOf = (S, ctx) => {
+    const live = (k) => (ctx && Array.isArray(ctx[k]) ? ctx[k] : null);
+    const save = live("wrecked") && live("cracked") ? null : S.buildDamage();
+    return { wrecked: live("wrecked") || save.wrecked, cracked: live("cracked") || save.cracked };
+  };
+  /** Any yard build wrecked, or cracked: the game says such a build needs fixing (the lot panel, the computer's Fix
+      all), so Tomas's "nothing needs fixing" is not said while one is. */
   const buildsHurt = (S, ctx) => {
-    if (wreckedOf(S, ctx).length) return true;
-    if (ctx && Array.isArray(ctx.cracked)) return ctx.cracked.length > 0;
-    if (!S.buildMax) return false;
-    return Object.keys((W().YARD && W().YARD.plots) || {}).some((r) => {
-      const max = S.buildMax(r);
-      return max > 0 && S.buildHp(r) < max * CRACKED;
-    });
+    const d = damageOf(S, ctx);
+    return d.wrecked.length + d.cracked.length > 0;
   };
   const TIP_RULES = {
     // June's patch-up: only with the heal job unlocked (CREW[id].jobs), whatever the yard passes
@@ -190,12 +189,12 @@
     screamer: (S, ctx, id) => metOnce(S, id, "screamer", "screamer"),
     // the wreckers, told once, as soon as a yard build stands (something for them to wreck)
     wreckers: (S, ctx, id) => (Object.keys((W().YARD && W().YARD.plots) || {}).some((r) => (S.save.rooms[r] || 0) > 0) && !S.crewSave().read.includes("tip:" + id + ":wreckers") ? {} : null),
-    // while a build is wrecked: {rooms} names them ("Garden and Well"), {cost} the scrap to fix them all yourself
+    // while a build is wrecked: {rooms} names them ("Garden and Well"), {cost} the scrap to fix it all yourself: the
+    // office computer's "Fix all" price (State.buildFixAll: the cracked builds too), never a second count of it
     wrecked: (S, ctx) => {
-      const rooms = wreckedOf(S, ctx);
-      if (!rooms.length) return null;
-      const each = (W().SETTINGS && W().SETTINGS.buildRepairScrap) || 0;
-      return { rooms: listWords(rooms.map(roomName)), cost: each * rooms.length };
+      const dmg = damageOf(S, ctx);
+      if (!dmg.wrecked.length) return null;
+      return { rooms: listWords(dmg.wrecked.map(roomName)), cost: S.buildFixAll(dmg).cost };
     },
   };
   const URGENT = ["heal", "hungry", "wave", "lanky", "armored", "screamer", "wreckers"];

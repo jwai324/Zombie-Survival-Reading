@@ -254,10 +254,10 @@
         fix them all for scrap (wrecked first, then cracked). */
     buildsRow() {
       const S = State();
-      const dmg = this.hooks.buildDamage ? this.hooks.buildDamage() : { wrecked: S.wreckedRooms ? S.wreckedRooms() : [], cracked: [] };
-      const each = W().SETTINGS.buildRepairScrap;
-      const n = dmg.wrecked.length + dmg.cracked.length;
-      const cost = n * each;
+      const dmg = this.hooks.buildDamage ? this.hooks.buildDamage() : S.buildDamage();
+      // the one Fix all rule (State.buildFixAll): what the button fixes and Tomas's wrecked tip read it too
+      const { rooms, each, cost } = S.buildFixAll(dmg);
+      const n = rooms.length;
       const names = (list) => list.map((k) => (W().BASE_ROOMS[k] ? W().BASE_ROOMS[k].name : k)).join(", ");
       const row = el("div", "fence-row" + (dmg.wrecked.length ? " bad" : ""));
       const parts = (dmg.wrecked.length ? [dmg.wrecked.length + " wrecked (" + esc(names(dmg.wrecked)) + ")"] : []).concat(dmg.cracked.length ? [dmg.cracked.length + " cracked (" + esc(names(dmg.cracked)) + ")"] : []);

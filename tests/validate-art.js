@@ -879,9 +879,10 @@ else {
         });
       });
     });
-    // J2: a head pointing well down (Walker3D.FACE_DOWN: falling or lying on its face) shows no face from any side,
-    // and goes by its real depth (lying away from you the body covers it: drawn after the torso it would sit between
-    // the boots, the open mouth showing); a brute shot in the back lies face down, from behind: no face
+    // J2: a head whose face is toward the floor shows no face from any side, and goes by its real depth (lying away
+    // from you the body covers it: drawn after the torso it would sit between the boots, the open mouth showing).
+    // Toward the floor: its forward points below Walker3D.FACE_DOWN, or below FACE_DOWN_LYING once the body lies flat
+    // (its head is on the floor then). probe().faceDown is that call
     let faceDown = 0;
     types.forEach((type) => {
       [0, PI, PI / 2, 2.5].forEach((fallDir) => {
@@ -889,18 +890,50 @@ else {
           for (let k = 0; k < 8; k++) {
             const yaw = (k * PI) / 4;
             const res = W3.draw(quiet, type, stQ({ yaw, fall, fallDir, pose: "idle", move: 0 }), camFor(type, true, 200, 1.6));
-            if (!(PB.hf[7] < W3.FACE_DOWN)) continue;
+            const P = W3.probe();
+            const what = `walker ${type} falling ${fall} dir ${fallDir.toFixed(2)} yaw ${yaw.toFixed(2)}`;
+            const down = PB.hf[7] < W3.FACE_DOWN || (P.lying >= 1 && PB.hf[7] < W3.FACE_DOWN_LYING);
+            if (down && !P.faceDown) err(`${what}: its head points down (${PB.hf[7].toFixed(2)}, lying ${P.lying.toFixed(2)}) yet it does not count as face down`);
+            if (!P.faceDown) continue;
             faceDown++;
-            if (res.face || !W3.probe().headBack) err(`walker ${type} falling ${fall} dir ${fallDir.toFixed(2)} yaw ${yaw.toFixed(2)}: its head points down (${PB.hf[7].toFixed(2)}) yet ${res.face ? "draws a face" : "is not drawn by its real depth"}`);
+            if (res.face || !P.headBack) err(`${what}: its face is toward the floor (forward ${PB.hf[7].toFixed(2)}) yet ${res.face ? "draws a face" : "is not drawn by its real depth"}`);
           }
         });
       });
     });
     if (!faceDown) err("walker falls: no fall ever puts a head face down (the check above checked nothing)");
-    if (types.includes("brute")) {
-      const res = W3.draw(quiet, "brute", stQ({ yaw: PI, fall: 1, fallDir: 0, pose: "idle", move: 0 }), camFor("brute", true, 200, 1.6));
-      if (res.face) err("walker brute shot in the back, lying face down, seen from behind: draws its face");
-    }
+    // J2b: shot in the back, every kind goes down on its front and its face is hidden whatever its fall style (a
+    // lanky's fold and a runner's tumble end with the head tucked back under, forward about -0.6 and toward its feet):
+    // seen from behind, from either side and three-quarters behind, no face, in every look and a few more seeds
+    types.forEach((type) => {
+      const nv = W3.TYPES[type].looks ? W3.TYPES[type].looks.length : 1;
+      for (let seed = 0; seed < Math.max(8, nv); seed++) {
+        [[PI, "behind"], [PI / 2, "from its left"], [-PI / 2, "from its right"], [0.75 * PI, "3/4 behind left"], [-0.75 * PI, "3/4 behind right"]].forEach(([yaw, side]) => {
+          const res = W3.draw(quiet, type, stQ({ yaw, fall: 1, fallDir: 0, pose: "idle", move: 0, seed }), camFor(type, true, 200, 1.6));
+          const P = W3.probe();
+          if (res.face) err(`walker ${type} seed ${seed} shot in the back, lying face down, seen ${side}: draws its face (head forward ${PB.hf[7].toFixed(2)})`);
+          else if (!P.faceDown) err(`walker ${type} seed ${seed} shot in the back, lying face down, seen ${side}: its head does not count as face down (forward ${PB.hf[7].toFixed(2)})`);
+        });
+      }
+    });
+    // J2c: and one shot from the front that lands on its back (its head ends facing up) still shows its face from
+    // somewhere (the gate above must not hide every downed face)
+    let faceUp = 0;
+    types.forEach((type) => {
+      for (let seed = 0; seed < 8; seed++) {
+        let up = false;
+        let seen = false;
+        for (let k = 0; k < 8; k++) {
+          const res = W3.draw(quiet, type, stQ({ yaw: (k * PI) / 4, fall: 1, fallDir: PI, pose: "idle", move: 0, seed }), camFor(type, true, 200, 1.6));
+          if (PB.hf[7] > 0.3) up = true;
+          if (res.face) seen = true;
+        }
+        if (!up) continue;
+        faceUp++;
+        if (!seen) err(`walker ${type} seed ${seed} shot from the front, lying on its back face up: draws no face from any side`);
+      }
+    });
+    if (!faceUp) err("walker falls: no body shot from the front ever lands face up (the check above checked nothing)");
     // K: missing or broken inputs draw as their defaults (the checking context errs on any non-finite coordinate)
     [{ move: undefined }, { move: NaN }, { fallDir: NaN, fall: 0.6 }, { fallDir: undefined, fall: 0.6 }, { fallDir: null, fall: 1 }, { gait: NaN }, { gait: Infinity }, { poseT: NaN, pose: "bite" }, { claw: NaN, pose: "claw" }, { poseW: NaN, pose: "claw" }, { fall: NaN }, { yaw: NaN }, { fog: NaN }, { seed: -5 }, { lod: 7 }, { pose: "dance" }].forEach((o) =>
       types.forEach((type) => drawOne(type, o, camFor(type, !!o.fall, 200), `walker ${type} with ${JSON.stringify(o, (k, v) => (typeof v === "number" && !Number.isFinite(v) ? String(v) : v === undefined ? "undefined" : v))}`))
