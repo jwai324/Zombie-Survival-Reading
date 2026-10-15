@@ -2475,6 +2475,22 @@ try {
         ok(!draws.some((d) => d.h > Math.ceil(I.LIVE_MAX_PX * L.scale) + 1), `governor level ${lvl}: a picture taller than ${I.LIVE_MAX_PX} x ${L.scale}`);
       }
       I.setLiveLevel(0);
+      // five in full-detail range: the liveNear nearest draw every frame in full detail, the others take turns at
+      // lod 1 at most
+      clear();
+      const five = [1.0, 1.1, 1.2, 1.3, 1.4].map((d, i) => put(kinds[i % kinds.length], 27.5 + (i % 2 ? 0.35 : -0.35), 30.5 - d, { seed: 3200 + i, move: 1 }));
+      const step5 = () => {
+        five.forEach((z) => (z.gait = (z.gait + 0.047) % 1));
+        frame();
+      };
+      step5();
+      draws = [];
+      for (let f = 0; f < 12; f++) step5();
+      five.forEach((z, i) => {
+        const mine = draws.filter((d) => d.seed === z.seed);
+        if (i < I.liveNear) ok(mine.length === 12 && mine.every((d) => d.lod === 0), `the ${i + 1}th nearest walker (of ${I.liveNear} near) was drawn ${mine.length} times in 12 frames, lods ${[...new Set(mine.map((d) => d.lod))]}`);
+        else ok(mine.length >= 2 && mine.length <= 6 && mine.every((d) => d.lod >= 1), `the ${i + 1}th nearest walker (past the ${I.liveNear} near ones) was drawn ${mine.length} times in 12 frames, lods ${[...new Set(mine.map((d) => d.lod))]} (want turns, lod 1 at most)`);
+      });
     }
     // the governor: slow frames step it down a row at a time, in the spec's order (far ones less often, fewer
     // redraws, a lower resolution, less detail), never below the last row; fast frames step it back up to the first

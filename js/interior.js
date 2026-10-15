@@ -67,15 +67,16 @@
   // live walkers: each on screen is drawn by Walker3D into its own pooled canvas, at its size on screen, whenever it
   // looks different, then goes up like any sprite (clipped by walls, sorted, fogged in its own colours)
   const CEIL_CAP = 0.98; // tiles: under a ceiling (and inside the cabin) nothing drawn stands taller; it shrinks to fit
-  const LIVE_MAX_PX = 400; // SCALE: tallest live render, px; a nearer walker's picture is scaled up (cost grows with pixels)
+  const LIVE_MAX_PX = 320; // SCALE: tallest live render, px; a nearer walker's picture is scaled up (cost grows with pixels)
   const LIVE_STEP = 32; // px: a live canvas grows and shrinks in steps of this
   const LIVE_SPARE = 8; // SCALE: spare live canvases kept for the next walkers (the rest are let go)
   const LIVE_IDLE = 60; // frames a walker's canvas is kept while it is not drawn (behind you, behind a wall)
   const LIVE_SHRINK = 30; // renders in a row at under half its canvas before the canvas is made smaller
   const LOD_PX = [160, 64]; // SCALE: on-screen height (px) for detail lod 0 / lod 1; shorter: lod 2
-  const LIVE_NEAR = 4; // SCALE: the nearest this many lod-0 walkers draw every frame they change; the rest take turns
+  const LIVE_NEAR = 3; // SCALE: the nearest this many lod-0 walkers draw every frame they change; the rest take turns
+  const FAR_LOD = 1; // the most detail a walker taking turns is drawn with (full detail is for the near ones)
   const FAR_EVERY = 2; // SCALE: every other walker draws again only every Nth frame (1 = every frame)
-  const LIVE_RENDERS_MAX = 12; // SCALE: live redraws a frame (the near ones count, and go first); the rest keep their picture
+  const LIVE_RENDERS_MAX = 10; // SCALE: live redraws a frame (the near ones count, and go first); the rest keep their picture
   const LIVE_SCALE_LOW = 0.7; // the governor's resolution step: live pictures at 70% (drawn up unsmoothed)
   const POSE_BLEND = 0.15; // seconds into (and out of) a pose (Walker3D.POSE_BLEND when loaded)
   // the frame-time governor (adaptQuality): slow = the smoothed render over QUALITY_RENDER_MS or frames slower than
@@ -929,7 +930,8 @@
       else if (this.liveFastN >= GOV_WAIT_UP && this.liveLevel > 0) this.setLiveLevel(this.liveLevel - 1);
     },
     /** Put one governor row in place: liveFar (all but the near ones draw at most every Nth frame), liveMax (redraws
-        a frame), liveScale (picture resolution) and liveLodPx (the LOD heights). */
+        a frame), liveScale (picture resolution) and liveLodPx (the LOD heights); and the fixed liveNear, liveMaxPx and
+        liveFarLod (instance fields, so a perf run can try other values). */
     setLiveLevel(i) {
       const L = LIVE_LEVELS[clamp(i | 0, 0, LIVE_LEVELS.length - 1)];
       this.liveLevel = LIVE_LEVELS.indexOf(L);
@@ -938,6 +940,8 @@
       this.liveScale = L.scale;
       this.liveLodPx = L.lodPx;
       this.liveNear = LIVE_NEAR;
+      this.liveMaxPx = LIVE_MAX_PX;
+      this.liveFarLod = FAR_LOD;
       this.liveSlowN = 0;
       this.liveFastN = 0;
     },
@@ -2579,11 +2583,12 @@
     liveCheck(s, rank) {
       const z = s.live;
       const M = W3();
-      const k = Math.min(this.liveScale, LIVE_MAX_PX / s.sh); // render px per screen px (<= 1)
+      const k = Math.min(this.liveScale, this.liveMaxPx / s.sh); // render px per screen px (<= 1)
       const rw = (s.rw = Math.max(2, Math.ceil(s.sw * k)));
       const rh = (s.rh = Math.max(2, Math.ceil(s.sh * k)));
       const lodPx = this.liveLodPx;
-      const lod = (s.lod = s.sh >= lodPx[0] ? 0 : s.sh >= lodPx[1] ? 1 : 2);
+      // full detail for the near ones; one taking turns gets at most liveFarLod (FAR_LOD)
+      const lod = (s.lod = Math.max(s.sh >= lodPx[0] ? 0 : s.sh >= lodPx[1] ? 1 : 2, rank < this.liveNear ? 0 : this.liveFarLod));
       const t = (s.liveT = this.liveTarget(z, rw, rh));
       s.liveAge = this.frameNo - (t.drawnAt || 0);
       // never drawn, not on screen last frame (its picture may be old), or grown past what scaling up hides: at once
@@ -2807,6 +2812,8 @@
     LIVE_STEP,
     LIVE_SPARE,
     LOD_PX,
+    LIVE_NEAR,
+    FAR_LOD,
     FAR_EVERY,
     LIVE_RENDERS_MAX,
     LIVE_LEVELS,
