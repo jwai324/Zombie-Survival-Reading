@@ -192,7 +192,8 @@
     ] },
   ];
 
-  /* The radio: one broadcast per day home once the Radio room is built.
+  /* The radio: one broadcast per day home once the Radio room is built. It waits at the radio in the
+     dining room until the player tunes in there (State.radioWaiting).
      After broadcast 30 the game repeats broadcasts 21 to 30.
      SCALE: as above, the last third repeats; append only. The key-ring tips here are checked against KEYS by hand.
      Key-ring tips (true, checked against KEYS and LOCATIONS): 3, 7, 10, 14, 18, 21, 23, 26. */
@@ -507,13 +508,14 @@
       empty: [
         "A tall post stands in the yard with a ladder leaning on it.",
         "Pip painted the sign: RADIO, Pip's job.",
-        "A radio mast here would pick up voices from town.",
+        "A radio tower here would pick up voices from town, for the radio in the dining room.",
         "The voices would tell you where places are, so they show up on the map.",
       ],
+      // the tower by level: js/yard.js BUILDS.radio; the set in the dining room grows with it (js/house.js)
       built: [
-        ["The sign says RADIO: a short mast with an antenna and a receiver.", "Pip writes down every voice.", "It finds three new places on the map."],
-        ["The sign says RADIO: a taller mast that reaches all over town.", "It finds every place on the map."],
-        ["The sign says RADIO: the tall mast, and a shelf of books Pip uses to keep the logbook of voices.", "It finds every place, and it shows which places still have items."],
+        ["The sign says RADIO: a timber tower lashed with rope, with a whip antenna on top.", "A wire runs from it to the radio in the dining room, where Pip writes down every voice.", "It finds three new places on the map."],
+        ["The sign says RADIO: a steel tower on guy wires, with a dish halfway up and a red light blinking on top.", "It reaches all over town and finds every place on the map."],
+        ["The sign says RADIO: a tall red and white tower with two dishes, two blinking lights, and a little equipment hut with solar panels.", "In the dining room, Pip's books keep the logbook of voices next to a map of the town.", "It finds every place, and it shows which places still have items."],
       ],
     },
     lab: {
@@ -589,7 +591,7 @@
       "Pencil lines on the door frame show how tall the kids grew each year.",
       "Gus has the top line, and Lucy's lowest line says age 3.",
       "Pip stood against the frame and comes up between Finn and Gus.",
-      "The radio and June's green ledger sit on the shelf by the couch, so anyone can read the past days again.",
+      "The radio shelf used to stand by the couch, until Pip carried it to the dining room, where the crew eats.",
     ],
     gusRoom: [
       "A sign on the door says: GUS'S ROOM, KEEP OUT, THIS MEANS YOU FINN.",

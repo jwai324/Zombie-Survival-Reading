@@ -503,10 +503,17 @@
         },
       });
     },
-    /** The radio shelf in the living room: June's journal and the radio, every day so far. */
-    onJournal() {
+    /** The radio shelf in the dining room: today's news if it is still waiting (tune in), else June's
+        journal and the radio, every day so far. */
+    onRadio() {
       Interior.pause();
-      Backpack.openDays(() => Interior.resume());
+      const news = State.save.rooms.radio > 0 ? State.radioWaiting() : null;
+      if (news) {
+        Backpack.tuneIn(news, () => {
+          State.commit(); // keeps the "tuned" mark (words read) on the saved day
+          Interior.resume();
+        });
+      } else Backpack.openDays(() => Interior.resume());
     },
     /** The typewriter in the play room: a free typing round. */
     onPractice() {
@@ -1095,7 +1102,7 @@
     Game.init($("game"), { onArrive, onWrongTurn, onDeath, onPause, onPauseKey });
     Interior.init($("fp"), {
       onComputer: () => yardHooks.onComputer(),
-      onJournal: () => yardHooks.onJournal(),
+      onRadio: () => yardHooks.onRadio(),
       onPractice: () => yardHooks.onPractice(),
       onVan: () => yardHooks.onVan(),
       onWaveCleared: () => yardHooks.onWaveCleared(),

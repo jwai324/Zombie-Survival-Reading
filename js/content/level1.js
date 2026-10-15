@@ -99,7 +99,7 @@
           ],
         },
         radio: {
-          desc: "The Radio room picks up voices from the town. The voices tell you where new places are.",
+          desc: "The Radio room is a tower in the yard. A wire runs from it to the dining room. Voices come out of the radio there. They tell you where new places are.",
           next: [
             "It shows up to three new places on the map.",
             "It shows every place on the map.",

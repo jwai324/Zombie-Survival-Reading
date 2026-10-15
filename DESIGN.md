@@ -26,7 +26,7 @@ marked **Assumption** can be changed cheaply.
 | What is the cabin? | A family house you walk into, laid out from the owner's floor plan (porch, foyer, office, dining room, kitchen with four cabinet runs, pantry, ping pong room, living room, master bedroom and bath, three bedrooms, a second bath, closets, rear play room), furnished by room. It is still called "the cabin": the Hollis family named it that. |
 | Inside and outside | True scale and seamless: the yard grew south and the house is part of the yard scene (no loading); seen from outside it is a house with siding, shutters, a porch and a hip roof. |
 | Where do you build? | At the computer in the office: E opens the same build menu the cabin door used to. |
-| What else does E do inside? | Pantry: food and storage. Radio shelf: past days. Typewriter: typing practice. Big bed: full health for a minute of the calm. |
+| What else does E do inside? | Pantry: food and storage. Radio shelf (dining room since 2026-10-14): today's news, then past days. Typewriter: typing practice. Big bed: full health for a minute of the calm. |
 | Reading inside | Notes from the previous owners (the Hollis family) on the walls of every room, at all six levels. |
 | Defense | The clock keeps running inside. Walkers walk through an open door, break a shut one slowly, and smash windows to climb in. Some walkers raid the cabin even when you are outside and wait inside for you. Doors and windows get a separate House upgrade track. |
 | Pace | Calm between waves is four times longer. The dinner bell calls the next wave now; gunfire shortens the calm. |
@@ -581,6 +581,16 @@ sandbox in `js/state.js`, `godBegin` / `godGo` / `godExit` in `js/main.js`; test
 - **E steps away from the computer.** E opens the office computer and E closes it, like B and the
   backpack. Not while the workbench, the backpack, a question, a tutorial card or a lock prompt sits
   over the menu: those keep their own keys.
+
+## Owner decisions: the radio in the dining room, a tower in the yard (2026-10-14)
+
+| Question | Answer |
+|----------|--------|
+| Where is the radio? | The whole radio shelf (the radio and June's ledger) moved from the living room to the dining room. Pip's radio post moved with it. |
+| What does it do? | Each day's broadcast waits there: E tunes in (it is no longer on the arrival page, which says where the news is). Once heard, E opens the journal and every broadcast, as before. Before the Radio room is built, E there reads the journal. |
+| Does it change with the Radio room? | Yes. Level 0 a dead radio; 1 the dial glows; 2 a ham set and speaker, and Pip's map and list of voices on the table; 3 a mic, headphones, an ON AIR light, and a cork board of the town in the corner. |
+| The yard | Tower only, on the same 3x3 plot: a timber tower (about 2 tiles), a steel lattice on guy wires with a dish and a beacon (about 3.6), a red and white broadcast tower with two dishes, two beacons, an equipment hut and solar panels (about 5). |
+| Judgment calls | Only the newest day's broadcast waits: an older one never tuned in to shows with its day. Old saves (no `tuned` field) count every broadcast as heard. The radio's words count toward words read when it is first shown. |
 
 ## Owner decisions: How it works, rewritten as backstory (2026-10-15)
 

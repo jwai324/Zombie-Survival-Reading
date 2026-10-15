@@ -14,7 +14,7 @@
     /* June: dry, warm, in her sixties, a retired school gardener */
     "june-t1": {
       title: "June's Green Ledger",
-      text: "June was a school gardener for years before the Fall. She taught kids which end of a seed goes down. Now she keeps the crew's days in a green ledger, one page for each day. She writes down the weather, the food count, and anything worth remembering. The ledger sits on the radio shelf by the couch, and you can read the old pages there. “Somebody ought to keep a record,” June says. “Days slip away if nobody writes them down.”",
+      text: "June was a school gardener for years before the Fall. She taught kids which end of a seed goes down. Now she keeps the crew's days in a green ledger, one page for each day. She writes down the weather, the food count, and anything worth remembering. The ledger sits on the radio shelf in the dining room, and you can read the old pages there. “Somebody ought to keep a record,” June says. “Days slip away if nobody writes them down.”",
     },
     "june-t2": {
       title: "Into the Closet",
@@ -166,7 +166,7 @@
     },
     "pip-t7": {
       title: "A Radio That Reaches",
-      text: "Pip finally has a radio that reaches town, and every new voice goes on the list. Pip has practically moved into the radio plot. It plays one broadcast each day you come home, full of news and tips. You can hear every broadcast again at the radio shelf by the couch. Pip says some of them are worth hearing twice, because the best tips hide in plain words.",
+      text: "Pip finally has a radio that reaches town, and every new voice goes on the list. Pip has practically moved into the radio plot. It plays one broadcast each day you come home, full of news and tips. Pip moved the radio to the dining room. Tune in there for each day's news, and hear the old broadcasts again. Pip says some of them are worth hearing twice, because the best tips hide in plain words.",
     },
     "pip-t8": {
       title: "Take What You Need",
@@ -223,7 +223,7 @@
       wave: "Pip has been watching the trees from the lookout, walkie-talkie in hand. Pip calls what comes next: {size}, from {sides}. Get ready there before the quiet runs out.",
       keys: "Pip says you are holding {keys}. Each key's note says which stash it opens. Your notes are all in the backpack, so read them again before you try a lock.",
       walkers: "Pip keeps count with tally marks. In {days} days, the buildings in town get one more walker each, up to a limit. Pip says an early trip is a quieter trip.",
-      radio: "Pip says the radio plays a new broadcast each day you come home. Pip never misses one. You can hear them all again at the radio shelf by the couch, any time.",
+      radio: "Pip says a new broadcast waits at the radio in the dining room each day you come home. Pip never misses one. Tune in there, and you can hear the old ones again too, any time.",
       full: "Pip taps the last tally mark on the wall. Every building in town is as full of walkers as it will get, Pip says. From now on, a place is only as dangerous as it is today.",
     }),
   });

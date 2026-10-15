@@ -11,7 +11,7 @@
     // June: dry, warm, in her sixties, a retired school gardener
     "june-t1": {
       title: "A Ledger for the Days",
-      text: "June taps the green ledger tucked under her arm. “Before the Fall, I was a school gardener for years,” she says. “Decades of children, and not one of them ever coiled the hose.” These days June keeps the crew's days in this ledger instead, one page for each day: the good, the dull and the frightening alike. She says it lives on the radio shelf by the couch, and you are welcome to read the old pages there whenever you like. “Memory is generous to itself,” June says dryly. “Paper is stricter. When we argue about what happened last week, the ledger wins.”",
+      text: "June taps the green ledger tucked under her arm. “Before the Fall, I was a school gardener for years,” she says. “Decades of children, and not one of them ever coiled the hose.” These days June keeps the crew's days in this ledger instead, one page for each day: the good, the dull and the frightening alike. She says it lives on the radio shelf in the dining room, and you are welcome to read the old pages there whenever you like. “Memory is generous to itself,” June says dryly. “Paper is stricter. When we argue about what happened last week, the ledger wins.”",
     },
     "june-t2": {
       title: "The Closet in a Wave",
@@ -163,7 +163,7 @@
     },
     "pip-t7": {
       title: "A Radio That Reaches",
-      text: "Pip finally has a radio that reaches town, and has barely slept since. Every new voice goes on the list, with the date and a note about how it sounded: tired, kind, bossy, brave. The radio plays one broadcast each day you come home, so Pip waits beside it the way kids once waited for the ice cream truck. And nothing is lost. You can hear every broadcast again at the radio shelf by the couch, which Pip says is the best part. “A voice you can replay is a voice you can check,” Pip says. “Some of them leave clues.”",
+      text: "Pip finally has a radio that reaches town, and has barely slept since. Every new voice goes on the list, with the date and a note about how it sounded: tired, kind, bossy, brave. The radio plays one broadcast each day you come home, so Pip waits beside it the way kids once waited for the ice cream truck. Pip moved the radio to the dining room, so that is where you tune in for each day's news. And nothing is lost: the old broadcasts play there again, which Pip says is the best part. “A voice you can replay is a voice you can check,” Pip says. “Some of them leave clues.”",
     },
     "pip-t8": {
       title: "The Town's Own Rule",
@@ -220,7 +220,7 @@
       wave: "Pip has been watching the trees from the lookout, pencil tapping against the walkie-talkie, and now makes the call: {size}, from {sides}. Pip says to spend whatever quiet is left wisely, and to trust the count.",
       keys: "Pip has noticed the jingle in your pocket: you are holding {keys}. Each key's note says which stash it opens, Pip reminds you, and your notes are all in the backpack. “Read it again before you try a lock,” Pip says.",
       walkers: "Pip keeps count, and the numbers are not good news: in {days} days, the buildings in town each get one more walker, up to a limit. Pip says the places you keep putting off will only get busier.",
-      radio: "Pip says the radio plays a new broadcast each day you come home, and Pip has not missed one yet. If you have, no harm done: you can hear them all again at the radio shelf by the couch.",
+      radio: "Pip says a new broadcast waits at the radio in the dining room each day you come home, and Pip has not missed one yet. Tune in there. If you have missed one, no harm done: the old ones play again too.",
       full: "Pip has drawn a double line under the tally on the wall, the way a bookkeeper closes an account. Every building in town is as full of walkers as it will get, Pip says. From now on, a place is only as dangerous as it is today. “Which is still plenty,” Pip adds, “so do not get comfortable.”",
     }),
   });
