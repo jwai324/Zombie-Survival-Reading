@@ -352,6 +352,9 @@
       const gh = this.gh;
       const m = this.solidMask();
       const blocks = this.barriers || {};
+      // outside the fence, the holes too far from it stay shut to it here too (js/yard.js yardPathBlock)
+      const far = this.yardPathBlock(z);
+      const shut = far && far.length ? new Set(far) : null;
       const isBarrier = (x, y) => {
         const b = blocks[x + "," + y];
         return !!b && b.hp > 0 && !(b.door && b.door.open);
@@ -377,7 +380,7 @@
           const ny = y + dy;
           if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
           const k = ny * gw + nx;
-          if (prev[k] !== -2 || (m[k] && !isBarrier(nx, ny))) continue;
+          if (prev[k] !== -2 || (shut && shut.has(k)) || (m[k] && !isBarrier(nx, ny))) continue;
           prev[k] = v;
           q.push(k);
         }
@@ -490,6 +493,7 @@
 
     /* ---------- Raiders: walkers that make for the cabin and wait inside ---------- */
     yardWalkerGoal(z) {
+      if (z.wreck) return this.wreckGoal(z); // a wrecker: the van or a build once inside the fence (js/yardwreck.js)
       if (!z.raid) return null;
       const p = this.player;
       // you are inside, or close: it comes for you
@@ -608,6 +612,8 @@
         case "radio":
           if (inWave) return "The radio and June's ledger" + later;
           if (!(State().save.rooms.radio > 0)) return "Press E to read June's journal (the radio needs the Radio room)";
+          // a wrecked Radio tower hears nothing until it is fixed (js/yardwreck.js)
+          if (!(State().roomLevel("radio") > 0)) return "Press E to read June's journal (the radio tower is wrecked: fix it in the yard)";
           return State().radioWaiting() ? "Press E to tune in: today's news" : "Press E to read June's journal and the radio again";
         case "typewriter":
           return inWave ? "The typewriter" + later : "Press E to practice typing";

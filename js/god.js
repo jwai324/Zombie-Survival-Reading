@@ -433,7 +433,7 @@
 
   function renderCheats(body) {
     const tog = (name, label) => h("label", { class: "god-tog" }, [h("input", { type: "checkbox", checked: S().cheat(name), onchange: (e) => (Act.setCheat(name, e.target.checked), render()) }), " " + label]);
-    body.appendChild(tog("noDie", "Can't die: walkers, booby traps and crashes do no harm to you, the van, the fence or the cabin"));
+    body.appendChild(tog("noDie", "Can't die: walkers, booby traps and crashes do no harm to you, the van, the fence, the builds or the cabin"));
     body.appendChild(tog("holdCalm", "Hold the calm: no wave comes in the yard until this is off (Start a wave still works)"));
     body.appendChild(h("div", { class: "god-row" }, [btn("Start a wave now", () => say(Scene.startWave()), "go"), btn("Clear all walkers", () => say(Scene.clearWalkers())), btn("Heal to full", () => say(Scene.heal()))]));
     // one walker of any kind, from the facts (WALKER_TYPES), in front of you

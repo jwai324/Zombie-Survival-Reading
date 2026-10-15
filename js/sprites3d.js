@@ -250,10 +250,21 @@
     const u = (S && S.save && S.save.upgrades) || {};
     return { armor: u.armor | 0, bumper: u.bumper | 0, engine: u.engine | 0, paint: u.paint | 0 };
   }
+  // the van's health share below which it shows dents (tier 1) and heavy dents (tier 2): the yard's wreckers claw it
+  // (js/yardwreck.js), and a hard trip home shows too
+  const VAN_DENTS = [0.75, 0.5];
+  /** 0, 1 or 2: how dented the van looks, from its health (the trip's on a trip, else the save's). */
+  function vanDent() {
+    const S = ZSR.State;
+    if (!S || !S.save) return 0;
+    const t = S.trip;
+    const share = t ? t.vanHp / (t.vanMaxHp || 1) : S.vanMaxHp ? S.save.vanHp / (S.vanMaxHp() || 1) : 1;
+    return share < VAN_DENTS[1] ? 2 : share < VAN_DENTS[0] ? 1 : 0;
+  }
   /** What the van textures depend on (part of their cache key). */
   function vanSig() {
     const g = vanGear();
-    return vanLook().body + g.armor + g.bumper + g.engine + g.paint;
+    return vanLook().body + g.armor + g.bumper + g.engine + g.paint + "d" + vanDent();
   }
   /* The side faces: a high roof band above y 8, where the roof rack, light bar and snorkel cap sit when
      fitted, the body from 8 down to the wheels' ink line at h - 8. The band is always painted solid: the
@@ -291,11 +302,55 @@
     ctx.strokeRect(2, 0, w - 4, h - 6);
     halftone(ctx, w, h - 6, 0.07);
   }
-  /** Ink around the whole face. */
+  /** Ink around the whole face (last on every van face), over its dents when it is beaten up. */
   function vanBorder(ctx, w, h) {
+    vanDents(ctx, w, h, vanDent());
     ctx.strokeStyle = INK;
     ctx.lineWidth = 4;
     ctx.strokeRect(0, 0, w, h);
+  }
+  /** Dents and scratches by tier (vanDent): ink-ringed dark hollows with a light rim, claw scratches, scuffs. */
+  function vanDents(ctx, w, h, tier) {
+    if (!tier) return;
+    const r = rng(83 + w);
+    const n = tier === 1 ? 2 : 5;
+    for (let i = 0; i < n; i++) {
+      const x = 8 + r() * (w - 16);
+      const y = 14 + r() * (h - 30);
+      const rx = 4 + r() * (tier === 1 ? 3 : 6);
+      const ry = rx * (0.55 + r() * 0.3);
+      ctx.fillStyle = "rgba(0,0,0,0.32)";
+      ctx.beginPath();
+      ctx.ellipse(x, y, rx, ry, r() * 3, 0, TAU);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(x - 1, y - 1, rx, ry, 0, Math.PI * 1.1, Math.PI * 1.8);
+      ctx.stroke();
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI);
+      ctx.stroke();
+    }
+    // claw scratches: three parallel strokes, more at tier 2
+    ctx.strokeStyle = "rgba(20,20,22,0.75)";
+    ctx.lineWidth = 1.5;
+    for (let k = 0; k < tier; k++) {
+      const x0 = 10 + r() * (w - 30);
+      const y0 = 16 + r() * (h - 36);
+      for (let j = 0; j < 3; j++) {
+        ctx.beginPath();
+        ctx.moveTo(x0 + j * 4, y0);
+        ctx.lineTo(x0 + j * 4 + 9, y0 + 14);
+        ctx.stroke();
+      }
+    }
+    if (tier === 2) {
+      ctx.fillStyle = "rgba(60,40,20,0.25)";
+      ctx.fillRect(0, h - 22, w, 14); // grime and scuffs along the bottom
+    }
   }
   function vanRect(ctx, x, y, w, h, fill, lw) {
     ctx.fillStyle = fill;

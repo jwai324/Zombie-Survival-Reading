@@ -116,6 +116,9 @@
       yardTraps: [], // traps set in the yard: [{ x, y, type, uses }]
       yardV: (W().YARD && W().YARD.version) || 1, // the yard grid the fence keys and trap spots belong to
       house: { doors: 0, windows: 0, hp: {} }, // the cabin: door and window levels, and each one's strength ("x,y" in the yard; 0 is broken)
+      // a yard plot's build (WORLD.YARD.plots, keyed by room id: never rename a room): room -> health left; missing =
+      // whole, 0 = wrecked (no room bonus until fixed; js/yardwreck.js). The Walls have no plot, so never a key here
+      builds: {},
       houseRead: [], // notes on the cabin's walls already read (their words counted once)
       typing: { stage: 0, passes: 0, rounds: 0, tutorialSeen: false, v: 2 }, // the workbench typing game: stage, good rounds at it
       rod: false, // Chief Dunn's fishing pole, once it is home (found in Station 12's equipment bay)
@@ -128,6 +131,15 @@
       best: { days: 1, baseLevel: 0 },
       savedAt: Date.now(),
     };
+  }
+  /** A room's build strength at its built level in save `s` (DEFENSE.buildHp; the last entry past its end), 0 for a
+      room with no yard plot (the Walls) or not built yet. */
+  function buildMaxOf(s, room) {
+    const Y = W().YARD;
+    const lvl = (s && s.rooms && s.rooms[room]) || 0;
+    if (!(lvl > 0) || !Y || !Y.plots || !Y.plots[room]) return 0;
+    const hp = W().DEFENSE.buildHp || [];
+    return hp[Math.min(lvl, hp.length - 1)] || 0;
   }
   /** Fill in anything an older save lacks, so every field the game reads exists.
    *  SCALE: this only fills missing fields. As the city grows, old saves never learn of new places: `known` is
@@ -175,6 +187,14 @@
       if (s.house[k] == null) s.house[k] = fresh.house[k];
     });
     if (State.crewUpgrade) State.crewUpgrade(s); // the crew's fields, one per crew member (a member added later too)
+    // the builds' health: only built rooms with a plot, a finite number from 0 up to that level's strength
+    if (!s.builds || typeof s.builds !== "object" || Array.isArray(s.builds)) s.builds = {};
+    Object.keys(s.builds).forEach((room) => {
+      const max = buildMaxOf(s, room);
+      const v = s.builds[room];
+      if (!max || typeof v !== "number" || !isFinite(v) || v < 0) delete s.builds[room];
+      else if (v >= max) delete s.builds[room]; // whole: no key
+    });
     // where a note was found comes from the facts: a note that has moved since it was read says where it is now
     (Array.isArray(s.backpack) ? s.backpack : []).forEach((n) => {
       const N = n && W().NOTES[n.locId];
@@ -349,11 +369,43 @@
       return Object.keys(W().BASE_ROOMS).length * 3;
     },
 
+    /* ---------- The yard's builds: their strength, and wrecked ones (js/yardwreck.js) ----------
+       A room with a yard plot puts up a build (js/yard.js). Wreckers in a wave claw it down; a wrecked build (save
+       builds[room] 0) gives no room bonus until it is fixed. Construction, requirements, story gates and the art
+       keep the built level (save.rooms); every bonus goes through effects(), which skips a wrecked room, and the
+       few direct readers of a bonus use roomLevel(). */
+    /** The build's full strength at its built level (DEFENSE.buildHp), 0 with no plot (the Walls) or not built. */
+    buildMax(room) {
+      return buildMaxOf(this.save, room);
+    },
+    /** Its strength now: save.builds[room], or whole when it has no entry; 0 when there is no build. */
+    buildHp(room) {
+      const max = this.buildMax(room);
+      if (!max) return 0;
+      const v = (this.save.builds || {})[room];
+      return v == null ? max : Math.max(0, Math.min(max, v));
+    },
+    /** Built, with a plot, and clawed down to 0: it gives nothing until fixed. */
+    roomWrecked(room) {
+      const v = (this.save.builds || {})[room];
+      return v != null && v <= 0 && this.buildMax(room) > 0;
+    },
+    /** The level that gives a bonus: 0 while wrecked, else the built level. */
+    roomLevel(room) {
+      return this.roomWrecked(room) ? 0 : this.save.rooms[room] || 0;
+    },
+    /** The wrecked rooms, in WORLD.BASE_ROOMS order. */
+    wreckedRooms() {
+      return Object.keys(W().BASE_ROOMS).filter((room) => this.roomWrecked(room));
+    },
+
     /* ---------- Derived effects of the base rooms ---------- */
+    /** What the built rooms give (a wrecked build gives nothing until it is fixed), plus the crew's perks. */
     effects() {
       const fx = { vanHp: 0, footHp: 0, tierCap: 2, freeRepair: false, showDanger: false, crates: 0, headlights: false, footRegen: 0, fullHealOnEntry: false, foodPerDay: 0, medsPerDay: 0, water: 0, reveal: 0, showStock: false, footDamage: 1, revive: 0, vanDamage: 1, notesShowStock: false, mapShowsCaches: false, mapShowsStock: false };
       const ADD = { foodPerDay: true, medsPerDay: true }; // these stack across rooms; everything else takes the best level
       Object.entries(this.save.rooms).forEach(([room, lvl]) => {
+        if (this.roomWrecked(room)) return;
         const levels = W().BASE_ROOMS[room] ? W().BASE_ROOMS[room].levels : [];
         const best = {};
         for (let i = 0; i < lvl && i < levels.length; i++) {
@@ -723,7 +775,8 @@
       const J = W().JOURNAL || [];
       const R = W().RADIO || [];
       const entry = { day: s.day, journal: this.journalIndex(s.day - 1, J), radio: null, recap: null };
-      if (s.rooms.radio > 0 && R.length) {
+      // a wrecked Radio tower hears nothing that day (roomLevel); the broadcasts keep their order (radioHeard)
+      if (this.roomLevel("radio") > 0 && R.length) {
         entry.radio = this.cycleIndex(s.radioHeard || 0, R.length);
         entry.tuned = false; // heard when the player tunes in at the radio in the dining room (older saves: no field, heard)
         s.radioHeard = (s.radioHeard || 0) + 1;
@@ -813,6 +866,7 @@
       Object.entries(c.def.needs).forEach(([k, n]) => (this.save.inventory[k] -= n));
       this.save.scrap -= c.def.scrap;
       this.save.rooms[room] += 1;
+      if (this.save.builds) delete this.save.builds[room]; // the new level goes up whole (a wrecked one is rebuilt)
       if (room === "walls") this.save.vanHp = Math.min(this.vanMaxHp(), this.save.vanHp + 30);
       if (room === "radio") {
         // SCALE: reveal 99 means every unknown building at once; with many more places, make the steps smaller
@@ -839,7 +893,9 @@
       const garageLevels = W().BASE_ROOMS.garage.levels;
       const needIdx = garageLevels.findIndex((l) => capFor(l.effect.tierCap) > level);
       const garageNeeded = capped && cost != null ? (needIdx < 0 ? garageLevels.length : needIdx + 1) : 0;
-      return { ok: cost != null && !capped && this.save.scrap >= cost, cost, capped, maxed: cost == null, garageNeeded, level };
+      // garageWrecked: the Garage is built far enough but wrecked (it gives nothing until fixed), so the menu says so
+      const garageWrecked = this.roomWrecked("garage");
+      return { ok: cost != null && !capped && this.save.scrap >= cost, cost, capped, maxed: cost == null, garageNeeded, level, garageWrecked };
     },
     buyUpgrade(key) {
       const c = this.canBuyUpgrade(key);

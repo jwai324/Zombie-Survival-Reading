@@ -16,9 +16,11 @@
    scene: the frame drawn when it was set stays on the canvas until it is cleared or the view resizes),
    and a walk-in house under open sky (setHouse): a ceiling over its tiles, a hip roof over its outline
    seen from outside, and the yard seen through its open doors.
-   More mode hooks: WalkerGoal(z) (where a walker heads instead of the player), Barrier(z) (what a
-   walker that cannot reach its goal claws at instead of the fence), HitBarrier(key, damage),
-   Door(d) and DoorHint(d) (a door of the mode's own: true when it handled E), Noise(tiles) (a shot).
+   More mode hooks: WalkerGoal(z) (where a walker heads instead of the player; a goal with `aim` [x, y] is
+   clawed at once the walker stands there), PathBlock(z) (tile indices this walker's path search treats as
+   solid, or null: the yard keeps far fence holes from a walker outside), Barrier(z) (what a walker that cannot
+   reach its goal claws at instead of the fence), HitBarrier(key, damage), Breach(x, y) (a fence segment just
+   gave way), Door(d) and DoorHint(d) (a door of the mode's own: true when it handled E), Noise(tiles) (a shot).
    A crew member's speech bubble at home (js/crew.js) rides on the read panel: this.talk while it is open,
    crewSpeaker(talk) (where they stand), crewTalkKey(f) (E with it open), crewTalkEnd() (it closes);
    a candidate with `aim` (right under the crosshair) counts that much nearer in facing().
@@ -997,8 +999,10 @@
       if (t.spot) return this.modeCall("SpotPanel", t.spot).key;
       const lvl = S.save.rooms[t.lot.room] || 0;
       const def = W().BASE_ROOMS[t.lot.room].levels[lvl];
-      const have = def ? Object.keys(def.needs).map((k) => S.save.inventory[k] || 0).join(",") + "," + S.save.scrap : "";
-      return "lot:" + t.lot.room + ":" + lvl + ":" + S.settings.level + ":" + have;
+      // a wrecked or cracked build (js/yardwreck.js) shows it, and what a fix costs against the scrap you have
+      const dmg = this.buildDmg ? this.buildDmg(t.lot.room) : 0;
+      const have = def || dmg ? (def ? Object.keys(def.needs).map((k) => S.save.inventory[k] || 0).join(",") : "") + "," + S.save.scrap : "";
+      return "lot:" + t.lot.room + ":" + lvl + ":" + dmg + ":" + S.settings.level + ":" + have;
     },
     signPanel(sg) {
       if (sg.kind === "hnote") {
@@ -1029,7 +1033,11 @@
         else if (c.ok) meta.push(["Ready", "You have everything. Go inside the cabin to build it."]);
         else meta.push(["Not yet", "Missing: " + Object.entries(c.missing).map(([k, n]) => n + " " + W().ITEMS[k].name).concat(c.scrapShort ? [c.scrapShort + " scrap"] : []).join(", ") + "."]);
       }
-      const status = lvl ? def.name + " · level " + lvl + " of " + def.levels.length : def.name + " · empty lot";
+      // a wrecked or cracked build (js/yardwreck.js): first what that means and how to fix it (the sign's words
+      // say what the room gives; while wrecked it gives nothing)
+      const dmg = lvl && this.buildMeta ? this.buildMeta(room) : null;
+      if (dmg) meta.unshift(dmg.row);
+      const status = (lvl ? def.name + " · level " + lvl + " of " + def.levels.length : def.name + " · empty lot") + (dmg ? " · " + dmg.status : "");
       return { key: "lot:" + room + ":" + lvl + ":" + S.settings.level + ":" + meta.map((m) => m[1]).join("|"), kind: "lot", title: t.title, status, text: t.text, meta };
     },
     /** Show an item's tag after picking it up, for as long as it takes to read. */
@@ -1136,11 +1144,19 @@
       }
       // the mode may send a walker somewhere else first (the yard: into the cabin, to wait there)
       const goal = this.modeCall("WalkerGoal", z) || p;
-      if (goal !== p && Math.hypot(goal.x - z.x, goal.y - z.y) < 0.5) return "wait"; // there: it waits
+      if (goal !== p && Math.hypot(goal.x - z.x, goal.y - z.y) < 0.5) {
+        // there: it waits, or claws at what the goal aims it at (the yard's wreckers at a build or the van)
+        if (!goal.aim) return "wait";
+        z.aim = goal.aim;
+        return "claw";
+      }
       z.pathT -= dt;
       if (z.pathT <= 0) {
         z.pathT = 0.4;
-        z.path = this.lineClearMove(z.x, z.y, goal.x, goal.y) ? [[goal.x, goal.y]] : this.bfs(z, goal);
+        // tiles the mode keeps out of this walker's way (the yard: fence holes too far for it); then never the
+        // straight-line shortcut either, which could cut through one of them
+        const block = this.modeCall("PathBlock", z) || null;
+        z.path = !block && this.lineClearMove(z.x, z.y, goal.x, goal.y) ? [[goal.x, goal.y]] : this.bfs(z, goal, block);
         // no way there: the mode may know a way through something to break ({ path to it, target }),
         // else the nearest fence segment
         const plan = z.path.length ? null : this.modeCall("Barrier", z, goal);
@@ -1173,6 +1189,7 @@
               z.pathT = 0;
               this.toast("Fence breached!", 2.5);
               Audio().play("crunch");
+              this.modeCall("Breach", Math.floor(fx), Math.floor(fy)); // the yard works out who the new hole draws
             }
           } else z.pathT = 0;
           return "claw";
@@ -1371,13 +1388,22 @@
       }
       return true;
     },
-    bfs(z, p) {
+    /** The shortest 4-way walk from a walker's tile to p's tile over open tiles: tile middles, or [] when there is
+        none. `block` (optional): more tile indices (y * gw + x) to treat as solid, from the mode's PathBlock. */
+    bfs(z, p, block) {
       const sx = Math.floor(z.x);
       const sy = Math.floor(z.y);
       const tx = Math.floor(p.x);
       const ty = Math.floor(p.y);
       const m = this.solidMask();
       const key = (x, y) => y * this.gw + x;
+      // the blocked tiles, marked on a scratch mask for this search only (no allocation per search)
+      let bm = null;
+      if (block && block.length) {
+        if (!this.blockMask || this.blockMask.length !== m.length) this.blockMask = new Uint8Array(m.length);
+        bm = this.blockMask;
+        for (let i = 0; i < block.length; i++) bm[block[i]] = 1;
+      }
       const prev = new Map();
       const q = [[sx, sy]];
       prev.set(key(sx, sy), null);
@@ -1393,11 +1419,12 @@
           const ny = y + dy;
           if (nx < 0 || ny < 0 || nx >= this.gw || ny >= this.gh) continue;
           const kk = key(nx, ny);
-          if (m[kk] || prev.has(kk)) continue;
+          if (m[kk] || (bm && bm[kk]) || prev.has(kk)) continue;
           prev.set(kk, [x, y]);
           q.push([nx, ny]);
         }
       }
+      if (bm) for (let i = 0; i < block.length; i++) bm[block[i]] = 0;
       if (!found) return [];
       const path = [];
       let cur = [tx, ty];

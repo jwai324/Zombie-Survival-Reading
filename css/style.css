@@ -185,6 +185,8 @@ kbd { font-family: var(--font-body); font-weight: 700; background: var(--paper-3
 .rooms { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: .75rem; }
 .room { background: var(--paper-3); border: .19rem solid var(--ink); padding: .75rem; box-shadow: .19rem .19rem 0 var(--ink); display: flex; flex-direction: column; gap: .4rem; }
 .room.maxed { background: #dfe6c8; }
+.room.wrecked { background: #ecd2c8; border-style: dashed; } /* walkers wrecked its build (js/yardwreck.js) */
+.room .bad { color: #8a1f17; }
 .room-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; }
 .room-head h3 { margin: 0; }
 .room-desc { margin: 0; font-size: .95rem; line-height: 1.45; }

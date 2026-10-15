@@ -501,13 +501,20 @@
           syncYard();
           return n;
         },
+        // the room builds the wreckers clawed (js/yardwreck.js): { wrecked, cracked }, and "Fix all"
+        buildDamage: () => Interior.buildDamage(),
+        onRepairBuilds() {
+          const n = Interior.repairAllBuilds();
+          syncYard();
+          return n;
+        },
       });
     },
     /** The radio shelf in the dining room: today's news if it is still waiting (tune in), else June's
         journal and the radio, every day so far. */
     onRadio() {
       Interior.pause();
-      const news = State.save.rooms.radio > 0 ? State.radioWaiting() : null;
+      const news = State.roomLevel("radio") > 0 ? State.radioWaiting() : null; // a wrecked tower hears nothing
       if (news) {
         Backpack.tuneIn(news, () => {
           State.commit(); // keeps the "tuned" mark (words read) on the saved day
