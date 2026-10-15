@@ -271,16 +271,18 @@
       const pool = far.length ? far : this.spawns;
       const n = Math.random() < R.pairChance ? 2 : 1;
       const day = S.save.day;
+      const mix = W().walkerWeights("river", { day }); // WORLD.RIVER.walkerMix, by the day
       let seen = false;
       for (let i = 0; i < n; i++) {
         const [x, y] = pool[Math.floor(Math.random() * pool.length)];
-        const type = day >= 2 && Math.random() < 0.25 ? "runner" : "walker";
-        const z = this.makeWalker(type, x + rand(-0.3, 0.3), y + rand(-0.3, 0.3), 1 + 0.08 * (day - 1));
+        const type = W().pickWalkerType(mix);
+        const z = this.makeWalker(type, x + rand(-0.3, 0.3), y + rand(-0.3, 0.3), W().walkerHpMult("river", day));
         z.awake = true;
         this.walkers.push(z);
         if (Math.abs(this.sideOf(z.x, z.y)) < 0.6) seen = true;
       }
-      this.toast(seen ? (n > 1 ? "Two walkers, coming out of the trees!" : "A walker, coming out of the trees!") : n > 1 ? "Branches snap behind you. Two of them." : "Branches snap behind you. Something is coming.", 3);
+      // no count: you see them, you do not count them (owner, 2026-10-15)
+      this.toast(seen ? "Something is coming out of the trees!" : "Branches snap behind you. Something is coming.", 3);
       this.updateHud();
     },
 

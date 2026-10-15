@@ -4,8 +4,9 @@
    a death reloads the sandbox). Exit god mode (or quit to the title) and the real save comes back from disk.
    The menu: Travel (reveal every place; go to any place at its door or straight inside; drive from any place to
    any place), Guns (own, hold, mod), Items (any count; unlimited), Crew (the day, trust stars, offer or jump to
-   any story quest), Cheats (can't die, hold the calm, start a wave, clear walkers, heal), Sandbox (start over,
-   exit). Every list comes from the data (LOCATIONS, WEAPONS, MODS, ITEMS, CREW, QUESTS), so it grows with them.
+   any story quest), Cheats (can't die, hold the calm, start a wave, clear walkers, spawn a walker of any kind in
+   front of you, heal), Sandbox (start over, exit). Every list comes from the data (LOCATIONS, WEAPONS, MODS, ITEMS,
+   CREW, QUESTS, WALKER_TYPES), so it grows with them.
    Owner decisions: DESIGN.md, "God mode". Loaded after js/main.js; ZSR.God.act runs without a page (tests). */
 (function (root) {
   "use strict";
@@ -182,10 +183,30 @@
       if (!I || !I.running || !I.walkers) return "Only in the yard or a building.";
       const n = I.walkers.length;
       I.walkers.length = 0;
+      if (I.fallen) I.fallen.length = 0; // the downed ones and the blood go too
+      if (I.blood) I.blood.length = 0;
       // a wave still spawning ends now: it clears on the next frame, as if fought off
       if (I.mode === "yard" && I.phase && I.phase.kind === "wave") I.phase.spawned = I.phase.total;
       I.updateHud();
       return n + " walker" + (n === 1 ? "" : "s") + " gone.";
+    },
+    /** One awake walker of `type` (a WORLD.WALKER_TYPES id) in front of you: on foot (the yard, a building, the
+        river) or on the road ahead of the van. It is a plain attacker (no raid, no wrecking). Says what happened. */
+    spawnWalker(type) {
+      const T = W().WALKER_TYPES[type];
+      if (!T) return "No walker kind " + type + ".";
+      const name = T.name.toLowerCase();
+      const a = /^[aeiou]/.test(name) ? "An " : "A "; // an armored, a lanky
+      const G = ZSR.Game;
+      if (G && G.running && G.zombies) {
+        // the road's contract (as Interior's): spawnWalkerAhead(type) places that kind on screen, ahead of the van,
+        // and returns it. A road without it cannot place a kind (its spawnZombie picks one at random): not asked
+        const z = typeof G.spawnWalkerAhead === "function" ? G.spawnWalkerAhead(type) : null;
+        return z && z.type === type ? a + name + " on the road ahead." : "The road cannot place " + a.toLowerCase() + name + " yet.";
+      }
+      const I = ZSR.Interior;
+      if (!I || !I.running || !I.player || !I.walkers || !I.spawnWalkerAhead) return "Only in the yard, a building, the river or on the road.";
+      return I.spawnWalkerAhead(type) ? a + name + " in front of you." : "No room in front of you: turn to open ground.";
     },
     heal() {
       const I = ZSR.Interior;
@@ -232,6 +253,7 @@
   let msg = "";
   let held = {}; // what the menu paused: { game, interior }
   let started = ""; // what the sandbox started from, for the Sandbox tab
+  let spawnKind = null; // the Cheats tab's "Spawn walker" kind (a WALKER_TYPES id), kept while the tab is rebuilt
 
   /** A small element builder: h("button", { class: "btn", onclick }, "Go"). */
   function h(tag, attrs, kids) {
@@ -414,6 +436,13 @@
     body.appendChild(tog("noDie", "Can't die: walkers, booby traps and crashes do no harm to you, the van, the fence or the cabin"));
     body.appendChild(tog("holdCalm", "Hold the calm: no wave comes in the yard until this is off (Start a wave still works)"));
     body.appendChild(h("div", { class: "god-row" }, [btn("Start a wave now", () => say(Scene.startWave()), "go"), btn("Clear all walkers", () => say(Scene.clearWalkers())), btn("Heal to full", () => say(Scene.heal()))]));
+    // one walker of any kind, from the facts (WALKER_TYPES), in front of you
+    // (the kind picked is kept: say() rebuilds this tab, and Spawn again spawns the same kind)
+    const kinds = walkerTypes();
+    if (!kinds.includes(spawnKind)) spawnKind = kinds[0];
+    const kind = h("select", { onchange: (e) => (spawnKind = e.target.value) }, kinds.map((id) => h("option", { value: id, selected: id === spawnKind }, W().WALKER_TYPES[id].name)));
+    kind.value = spawnKind;
+    body.appendChild(h("div", { class: "god-row" }, [h("label", {}, ["Spawn walker: ", kind]), btn("Spawn in front of you", () => say(Scene.spawnWalker(spawnKind)), "go")]));
     body.appendChild(h("p", { class: "god-note" }, "Wave and walker buttons act on the scene under this menu: close it to see them."));
   }
 
@@ -494,5 +523,10 @@
   }
   if (root.addEventListener) root.addEventListener("keydown", onKey, true);
 
-  ZSR.God = { act: Act, scene: Scene, open: openMenu, close, sync, isOpen: () => open, PHRASE };
+  /** Every walker kind god mode can spawn: the facts' ids, in their order. */
+  function walkerTypes() {
+    return Object.keys(W().WALKER_TYPES || {});
+  }
+
+  ZSR.God = { act: Act, scene: Scene, open: openMenu, close, sync, isOpen: () => open, walkerTypes, PHRASE };
 })(typeof globalThis !== "undefined" ? globalThis : this);

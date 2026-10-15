@@ -333,7 +333,7 @@ button[data-tip] { cursor: pointer; }
 /* Huge text: everything is one inch. In-game overlays collapse (fewer boxes, no labels)
    instead of shrinking, so the view stays visible. */
 :root[data-size="huge"] .hud-label { display: none; }
-:root[data-size="huge"] #hud-box-miles, :root[data-size="huge"] #hud-box-downed, :root[data-size="huge"] #int-box-scrap, :root[data-size="huge"] #int-box-walkers, :root[data-size="huge"] #int-box-gun { display: none; }
+:root[data-size="huge"] #hud-box-miles, :root[data-size="huge"] #hud-box-downed, :root[data-size="huge"] #int-box-scrap, :root[data-size="huge"] #int-box-gun { display: none; }
 :root[data-size="huge"] .hud-place, :root[data-size="huge"] .hud-bottom .goal-box { display: none; }
 :root[data-size="huge"] .hud-box { padding: .1rem .3rem; background: rgba(230,223,204,.9); }
 :root[data-size="huge"] .hp-box { min-width: 6rem; }
