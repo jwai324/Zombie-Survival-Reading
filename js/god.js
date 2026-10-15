@@ -196,16 +196,17 @@
       const T = W().WALKER_TYPES[type];
       if (!T) return "No walker kind " + type + ".";
       const name = T.name.toLowerCase();
+      const a = /^[aeiou]/.test(name) ? "An " : "A "; // an armored, a lanky
       const G = ZSR.Game;
       if (G && G.running && G.zombies && typeof G.spawnZombie === "function") {
         // the road's spawnZombie(type, side) places that kind ("ahead": on screen, ahead of the van) and returns it;
         // one that takes no kind would spawn a random one, so it is not called
         const z = G.spawnZombie.length >= 1 ? G.spawnZombie(type, "ahead") : null;
-        return z && z.type === type ? "A " + name + " on the road ahead." : "The road cannot place a " + name + " yet.";
+        return z && z.type === type ? a + name + " on the road ahead." : "The road cannot place " + a.toLowerCase() + name + " yet.";
       }
       const I = ZSR.Interior;
       if (!I || !I.running || !I.player || !I.walkers || !I.spawnWalkerAhead) return "Only in the yard, a building, the river or on the road.";
-      return I.spawnWalkerAhead(type) ? "A " + name + " in front of you." : "No room in front of you: turn to open ground.";
+      return I.spawnWalkerAhead(type) ? a + name + " in front of you." : "No room in front of you: turn to open ground.";
     },
     heal() {
       const I = ZSR.Interior;
