@@ -418,8 +418,8 @@
     crewLookoutSeconds() {
       return (rules().lookoutSeconds || 0) + this.crewFx().lookoutEarly;
     },
-    /** Scrap one crew repair costs: "fence" (a hole or crack), "builds" (a wrecked or cracked room build) or
-        "cabin" (a door or window); 0 with the perk. */
+    /** Scrap one crew repair costs: "fence" (a hole or crack), "builds" (a wrecked room build: a cracked one still
+        works; the player braces it) or "cabin" (a door or window); 0 with the perk. */
     crewRepairCost(kind) {
       if (this.crewFx().crewRepairFree) return 0;
       const SET = W().SETTINGS || {};

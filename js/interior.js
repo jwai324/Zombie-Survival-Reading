@@ -57,6 +57,7 @@
   const TURN_RATE = 7; // radians a second a walker turns toward where it goes, bites or claws
   const STRIDE = 0.9; // tiles walked per gait cycle when Walker3D gives none
   const CLAW_RATE = 2; // claw swipes a second at a fence, a door or a build
+  const GOAL_AT = 0.5; // tiles: a walker this close to a mode's WalkerGoal is there (it waits, or claws at the goal's aim)
   const FALL_SECS = 2; // a downed walker collapses and fades this long, then is gone (Walker3D.FALL_SECS when loaded)
   const BITE_SECS = 0.45; // the bite lunge (Walker3D.BITE_SECS when loaded)
   const FALLEN_MAX = 24; // SCALE: downed walkers kept collapsing at once; past it the oldest goes at once
@@ -107,6 +108,7 @@
     locked: false,
     planeRes: PLANE_RES,
     REACH, // how close E works, by candidate kind (js/crew.js reads it)
+    GOAL_AT, // how close a walker stands to a mode's goal to be there (js/yardwreck.js: a wrecker on its spot claws)
     talk: null, // a crew member's speech bubble while it is open (js/crew.js): { id, panel, ... }
 
     init(canvas, hooks) {
@@ -1144,7 +1146,7 @@
       }
       // the mode may send a walker somewhere else first (the yard: into the cabin, to wait there)
       const goal = this.modeCall("WalkerGoal", z) || p;
-      if (goal !== p && Math.hypot(goal.x - z.x, goal.y - z.y) < 0.5) {
+      if (goal !== p && Math.hypot(goal.x - z.x, goal.y - z.y) < GOAL_AT) {
         // there: it waits, or claws at what the goal aims it at (the yard's wreckers at a build or the van)
         if (!goal.aim) return "wait";
         z.aim = goal.aim;

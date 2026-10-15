@@ -343,7 +343,7 @@
     fenceFree: { facts: ["Tomas fixed {fixed} fence boards since you last talked.", "It cost no scrap at all."] },
     cabin: { facts: ["Tomas fixed broken doors and windows in the cabin: {fixed} in all.", "It took {scrap} scrap from the base."] },
     cabinFree: { facts: ["Tomas fixed broken doors and windows in the cabin: {fixed} in all.", "It cost no scrap at all."] },
-    // the builds job: wrecked or cracked room builds in the yard (js/yardwreck.js)
+    // the builds job: wrecked room builds in the yard (a cracked one still works; the player braces it) (js/yardwreck.js)
     builds: { facts: ["Tomas fixed wrecked builds in the yard: {fixed} in all.", "It took {scrap} scrap from the base."] },
     buildsFree: { facts: ["Tomas fixed wrecked builds in the yard: {fixed} in all.", "It cost no scrap at all."] },
     // {cost} is "a medical kit" (from storage), "2 food" (from the crew's food, not storage; "1 food" when only 1 was

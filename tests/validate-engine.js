@@ -1033,6 +1033,42 @@ try {
       if (b.wreck) err(`wreckers: one with the player ${D.wreckProvoke - 0.5} tiles off did not turn on the player`);
       I.walkers.length = 0;
     }
+    // a hurt lasts: a screamer wrecker shot as its yell starts (the yell outlasts hurtT, and the core asks for no
+    // goal while it yells) still turns on you once the yell ends, with you out of wreckProvoke but in its sight
+    {
+      const SC = W.SCREAM;
+      const q = yardWith(3, []);
+      q.x = far[0];
+      q.y = far[1];
+      const spot = I.wreckSpots[plotted[0]][0];
+      const z = put("screamer", [spot.tx, spot.ty], "wreck");
+      run(0.2);
+      if (!z.wreck || z.wreckIn == null || z.yell > 0) err(`wreckers: a screamer wrecker inside by a build did not settle to wreck (wreck ${z.wreck}, yell ${z.yell})`);
+      // you: between wreckProvoke and the scream's spotting range, a clear line, open ground inside the fence
+      const d = (D.wreckProvoke + SC.spot) / 2;
+      let stand = null;
+      for (let i = 0; i < 64 && !stand; i++) {
+        const a = (i / 64) * Math.PI * 2;
+        const x = z.x + Math.cos(a) * d;
+        const y = z.y + Math.sin(a) * d;
+        if (x < 0 || y < 0 || x >= I.gw || y >= I.gh || !I.yardInside[idx(Math.floor(x), Math.floor(y))]) continue;
+        if (!I.solidForPlayer(x, y) && I.lineClear(z.x, z.y, x, y)) stand = [x, y];
+      }
+      if (!stand) err(`wreckers: no open ground ${d} tiles from the ${plotted[0]} build's first wreck spot in clear sight`);
+      else {
+        q.x = stand[0];
+        q.y = stand[1];
+        run(0.05);
+        if (!(z.yell > 0)) err(`wreckers: a screamer wrecker with you ${d} tiles off in clear sight did not scream (yell ${z.yell})`);
+        else {
+          I.hurtWalker(z, 1, q); // shot as the yell starts
+          run(SC.yell + 0.3);
+          if (z.yell > 0) err("wreckers: the screamer's yell did not end");
+          if (z.wreck || z.wreckSpot) err(`wreckers: a screamer wrecker shot during its yell (you ${d} tiles off) went back to wrecking once it ended`);
+        }
+      }
+      I.walkers.length = 0;
+    }
     // god mode's "Can't die": they claw, nothing gives
     {
       S.god = { base: null, cheats: { noDie: true }, offer: {}, onCommit: null };

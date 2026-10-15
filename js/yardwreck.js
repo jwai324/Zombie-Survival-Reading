@@ -20,7 +20,6 @@
   const D3 = () => ZSR.Draw3;
   const W = () => ZSR.WORLD;
   const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-  const AT = 0.5; // standing on its spot: the core's "there" (js/interior.js stepWalker)
   const roomName = (room) => (W().BASE_ROOMS[room] && W().BASE_ROOMS[room].name) || room;
   /** "a", "a and b", "a, b and c". */
   const listWords = (parts) => (parts.length < 2 ? parts.join("") : parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1]);
@@ -157,7 +156,8 @@
     },
     /** Standing on its spot, clawing. */
     wreckAtSpot(z) {
-      return !!(z.wreck && z.wreckSpot && Math.hypot(z.wreckSpot.x - z.x, z.wreckSpot.y - z.y) < AT);
+      // the core's own "there" (Interior.GOAL_AT, js/interior.js stepWalker), so the claw it plays and the harm agree
+      return !!(z.wreck && z.wreckSpot && Math.hypot(z.wreckSpot.x - z.x, z.wreckSpot.y - z.y) < this.GOAL_AT);
     },
     /** Where a wrecker heads (js/house.js yardWalkerGoal calls this first): its spot by a build or the van once
         it is inside the fence, else null (outside it is an attacker, under the breach rule like the rest). Once
@@ -165,7 +165,10 @@
     wreckGoal(z) {
       const D = W().DEFENSE;
       const p = this.player;
-      const provoked = z.hurtT > 0 || (p && Math.hypot(p.x - z.x, p.y - z.y) < D.wreckProvoke) || (z.wreckIn != null && this.time - z.wreckIn > D.wreckSeconds);
+      // hurt counts for good: hurtT (1 s) can run out while the core skips this (a screamer's yell, a bite), so
+      // any lost health counts too (makeWalker sets maxHp)
+      const hurt = z.hurtT > 0 || z.hp < z.maxHp;
+      const provoked = hurt || (p && Math.hypot(p.x - z.x, p.y - z.y) < D.wreckProvoke) || (z.wreckIn != null && this.time - z.wreckIn > D.wreckSeconds);
       if (provoked) return this.wreckDrop(z);
       const gx = Math.floor(z.x);
       const gy = Math.floor(z.y);
