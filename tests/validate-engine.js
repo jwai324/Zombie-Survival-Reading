@@ -385,6 +385,170 @@ try {
   err(`explored map in the save: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
 }
 
+/* ---------- Where a building's walkers start (js/building.js planWalkers, WORLD.NOTES[id].walkers) ----------
+   Days 1 and 40, SPAWN_TRIPS fresh trips into every building with a gun lying in it: the day's count; each walker on
+   its own tile, walkerSpawn.minSteps or more steps in, groupGap or more from the next, never on an item, cache or
+   stash spot, a note spot (any level), the key, a scrap pile, a landmark, the gun, the fishing pole or a story
+   quest's spot; and every rule of its notes holds (the rings and zones are worked out here from the layout, with
+   the doors shut): its count in its rings or zone (share), each anchor its part, exact, all, type and only (the
+   police: exactly one brute, in its garage ring). Math.random is seeded here, so every run checks the same visits. */
+const SPAWN_TRIPS = 6; // SCALE: fresh visits per building and day (each one an enter(): about 5 ms)
+/** Why a walker the alarm just brought starts where it should not ("" when it is fine; js/building.js updateAlarm):
+    it comes through the way out, or from floor it can walk to you from with the doors as they stand (walkers
+    cannot open doors); only when no such floor lies farther than ALARM.farFrom from you, from floor walkable from
+    the way in through the doors, never inside a locked room. */
+function alarmStartWhyNot(z) {
+  const k = Math.floor(z.x) + "," + Math.floor(z.y);
+  if (Math.hypot(z.x - I.startPos[0], z.y - I.startPos[1]) < 1) return ""; // through the way out
+  const p = I.player;
+  const here = I.reachable(Math.floor(p.x), Math.floor(p.y), false);
+  if (here.has(k)) return "";
+  if (I.floors.some(([x, y]) => here.has(Math.floor(x) + "," + Math.floor(y)) && Math.hypot(x - p.x, y - p.y) > W.ALARM.farFrom)) return "behind a shut door, though there is floor on your side of the doors";
+  return I.reachable(Math.floor(I.startPos[0]), Math.floor(I.startPos[1]), true).has(k) ? "" : "inside a locked room, where it can never get to you";
+}
+{
+  const ctxMath = vm.runInContext("Math", sb);
+  const realRandom = ctxMath.random;
+  ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(3131);
+  const day0 = S.save.day;
+  const where0 = S.save.weapons.where;
+  const WS = W.SETTINGS.walkerSpawn;
+  const inRects = (R, x, y) => R.some(([x0, y0, x1, y1]) => x >= x0 && x <= x1 && y >= y0 && y <= y1);
+  try {
+    W.LOCATIONS.filter((l) => l.id !== "base" && !l.outdoor).forEach((loc) => {
+      const ctx = `${loc.id} walkers`;
+      const lay = I.layoutFor(loc);
+      const g = lay.grid;
+      const rules = W.NOTES[loc.id].walkers || [];
+      const zones = lay.walkerZones || {};
+      // the layout's floor (a solid landmark's footprint blocked), its z anchors, its busy tiles
+      const foot = new Set();
+      const anchors = [];
+      const busy0 = new Set();
+      g.forEach((row, y) => [...row].forEach((ch, x) => {
+        if (ch === "z") anchors.push([x, y]);
+        if ("ickny$1234".includes(ch)) busy0.add(x + "," + y);
+        const def = "1234".includes(ch) && lay.landmarks[ch];
+        if (def && def.solid) {
+          const [fw, fh] = def.foot || [1, 1];
+          for (let yy = y - (fh >> 1); yy <= y + (fh >> 1); yy++) for (let xx = x - (fw >> 1); xx <= x + (fw >> 1); xx++) foot.add(xx + "," + yy);
+        }
+      }));
+      Object.values(lay.spots || {}).forEach(([x, y]) => busy0.add(x + "," + y));
+      (W.QUESTS || []).forEach((q) => q.at === loc.id && Array.isArray(q.spot) && busy0.add(q.spot.join(",")));
+      const floor = (x, y) => g[y] && ".inyz$ck1234".includes(g[y][x] || "#") && !foot.has(x + "," + y);
+      const ring = (ax, ay, r) => {
+        const d = new Map([[ax + "," + ay, 0]]);
+        const q = [[ax, ay]];
+        for (let i = 0; i < q.length; i++) {
+          const [x, y] = q[i];
+          if (d.get(x + "," + y) >= r) continue;
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const k = x + dx + "," + (y + dy);
+            if (!d.has(k) && floor(x + dx, y + dy)) {
+              d.set(k, d.get(x + "," + y) + 1);
+              q.push([x + dx, y + dy]);
+            }
+          }
+        }
+        return d;
+      };
+      [1, 40].forEach((day) => {
+        S.save.day = day;
+        const n = W.SETTINGS.walkersPerLocation(loc.danger, day);
+        for (let trip = 0; trip < SPAWN_TRIPS; trip++) {
+          const c = `${ctx} (day ${day}, visit ${trip + 1})`;
+          S.startTrip();
+          S.save.weapons.where = { bow: loc.id };
+          I.enter(loc);
+          I.stop();
+          const busy = new Set(busy0);
+          [I.gunPickup, I.rodPickup].forEach((o) => o && busy.add(Math.floor(o.x) + "," + Math.floor(o.y)));
+          if (!I.gunPickup) err(`${c}: no gun on the floor to keep walkers off`);
+          const reach = I.reachable(Math.floor(I.startPos[0]), Math.floor(I.startPos[1]), true);
+          const Z = I.walkers.map((z) => ({ x: Math.floor(z.x), y: Math.floor(z.y), type: z.type, k: Math.floor(z.x) + "," + Math.floor(z.y) }));
+          if (Z.length !== n) err(`${c}: ${Z.length} walkers, want ${n}`);
+          Z.forEach((z, i) => {
+            if (busy.has(z.k)) err(`${c}: a walker starts on a busy tile (an item, note, pile, key, landmark, gun, pole or quest spot) at ${z.k}`);
+            if ((reach.get(z.k) || 0) < WS.minSteps) err(`${c}: a walker starts ${reach.get(z.k) || "no"} steps in at ${z.k} (need ${WS.minSteps}+)`);
+            Z.forEach((o, j) => {
+              if (j <= i) return;
+              const d = Math.hypot(z.x - o.x, z.y - o.y);
+              if (!d) err(`${c}: two walkers start on ${z.k}`);
+              else if (d < WS.groupGap) err(`${c}: walkers at ${z.k} and ${o.k} start ${d.toFixed(2)} apart (walkerSpawn.groupGap ${WS.groupGap})`);
+            });
+          });
+          rules.forEach((r, ri) => {
+            const rc = `${c} rule ${ri + 1}`;
+            const R = r.zone ? zones[r.zone] : null;
+            if (r.all) {
+              Z.filter((z) => !inRects(R, z.x, z.y)).forEach((z) => err(`${rc}: a walker starts outside ${r.zone} at ${z.k}`));
+              return;
+            }
+            const want = Math.max(r.n || 0, r.share ? Math.ceil(r.share * n) : 0);
+            const rings = (r.z || []).map((zi) => ring(anchors[zi][0], anchors[zi][1], r.r || WS.ring));
+            const mine = (z) => (!R || inRects(R, z.x, z.y)) && (!rings.length || rings.some((d) => d.has(z.k)));
+            const there = Z.filter(mine);
+            // its tiles are closed to every other walker: exactly its count there
+            if (there.length !== want) err(`${rc}: ${there.length} walkers in its ${rings.length ? "rings" : "zone"}${R ? " in " + r.zone : ""}, want ${want}`);
+            rings.forEach((d, k) => {
+              const part = Math.floor(want / rings.length);
+              if (Z.filter((z) => d.has(z.k) && (!R || inRects(R, z.x, z.y))).length < part) err(`${rc}: fewer than ${part} walkers by anchor z${r.z[k]}`);
+            });
+            if (r.exact) {
+              const inside = R ? Z.filter((z) => inRects(R, z.x, z.y)).length : there.length;
+              if (inside !== want) err(`${rc}: exact, but ${inside} walkers start in ${r.zone || "its rings"} (want ${want})`);
+            }
+            if (r.share > 0.5 && !(Z.filter((z) => inRects(R, z.x, z.y)).length * 2 > n)) err(`${rc}: not most of the ${n} walkers in ${r.zone}`);
+            if (r.type && there.filter((z) => z.type === r.type).length < want) err(`${rc}: its walkers are not all ${r.type}s (${there.map((z) => z.type).join(", ")})`);
+            if (r.only && Z.filter((z) => z.type === r.type).length !== want) err(`${rc}: ${Z.filter((z) => z.type === r.type).length} ${r.type}s in the building, want only its ${want}`);
+          });
+        }
+      });
+    });
+    // the police: one big one, by the bike in the garage, every visit (the door note, the graffiti, "One of them is big")
+    const police = W.LOCATIONS.find((l) => l.id === "police");
+    if (police) {
+      S.save.day = 40;
+      S.startTrip();
+      I.enter(police);
+      I.stop();
+      const brutes = I.walkers.filter((z) => z.type === "brute");
+      const garage = (I.layoutFor(police).walkerZones || {}).garage;
+      if (brutes.length !== 1 || !garage || !inRects(garage, Math.floor(brutes[0].x), Math.floor(brutes[0].y))) err(`police walkers: want exactly one brute, in the garage (got ${brutes.length})`);
+      // and its alarm, rung for 200 s: no second brute, never past the cap (one walker less, so a tick that brings two
+      // comes one short of it), every walker where it can get to you: first with every door open, then (before the cap
+      // fills) with every door you can shut shut, so no walker may start behind one while there is floor on your side
+      I.walkers.pop();
+      const inner = I.doors.filter((d) => !d.cache && !d.stash);
+      inner.forEach((d) => d.open || I.toggleDoor(d));
+      I.startAlarm();
+      if (I.alarm.mix.brute) err("police walkers: the alarm's mix still holds brutes");
+      const seen = new Set(I.walkers);
+      for (let t = 0; t < 200; t += 0.25) {
+        if (t === 8) inner.forEach((d) => d.open && I.toggleDoor(d));
+        I.buildingUpdate(0.25);
+        if (I.walkers.length > W.ALARM.cap) err(`police walkers: the alarm passed ALARM.cap (${I.walkers.length})`);
+        I.walkers.forEach((z) => {
+          if (seen.has(z)) return;
+          seen.add(z);
+          if (z.type === "brute") err("police walkers: the alarm brought a second brute");
+          const why = alarmStartWhyNot(z);
+          if (why) err(`police walkers: an alarm walker starts at ${Math.floor(z.x)},${Math.floor(z.y)}, ${why}`);
+        });
+      }
+      if (seen.size < W.ALARM.cap) err(`police walkers: the alarm brought too few walkers (${seen.size})`);
+      I.alarm = null;
+      I.walkers.length = 0;
+    }
+  } catch (e) {
+    err(`building spawns: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+  }
+  ctxMath.random = realRandom;
+  S.save.day = day0;
+  S.save.weapons.where = where0;
+}
+
 /* ---------- The yard: every room level builds on its plot, and nobody gets boxed in ----------
    For all rooms at 0, 1, 2 and 3 and a few mixes: the player, the cabin door, the van and every fence
    segment can be reached; there are no closed-off pockets; what a plot builds stays on the plot; every
@@ -1684,7 +1848,22 @@ try {
       if (fail === "alarm") {
         if (!I.alarm) err(`${ctx}: the wrong ${st} should set off the alarm`);
         const n0 = I.walkers.length;
-        for (let i = 0; i < 40; i++) I.buildingUpdate(0.25);
+        // every walker the alarm brings starts where it can get to you (on your side of the doors as they stand when
+        // there is room there, never inside a locked room), the cap is never passed, and a kind a note keeps to one
+        // walker never comes
+        const before = new Set(I.walkers);
+        const only = (W.NOTES[loc.id].walkers || []).filter((r) => r.only && r.type).map((r) => r.type);
+        for (let i = 0; i < 40; i++) {
+          I.buildingUpdate(0.25);
+          if (I.walkers.length > W.ALARM.cap) err(`${ctx}: the alarm passed ALARM.cap (${I.walkers.length})`);
+          I.walkers.forEach((z) => {
+            if (before.has(z)) return;
+            before.add(z);
+            const why = alarmStartWhyNot(z);
+            if (why) err(`${ctx}: an alarm walker starts at ${Math.floor(z.x)},${Math.floor(z.y)}, ${why}`);
+            if (only.includes(z.type)) err(`${ctx}: the alarm brought a ${z.type}; the notes keep that kind to one walker`);
+          });
+        }
         if (I.walkers.length < n0 + 6) err(`${ctx}: the alarm did not bring walkers (${n0} -> ${I.walkers.length})`);
         if (!I.walkers.some((z) => Math.hypot(z.x - I.startPos[0], z.y - I.startPos[1]) < 1.5 && z.awake)) err(`${ctx}: no walkers come through the way out`);
         const exits = [];

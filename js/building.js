@@ -14,9 +14,10 @@
      C  counter  K  table / desk  R  bed / bench (low: solid, see-through, shoot over)
      1 2 3 4  landmark anchors (floor + landmark prop)
      i item  c cache item  k stash item  y this building's stash key
-     n note spot 1 (the main note)  z walker spawn  $ scrap pile
-   Any other character is floor. The layout's `spots` place note spots 2 to 7 and its `signs`
-   the wall signs (js/layouts.js). */
+     n note spot 1 (the main note)  $ scrap pile
+     z walker anchor: a tile a note names (NOTES[id].walkers); other walkers spawn at random (planWalkers)
+   Any other character is floor. The layout's `spots` place note spots 2 to 7, its `signs`
+   the wall signs and its `walkerZones` the areas a note's walkers keep to (js/layouts.js). */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -199,29 +200,17 @@
       this.makePlayer(start[0], start[1], start[2]);
       if (this.fx.fullHealOnEntry) this.player.hp = this.player.maxHp;
 
+      // what lies on the floor goes down first, so no walker starts on it (planWalkers)
+      this.placeGun(loc, start);
+      this.placeRod(loc, tpl);
+      this.placeQuestObjects(loc);
       if (snap) {
         this.restore(snap);
       } else {
         const day = S.save.day;
-        const n = W().SETTINGS.walkersPerLocation(loc.danger, day);
-        // extra walkers go on floor tiles the player can actually reach (through the doors they can open,
-        // not into the locked cache room), at least 6 steps from the door
-        const reach = this.reachable(Math.floor(start[0]), Math.floor(start[1]), true);
-        const far = this.floors.filter(([x, y]) => (reach.get(Math.floor(x) + "," + Math.floor(y)) || 0) >= 6);
-        const spots = this.spawns.slice();
-        while (spots.length < n && far.length) spots.push(far.splice(Math.floor(Math.random() * far.length), 1)[0]);
         const hpMult = W().walkerHpMult("building", day);
-        // the kinds: the place's mix by danger, day and theme (WORLD.walkerWeights); the first spot of a danger 4+
-        // building is a brute, as the police and lumberyard notes say ("a big one by the police bike")
-        const mix = W().walkerWeights("building", { danger: loc.danger, day, place: loc.id });
-        spots.slice(0, n).forEach(([x, y], i) => {
-          const type = loc.danger >= 4 && i === 0 ? "brute" : W().pickWalkerType(mix);
-          this.walkers.push(this.makeWalker(type, x, y, hpMult));
-        });
+        this.planWalkers(loc, tpl, start, W().SETTINGS.walkersPerLocation(loc.danger, day), day).forEach((w) => this.walkers.push(this.makeWalker(w.type, w.x, w.y, hpMult)));
       }
-      this.placeGun(loc, start);
-      this.placeRod(loc, tpl);
-      this.placeQuestObjects(loc);
       S.tripLoc(loc.id).visits += 1;
       if (!S.trip.visited.includes(loc.id)) S.trip.visited.push(loc.id);
       this.hud.place.textContent = loc.name;
@@ -230,6 +219,131 @@
       this.syncMapBtn();
       const tips = snap ? ["Back inside. It is just as you left it. M is the map.", "Back inside. M is the map."] : ["Walkers inside. E reads notes and opens doors. B is the backpack. M is the map.", "Walkers inside. M is the map."];
       this.toastFit(tips.concat("M is the map."), 4.5);
+    },
+
+    /** Where a building's `n` walkers start on a visit with no snapshot, and their kinds, on `day` (the save's
+        day when left out): [{ x, y, type, rule }] (tile centres; rule: the index of the NOTES[id].walkers rule
+        that placed it, -1 for the others). rng: the dice (Math.random). Called once the gun, the pole and the
+        quest objects lie where they lie. Each walker starts on its own tile of floor the player can walk to
+        (through the doors they can open, never in a locked room), at least walkerSpawn.minSteps from the start,
+        never on a busy tile (spawnBusy). First the note's rules, in order (WORLD.NOTES says what each field
+        means): a rule's tiles are its z anchors' rings (r steps, doors shut) inside its zone, or its whole zone;
+        they are closed to the other walkers (an exact rule closes its whole zone), so "one by the robot" stays
+        one. Then the rest, over what is left (only inside an `all` rule's zone). Spacing: `gap` tiles apart where
+        there is room (a rule's group by its anchors: `groupGap`), then closer, never two on a tile. Kinds: a
+        rule's `type`, else the place's mix (placeMix). tests/validate-world.js (R6) checks every rule always has
+        room, so the fallbacks never break a rule with today's layouts. */
+    planWalkers(loc, tpl, start, n, day, rng) {
+      const rnd = rng || Math.random;
+      const today = day || State().save.day;
+      const WS = W().SETTINGS.walkerSpawn;
+      const rules = (W().NOTES[loc.id] || {}).walkers || [];
+      const zones = tpl.walkerZones || {};
+      const key = (x, y) => x + "," + y;
+      const inRects = (rects, x, y) => rects.some(([x0, y0, x1, y1]) => x >= x0 && x <= x1 && y >= y0 && y <= y1);
+      const reach = this.reachable(Math.floor(start[0]), Math.floor(start[1]), true);
+      const busy = this.spawnBusy(loc, tpl);
+      const pool = []; // [tx, ty]: where a walker may start
+      this.floors.forEach(([fx, fy]) => {
+        const x = Math.floor(fx);
+        const y = Math.floor(fy);
+        if ((reach.get(key(x, y)) || 0) >= WS.minSteps && !busy.has(key(x, y))) pool.push([x, y]);
+      });
+      const inPool = new Set(pool.map(([x, y]) => key(x, y)));
+      const anchors = []; // the z tiles, in reading order
+      tpl.grid.forEach((row, y) => {
+        for (let x = 0; x < row.length; x++) if (row[x] === "z") anchors.push([x, y]);
+      });
+      const placed = [];
+      const used = new Set();
+      const closed = new Set(); // tiles the other walkers may not start on
+      const spaced = (x, y, gap) => placed.every((p) => (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y) >= gap * gap);
+      const pick = (cands, gaps) => {
+        for (const gap of gaps) {
+          const ok = cands.filter(([x, y]) => !used.has(key(x, y)) && spaced(x, y, gap));
+          if (ok.length) return ok[Math.floor(rnd() * ok.length)];
+        }
+        return null;
+      };
+      const put = ([x, y], type, rule) => {
+        used.add(key(x, y));
+        placed.push({ x, y, type, rule });
+      };
+      let allZone = null;
+      rules.forEach((r, ri) => {
+        const Z = (r.zone && zones[r.zone]) || null;
+        if (r.all) {
+          if (Z) allZone = Z;
+          return;
+        }
+        const own = (list) => list.filter(([x, y]) => inPool.has(key(x, y)) && (!Z || inRects(Z, x, y)));
+        // its tiles: one ring per anchor, or the whole zone
+        const rings = (Array.isArray(r.z) ? r.z : []).map((zi) => (anchors[zi] ? own(this.ringFrom(anchors[zi][0], anchors[zi][1], r.r || WS.ring)) : []));
+        const area = rings.length ? [].concat(...rings) : Z ? own(pool) : [];
+        area.forEach(([x, y]) => closed.add(key(x, y)));
+        if (r.exact && Z) own(pool).forEach(([x, y]) => closed.add(key(x, y)));
+        const want = Math.min(n - placed.length, this.ruleCount(r, n));
+        for (let k = 0; k < want; k++) {
+          const t = rings.length ? pick(rings[k % rings.length], [WS.groupGap, 1]) || pick(area, [WS.groupGap, 1]) : pick(area, [WS.gap, WS.groupGap, 1]);
+          if (t) put(t, r.type || null, ri); // no room (never with today's layouts: R6): the rest below keeps the count
+        }
+      });
+      const rest = pool.filter(([x, y]) => !closed.has(key(x, y)) && (!allZone || inRects(allZone, x, y)));
+      while (placed.length < n) {
+        const t = pick(rest, [WS.gap, WS.groupGap, 1]) || pick(pool, [1]);
+        if (!t) break;
+        put(t, null, -1);
+      }
+      const mix = this.placeMix("building", loc, today);
+      return placed.map((p) => ({ x: p.x + 0.5, y: p.y + 0.5, type: p.type || W().pickWalkerType(mix, rnd), rule: p.rule }));
+    },
+    /** How many walkers a note's rule places when the building holds `total`: max(n, ceil(share x total)). */
+    ruleCount(r, total) {
+      return r.all ? 0 : Math.max(r.n || 0, r.share ? Math.ceil(r.share * total) : 0);
+    },
+    /** Tiles no walker starts on ("x,y"): every item, cache and stash spot and the key and scrap piles (taken or
+        not), every note spot (at any reading level), the landmarks, every story quest's spot here (in any state),
+        and the gun and the fishing pole lying here. */
+    spawnBusy(loc, tpl) {
+      const busy = new Set();
+      tpl.grid.forEach((row, y) => {
+        for (let x = 0; x < row.length; x++) if ("ickny$1234".includes(row[x])) busy.add(x + "," + y);
+      });
+      Object.values(tpl.spots || {}).forEach(([x, y]) => busy.add(x + "," + y));
+      (W().QUESTS || []).forEach((q) => q && q.at === loc.id && Array.isArray(q.spot) && busy.add(q.spot[0] + "," + q.spot[1]));
+      [this.gunPickup, this.rodPickup].forEach((o) => o && busy.add(Math.floor(o.x) + "," + Math.floor(o.y)));
+      return busy;
+    },
+    /** Tiles within r steps of (ax, ay) walking with every door shut, so inside that tile's room: [[x, y], ...]. */
+    ringFrom(ax, ay, r) {
+      const m = this.solidMask();
+      const gw = this.gw;
+      const seen = new Set([ax + "," + ay]);
+      const out = [[ax, ay]];
+      let edge = [[ax, ay]];
+      for (let d = 0; d < r; d++) {
+        const next = [];
+        edge.forEach(([x, y]) => {
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = x + dx;
+            const ny = y + dy;
+            const k = nx + "," + ny;
+            if (nx < 0 || ny < 0 || nx >= gw || ny >= this.gh || seen.has(k) || m[ny * gw + nx] || this.grid[ny][nx] === "D") continue;
+            seen.add(k);
+            next.push([nx, ny]);
+          }
+        });
+        out.push(...next);
+        edge = next;
+      }
+      return out;
+    },
+    /** The walker kinds of this place, "building" or "alarm" (WORLD.walkerWeights by danger, day and theme), less
+        any kind a note's rule keeps to its own walkers (`only`: "One of them is big"). */
+    placeMix(where, loc, day) {
+      const mix = W().walkerWeights(where, { danger: loc.danger || 0, day, place: loc.id });
+      ((W().NOTES[loc.id] || {}).walkers || []).forEach((r) => r.only && r.type && delete mix[r.type]);
+      return mix;
     },
     /** A toast with the longest of `texts` that fits on the screen: Huge text on a small screen gets a short one. */
     toastFit(texts, secs, pickup) {
@@ -450,11 +564,12 @@
       this.stop();
       if (this.hooks.onDeath) this.hooks.onDeath();
     },
-    /** The alarm rings: walkers pour in, from deep inside and through the way out, until you go down (WORLD.ALARM). */
+    /** The alarm rings: walkers pour in, from deep inside and through the way out, until you go down (WORLD.ALARM).
+        Their kinds: the place's alarm mix, less a kind a note keeps to one walker (placeMix). */
     startAlarm() {
       if (this.alarm) return;
       const loc = this.loc || {};
-      const mix = W().walkerWeights("alarm", { danger: loc.danger || 0, day: State().save.day, place: loc.id });
+      const mix = this.placeMix("alarm", loc, State().save.day);
       this.alarm = { t: 0, next: W().ALARM.first, siren: 0, mix };
       this.toast("ALARM! Walkers are pouring in, even through the way out.", 4);
       this.updateHud();
@@ -483,12 +598,81 @@
       };
       // one through the way out, so there is no leaving
       add(this.startPos[0] + rand(-0.15, 0.15), this.startPos[1] + rand(-0.15, 0.15));
-      // and one from somewhere deeper in the building
-      const far = this.floors.filter(([x, y]) => Math.hypot(x - p.x, y - p.y) > AL.farFrom);
-      if (far.length) {
-        const [x, y] = far[Math.floor(Math.random() * far.length)];
+      // and one from somewhere deeper in the building, farther than farFrom from you, on a tile no walker stands on
+      // when there is one: floor it can walk to you from with the doors as they stand (walkers cannot open doors);
+      // when you are shut in with no such floor, floor walkable from the way in through the doors (never a locked
+      // room), where it waits for you behind a door
+      if (this.walkers.length >= AL.cap) return;
+      const area = this.alarmAreas(A);
+      const gw = this.gw;
+      const taken = new Set();
+      this.walkers.forEach((z) => taken.add(Math.floor(z.y) * gw + Math.floor(z.x)));
+      const ins = [Math.floor(p.y) * gw + Math.floor(p.x), Math.floor(this.startPos[1]) * gw + Math.floor(this.startPos[0])];
+      const floors = this.floors;
+      const px = p.x;
+      const py = p.y;
+      const r2 = AL.farFrom * AL.farFrom;
+      const far = [];
+      const free = [];
+      for (let k = 0; k < 2; k++) {
+        const lab = k ? area.through : area.here;
+        const id = lab[ins[k]];
+        if (id < 0) continue;
+        for (let i = 0; i < floors.length; i++) {
+          const f = floors[i]; // a tile centre
+          const t = Math.floor(f[1]) * gw + Math.floor(f[0]);
+          if (lab[t] !== id || (f[0] - px) * (f[0] - px) + (f[1] - py) * (f[1] - py) <= r2) continue;
+          far.push(f);
+          if (!taken.has(t)) free.push(f);
+        }
+        if (!far.length) continue;
+        const from = free.length ? free : far;
+        const [x, y] = from[Math.floor(Math.random() * from.length)];
         add(x, y);
+        return;
       }
+    },
+    /** The building's walkable areas for the alarm's deeper walkers: `here` numbers each tile's area with the doors
+        as they stand, `through` with every closed door open (locked doors stay walls), as reachable() walks them;
+        -1 is solid. Kept on the alarm until a door opens or shuts, so a spawn tick does no search of the grid. */
+    alarmAreas(A) {
+      const sig = this.doors.map((d) => this.grid[d.y][d.x]).join("");
+      if (A.areas && A.areas.sig === sig && A.areas.here.length === this.gw * this.gh) return A.areas;
+      A.areas = { sig, here: this.areaLabels(false), through: this.areaLabels(true) };
+      return A.areas;
+    },
+    /** Each tile's walkable area (Int32Array, -1 solid): 4-way connected floor of the movement mask, with closed
+        doors passable when throughDoors. */
+    areaLabels(throughDoors) {
+      const m = this.solidMask();
+      const gw = this.gw;
+      const n = gw * this.gh;
+      const lab = new Int32Array(n).fill(-1);
+      const q = new Int32Array(n);
+      const open = (i) => !m[i] || (throughDoors && this.grid[(i / gw) | 0][i % gw] === "O");
+      let id = 0;
+      let tail = 0;
+      const push = (j) => {
+        if (lab[j] >= 0 || !open(j)) return;
+        lab[j] = id;
+        q[tail++] = j;
+      };
+      for (let s = 0; s < n; s++) {
+        if (lab[s] >= 0 || !open(s)) continue;
+        let head = 0;
+        tail = 0;
+        push(s);
+        while (head < tail) {
+          const i = q[head++];
+          const x = i % gw;
+          if (x > 0) push(i - 1);
+          if (x < gw - 1) push(i + 1);
+          if (i >= gw) push(i - gw);
+          if (i + gw < n) push(i + gw);
+        }
+        id++;
+      }
+      return lab;
     },
     /** The cache door: whatever its lock asks for (WORLD.LOCKS). */
     cacheInteract() {
