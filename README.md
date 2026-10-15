@@ -61,8 +61,9 @@ Show tutorial again is in the pause menu.
    Hollis family left on the walls are read up close. Its doors open and shut with E:
    walkers walk through an open one, pound a shut one down, and smash windows to climb in
    (you cannot climb out). Some walkers in every wave make for the cabin, break in and wait
-   inside. E at a broken door or window fixes it (2 scrap); the computer's House tab makes
-   doors and windows stronger.
+   inside; the wave lasts until they are cleared out, and while you are outside the wave label
+   reads "WAVE · walkers in the cabin" (where, never how many). E at a broken door or window fixes
+   it (2 scrap); the computer's House tab makes doors and windows stronger.
    **What you build is what you see:** every room has its own plot in the yard, a staked lot
    with its name on a sign until it is built, then a bigger build at each level (a carport,
    then a shed, then a workshop; rain barrels, then a tank on a stand, then a water tower).
@@ -282,7 +283,8 @@ tests/                  world, weapons, text, streets, drive, engine, crew and a
   Their looks: `js/walker3d-looks.js` (on foot) and `ZOMBIE_LOOK` in `js/sprites.js` (the road). How
   many redraw a frame: the `LIVE_*` constants and the governor's `LIVE_LEVELS` in `js/interior.js`.
 - Walkers inside buildings: `SETTINGS.walkersPerLocation` (how many) and `walkerSpawn` (how spread out)
-  in `js/world.js`; where a note says some stand, its rule in `NOTES[id].walkers`.
+  in `js/world.js`; where a note says some stand, its rule in `NOTES[id].walkers`. How near a sleeping
+  walker hears you (and how far from the door they start): `HEAR` and `HEAR_SPRINT` in `js/interior.js`.
 - Locks: `LOCKS` in `js/world.js` (what each cache asks, what a mistake costs, what a wrong stash key
   does) and `TOOLS` (the crowbar's price). The alarm's pace, mix and cap: `ALARM` in `js/world.js`.
 - The cabin: `HOUSE` (plan, rooms, notes, what E uses) and `HOUSE_UPGRADES` (door and window strength and

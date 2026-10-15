@@ -31,10 +31,11 @@ useful.
    opens the build menu, which pauses the yard: upgrade rooms with items plus scrap, the van
    and gun in the garage, the doors and windows in the House tab. The pantry lists food and
    storage, the radio shelf in the dining room tunes in to today's broadcast and shows past days, the typewriter is typing practice, and the big
-   bed heals fully for a minute of the calm. The computer, radio shelf and typewriter wait
+   bed heals fully for a minute of the calm. The computer, radio shelf, typewriter and bed wait
    while a wave is on. Doors open and shut with E; walkers break shut doors, smash windows
    and climb in, and walk through open doors. A quarter of each wave's walkers make for the
-   cabin, break in and wait inside until you come for them; another quarter are wreckers,
+   cabin, break in and wait inside until you come for them (the wave lasts until they are
+   cleared: see "No walker counts on screen" under Walkers); another quarter are wreckers,
    which claw the van and the room builds once inside the fence (see "Wreckers and wrecked
    builds"). A fence hole draws only the walkers within 8 tiles' walk of it outside; the rest
    keep clawing their own segment. The base is the only
@@ -129,9 +130,12 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
 - **Breaches draw only the walkers near them** (`DEFENSE.breachRange`, 8). A walker outside the
   fence goes for a hole only when one is within 8 steps' walk of it along open ground outside,
   and then for the nearest; every other walker keeps clawing its own segment. A corner hole
-  (no open ground on both sides) is never used. Every walker re-plans when a hole opens or is
-  mended, so a mended hole sends its walkers back to clawing where they stand. Raiders and
-  wreckers obey the same rule outside the fence.
+  (no open ground on both sides) is never used. When a hole opens or is mended, the walkers it
+  concerns re-plan at once (one on the fence line, one outside whose nearest hole in range changed,
+  one whose path crosses that hole); the rest re-plan on their own clock, so a mended hole sends
+  its walkers back to clawing where they stand. A walker outside with no hole in range never
+  searches for a way in: it claws its own segment. Raiders and wreckers obey the same rule outside
+  the fence.
 - **Traps** are crafted at the workbench (Walls 2 for spike traps, Walls 3 for blast traps)
   and set in the yard with T (spike) and R (blast) on the ground in front of you, or just
   past the fence line. A spike trap hurts the walker that steps on it (45, three uses); a
@@ -154,20 +158,23 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
 - **A build's strength** is `DEFENSE.buildHp` by its level (120, 180, 260) and lasts between waves
   (`save.builds`). Under half it shows cracks; at 0 it is wrecked: a taped "WRECKED" plaque, cracks,
   debris, dark beacons. It keeps its footprint. A wrecked build gives no room bonus until it is
-  fixed; its built level still counts for room requirements, the crew's gates and the art. A
-  wrecked Radio hears no broadcast that day and cannot be tuned in.
+  fixed; its built level still counts for room requirements, the crew's posts and the art, but a
+  crew topic about the room (the free van repair, the daily broadcast, the garden's food) waits
+  until it is fixed. A wrecked Radio hears no broadcast that day and cannot be tuned in.
 - **Fixing:** 3 scrap a build (`SETTINGS.buildRepairScrap`). E at it in the yard ("Press E to fix
   the wrecked Garden (3 scrap)", or brace a cracked one), mid-wave too, but not while a wrecker
-  claws it; the office computer's Builds row ("Fix all": wrecked first, then cracked, as far as the
-  scrap goes); or Tomas in the calm (wrecked builds only, after the fence). Upgrading a room puts its
-  build up whole.
+  claws it; the office computer's Builds row ("Fix all for N scrap", N = 3 x every wrecked and cracked
+  build: wrecked first, then cracked, as far as the scrap goes); or Tomas in the calm (wrecked builds
+  only, after the fence). Upgrading a room puts its build up whole. A wrecker harms its target only
+  while it claws (a screamer wrecker yelling at you takes nothing off).
 - **The van.** Wreckers stop at 30% of its health (`vanWreckFloor`), so a trip never starts
   wrecked; "They are wrecking the van!" once a wave. Its body dents under 75% and 50% health.
 - **Where it shows.** The HUD goal adds " · wrecked: Garden and Well"; a toast when a build falls and
   when it is fixed; the lot panel's status and a "Wrecked" row; the room card in the build menu;
   the Garage tab says "Fix the Garage" when a wrecked Garage caps an upgrade. Pip warns about
   wreckers once a room with a plot is built; Tomas lists the wrecked builds and what fixing them
-  costs.
+  costs (3 scrap each: the wrecked ones only, where Fix all also counts the cracked), and does not
+  say "Nothing needs fixing" while any build is cracked or wrecked.
 
 ## Driving: lanes, signs, side streets
 
@@ -267,26 +274,40 @@ every kind.
   stands 1.2 s, head back and arms up, and every awake walker within 10 tiles, itself included,
   moves 30% faster for 5 s (frenzy, `WORLD.SCREAM`). Sleepers sleep on. On foot a toast says "A
   scream! Walkers near it speed up." (at most every 20 s); on the road a "SKREE!" burst, the sound,
-  and frenzied walkers show red eyes, a glow on the ground and speed lines.
+  and frenzied walkers show red eyes, a glow on the ground and speed lines. A walker killed does
+  nothing more that frame, so a sleeping screamer killed by the shot that wakes it never screams.
 - **The lanky** bites from 1.25 tiles, but never round a wall's corner.
 - **On the road** each kind has its own top-down look in the same colours, its own speed, size,
   damage to the van and knockback (the brute and the armored hardly move when hit); the lanky reaches
   the van from farther off, and half of an armored walker's hits glance off its gear in grey sparks.
+  A ram by the van is a hit like a shot: the walker flashes and bleeds the way the van pushes it.
+  A hurt walker's health bar stays level on the screen however the road turns.
 - **Downed walkers** collapse their kind's way (walker and screamer crumple, the brute topples like
   a tree, the lanky folds forward, the armored drops to its knees and pitches forward, the runner
   tumbles) and fade over 2 s. No bodies stay; a downed walker is never shot at, solid or counted.
 - **Gore** (`SETTINGS.walkerGore`, on): blood smears and ribs through torn shirts on the models, a
-  short dark-red spray on every hit that lands as splats, a pool under a downed walker. Off: grime
-  instead, no ribs, no spray, no pool. Grey sparks off armor show either way. The reading text has
-  no gore at all.
+  short dark-red spray on every hit (a ram on the road too) that lands as splats, a pool under a
+  downed walker. Off: grime instead, no ribs, no spray, no pool. Grey sparks off armor show either
+  way. The reading text has no gore at all.
 - **No walker counts on screen.** The HUD has no walker box in any scene; the yard's phase box says
   WAVE or HEAVY WAVE; the river's toast says something is coming. Door notes and Ruby's graffiti keep
   their counts ("at least eight"), which grow with the day (`SETTINGS.walkersPerLocation`).
+- **Walkers waiting in the cabin** (a judgment call beside the owner's no-counts answer, `DESIGN.md`)
+  hold a wave open out of sight, so the label says where they are, never how many: "WAVE · walkers
+  in the cabin" (or "HEAVY WAVE · walkers in the cabin") while any walker stands in the cabin (off the
+  porch) and you are outside it. "Walkers got into the cabin. They wait in there: clear it out." is
+  said once a wave. Once the whole wave has come and every walker left is in the cabin, "Walkers are
+  waiting in the cabin. Clear it out." shows at once and every 20 s while you stay out (never right
+  after the first toast), and the van ("Not now. Walkers are still in the cabin."), the bed, the
+  computer, the radio shelf and the typewriter ("Not now: walkers are still in the cabin.") and
+  their hints name the cabin; with a walker anywhere else they say the old lines.
 - **Where a building's walkers start.** Every fresh visit puts the count on random floor you can
-  walk to (never in a locked room), at least 6 steps from the door, about 3 tiles apart, never on an
-  item, a note spot, a quest spot, the gun or the pole. A walker a door note, a note or a graffiti
-  names (`NOTES[id].walkers`) starts within 3 steps of the named spot, in its room, or inside the
-  named area: "one by the
+  walk to (never in a locked room), at least 6 steps from the door, out of earshot of it where there
+  is room (at least 6.5 tiles in a straight line: a sleeping walker within 6 wakes, `Interior.HEAR`),
+  about 3 tiles apart, never on an item, a note spot, a quest spot, the gun or the pole. A walker a
+  door note, a note or a graffiti names (`NOTES[id].walkers`) starts within 3 steps of the named spot
+  (of the landmark itself when the note names one: "one by the robot" starts within 3 steps of the
+  robot), in its room, or inside the named area: "one by the
   robot" is one, and nobody else starts beside the robot; "most near the back" is over half; the
   hospital's walkers all stand in the dark rooms; the police station's big one is its only brute. Going
   back in on the same trip finds them as you left them (kind, health, look and facing).
@@ -522,7 +543,9 @@ walker and downed walker on screen gets its own pooled canvas, redrawn at its si
 when it looks different, then projected, depth-sorted and clipped per column like any sprite; a
 walker hidden by walls gets no render. Fog is baked into its colours (its eyes keep their glow).
 Under a ceiling and in the cabin a walker is capped at 0.98 tiles (the whole figure shrinks). Its
-health bar sits just over its head, as wide as it is to hit. Detail goes by height on screen:
+health bar sits just over its head, as wide as it is to hit. A head that points face down (a body
+fallen on its face) draws no face, jaw or visor and sorts by its real depth, so a body lying away
+from you hides its head. Detail goes by height on screen:
 full (fingers, ribs, sheen) over 160 px, less over 64 px, a silhouette with head and eyes below.
 **The redraw budget:** the 3 nearest full-detail walkers redraw every frame they change; the rest
 take turns, each at most every 2nd frame, at most 10 redraws a frame in all, with less detail; a

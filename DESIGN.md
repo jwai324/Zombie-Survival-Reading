@@ -651,6 +651,23 @@ are `js/game.js` and `js/sprites.js`. The design is `docs/GAME_SPEC.md` ("Walker
 | Practice walker, god mode? | The tutorial's practice walker stays a plain `walker`. God mode gets "Spawn walker: [kind]". |
 | Defaults the owner was told | Lanky 40 health, speed 1.5, bite 14, a longer reach (1.25 tiles); armored 60, 1.0, 14; screamer 22, 1.35, 8; walker, runner and brute unchanged. A lanky can be only a little taller than a walker indoors (1-tile ceilings): it reads tall by thinness and long arms. |
 
+**Judgment call beside the tenth answer ("Counts on screen?"): the cabin cue.** With the count gone,
+nothing on screen said why a wave went on while its last walkers waited out of sight in the cabin
+(raiders stand at their spots until you come in or near). The van, the bed and the computer refused,
+and the van's line sent you to the fence. So the label says where walkers are, never how many:
+"WAVE · walkers in the cabin" or "HEAVY WAVE · walkers in the cabin" (`CABIN_LABEL`, `js/yard.js`)
+while any walker stands in the cabin (`inCabin`: under the roof and off the porch, since one on the
+porch is in plain sight) and you are outside it (the porch counts as inside). Once every walker of
+the wave has come and every one left stands in the cabin (`cabinHoldsWave`, `js/house.js`), a toast
+says "Walkers are waiting in the cabin. Clear it out." at once, then every `CABIN_CUE_SECS` (20 s)
+while you stay out. "Walkers got into the cabin. They wait in there: clear it out." is said once a
+wave (it was once a yard stay) and counts as a cue (`raidToastAt`), so the two never come back to
+back. While the cabin holds the wave the van says "Not now. Walkers are still in the cabin.", the
+bed, the computer, the radio shelf and the typewriter say "Not now: walkers are still in the
+cabin.", and their hints end "(walkers are still in the cabin)". With a walker anywhere else the old
+lines stand ("Not now. Clear the fence first."). The owner can drop the label's tail; the toast and
+the refusals would still explain the wait.
+
 ### Approved by the lead (deviations from the build spec)
 
 - **Theme weights.** The spec's multipliers failed its own rule (on day 5 a themed place's kind is
@@ -738,11 +755,16 @@ are `js/game.js` and `js/sprites.js`. The design is `docs/GAME_SPEC.md` ("Walker
 - **Frenzy never touches the practice walker,** neither when set nor when speed is worked out; a
   Medbay revive clears frenzy and the yell; "A scream! Walkers near it speed up." shows at most once
   every 20 s a scene (`SCREAM_TOAST_GAP`): the sound and the pose are the cue after that.
+- **A walker killed this frame does nothing more.** Shots and traps run before the walker loop, and
+  `Interior.update` steps only walkers with health left, so a sleeping screamer killed by the shot
+  that wakes it never screams (and speeds no one up), and a dead walker never bites or claws.
 - **A kind counts as met** (`save.met`, for the crew's told-once tips) when an awake walker of it is
   within `MEET_RANGE` 12 tiles, inside the view and in clear sight (checked every 0.4 s, and never for
   a kind already met), when one is hurt, when god mode spawns one, or when one comes on screen, is hit
   or rams the van on the road. It is written straight to the save in memory: home keeps it, a death
-  throws it away with the trip.
+  throws it away with the trip. "Inside the view" is the visible width: within `halfView() + 0.05`
+  rad of the middle, `halfView()` = `atan(tan(FOV / 2) x W / H)`, the angle `project()` puts at the
+  screen's edge. It was `FOV / 2 + 0.05`, which missed walkers near the sides of a wide screen.
 - **`z.aim`** is the player object or the claw target `[x, y]` (a fence, a door, a build, the van), so
   nothing is allocated per frame.
 - **A downed walker is the same object** moved from `walkers` to `fallen` (never targetable, solid or
@@ -783,6 +805,16 @@ are `js/game.js` and `js/sprites.js`. The design is `docs/GAME_SPEC.md` ("Walker
   skull; the brute's neck was raised so its skull clears its shoulders from behind (its chin still sits
   low at the front). Backs of heads have their own cues (hair to the nape, ears, a darker bald skull
   with a scar, a hood's seam).
+- **A face-down head shows no face.** When the head's forward points lower than `FACE_DOWN` (-0.7,
+  up is +1; exported on `Walker3D`) it draws no face decals, no jaw and no riot visor, and sorts by its
+  real depth, so a body lying away from you covers its head. Upright poses never pitch the head below
+  -0.58 (every kind, pose, gait and seed probed). Before, a brute shot in the back and seen from behind
+  showed its open red mouth between its boots. Fallen face down at yaw pi, the walker, brute, armored
+  and screamer show no face; the runner and the lanky still do, because their heads end turned or
+  tipped back toward the camera (the lanky's face normal is about 0.68 toward it), so the rule "a
+  face only when it faces the camera" still holds for them. Left for an art pass: the brute's tree fall
+  still drops the head below the legs' line (the review asked to keep it on the torso's line); with
+  the depth sort and no face, the reported artefact is gone.
 - **Variants by seed:** armored is riot gear (even seed) or a firefighter (odd); lanky a hospital gown
   (even) or a long coat (odd). No real organisation names or logos.
 - **Each kind falls its own way:** walker and screamer crumple, the brute topples like a tree, the
@@ -853,13 +885,37 @@ are `js/game.js` and `js/sprites.js`. The design is `docs/GAME_SPEC.md` ("Walker
   with two in range it takes the nearer even when the other lies on the shorter way to you.
 - **A usable hole** joins open ground outside to open ground inside (4-way); a corner hole never does.
   A walker standing in a hole tile counts as inside the line, and goes on through.
-- **New core hooks:** `PathBlock(z)` (tile indices one walker's path search treats as solid; the
-  straight-line shortcut is skipped while it returns a list), `Breach(x, y)` (a segment gave way), and a
-  `WalkerGoal` with `aim` [x, y] clawed once the walker stands there. Other modes behave as before.
-- **Every walker re-paths when the holes change** (a breach, a mend by you or Tomas, `patchFence`,
-  coming home); the nearest-hole search costs about 0.5 ms.
+- **New core hooks:** `PathBlock(z, goal)` (tile indices one walker's path search treats as solid; the
+  straight-line shortcut is skipped while it returns a list; `true`: there is no way to that goal at
+  all, so the core runs neither the path search nor the `Barrier` search and the walker claws
+  `nearestFence`), `Breach(x, y)` (a segment gave way), and a `WalkerGoal` with `aim` [x, y] clawed once
+  the walker stands there. Other modes behave as before.
+- **No way in, no search.** The yard's `PathBlock` answers `true` for a walker outside the fence with no
+  hole in range (or no holes) whose goal is inside the fence: every way in is a hole and all of them
+  are shut to it. Before, each such walker flood-filled the whole outside twice every 0.4 s (the path
+  search, then `yardBarrier`) and failed both times. The practice walker is never answered `true`.
+  `nearestFence` keeps the parsed "x,y" keys (`FENCE_KEYS`), so it no longer allocates per segment.
+- **A hole change re-paths only the walkers it touches** (a breach, a mend by you or Tomas,
+  `patchFence`, coming home). `breachChanged` keeps the last change's nearest-hole array (two
+  Int32Arrays swap, nothing is made per change) and resets `pathT` for: a walker on the fence line; a
+  walker outside whose nearest hole in range changed; a walker whose path steps on a hole that opened
+  or closed; every walker the first time the arrays are made. Everyone else keeps their own re-path
+  clock, so a wave's searches stay spread over frames; resetting everyone put all of them in one frame
+  at every breach and mend and kept their clocks in step after. This narrows the build spec's "reset
+  every walker's pathT" (5.2) to the walkers whose search would come out differently. The
+  nearest-hole search costs about 0.5 ms. Measured with the review's yard re-path harness (seed 7,
+  fence 40 health, 108 walkers, the 450 frames after the first hole): update p95 31.2 ms before the
+  fix, 10.5 ms after (6.0 ms on 942b379, before walkers v2); frames over 16.7 ms 48, 12 and 6.
+- **The cabin's barriers still re-path everyone:** a cabin door or window broken or forced, and a door
+  opened or shut (by you or the crew), set every walker's `pathT` to 0 (`js/house.js`, `js/crew.js`,
+  `js/interior.js`; older than walkers v2). Walkers outside the fence now skip their search, so these
+  cost much less, but the clocks still fall into step after one. Resetting only the walkers whose path
+  crosses the barrier is the next step if waves at 3x need it.
 - **Wreckers can be provoked outside the fence too** (hurt, or you within 5 tiles), and "hurt" lasts
   (`hp < maxHp`), so a screamer wrecker shot mid-yell still turns once the yell ends; traps provoke.
+- **A wrecker harms its build or the van only while it claws.** `yardWreck` skips a wrecker whose `act`
+  (last frame's) is not "claw", so a screamer wrecker yelling at you from its spot takes nothing off
+  the build; on arrival the harm starts one frame late.
 - **A wrecker's target** is the nearest free spot by walking distance at a build still standing or at
   the van above its floor (one wrecker a spot); it picks again only when its target falls; with
   nothing left it comes for you.
@@ -869,8 +925,14 @@ are `js/game.js` and `js/sprites.js`. The design is `docs/GAME_SPEC.md` ("Walker
 - **Damage persists between waves** (`save.builds` keeps the number): under half a build looks
   cracked and E braces it; at 0 it is wrecked (taped plaque, cracks, debris, dark beacons), keeps its
   footprint (paths stay valid) and gives no bonus. Upgrading a damaged room rebuilds it whole.
-- **The built level still counts** for room requirements, crew gates and posts, the radio shelf's art,
-  the plot's build and the base card's pips: only the bonus goes (`State.effects`, `roomLevel`).
+- **The built level still counts** for room requirements, crew posts, the radio shelf's art, the
+  plot's build and the base card's pips: only the bonus goes (`State.effects`, `roomLevel`).
+- **A crew topic gated on a room waits while its build is wrecked.** `crewWhen`'s `room` + `level`
+  reads `State.roomLevel` (0 while wrecked), not the built level: tomas-t6 (the free van repair),
+  pip-t7 (the daily broadcast) and june-t9 (the garden grows food) give the room's bonus as working,
+  which a wrecked build does not give (the owner's "Yard roles?" answer). A cracked build still counts.
+  A told-once topic is delayed until the fix, never lost. This reverses the yard drop's call that
+  topics read the built level.
 - **A wrecked Radio** logs no broadcast that day (none is lost: the order is kept), cannot be tuned in,
   and Pip's radio tip waits until it is fixed.
 - **Tomas fixes wrecked builds only,** after the fence and before the cabin (job `builds`, no star gate,
@@ -883,6 +945,19 @@ are `js/game.js` and `js/sprites.js`. The design is `docs/GAME_SPEC.md` ("Walker
 - **Tips:** the told-once tips (Tomas `lanky` and `armored`, Pip `screamer` and `wreckers`) are urgent,
   told at the next talk; `wreckers` applies once any room with a yard plot is built (the Walls have
   none); Tomas's `wrecked` tip is a regular one after `fence`, with `{rooms}` and `{cost}`.
+- **Tomas's `{cost}` is the wrecked builds only:** `buildRepairScrap` (3) x the wrecked builds, said
+  as "fixing it all costs {cost} scrap". The office computer's Builds row quotes "Fix all for N scrap"
+  over the wrecked and the cracked builds together (3 x (wrecked + cracked)), and Fix all fixes both.
+  The two totals agree while no build is only cracked; with a build wrecked and another cracked, Tomas
+  quotes less than the button. Open question for the owner: quote the Fix all total in the tip?
+- **Tomas's `fine` waits for the builds.** "Nothing needs fixing right now" is not said while any yard
+  build is cracked (under `CRACKED` 0.5 of its strength, the share `buildDmg` uses) or wrecked, read
+  from the yard's live lists (`ctx.cracked`, `ctx.wrecked`) or else the save, since the lot panel and
+  the computer say such a build needs fixing. A cracked build has no tip of its own (that would need
+  six new leveled texts), so with only cracked builds and nothing else to say Tomas gives no tip line
+  that talk. Open question for the owner: is a "cracked builds" tip wanted?
+- **Pip's screamer tip** says only awake walkers near it speed up and sleepers sleep on, at all six
+  levels, as the scream does (it said "walkers nearby hear it and speed up", which took in sleepers).
 - **One order for wrecked builds** (`WORLD.BASE_ROOMS` order) in the HUD goal, the toasts, the computer,
   Tomas's tip and his job, so every list reads "Garage and Radio" the same way.
 - **The Garage tab** says "Fix the Garage" when an upgrade is capped by a Garage built far enough but
@@ -908,6 +983,12 @@ are `js/game.js` and `js/sprites.js`. The design is `docs/GAME_SPEC.md` ("Walker
   that tells the kinds apart show, and the eyes glow yellow as on foot.
 - **Every hit bleeds with gore on,** 5 drops a hit and 9 a kill; the drops carry the walker's keep-up
   speed so the spray stays with it; half leave a splat that scrolls away with the road.
+- **A ram is a hit like a shot:** the van's ram flashes the walker (`z.hit` 0.12) and sprays the way
+  the push goes, through the same `blood()` (5 drops, 9 on a kill, an armored walker's glance and its
+  sparks; nothing with gore off; `ROAD_PARTICLE_CAP` still applies).
+- **Health bars stay level after a turn.** `Draw.zombie(ctx, z, t, noShadow, viewTurn)` draws a hurt
+  walker's bar round the walker turned back by `viewTurn`, the road's world turn (`Game.viewTurn()`,
+  -pi/2 - `cam.th`, also used for the road's two world rotates); the title screen passes none.
 - **Armor is in the data:** `road.armor` (only the armored kind, 0.5) is the share of its non-fatal hits
   that also glance off its gear in grey sparks with a smaller spray (3 drops); a killing shot never
   glances. The brute's low knockback does not make it armored: it bleeds like any other.
@@ -932,8 +1013,25 @@ are `js/game.js` and `js/sprites.js`. The design is `docs/GAME_SPEC.md` ("Walker
   `share` 0.4 ("many"), the hospital `all` in its dark rooms.
 - **"One by the X" needs a zone round X:** Signal Electronics' robot and Gas-N-Go's car lift rules are
   `exact` with a zone covering the landmark's surroundings, so no other walker starts within 2 tiles
-  of it (validate-world R8 "by"). The named walker can still start anywhere in its 3-step ring, so
-  another walker 3+ tiles off may stand nearer the robot than it on some visits: recorded, not fixed.
+  of it (validate-world R8 "by", `RULE_BY` 2 steps). Another walker just outside the zone, 3 steps
+  off, can still stand as near the landmark as the named one on some visits.
+- **A named walker starts by its landmark.** A rule with `near` rings the landmark's footprint
+  (`landmarkRect`; `ringFrom` takes the rect), not its z anchor: its walker starts within `r` or
+  `walkerSpawn.ring` (3) steps of the footprint, doors shut, inside the zone. The anchor must still sit
+  within `walkerSpawn.near` (5) tiles of the landmark and in the zone (validate-world R4), and it still
+  marks the rule's room. Over 90 visits a rule every named walker started within 3 tiles (Chebyshev) of
+  its landmark; ringing the anchor had put them up to 7 tiles off at Ortiz Auto, 8 at Signal
+  Electronics, 6 at the 4th Precinct and 5 at Ridge Lumber. The six `near` rules: the car lift, the
+  forklift, the engine crane, the robot, the police bike, the log pile.
+- **No walker starts in earshot of the door where there is room.** A sleeping walker wakes within
+  `Interior.HEAR` (6 tiles, `HEAR_SPRINT` 9 while you sprint) in a straight line, through walls, and
+  `minSteps` (6 steps) along a diagonal is nearer than that. `planWalkers` picks tiles at least `HEAR +
+  0.5` tiles from the start in a straight line first (the half: a walker's middle, not its tile's
+  edge), at every spacing, and only then nearer floor; the `minSteps` rule stays. A rule with no quiet
+  tile left still gets its walker, so the rules (R6) and the door-note counts hold. Over 1,350 visits
+  (15 buildings x days 1, 10 and 40 x 30) no visit started a walker within 6 tiles; before, 204 did
+  (15%). A balance change toward the spec's "spread out, away from the door". A sprint through the
+  door still wakes walkers 6 to 9 tiles off.
 - **The danger 4+ brute at the first spot is gone:** police and lumberyard keep theirs by rule; the
   library, hospital and mall get brutes only from their mix.
 - **The gun, the pole and the quest objects are placed first,** and no walker starts on a busy tile:
@@ -965,3 +1063,11 @@ are `js/game.js` and `js/sprites.js`. The design is `docs/GAME_SPEC.md` ("Walker
 - validate-world: the "2+ z tiles" and "z count <= day-1 count" checks gave way to the walker rules
   (R1-R8).
 - validate-god: the road stub is `spawnWalkerAhead(type)`; a null return now means no room.
+- Review round: validate-engine's "the wave label is only WAVE or HEAVY WAVE" also accepts the
+  " · walkers in the cabin" tail, only while a walker stands in the cabin and the player is out of it;
+  a digit is still an error. Its spawn loop rings a `near` rule round the landmark, wants that rule's
+  walker within `r` tiles of it, and errs on a walker within `Interior.HEAR` of the start (a
+  layout-quality check like R6: give the rule's zone room out of earshot). validate-world's R4 and R6
+  ring a `near` rule the same way, every ring tile within `r` tiles of the footprint. validate-text
+  errs when a crew tip or report has a sentence over the level's Max sentence (other texts warn past
+  Max + 3); the 14 crew2 offenders and two pip.radio texts were split, every fact kept.
