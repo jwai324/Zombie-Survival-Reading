@@ -12,9 +12,9 @@ guns, rooms and story. Build every change so it still holds at 2 to 3 times toda
 
 Read `docs/CREW.md` before changing June, Tomas, Pip, their quests or the dog.
 
-Read `docs/SCALING.md` before adding a place, a road, a gun, a room or a level, or before
-touching the map's size. It lists the add-a-place checklist, the save-compat rules, the limits the
-current city already sits near, and every `SCALE:` spot (`grep -rn "SCALE:" js tests`).
+Read `docs/SCALING.md` before adding a place, a road, a gun, a room, a level or a walker kind,
+or before touching the map's size. It lists the add-a-place checklist, the save-compat rules, the
+limits the current city already sits near, and every `SCALE:` spot (`grep -rn "SCALE:" js tests`).
 
 ## Working rules
 
@@ -24,4 +24,6 @@ current city already sits near, and every `SCALE:` spot (`grep -rn "SCALE:" js t
   six reading levels. Change a fact and you change six texts. See `docs/TEXT_GUIDE.md`.
 - `npm test` runs every validator and must pass before a push.
 - Record owner decisions and judgment calls in `DESIGN.md`. The agreed design is `docs/GAME_SPEC.md`.
-- Teen audience: no gore, no on-page deaths, no profanity. Reading is useful, never quizzed.
+- Teen audience: no gore in reading text, no on-page human deaths, no profanity. Walker ART may
+  show blood and exposed ribs, all behind `SETTINGS.walkerGore` (owner, 2026-10-15). Reading is
+  useful, never quizzed.

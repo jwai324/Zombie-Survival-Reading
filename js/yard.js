@@ -11,7 +11,11 @@
    here (wandering, the shelter in a wave, their jobs, the talk bubble, the dog) are js/crew.js: this
    file calls crewEnter, crewDress, crewUpdate, crewWave, crewFacing, crewInteract and crewHint.
    June's first-run tutorial (js/tutorial.js) watches the yard from yardUpdate; while it sets this.yardHold the
-   calm stands still (no wave, no "next in"), shots never bring the wave sooner and the van waits. */
+   calm stands still (no wave, no "next in"), shots never bring the wave sooner and the van waits.
+   A breach draws only the walkers outside the fence near it (DEFENSE.breachRange: the core's PathBlock hook,
+   yardPathBlock below); everyone else claws their own segment. A wave's walkers each roll a role once: raiders
+   (the cabin, js/house.js), wreckers (the van and the room builds, js/yardwreck.js, which also holds the builds'
+   strength, their wrecked look and their repairs), and the rest come for you. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -37,6 +41,9 @@
   const OPP = { n: "s", s: "n", e: "w", w: "e" };
   const LEFT = { s: "w", n: "e", e: "s", w: "n" }; // your left hand as you face a plot's front from outside
   const SIDE_BIT = { n: 1, e: 2, s: 4, w: 8 };
+  const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const CABIN_CUE_SECS = 20; // seconds between "Walkers are waiting in the cabin" while they hold a wave open
+  const CABIN_LABEL = " · walkers in the cabin"; // the wave label's tail while walkers stand in the cabin, out of sight
 
   /** A wall face from yardart's "yWall": material, base color, feature (window, door ...), sign slice, part of a wide feature. */
   const wall = (m, c, f, s, p) => {
@@ -347,6 +354,7 @@
       this.mode = "yard";
       this.loc = { id: "base", name: "Home Base", cacheName: "" };
       this.loadGrid(Y.grid, Y.palette);
+      this.vanTiles = [];
       const fenceHp = W().DEFENSE.fenceHp[S.save.rooms.walls] || W().DEFENSE.fenceHp[0];
       const savedFence = S.save.fence || {}; // holes and cracks never close on their own
       let start = [2.5, 2.5, -Math.PI / 2];
@@ -367,17 +375,21 @@
             const hp = savedFence[key] != null ? Math.min(fenceHp, savedFence[key]) : fenceHp;
             if (hp > 0) this.fence[key] = hp;
             else this.grid[y][x] = "."; // a hole
-          } else if (ch === "V" && !this.van) {
-            this.van = { x, y };
+          } else if (ch === "V") {
+            if (!this.van) this.van = { x, y };
+            this.vanTiles.push([x, y]); // every tile of it (wreckers claw at any side)
           }
           if (this.grid[y][x] === ".") this.floors.push([x + 0.5, y + 0.5]);
         }
       }
       this.fenceMax = fenceHp;
+      this.yardInside = this.yardInsideMask(Math.floor(start[0]), Math.floor(start[1]));
       this.makePlayer(start[0], start[1], start[2]);
       this.houseLoad(); // the cabin: its doors, windows and roof (js/house.js)
       this.crewEnter(); // the crew and the dog at their spots (js/crew.js); dressYard puts them in the scene
+      this.wreckEnter(); // the wreckers' wave state (js/yardwreck.js)
       this.dressYard();
+      this.breachChanged(); // which walkers each hole the save kept would draw
       this.trapsOffBuilds();
       this.traps = (S.save.yardTraps || []).map((t) => Object.assign({}, t));
       this.player.hp = this.player.maxHp; // home: rested
@@ -387,7 +399,9 @@
       this.hud.phase.classList.remove("hidden");
       this.startLoop();
       const holes = this.fenceHoles().length;
-      this.toast(holes ? "Home. The fence has " + holes + " hole" + (holes > 1 ? "s" : "") + ". E at a gap fixes it for " + W().SETTINGS.fenceRepairScrap + " scrap." : "Home. Quiet for now.", holes ? 4.5 : 3);
+      const wrecked = this.wreckedWords(); // "Garden and Well" (js/yardwreck.js), or ""
+      const tail = wrecked ? " Wrecked: " + wrecked + "." : "";
+      this.toast((holes ? "Home. The fence has " + holes + " hole" + (holes > 1 ? "s" : "") + ". E at a gap fixes it for " + W().SETTINGS.fenceRepairScrap + " scrap." : "Home. Quiet for now.") + tail, holes || wrecked ? 4.5 : 3);
     },
 
     /* ---------- What the base rooms put in the yard ---------- */
@@ -422,6 +436,7 @@
       this.maskDirty = true;
       this.refreshScene(); // the van's paint and gear may have changed too
       this.yardFenceLook(walls);
+      this.wreckSpotsBuild(); // where wreckers stand to claw each build and the van (js/yardwreck.js)
     },
 
     /** Grass everywhere, the worn dirt paths of WORLD.YARD.paths, gravel where the van parks. */
@@ -463,11 +478,15 @@
         return;
       }
       b.floor(0, 0, b.W, b.D, "dirt");
+      // wreckers' damage (js/yardwreck.js): 1 cracked (under half strength), 2 wrecked. Every face and sprite of it
+      // shows it (yardart.js draws the cracks over what is there), the beacons go dark, debris lies around
+      b.dmg = this.buildDmg(room);
       BUILDS[room][Math.min(lvl, 3) - 1].call(this, b);
       // the plaque carries the name once the lot sign is gone (painted wall signs blur at a distance)
       const [pu, pv] = b.plaque || [0.5, 0.5];
       const plaque = b.prop(pu, pv, "yPlaque", { t: name.toUpperCase(), n: lvl }, { scale: 0.8 * k, solid: true, cover: false });
       this.lots.push({ room, x: plaque.x, y: plaque.y });
+      if (b.dmg === 2) this.wreckDebris(room, plot, plaque);
     },
 
     /** A plot's local frame (see BUILDS): u left to right as you face its front, v from the front row back. */
@@ -486,14 +505,20 @@
         const [bx, by] = at(u0 + uw, v0 + vd);
         return { x0: Math.round(Math.min(ax, bx)), y0: Math.round(Math.min(ay, by)), x1: Math.round(Math.max(ax, bx)), y1: Math.round(Math.max(ay, by)) };
       };
-      // a texture by name (the core resolves it) or { name, opts } (resolved here, cached by Draw3)
-      const tex = (t) => (t && typeof t === "object" && !t.width ? D3().texture(t.name, I.palette, t.opts) : t);
+      // a texture by name (the core resolves it) or { name, opts } (resolved here, cached by Draw3); a damaged build
+      // (this.dmg, set by buildPlot) passes { dmg } to its art, which draws the cracks over its own pixels
+      const tex = function (t) {
+        const dmg = this.dmg | 0;
+        if (dmg && t && !t.width) t = typeof t === "object" ? { name: t.name, opts: Object.assign({}, t.opts, { dmg }) } : { name: t, opts: { dmg } };
+        return t && typeof t === "object" && !t.width ? D3().texture(t.name, I.palette, t.opts) : t;
+      };
       return {
         room,
         W: Wl,
         D: Dl,
         sides,
         plaque: null,
+        dmg: 0,
         floor(u0, v0, uw, vd, kind) {
           for (let v = v0; v < v0 + vd; v++) for (let u = u0; u < u0 + uw; u++) I.setFloor(...tile(u, v), kind);
         },
@@ -511,7 +536,7 @@
               const k = tx + "," + ty;
               I.grid[ty][tx] = "#";
               const faces = {};
-              ["front", "back", "left", "right"].forEach((s) => (faces[sides[s]] = tex(pick(u - u0, v - v0, s))));
+              ["front", "back", "left", "right"].forEach((s) => (faces[sides[s]] = tex.call(this, pick(u - u0, v - v0, s))));
               I.tileTex[k] = faces;
               if (!o.roof && o.h && o.h !== 1) I.tileH[k] = o.h;
             }
@@ -521,7 +546,7 @@
         },
         /** See-through solid tiles sharing one def (drawn as one run): { h, tex, top, cover }. */
         low(u0, v0, uw, vd, o) {
-          const def = { h: o.h, tex: tex(o.tex), top: o.top, cover: !!o.cover };
+          const def = { h: o.h, tex: tex.call(this, o.tex), top: o.top, cover: !!o.cover };
           for (let v = v0; v < v0 + vd; v++) for (let u = u0; u < u0 + uw; u++) I.addLow(...tile(u, v), def);
           return def;
         },
@@ -529,12 +554,17 @@
         prop(U, V, art, opts, o) {
           const [px, py] = at(U, V);
           const foot = o && o.foot ? (side ? [o.foot[1], o.foot[0]] : o.foot) : undefined;
-          const p = Object.assign({ x: px, y: py, art, opts: opts || undefined }, o || {}, { foot });
+          const sopts = this.dmg && !(o && o.whole) ? Object.assign({}, opts, { dmg: this.dmg }) : opts;
+          const p = Object.assign({ x: px, y: py, art, opts: sopts || undefined }, o || {}, { foot });
           if (!p.foot) delete p.foot;
           return I.addProp(p);
         },
-        /** Animate a prop: "blink" (a warning light). */
+        /** Animate a prop: "blink" (a warning light). A wrecked build's lights stay dark. */
         anim(p, kind) {
+          if (this.dmg === 2) {
+            p.dim = 0.85;
+            return p;
+          }
           I.yardAnims.push({ p, kind, t: Math.random() });
           return p;
         },
@@ -544,7 +574,7 @@
           for (let i = 0; i < n; i++) {
             const U = u0 + ((i + 0.5) / n) * (u1 - u0);
             const V = v0 + (i % 2 ? 0.65 : 0.35) * (v1 - v0);
-            const p = this.prop(U, V, art, { f: 0 }, { scale });
+            const p = this.prop(U, V, art, { f: 0 }, { scale, whole: true }); // the animals are never cracked
             I.yardAnims.push({ p, kind: "wander", art, at, U, V, box, tU: U, tV: V, t: Math.random() * 2, f: 0, ft: Math.random() });
           }
         },
@@ -665,11 +695,152 @@
       if (this.hooks.onYardChanged) this.hooks.onYardChanged();
       return true;
     },
-    /** One segment whole again at full strength (the player's repair above, and Tomas's job in js/crew.js). */
+    /** One segment whole again at full strength (the player's repair above, and Tomas's job in js/crew.js). The
+        walkers that hole drew go back to clawing where they stand. */
     mendFence(x, y) {
       this.fence[x + "," + y] = this.fenceMax;
       this.grid[y][x] = "F";
       this.maskDirty = true;
+      this.breachChanged();
+    },
+
+    /* ---------- Breaches: a hole draws only the walkers near it ----------
+       Owner, 2026-10-15: every walker outside the fence, whatever its role, goes for a hole only when one is within
+       DEFENSE.breachRange tiles of it, walking along the outside; everyone else keeps clawing their own segment.
+       It is worked out again on every re-path (the core's PathBlock hook), so a walker that comes into range goes
+       for the nearest hole, and a mended hole sends its walkers back to clawing where they stand. */
+    /** The tiles the fence encloses (1), from a flood fill over WORLD.YARD.grid from (sx, sy) that stops at the fence
+        line (holes too) and the trees: nothing hardcoded, so a bigger yard or another fence shape just works. */
+    yardInsideMask(sx, sy) {
+      const Y = W().YARD.grid;
+      const gw = this.gw;
+      const gh = this.gh;
+      const inside = new Uint8Array(gw * gh);
+      const q = [sy * gw + sx];
+      inside[q[0]] = 1;
+      for (let i = 0; i < q.length; i++) {
+        const x = q[i] % gw;
+        const y = (q[i] / gw) | 0;
+        for (const [dx, dy] of N4) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
+          const k = ny * gw + nx;
+          if (inside[k] || Y[ny][nx] === "F" || Y[ny][nx] === "T") continue;
+          inside[k] = 1;
+          q.push(k);
+        }
+      }
+      return inside;
+    },
+    /** Is this tile outside the fence (not inside it, not on the fence line)? */
+    yardOutside(gx, gy) {
+      if (gx < 0 || gy < 0 || gx >= this.gw || gy >= this.gh || !this.yardInside) return false;
+      return !this.yardInside[gy * this.gw + gx] && !this.isFenceLine(gx, gy);
+    },
+    /** The holes changed (a breach, a mend, a new fence, coming home): which hole, if any, each outside tile is in
+        range of. A hole is usable when it joins open ground outside to open ground inside (a corner hole leads
+        nowhere: walkers move four ways). One search from every usable hole at once, along the open ground
+        outside the fence, out to breachRange: each tile keeps the nearest hole and its walking distance.
+        SCALE: that search covers at most breachRange tiles round each hole (a 3-wide strip today: ~50 tiles a
+        hole); the arrays are one entry per yard tile, made once per yard size. Only the walkers the change touches
+        re-path at once (see the end); the rest keep their own re-path clocks, so a wave's searches stay spread over
+        its frames (resetting everyone made all of them search in the same frame, at every breach and mend, and
+        kept their clocks in step afterwards). */
+    breachChanged() {
+      if (!this.yardInside || !this.grid) return;
+      const gw = this.gw;
+      const gh = this.gh;
+      const n = gw * gh;
+      const range = W().DEFENSE.breachRange || 0;
+      const m = this.solidMask();
+      const inside = this.yardInside;
+      const fresh = !(this.breach && this.breach.near.length === n);
+      const b = fresh ? (this.breach = { near: new Int32Array(n), prev: new Int32Array(n), dist: new Int16Array(n), holes: [], usable: [], block: new Map() }) : this.breach;
+      // the hole each outside tile drew before this change: the two arrays swap, so nothing is made per change
+      const was = b.near;
+      b.near = b.prev;
+      b.prev = was;
+      const holesWas = b.holes;
+      b.near.fill(-1);
+      b.dist.fill(-1);
+      b.holes = [];
+      b.usable = [];
+      b.block = new Map();
+      const open = (x, y) => x >= 0 && y >= 0 && x < gw && y < gh && !m[y * gw + x] && !this.isFenceLine(x, y);
+      this.fenceHoles().forEach(([x, y]) => {
+        const i = y * gw + x;
+        b.holes.push(i);
+        let out = false;
+        let inn = false;
+        for (const [dx, dy] of N4) {
+          if (!open(x + dx, y + dy)) continue;
+          if (inside[(y + dy) * gw + x + dx]) inn = true;
+          else out = true;
+        }
+        if (out && inn) b.usable.push(i);
+      });
+      const q = b.usable.slice();
+      q.forEach((i) => {
+        b.near[i] = i;
+        b.dist[i] = 0;
+      });
+      for (let k = 0; k < q.length; k++) {
+        const i = q[k];
+        const d = b.dist[i];
+        if (d >= range) continue;
+        const x = i % gw;
+        const y = (i / gw) | 0;
+        for (const [dx, dy] of N4) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (!open(nx, ny)) continue;
+          const j = ny * gw + nx;
+          if (inside[j] || b.dist[j] >= 0) continue;
+          b.dist[j] = d + 1;
+          b.near[j] = b.near[i];
+          q.push(j);
+        }
+      }
+      // who finds the way again now: a walker on the fence line (in a hole, or where one was); one outside whose
+      // nearest hole in range changed (a new one draws it, or its own was mended); one whose path steps on a hole
+      // that opened or closed. Everyone else's search would come out the same (the core re-paths them on their own
+      // clock anyway). The first time, everyone.
+      const changed = new Set(holesWas);
+      b.holes.forEach((i) => (changed.has(i) ? changed.delete(i) : changed.add(i)));
+      (this.walkers || []).forEach((z) => {
+        const gx = Math.floor(z.x);
+        const gy = Math.floor(z.y);
+        const i = gy * gw + gx;
+        if (fresh || this.isFenceLine(gx, gy) || (this.yardOutside(gx, gy) && was[i] !== b.near[i])) z.pathT = 0;
+        else if (changed.size && z.path && z.path.some(([px, py]) => changed.has(Math.floor(py) * gw + Math.floor(px)))) z.pathT = 0;
+      });
+    },
+    /** The core's PathBlock hook: for a walker outside the fence, every hole but the nearest one in range (all of
+        them when none is), as tile indices its path search treats as solid. Null inside the fence, in a hole (it is
+        going through), or with no holes at all. True (no way at all: the core searches nothing) for a walker outside
+        with no hole in range that is going somewhere inside: every way in is a hole and all of them are shut to it,
+        so a search would walk the whole outside to fail (it claws its own segment, as it would after the search). */
+    yardPathBlock(z, goal) {
+      const b = this.breach;
+      if (!b) return null;
+      const gx = Math.floor(z.x);
+      const gy = Math.floor(z.y);
+      if (!this.yardOutside(gx, gy)) return null;
+      const h = b.holes.length ? b.near[gy * this.gw + gx] : -1;
+      if (h < 0 && goal && !z.practice) {
+        const tx = Math.floor(goal.x);
+        const ty = Math.floor(goal.y);
+        if (tx >= 0 && ty >= 0 && tx < this.gw && ty < this.gh && this.yardInside[ty * this.gw + tx]) return true;
+      }
+      if (!b.holes.length) return null;
+      let list = b.block.get(h);
+      if (!list) b.block.set(h, (list = b.holes.filter((k) => k !== h)));
+      return list;
+    },
+    /** The core's Breach hook: a segment just gave way. */
+    yardBreach() {
+      this.breachChanged();
     },
     /** Fix every hole the player can afford (the cabin menu button). Returns how many were fixed. */
     repairAllHoles() {
@@ -737,12 +908,12 @@
         if (!stepped) return;
         if (def.radius > 0.6) {
           this.walkers.forEach((z) => {
-            if (Math.hypot(z.x - tr.x, z.y - tr.y) < def.radius) this.hurtWalker(z, def.damage);
+            if (Math.hypot(z.x - tr.x, z.y - tr.y) < def.radius) this.hurtWalker(z, def.damage, tr);
           });
           tr.uses = 0;
           this.shake = State().settings.shake ? 10 : 0;
         } else {
-          this.hurtWalker(stepped, def.damage);
+          this.hurtWalker(stepped, def.damage, tr);
           (tr.hit = tr.hit || new Set()).add(stepped);
           tr.uses -= 1;
         }
@@ -791,6 +962,7 @@
         }
       }
       this.maskDirty = true;
+      this.breachChanged();
     },
 
     /* ---------- Waves ---------- */
@@ -820,14 +992,17 @@
     /** Walkers queue at a gap. Two that keep pushing against each other without getting anywhere (both making
         for the same one-tile hole, say) sort it out: the one farther from its next step backs off for a moment
         and the other goes through. The core steers each walker on its own; this is the yard's crowd, where
-        a breach can draw a whole side's walkers. Uses the walkers' path / pathT (the core re-paths when
-        pathT runs out). */
+        a breach can draw a whole side's walkers. One stuck with nobody beside it is caught on a corner (a
+        build's prop, the fence): the core's straight-line shortcut clears the corner by the walker's middle,
+        not by its shoulders, so it walks the tile middles round it for a moment instead. Uses the walkers'
+        path / pathT (the core re-paths when pathT runs out). */
     yardUnjam(dt) {
       const p = this.player;
       const stalled = [];
       for (const z of this.walkers) {
-        // only walkers on their way somewhere: not clawing at the fence, not already at the player
-        if (!z.awake || z.fenceTarget || !z.path || !z.path.length || Math.hypot(z.x - p.x, z.y - p.y) < 1.5) {
+        // only walkers on their way somewhere (walking last frame): not clawing at the fence or a build, not
+        // waiting where they were sent, not already at the player
+        if (!z.awake || z.act !== "walk" || z.fenceTarget || this.wreckAtSpot(z) || !z.path || !z.path.length || Math.hypot(z.x - p.x, z.y - p.y) < 1.5) {
           z.yardJam = null;
           continue;
         }
@@ -839,8 +1014,20 @@
       for (const z of stalled) {
         if (z.yardJam.t <= 1.2) continue; // already sorted out with another this frame
         const o = this.walkers.find((w) => w !== z && Math.hypot(w.x - z.x, w.y - z.y) < z.r + w.r + 0.35);
-        // stuck alone (on a corner): the core's steering sorts that out; behind one at the player: that is a queue
-        if (!o || Math.hypot(o.x - p.x, o.y - p.y) < 1.5) continue;
+        if (!o) {
+          // stuck alone, on a corner: round it by the tile middles to where it was going (the end of its path;
+          // the goal is not asked for again, so a raider's spot is not re-rolled), held like a back-off
+          const [gx, gy] = z.path[z.path.length - 1];
+          const route = this.bfs(z, { x: gx, y: gy }, this.yardPathBlock(z));
+          if (route.length) {
+            z.path = route;
+            z.pathT = 1.1;
+          }
+          z.yardJam.t = 0;
+          continue;
+        }
+        // behind one at the player: that is a queue
+        if (Math.hypot(o.x - p.x, o.y - p.y) < 1.5) continue;
         // both stuck: the one farther from its next step gives way; else the stuck one does
         const both = o.yardJam && o.yardJam.t > 1.2;
         const back = both && gap(z) <= gap(o) ? o : z;
@@ -877,6 +1064,7 @@
             const every = sides.length >= 4;
             const where = this.waveWhere(sides);
             this.phase = { kind: "wave", size, total, spawned: 0, spawnT: 0, t: 0, sides };
+            this.raidToast = false; // "Walkers got into the cabin" is said once a wave (js/house.js)
             // the crew hurry to the shelter; the dog's bark joins the toast, so the toast still says where
             const bark = this.crewWave(true);
             const tail = bark ? " " + bark : "";
@@ -899,14 +1087,20 @@
           if (!decks[key] || !decks[key].length) decks[key] = shuffle(this.spawns.filter((p) => !side || p[2] === side));
           const [x, y] = decks[key].pop();
           const day = S.save.day;
-          const type = ph.size === "many" && ph.spawned % 5 === 4 ? "brute" : ph.spawned % 3 === 2 && day >= 2 ? "runner" : "walker";
-          const z = this.makeWalker(type, x + rand(-0.3, 0.3), y + rand(-0.3, 0.3), 1 + 0.08 * (day - 1));
+          // the kinds by the day and the wave (WORLD.walkerWeights "yard": a heavy wave brings brutes from day 1)
+          const type = W().pickWalkerType(W().walkerWeights("yard", { day, size: ph.size }));
+          const z = this.makeWalker(type, x + rand(-0.3, 0.3), y + rand(-0.3, 0.3), W().walkerHpMult("yard", day));
           z.awake = true;
-          z.raid = Math.random() < D.raidShare; // it makes for the cabin, not for you (js/house.js)
+          // its role, one roll (so a seeded game plays the same waves): a raider makes for the cabin, not for you
+          // (js/house.js); a wrecker, once inside the fence, for the van and the builds (js/yardwreck.js)
+          const roll = Math.random();
+          z.raid = roll < D.raidShare;
+          z.wreck = !z.raid && roll < D.raidShare + (D.wreckShare || 0);
           this.walkers.push(z);
           ph.spawned += 1;
         }
         if (ph.spawned >= ph.total && this.walkers.length === 0) {
+          const vanHit = !!ph.vanHit; // wreckers clawed at the van in this wave (js/yardwreck.js)
           this.phase = this.calmPhase(rand(D.calmSeconds[0], D.calmSeconds[1]));
           this.crewWave(false); // the crew come out of the shelter
           // every hole costs scrap. With the fence job unlocked (CREW[id].jobs, by trust stars) Tomas sees to the
@@ -922,14 +1116,28 @@
             ? "Wave cleared. The fence held."
             : "Wave cleared. " + holes + " hole" + (holes > 1 ? "s" : "") + " in the fence: " + (fixer ? fixer + " will fix " + (holes > 1 ? "them (" + fenceScrap + " each" : "it (" + fenceScrap) + ", from the base), or E at a gap fixes one now." : "E at a gap fixes it for " + fenceScrap + ".");
           const cabin = !broken ? "" : " The cabin has " + broken + " broken door" + (broken > 1 ? "s or windows" : " or window") + (cabinFixer ? ": " + cabinFixer + " will see to " + (broken > 1 ? "them" : "it") + ", or E there fixes it now." : ": E there fixes it, or use the computer.");
-          this.toast(fence + cabin, holes || broken ? 5.5 : 3);
+          const builds = this.wreckClearedWords(vanHit); // wrecked builds and a beaten van (js/yardwreck.js), or ""
+          this.toast(fence + builds + cabin, holes || broken || builds ? 5.5 : 3);
           Audio().play("correct");
           if (this.hooks.onWaveCleared) this.hooks.onWaveCleared();
-        }
+        } else if (this.cabinHoldsWave() && !this.indoorAt(this.player.x, this.player.y)) {
+          // the last of the wave wait in the cabin, out of sight (raiders: js/house.js), and the wave lasts until
+          // they are cleared out: say so now and every CABIN_CUE_SECS while you stay out (no count: the owner took
+          // the counts out, so without this nothing would say why the wave goes on)
+          if ((ph.cabinCueT = (ph.cabinCueT || 0) - dt) <= 0) {
+            // "Walkers got into the cabin" just now (js/house.js) says it already: the next cue counts from that
+            const since = this.time - (this.raidToastAt == null ? -Infinity : this.raidToastAt);
+            ph.cabinCueT = CABIN_CUE_SECS - (since < CABIN_CUE_SECS ? since : 0);
+            if (since >= CABIN_CUE_SECS) this.toast("Walkers are waiting in the cabin. Clear it out.", 3.5);
+          }
+        } else ph.cabinCueT = 0;
       }
       // HUD phase line (cheap enough every frame)
       const h = this.hud.phase;
-      const text = ph.kind === "calm" ? (this.yardHold ? "QUIET" : "QUIET · next in " + Math.max(0, Math.ceil(this.phase.t)) + "s") : (ph.size === "many" ? "HEAVY WAVE" : "WAVE") + " · " + (ph.total - ph.spawned + this.walkers.length) + " left";
+      // no count: you see them, you do not count them (owner, 2026-10-15); but walkers in the cabin are out of sight
+      // while you are out of it, so the label says where they are (CABIN_LABEL)
+      const cabin = ph.kind === "wave" && !this.indoorAt(this.player.x, this.player.y) && this.cabinWalkers() ? CABIN_LABEL : "";
+      const text = ph.kind === "calm" ? (this.yardHold ? "QUIET" : "QUIET · next in " + Math.max(0, Math.ceil(this.phase.t)) + "s") : (ph.size === "many" ? "HEAVY WAVE" : "WAVE") + cabin;
       if (h.textContent !== text) h.textContent = text;
       h.classList.toggle("alarm", ph.kind === "wave");
     },
@@ -939,6 +1147,7 @@
       if (ZSR.Tutorial) ZSR.Tutorial.tick(this, dt); // June's first-run tutorial: watches the basics, shows its cards
       this.updateYard(dt);
       this.updateTraps(dt);
+      this.yardWreck(dt); // wreckers at a build or the van claw it (js/yardwreck.js)
       this.yardUnjam(dt);
       this.yardAnimate(dt);
       this.crewUpdate(dt); // the crew wander, shelter, fix things, call the next wave (js/crew.js)
@@ -967,6 +1176,7 @@
         if (hp == null) cand.push({ kind: "hole", obj: [gx, gy], x: gx + 0.5, y: gy + 0.5 });
         else if (hp < this.fenceMax * 0.5) cand.push({ kind: "crack", obj: [gx, gy], x: gx + 0.5, y: gy + 0.5 });
       }
+      this.wreckFacing(cand); // a wrecked or cracked build close by: fix it (js/yardwreck.js)
       this.crewFacing(cand); // a crew member or the dog right under the crosshair (js/crew.js); last, so it sees the spots
     },
     yardInteract(f) {
@@ -976,13 +1186,15 @@
         Audio().play("click");
       } else if (f.kind === "hole" || f.kind === "crack") {
         this.repairFence(f.obj[0], f.obj[1]);
+      } else if (f.kind === "wreck") {
+        this.repairBuild(f.obj);
       } else if (f.kind === "spot" || f.kind === "pane") {
         this.houseInteract(f);
       } else if (f.kind === "crew" || f.kind === "dog") {
         this.crewInteract(f);
       } else if (f.kind === "van") {
         if (inWave) {
-          this.toast("Not now. Clear the fence first.", 2.5);
+          this.toast(this.cabinHoldsWave() ? "Not now. Walkers are still in the cabin." : "Not now. Clear the fence first.", 2.5);
           Audio().play("wrong");
         } else if (this.yardHold) {
           // the first-run basics come first: June says what is left (js/tutorial.js)
@@ -997,9 +1209,10 @@
       if (f.kind === "lot") return this.readLot === f.obj ? "Press E to put the sign away" : (State().save.rooms[f.obj.room] ? "Press E to read the plaque" : "Press E to read the sign");
       if (f.kind === "hole") return "Press E to rebuild the fence (" + fix + ")";
       if (f.kind === "crack") return "Press E to brace the fence (" + fix + ")";
+      if (f.kind === "wreck") return this.wreckHint(f.obj);
       if (f.kind === "spot" || f.kind === "pane") return this.houseHint(f);
       if (f.kind === "crew" || f.kind === "dog") return this.crewHint(f);
-      if (f.kind === "van") return inWave ? "The van (clear the wave first)" : this.yardHold ? "The van (after the basics)" : "Press E to head out in the van";
+      if (f.kind === "van") return inWave ? (this.cabinHoldsWave() ? "The van (walkers are still in the cabin)" : "The van (clear the wave first)") : this.yardHold ? "The van (after the basics)" : "Press E to head out in the van";
       return "";
     },
     yardGoal() {
@@ -1008,7 +1221,8 @@
       const tr = S.save.traps || {};
       const held = Object.entries(W().TRAPS).filter(([k]) => tr[k] > 0).map(([k, d]) => tr[k] + " " + d.name.toLowerCase() + (tr[k] > 1 ? "s" : "") + " (" + d.key + ")");
       const cabin = this.houseDamage().broken;
-      return "Day " + S.save.day + " · fence " + (broken ? broken + " hole" + (broken > 1 ? "s" : "") + " (E to fix)" : "whole") + (cabin ? " · cabin: " + cabin + " broken" : "") + " · walls " + S.save.rooms.walls + (held.length ? " · traps: " + held.join(", ") : "");
+      const wrecked = this.wreckedWords();
+      return "Day " + S.save.day + " · fence " + (broken ? broken + " hole" + (broken > 1 ? "s" : "") + " (E to fix)" : "whole") + (cabin ? " · cabin: " + cabin + " broken" : "") + (wrecked ? " · wrecked: " + wrecked : "") + " · walls " + S.save.rooms.walls + (held.length ? " · traps: " + held.join(", ") : "");
     },
     /** A shot in the calm carries: the next wave comes sooner (the bow is silent). */
     yardNoise(tiles) {

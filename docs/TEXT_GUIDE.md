@@ -1,7 +1,7 @@
 # Text Guide (six reading levels)
 
-Every player-facing in-world text exists at six reading levels in `js/content/` (six
-files per level; level 1 has a seventh, `level1-tutorial.js`; see Schema). The one exception is
+Every player-facing in-world text exists at six reading levels in `js/content/` (seven
+files per level; level 1 has an eighth, `level1-tutorial.js`; see Schema). The one exception is
 June's first-run tutorial: one level-1 text for every reader (see "June's tutorial" below). The facts come from `js/world.js` (`NOTES`, `BASE_ROOMS`,
 `ITEMS`, `LOCATIONS`, `KEYS`), `js/story.js` (extra notes, signs, keys),
 `js/story-home.js` (`JOURNAL`, `RADIO`, `ITEM_TAGS`, `YARD_LOTS`), `js/story-crew.js`
@@ -82,7 +82,13 @@ at every level, in words a reader at that level can use. `npm test` checks numbe
   how it looks, never what it opens, so the player has to remember or reread the note.
 - Decoys read as believable; they are allowed to be wrong.
 
-Door notes also give the walker count and rough positions. Keep numbers exact.
+Door notes also give the walker count and rough positions. Keep numbers exact. The count is "at
+least" the day-1 count. Walkers start at random spots on every visit, so a position ("in the truck
+bay", "by the robot", "along the main hall") in a door note, a note or a graffiti needs a rule in
+`NOTES[id].walkers` (`js/world.js`) whose `says` names that text, and "most" needs the rule's share
+above half (`tests/validate-world.js` checks both). Name a kind by what the player sees ("a big
+one", "the tall, thin walkers", "a screamer"), and in a place's notes only where its mix or a rule's
+`type` makes it true.
 
 See `docs/STORY.md` for the people and the five story threads, and `js/layouts.js` for the
 building maps (landmarks, rooms, note spots, signs, the stash and the key).
@@ -96,7 +102,7 @@ next: join ideas with because, so, then, but, when. Use the full name of a thing
 order of need. If a fact needs two short sentences to be clear, use two; the note can run long.
 Read every level 1 note aloud: if a first grader would ask "what does that mean?", rewrite it.
 
-## The crew's words (`levelN-crew.js`)
+## The crew's words (`levelN-crew.js`, `levelN-crew2.js`)
 
 June, Tomas and Pip talk in a comic speech bubble in the yard and the cabin (the yard keeps
 running while it is open), ask favors on a short card, and thank you on it. Their words are
@@ -110,8 +116,8 @@ give them a sentence of their own.
 | Kind | Key in `T.crew` | One per | Length |
 |------|-----------------|---------|--------|
 | Talk | `talk[id] = { title, text }` | every `CREW_TALK` topic and mood id | text: Lot sign range |
-| Tip | `tips[crew][tip]` | every tip id of each crew member in `CREW_TIPS` | Tag range |
-| Report | `reports[key]` | every `CREW_REPORTS` key | Tag range |
+| Tip | `tips[crew][tip]` | every tip id of each crew member in `CREW_TIPS` | Tag range; every sentence within the level's Max sentence (an error, not a warning) |
+| Report | `reports[key]` | every `CREW_REPORTS` key | Tag range; every sentence within the level's Max sentence (an error, not a warning) |
 | Story quest | `quests[id] = { title, brief, tag, journal, done, after }` | every `QUESTS` id (the dog quest has no `tag`) | brief: Journal range; done and after: Lot sign range; tag and journal: Tag range |
 | Errand | `errands[id] = { title, brief, done }` | every `ERRANDS` id | brief and done: Tag range |
 | The dog | `dog = { ask, named, pet }` | every `DOG.facts` key | Tag range |
@@ -186,8 +192,8 @@ must use every one its facts carry. Copy them exactly, braces and all: the game 
 
 | Text | Placeholders |
 |------|--------------|
-| Tips | June: `hungry` none, `food` `{food} {days}`, `ready` `{room}`, `build` `{room} {needs}`, `heal` `{hp}`. Tomas: `van` `{hp} {max} {cost}`, `vanFree` `{hp} {max}`, `fence` `{holes} {cracks}`, `cabin` `{broken}`, `crowbar` and `fine` none. Pip: `wave` `{size} {sides}`, `keys` `{keys}`, `walkers` `{days}`, `radio` and `full` none |
-| Reports | `fence` `{fixed} {scrap}`, `fenceFree` `{fixed}`, `cabin` `{fixed} {scrap}`, `cabinFree` `{fixed}`, `hurt` `{who} {cost}` (every hurt since the last talk), `late` `{item}` |
+| Tips | June: `hungry` none, `food` `{food} {days}`, `ready` `{room}`, `build` `{room} {needs}`, `heal` `{hp}`. Tomas: `van` `{hp} {max} {cost}`, `vanFree` `{hp} {max}`, `fence` `{holes} {cracks}`, `cabin` `{broken}`, `wrecked` `{rooms} {cost}`, `crowbar`, `fine`, `lanky` and `armored` none. Pip: `wave` `{size} {sides}`, `keys` `{keys}`, `walkers` `{days}`, `radio`, `full`, `screamer` and `wreckers` none |
+| Reports | `fence` `{fixed} {scrap}`, `fenceFree` `{fixed}`, `cabin` `{fixed} {scrap}`, `cabinFree` `{fixed}`, `builds` `{fixed} {scrap}`, `buildsFree` `{fixed}`, `hurt` `{who} {cost}` (every hurt since the last talk), `late` `{item}` |
 | Errand brief and done | `{count} {item} {days} {reward}` |
 | Quest brief and done | `{reward} {dog}` |
 | Talk and quest `after` | `{dog}` |
@@ -207,8 +213,10 @@ must use every one its facts carry. Copy them exactly, braces and all: the game 
   over several waves ("2 medical kits and 2 food"), or "nothing";
   `{needs}` a list that may end with scrap ("2 pieces of lumber, 1 box of nails and 20 scrap");
   `{reward}` a list ("30 scrap, 2 pieces of lumber and 1 medical kit"); `{keys}` "1 stash key" or "3 stash keys";
-  `{room}` a room's name ("Garden"); `{who}` a crew member's name; `{item}` an item's name; the
-  rest are numbers. An errand's `{days}` is its deadline when offered and the days left when the
+  `{room}` a room's name ("Garden"); `{rooms}` one or more rooms' names as a list ("Garden",
+  "Garden and Well": Tomas's `wrecked` tip, so write it as a label after a colon, never as a
+  subject that needs "is" or "are"); `{who}` a crew member's name; `{item}` an item's name; the
+  rest are numbers (Tomas's `wrecked` `{cost}` is the office computer's "Fix all" price: every wrecked and every cracked build, so write "fixing it all", not "fixing them"). An errand's `{days}` is its deadline when offered and the days left when the
   brief is read again from the backpack (at least 1; once the errand is filled, the deadline it
   was given). Write around them so the sentence
   reads well whatever they become. A count that can be 1 goes where no plural hangs on it, or
@@ -279,7 +287,7 @@ words count toward level 1's reading floor but not toward a player's words read.
 
 ## Schema
 
-Each level is six files, loaded in this order (`index.html`):
+Each level is seven files (level 1 eight, with `level1-tutorial.js`), loaded in this order (`index.html`):
 
 - `js/content/levelN.js`: `level`, `howto`, `controls`, `base` (rooms, traps, bench), `typing`.
 - `js/content/levelN-places1.js`: locations gasngo, grocery, hardware, pharmacy, autoshop,
@@ -288,6 +296,10 @@ Each level is six files, loaded in this order (`index.html`):
   lumberyard, mall, library.
 - `js/content/levelN-home.js`: `yard`, `journal`, `radio`, `tags`, `recap`.
 - `js/content/levelN-crew.js`: `crew` talk, tips, reports and dog.
+- `js/content/levelN-crew2.js`: more crew tips and reports (the walker kinds, the wreckers and the
+  wrecked builds: Tomas `lanky`, `armored`, `wrecked`; Pip `screamer`, `wreckers`; reports `builds`,
+  `buildsFree`). It merges into each crew member's tips (`tips.tomas = Object.assign(tips.tomas ||
+  {}, { ... })`), never replacing them.
 - `js/content/levelN-quests.js`: `crew` quests and errands.
 - `js/content/level1-tutorial.js` (level 1 only, read at every reading level): `tutorial`, June's
   first-run tutorial. It merges into `ZSR.TEXT[1]` and loads after `level1.js`.

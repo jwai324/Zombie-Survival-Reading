@@ -13,7 +13,10 @@
    The camera follows the van with its heading up; a minimap tracks it but never shows the route.
    Route geometry lives in js/streets.js. Walkers come from ahead and from both shoulders; the
    player aims and shoots. The trip's van health, scrap and walker count live in ZSR.State.trip.
-   All tuning lives in DIFF and ZOMBIE_TYPES. */
+   Every kind of walker comes, by the trip's danger and day (WORLD.walkerWeights "road"); a screamer that sees
+   the van screams and every walker near it speeds up (WORLD.SCREAM, tiles x DIFF.pxPerTile). A downed walker
+   goes over and fades (this.fallen); with WORLD.SETTINGS.walkerGore on, hits spray blood.
+   All tuning lives in DIFF and WORLD.WALKER_TYPES[...].road (and .knock, .scream). */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -31,10 +34,7 @@
     hpStep: 0.1,
     speedStep: 0.025,
     maxSpeedMult: 1.7,
-    runnerBase: 0.12,
-    runnerStep: 0.05,
-    bruteBase: 0.05,
-    bruteStep: 0.04,
+    pxPerTile: 56, // road px for one tile on foot: a walker's road radius over its own, 18 px / 0.32 tiles (the scream's reach)
     roadScroll: 240, // van speed in px/s before engine upgrades
     milesPerSecond: 0.11,
     sideSpawnChance: 0.45,
@@ -47,11 +47,15 @@
     parkWait: 1.6, // seconds parked before the place opens
     quietAtDoor: 900, // px from the parking spot where walkers stop coming
   };
-  const ZOMBIE_TYPES = {
-    walker: { hp: 30, speed: 55, r: 18, dmg: 5, scrap: 1 },
-    runner: { hp: 18, speed: 125, r: 15, dmg: 4, scrap: 2 },
-    brute: { hp: 90, speed: 40, r: 26, dmg: 12, scrap: 4 },
-  };
+  // SCALE: the most particles (dust, sparks, blood) the road keeps; past it a hit's blood is skipped
+  const ROAD_PARTICLE_CAP = 400;
+  // SCALE: the most downed walkers the road keeps fading at once; past it the oldest goes
+  const ROAD_FALLEN_MAX = 24;
+  const BLOOD = ["#a3201a", "#7d1610"]; // a little brighter than the 3D figures' (118, 18, 14): it must show on the asphalt
+  const SHOWCASE_SECS = 4; // the title screen's walkers change kind this often
+  const SPARK_ARMOR = "#c9cdd2"; // a bullet off a helmet or a vest
+  /** How long a downed walker lasts: the 3D figures' fall (js/walker3d.js), or 2 s without them. */
+  const fallSecs = () => (ZSR.Walker3D && ZSR.Walker3D.FALL_SECS > 0 ? ZSR.Walker3D.FALL_SECS : 2);
   const HIT_WORDS = ["BLAM!", "KRAK!", "THUD!"];
   const SIZE = { normal: 1, large: 1.3, huge: 2 };
   const rand = (a, b) => a + Math.random() * (b - a);
@@ -185,7 +189,8 @@
       const day = S.save.day;
       this.mods = { fog: !fx.headlights && day >= DIFF.fogChanceAfterDay && Math.random() < 0.25, night: !fx.headlights && day >= 4 && day % 3 === 0, crates: fx.crates };
       const interval = Math.max(DIFF.minInterval, DIFF.baseInterval - DIFF.intervalStep * n) * (this.mods.night ? 0.85 : 1);
-      this.diff = { interval, hpMult: 1 + DIFF.hpStep * n, speedMult: Math.min(DIFF.maxSpeedMult, 1 + DIFF.speedStep * n), runnerW: DIFF.runnerBase + DIFF.runnerStep * n, bruteW: DIFF.bruteBase + DIFF.bruteStep * n };
+      // every kind's road weight: road.w[0] + road.w[1] * n (WORLD.WALKER_TYPES)
+      this.diff = { interval, hpMult: 1 + DIFF.hpStep * n, speedMult: Math.min(DIFF.maxSpeedMult, 1 + DIFF.speedStep * n), weights: World().walkerWeights("road", { n }) };
       // the route: the path the map planned, or the shortest one from where the van is
       const r = opts.path && opts.path.length > 1 ? { path: opts.path } : St.route((t && t.at) || "base", opts.to);
       const path = r.path;
@@ -452,18 +457,12 @@
     },
 
     /* ---------- Walkers ---------- */
+    /** A kind for the next walker, from the trip's road weights (every WORLD.WALKER_TYPES kind comes on the road). */
     pickType() {
-      const w = { walker: 1, runner: this.diff.runnerW, brute: this.diff.bruteW };
-      let r = Math.random() * (w.walker + w.runner + w.brute);
-      for (const k of Object.keys(w)) {
-        if (r < w[k]) return k;
-        r -= w[k];
-      }
-      return "walker";
+      return World().pickWalkerType(this.diff.weights);
     },
-    spawnZombie() {
-      const type = this.pickType();
-      const base = ZOMBIE_TYPES[type];
+    /** One walker from off the screen: from ahead or a shoulder; its kind from the road's mix unless `type` is given. */
+    spawnZombie(type) {
       const G = Streets().GEOM;
       const side = Math.random() < DIFF.sideSpawnChance ? (Math.random() < 0.5 ? "left" : "right") : "top";
       let sx;
@@ -477,8 +476,101 @@
         sy = rand(this.H * 0.05, this.H * 0.6);
       }
       const w = this.toWorld(sx, sy);
-      const hp = Math.round(base.hp * this.diff.hpMult);
-      this.zombies.push({ type, x: w.x, y: w.y, r: base.r, hp, maxHp: hp, speed: base.speed * this.diff.speedMult * rand(0.85, 1.15), dmg: base.dmg, scrap: base.scrap, angle: this.cam.th + Math.PI, phase: Math.random() * 6.28, hit: 0, cool: 0, kx: 0, ky: 0 });
+      return this.addZombie(type || this.pickType(), w.x, w.y);
+    },
+    /** A walker of `type` (a WORLD.WALKER_TYPES id; an unknown one is the first kind, a plain walker) at world x, y.
+        Its road stats are the kind's `road` row; health is its on-foot health, tougher with the trip's danger and day. */
+    addZombie(type, x, y) {
+      const TYPES = World().WALKER_TYPES;
+      const id = TYPES[type] ? type : Object.keys(TYPES)[0];
+      const T = TYPES[id];
+      const R = T.road;
+      const hp = Math.round(T.hp * this.diff.hpMult);
+      const z = {
+        type: id,
+        x,
+        y,
+        r: R.r,
+        hp,
+        maxHp: hp,
+        speed: R.speed * this.diff.speedMult * rand(0.85, 1.15),
+        dmg: R.dmg,
+        scrap: R.scrap,
+        reach: R.reach || 0, // px past its radius that it hits the van from (the lanky's long arms)
+        knock: T.knock == null ? 1 : T.knock, // how far a shot or the bumper throws it back
+        armor: R.armor || 0, // the share of its hits that glance off its gear (grey sparks, less blood)
+        scream: !!T.scream,
+        screamT: 0, // till it can scream again
+        yell: 0, // screaming now (arms up, standing): counts down from SCREAM.yell
+        frenzyT: 0, // sped up by a scream
+        seed: (Math.random() * 1e6) | 0, // its look's variant and smears
+        seen: false, // on the screen yet (State.meetWalker)
+        angle: this.cam.th + Math.PI,
+        phase: Math.random() * 6.28,
+        hit: 0,
+        cool: 0,
+        kx: 0,
+        ky: 0,
+      };
+      this.zombies.push(z);
+      return z;
+    },
+    /** God mode and tests: one walker of `type` on the road ahead of the van, on the screen and clear of the others
+        (the same contract as Interior.spawnWalkerAhead). Returns it, or null when there is no room (the van wrecked,
+        the screen dark after a wrong turn, every spot ahead taken). A plain attacker, like any road walker. */
+    spawnWalkerAhead(type) {
+      if (!this.running || !this.van || !this.diff || this.gameOverAt != null || (this.fade && this.fade.phase !== "in")) return null;
+      const v = this.van;
+      const fx = Math.cos(v.heading);
+      const fy = Math.sin(v.heading);
+      const T = World().WALKER_TYPES[type] || World().WALKER_TYPES[Object.keys(World().WALKER_TYPES)[0]];
+      const r = T.road.r;
+      for (const d of [300, 240, 360, 190, 420]) {
+        for (const off of [0, 70, -70, 140, -140]) {
+          const x = v.x + fx * d - fy * off;
+          const y = v.y + fy * d + fx * off;
+          const s = this.toScreen(x, y);
+          const m = (r + 10) * this.zoom;
+          if (s.x < m || s.x > this.W - m || s.y < m || s.y > this.H - m) continue;
+          if (this.zombies.some((o) => Math.hypot(o.x - x, o.y - y) < o.r + r + 6)) continue;
+          const z = this.addZombie(type, x, y);
+          z.angle = Math.atan2(v.y - y, v.x - x);
+          return z;
+        }
+      }
+      return null;
+    },
+    /** A screamer saw the van: it stands and screams, and every walker within SCREAM.radius tiles of it (itself
+        too) moves SCREAM.mult times faster for SCREAM.secs. Again only after SCREAM.cooldown. */
+    scream(z) {
+      const SC = World().SCREAM;
+      const R = SC.radius * DIFF.pxPerTile;
+      z.screamT = SC.cooldown;
+      z.yell = SC.yell;
+      for (const o of this.zombies) if (Math.hypot(o.x - z.x, o.y - z.y) <= R) o.frenzyT = Math.max(o.frenzyT || 0, SC.secs);
+      this.burst("SKREE!", z.x, z.y, "#e6dfcc", "#702a38", 1);
+      Audio().play("scream");
+      if (State().settings.shake) this.shake = Math.max(this.shake, 5);
+    },
+    /** A hit on a walker at x, y going (vx, vy) (a bullet's flight, or the van's push when it rams one): with
+        walker gore on, a short spray of blood out the far side, every hit (owner, 2026-10-15). A walker with armor
+        (its road row's share) has that share of its non-fatal hits also glance off a helmet or a vest: grey sparks
+        (gore on or off) and a smaller spray. Skipped past ROAD_PARTICLE_CAP. */
+    blood(z, x, y, vx, vy, kill) {
+      const glance = !kill && z.armor > 0 && Math.random() < z.armor;
+      if (glance) this.sparks(x, y, SPARK_ARMOR);
+      if (World().SETTINGS.walkerGore === false || this.particles.length > ROAD_PARTICLE_CAP) return;
+      const a0 = Math.atan2(vy, vx);
+      const n = kill ? 9 : glance ? 3 : 5;
+      // the drops fly on with the walker (it keeps up with the van); what lands stays on the road
+      const v = this.van;
+      const cx = v ? Math.cos(v.heading) * (this.curSpeed || 0) * DIFF.chase : 0;
+      const cy = v ? Math.sin(v.heading) * (this.curSpeed || 0) * DIFF.chase : 0;
+      for (let i = 0; i < n; i++) {
+        const a = a0 + rand(-0.5, 0.5) * (kill ? 1.6 : 1);
+        const s = rand(60, 160) * (kill ? 1.2 : 1);
+        this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, cx, cy, life: 0.4, maxLife: 0.4, size: rand(3, 4.8), color: BLOOD[i % 2], blood: true, leaves: i % 2 === 0 });
+      }
     },
 
     burst(text, x, y, color, bg, size) {
@@ -486,13 +578,15 @@
       if (this.bursts.length > 12) this.bursts.shift();
     },
     dust(x, y, r) {
-      for (let i = 0; i < 7; i++) {
+      if (this.particles.length > ROAD_PARTICLE_CAP) return;
+      for (let i = 0; i < 5; i++) {
         const a = Math.random() * 6.28;
-        const s = rand(20, 90);
-        this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.5, maxLife: 0.5, size: r * rand(0.25, 0.45), color: i % 2 === 0 ? "#6b675c" : "#4a473f", grow: true });
+        const s = rand(50, 110);
+        this.particles.push({ x: x + Math.cos(a) * r * 0.8, y: y + Math.sin(a) * r * 0.8, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.4, maxLife: 0.4, size: r * rand(0.14, 0.24), color: i % 2 === 0 ? "#6b675c" : "#4a473f", grow: true });
       }
     },
     sparks(x, y, color) {
+      if (this.particles.length > ROAD_PARTICLE_CAP) return;
       for (let i = 0; i < 4; i++) {
         const a = Math.random() * 6.28;
         const s = rand(80, 200);
@@ -734,11 +828,13 @@
           if (dx * dx + dy * dy < (z.r + 6) * (z.r + 6)) {
             z.hp -= b.dmg;
             z.hit = 0.12;
-            z.kx += b.vx * 0.08;
-            z.ky += b.vy * 0.08;
+            z.kx += b.vx * 0.08 * z.knock;
+            z.ky += b.vy * 0.08 * z.knock;
             this.sparks(b.x, b.y);
+            this.blood(z, b.x, b.y, b.vx, b.vy, z.hp <= 0);
+            this.meet(z);
             Audio().play("hit");
-            if (z.hp <= 0) this.killZombie(j);
+            if (z.hp <= 0) this.killZombie(j, Math.atan2(b.vy, b.vx));
             else if (Math.random() < 0.25) this.burst(HIT_WORDS[Math.floor(Math.random() * HIT_WORDS.length)], z.x, z.y, "#e8392f", "#ffcf40", 0.8);
             this.bullets.splice(i, 1);
             break;
@@ -751,14 +847,20 @@
       const rx = -fy;
       const ry = fx;
       const chase = this.curSpeed * DIFF.chase;
+      const SC = World().SCREAM;
       for (let i = this.zombies.length - 1; i >= 0; i--) {
         const z = this.zombies[i];
+        z.frenzyT = Math.max(0, z.frenzyT - dt);
+        z.yell = Math.max(0, z.yell - dt);
+        z.screamT = Math.max(0, z.screamT - dt);
         const dx = van.x - z.x;
         const dy = van.y - z.y;
         const dist = Math.hypot(dx, dy) || 1;
         z.angle = Math.atan2(dy, dx);
-        let vx = (dx / dist) * z.speed + fx * chase + z.kx;
-        let vy = (dy / dist) * z.speed + fy * chase + z.ky;
+        // its own way at the van: none while it screams, faster in a frenzy (keeping up with the van is not its own)
+        const own = z.yell > 0 ? 0 : z.speed * (z.frenzyT > 0 ? SC.mult : 1);
+        let vx = (dx / dist) * own + fx * chase + z.kx;
+        let vy = (dy / dist) * own + fy * chase + z.ky;
         for (let j = 0; j < this.zombies.length; j++) {
           if (i === j) continue;
           const o = this.zombies[j];
@@ -781,17 +883,22 @@
         // touching the van: in the van's own frame, an ellipse around its body
         const lx = (z.x - van.x) * rx + (z.y - van.y) * ry;
         const ly = (z.x - van.x) * fx + (z.y - van.y) * fy;
-        const nx = lx / (van.w / 2 + z.r * 0.8);
-        const ny = ly / (van.h / 2 + z.r * 0.8);
+        // (a lanky's long arms reach it from further off)
+        const nx = lx / (van.w / 2 + z.r * 0.8 + z.reach);
+        const ny = ly / (van.h / 2 + z.r * 0.8 + z.reach);
         if (nx * nx + ny * ny < 1 && z.cool <= 0 && !this.fade) {
           z.cool = 1.0;
           z.hp -= stats.ram;
-          const push = stats.ramKnock;
+          const push = stats.ramKnock * z.knock;
           const side = lx / Math.max(1, Math.abs(lx));
           z.kx = rx * side * push + fx * push * 0.8;
           z.ky = ry * side * push + fy * push * 0.8;
+          // a hit like a bullet's: the flash, and the spray the way the van pushes it
+          z.hit = 0.12;
+          this.blood(z, z.x, z.y, z.kx, z.ky, z.hp <= 0);
+          this.meet(z);
           if (z.hp <= 0) {
-            this.killZombie(i);
+            this.killZombie(i, Math.atan2(z.ky, z.kx));
             this.burst("THUD!", van.x + fx * 60, van.y + fy * 60, "#e6dfcc", "#4b5057", 1.1);
             continue;
           }
@@ -799,8 +906,13 @@
           if (this.gameOverAt != null) return;
         }
         const zs = this.toScreen(z.x, z.y);
+        z.vis = zs.x >= 0 && zs.x <= this.W && zs.y >= 0 && zs.y <= this.H;
+        if (z.vis) this.meet(z);
         if (zs.y > this.H + 120 || zs.x < -220 || zs.x > this.W + 220 || zs.y < -900) this.zombies.splice(i, 1);
       }
+      // a screamer that sees the van close (on the screen, within SCREAM.spot tiles) screams, once a cooldown
+      const spot = SC.spot * DIFF.pxPerTile;
+      for (const z of this.zombies) if (z.scream && z.screamT <= 0 && z.vis && Math.hypot(van.x - z.x, van.y - z.y) < spot) this.scream(z);
       for (let i = this.crates.length - 1; i >= 0; i--) {
         const c = this.crates[i];
         c.t += dt;
@@ -855,16 +967,27 @@
       }
       return best == null ? aim : best;
     },
-    killZombie(i) {
+    /** The walker at i goes down: off the road's list (no longer hit or counted), over the way `dir` (world angle;
+        away from the van when left out) as a fading body, its kill and scrap on the trip. */
+    killZombie(i, dir) {
       const z = this.zombies[i];
       const t = State().trip;
       this.zombies.splice(i, 1);
       this.dust(z.x, z.y, z.r);
-      this.fallen.push({ kind: "fallen", x: z.x, y: z.y, size: z.r, rot: z.angle + rand(-0.4, 0.4), life: 3 });
-      if (this.fallen.length > 24) this.fallen.shift();
+      const max = fallSecs();
+      const rot = (dir == null ? z.angle + Math.PI : dir) + rand(-0.3, 0.3);
+      this.fallen.push({ kind: "fallen", type: z.type, seed: z.seed, x: z.x, y: z.y, size: z.r, rot, life: max, max });
+      if (this.fallen.length > ROAD_FALLEN_MAX) this.fallen.shift();
       t.walkers += 1;
       t.scrap += z.scrap;
       Audio().play("poof");
+    },
+    /** A kind seen on the road counts as met (save.met, for the crew's tips), once per walker. */
+    meet(z) {
+      if (z.seen) return;
+      z.seen = true;
+      const S = State();
+      if (S && typeof S.meetWalker === "function") S.meetWalker(z.type);
     },
     hurtVan(dmg, x, y) {
       const S = State();
@@ -893,12 +1016,16 @@
     updateParticles(dt) {
       for (let i = this.particles.length - 1; i >= 0; i--) {
         const p = this.particles[i];
-        p.x += p.vx * dt;
-        p.y += p.vy * dt;
+        p.x += (p.vx + (p.cx || 0)) * dt;
+        p.y += (p.vy + (p.cy || 0)) * dt;
         p.vx *= 0.96;
         p.vy *= 0.96;
         p.life -= dt;
-        if (p.life <= 0) this.particles.splice(i, 1);
+        if (p.life <= 0) {
+          this.particles.splice(i, 1);
+          // a drop of blood that lands leaves a splat on the road for a moment
+          if (p.leaves && this.particles.length < ROAD_PARTICLE_CAP) this.particles.push({ x: p.x, y: p.y, vx: 0, vy: 0, life: 1.4, maxLife: 1.4, size: p.size * 1.5, color: p.color, blood: true, splat: true, rot: Math.atan2(p.vy, p.vx) });
+        }
       }
       for (let i = this.bursts.length - 1; i >= 0; i--) {
         this.bursts[i].t += dt;
@@ -941,7 +1068,7 @@
       ctx.save();
       ctx.translate(W / 2, this.anchorY);
       ctx.scale(this.zoom, this.zoom);
-      ctx.rotate(-Math.PI / 2 - this.cam.th);
+      ctx.rotate(this.viewTurn());
       ctx.translate(-this.cam.x, -this.cam.y);
       D.ground(ctx, view, theme);
       D.cityRoads(ctx, this.drive, G, theme, view);
@@ -972,11 +1099,7 @@
         return q.x > -m && q.x < W + m && q.y > -m && q.y < H + m;
       };
       for (const p of this.props) if (Math.abs(p.x - view.x) < pr && Math.abs(p.y - view.y) < pr && onScreen(p, 90)) drawFaced(p, () => D.prop(ctx, Object.assign({}, p, { x: 0, y: 0 })));
-      for (const f of this.fallen) D.prop(ctx, f);
-      for (const c of this.crates) drawFaced(c, () => D.prop(ctx, { kind: "crate", x: 0, y: 0, t: c.t }));
-      for (const z of this.zombies) D.zombie(ctx, z, this.time);
-      for (const b of this.bullets) D.bullet(ctx, b);
-      for (const p of this.particles) D.particle(ctx, p);
+      this.drawCrowd(ctx, D, (c) => drawFaced(c, () => D.prop(ctx, { kind: "crate", x: 0, y: 0, t: c.t })));
       ctx.restore();
       // the van, upright on screen at its place on the road
       const vs = this.toScreen(van.x, van.y);
@@ -1168,12 +1291,32 @@
       }
       return boxes;
     },
-    /** Walkers behind the sign are drawn again on top of it, so the sign never hides one coming at the van. */
+    /** The angle the road view turns the world by: the van's way is up the screen. */
+    viewTurn() {
+      return -Math.PI / 2 - this.cam.th;
+    },
+    /** The walkers, the downed, the crates, the rounds and the particles (world space), in layers. What lies on
+        the road comes first, under every body: blood splats, the pools and shadows of the downed, each walker's
+        shadow (or its frenzy's glow). Then the bodies (the downed, the crates, the walkers), the rounds, and what
+        flies over them. crate(c) draws one crate. */
+    drawCrowd(ctx, D, crate) {
+      for (const p of this.particles) if (p.splat) D.particle(ctx, p);
+      for (const f of this.fallen) D.zombieDown(ctx, f, "ground");
+      for (const z of this.zombies) D.zombieShadow(ctx, z, this.time);
+      for (const f of this.fallen) D.zombieDown(ctx, f, "body");
+      for (const c of this.crates) crate(c);
+      const turn = this.viewTurn();
+      for (const z of this.zombies) D.zombie(ctx, z, this.time, true, turn);
+      for (const b of this.bullets) D.bullet(ctx, b);
+      for (const p of this.particles) if (!p.splat) D.particle(ctx, p);
+    },
+    /** Walkers behind the sign are drawn again on top of it, so the sign never hides one coming at the van
+        (their bodies only: a shadow or a frenzy's glow over the sign would tint its words). */
     drawOverSign(ctx, rects) {
       const D = Draw();
       const hit = this.zombies.filter((z) => {
         const p = this.toScreen(z.x, z.y);
-        const m = z.r * 1.6 * this.zoom;
+        const m = (D.zombieExtent ? D.zombieExtent(z) : z.r * 1.6) * this.zoom + z.reach * this.zoom;
         return rects.some((r) => p.x > r.x - m && p.x < r.x + r.w + m && p.y > r.y - m && p.y < r.y + r.h + m);
       });
       if (!hit.length) return;
@@ -1183,9 +1326,9 @@
       ctx.clip();
       ctx.translate(this.W / 2, this.anchorY);
       ctx.scale(this.zoom, this.zoom);
-      ctx.rotate(-Math.PI / 2 - this.cam.th);
+      ctx.rotate(this.viewTurn());
       ctx.translate(-this.cam.x, -this.cam.y);
-      for (const z of hit) D.zombie(ctx, z, this.time);
+      for (const z of hit) D.zombie(ctx, z, this.time, true, this.viewTurn());
       ctx.restore();
     },
 
@@ -1470,13 +1613,29 @@
       D.road(ctx, W, H, (W - roadW) / 2, roadW, (t || 0) * 160, null);
       D.prop(ctx, { kind: "wreck", x: W * 0.12, y: H * 0.85, rot: 0.5, color: "#3f4a55" });
       D.prop(ctx, { kind: "tree", x: W * 0.88, y: H * 0.15, size: 26, seed: 5 });
-      [{ type: "walker", x: W * 0.16, y: H * 0.3 + Math.sin((t || 0) * 2) * 6, r: 16, hp: 1, maxHp: 1, angle: 0.3, phase: 0, hit: 0 }, { type: "runner", x: W * 0.86, y: H * 0.58, r: 13, hp: 1, maxHp: 1, angle: Math.PI - 0.4, phase: 2, hit: 0 }].forEach((z) => D.zombie(ctx, z, t || 0));
+      // two walkers, taking turns through every kind in the facts every SHOWCASE_SECS (the still preview: the first two)
+      const T = World().WALKER_TYPES;
+      const ids = Object.keys(T);
+      const turn = Math.floor((t || 0) / SHOWCASE_SECS);
+      const into = (t || 0) - turn * SHOWCASE_SECS;
+      [
+        { x: W * 0.16, y: H * 0.3 + Math.sin((t || 0) * 2) * 6, angle: 0.3, phase: 0 },
+        { x: W * 0.86, y: H * 0.58, angle: Math.PI - 0.4, phase: 2 },
+      ].forEach((spot, k) => {
+        const type = ids[(turn + k) % ids.length];
+        // a screamer screams for a moment of its turn
+        const yell = T[type].scream && into > 1.2 && into < 1.2 + World().SCREAM.yell ? 1.2 + World().SCREAM.yell - into : 0;
+        D.zombie(ctx, Object.assign({ type, seed: turn + k, r: T[type].road.r * 0.9, hp: 1, maxHp: 1, hit: 0, yell, frenzyT: 0 }, spot), t || 0);
+      });
       D.van(ctx, W / 2, H * 0.55, { upgrades, aim: -Math.PI / 2 + Math.sin((t || 0) * 1.3) * 0.5, t: t || 0, scale: Math.min(1, H / 150) });
       D.vignette(ctx, W, H);
     },
 
     DIFF,
-    ZOMBIE_TYPES,
+    ROAD_PARTICLE_CAP,
+    ROAD_FALLEN_MAX,
+    SPARK_ARMOR,
+    fallSecs,
   };
   function distSeg(px, py, x0, y0, x1, y1) {
     const dx = x1 - x0;

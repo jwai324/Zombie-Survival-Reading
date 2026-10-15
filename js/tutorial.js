@@ -59,7 +59,8 @@
     guideEvery: 0.5, // s between path searches for the arrow
     guideAhead: 4, // tiles along the path the arrow looks ahead
   };
-  const PRACTICE = { speed: 0.5, bite: 5, floor: 0.5, steps: [6, 11] }; // share of walker speed; bite; floor share of max health; path steps from you
+  // the kind (WORLD.WALKER_TYPES, a plain walker: owner, 2026-10-15); share of its speed; bite; floor share of max health; path steps from you
+  const PRACTICE = { type: "walker", speed: 0.5, bite: 5, floor: 0.5, steps: [6, 11] };
   // SCALE: the checklist shows at most this many rows (today 6: five basics and the van); past it, a window around the current row
   const LIST_SHOWN = 6;
   // the view before js/tutorial-ui.js replaces it (and in node): a card it cannot show is finished at once
@@ -327,7 +328,7 @@
       if (root.console) root.console.warn("tutorial: no room for the practice walker");
       return null;
     }
-    const z = Im.makeWalker("walker", at.x, at.y, 1); // a walker's 30 health: three pistol hits
+    const z = Im.makeWalker(P.type, at.x, at.y, 1); // the base walker's health (WORLD.WALKER_TYPES.walker.hp): three pistol hits
     Object.assign(z, { practice: true, awake: true, speed: z.speed * P.speed, dmg: P.bite, dps: 0, scrap: 0, floorHp: Math.ceil(p.maxHp * P.floor) });
     Im.walkers.push(z);
     Im.updateHud();
@@ -366,7 +367,8 @@
   function arrowTarget(Im) {
     const kind = CARDS[run.step] && CARDS[run.step].arrow;
     const t = words().arrow || {};
-    if (kind === "walker" && run.walker) return { x: run.walker.x, y: run.walker.y, lift: 1.25, label: t.walker };
+    // over its head: its kind's drawn height (Interior.walkerHeight: its look's box, capped under a roof) and a gap
+    if (kind === "walker" && run.walker) return { x: run.walker.x, y: run.walker.y, lift: (Im.walkerHeight ? Im.walkerHeight(run.walker) : 0.95) + 0.3, label: t.walker };
     if (kind === "computer") {
       const s = computerSpot(Im);
       return s && { x: s.x, y: s.y, lift: 0.9, label: t.computer };

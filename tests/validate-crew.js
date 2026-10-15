@@ -121,7 +121,7 @@ const PAGE = [...fs.readFileSync(path.join(ROOT, "index.html"), "utf8").matchAll
 const FACTS = PAGE.filter((f) => f === "layouts.js" || f === "world.js" || /^story[\w-]*\.js$/.test(f));
 if (!["layouts.js", "world.js", "story-crew.js"].every((f) => FACTS.includes(f))) throw new Error("validate-crew: index.html does not load layouts.js, world.js and story-crew.js (" + FACTS.join(", ") + ")");
 const STATE = FACTS.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js"]);
-const ENGINE = STATE.concat(["audio.js", "sprites.js", "sprites3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "houseart.js", "riverart.js", "crewart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "crew.js", "river.js"]);
+const ENGINE = STATE.concat(["audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "houseart.js", "riverart.js", "crewart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js"]);
 
 /** A fresh game in its own sandbox, scripts in the page's order.
     opts: engine (the first-person engine too, with stand-in art and Interior.init), content (the six reading
@@ -168,7 +168,7 @@ function fixture() {
   return {
     CREW: {
       ann: { name: "Ann", pronoun: "she", color: "#5b8a3c", scale: 0.9, jobs: [{ job: "heal", stars: 1 }], posts: [] },
-      bo: { name: "Bo", pronoun: "he", color: "#33507a", scale: 1, jobs: [{ job: "fence", stars: 0 }, { job: "cabin", stars: 2 }], posts: [] },
+      bo: { name: "Bo", pronoun: "he", color: "#33507a", scale: 1, jobs: [{ job: "fence", stars: 0 }, { job: "builds", stars: 0 }, { job: "cabin", stars: 2 }], posts: [] },
       cy: { name: "Cy", pronoun: "they", color: "#e07a2a", scale: 0.74, jobs: [{ job: "lookout", stars: 1 }], posts: [] },
     },
     CREW_RULES: { stars: [3, 8, 15, 24, 35], gain: { talk: 1, errand: 3, quest: 5 }, loss: { hurt: 3, late: 2, giveUp: 3 }, shelter: "officeCloset", hurtCost: { meds: 1, food: 2 }, healAmount: 40, lookoutSeconds: 15, requestsPerCrew: 1, dogFoodEvery: 2 },
@@ -190,10 +190,10 @@ function fixture() {
     },
     CREW_TIPS: {
       ann: { hungry: f("Out of food."), food: f("{food} crates, {days} trips."), ready: f("Build the {room}."), build: f("The {room} needs {needs}."), heal: f("Back {hp} health.") },
-      bo: { van: f("{hp} of {max}, {cost} scrap."), vanFree: f("{hp} of {max}, free."), fence: f("{holes} holes, {cracks} cracks."), cabin: f("{broken} broken."), crowbar: f("No crowbar."), fine: f("All fine.") },
-      cy: { wave: f("{size} from {sides}."), keys: f("You hold {keys}."), walkers: f("{days} days."), radio: f("The radio."), full: f("Every building is full.") },
+      bo: { van: f("{hp} of {max}, {cost} scrap."), vanFree: f("{hp} of {max}, free."), fence: f("{holes} holes, {cracks} cracks."), cabin: f("{broken} broken."), crowbar: f("No crowbar."), fine: f("All fine."), lanky: f("Tall ones reach far."), armored: f("Helmets take hits."), wrecked: f("Wrecked: {rooms}, {cost} scrap.") },
+      cy: { wave: f("{size} from {sides}."), keys: f("You hold {keys}."), walkers: f("{days} days."), radio: f("The radio."), full: f("Every building is full."), screamer: f("Stop a screamer first."), wreckers: f("Wreckers go for the builds.") },
     },
-    CREW_REPORTS: { fence: f("Bo fixed {fixed} for {scrap} scrap."), fenceFree: f("Bo fixed {fixed} free."), cabin: f("Bo fixed {fixed} doors for {scrap}."), cabinFree: f("Bo fixed {fixed} doors free."), hurt: f("{who} was hurt; it cost {cost}."), late: f("The {item} errand ran out.") },
+    CREW_REPORTS: { fence: f("Bo fixed {fixed} for {scrap} scrap."), fenceFree: f("Bo fixed {fixed} free."), cabin: f("Bo fixed {fixed} doors for {scrap}."), cabinFree: f("Bo fixed {fixed} doors free."), builds: f("Bo fixed {fixed} builds for {scrap}."), buildsFree: f("Bo fixed {fixed} builds free."), hurt: f("{who} was hurt; it cost {cost}."), late: f("The {item} errand ran out.") },
     ERRANDS: {
       ann: [
         { id: "ann-e1", item: "seeds", count: [2, 3], days: 3, reward: { scrap: 25 }, facts: ["Ann asks for {count} {item} within {days} days for {reward}."], done: ["Ann thanks you for the seeds."] },
@@ -444,14 +444,115 @@ group("tips", () => {
   S.seeCrewTalk("tip:cy:radio", 9);
   ok(!tips("cy").includes("radio"), "tips: the radio tip comes back after it was read");
   ok(S.crewTip("nobody") === null, "tips: an unknown crew member has a tip");
+  // a wrecked Radio tower (js/yardwreck.js) hears nothing: Pip does not send you to the radio
+  S.crewSave().read = S.crewSave().read.filter((k) => k !== "tip:cy:radio");
+  S.save.builds = { radio: 0 };
+  ok(!tips("cy").includes("radio"), "tips: Pip sends you to the radio while its tower is wrecked");
+  S.save.builds = {};
+  ok(tips("cy").includes("radio"), "tips: Pip's radio tip is gone once its tower is fixed");
+});
+
+group("tips: the walker kinds and the wreckers, told once; the wrecked builds", () => {
+  const { S, W } = synthetic();
+  const tip = (id, ctx) => S.crewTip(id, ctx);
+  const tips = (id, ctx) => S.crewTips(id, ctx).regular.map((t) => t.tip);
+  S.save.crowbars = 1;
+  ok(tip("bo").tip === "fine", `kinds: Bo with nothing to tell is not fine (${tip("bo").tip})`);
+  // the first lanky (and armored, and screamer) met: told at the next talk, ahead of the rest, then never again once read
+  [["bo", "lanky"], ["bo", "armored"], ["cy", "screamer"]].forEach(([id, type]) => {
+    ok(tip(id).tip !== type, `kinds: ${id}'s ${type} tip is told before one was met`);
+    S.save.met[type] = S.save.day;
+    ok(tip(id).tip === type && same(tip(id).vars, {}), `kinds: the first ${type} met is not told first (${tip(id).tip})`);
+    S.seeCrewTalk("tip:" + id + ":" + type, 12);
+    ok(tip(id).tip !== type && !S.crewTips(id).urgent.some((t) => t.tip === type), `kinds: the ${type} tip is told again after it was read`);
+  });
+  // the wreckers: once a yard build stands, told once
+  const plot = Object.keys(W.YARD.plots)[0];
+  ok(!S.crewTips("cy").urgent.some((t) => t.tip === "wreckers"), "wreckers: told before anything is built in the yard");
+  S.save.rooms.walls = 1;
+  ok(!S.crewTips("cy").urgent.some((t) => t.tip === "wreckers"), "wreckers: told for the Walls (the fence has no plot to wreck)");
+  S.save.rooms[plot] = 1;
+  ok(tip("cy").tip === "wreckers", `wreckers: not told once the ${plot} is built (${tip("cy").tip})`);
+  S.seeCrewTalk("tip:cy:wreckers", 14);
+  ok(tip("cy").tip !== "wreckers", "wreckers: told again after it was read");
+  // wrecked builds: from the save, or the yard's live list; one or two, and the scrap to fix it all (the computer's
+  // Fix all: the Well, only cracked at 5, is fixed by it too, so it is in the price)
+  const each = W.SETTINGS.buildRepairScrap;
+  ok(!tips("bo").includes("wrecked"), "wrecked: told with nothing wrecked");
+  S.save.rooms.garden = 1;
+  S.save.rooms.well = 1;
+  S.save.builds = { garden: 0, well: 5 };
+  const one = S.crewTips("bo").regular.find((t) => t.tip === "wrecked");
+  ok(one && same(one.vars, { rooms: W.BASE_ROOMS.garden.name, cost: 2 * each }), `wrecked: from the save ${JSON.stringify(one && one.vars)}`);
+  const two = S.crewTips("bo", { wrecked: ["garden", "well"] }).regular.find((t) => t.tip === "wrecked");
+  ok(two && same(two.vars, { rooms: W.BASE_ROOMS.garden.name + " and " + W.BASE_ROOMS.well.name, cost: 2 * each }), `wrecked: the yard's live list ${JSON.stringify(two && two.vars)}`);
+  ok(!tips("bo", { wrecked: [] }).includes("wrecked"), "wrecked: told when the yard says nothing is wrecked");
+  S.save.builds = {};
+  ok(!tips("bo").includes("wrecked"), "wrecked: told once it was fixed");
+  // a cracked build (under half its strength) needs fixing too (the lot panel, the computer's Fix all): "nothing needs
+  // fixing" is never said while one is, from the save or the yard's live lists; all whole again, it is
+  const fine = (ctx) => S.crewTips("bo", ctx).fallback.some((t) => t.tip === "fine");
+  ok(fine(), "fine: not said with every build whole");
+  S.save.builds = { garden: Math.floor(S.buildMax("garden") * 0.3) };
+  ok(!S.roomWrecked("garden") && !fine(), "fine: said with a build cracked (the save)");
+  S.save.builds = { garden: 0 };
+  ok(!fine(), "fine: said with a build wrecked (the save)");
+  S.save.builds = {};
+  ok(!fine({ wrecked: [], cracked: ["garden"] }) && !fine({ wrecked: ["garden"], cracked: [] }), "fine: said with a build cracked or wrecked (the yard's live lists)");
+  ok(fine({ wrecked: [], cracked: [] }), "fine: not said with the yard's lists empty");
+  // a room's topic waits while its build is wrecked (its words give the room's bonus as working), and comes once fixed
+  ok(S.crewWhen({ room: "garden", level: 1 }, "bo"), "crewWhen: a room topic waits with its room built and whole");
+  S.save.builds = { garden: 0 };
+  ok(!S.crewWhen({ room: "garden", level: 1 }, "bo"), "crewWhen: a room topic is told while its build is wrecked");
+  S.save.builds = { garden: 1 };
+  ok(S.crewWhen({ room: "garden", level: 1 }, "bo"), "crewWhen: a room topic waits while its build is only cracked (it still works)");
+  S.save.builds = {};
+});
+
+group("tips: Tomas's wrecked tip prices the office computer's Fix all", () => {
+  // one build wrecked and one only cracked: the computer's "Fix all for N scrap" (js/base.js buildsRow) fixes both, so
+  // Tomas's {cost} is that N, from the save and from the yard's live lists alike (State.buildFixAll, one rule)
+  const { S, W, sb } = synthetic();
+  vm.runInContext(fs.readFileSync(path.join(ROOT, "js", "base.js"), "utf8"), sb, { filename: "js/base.js" });
+  const each = W.SETTINGS.buildRepairScrap;
+  S.save.rooms.garden = 1;
+  S.save.rooms.well = 1;
+  S.save.builds = { garden: 0, well: Math.floor(S.buildMax("well") * 0.3) };
+  const dmg = S.buildDamage();
+  ok(same(dmg, { wrecked: ["garden"], cracked: ["well"] }), `Fix all: setup is not one wrecked and one cracked build ${JSON.stringify(dmg)}`);
+  // the computer's row, as the office computer draws it: the button's words carry its price
+  const made = [];
+  const create = sb.document.createElement;
+  sb.document.createElement = (t) => {
+    const e = create(t);
+    made.push(e);
+    return e;
+  };
+  sb.ZSR.Base.hooks = {};
+  try {
+    sb.ZSR.Base.buildsRow();
+  } finally {
+    sb.document.createElement = create;
+  }
+  const button = made.find((e) => /^Fix all for \d+ scrap$/.test(String(e.innerHTML || "")));
+  const computer = button ? +button.innerHTML.match(/\d+/)[0] : NaN;
+  ok(computer === 2 * each, `Fix all: the computer's button does not price both builds (${button ? button.innerHTML : "no button"}, ${each} scrap each)`);
+  const cost = (ctx) => {
+    const t = S.crewTips("bo", ctx).regular.find((x) => x.tip === "wrecked");
+    return t ? t.vars.cost : null;
+  };
+  ok(cost() === computer, `Fix all: Tomas's wrecked tip says ${cost()} scrap, the computer's Fix all ${computer} (from the save)`);
+  ok(cost({ wrecked: ["garden"], cracked: ["well"] }) === computer, `Fix all: Tomas's wrecked tip says ${cost({ wrecked: ["garden"], cracked: ["well"] })} scrap, the computer's Fix all ${computer} (the yard's live lists)`);
+  // and the button fixes what it prices: every wrecked, then every cracked build
+  ok(same(S.buildFixAll(dmg).rooms, ["garden", "well"]) && S.buildFixAll(dmg).cost === computer, `Fix all: the button's rooms or price ${JSON.stringify(S.buildFixAll(dmg))}`);
 });
 
 group("jobs", () => {
   const { S } = synthetic();
-  ok(same(S.crewJobs("bo"), ["fence"]) && same(S.crewJobs("ann"), []), "crewJobs: at 0 stars");
+  ok(same(S.crewJobs("bo"), ["fence", "builds"]) && same(S.crewJobs("ann"), []), "crewJobs: at 0 stars");
   S.addTrust("bo", 8);
   S.addTrust("ann", 3);
-  ok(same(S.crewJobs("bo"), ["fence", "cabin"]) && same(S.crewJobs("ann"), ["heal"]), "crewJobs: stars do not unlock jobs");
+  ok(same(S.crewJobs("bo"), ["fence", "builds", "cabin"]) && same(S.crewJobs("ann"), ["heal"]), "crewJobs: stars do not unlock jobs");
   ok(S.crewHealAmount() === 40 && S.crewLookoutSeconds() === 15, "crewHealAmount / crewLookoutSeconds: not CREW_RULES");
 });
 
@@ -846,7 +947,7 @@ group("raids: crewHurt", () => {
 
 group("work, reports, repairs", () => {
   const { S, W } = synthetic();
-  ok(S.crewRepairCost("fence") === W.SETTINGS.fenceRepairScrap && S.crewRepairCost("cabin") === W.SETTINGS.houseRepairScrap, "crewRepairCost: not the usual scrap");
+  ok(S.crewRepairCost("fence") === W.SETTINGS.fenceRepairScrap && S.crewRepairCost("cabin") === W.SETTINGS.houseRepairScrap && S.crewRepairCost("builds") === W.SETTINGS.buildRepairScrap, "crewRepairCost: not the usual scrap");
   S.save.scrap = W.SETTINGS.houseRepairScrap;
   ok(S.crewRepairPay("cabin") === W.SETTINGS.houseRepairScrap && S.save.scrap === 0, "crewRepairPay: not paid");
   ok(S.crewRepairPay("fence") === 0 && S.save.scrap === 0, "crewRepairPay: scrap went below 0");
@@ -875,6 +976,17 @@ group("work, reports, repairs", () => {
   S.clearReport("bo");
   S.logWork("bo", "fence", 1, 1); // paid before the perk came: still told with its scrap
   ok(same(S.crewReportItems("bo"), [{ key: "fence", vars: { fixed: 1, scrap: 1 } }]), "logWork: a paid fix with the perk active lost its scrap");
+  S.clearReport("bo");
+  // the builds job: free with the perk, told after the fence and the cabin
+  S.logWork("bo", "builds", 2, 0);
+  S.logWork("bo", "fence", 1, 0);
+  ok(same(S.crewReportItems("bo"), [{ key: "fenceFree", vars: { fixed: 1 } }, { key: "buildsFree", vars: { fixed: 2 } }]), `logWork: builds with crewRepairFree are not buildsFree, after the fence (${JSON.stringify(S.crewReportItems("bo"))})`);
+  S.clearReport("bo");
+  delete S.save.crew.quests["bo-1"];
+  S.logWork("bo", "builds", 1, W.SETTINGS.buildRepairScrap);
+  S.logWork("bo", "cabin", 1, W.SETTINGS.houseRepairScrap);
+  ok(same(S.crewReportItems("bo"), [{ key: "cabin", vars: { fixed: 1, scrap: W.SETTINGS.houseRepairScrap } }, { key: "builds", vars: { fixed: 1, scrap: W.SETTINGS.buildRepairScrap } }]), `logWork: paid builds work ${JSON.stringify(S.crewReportItems("bo"))}`);
+  S.save.crew.quests["bo-1"] = { state: "done", day: 1, doneDay: 1 };
   S.clearReport("bo");
   const scrap = S.save.scrap;
   tripHome(S);
@@ -1168,8 +1280,8 @@ group("an empty roster and no quests", () => {
    3. The real facts
    ===================================================================================================== */
 // the placeholders the engine fills, by text (docs/CREW.md "Words"); {dog} is filled everywhere
-const TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [], full: [] };
-const REPORT_VARS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], hurt: ["who", "cost"], late: ["item"] };
+const TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [], full: [], lanky: [], armored: [], wrecked: ["rooms", "cost"], screamer: [], wreckers: [] };
+const REPORT_VARS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], builds: ["fixed", "scrap"], buildsFree: ["fixed"], hurt: ["who", "cost"], late: ["item"] };
 const ERRAND_VARS = ["count", "item", "days", "reward"];
 // {reward} only where the request or the thank-you is shown with its reward (the card, the bubble, the backpack); the tag
 // (building), the journal line (day page), the title and the payoff topic are shown with no request at hand
@@ -1228,7 +1340,7 @@ group("real facts: every crew text at every level", () => {
   Object.keys(CREW).forEach((id) => {
     const T = (W.CREW_TALK || {})[id] || {};
     (T.topics || []).forEach((tp) => ok(Object.keys(tp.when || {}).every((k) => WHEN_KEYS.includes(k)), `CREW_TALK ${tp.id}: unknown when key in ${JSON.stringify(tp.when)}`));
-    ((CREW[id] || {}).jobs || []).forEach((j) => ok(["fence", "cabin", "heal", "lookout"].includes(j.job), `CREW.${id}: unknown job ${j.job}`));
+    ((CREW[id] || {}).jobs || []).forEach((j) => ok(["fence", "builds", "cabin", "heal", "lookout"].includes(j.job), `CREW.${id}: unknown job ${j.job}`));
     ((W.ERRANDS || {})[id] || []).forEach((e) => {
       ok(W.ITEMS[e.item] && e.item !== "food", `ERRANDS ${e.id}: item ${e.item} is not an ITEMS id (or is food)`);
       ok(Array.isArray(e.count) && e.count[0] >= 1 && e.count[1] >= e.count[0] && e.days >= 1, `ERRANDS ${e.id}: count [min, max] and days`);
@@ -1636,7 +1748,7 @@ simGroup("yard", "yard: the crew's props, ten minutes of calm, a build", () => {
   ok(ids.length && same(I.crew.map((c) => c.id), ids), `yard: the crew in the yard (${I.crew.map((c) => c.id)}) are not every CREW id with posts (${ids})`);
   const scale = (Z.CREW_ART && Z.CREW_ART.scale && Z.CREW_ART.scale.crew) || 0;
   ok(scale > 0, "yard: CREW_ART.scale.crew is missing");
-  // (a) the prop: in the scene, at their feet, the walkers' scale times theirs, 0.75 wide, never solid, and one
+  // (a) the prop: in the scene, at their feet, the crew's prop scale (CREW_ART.scale.crew) times theirs, 0.75 wide, never solid, and one
   // cached picture per opts set ({ who, pose, f }, f exactly 0 or 1)
   const propBad = [];
   const props = (when) =>
@@ -1833,6 +1945,67 @@ simGroup("yard", "yard: the fence job mends holes and cracks, paying from the ba
     const r2 = S.crewReport(fx.id);
     ok(left() === 0 && S.save.scrap === 0, `repairs: with crewRepairFree and no scrap, ${left()} holes left (scrap ${S.save.scrap})`);
     ok(r2.fenceFree === 2 && !r2.fence && !r2.scrap && same(S.crewReportItems(fx.id).map((x) => x.key), ["fenceFree"]), `repairs: free fixes reported as ${JSON.stringify(r2)}`);
+  }
+});
+
+simGroup("yard", "yard: the builds job fixes a wrecked build in the calm, after the fence, paying from the base's scrap", () => {
+  const g = engineGame(117);
+  const { I, S, W } = g;
+  const bx = jobOf(W, "builds");
+  const fx = jobOf(W, "fence");
+  if (!ok(bx && fx && bx.id === fx.id, "builds job: nobody has it, or not the fence fixer (this simulation needs both)")) return;
+  const FT = fenceTiles(W);
+  const cost = W.SETTINGS.buildRepairScrap;
+  const fence = W.SETTINGS.fenceRepairScrap;
+  // the Garden (food) wrecked, the Well only cracked, and one hole in the fence; scrap for both fixes
+  const food = Object.keys(W.YARD.plots).find((k) => W.BASE_ROOMS[k].levels[0].effect.foodPerDay) || Object.keys(W.YARD.plots)[0];
+  const other = Object.keys(W.YARD.plots).find((k) => k !== food && !W.BASE_ROOMS[k].levels[0].requires);
+  homeYard(g, (S) => {
+    S.addTrust(bx.id, trustFor(W, Math.max(bx.stars, fx.stars)));
+    S.save.rooms[food] = 1;
+    S.save.rooms[other] = 1;
+    S.save.builds = { [food]: 0, [other]: Math.floor(S.buildMax(other) * 0.3) };
+    S.save.fence = { [FT.n.join(",")]: 0 };
+    S.save.scrap = cost + fence;
+  });
+  const fx0 = S.effects();
+  ok(I.buildDamage().wrecked.includes(food) && I.buildDamage().cracked.includes(other), `builds job: setup, ${JSON.stringify(I.buildDamage())}`);
+  // in a wave nothing is fixed (a wave with nothing left to spawn yet, so it holds)
+  I.phase = { kind: "wave", size: "some", total: 1, spawned: 0, spawnT: 1e9, t: 0, sides: ["n"] };
+  stepFor(g, 60);
+  ok(S.roomWrecked(food) && I.fenceHoles().length === 1, "builds job: something was fixed in a wave");
+  I.phase = I.calmPhase(999);
+  let holeAt = null;
+  let buildAt = null;
+  stepFor(g, 300, (t) => {
+    if (holeAt == null && !I.fenceHoles().length) holeAt = t;
+    if (buildAt == null && !S.roomWrecked(food)) buildAt = t;
+    return buildAt == null;
+  });
+  ok(buildAt != null, `builds job: the wrecked ${food} was never fixed (scrap ${S.save.scrap})`);
+  ok(holeAt != null && buildAt != null && holeAt <= buildAt, `builds job: the build was fixed before the fence (hole at ${holeAt}, build at ${buildAt})`);
+  ok(S.save.scrap === 0, `builds job: scrap left ${S.save.scrap} (want 0: the hole and the build paid)`);
+  const rep = S.crewReport(bx.id);
+  ok(rep.builds === 1 && rep.fence === 1 && rep.scrap === cost + fence && !rep.buildsFree, `builds job: the report is ${JSON.stringify(rep)}`);
+  ok(S.effects().foodPerDay > fx0.foodPerDay && JSON.stringify(I.fx) === JSON.stringify(S.effects()), "builds job: the fixed build's bonus did not come back");
+  // a build only cracked still works: the crew leaves it to you (their words say they fix wrecked builds)
+  S.save.scrap = 50;
+  stepFor(g, 120);
+  ok(I.buildDamage().cracked.includes(other) && S.save.scrap === 50, "builds job: the crew braced a build that was only cracked");
+  // with the crewRepairFree perk it costs nothing and is told as free
+  const free = (W.QUESTS || []).find((q) => q.reward && q.reward.perk && q.reward.perk.crewRepairFree);
+  if (free) {
+    homeYard(g, (S) => {
+      S.addTrust(bx.id, trustFor(W, bx.stars));
+      S.save.crew.quests[free.id] = { state: "done", day: 1, doneDay: 1 };
+      S.save.rooms[food] = 1;
+      S.save.builds = { [food]: 0 };
+      S.save.scrap = 0;
+    });
+    stepFor(g, 240, () => S.roomWrecked(food));
+    const r2 = S.crewReport(bx.id);
+    ok(!S.roomWrecked(food) && S.save.scrap === 0, `builds job: with crewRepairFree and no scrap the ${food} is still wrecked`);
+    ok(r2.buildsFree === 1 && !r2.builds && same(S.crewReportItems(bx.id).map((x) => x.key), ["buildsFree"]), `builds job: a free fix reported as ${JSON.stringify(r2)}`);
   }
 });
 

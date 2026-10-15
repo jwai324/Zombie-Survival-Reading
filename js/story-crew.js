@@ -40,7 +40,7 @@
       pronoun: "he",
       color: "#33507a", // navy coveralls
       scale: 1.0,
-      jobs: [{ job: "fence", stars: 0 }, { job: "cabin", stars: 2 }],
+      jobs: [{ job: "fence", stars: 0 }, { job: "builds", stars: 0 }, { job: "cabin", stars: 2 }],
       posts: [
         { id: "van", at: [21, 29], pose: "stand", weight: 4 }, // at the van's hood, off its parking gravel (the work pose kneels to nail a board)
         { id: "garage", at: [12, 31], pose: "work", weight: 3 }, // by the garage plot
@@ -313,7 +313,13 @@
       fence: { facts: ["Tomas counts {holes} holes and {cracks} cracked boards in the fence.", "Holes never close on their own, and each fix you make costs 1 scrap."] }, // his own are free with the brackets (tomas-4)
       cabin: { facts: ["Tomas counts the cabin's broken doors and windows: {broken}.", "Each fix costs 2 scrap: press E at it, or use the office computer."] },
       crowbar: { facts: ["Tomas says you have no crowbar.", "A crowbar pries open one jammed lock and is used up; build one at the workbench, from the office computer."] }, // as tomas-t10
+      // the fallback, told only while no yard build is cracked or wrecked either (js/crewstate.js), so "nothing" is true
       fine: { facts: ["Tomas says the van, the fence and the cabin are all in good shape.", "Nothing needs fixing right now."] },
+      // told once, the first talk after you first meet one (save.met; js/crewstate.js)
+      lanky: { facts: ["Tomas says the tall, thin walkers are even lankier than he is.", "Their long arms reach farther, so keep more space between you."] },
+      armored: { facts: ["Tomas says walkers in helmets and heavy coats take a lot more hits to bring down.", "They are slow, so back away and keep shooting."] },
+      // while a build is wrecked: {rooms} names them ("Garden and Well"), {cost} is the scrap to fix them all yourself
+      wrecked: { facts: ["Tomas lists the builds walkers have wrecked: {rooms}.", "A wrecked build does nothing until it is fixed, and fixing it all costs {cost} scrap."] },
     },
     pip: {
       // {size} is "a small wave", "a big wave" or "no wave"; for "no wave" the engine fills {sides} so the line
@@ -325,6 +331,11 @@
       radio: { facts: ["Pip says a new broadcast waits at the radio in the dining room each day you come home.", "Tune in there, and hear the old ones again too."] },
       // the fallback once every known building is at its walker limit (the walkers tip has nothing left to count)
       full: { facts: ["Pip says every building in town is as full of walkers as it will get.", "From now on, a place is only as dangerous as it is today."] },
+      // told once, the first talk after you first meet one (save.met; js/crewstate.js)
+      // the scream speeds up only the walkers already awake near it, and wakes nobody (owner decision, WORLD.SCREAM)
+      screamer: { facts: ["Pip says some walkers scream when they spot you.", "Awake walkers nearby hear it and speed up for a while; sleeping ones sleep on.", "So stop a screamer first."] },
+      // told once, as soon as a yard build stands (js/yardwreck.js)
+      wreckers: { facts: ["Pip calls the walkers that go for the van and the builds wreckers.", "Shoot one or get close, and it turns on you."] },
     },
   };
 
@@ -334,6 +345,9 @@
     fenceFree: { facts: ["Tomas fixed {fixed} fence boards since you last talked.", "It cost no scrap at all."] },
     cabin: { facts: ["Tomas fixed broken doors and windows in the cabin: {fixed} in all.", "It took {scrap} scrap from the base."] },
     cabinFree: { facts: ["Tomas fixed broken doors and windows in the cabin: {fixed} in all.", "It cost no scrap at all."] },
+    // the builds job: wrecked room builds in the yard (a cracked one still works; the player braces it) (js/yardwreck.js)
+    builds: { facts: ["Tomas fixed wrecked builds in the yard: {fixed} in all.", "It took {scrap} scrap from the base."] },
+    buildsFree: { facts: ["Tomas fixed wrecked builds in the yard: {fixed} in all.", "It cost no scrap at all."] },
     // {cost} is "a medical kit" (from storage), "2 food" (from the crew's food, not storage; "1 food" when only 1 was
     // left), or "nothing" when there was neither (js/crewstate.js crewHurt): the words must read with all three
     // one report for every hurt since the last talk ({cost} sums them: "2 medical kits and 2 food"), so the words

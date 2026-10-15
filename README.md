@@ -8,7 +8,18 @@ needs, and hold the fence when the waves come.
 A grounded survival-comic game for teens. Reading is never quizzed; it is useful. The
 reading level is switchable from 1st to 6th grade and changes every note, sign, and
 instruction in the game without changing the facts (June's first-day tutorial is the one
-exception: it is written once, in level 1 words, for everyone).
+exception: it is written once, in level 1 words, for everyone). The reading text has no gore;
+the walkers' art shows some blood and ribs through torn shirts, and one switch,
+`SETTINGS.walkerGore` in `js/world.js`, turns all of it to grime.
+
+**The walkers** are live 3D figures in the game's comic style, seen from every side: six kinds,
+each with its own walk (the shuffling walker, the sprinting hooded runner, the huge brute, the
+tall lanky that reaches farther, the armored in riot gear or a firefighter's coat, and the
+screamer, whose scream makes the walkers near it faster for a while). Which kinds you meet depends
+on the place's danger, the day and the place itself (armored at the police and fire stations,
+lanky at the hospital and the library, screamers at the school and the mall, brutes at the
+lumberyard). A downed walker collapses and fades. No HUD box or wave label counts them: you see
+them (a door note still says at least how many wait inside).
 
 ## Play it
 
@@ -33,20 +44,26 @@ Show tutorial again is in the pause menu.
    sometimes a few walkers and sometimes a lot, from two sides or from every side. The
    dinner bell on the porch (E) brings the next wave now; gunshots in the calm bring it
    sooner (the bow is silent). Walkers claw through the fence; the Walls room makes it
-   stronger. Holes never close on their own: stand at a gap and press E (1 scrap each) or
-   fix them all from the computer. Set traps with T and R. The base is the only place the
+   stronger. A hole draws only the walkers near it; the rest keep clawing their own stretch.
+   Holes never close on their own: stand at a gap and press E (1 scrap each) or
+   fix them all from the computer. Set traps with T and R. A quarter of a wave are wreckers:
+   inside the fence they claw the van and your room builds until you shoot one or come close
+   (or half a minute passes). A wrecked build gives nothing until it is fixed (3 scrap: E at it,
+   Fix all on the computer, or Tomas in the calm). The base is the only place the
    game saves.
    **The cabin is a house you walk into** (the Hollis family's; the plan is `WORLD.HOUSE`):
    porch, foyer, office, dining room, kitchen and pantry, ping pong room, living room,
    bedrooms, baths, closets and a rear play room, each furnished. E at the office computer
-   opens the build menu; the pantry shelves list food and storage; the radio shelf by the
-   couch shows past days of June's journal and the radio; the typewriter in the play room is
+   opens the build menu; the pantry shelves list food and storage; the radio shelf in the
+   dining room tunes in to today's broadcast and shows past days of June's journal and the
+   radio; the typewriter in the play room is
    free typing practice; the big bed heals you fully for a minute of the calm. Notes the
    Hollis family left on the walls are read up close. Its doors open and shut with E:
    walkers walk through an open one, pound a shut one down, and smash windows to climb in
    (you cannot climb out). Some walkers in every wave make for the cabin, break in and wait
-   inside. E at a broken door or window fixes it (2 scrap); the computer's House tab makes
-   doors and windows stronger.
+   inside; the wave lasts until they are cleared out, and while you are outside the wave label
+   reads "WAVE · walkers in the cabin" (where, never how many). E at a broken door or window fixes
+   it (2 scrap); the computer's House tab makes doors and windows stronger.
    **What you build is what you see:** every room has its own plot in the yard, a staked lot
    with its name on a sign until it is built, then a bigger build at each level (a carport,
    then a shed, then a workshop; rain barrels, then a tank on a stand, then a water tower).
@@ -70,8 +87,9 @@ Show tutorial again is in the pause menu.
    first quest they also ask for errands: a few of an ordinary item within a few days. Trust grows
    as you talk (once a day) and bring things home, and drops when they get hurt, an errand runs
    late or you give one up; their stars open new stories, quests and jobs. Tomas fixes fence holes
-   and cracks in the calm at the usual scrap (and the cabin's doors and windows at two stars) and
-   tells you later; June patches you up; Pip, as lookout, calls the next wave. In a wave they hide
+   and cracks in the calm at the usual scrap, then wrecked builds (and the cabin's doors and windows
+   at two stars) and tells you later; he and Pip also tell you about the lanky, the armored and the
+   screamer once you first meet one; June patches you up; Pip, as lookout, calls the next wave. In a wave they hide
    in the office closet, and a walker that forces its door can hurt one of them, which costs a
    medical kit (or 2 food). Pip's last quest finds the stray dog that barks past the trees: hold
    out Pip's treats and it follows you to the van; at home you name it, and it follows Pip, barks
@@ -98,9 +116,10 @@ Show tutorial again is in the pause menu.
    your lane before the white stop line. A wrong turn lets you try again from where
    you set out (damage, scrap and kills stay), open the town map, or go back to that place. The minimap in the corner shows where you are
    and flags where you are going.
-4. **Building.** The note at the door tells you how many walkers wait inside and where the
+4. **Building.** The note at the door tells you how many walkers wait inside (at least) and where the
    things are, by landmark: every building has four, one in each corner (the tire tower, the
-   fire truck, the giant globe). Inside, first person: W A S D to move, mouse to look, click
+   fire truck, the giant globe). The walkers start in different spots every visit, except the ones a
+   note says stand somewhere ("one by the robot"): they are there. Inside, first person: W A S D to move, mouse to look, click
    to fire, E to read notes and to open and close doors (walkers cannot open them), B for the
    backpack, M (or the Map button) for a map of the parts you have seen. The locked cache room
    holds the best items, and the note inside says how to open it and the way there. **Every
@@ -168,6 +187,7 @@ js/streets.js           street names, side streets, lanes and decisions for a ro
 js/content/levelN*.js   THE WORDS at reading level N (1..6): levelN.js (how it works, controls, road, rooms,
                         typing), levelN-places1.js and -places2.js (every building), levelN-home.js (journal,
                         radio, tags, plot signs), levelN-crew.js (the crew's talk, tips, reports, the dog),
+                        levelN-crew2.js (more tips and reports: the walker kinds, wreckers, wrecked builds),
                         levelN-quests.js (the crew's story quests and errands)
 js/content/level1-tutorial.js  June's first-run tutorial: level 1 only, read at every reading level
 js/locks.js             the locks: answers rolled per save, the {placeholders} they fill in the notes, the lock
@@ -175,10 +195,16 @@ js/locks.js             the locks: answers rolled per save, the {placeholders} t
 js/state.js             settings, the base save, the in-memory trip, room effects, explored maps, the key ring
 js/crewstate.js         the crew's save state: trust, talk, requests, rewards and perks, reports, the dog, their words
 js/interior.js          first-person engine: raycaster, low see-over tiles, roofs, floors and ceilings,
-                        props, walkers, shooting and switching guns, reading signs up close, HUD plumbing
+                        props, walkers (what each does, the scream, the downed, the blood; each drawn live into
+                        a pooled canvas, with a frame-time governor), shooting and switching guns, reading
+                        signs up close, HUD plumbing
+js/walker3d.js          the walkers' live 3D models: joints, gaits, poses, falls, levels of detail, canvas 2D only
+js/walker3d-looks.js    the six walker kinds' looks, as data (Walker3D.addType)
 js/building.js          building mode: layouts, landmarks, decor, items, notes, cache, stash and key,
                         wall signs, guns on the floor, the M map
-js/yard.js              yard mode: plots and their builds per level, fence by Walls level, traps, waves, the bell and gunfire
+js/yard.js              yard mode: plots and their builds per level, fence by Walls level, traps, waves, the bell and
+                        gunfire, which fence holes draw which walkers
+js/yardwreck.js         wreckers: the van and the room builds they claw, wrecked builds and fixing them
 js/crew.js              the crew in the yard and cabin: wandering, the shelter, raids, Tomas's repairs, the lookout,
                         the talk bubble, the dog at home
 js/crewart.js           crew art: June, Tomas and Pip in five poses, the dog, portraits, quest objects
@@ -191,7 +217,7 @@ js/house.js             the cabin in the yard: rooms and furniture, doors and wi
 js/houseart.js          cabin art: siding, roof, doors and windows by level and damage, wallpapers, wall notes,
                         floors and ceiling, furniture
 js/sprites3d.js         first-person textures and sprites, the registration API, the 3D guns in hand
-                        (each showing its mods), the walkers, the yard van
+                        (each showing its mods), the yard van (and its dents)
 js/decor.js             wall decor faces (signs, posters, lockers, notice boards ...)
 js/landmarks1.js        landmark art: gas station, grocery, hardware, pharmacy, auto shop, electronics, garden
 js/landmarks2.js        landmark art: precinct, school, fire station, hospital, water tower, lumber, mall, library
@@ -205,7 +231,8 @@ js/tutorial.js          June's first-run tutorial, the logic (no DOM): the yard'
 js/tutorial-ui.js       the tutorial you see: the card, the "Now you try" panel, the arrow, the key listener
 js/bench.js             the garage workbench scene behind the typing game
 js/backpack.js          the backpack (medical kits, notes) and the note reader
-js/sprites.js           road drawing (van and its gun, walkers, scenery, lanes, signs, each place's lot at the end of its drive)
+js/sprites.js           road drawing (van and its gun, the six walker kinds top-down and their falls, scenery, lanes,
+                        signs, each place's lot at the end of its drive)
 js/upgrades.js          van and van-gun upgrades (the road)
 js/weapons.js           guns carried on foot: stats, mods, where each one is hidden
 js/audio.js             synthesized sound effects
@@ -250,9 +277,16 @@ tests/                  world, weapons, text, streets, drive, engine, crew and a
 
 ## Tuning
 
-- Walkers inside buildings: `SETTINGS.walkersPerLocation` in `js/world.js`.
+- Walker kinds (health, speed, bite, reach, claws, scrap, where each comes from, their road stats):
+  `WALKER_TYPES` in `js/world.js`; the screamer's scream `SCREAM`; themed places `WALKER_THEMES`; the
+  alarm's pace and mix `ALARM`; the river's `RIVER.walkerMix`; the gore switch `SETTINGS.walkerGore`.
+  Their looks: `js/walker3d-looks.js` (on foot) and `ZOMBIE_LOOK` in `js/sprites.js` (the road). How
+  many redraw a frame: the `LIVE_*` constants and the governor's `LIVE_LEVELS` in `js/interior.js`.
+- Walkers inside buildings: `SETTINGS.walkersPerLocation` (how many) and `walkerSpawn` (how spread out)
+  in `js/world.js`; where a note says some stand, its rule in `NOTES[id].walkers`. How near a sleeping
+  walker hears you (and how far from the door they start): `HEAR` and `HEAR_SPRINT` in `js/interior.js`.
 - Locks: `LOCKS` in `js/world.js` (what each cache asks, what a mistake costs, what a wrong stash key
-  does) and `TOOLS` (the crowbar's price). The alarm's pace: `updateAlarm` in `js/building.js`.
+  does) and `TOOLS` (the crowbar's price). The alarm's pace, mix and cap: `ALARM` in `js/world.js`.
 - The cabin: `HOUSE` (plan, rooms, notes, what E uses) and `HOUSE_UPGRADES` (door and window strength and
   cost) in `js/world.js`; furniture and room looks in `js/house.js`. A moved wall can strand a note or
   a doorway: `npm test` walks every room, reads every note and uses every spot.
@@ -260,9 +294,10 @@ tests/                  world, weapons, text, streets, drive, engine, crew and a
   cast distance, walker timing, where the pole lies, the bank's grid). Frog Lane's paving: `SURFACE`
   in `js/streets.js`. The words: `T.river` in each `js/content/levelN-home.js`, facts in
   `RIVER_FACTS` (`js/story-home.js`).
-- Waves at the base: `DEFENSE` in `js/world.js` (fence strength, calm length, raiders, the bell, gunfire, rest, wave mix, counts,
+- Waves at the base: `DEFENSE` in `js/world.js` (fence strength, calm length, raiders, wreckers, the builds' strength,
+  how far a hole draws walkers, the bell, gunfire, rest, wave mix, counts,
   how many sides a wave comes from).
-- Road difficulty: `DIFF` and `ZOMBIE_TYPES` in `js/game.js`; lane and junction geometry:
+- Road difficulty: `DIFF` in `js/game.js` and each kind's `road` row in `WORLD.WALKER_TYPES`; lane and junction geometry:
   `GEOM` in `js/streets.js`.
 - Base rooms, recipes, and effects: `BASE_ROOMS` in `js/world.js`; what each level looks like
   in the yard: `BUILDS` in `js/yard.js`.

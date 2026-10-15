@@ -154,6 +154,7 @@ Object.entries(W.TEMPLATES).forEach(([name, t]) => {
   const shut = flood("");
   const open = flood("Lc");
   const stashOpen = flood("Qk");
+  const minSteps = W.SETTINGS.walkerSpawn.minSteps;
   for (let y = 0; y < H; y++) {
     for (let x = 0; x < w; x++) {
       const c = g[y][x];
@@ -163,12 +164,11 @@ Object.entries(W.TEMPLATES).forEach(([name, t]) => {
       if (c === "k" && !stashOpen.has(k)) err(`${ctx}: stash spot at ${k} unreachable even with the stash door open`);
       if (c === "c" && STEPS.some(([dx, dy]) => shut.has(x + dx + "," + (y + dy)))) err(`${ctx}: cache spot at ${k} reachable without the locked door`);
       if (c === "c" && !open.has(k)) err(`${ctx}: cache spot at ${k} unreachable even with the door open`);
-      // walkers start at least 6 steps from the player's start tile (one step in from E)
-      if (c === "z" && shut.has(k) && shut.get(k) - 1 < 6) err(`${ctx}: walker spawn at ${k} is only ${shut.get(k) - 1} steps from the entrance (need 6+)`);
+      // walkers start at least walkerSpawn.minSteps from the player's start tile (one step in from E), and so do the
+      // walker anchors a note's rule names (a z tile no rule names is simply unused: the walker rules below, R1-R8)
+      if (c === "z" && shut.has(k) && shut.get(k) - 1 < minSteps) err(`${ctx}: walker anchor at ${k} is only ${shut.get(k) - 1} steps from the entrance (need ${minSteps}+)`);
     }
   }
-  if (count(g, "z") < 2) err(`${ctx}: needs 2+ walker spawns`);
-  if (loc && count(g, "z") > W.SETTINGS.walkersPerLocation(loc.danger, 1)) err(`${ctx}: ${count(g, "z")} walker spawns but only ${W.SETTINGS.walkersPerLocation(loc.danger, 1)} walkers on day 1 (a spawn the notes mention could stay empty)`);
   if (count(g, "$") < 2 || count(g, "$") > 4) err(`${ctx}: needs 2 to 4 scrap piles (has ${count(g, "$")})`);
   // decor: wall tiles that face the room, known keys, one per tile
   const taken = new Set();
@@ -253,6 +253,216 @@ W.LOCATIONS.filter((l) => l.outdoor).forEach((l) => {
   }
   (R.rod.reveals || []).forEach((id) => { if (!ids.has(id)) err(`RIVER.rod reveals unknown ${id}`); });
 }
+/* Walker rules (NOTES[id].walkers; zones in the layout's walkerZones; js/building.js planWalkers places them): what the
+   door notes, notes and graffiti say about where walkers stand stays true on every visit, every day.
+   R1 ids: `says` names this building's door note, notes and signs. R2 coverage: any door fact about walkers, or a
+   red-R graffiti, that puts walkers somewhere ("in the", "by the", ...) is in some rule's `says`. R3 zones: known, inside
+   the grid, with floor a walker can start on; no zone left unused. R4 anchors: a real z tile, inside its zone, by
+   the landmark its rule names; a rule that names a landmark rings the landmark's footprint (its walkers start
+   within r steps of it, so within that many tiles every way: "one by the robot" means by the robot). R5 kinds: known; `only` needs a `type`. R6 room: a rule's tiles hold its walkers
+   spaced out (one tile spare for a gun), and so do the tiles left for the others. R7 totals: the rules never want
+   more walkers than the building has. R8: an exact zone overlaps no other rule's zone; a text that says "most" of
+   them are there has a share above half.
+   Checked for every count a building has from day 1 to RULE_DAYS. The geometry is the engine's: floor is the
+   markers and plain floor (solid landmarks' footprints blocked), a rule's ring walks with every door shut, a
+   walker starts walkerSpawn.minSteps or more from the start tile with the doors opened, off every busy tile. */
+const RULE_DAYS = 120; // SCALE: the last day whose walker count is checked (walkersPerLocation stops growing on day 36)
+const RULE_FIELDS = ["says", "z", "r", "zone", "n", "share", "exact", "type", "only", "all", "near"];
+const RULE_POS = /\b(in|by|at|along|near|to) the\b/i; // a fact that puts walkers somewhere
+const RULE_BY = 2; // "one by the robot": an exact rule with `near` keeps every other walker this many steps or more from it
+const RULE_WALKERS = /\b(walkers?|big ones?|crowds?|stands?|gathers?|wanders?|waits?|sleeps?|lurks?)\b/i; // a door fact about walkers
+function checkWalkerRules(l, t, N) {
+  const ctx = `${l.id} walkers`;
+  const WS = W.SETTINGS.walkerSpawn;
+  const WT = W.WALKER_TYPES || {};
+  const rules = N.walkers || [];
+  if (!Array.isArray(rules)) return err(`${ctx}: NOTES.${l.id}.walkers must be a list of rules`);
+  const zones = t.walkerZones || {};
+  const g = t.grid;
+  const H = g.length;
+  const w = g[0].length;
+  const at = (x, y) => (x < 0 || y < 0 || x >= w || y >= H ? "#" : g[y][x]);
+  const key = (x, y) => x + "," + y;
+  const inRects = (R, x, y) => R.some(([x0, y0, x1, y1]) => x >= x0 && x <= x1 && y >= y0 && y <= y1);
+  // the engine's floor and the landmarks' footprints
+  const foot = new Set();
+  const marks = {};
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < w; x++) {
+      const def = "1234".includes(g[y][x]) && (t.landmarks || {})[g[y][x]];
+      if (!def) continue;
+      const [fw, fh] = def.foot || [1, 1];
+      marks[def.name] = [x - (fw >> 1), y - (fh >> 1), x + (fw >> 1), y + (fh >> 1)];
+      if (def.solid) for (let yy = y - (fh >> 1); yy <= y + (fh >> 1); yy++) for (let xx = x - (fw >> 1); xx <= x + (fw >> 1); xx++) foot.add(key(xx, yy));
+    }
+  }
+  const floor = (x, y) => ".inyz$ck1234".includes(at(x, y)) && !foot.has(key(x, y));
+  /** Steps from (sx, sy) over floor (and through the doors you can open when `doors`), up to `max`. */
+  const walk = (sx, sy, doors, max, ex, ey) => {
+    // (with ex, ey: from every tile of the rect (sx, sy)-(ex, ey) at once, a landmark's footprint)
+    const d = new Map();
+    const q = [];
+    for (let y = sy; y <= (ey == null ? sy : ey); y++) for (let x = sx; x <= (ex == null ? sx : ex); x++) {
+      d.set(key(x, y), 0);
+      q.push([x, y]);
+    }
+    for (let i = 0; i < q.length; i++) {
+      const [x, y] = q[i];
+      const dd = d.get(key(x, y));
+      if (dd >= max) continue;
+      STEPS.forEach(([dx, dy]) => {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (d.has(key(nx, ny)) || !(floor(nx, ny) || (doors && at(nx, ny) === "D"))) return;
+        d.set(key(nx, ny), dd + 1);
+        q.push([nx, ny]);
+      });
+    }
+    return d;
+  };
+  const ex = g[H - 1].indexOf("E");
+  const reach = walk(ex, H - 2, true, Infinity); // from the start tile, one step in
+  // busy: every marker spot (taken or not), every note spot, the story quests' spots, the fishing pole
+  const busy = new Set();
+  for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) if ("ickny$1234".includes(g[y][x])) busy.add(key(x, y));
+  Object.values(t.spots || {}).forEach(([x, y]) => busy.add(key(x, y)));
+  (W.QUESTS || []).forEach((q) => q && q.at === l.id && Array.isArray(q.spot) && busy.add(key(q.spot[0], q.spot[1])));
+  if (W.RIVER && W.RIVER.rod.at === l.id && Array.isArray(t.rod)) busy.add(key(t.rod[0], t.rod[1]));
+  const pool = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) if (floor(x, y) && (reach.get(key(x, y)) || 0) >= WS.minSteps && !busy.has(key(x, y))) pool.push([x, y]);
+  const inPool = new Set(pool.map(([x, y]) => key(x, y)));
+  const anchors = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < w; x++) if (g[y][x] === "z") anchors.push([x, y]);
+  /** How many walkers a greedy pass fits on `tiles` at least `gap` apart (a lower bound on the room there). */
+  const fits = (tiles, gap) => {
+    const got = [];
+    tiles.forEach(([x, y]) => got.every(([a, b]) => (a - x) * (a - x) + (b - y) * (b - y) >= gap * gap) && got.push([x, y]));
+    return got.length;
+  };
+  // every count this building has (day 1 to RULE_DAYS)
+  const counts = [...new Set(Array.from({ length: RULE_DAYS }, (_, i) => W.SETTINGS.walkersPerLocation(l.danger, i + 1)))];
+  const want = (r, n) => (r.all ? 0 : Math.max(r.n || 0, r.share ? Math.ceil(r.share * n) : 0));
+
+  // R3 zones: rects of whole numbers inside the grid; each with floor a walker can start on; each named by a rule
+  Object.entries(zones).forEach(([name, R]) => {
+    if (!Array.isArray(R) || !R.length || R.some((r) => !Array.isArray(r) || r.length !== 4 || r.some((v) => !Number.isInteger(v)))) return err(`${ctx}: walkerZones.${name} must be a list of [x0, y0, x1, y1] rects`);
+    R.forEach(([x0, y0, x1, y1]) => { if (!(x0 >= 0 && y0 >= 0 && x1 < w && y1 < H && x0 <= x1 && y0 <= y1)) err(`${ctx}: walkerZones.${name} rect ${[x0, y0, x1, y1]} is not inside the ${w} x ${H} grid`); });
+    if (!pool.some(([x, y]) => inRects(R, x, y))) err(`${ctx}: walkerZones.${name} has no floor a walker can start on (${WS.minSteps}+ steps in, off the busy tiles)`);
+    if (!rules.some((r) => r.zone === name)) err(`${ctx}: walkerZones.${name} is named by no rule`);
+  });
+  const said = new Set();
+  const closed = new Set(); // tiles no other walker starts on
+  let allZone = null;
+  const areas = rules.map((r, i) => {
+    const c = `${ctx} rule ${i + 1}`;
+    Object.keys(r).forEach((f) => { if (!RULE_FIELDS.includes(f)) err(`${c}: unknown field "${f}" (${RULE_FIELDS.join(", ")})`); });
+    // R1 ids
+    if (!Array.isArray(r.says) || !r.says.length) err(`${c}: says must name the notes it keeps true`);
+    (r.says || []).forEach((id) => {
+      said.add(id);
+      if (id !== N.door.id && !N.notes.some((n) => n.id === id) && !(N.signs || []).some((s) => s.id === id)) err(`${c}: says ${id}, which is not this building's door note, a note or a sign`);
+    });
+    // R3, R5: the shape of a rule
+    const Z = r.zone != null ? zones[r.zone] : null;
+    if (r.zone != null && !Array.isArray(Z)) err(`${c}: zone "${r.zone}" is not in the layout's walkerZones`);
+    if (r.all) {
+      if (!Z) err(`${c}: an all rule needs a zone`);
+      if (["z", "r", "n", "share", "exact", "type", "only", "near"].some((f) => r[f] != null)) err(`${c}: an all rule only names its zone (every walker starts in it)`);
+      if (allZone) err(`${c}: a second all rule`);
+      allZone = Z || [];
+      return [];
+    }
+    if (r.z == null && !Z) err(`${c}: needs anchors (z) or a zone`);
+    if (!(Number.isInteger(r.n) && r.n >= 1)) err(`${c}: n must be a whole number, 1 or more`);
+    if (r.share != null && !(r.share > 0 && r.share <= 1)) err(`${c}: share must be above 0, at most 1`);
+    if (r.r != null && !(Number.isInteger(r.r) && r.r >= 1)) err(`${c}: r must be a whole number of steps, 1 or more`);
+    if (r.type != null && !WT[r.type]) err(`${c}: type "${r.type}" is not a walker kind`);
+    if (r.only && !r.type) err(`${c}: only needs a type`);
+    if (r.only && r.type === Object.keys(WT)[0]) err(`${c}: only cannot hold back ${r.type}, the kind every mix falls back to`);
+    // R4 anchors: real z tiles, inside the zone, by the landmark the rule names
+    const own = (tiles) => tiles.filter(([x, y]) => (!Z || inRects(Z, x, y)) && inPool.has(key(x, y)));
+    let rings = [];
+    if (r.z != null) {
+      if (!Array.isArray(r.z) || !r.z.length || r.z.some((zi) => !Number.isInteger(zi) || zi < 0 || zi >= anchors.length)) {
+        err(`${c}: z ${JSON.stringify(r.z)} must list z tiles by index, 0 to ${anchors.length - 1} (reading order)`);
+        return [];
+      }
+      rings = r.z.map((zi) => {
+        const [ax, ay] = anchors[zi];
+        if (Z && !inRects(Z, ax, ay)) err(`${c}: anchor z${zi} at ${ax},${ay} is outside zone ${r.zone} (did a z tile move?)`);
+        if (r.near != null) {
+          const m = marks[r.near];
+          if (!m) err(`${c}: near "${r.near}" is not a landmark of this layout`);
+          else {
+            const d = Math.max(m[0] - ax, ax - m[2], 0, m[1] - ay, ay - m[3]);
+            if (d > WS.near) err(`${c}: anchor z${zi} at ${ax},${ay} is ${d} tiles from ${r.near} (walkerSpawn.near is ${WS.near}; did a z tile move?)`);
+          }
+        }
+        return own([...walk(ax, ay, false, r.r || WS.ring).keys()].map((k) => k.split(",").map(Number)));
+      });
+      // a rule that names a landmark: one ring round the landmark's footprint (js/building.js planWalkers), every
+      // tile of it within r tiles of the footprint every way
+      const m = r.near != null && marks[r.near];
+      if (m) {
+        const ringTiles = own([...walk(m[0], m[1], false, r.r || WS.ring, m[2], m[3]).keys()].map((k) => k.split(",").map(Number)));
+        ringTiles.forEach(([x, y]) => {
+          const d = Math.max(m[0] - x, x - m[2], 0, m[1] - y, y - m[3]);
+          if (d > (r.r || WS.ring)) err(`${c}: ${x},${y} in its ring is ${d} tiles from ${r.near}`);
+        });
+        if (!ringTiles.length) err(`${c}: no floor a walker can start on within ${r.r || WS.ring} steps of ${r.near}${Z ? " in " + r.zone : ""}`);
+        rings = [ringTiles];
+      }
+    } else if (r.near != null) err(`${c}: near needs anchors (z)`);
+    const area = rings.length ? [].concat(...rings) : own(pool);
+    const shut = r.exact && Z ? own(pool) : area;
+    shut.concat(area).forEach(([x, y]) => closed.add(key(x, y)));
+    // R8 "one by the robot": an exact rule closes the floor round its landmark too (within RULE_BY steps, doors shut)
+    if (r.exact && r.near != null && marks[r.near]) {
+      const [x0, y0, x1, y1] = marks[r.near];
+      const mine = new Set(shut.map(([x, y]) => key(x, y)));
+      const by = new Set();
+      for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) walk(x, y, false, RULE_BY).forEach((_, k) => by.add(k));
+      const open = [...by].filter((k) => inPool.has(k) && !mine.has(k));
+      if (open.length) err(`${c}: exact, but other walkers can start ${RULE_BY} or fewer steps from ${r.near} (${open.slice(0, 4).join(" ")}): give the rule a zone that covers them`);
+    }
+    // R6 room: every count it may need, with a tile to spare for a gun (each anchor its share)
+    const most = Math.max(...counts.map((n) => want(r, n)));
+    if (rings.length) rings.forEach((ring, k) => {
+      const need = Math.ceil(most / rings.length) + 1;
+      if (fits(ring, WS.groupGap) < need) err(`${c}: ${r.near != null && marks[r.near] ? r.near : "anchor z" + r.z[k]} has room for ${fits(ring, WS.groupGap)} walkers ${WS.groupGap} apart within ${r.r || WS.ring} steps${Z ? " in " + r.zone : ""}, needs ${need}`);
+    });
+    else if (fits(area, WS.groupGap) < most + 1) err(`${c}: zone ${r.zone} has room for ${fits(area, WS.groupGap)} walkers ${WS.groupGap} apart, needs ${most + 1}`);
+    return Z ? own(pool) : area;
+  });
+  // R2 coverage: each door fact about walkers, and each red-R graffiti, that puts walkers somewhere is kept by a rule
+  const doorFacts = N.door.facts.filter((f) => RULE_WALKERS.test(f));
+  doorFacts.forEach((f) => { if (RULE_POS.test(f) && !said.has(N.door.id)) err(`${ctx}: the door note says where walkers are ("${f}"), but no rule says ${N.door.id}`); });
+  (N.signs || []).forEach((s) => {
+    if (s.kind === "graffiti" && /red R/.test(s.facts[0]) && s.facts.slice(1).some((f) => RULE_POS.test(f)) && !said.has(s.id)) err(`${ctx}: graffiti ${s.id} says where walkers are, but no rule says it`);
+  });
+  // R6 room for the rest, R7 totals, R8 "most"
+  const rest = pool.filter(([x, y]) => !closed.has(key(x, y)) && (!allZone || inRects(allZone, x, y)));
+  counts.forEach((n) => {
+    const ruled = rules.reduce((a, r) => a + want(r, n), 0);
+    if (ruled > n) err(`${ctx}: the rules want ${ruled} walkers on a day with only ${n}`);
+    if (fits(rest, WS.groupGap) < n - ruled + 1) err(`${ctx}: the other ${n - ruled} walkers have room for ${fits(rest, WS.groupGap)} ${WS.groupGap} apart${allZone ? " in the all zone" : ""}, need ${n - ruled + 1}`);
+    rules.forEach((r, i) => { if (r.share > 0.5 && !(want(r, n) * 2 > n)) err(`${ctx} rule ${i + 1}: share ${r.share} is not "most" of ${n} walkers`); });
+  });
+  // R8 "most": a text the rule keeps that says most of the walkers are there needs a share above half
+  rules.forEach((r, i) => {
+    const facts = (r.says || []).flatMap((id) => (id === N.door.id ? doorFacts : (N.notes.concat(N.signs || []).find((x) => x.id === id) || { facts: [] }).facts));
+    const most = facts.find((f) => /\bmost (of|near|by|at|in)\b/i.test(f));
+    if (most && !(r.share > 0.5)) err(`${ctx} rule ${i + 1}: keeps "${most}", so its share must be above 0.5 (most of them)`);
+  });
+  // R8 overlap: an exact zone holds no other rule's tiles; with an all rule, every rule's tiles are in its zone
+  rules.forEach((r, i) => {
+    if (allZone && areas[i].some(([x, y]) => !inRects(allZone, x, y))) err(`${ctx} rule ${i + 1}: starts walkers outside the all rule's zone`);
+    if (!r.exact) return;
+    const mine = new Set(areas[i].map(([x, y]) => key(x, y)));
+    rules.forEach((o, j) => { if (j !== i && areas[j].some(([x, y]) => mine.has(key(x, y)))) err(`${ctx} rule ${i + 1}: its exact zone overlaps rule ${j + 1}'s`); });
+  });
+}
+
 // buildings
 W.LOCATIONS.filter((l) => l.id !== "base" && !l.outdoor).forEach((l) => {
   if (l.template !== l.id) err(`${l.id}: template must be its own id (is ${l.template})`);
@@ -345,6 +555,8 @@ W.LOCATIONS.filter((l) => l.id !== "base" && !l.outdoor).forEach((l) => {
     const day1 = W.SETTINGS.walkersPerLocation(l.danger, 1);
     if (!(n <= day1)) err(`${l.id}: the door note promises at least ${m[1]} walkers, day 1 has ${day1}`);
   }
+  // where the texts put walkers stays true on every visit (NOTES[id].walkers, js/building.js planWalkers)
+  checkWalkerRules(l, t, N);
 });
 // the key ring: every building hides exactly one key and every stash has exactly one key
 {
@@ -598,12 +810,12 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   const QUESTS = Array.isArray(W.QUESTS) ? W.QUESTS : [];
   const DOG = W.DOG || {};
   const POSES = ["stand", "sit", "work", "read"];
-  const JOBS = ["fence", "cabin", "heal", "lookout"];
+  const JOBS = ["fence", "builds", "cabin", "heal", "lookout"];
   const PRONOUNS = ["she", "he", "they"];
   const WHEN_KEYS = ["day", "stars", "quest", "note", "room", "level", "dog"];
   // CREW_TIPS: every tip id the engine gives (js/crewstate.js), with the placeholders its facts carry. One table for
   // every crew member; the same as CREW_TIP_VARS in tests/validate-text.js and TIP_VARS in tests/validate-crew.js
-  const TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [], full: [] };
+  const TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [], full: [], lanky: [], armored: [], wrecked: ["rooms", "cost"], screamer: [], wreckers: [] };
   // tips the engine gives only with a job (js/crewstate.js TIP_RULES): June's patch-up happens only as her heal tip
   // is told (js/crew.js crewOpen), and the lookout's wave call reads the wave tip (js/crew.js crewLookout)
   const TIP_JOB = { heal: "heal", wave: "lookout" };
@@ -611,8 +823,8 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   // tips of the jobs they hold, and at least one tip)
   const CONTRACT_TIPS = {
     june: ["hungry", "food", "ready", "build", "heal"],
-    tomas: ["van", "vanFree", "fence", "cabin", "crowbar", "fine"],
-    pip: ["wave", "keys", "walkers", "radio", "full"],
+    tomas: ["van", "vanFree", "fence", "cabin", "crowbar", "fine", "lanky", "armored", "wrecked"],
+    pip: ["wave", "keys", "walkers", "radio", "full", "screamer", "wreckers"],
   };
   // the tip ids js/crewstate.js gives: a rule in TIP_RULES and a place in URGENT, REGULAR or FALLBACK (read from its
   // source, as PEOPLE is read from tests/validate-text.js below); null when the source cannot be read
@@ -646,9 +858,9 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
     Object.keys(TIP_VARS).filter((t) => !ENGINE_TIPS.includes(t)).forEach((t) => err(`crew: TIP_VARS has tip ${t}, which js/crewstate.js does not give (a rule in TIP_RULES and a place in URGENT, REGULAR or FALLBACK)`));
   }
   // what a crew member says they did since you last talked (js/crewstate.js crewReportItems), with its placeholders
-  const REPORTS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], hurt: ["who", "cost"], late: ["item"] };
+  const REPORTS = { fence: ["fixed", "scrap"], fenceFree: ["fixed"], cabin: ["fixed", "scrap"], cabinFree: ["fixed"], builds: ["fixed", "scrap"], buildsFree: ["fixed"], hurt: ["who", "cost"], late: ["item"] };
   // the repair jobs whose reports name their fixer: CREW_REPORTS[job] and CREW_REPORTS[job + "Free"]
-  const FIX_JOBS = ["fence", "cabin"];
+  const FIX_JOBS = ["fence", "cabin", "builds"];
   // the words' validator holds the same two tables (CREW_TIP_VARS, CREW_REPORT_VARS): they must agree
   {
     let src = "";
@@ -672,7 +884,7 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
       if (off.length) err(`crew: ${here} here and ${name} in tests/validate-text.js differ at ${off.map((k) => `${k} (here ${k in mine ? canon(mine[k]) : "none"}, there ${k in theirs ? canon(theirs[k]) : "none"})`).join(", ")}: make them the same`);
     });
   }
-  const PLACEHOLDERS = ["food", "days", "room", "needs", "hp", "max", "cost", "holes", "cracks", "broken", "keys", "size", "sides", "fixed", "scrap", "who", "item", "count", "reward", "dog"];
+  const PLACEHOLDERS = ["food", "days", "room", "needs", "hp", "max", "cost", "holes", "cracks", "broken", "keys", "size", "sides", "rooms", "fixed", "scrap", "who", "item", "count", "reward", "dog"];
   const ART_KINDS = ["bag", "photo", "box", "book", "tin", "leash", "toolbox", "radio", "jar", "letter", "seeds", "blanket", "tape", "badge", "wrench"];
   const PERKS = ["foodPerDay", "medsPerDay", "footHp", "vanHp", "scrapPerDay", "crewRepairFree", "lookoutEarly", "healAmount", "crowbarCost"];
   const REWARD_KEYS = ["scrap", "items", "kits", "crowbars", "traps", "perk"];
@@ -1062,5 +1274,122 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   }
 }
 
+// walker kinds (WALKER_TYPES): every row whole; where each kind comes from (walkerWeights over every place, day and
+// road step), the themes, the river's and the alarm's mixes; the scream; the alarm's cap; the wreckers' and builds'
+// numbers. SCALE: every check reads Object.keys(WALKER_TYPES), so a new kind is checked with no change here.
+{
+  const WT = W.WALKER_TYPES || {};
+  const kinds = Object.keys(WT);
+  const fin = (v) => typeof v === "number" && Number.isFinite(v);
+  const days = Array.from({ length: 60 }, (_, i) => i + 1);
+  ["walker", "runner", "brute"].forEach((id) => { if (!WT[id]) err(`WALKER_TYPES: no ${id} (its id is permanent: saves, snapshots and looks key on it)`); });
+  if (kinds[0] !== "walker") err(`WALKER_TYPES: the first kind must be walker (the fallback), not ${kinds[0]}`);
+  kinds.forEach((id) => {
+    const T = WT[id];
+    const c = `WALKER_TYPES.${id}`;
+    if (!/^[a-z][a-zA-Z]*$/.test(id)) err(`${c}: an id is lower camel case letters`);
+    if (typeof T.name !== "string" || !T.name.trim()) err(`${c}: no name`);
+    ["hp", "speed", "r", "bite", "reach"].forEach((k) => { if (!fin(T[k]) || T[k] <= 0) err(`${c}: ${k} must be a number above 0 (${T[k]})`); });
+    ["fenceDps", "scrap", "knock"].forEach((k) => { if (!fin(T[k]) || T[k] < 0) err(`${c}: ${k} must be a number, 0 or more (${T[k]})`); });
+    if (!(T.r < 0.5)) err(`${c}: r ${T.r} must be under 0.5 (a walker fits a one-tile doorway)`);
+    if (!Number.isInteger(T.scrap)) err(`${c}: scrap must be a whole number`);
+    if (T.scream != null && typeof T.scream !== "boolean") err(`${c}: scream must be true or false`);
+    if (!T.mix || typeof T.mix.building !== "function" || typeof T.mix.yard !== "function") err(`${c}: mix needs building(danger, day) and yard(day, heavy)`);
+    const R = T.road;
+    if (!R) err(`${c}: no road block`);
+    else {
+      ["speed", "r"].forEach((k) => { if (!fin(R[k]) || R[k] <= 0) err(`${c}.road: ${k} must be a number above 0`); });
+      ["dmg", "scrap", "reach"].forEach((k) => { if (!fin(R[k]) || R[k] < 0) err(`${c}.road: ${k} must be a number, 0 or more`); });
+      if (!Array.isArray(R.w) || R.w.length !== 2 || !R.w.every((v) => fin(v) && v >= 0) || !(R.w[0] + R.w[1] > 0)) err(`${c}.road: w must be [base, perN], both 0 or more, not both 0`);
+      if (R.armor != null && !(fin(R.armor) && R.armor >= 0 && R.armor <= 1)) err(`${c}.road: armor must be a share from 0 to 1 (${R.armor})`);
+    }
+  });
+  // the weights: finite, above 0, known kinds, never empty
+  const checkW = (ctx, w) => {
+    const ks = Object.keys(w || {});
+    if (!ks.length) return err(`${ctx}: no walker kind comes`);
+    ks.forEach((k) => { if (!WT[k]) err(`${ctx}: unknown kind ${k}`); else if (!fin(w[k]) || w[k] <= 0) err(`${ctx}: ${k} weighs ${w[k]}`); });
+    const pick = [0, 0.5, 0.999999].map((r) => W.pickWalkerType(w, () => r));
+    pick.forEach((k) => { if (!w[k]) err(`${ctx}: pickWalkerType gave ${k}, not one of its kinds`); });
+  };
+  const roadSeen = new Set();
+  for (let n = 0; n <= 20; n++) {
+    const w = W.walkerWeights("road", { n });
+    checkW(`walkerWeights road n ${n}`, w);
+    kinds.forEach((k) => { if (w[k]) roadSeen.add(k); });
+  }
+  kinds.forEach((k) => { if (!roadSeen.has(k)) err(`walkerWeights road: a ${k} never comes on the road`); });
+  const RM = W.RIVER.walkerMix || {};
+  Object.entries(RM).forEach(([k, m]) => {
+    if (!WT[k]) err(`RIVER.walkerMix: unknown kind ${k}`);
+    if (!Array.isArray(m) || m.length !== 2 || !fin(m[0]) || m[0] <= 0 || !Number.isInteger(m[1]) || m[1] < 1) err(`RIVER.walkerMix.${k}: want [weight above 0, from day 1 or later]`);
+  });
+  days.forEach((day) => checkW(`walkerWeights river day ${day}`, W.walkerWeights("river", { day })));
+  const places = W.LOCATIONS.filter((l) => l.id !== "base");
+  const A = W.ALARM || {};
+  Object.entries(A.mix || {}).forEach(([k, v]) => { if (!WT[k]) err(`ALARM.mix: unknown kind ${k}`); else if (!fin(v) || v < 0) err(`ALARM.mix.${k}: ${v}`); });
+  const byDay10 = new Set();
+  places.forEach((l) => days.forEach((day) => {
+    const o = { danger: l.danger, day, place: l.id };
+    const b = W.walkerWeights("building", o);
+    checkW(`walkerWeights building ${l.id} day ${day}`, b);
+    checkW(`walkerWeights alarm ${l.id} day ${day}`, W.walkerWeights("alarm", o));
+    if (day <= 10 && !l.outdoor) Object.keys(b).forEach((k) => byDay10.add(k));
+  }));
+  kinds.forEach((k) => { if (!byDay10.has(k)) err(`walkerWeights building: no building has a ${k} by day 10`); });
+  places.filter((l) => l.danger === 1 && !l.outdoor).forEach((l) => {
+    const ks = Object.keys(W.walkerWeights("building", { danger: 1, day: 1, place: l.id }));
+    if (ks.join() !== "walker") err(`walkerWeights building ${l.id}: a danger-1 place on day 1 has ${ks.join(", ")}, want plain walkers only`);
+  });
+  days.forEach((day) => ["some", "many"].forEach((size) => checkW(`walkerWeights yard day ${day} ${size}`, W.walkerWeights("yard", { day, size }))));
+  if (Object.keys(W.walkerWeights("yard", { day: 1, size: "some" })).join() !== "walker") err("walkerWeights yard: a small wave on day 1 is plain walkers only");
+  // the themed places: known places and kinds; there the themed kind is the likeliest after the plain walker on day 5
+  Object.entries(W.WALKER_THEMES || {}).forEach(([id, theme]) => {
+    const l = W.LOCATIONS.find((x) => x.id === id);
+    if (!l) return err(`WALKER_THEMES: no place ${id}`);
+    const w = W.walkerWeights("building", { danger: l.danger, day: 5, place: id });
+    Object.entries(theme).forEach(([k, m]) => {
+      if (!WT[k]) return err(`WALKER_THEMES.${id}: unknown kind ${k}`);
+      if (!fin(m) || m <= 0) err(`WALKER_THEMES.${id}.${k}: ${m}`);
+      Object.keys(w).filter((o) => o !== "walker" && !theme[o]).forEach((o) => {
+        if (!(w[k] > w[o])) err(`WALKER_THEMES.${id}: on day 5 a ${o} (${w[o].toFixed(3)}) is at least as likely as its ${k} (${(w[k] || 0).toFixed(3)})`);
+      });
+    });
+  });
+  Object.keys(W.WALKER_HP_STEP || {}).forEach((where) => days.forEach((day) => {
+    const m = W.walkerHpMult(where, day);
+    if (!fin(m) || m < 1) err(`walkerHpMult ${where} day ${day}: ${m}`);
+  }));
+  // the scream
+  const SC = W.SCREAM || {};
+  if (!(fin(SC.spot) && SC.spot > 0 && fin(SC.radius) && SC.radius > SC.spot)) err("SCREAM: want 0 < spot < radius (tiles)");
+  if (!(fin(SC.mult) && SC.mult > 1 && SC.mult <= 2)) err("SCREAM: mult must be above 1, at most 2");
+  if (!(fin(SC.secs) && SC.secs > 0 && fin(SC.cooldown) && SC.cooldown >= SC.secs)) err("SCREAM: want 0 < secs <= cooldown");
+  if (!(fin(SC.yell) && SC.yell > 0 && SC.yell < SC.cooldown)) err("SCREAM: want 0 < yell < cooldown");
+  // the alarm: its timing, and a cap above any building's own walkers
+  ["first", "gap", "minGap", "farFrom"].forEach((k) => { if (!fin(A[k]) || A[k] <= 0) err(`ALARM.${k} must be above 0`); });
+  if (!(A.gap >= A.minGap) || !fin(A.speedup) || A.speedup < 0) err("ALARM: want gap >= minGap and speedup >= 0");
+  let most = 0;
+  for (let d = 1; d <= Math.max(...W.LOCATIONS.map((l) => l.danger)); d++) days.forEach((day) => { most = Math.max(most, W.SETTINGS.walkersPerLocation(d, day)); });
+  if (!Number.isInteger(A.cap) || A.cap < most + 6) err(`ALARM.cap ${A.cap}: want a whole number, at least the most walkersPerLocation (${most}) + 6`);
+  // the wreckers, the builds, the breach and the spawn spacing
+  const D = W.DEFENSE;
+  if (D.fenceDps) err("DEFENSE.fenceDps: claw damage lives in WALKER_TYPES[].fenceDps now");
+  if (!(fin(D.breachRange) && D.breachRange > 0)) err("DEFENSE.breachRange must be above 0");
+  if (!(fin(D.wreckShare) && D.wreckShare >= 0 && D.raidShare + D.wreckShare <= 1)) err("DEFENSE: want wreckShare >= 0 and raidShare + wreckShare <= 1");
+  if (!(fin(D.wreckSeconds) && D.wreckSeconds > 0 && fin(D.wreckProvoke) && D.wreckProvoke > 0)) err("DEFENSE: wreckSeconds and wreckProvoke must be above 0");
+  if (!(fin(D.wreckDps) && D.wreckDps >= 0)) err("DEFENSE.wreckDps must be 0 or more");
+  if (!(fin(D.vanWreckFloor) && D.vanWreckFloor > 0 && D.vanWreckFloor < 1)) err("DEFENSE.vanWreckFloor must be between 0 and 1");
+  const levels = Math.max(...Object.values(W.BASE_ROOMS).map((r) => r.levels.length));
+  const bh = D.buildHp || [];
+  if (bh.length < levels + 1 || bh[0] !== 0 || bh.slice(1).some((v, i) => !fin(v) || v <= bh[i])) err(`DEFENSE.buildHp: want 0 then one rising number per room level (${levels})`);
+  if (!Number.isInteger(W.SETTINGS.buildRepairScrap) || W.SETTINGS.buildRepairScrap < 1) err("SETTINGS.buildRepairScrap must be a whole number, 1 or more");
+  if (typeof W.SETTINGS.walkerGore !== "boolean") err("SETTINGS.walkerGore must be true or false");
+  const WS = W.SETTINGS.walkerSpawn || {};
+  ["minSteps", "gap", "groupGap", "ring", "near"].forEach((k) => { if (!fin(WS[k]) || WS[k] <= 0) err(`SETTINGS.walkerSpawn.${k} must be above 0`); });
+  if (!(WS.gap >= WS.groupGap)) err("SETTINGS.walkerSpawn: gap must be at least groupGap");
+  ["footDamageWalker", "footDamageRunner", "footDamageBrute"].forEach((k) => { if (W.SETTINGS[k] != null) err(`SETTINGS.${k}: a bite lives in WALKER_TYPES[].bite now`); });
+}
+
 if (errors.length) { errors.forEach((e) => console.log("ERROR " + e)); process.exit(1); }
-console.log(`OK: world has ${W.LOCATIONS.length} locations, ${Object.keys(W.TEMPLATES).length} layouts (${Object.keys(ART).length} landmark arts, ${Object.keys(DECOR).length} decor kinds), ${Object.keys(W.ITEMS).length} items, ${Object.keys(W.BASE_ROOMS).length} rooms, ${Object.keys(W.CREW || {}).length} crew, ${(W.QUESTS || []).length} crew quests.`);
+console.log(`OK: world has ${W.LOCATIONS.length} locations, ${Object.keys(W.TEMPLATES).length} layouts (${Object.keys(ART).length} landmark arts, ${Object.keys(DECOR).length} decor kinds), ${Object.keys(W.ITEMS).length} items, ${Object.keys(W.BASE_ROOMS).length} rooms, ${Object.keys(W.CREW || {}).length} crew, ${(W.QUESTS || []).length} crew quests, ${Object.keys(W.WALKER_TYPES || {}).length} walker kinds.`);

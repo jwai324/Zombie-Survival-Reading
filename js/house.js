@@ -230,6 +230,7 @@
       };
       this.setHouse(inHouse, { eave: 1, pitch: 0.42, rise: 1.05, roofTex: "hRoof", ceiling: "hCeiling" });
       this.raidToast = false;
+      this.raidToastAt = null;
       this.readSpot = null;
       this.houseStrength();
     },
@@ -352,6 +353,9 @@
       const gh = this.gh;
       const m = this.solidMask();
       const blocks = this.barriers || {};
+      // outside the fence, the holes too far from it stay shut to it here too (js/yard.js yardPathBlock)
+      const far = this.yardPathBlock(z);
+      const shut = far && far.length ? new Set(far) : null;
       const isBarrier = (x, y) => {
         const b = blocks[x + "," + y];
         return !!b && b.hp > 0 && !(b.door && b.door.open);
@@ -377,7 +381,7 @@
           const ny = y + dy;
           if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
           const k = ny * gw + nx;
-          if (prev[k] !== -2 || (m[k] && !isBarrier(nx, ny))) continue;
+          if (prev[k] !== -2 || (shut && shut.has(k)) || (m[k] && !isBarrier(nx, ny))) continue;
           prev[k] = v;
           q.push(k);
         }
@@ -490,6 +494,7 @@
 
     /* ---------- Raiders: walkers that make for the cabin and wait inside ---------- */
     yardWalkerGoal(z) {
+      if (z.wreck) return this.wreckGoal(z); // a wrecker: the van or a build once inside the fence (js/yardwreck.js)
       if (!z.raid) return null;
       const p = this.player;
       // you are inside, or close: it comes for you
@@ -515,11 +520,30 @@
       if (!z.inHouse && this.indoorAt(z.x, z.y)) {
         z.inHouse = true;
         if (!this.raidToast) {
+          // once a wave (yard.js updateYard clears raidToast when a wave starts)
           this.raidToast = true;
+          this.raidToastAt = this.time; // it counts as the yard's "waiting in the cabin" cue (js/yard.js)
           this.toast("Walkers got into the cabin. They wait in there: clear it out.", 3.5);
         }
       }
       return z.raidSpot;
+    },
+    /** Any walker standing inside the cabin. Raiders wait in there out of sight, so the wave label says so while you
+        are out of it (yard.js updateYard): where they are, never how many (the owner took the counts out). */
+    cabinWalkers() {
+      return !!this.house && this.walkers.some((z) => this.inCabin(z.x, z.y));
+    },
+    /** Inside the cabin's walls: under its roof, off the porch (one on the porch is in plain sight). */
+    inCabin(x, y) {
+      return this.indoorAt(x, y) && (this.houseRoom || {})[Math.floor(x) - this.hx + "," + (Math.floor(y) - this.hy)] !== "porch";
+    },
+    /** The wave is held open by walkers in the cabin: all of its walkers are out and every one left stands inside
+        it (a raider at its spot waits there until you come in or near). The cues say so: a toast every
+        CABIN_CUE_SECS (yard.js), the van, the bed and the computer. */
+    cabinHoldsWave() {
+      const ph = this.phase;
+      if (!ph || ph.kind !== "wave" || ph.spawned < ph.total || !this.walkers.length || !this.house) return false;
+      return this.walkers.every((z) => this.inCabin(z.x, z.y));
     },
 
     /* ---------- What E does in and around the cabin ---------- */
@@ -542,7 +566,7 @@
       if (f.kind === "pane") return this.repairBarrier(f.obj);
       const name = f.obj;
       const busy = () => {
-        this.toast("Not now: there are walkers about.", 2.5);
+        this.toast(this.cabinHoldsWave() ? "Not now: walkers are still in the cabin." : "Not now: there are walkers about.", 2.5);
         Audio().play("wrong");
       };
       if (name === "bell") {
@@ -595,7 +619,7 @@
       const D = W().DEFENSE;
       const inWave = this.phase && this.phase.kind === "wave";
       if (f.kind === "pane") return "Press E to fix the window (" + W().SETTINGS.houseRepairScrap + " scrap)";
-      const later = " (clear the wave first)";
+      const later = inWave && this.cabinHoldsWave() ? " (walkers are still in the cabin)" : " (clear the wave first)";
       switch (f.obj) {
         case "bell":
           return inWave ? "The dinner bell" : this.yardHold ? "The dinner bell (after the basics)" : "Press E to ring the dinner bell (the next wave comes now)";
@@ -608,6 +632,8 @@
         case "radio":
           if (inWave) return "The radio and June's ledger" + later;
           if (!(State().save.rooms.radio > 0)) return "Press E to read June's journal (the radio needs the Radio room)";
+          // a wrecked Radio tower hears nothing until it is fixed (js/yardwreck.js)
+          if (!(State().roomLevel("radio") > 0)) return "Press E to read June's journal (the radio tower is wrecked: fix it in the yard)";
           return State().radioWaiting() ? "Press E to tune in: today's news" : "Press E to read June's journal and the radio again";
         case "typewriter":
           return inWave ? "The typewriter" + later : "Press E to practice typing";

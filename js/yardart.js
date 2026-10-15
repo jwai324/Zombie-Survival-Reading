@@ -124,6 +124,57 @@
     ctx.fillRect(x, y, w, h);
   }
 
+  /* ---------- A build the wreckers clawed (opts.dmg from js/yard.js plotFrame; js/yardwreck.js) ----------
+     1 cracked (under half strength), 2 wrecked. Drawn over the face or sprite it belongs to, on its own pixels only
+     (source-atop: a sprite's see-through parts stay see-through): grime, cracks and claw gouges; wrecked is darker,
+     with more of them and splintered holes. Every yWall face, low face and yard sprite takes it. */
+  function crackOverlay(ctx, w, h, dmg) {
+    const r = rng(53 + w * 3 + h);
+    const k = Math.max(1, Math.max(w, h) / 96); // thicker strokes on the big sprites
+    ctx.save();
+    ctx.globalCompositeOperation = "source-atop";
+    ctx.fillStyle = dmg >= 2 ? "rgba(24,18,12,0.4)" : "rgba(24,18,12,0.16)";
+    ctx.fillRect(0, 0, w, h);
+    const n = dmg >= 2 ? 4 : 2;
+    for (let i = 0; i < n; i++) {
+      let x = w * (0.1 + r() * 0.8);
+      let y = h * r() * 0.35;
+      const pts = [[x, y]];
+      for (let j = 0; j < 4; j++) {
+        x += (r() - 0.5) * w * 0.3;
+        y += h * (0.12 + r() * 0.14);
+        pts.push([x, y]);
+      }
+      line(ctx, pts, INK, 2.4 * k);
+    }
+    const gouges = dmg >= 2 ? 2 : 1;
+    for (let i = 0; i < gouges; i++) {
+      const x0 = w * (0.12 + r() * 0.55);
+      const y0 = h * (0.15 + r() * 0.45);
+      for (let j = 0; j < 3; j++) {
+        const x = x0 + j * 5 * k;
+        line(ctx, [[x, y0], [x + 8 * k, y0 + 17 * k]], INK, 2.6 * k);
+        line(ctx, [[x + 1.6 * k, y0], [x + 9.6 * k, y0 + 17 * k]], "rgba(255,255,255,0.4)", 1.1 * k);
+      }
+    }
+    if (dmg >= 2) {
+      for (let i = 0; i < 2; i++) {
+        const cx = w * (0.22 + r() * 0.56);
+        const cy = h * (0.25 + r() * 0.5);
+        const q = Math.min(w, h) * (0.1 + r() * 0.06);
+        poly(ctx, [[cx - q, cy - q * 0.4], [cx - q * 0.2, cy - q], [cx + q * 0.7, cy - q * 0.6], [cx + q, cy + q * 0.3], [cx + q * 0.1, cy + q], [cx - q * 0.8, cy + q * 0.6]], "#1c1814", 2 * k);
+      }
+    }
+    ctx.restore();
+  }
+  /** A texture drawing (ctx, w, h, palette, opts) that shows a build's damage when opts.dmg is set. */
+  function clawedTex(fn) {
+    return (ctx, w, h, p, o) => {
+      fn(ctx, w, h, p, o);
+      if (o && o.dmg) crackOverlay(ctx, w, h, o.dmg);
+    };
+  }
+
   /* ---------- Wall faces: yWall { m, c, f, s, p } ----------
      m: material (plank, metal, siding, brick, canvas, crates, coop, plastic, gen); c: its color;
      f: what is on it (win, winLit, winLab, radio, bench, door, doorCross, roll, shelf, tools,
@@ -442,15 +493,18 @@
     fitText(ctx, String(s.t || ""), (n * w) / 2 - i * w, (y0 + y1) / 2, n * w - 14, 17, lit ? "#b3261e" : INK);
     ctx.restore();
   }
-  D.registerTexture("yWall", (ctx, w, h, p, o) => {
-    (MATERIAL[o.m] || MATERIAL.plank)(ctx, w, h, o.c);
-    if (o.f && FEATURE[o.f]) FEATURE[o.f](ctx, w, h, o);
-    if (o.s) signSlice(ctx, w, o.s);
-    // ink at the top and bottom of every face; sides only where the wall ends (a wide door or sign runs on)
-    ctx.fillStyle = INK;
-    ctx.fillRect(0, 0, w, 2);
-    ctx.fillRect(0, h - 2, w, 2);
-  });
+  D.registerTexture(
+    "yWall",
+    clawedTex((ctx, w, h, p, o) => {
+      (MATERIAL[o.m] || MATERIAL.plank)(ctx, w, h, o.c);
+      if (o.f && FEATURE[o.f]) FEATURE[o.f](ctx, w, h, o);
+      if (o.s) signSlice(ctx, w, o.s);
+      // ink at the top and bottom of every face; sides only where the wall ends (a wide door or sign runs on)
+      ctx.fillStyle = INK;
+      ctx.fillRect(0, 0, w, 2);
+      ctx.fillRect(0, h - 2, w, 2);
+    })
+  );
 
   /* ---------- Roofs and gables (named; the roof is stretched from the eave up to the ridge) ---------- */
   function tin(ctx, w, h, c) {
@@ -848,7 +902,7 @@
       line(ctx, [[w - 7, h - 18], [w - 7, 10]], "#1f2023", 2);
     },
   };
-  Object.entries(LOW).forEach(([name, fn]) => D.registerTexture(name, fn));
+  Object.entries(LOW).forEach(([name, fn]) => D.registerTexture(name, clawedTex(fn)));
 
   /* ---------- Ground: a staked lot (yLot + edge bits n1 e2 s4 w8) ---------- */
   function lotGround(ctx, w, h, mask) {
@@ -878,9 +932,13 @@
 
   /* ---------- Sprites (bottom edge = the ground) ---------- */
   const SPR = {};
-  const sprite = (name, w, h, fn) => {
+  /** Register a yard sprite; `own`: it draws a build's damage (opts.dmg) itself, else the cracks go over it. */
+  const sprite = (name, w, h, fn, own) => {
     SPR[name] = 1;
-    D.registerSprite(name, w, h, fn);
+    D.registerSprite(name, w, h, own ? fn : (ctx, sw, sh, o) => {
+      fn(ctx, sw, sh, o);
+      if (o && o.dmg) crackOverlay(ctx, sw, sh, o.dmg);
+    });
   };
   /* The lot's sign: a board on two posts with the room's name, big. */
   sprite("ySign", 224, 176, (ctx, w, h, o) => {
@@ -894,23 +952,86 @@
     fitText(ctx, String(o.t || ""), w / 2, 62, w - 40, 62, INK);
     rivets(ctx, [[18, 16], [w - 18, 16]]);
   });
-  /* A built room's plaque: its name, big, and how many levels are built. */
-  sprite("yPlaque", 208, 156, (ctx, w, h, o) => {
-    shadow(ctx, w / 2, h - 3, 30);
-    box(ctx, w / 2 - 8, 84, 16, h - 86, "#6b5034", 3.5);
-    box(ctx, 5, 5, w - 10, 84, "#f1e8d0", 5);
-    fitText(ctx, String(o.t || ""), w / 2, 34, w - 24, 48, INK);
-    const n = Math.max(0, Math.min(3, o.n | 0));
-    for (let i = 0; i < 3; i++) {
-      const x = w / 2 + (i - 1) * 28;
-      ctx.beginPath();
-      for (let k = 0; k < 10; k++) {
-        const a = -Math.PI / 2 + (k * Math.PI) / 5;
-        const rr = k % 2 ? 4.5 : 10;
-        ctx[k ? "lineTo" : "moveTo"](x + Math.cos(a) * rr, 72 + Math.sin(a) * rr);
+  /* A built room's plaque: its name, big, and how many levels are built. Cracked when the build is (dmg 1); wrecked
+     (dmg 2): cracked, and red and white tape across it reading WRECKED, so it reads from across the yard. */
+  sprite(
+    "yPlaque",
+    208,
+    156,
+    (ctx, w, h, o) => {
+      shadow(ctx, w / 2, h - 3, 30);
+      box(ctx, w / 2 - 8, 84, 16, h - 86, "#6b5034", 3.5);
+      box(ctx, 5, 5, w - 10, 84, "#f1e8d0", 5);
+      fitText(ctx, String(o.t || ""), w / 2, 34, w - 24, 48, INK);
+      const n = Math.max(0, Math.min(3, o.n | 0));
+      for (let i = 0; i < 3; i++) {
+        const x = w / 2 + (i - 1) * 28;
+        ctx.beginPath();
+        for (let k = 0; k < 10; k++) {
+          const a = -Math.PI / 2 + (k * Math.PI) / 5;
+          const rr = k % 2 ? 4.5 : 10;
+          ctx[k ? "lineTo" : "moveTo"](x + Math.cos(a) * rr, 72 + Math.sin(a) * rr);
+        }
+        ctx.closePath();
+        fillInk(ctx, i < n ? "#d9a21b" : "#cfc6b0", 2.5);
       }
-      ctx.closePath();
-      fillInk(ctx, i < n ? "#d9a21b" : "#cfc6b0", 2.5);
+      if (o.dmg) crackOverlay(ctx, w, h, o.dmg);
+      if (o.dmg === 2) {
+        ctx.save();
+        ctx.translate(w / 2, 50);
+        ctx.rotate(-0.16);
+        ctx.beginPath();
+        ctx.rect(-w / 2 - 6, -15, w + 12, 30);
+        ctx.fillStyle = "#f1e8d0";
+        ctx.fill();
+        ctx.save();
+        ctx.clip();
+        ctx.fillStyle = "#c0302a";
+        for (let x = -w / 2 - 40; x < w / 2 + 40; x += 22) {
+          ctx.beginPath();
+          ctx.moveTo(x, -15);
+          ctx.lineTo(x + 11, -15);
+          ctx.lineTo(x - 4, 15);
+          ctx.lineTo(x - 15, 15);
+          ctx.closePath();
+          ctx.fill();
+        }
+        ctx.restore();
+        ink(ctx, 3);
+        ctx.strokeRect(-w / 2 - 6, -15, w + 12, 30);
+        box(ctx, -58, -11, 116, 22, "#f1e8d0", 2.5);
+        fitText(ctx, "WRECKED", 0, 0, 108, 20, "#b3261e");
+        ctx.restore();
+      }
+    },
+    true
+  );
+  /* What is left on a wrecked build's plot (never solid): broken boards, a bent sheet, rubble; v 0..2 varies it. */
+  sprite("yDebris", 128, 72, (ctx, w, h, o) => {
+    const v = (o.v | 0) % 3;
+    const r = rng(91 + v * 7);
+    shadow(ctx, w / 2, h - 4, 52);
+    // rubble
+    for (let i = 0; i < 7; i++) {
+      const x = 14 + r() * (w - 28);
+      const s = 5 + r() * 7;
+      poly(ctx, [[x - s, h - 4], [x - s * 0.4, h - 4 - s * 1.1], [x + s * 0.6, h - 4 - s * 0.8], [x + s, h - 4]], shade("#8a8378", Math.round(r() * 30 - 15)), 2);
+    }
+    // broken boards at angles, splintered ends
+    const planks = v === 1 ? 2 : 3;
+    for (let i = 0; i < planks; i++) {
+      ctx.save();
+      ctx.translate(20 + r() * (w - 40), h - 12 - r() * 14);
+      ctx.rotate((r() - 0.5) * 1.2);
+      const L = 38 + r() * 30;
+      poly(ctx, [[-L / 2, -4], [L / 2 - 6, -4], [L / 2, -1], [L / 2 - 4, 1], [L / 2, 4], [-L / 2, 4]], shade("#9a7650", Math.round(r() * 24 - 12)), 2.5);
+      line(ctx, [[-L / 2 + 4, 0], [L / 2 - 10, 0]], "rgba(0,0,0,0.3)", 1);
+      ctx.restore();
+    }
+    if (v !== 0) {
+      // a bent sheet of tin
+      poly(ctx, [[w * 0.55, h - 6], [w * 0.62, h - 30], [w * 0.8, h - 26], [w * 0.86, h - 6]], "#8f969c", 2.5);
+      line(ctx, [[w * 0.64, h - 24], [w * 0.8, h - 20]], "rgba(0,0,0,0.3)", 1.5);
     }
   });
   sprite("yStake", 32, 72, (ctx, w, h) => {

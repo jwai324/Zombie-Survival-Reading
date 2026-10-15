@@ -93,7 +93,7 @@ const PAGE = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m)
 // the fact files: js/layouts.js, js/world.js and every js/story*.js the page loads (a split fact file, story-quests2.js,
 // is run too; tests/validate-world.js reads the same list), then the engine
 const FACT_FILES = ["layouts.js", "world.js"].concat(PAGE.filter((f) => /^story[\w-]*\.js$/.test(f)));
-const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
+const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
 const scripts = PAGE.filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -113,6 +113,8 @@ Object.keys(ZSR.LAYOUT_ART || {}).forEach((k) => D.hasSprite(k) || D.registerSpr
 I.init(element("canvas"), {});
 S.newGame(1, "Test");
 const OPAQUE = I.OPAQUE;
+/** A walker at the player: within 1.2 tiles, or biting (a lanky bites from farther: WORLD.WALKER_TYPES.lanky.reach). */
+const atPlayer = (z, p) => Math.hypot(z.x - p.x, z.y - p.y) < Math.max(1.2, (z.reach || 0) + 0.05);
 const SIDES = { n: [0, -1], s: [0, 1], w: [-1, 0], e: [1, 0] };
 /** Render a few frames from the player's spot looking four ways (the DDA, planes, faces, sprites). */
 function renderAround(ctx) {
@@ -383,6 +385,188 @@ try {
   err(`explored map in the save: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
 }
 
+/* ---------- Where a building's walkers start (js/building.js planWalkers, WORLD.NOTES[id].walkers) ----------
+   Days 1 and 40, SPAWN_TRIPS fresh trips into every building with a gun lying in it: the day's count; each walker on
+   its own tile, walkerSpawn.minSteps or more steps in, groupGap or more from the next, never on an item, cache or
+   stash spot, a note spot (any level), the key, a scrap pile, a landmark, the gun, the fishing pole or a story
+   quest's spot, nor in earshot of the door (Interior.HEAR in a straight line: it would wake as you come in); and
+   every rule of its notes holds (the rings and zones are worked out here from the layout, with the doors shut):
+   its count in its rings or zone (share), each anchor its part, a named landmark's walkers within r tiles of it
+   ("one by the robot"), exact, all, type and only (the police: exactly one brute, in its garage ring).
+   Math.random is seeded here, so every run checks the same visits. */
+const SPAWN_TRIPS = 6; // SCALE: fresh visits per building and day (each one an enter(): about 5 ms)
+/** Why a walker the alarm just brought starts where it should not ("" when it is fine; js/building.js updateAlarm):
+    it comes through the way out, or from floor it can walk to you from with the doors as they stand (walkers
+    cannot open doors); only when no such floor lies farther than ALARM.farFrom from you, from floor walkable from
+    the way in through the doors, never inside a locked room. */
+function alarmStartWhyNot(z) {
+  const k = Math.floor(z.x) + "," + Math.floor(z.y);
+  if (Math.hypot(z.x - I.startPos[0], z.y - I.startPos[1]) < 1) return ""; // through the way out
+  const p = I.player;
+  const here = I.reachable(Math.floor(p.x), Math.floor(p.y), false);
+  if (here.has(k)) return "";
+  if (I.floors.some(([x, y]) => here.has(Math.floor(x) + "," + Math.floor(y)) && Math.hypot(x - p.x, y - p.y) > W.ALARM.farFrom)) return "behind a shut door, though there is floor on your side of the doors";
+  return I.reachable(Math.floor(I.startPos[0]), Math.floor(I.startPos[1]), true).has(k) ? "" : "inside a locked room, where it can never get to you";
+}
+{
+  const ctxMath = vm.runInContext("Math", sb);
+  const realRandom = ctxMath.random;
+  ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(3131);
+  const day0 = S.save.day;
+  const where0 = S.save.weapons.where;
+  const WS = W.SETTINGS.walkerSpawn;
+  const inRects = (R, x, y) => R.some(([x0, y0, x1, y1]) => x >= x0 && x <= x1 && y >= y0 && y <= y1);
+  try {
+    W.LOCATIONS.filter((l) => l.id !== "base" && !l.outdoor).forEach((loc) => {
+      const ctx = `${loc.id} walkers`;
+      const lay = I.layoutFor(loc);
+      const g = lay.grid;
+      const rules = W.NOTES[loc.id].walkers || [];
+      const zones = lay.walkerZones || {};
+      // the layout's floor (a solid landmark's footprint blocked), its z anchors, its busy tiles
+      const foot = new Set();
+      const anchors = [];
+      const busy0 = new Set();
+      const marks = {}; // landmark name -> its footprint [x0, y0, x1, y1]
+      g.forEach((row, y) => [...row].forEach((ch, x) => {
+        if (ch === "z") anchors.push([x, y]);
+        if ("ickny$1234".includes(ch)) busy0.add(x + "," + y);
+        const def = "1234".includes(ch) && lay.landmarks[ch];
+        if (def) {
+          const [fw, fh] = def.foot || [1, 1];
+          marks[def.name] = [x - (fw >> 1), y - (fh >> 1), x + (fw >> 1), y + (fh >> 1)];
+          if (def.solid) for (let yy = y - (fh >> 1); yy <= y + (fh >> 1); yy++) for (let xx = x - (fw >> 1); xx <= x + (fw >> 1); xx++) foot.add(xx + "," + yy);
+        }
+      }));
+      Object.values(lay.spots || {}).forEach(([x, y]) => busy0.add(x + "," + y));
+      (W.QUESTS || []).forEach((q) => q.at === loc.id && Array.isArray(q.spot) && busy0.add(q.spot.join(",")));
+      const floor = (x, y) => g[y] && ".inyz$ck1234".includes(g[y][x] || "#") && !foot.has(x + "," + y);
+      const ring = (ax, ay, r, bx, by) => {
+        // (with bx, by: from every tile of a landmark's footprint at once)
+        const d = new Map();
+        const q = [];
+        for (let y = ay; y <= (by == null ? ay : by); y++) for (let x = ax; x <= (bx == null ? ax : bx); x++) {
+          d.set(x + "," + y, 0);
+          q.push([x, y]);
+        }
+        for (let i = 0; i < q.length; i++) {
+          const [x, y] = q[i];
+          if (d.get(x + "," + y) >= r) continue;
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const k = x + dx + "," + (y + dy);
+            if (!d.has(k) && floor(x + dx, y + dy)) {
+              d.set(k, d.get(x + "," + y) + 1);
+              q.push([x + dx, y + dy]);
+            }
+          }
+        }
+        return d;
+      };
+      [1, 40].forEach((day) => {
+        S.save.day = day;
+        const n = W.SETTINGS.walkersPerLocation(loc.danger, day);
+        for (let trip = 0; trip < SPAWN_TRIPS; trip++) {
+          const c = `${ctx} (day ${day}, visit ${trip + 1})`;
+          S.startTrip();
+          S.save.weapons.where = { bow: loc.id };
+          I.enter(loc);
+          I.stop();
+          const busy = new Set(busy0);
+          [I.gunPickup, I.rodPickup].forEach((o) => o && busy.add(Math.floor(o.x) + "," + Math.floor(o.y)));
+          if (!I.gunPickup) err(`${c}: no gun on the floor to keep walkers off`);
+          const reach = I.reachable(Math.floor(I.startPos[0]), Math.floor(I.startPos[1]), true);
+          const Z = I.walkers.map((z) => ({ x: Math.floor(z.x), y: Math.floor(z.y), type: z.type, k: Math.floor(z.x) + "," + Math.floor(z.y) }));
+          if (Z.length !== n) err(`${c}: ${Z.length} walkers, want ${n}`);
+          Z.forEach((z, i) => {
+            if (busy.has(z.k)) err(`${c}: a walker starts on a busy tile (an item, note, pile, key, landmark, gun, pole or quest spot) at ${z.k}`);
+            if ((reach.get(z.k) || 0) < WS.minSteps) err(`${c}: a walker starts ${reach.get(z.k) || "no"} steps in at ${z.k} (need ${WS.minSteps}+)`);
+            const heard = Math.hypot(z.x + 0.5 - I.startPos[0], z.y + 0.5 - I.startPos[1]);
+            if (heard < I.HEAR) err(`${c}: a walker starts ${heard.toFixed(1)} tiles from the door at ${z.k}, in earshot (Interior.HEAR ${I.HEAR}): it wakes as you come in (planWalkers puts one there only when its rule has no room farther off: give it room)`);
+            Z.forEach((o, j) => {
+              if (j <= i) return;
+              const d = Math.hypot(z.x - o.x, z.y - o.y);
+              if (!d) err(`${c}: two walkers start on ${z.k}`);
+              else if (d < WS.groupGap) err(`${c}: walkers at ${z.k} and ${o.k} start ${d.toFixed(2)} apart (walkerSpawn.groupGap ${WS.groupGap})`);
+            });
+          });
+          rules.forEach((r, ri) => {
+            const rc = `${c} rule ${ri + 1}`;
+            const R = r.zone ? zones[r.zone] : null;
+            if (r.all) {
+              Z.filter((z) => !inRects(R, z.x, z.y)).forEach((z) => err(`${rc}: a walker starts outside ${r.zone} at ${z.k}`));
+              return;
+            }
+            const want = Math.max(r.n || 0, r.share ? Math.ceil(r.share * n) : 0);
+            const m = r.near != null ? marks[r.near] : null;
+            const rings = m ? [ring(m[0], m[1], r.r || WS.ring, m[2], m[3])] : (r.z || []).map((zi) => ring(anchors[zi][0], anchors[zi][1], r.r || WS.ring));
+            if (r.near != null && !m) err(`${rc}: near "${r.near}" is not a landmark here`);
+            const mine = (z) => (!R || inRects(R, z.x, z.y)) && (!rings.length || rings.some((d) => d.has(z.k)));
+            const there = Z.filter(mine);
+            // its tiles are closed to every other walker: exactly its count there
+            if (there.length !== want) err(`${rc}: ${there.length} walkers in its ${rings.length ? "rings" : "zone"}${R ? " in " + r.zone : ""}, want ${want}`);
+            // "one by the robot": by the robot, within r tiles of its footprint every way
+            if (m) there.forEach((z) => {
+              const d = Math.max(m[0] - z.x, z.x - m[2], 0, m[1] - z.y, z.y - m[3]);
+              if (d > (r.r || WS.ring)) err(`${rc}: its walker at ${z.k} is ${d} tiles from ${r.near}, want ${r.r || WS.ring} or fewer`);
+            });
+            rings.forEach((d, k) => {
+              const part = Math.floor(want / rings.length);
+              if (Z.filter((z) => d.has(z.k) && (!R || inRects(R, z.x, z.y))).length < part) err(`${rc}: fewer than ${part} walkers by anchor z${r.z[k]}`);
+            });
+            if (r.exact) {
+              const inside = R ? Z.filter((z) => inRects(R, z.x, z.y)).length : there.length;
+              if (inside !== want) err(`${rc}: exact, but ${inside} walkers start in ${r.zone || "its rings"} (want ${want})`);
+            }
+            if (r.share > 0.5 && !(Z.filter((z) => inRects(R, z.x, z.y)).length * 2 > n)) err(`${rc}: not most of the ${n} walkers in ${r.zone}`);
+            if (r.type && there.filter((z) => z.type === r.type).length < want) err(`${rc}: its walkers are not all ${r.type}s (${there.map((z) => z.type).join(", ")})`);
+            if (r.only && Z.filter((z) => z.type === r.type).length !== want) err(`${rc}: ${Z.filter((z) => z.type === r.type).length} ${r.type}s in the building, want only its ${want}`);
+          });
+        }
+      });
+    });
+    // the police: one big one, by the bike in the garage, every visit (the door note, the graffiti, "One of them is big")
+    const police = W.LOCATIONS.find((l) => l.id === "police");
+    if (police) {
+      S.save.day = 40;
+      S.startTrip();
+      I.enter(police);
+      I.stop();
+      const brutes = I.walkers.filter((z) => z.type === "brute");
+      const garage = (I.layoutFor(police).walkerZones || {}).garage;
+      if (brutes.length !== 1 || !garage || !inRects(garage, Math.floor(brutes[0].x), Math.floor(brutes[0].y))) err(`police walkers: want exactly one brute, in the garage (got ${brutes.length})`);
+      // and its alarm, rung for 200 s: no second brute, never past the cap (one walker less, so a tick that brings two
+      // comes one short of it), every walker where it can get to you: first with every door open, then (before the cap
+      // fills) with every door you can shut shut, so no walker may start behind one while there is floor on your side
+      I.walkers.pop();
+      const inner = I.doors.filter((d) => !d.cache && !d.stash);
+      inner.forEach((d) => d.open || I.toggleDoor(d));
+      I.startAlarm();
+      if (I.alarm.mix.brute) err("police walkers: the alarm's mix still holds brutes");
+      const seen = new Set(I.walkers);
+      for (let t = 0; t < 200; t += 0.25) {
+        if (t === 8) inner.forEach((d) => d.open && I.toggleDoor(d));
+        I.buildingUpdate(0.25);
+        if (I.walkers.length > W.ALARM.cap) err(`police walkers: the alarm passed ALARM.cap (${I.walkers.length})`);
+        I.walkers.forEach((z) => {
+          if (seen.has(z)) return;
+          seen.add(z);
+          if (z.type === "brute") err("police walkers: the alarm brought a second brute");
+          const why = alarmStartWhyNot(z);
+          if (why) err(`police walkers: an alarm walker starts at ${Math.floor(z.x)},${Math.floor(z.y)}, ${why}`);
+        });
+      }
+      if (seen.size < W.ALARM.cap) err(`police walkers: the alarm brought too few walkers (${seen.size})`);
+      I.alarm = null;
+      I.walkers.length = 0;
+    }
+  } catch (e) {
+    err(`building spawns: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+  }
+  ctxMath.random = realRandom;
+  S.save.day = day0;
+  S.save.weapons.where = where0;
+}
+
 /* ---------- The yard: every room level builds on its plot, and nobody gets boxed in ----------
    For all rooms at 0, 1, 2 and 3 and a few mixes: the player, the cabin door, the van and every fence
    segment can be reached; there are no closed-off pockets; what a plot builds stays on the plot; every
@@ -495,7 +679,9 @@ try {
   const realRandom = ctxMath.random;
   ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(4242);
   const raidShare = W.DEFENSE.raidShare;
+  const wreckShare = W.DEFENSE.wreckShare;
   W.DEFENSE.raidShare = 0; // here every walker comes for the player; the cabin's raiders are checked below
+  W.DEFENSE.wreckShare = 0; // and none goes for the builds or the van (js/yardwreck.js: checked on their own below)
   for (const sides of [["n", "e"], ["s", "w"], ["n", "e", "s", "w"]]) {
     S.save.fence = {};
     I.enterYard({ firstCalm: 999 });
@@ -525,7 +711,7 @@ try {
         const atFence = z.fenceTarget && Math.hypot(z.fenceTarget[0] - z.x, z.fenceTarget[1] - z.y) < 1.0 && I.fence[Math.floor(z.fenceTarget[0]) + "," + Math.floor(z.fenceTarget[1])] != null;
         if (moved || atFence) Object.assign(a, { x: z.x, y: z.y, t });
         else if (t - a.t > 8 && stuck++ < 3) err(`${ctx}: a walker is stuck at ${z.x.toFixed(1)},${z.y.toFixed(1)} (no progress for 8 s)`);
-        if (Math.hypot(z.x - p.x, z.y - p.y) < 1.2) {
+        if (atPlayer(z, p)) {
           bit++;
           I.hurtWalker(z, 1e6); // the player shoots whatever gets this close
           killed++;
@@ -647,13 +833,87 @@ try {
       I.update(0.05);
       t += 0.05;
       I.walkers.forEach((z) => {
-        if (Math.hypot(z.x - p.x, z.y - p.y) < 1.2) {
+        if (atPlayer(z, p)) {
           I.hurtWalker(z, 1e6);
           killed++;
         }
       });
     }
     if (I.phase.kind === "wave") err(`cabin raid: the walkers inside never came for the player (${I.walkers.length} left)`);
+  }
+  // the last of a wave waiting in the cabin hold it open, out of sight; with no counts on screen the game says where
+  // they are: "Walkers got into the cabin" once a wave (not once a stay), then a cue at once and every ~20 s while
+  // you stay out, the wave label's tail, and the van, the bed and the computer. Two waves in one stay.
+  {
+    W.DEFENSE.raidShare = 0;
+    S.save.fence = {};
+    S.save.house.hp = {};
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    const p = I.player;
+    p.maxHp = p.hp = 1e9;
+    const said = [];
+    const toastWas = I.toast;
+    I.toast = function (text) {
+      said.push([I.time, String(text)]);
+      return toastWas.apply(this, arguments);
+    };
+    const told = (re) => said.filter(([, s]) => re.test(s));
+    try {
+      const spot = I.raidSpots.find((s) => I.inCabin(s.x, s.y) && [0, 0.35, -0.35].every((d) => !I.solidAt(s.x + d, s.y + d)));
+      const van = { kind: "van", obj: I.van, x: I.van.x, y: I.van.y };
+      for (const wave of [1, 2]) {
+        p.x = 22.5; // out in the open yard, far from the cabin
+        p.y = 13.5;
+        I.walkers.length = 0;
+        I.phase = { kind: "calm", t: 0.01, total: 0, spawned: 0, spawnT: 0, size: "none", next: { size: "some", sides: ["n"] } };
+        I.update(0.05);
+        if (I.phase.kind !== "wave") {
+          err(`cabin cue: wave ${wave} did not start`);
+          break;
+        }
+        // a walker still at the fence: the van says the fence
+        const out = I.makeWalker("walker", 22.5, 20.5, 1);
+        I.walkers.push(out);
+        Object.assign(I.phase, { total: 2, spawned: 2, spawnT: 99 });
+        said.length = 0;
+        I.yardInteract(van);
+        if (!told(/Clear the fence first/).length || I.cabinHoldsWave()) err(`cabin cue: with a walker out in the yard the van does not say to clear the fence (${JSON.stringify(said.map(([, s]) => s))})`);
+        // that one is down; one raider is in the cabin, at its spot
+        I.walkers.length = 0;
+        const z = I.makeWalker("walker", spot.x, spot.y, 1);
+        Object.assign(z, { awake: true, raid: true, raidSpot: spot });
+        I.walkers.push(z);
+        said.length = 0;
+        const t0 = I.time;
+        const labels = new Set();
+        for (let t = 0; t < 45; t += 0.05) {
+          I.update(0.05);
+          labels.add(I.hud.phase.textContent);
+        }
+        const c = `cabin cue, wave ${wave} of a stay`;
+        if (I.phase.kind !== "wave" || !I.walkers.includes(z) || z.act !== "wait") err(`${c}: setup, the raider is not waiting in the cabin (${I.phase.kind}, ${z.act})`);
+        const gotIn = told(/^Walkers got into the cabin/).length;
+        if (gotIn !== 1) err(`${c}: "Walkers got into the cabin" was said ${gotIn} times, want once a wave`);
+        const cues = told(/^Walkers are waiting in the cabin/).map(([t]) => t - t0);
+        const gaps = cues.slice(1).map((t, i) => t - cues[i]);
+        if (!cues.length || cues[0] > 0.5 || cues.length < 2 || gaps.some((g) => g < 15 || g > 25)) err(`${c}: the cue came at ${cues.map((t) => t.toFixed(1)).join(", ") || "never"} s; want at once and every ~20 s while you stay out`);
+        if ([...labels].some((l) => l !== "WAVE · walkers in the cabin" || /\d/.test(l))) err(`${c}: the wave label read ${JSON.stringify([...labels])}, want "WAVE · walkers in the cabin" (where, never how many)`);
+        said.length = 0;
+        I.yardInteract(van);
+        I.houseInteract({ kind: "spot", obj: "computer" });
+        I.houseInteract({ kind: "spot", obj: "bed" });
+        if (told(/still in the cabin/).length !== 3) err(`${c}: the van, the computer and the bed do not say walkers are still in the cabin (${JSON.stringify(said.map(([, s]) => s))})`);
+        ["computer", "bed"].forEach((obj) => !/still in the cabin/.test(I.houseHint({ kind: "spot", obj })) && err(`${c}: the ${obj}'s hint does not say walkers are still in the cabin`));
+        if (!/still in the cabin/.test(I.yardHint(van))) err(`${c}: the van's hint does not say walkers are still in the cabin`);
+        // you go in and clear it: the wave ends, and the label's tail goes
+        I.walkers.length = 0;
+        I.update(0.05);
+        if (I.phase.kind !== "calm" || /cabin/.test(I.hud.phase.textContent)) err(`${c}: cleared, the wave did not end or the label still says the cabin (${I.phase.kind}, "${I.hud.phase.textContent}")`);
+      }
+    } finally {
+      I.toast = toastWas;
+    }
   }
   // a siege: you in the living room, both doors shut; they come through the fence and smash their way in
   {
@@ -674,7 +934,7 @@ try {
       t += 0.05;
       I.walkers.forEach((z) => {
         if (I.solidAt(z.x, z.y)) err(`cabin siege: a walker is inside something solid at ${z.x.toFixed(1)},${z.y.toFixed(1)}`);
-        if (Math.hypot(z.x - p.x, z.y - p.y) < 1.2) {
+        if (atPlayer(z, p)) {
           I.hurtWalker(z, 1e6);
           killed++;
         }
@@ -734,6 +994,7 @@ try {
     S.save.house.windows = 0;
   }
   W.DEFENSE.raidShare = raidShare;
+  W.DEFENSE.wreckShare = wreckShare;
   S.save.house.hp = {};
   ctxMath.random = realRandom;
 
@@ -754,6 +1015,552 @@ try {
   if (S.save.yardV !== Y.version) err("yard: a new game does not record the yard version");
 } catch (e) {
   err(`yard: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+}
+
+/* ---------- The yard: a breach draws only the walkers near it; wreckers and the builds ----------
+   Owner, 2026-10-15 (js/yard.js yardPathBlock, js/yardwreck.js). A fence hole draws only the walkers outside the
+   fence within DEFENSE.breachRange tiles of it, walking along the outside: of walkers placed 3, 6, 12 and 30 steps
+   from one hole, the near ones go through it and the far ones claw their own segment; mending it sends them back to
+   clawing; a corner hole leads nowhere and is never used; raiders and wreckers obey the same rule; with two holes in
+   range a walker takes the nearer, even when the other is on the shorter way to you. Wreckers inside the fence claw
+   the builds and the van (never below the van's floor); a wrecked build gives nothing until it is fixed (E, the
+   computer, Tomas: js/crew.js), it shows (cracks, the plaque's tape, debris) and a save keeps it; every wrecker comes
+   for you when hurt, near, or DEFENSE.wreckSeconds after getting in; "Can't die" means nothing gives. Math.random is
+   seeded here. */
+let wreckSpotsTried = 0;
+{
+  const ctxMath = vm.runInContext("Math", sb);
+  const realRandom = ctxMath.random;
+  const D = W.DEFENSE;
+  const shares = { raidShare: D.raidShare, wreckShare: D.wreckShare };
+  const god0 = S.god;
+  try {
+    ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(9090);
+    S.trip = null;
+    const N4 = N8.slice(0, 4);
+    const range = D.breachRange;
+    const [hax, hay] = W.HOUSE.at;
+    /** A fresh yard: rooms (a level for all, or a map), the fence whole but for `holes` ([[x, y]]) and too strong for
+        new ones (unless opts.weakFence), a wave phase that never spawns, and a player no walker brings down. */
+    const yardWith = (rooms, holes, opts) => {
+      setRooms(rooms);
+      S.save.builds = {};
+      S.save.fence = Object.fromEntries((holes || []).map(([x, y]) => [x + "," + y, 0]));
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      if (!(opts && opts.weakFence)) Object.keys(I.fence).forEach((k) => (I.fence[k] = 1e9));
+      I.player.maxHp = I.player.hp = 1e9;
+      I.phase = { kind: "wave", size: "some", total: 0, spawned: 0, spawnT: 0, t: 0, sides: ["n"] };
+      return I.player;
+    };
+    const tileOf = (z) => [Math.floor(z.x), Math.floor(z.y)];
+    const idx = (x, y) => y * I.gw + x;
+    const isInside = (z) => !!I.yardInside[idx(...tileOf(z))];
+    /** Steps along open ground outside the fence from the fence tile (hx, hy) to every tile (-1: no way). */
+    const outsideDist = (hx, hy) => {
+      const m = I.solidMask();
+      const d = new Int32Array(I.gw * I.gh).fill(-1);
+      const q = [idx(hx, hy)];
+      d[q[0]] = 0;
+      for (let k = 0; k < q.length; k++) {
+        const x = q[k] % I.gw;
+        const y = (q[k] / I.gw) | 0;
+        N4.forEach(([dx, dy]) => {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= I.gw || ny >= I.gh) return;
+          const j = idx(nx, ny);
+          if (d[j] >= 0 || m[j] || I.yardInside[j] || Y.grid[ny][nx] === "F") return;
+          d[j] = d[q[k]] + 1;
+          q.push(j);
+        });
+      }
+      return d;
+    };
+    /** A tile exactly `n` steps away (one beside the fence when there is one), or null. */
+    const tileAt = (dist, n) => {
+      let any = null;
+      for (let i = 0; i < dist.length; i++) {
+        if (dist[i] !== n) continue;
+        const x = i % I.gw;
+        const y = (i / I.gw) | 0;
+        if (N4.some(([dx, dy]) => (Y.grid[y + dy] || "")[x + dx] === "F")) return [x, y];
+        any = any || [x, y];
+      }
+      return any;
+    };
+    const put = (type, [x, y], role) => {
+      const z = I.makeWalker(type || "walker", x + 0.5, y + 0.5, 1);
+      z.awake = true;
+      z.pathT = 0;
+      if (role === "raid") z.raid = true;
+      if (role === "wreck") z.wreck = true;
+      I.walkers.push(z);
+      return z;
+    };
+    const via = (z, [hx, hy]) => (z.path || []).some(([x, y]) => Math.floor(x) === hx && Math.floor(y) === hy);
+    const run = (secs, each) => {
+      for (let t = 0; t < secs - 1e-9; t += 0.05) {
+        I.update(0.05);
+        if (each && each(t + 0.05) === false) break;
+      }
+    };
+    // the fence: a hole in the middle of the top row, and its corner
+    const F = [];
+    Y.grid.forEach((row, y) => [...row].forEach((ch, x) => ch === "F" && F.push([x, y])));
+    const fy0 = Math.min(...F.map(([, y]) => y));
+    const top = F.filter(([, y]) => y === fy0).sort((a, b) => a[0] - b[0]);
+    const hole = top[top.length >> 1];
+    const corner = top[0];
+    const [hx, hy] = hole;
+    yardWith(0, [hole]);
+    if (!I.breach || !I.breach.usable.includes(idx(hx, hy))) err(`yard breach: the hole at ${hole} is not usable`);
+    if (!I.yardInside || I.yardInside[idx(hx, hy + 1)] !== 1 || I.yardInside[idx(hx, hy - 1)] !== 0) err("yard breach: the inside of the fence is wrong");
+    const dist = outsideDist(hx, hy);
+    const at = {};
+    [3, 6, 12, 30].forEach((n) => (at[n] = tileAt(dist, n)));
+    if ([3, 6, 12, 30].some((n) => !at[n])) err(`yard breach: no tiles at 3, 6, 12 and 30 steps from the hole (${JSON.stringify(at)})`);
+    else {
+      const near = (n) => n <= range;
+      // 1. attackers 3, 6, 12 and 30 steps out: the near ones go through the hole, the far ones claw their own segment
+      const zs = [3, 6, 12, 30].map((n) => ({ n, z: put("walker", at[n]) }));
+      run(0.5);
+      zs.forEach(({ n, z }) => {
+        if (near(n) && (!via(z, hole) || z.fenceTarget)) err(`yard breach: a walker ${n} steps from the hole does not make for it (path ${JSON.stringify(z.path.slice(0, 3))}, clawing ${!!z.fenceTarget})`);
+        if (!near(n) && (via(z, hole) || !z.fenceTarget)) err(`yard breach: a walker ${n} steps from the hole (more than ${range}) goes for it instead of clawing its own segment`);
+      });
+      const inAt = new Map();
+      run(25, (t) => zs.forEach(({ z }) => !inAt.has(z) && isInside(z) && inAt.set(z, t)));
+      zs.forEach(({ n, z }) => {
+        if (near(n) && !inAt.has(z)) err(`yard breach: a walker ${n} steps from the hole never got in through it`);
+        if (!near(n) && inAt.has(z)) err(`yard breach: a walker ${n} steps from the hole got in through it`);
+        if (!near(n) && (!z.fenceTarget || Math.hypot(z.fenceTarget[0] - z.x, z.fenceTarget[1] - z.y) > 1)) err(`yard breach: a walker ${n} steps from the hole is not clawing at its own segment (at ${z.x.toFixed(1)},${z.y.toFixed(1)})`);
+      });
+      // 2. mended while they are on their way: back to clawing where they stand, and nobody gets in
+      yardWith(0, [hole]);
+      const two = [3, 6].map((n) => put("walker", at[n]));
+      run(0.5);
+      if (I.walkerOnTile(hx, hy)) err("yard breach: setup, a walker is already in the hole");
+      I.mendFence(hx, hy);
+      I.fence[hx + "," + hy] = 1e9;
+      if (two.some((z) => z.pathT !== 0)) err("yard breach: mending a hole did not send every walker to find its way again at once");
+      run(1);
+      two.forEach((z, i) => {
+        if (!z.fenceTarget || via(z, hole) || isInside(z)) err(`yard breach: a walker on its way to a hole just mended (${[3, 6][i]} steps) did not go back to clawing (clawing ${!!z.fenceTarget}, inside ${isInside(z)})`);
+      });
+      run(10);
+      if (two.some(isInside)) err("yard breach: a walker got in after the hole was mended");
+      // 3. raiders and wreckers obey it too: in range they go through, out of range they claw
+      yardWith(0, [hole]);
+      const roles = [];
+      ["raid", "wreck"].forEach((role) => [3, 12].forEach((n) => roles.push({ role, n, z: put("walker", at[n], role) })));
+      run(0.5);
+      const roleName = (role) => (role === "raid" ? "raider" : "wrecker");
+      roles.forEach(({ role, n, z }) => {
+        if (near(n) !== via(z, hole) || near(n) === !!z.fenceTarget) err(`yard breach: a ${roleName(role)} ${n} steps from the hole ${near(n) ? "does not go" : "goes"} for it`);
+      });
+      run(20);
+      roles.forEach(({ role, n, z }) => near(n) !== isInside(z) && err(`yard breach: a ${roleName(role)} ${n} steps from the hole is ${isInside(z) ? "" : "not "}inside after 20 s`));
+      // 4. two holes in range: the nearer one, even with the other on the shorter way to the player
+      const holeB = top.find(([x]) => x === hx + 6);
+      if (holeB) {
+        const p = yardWith(0, [hole, holeB]);
+        p.x = holeB[0] + 0.5; // the player straight in from the farther hole
+        p.y = hy + 20.5;
+        const z = put("walker", [hx + 2, hy - 1]); // 3 steps from the first hole, 5 from the second
+        run(0.5);
+        if (!via(z, hole) || via(z, holeB)) err(`yard breach: with two holes in range a walker did not take the nearer one (via ${via(z, hole) ? "the nearer" : via(z, holeB) ? "the farther" : "neither"})`);
+        // a new hole sends only the walkers it draws to find their way again at once; one far from every hole keeps
+        // its own re-path clock (everyone at once made all of them search in the same frame, at every breach), and
+        // searches nothing when it does re-path: no hole in range, so no way in (it claws its own segment)
+        yardWith(0, [hole]);
+        const outB = [holeB[0], holeB[1] - 1];
+        if (I.solidAt(outB[0] + 0.5, outB[1] + 0.5) || I.yardInside[idx(...outB)]) err(`yard breach: test tile ${outB} outside the second hole is not open ground outside`);
+        const byB = put("walker", outB);
+        const far = put("walker", at[30]);
+        run(0.5);
+        byB.pathT = far.pathT = 0.3;
+        delete I.fence[holeB[0] + "," + holeB[1]];
+        I.grid[holeB[1]][holeB[0]] = ".";
+        I.maskDirty = true;
+        I.yardBreach(holeB[0], holeB[1]);
+        if (byB.pathT !== 0) err("yard breach: a new hole did not send the walker right outside it to find its way again");
+        if (far.pathT !== 0.3) err(`yard breach: a new hole 24+ steps away reset the re-path clock of a walker it does not draw (${far.pathT})`);
+        const searched = { bfs: 0, barrier: 0 };
+        const bfsWas = I.bfs;
+        const barrierWas = I.yardBarrier;
+        I.bfs = function (z) {
+          if (z === far) searched.bfs++;
+          return bfsWas.apply(this, arguments);
+        };
+        I.yardBarrier = function (z) {
+          if (z === far) searched.barrier++;
+          return barrierWas.apply(this, arguments);
+        };
+        let wentB = false;
+        try {
+          run(1, () => {
+            const [x, y] = tileOf(byB);
+            if (via(byB, holeB) || isInside(byB) || (x === holeB[0] && y === holeB[1])) wentB = true;
+          });
+        } finally {
+          I.bfs = bfsWas;
+          I.yardBarrier = barrierWas;
+        }
+        if (searched.bfs || searched.barrier) err(`yard breach: a walker with no hole in range searched for a way in (${searched.bfs} path searches, ${searched.barrier} barrier searches in 1 s); there is none`);
+        if (!far.fenceTarget || Math.hypot(far.fenceTarget[0] - far.x, far.fenceTarget[1] - far.y) > 1) err("yard breach: a walker with no hole in range is not clawing its own segment");
+        if (!wentB) err("yard breach: the walker right outside a new hole does not go through it");
+      } else err(`yard breach: no fence segment 6 along from ${hole} for the two-hole checks`);
+      // 5. a corner hole leads nowhere: never usable, never walked into
+      yardWith(0, [corner]);
+      if (I.breach.usable.length || !I.breach.holes.includes(idx(...corner))) err(`yard breach: the corner hole at ${corner} counts as a way in`);
+      const cz = put("walker", tileAt(outsideDist(...corner), 2));
+      let inCorner = false;
+      run(8, () => {
+        const [x, y] = tileOf(cz);
+        if (x === corner[0] && y === corner[1]) inCorner = true;
+      });
+      if (inCorner || isInside(cz) || !cz.fenceTarget) err(`yard breach: a walker beside the corner hole went into it (${inCorner}) or got in (${isInside(cz)}), or is not clawing`);
+      I.walkers.length = 0;
+    }
+
+    /* the builds and the wreckers */
+    const plotted = ROOMS.filter((k) => Y.plots[k]);
+    // every build wrecked, every build cracked: the builds stay on their plots, every art name is drawn, frames render
+    [["wrecked", 0], ["cracked", 0.3]].forEach(([name, share]) => {
+      setRooms(3);
+      S.save.builds = Object.fromEntries(plotted.map((k) => [k, Math.floor(S.buildMax(k) * share)]));
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      yardCheck("yard all 3, every build " + name);
+      plotted.forEach((k) => {
+        const plaque = I.props.find((pr) => pr.art === "yPlaque" && pr.opts.t === W.BASE_ROOMS[k].name.toUpperCase());
+        if (!plaque || plaque.opts.dmg !== (share ? 1 : 2)) err(`yard: the ${k} plaque does not show the build ${name} (${plaque && plaque.opts.dmg})`);
+      });
+      const debris = I.props.filter((pr) => pr.art === "yDebris");
+      if (share ? debris.length : debris.length < plotted.length) err(`yard: ${debris.length} debris props with every build ${name}`);
+      if (debris.some((pr) => pr.solid)) err("yard: debris is solid");
+      if (!share && I.yardAnims.some((a) => a.kind === "blink")) err("yard: a wrecked build's lights still blink");
+      // one order for every list of them (the HUD and toasts read State.wreckedRooms, Tomas's tip buildDamage)
+      if (!share && JSON.stringify(I.buildDamage().wrecked) !== JSON.stringify(S.wreckedRooms())) err(`yard: the wrecked builds are listed in two orders (${I.buildDamage().wrecked} vs ${S.wreckedRooms()})`);
+    });
+    S.save.builds = {};
+
+    // a wave of nothing but wreckers, every room built, you far off in the cabin's living room and not shooting
+    D.raidShare = 0;
+    D.wreckShare = 1;
+    const p = yardWith(3, [], { weakFence: true });
+    const far = [hax + 14.5, hay + 14.5];
+    const fx0 = JSON.stringify(S.effects());
+    const vanMax = S.vanMaxHp();
+    const floor = Math.round(vanMax * D.vanWreckFloor);
+    p.x = far[0];
+    p.y = far[1];
+    I.phase = { kind: "wave", size: "many", total: 10, spawned: 0, spawnT: 0, t: 0, sides: ["n", "e"] };
+    const inside = new Map();
+    const flip = new Map();
+    let clawed = 0;
+    let vanLow = Infinity;
+    let t = 0;
+    while (t < 300 && I.phase.kind === "wave") {
+      I.update(0.05);
+      t += 0.05;
+      vanLow = Math.min(vanLow, S.save.vanHp);
+      I.walkers.forEach((z) => {
+        if (z.wreckIn != null && !inside.has(z)) inside.set(z, z.wreckIn);
+        if (inside.has(z) && !z.wreck && !flip.has(z)) flip.set(z, I.time - inside.get(z));
+        if (z.act === "claw" && I.wreckAtSpot(z)) clawed++;
+        if (atPlayer(z, p)) I.hurtWalker(z, 1e6); // close: you shoot it
+      });
+    }
+    const wrecked = S.wreckedRooms();
+    if (!clawed) err("wreckers: none ever stood clawing at a build or the van");
+    if (!wrecked.length && !Object.keys(S.save.builds).length) err("wreckers: a wave of them never touched a build");
+    if (I.phase.kind === "wave") err(`wreckers: the wave never ended (${I.walkers.length} left after ${t.toFixed(0)} s)`);
+    if (inside.size < 10) err(`wreckers: only ${inside.size} of 10 got inside the fence`);
+    const late = [...inside.keys()].filter((z) => !flip.has(z) || flip.get(z) > D.wreckSeconds + 0.1);
+    if (late.length) err(`wreckers: ${late.length} did not come for the player within ${D.wreckSeconds} s of getting inside`);
+    if (vanLow < floor) err(`wreckers: the van went below its floor (${vanLow} < ${floor})`);
+    if (!wrecked.length) err("wreckers: a wave of ten wrecked no build");
+    else {
+      const fx = S.effects();
+      if (JSON.stringify(fx) === fx0) err(`wreckers: wrecking the ${wrecked.join(", ")} changed no room bonus`);
+      if (JSON.stringify(I.fx) !== JSON.stringify(fx)) err("wreckers: the yard's own copy of the room bonuses (I.fx) was not updated");
+      wrecked.forEach((k) => S.roomLevel(k) !== 0 && err(`wreckers: roomLevel(${k}) is not 0 while wrecked`));
+    }
+    // the van alone (nothing built): clawed down to its floor and no further, said once, then it comes for you
+    {
+      const q = yardWith(0, [hole], { weakFence: true });
+      q.x = far[0];
+      q.y = far[1];
+      const vanFloor = Math.round(S.vanMaxHp() * D.vanWreckFloor);
+      S.save.vanHp = S.vanMaxHp();
+      const sp = I.wreckSpots.van[0];
+      const vz = put("brute", [sp.tx, sp.ty], "wreck");
+      vz.dps = 1e4; // a very strong one: the floor must hold all the same
+      let toldVan = 0;
+      const toast = I.toast;
+      I.toast = function (text, secs) {
+        if (/wrecking the van/.test(text)) toldVan++;
+        return toast.call(this, text, secs);
+      };
+      let low = Infinity;
+      run(5, () => (low = Math.min(low, S.save.vanHp)));
+      I.toast = toast;
+      if (vz.wreck) err("wreckers: with only the van to wreck, one kept at it at its floor");
+      if (low !== vanFloor) err(`wreckers: the van ended at ${low}, not its floor ${vanFloor}`);
+      if (toldVan !== 1) err(`wreckers: "They are wrecking the van!" was said ${toldVan} times in one wave`);
+      I.walkers.length = 0;
+      S.save.vanHp = S.vanMaxHp();
+    }
+    // provoked: hurt (a trap too) at once; you within wreckProvoke tiles; never a wrecker again
+    {
+      const q = yardWith(3, []);
+      q.x = far[0];
+      q.y = far[1];
+      const spot = I.wreckSpots[plotted[0]][0];
+      const a = put("walker", [spot.tx, spot.ty], "wreck");
+      const b = put("walker", [spot.tx, spot.ty], "wreck");
+      run(0.2);
+      if (!a.wreck || !a.wreckSpot) err("wreckers: one standing inside by a build did not pick a target");
+      I.hurtWalker(a, 1, { x: a.x + 1, y: a.y });
+      run(0.1);
+      if (a.wreck || a.wreckSpot) err("wreckers: a hurt wrecker did not turn on the player at once");
+      q.x = b.x + D.wreckProvoke - 0.5;
+      q.y = b.y;
+      run(0.1);
+      if (b.wreck) err(`wreckers: one with the player ${D.wreckProvoke - 0.5} tiles off did not turn on the player`);
+      I.walkers.length = 0;
+    }
+    /** Open ground inside the fence `d` tiles from z with a clear line to it, or null. */
+    const screamStand = (z, d) => {
+      for (let i = 0; i < 64; i++) {
+        const a = (i / 64) * Math.PI * 2;
+        const x = z.x + Math.cos(a) * d;
+        const y = z.y + Math.sin(a) * d;
+        if (x < 0 || y < 0 || x >= I.gw || y >= I.gh || !I.yardInside[idx(Math.floor(x), Math.floor(y))]) continue;
+        if (!I.solidForPlayer(x, y) && I.lineClear(z.x, z.y, x, y)) return [x, y];
+      }
+      return null;
+    };
+    // a screamer wrecker yelling at you (you between wreckProvoke and the scream's spotting range, in its sight)
+    // claws nothing meanwhile: its build loses strength only while it claws (the harm goes with the claw pose)
+    {
+      const SC = W.SCREAM;
+      const q = yardWith(3, []);
+      q.x = far[0];
+      q.y = far[1];
+      const room = plotted[0];
+      const spot = I.wreckSpots[room][0];
+      const z = put("screamer", [spot.tx, spot.ty], "wreck");
+      run(0.5);
+      const hp0 = S.buildHp(room);
+      if (!(hp0 < S.buildMax(room))) err(`wreckers: setup, a screamer wrecker at the ${room} build did not claw it (${hp0})`);
+      const stand = screamStand(z, (D.wreckProvoke + SC.spot) / 2);
+      if (stand) {
+        q.x = stand[0];
+        q.y = stand[1];
+        run(0.1); // it spots you and starts yelling (the claw a frame late: the core's act is last frame's)
+        const hp1 = S.buildHp(room);
+        let yelling = 0;
+        run(SC.yell - 0.3, () => {
+          if (z.yell > 0) yelling++;
+        });
+        if (!yelling || !z.wreck) err(`wreckers: setup, the screamer wrecker did not stand yelling at you (yell ${z.yell}, wreck ${z.wreck})`);
+        else if (S.buildHp(room) < hp1) err(`wreckers: the ${room} build lost ${(hp1 - S.buildHp(room)).toFixed(2)} strength while its screamer wrecker stood yelling at you`);
+      }
+      I.walkers.length = 0;
+    }
+    // a hurt lasts: a screamer wrecker shot as its yell starts (the yell outlasts hurtT, and the core asks for no
+    // goal while it yells) still turns on you once the yell ends, with you out of wreckProvoke but in its sight
+    {
+      const SC = W.SCREAM;
+      const q = yardWith(3, []);
+      q.x = far[0];
+      q.y = far[1];
+      const spot = I.wreckSpots[plotted[0]][0];
+      const z = put("screamer", [spot.tx, spot.ty], "wreck");
+      run(0.2);
+      if (!z.wreck || z.wreckIn == null || z.yell > 0) err(`wreckers: a screamer wrecker inside by a build did not settle to wreck (wreck ${z.wreck}, yell ${z.yell})`);
+      // you: between wreckProvoke and the scream's spotting range, a clear line, open ground inside the fence
+      const d = (D.wreckProvoke + SC.spot) / 2;
+      const stand = screamStand(z, d);
+      if (!stand) err(`wreckers: no open ground ${d} tiles from the ${plotted[0]} build's first wreck spot in clear sight`);
+      else {
+        q.x = stand[0];
+        q.y = stand[1];
+        run(0.05);
+        if (!(z.yell > 0)) err(`wreckers: a screamer wrecker with you ${d} tiles off in clear sight did not scream (yell ${z.yell})`);
+        else {
+          I.hurtWalker(z, 1, q); // shot as the yell starts
+          run(SC.yell + 0.3);
+          if (z.yell > 0) err("wreckers: the screamer's yell did not end");
+          if (z.wreck || z.wreckSpot) err(`wreckers: a screamer wrecker shot during its yell (you ${d} tiles off) went back to wrecking once it ended`);
+        }
+      }
+      I.walkers.length = 0;
+    }
+    // god mode's "Can't die": they claw, nothing gives
+    {
+      S.god = { base: null, cheats: { noDie: true }, offer: {}, onCommit: null };
+      const q = yardWith(3, []);
+      q.x = far[0];
+      q.y = far[1];
+      S.save.vanHp = vanMax;
+      [I.wreckSpots[plotted[0]][0], I.wreckSpots.van[0]].forEach((sp) => put("brute", [sp.tx, sp.ty], "wreck"));
+      run(5);
+      if (Object.keys(S.save.builds).length || S.save.vanHp !== vanMax) err(`wreckers: with Can't die on, a build or the van took harm (${JSON.stringify(S.save.builds)}, van ${S.save.vanHp})`);
+      S.god = god0;
+      I.walkers.length = 0;
+    }
+    D.raidShare = shares.raidShare;
+    D.wreckShare = shares.wreckShare;
+
+    // a wrecked build: its bonus is gone, it shows, a save keeps it, E fixes it (not while clawed at, not without
+    // the scrap), the computer fixes what the scrap pays for, and a new level puts it up whole
+    {
+      const room = plotted.find((k) => W.BASE_ROOMS[k].levels[0].effect.foodPerDay) || plotted[0];
+      const q = yardWith(1, []);
+      const fxWhole = S.effects();
+      I.hitBuild(room, 1e9);
+      if (!S.roomWrecked(room) || S.save.builds[room] !== 0) err(`wrecked build: ${room} is not wrecked after a hit past its strength`);
+      if (JSON.stringify(S.effects()) === JSON.stringify(fxWhole)) err(`wrecked build: the ${room}'s bonus still counts`);
+      S.commit();
+      S.save = S.loadSave(S.activeSlot());
+      if (S.save.builds[room] !== 0) err("wrecked build: a save did not keep it wrecked");
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      const plaque = I.props.find((pr) => pr.art === "yPlaque" && pr.opts.t === W.BASE_ROOMS[room].name.toUpperCase());
+      if (!plaque || plaque.opts.dmg !== 2) err("wrecked build: the plaque does not show it wrecked after a reload");
+      // its sign says so and how to fix it; the panel's key changes once it is fixed
+      const lot = I.lots.find((l) => l.room === room);
+      const panel = I.lotPanel(lot);
+      if (!/wrecked/.test(panel.status) || panel.meta[0][0] !== "Wrecked") err(`wrecked build: the plaque's panel does not say so (${panel.status} / ${panel.meta[0]})`);
+      const key0 = I.readableKey({ lot });
+      const scrap0 = S.save.scrap;
+      // E beside one of its solid tiles
+      const me = I.player;
+      me.maxHp = me.hp = 1e9;
+      const [sx, sy] = I.plotSolid[room][0];
+      const stand = N4.map(([dx, dy]) => [sx + dx, sy + dy]).find(([x, y]) => !I.solidForPlayer(x + 0.5, y + 0.5));
+      me.x = stand[0] + 0.5;
+      me.y = stand[1] + 0.5;
+      me.a = Math.atan2(sy - stand[1], sx - stand[0]);
+      const f = I.facing();
+      if (!f || f.kind !== "wreck" || f.obj !== room) err(`wrecked build: E beside it does not offer to fix it (${f && f.kind})`);
+      else if (!/fix the wrecked/.test(I.yardHint(f))) err(`wrecked build: the hint is "${I.yardHint(f)}"`);
+      const cost = W.SETTINGS.buildRepairScrap;
+      S.save.scrap = cost - 1;
+      if (I.repairBuild(room) || !S.roomWrecked(room)) err("wrecked build: fixed without the scrap for it");
+      S.save.scrap = cost + 5;
+      const sp = I.wreckSpots[room][0];
+      const claw = put("walker", [sp.tx, sp.ty], "wreck");
+      claw.wreckTarget = room;
+      claw.wreckSpot = sp;
+      if (I.repairBuild(room) || !S.roomWrecked(room)) err("wrecked build: fixed while a wrecker clawed at it");
+      I.walkers.length = 0;
+      if (!I.repairBuild(room) || S.roomWrecked(room) || S.save.scrap !== 5) err(`wrecked build: E did not fix it for ${cost} scrap (scrap ${S.save.scrap})`);
+      if (JSON.stringify(S.effects()) !== JSON.stringify(fxWhole) || JSON.stringify(I.fx) !== JSON.stringify(fxWhole)) err("wrecked build: fixed, its bonus did not come back");
+      const scrapNow = S.save.scrap;
+      S.save.scrap = scrap0; // the same scrap: only the build changed
+      if (I.readableKey({ lot: I.lots.find((l) => l.room === room) }) === key0) err("wrecked build: the plaque's panel key did not change once it was fixed");
+      S.save.scrap = scrapNow;
+      // the computer's "Fix all": as many as the scrap pays for
+      plotted.forEach((k) => I.hitBuild(k, 1e9));
+      S.save.scrap = cost * 2;
+      if (I.repairAllBuilds() !== 2 || S.wreckedRooms().length !== plotted.length - 2 || S.save.scrap !== 0) err(`wrecked build: Fix all with scrap for two fixed ${plotted.length - S.wreckedRooms().length}`);
+      // a new level goes up whole
+      const up = S.wreckedRooms()[0];
+      const nextDef = W.BASE_ROOMS[up].levels[S.save.rooms[up]];
+      Object.assign(S.save.inventory, nextDef.needs);
+      S.save.scrap = nextDef.scrap;
+      Object.entries(nextDef.requires || {}).forEach(([r, l]) => (S.save.rooms[r] = Math.max(S.save.rooms[r], l)));
+      if (!S.upgradeRoom(up) || S.roomWrecked(up) || up in S.save.builds) err(`wrecked build: building the ${up} up a level left it wrecked`);
+      S.save.builds = {};
+      // a wrecked Radio tower hears no broadcast that day; fixed, the next day's comes
+      S.save.rooms.radio = 1;
+      S.save.builds.radio = 0;
+      const heard = S.save.radioHeard;
+      S.startTrip();
+      S.returnHome();
+      if (S.save.log[S.save.log.length - 1].radio != null || S.save.radioHeard !== heard) err("wrecked build: a wrecked Radio tower still brought a broadcast");
+      delete S.save.builds.radio;
+      S.startTrip();
+      S.returnHome();
+      if (S.save.log[S.save.log.length - 1].radio == null) err("wrecked build: the fixed Radio tower brought no broadcast");
+      S.trip = null;
+    }
+    // the van's dents: its faces change as wreckers claw it down
+    {
+      yardWith(0, []);
+      S.save.vanHp = S.vanMaxHp();
+      const whole = ZSR.Draw3.texture("vanBody", I.palette);
+      S.save.vanHp = Math.round(S.vanMaxHp() * D.vanWreckFloor);
+      if (ZSR.Draw3.texture("vanBody", I.palette) === whole) err("wreckers: the van shows no dents at its floor");
+      S.save.vanHp = S.vanMaxHp();
+    }
+    // an old save: no builds field, or junk in it
+    {
+      const old = JSON.parse(JSON.stringify(S.save));
+      delete old.builds;
+      sb.localStorage.setItem("zs.save." + S.activeSlot(), JSON.stringify(old));
+      const a = S.loadSave(S.activeSlot());
+      if (!a.builds || Object.keys(a.builds).length) err(`old save: builds is ${JSON.stringify(a.builds)}, not {}`);
+      const built = plotted.filter((k) => old.rooms[k] > 0);
+      const unbuilt = plotted.find((k) => !old.rooms[k]);
+      old.builds = { walls: 0, nowhere: 3 };
+      if (unbuilt) old.builds[unbuilt] = 0;
+      if (built[0]) old.builds[built[0]] = 1e9; // past its strength: whole
+      if (built[1]) old.builds[built[1]] = 7;
+      if (built[2]) old.builds[built[2]] = -4;
+      sb.localStorage.setItem("zs.save." + S.activeSlot(), JSON.stringify(old));
+      const b = S.loadSave(S.activeSlot());
+      const want = built[1] ? { [built[1]]: 7 } : {};
+      if (JSON.stringify(b.builds) !== JSON.stringify(want)) err(`old save: builds ${JSON.stringify(old.builds)} loaded as ${JSON.stringify(b.builds)}, want ${JSON.stringify(want)}`);
+    }
+    // from every wreck spot a walker reaches you: a wrecker turns on you there, and one caught on a build's corner
+    // would keep its wave from ever ending (the straight-line shortcut clears a corner by a walker's middle, not its
+    // shoulders; js/yard.js yardUnjam walks it round by the tile middles). Every room at each level, a walker of
+    // each kind in turn at every spot, you at the yard's start. Only the walker's step and the yard's unjam run: the
+    // rest of a frame is not what this tests, and costs about seven times as much.
+    {
+      const types = Object.keys(W.WALKER_TYPES);
+      const top = Math.max(...ROOMS.map((k) => W.BASE_ROOMS[k].levels.length));
+      const stuck = [];
+      let tried = 0;
+      for (let lvl = 1; lvl <= top; lvl++) {
+        const q = yardWith(Object.fromEntries(ROOMS.map((k) => [k, Math.min(lvl, W.BASE_ROOMS[k].levels.length)])), []);
+        const start = [q.x, q.y];
+        const spots = [].concat(...Object.entries(I.wreckSpots).map(([target, list]) => list.map((sp) => [target, sp])));
+        spots.forEach(([target, sp], i) => {
+          I.walkers.length = 0;
+          q.x = start[0];
+          q.y = start[1];
+          const z = put(types[i % types.length], [sp.tx, sp.ty]);
+          for (let t = 0; t < 60 && !atPlayer(z, q); t += 0.05) {
+            I.updateWalker(z, 0.05);
+            I.yardUnjam(0.05);
+          }
+          tried++;
+          if (!atPlayer(z, q)) stuck.push(`a ${z.type} from the ${target} spot ${sp.tx},${sp.ty} (rooms at ${lvl}) is at ${z.x.toFixed(1)},${z.y.toFixed(1)}`);
+        });
+      }
+      I.walkers.length = 0;
+      if (!tried) err("yard: no wreck spots to start a walker from");
+      if (stuck.length) err(`yard: from ${stuck.length} of ${tried} wreck spots a walker never reached you in 60 s: ${stuck.slice(0, 3).join("; ")}`);
+      wreckSpotsTried = tried;
+    }
+  } catch (e) {
+    err(`yard breach and wreckers: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+  } finally {
+    D.raidShare = shares.raidShare;
+    D.wreckShare = shares.wreckShare;
+    S.god = god0;
+    ctxMath.random = realRandom;
+    I.walkers.length = 0;
+    S.newGame(S.activeSlot(), "Test");
+    S.trip = null;
+  }
 }
 
 /* ---------- Every upgrade step shows on the guns and the van ----------
@@ -1205,7 +2012,22 @@ try {
       if (fail === "alarm") {
         if (!I.alarm) err(`${ctx}: the wrong ${st} should set off the alarm`);
         const n0 = I.walkers.length;
-        for (let i = 0; i < 40; i++) I.buildingUpdate(0.25);
+        // every walker the alarm brings starts where it can get to you (on your side of the doors as they stand when
+        // there is room there, never inside a locked room), the cap is never passed, and a kind a note keeps to one
+        // walker never comes
+        const before = new Set(I.walkers);
+        const only = (W.NOTES[loc.id].walkers || []).filter((r) => r.only && r.type).map((r) => r.type);
+        for (let i = 0; i < 40; i++) {
+          I.buildingUpdate(0.25);
+          if (I.walkers.length > W.ALARM.cap) err(`${ctx}: the alarm passed ALARM.cap (${I.walkers.length})`);
+          I.walkers.forEach((z) => {
+            if (before.has(z)) return;
+            before.add(z);
+            const why = alarmStartWhyNot(z);
+            if (why) err(`${ctx}: an alarm walker starts at ${Math.floor(z.x)},${Math.floor(z.y)}, ${why}`);
+            if (only.includes(z.type)) err(`${ctx}: the alarm brought a ${z.type}; the notes keep that kind to one walker`);
+          });
+        }
         if (I.walkers.length < n0 + 6) err(`${ctx}: the alarm did not bring walkers (${n0} -> ${I.walkers.length})`);
         if (!I.walkers.some((z) => Math.hypot(z.x - I.startPos[0], z.y - I.startPos[1]) < 1.5 && z.awake)) err(`${ctx}: no walkers come through the way out`);
         const exits = [];
@@ -1528,6 +2350,1361 @@ try {
   err(`river: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
 }
 
+/* ---------- Walker kinds on foot (WORLD.WALKER_TYPES) ----------
+   Every walker carries its kind's facts; god mode's spawn puts each kind in front of you in a building, the yard and
+   the river; the screamer's frenzy (awake walkers near it speed up for SCREAM.secs, sleepers sleep on, the practice
+   walker never, once per cooldown); a downed walker leaves the walkers at once and falls for FALL_SECS (a wave still
+   ends), with blood only under SETTINGS.walkerGore; which way a walker faces (where it goes, you while it bites, the
+   fence while it claws); its gait by distance walked; the river's kinds; the alarm's kinds and cap; kinds met
+   (save.met); and a return visit keeps each walker's look. Math.random is seeded here. */
+let kindsChecked = 0;
+try {
+  const WT = W.WALKER_TYPES;
+  const kinds = Object.keys(WT);
+  const SC = W.SCREAM;
+  const W3 = ZSR.Walker3D;
+  const fallSecs = (W3 && W3.FALL_SECS) || I.FALL_SECS;
+  const ctxMath = vm.runInContext("Math", sb);
+  const realRandom = ctxMath.random;
+  ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(9090);
+  const screamWas = I.screamWalker;
+  let screams = 0;
+  I.screamWalker = function (z) {
+    screams++;
+    return screamWas.call(this, z);
+  };
+  const turnErr = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  try {
+    S.newGame(1, "Kinds");
+    // the facts in every walker; an unknown kind is a plain walker
+    kinds.forEach((id) => {
+      const T = WT[id];
+      const z = I.makeWalker(id, 5.5, 5.5, 2);
+      const c = `walker kinds: ${id}`;
+      kindsChecked++;
+      if (z.type !== id || z.hp !== Math.round(T.hp * 2) || z.maxHp !== z.hp) err(`${c}: health ${z.hp}/${z.maxHp}, want ${Math.round(T.hp * 2)}`);
+      if (z.dmg !== T.bite || z.reach !== T.reach || z.dps !== T.fenceDps || z.scrap !== T.scrap || z.knock !== T.knock || z.scream !== !!T.scream || z.r !== T.r) err(`${c}: its stats are not WORLD.WALKER_TYPES.${id}'s`);
+      if (!(z.speed >= T.speed * (1 - I.SPEED_JITTER) - 1e-9 && z.speed <= T.speed * (1 + I.SPEED_JITTER) + 1e-9)) err(`${c}: speed ${z.speed} is not ${T.speed} +- ${I.SPEED_JITTER * 100}%`);
+      if (!(Math.abs(z.heading) <= Math.PI + 1e-9) || !(z.gait >= 0 && z.gait < 1) || !Number.isInteger(z.seed) || z.act !== "sleep" || z.frenzyT !== 0 || z.screamT !== 0 || z.yell !== 0 || z.biteT !== 0) err(`${c}: a new walker's look and timers are off`);
+    });
+    const odd = I.makeWalker("no-such-kind", 5.5, 5.5, 1);
+    if (odd.type !== "walker" || odd.hp !== WT.walker.hp) err(`walker kinds: an unknown kind is not a plain walker (${odd.type}, ${odd.hp})`);
+    if (I.WALKER_TYPES !== WT) err("walker kinds: Interior.WALKER_TYPES is not WORLD.WALKER_TYPES");
+
+    // god mode's spawn: every kind in front of you, in sight, on your side of the walls, awake, met, drawn
+    const spawnAll = (ctx) => {
+      const p = I.player;
+      const a0 = p.a;
+      kinds.forEach((id) => {
+        I.walkers.length = 0;
+        S.save.met = {};
+        let z = null;
+        for (let k = 0; k < 8 && !z; k++) {
+          p.a = a0 + (k * Math.PI) / 4;
+          z = I.spawnWalkerAhead(id);
+        }
+        if (!z) return err(`${ctx}: no room for a ${id} in front of you, whichever way you face`);
+        const d = Math.hypot(z.x - p.x, z.y - p.y);
+        if (z.type !== id || !z.awake || !I.walkers.includes(z)) err(`${ctx}: spawnWalkerAhead("${id}") gave a ${z.type} (awake ${z.awake})`);
+        if (Math.abs(I.sideOf(z.x, z.y)) >= 0.6) err(`${ctx}: the ${id} is not in front of you`);
+        if (d < 1.5 || d > 4.5) err(`${ctx}: the ${id} is ${d.toFixed(2)} tiles away`);
+        if (I.solidForPlayer(z.x, z.y) || I.solidAt(z.x, z.y)) err(`${ctx}: the ${id} stands in something solid`);
+        if (!I.lineClear(p.x, p.y, z.x, z.y)) err(`${ctx}: the ${id} is out of sight`);
+        if (S.save.met[id] !== S.save.day) err(`${ctx}: a ${id} in front of you was not met (save.met ${JSON.stringify(S.save.met)})`);
+        renderAround(`${ctx}, a ${id} in front of you`);
+        p.hp = p.maxHp = 1e9;
+        for (let i = 0; i < 10; i++) I.update(0.05);
+        renderAround(`${ctx}, a ${id} coming at you`);
+        p.a = a0;
+      });
+      I.walkers.length = 0;
+      I.player.a = a0;
+    };
+    const building = W.LOCATIONS.find((l) => l.id !== "base" && !l.outdoor && I.layoutFor(l));
+    S.startTrip();
+    I.enter(building);
+    I.stop();
+    spawnAll("walker kinds in " + building.id);
+    S.abandonTrip();
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    spawnAll("walker kinds in the yard");
+    const river = W.LOCATIONS.find((l) => l.id === "river");
+    if (river) {
+      S.startTrip();
+      I.enterRiver(river);
+      I.stop();
+      I.walkers.length = 0;
+      spawnAll("walker kinds at the river");
+      // what comes out of the trees: only RIVER.walkerMix kinds, only walkers on day 1, more than one kind later on
+      for (const day of [1, 30]) {
+        S.save.day = day;
+        const seen = new Set();
+        for (let i = 0; i < 60; i++) {
+          I.walkers.length = 0;
+          I.riverSpawnT = 0;
+          I.update(1 / 30);
+          I.walkers.forEach((z) => seen.add(z.type));
+        }
+        [...seen].forEach((t) => !W.RIVER.walkerMix[t] && err(`river: a ${t} came out of the trees; it is not in RIVER.walkerMix`));
+        if (day === 1 && [...seen].some((t) => W.RIVER.walkerMix[t] && W.RIVER.walkerMix[t][1] > 1)) err(`river: on day 1 out came ${[...seen].join(", ")}`);
+        if (day > 1 && seen.size < 2) err(`river: on day ${day} only ${[...seen].join(", ")} came out of the trees`);
+      }
+      I.walkers.length = 0;
+      S.save.day = 1;
+      S.abandonTrip();
+    }
+
+    // the yard, the dirt path north of the cabin door: you at the south end facing north
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    const p = I.player;
+    p.maxHp = p.hp = 1e9;
+    Object.assign(p, { x: 27.5, y: 30.5, a: -Math.PI / 2 });
+    const at = (id, x, y, awake) => {
+      if (I.solidAt(x, y)) err(`walker kinds: test spot ${x},${y} in the yard is solid`);
+      const z = I.makeWalker(id, x, y, 1);
+      z.awake = awake;
+      I.walkers.push(z);
+      return z;
+    };
+    const run = (secs, each) => {
+      for (let t = 0; t < secs - 1e-9; t += 0.05) {
+        I.update(0.05);
+        if (each) each(t + 0.05);
+      }
+    };
+    const screamer = kinds.find((id) => WT[id].scream);
+    if (!screamer) err("walker kinds: no kind screams (WALKER_TYPES[].scream)");
+    else {
+      // the scream: an awake screamer 3 tiles off in sight screams; awake walkers near it speed up, a sleeper does not
+      // wake, one farther than SCREAM.radius is untouched, the practice walker never
+      I.walkers.length = 0;
+      const sc = at(screamer, 27.5, 27.5, true);
+      const near = at("walker", 26.5, 26.5, true);
+      const sleeper = at("walker", 27.5, 22.5, false);
+      const far = at("walker", 27.5, 27.5 - SC.radius - 3, true);
+      const practice = at("walker", 28.5, 26.5, true);
+      practice.practice = true;
+      screams = 0;
+      run(0.05);
+      if (screams !== 1) err(`scream: an awake screamer in sight 3 tiles off screamed ${screams} times`);
+      if (!(sc.yell > 0) || !(sc.screamT > SC.cooldown - 0.1) || sc.act !== "scream") err(`scream: the screamer is not yelling (yell ${sc.yell}, cooldown ${sc.screamT}, ${sc.act})`);
+      [sc, near].forEach((z) => !(z.frenzyT >= SC.secs - 0.05 - 1e-9) && err(`scream: an awake walker ${Math.hypot(z.x - sc.x, z.y - sc.y).toFixed(1)} tiles from it did not speed up (${z.frenzyT})`));
+      if (sleeper.awake || sleeper.frenzyT) err("scream: a sleeping walker near it woke up or sped up");
+      if (far.frenzyT) err("scream: a walker farther than SCREAM.radius sped up");
+      if (practice.frenzyT) err("scream: the tutorial's practice walker sped up");
+      run(SC.secs - 0.3);
+      if (!(near.frenzyT > 0)) err(`scream: the speed-up wore off before SCREAM.secs`);
+      run(0.4);
+      if (near.frenzyT) err(`scream: the speed-up lasted past SCREAM.secs`);
+      // again only after the cooldown
+      I.walkers = [sc];
+      run(SC.cooldown - SC.secs - 0.4);
+      if (screams !== 1) err(`scream: it screamed again before its cooldown (${screams})`);
+      run(0.6);
+      if (screams !== 2) err(`scream: it did not scream again after its cooldown (${screams} screams; ${Math.hypot(sc.x - p.x, sc.y - p.y).toFixed(1)} tiles off)`);
+      // frenzied: SCREAM.mult times faster for a step; the practice walker never
+      I.walkers.length = 0;
+      const w = at("walker", 27.5, 26.5, true);
+      const step = (frenzyT, isPractice) => {
+        Object.assign(w, { x: 27.5, y: 26.5, frenzyT, practice: isPractice, path: [], pathT: 0, cool: 0, yell: 0 });
+        I.update(0.05);
+        return Math.hypot(w.x - 27.5, w.y - 26.5);
+      };
+      const v0 = step(0, false);
+      const v1 = step(SC.secs, false);
+      const vp = step(SC.secs, true);
+      if (!(v0 > 0) || Math.abs(v1 / v0 - SC.mult) > 0.02) err(`scream: a frenzied walker steps ${(v1 / v0).toFixed(3)} times as far, want ${SC.mult}`);
+      if (Math.abs(vp / v0 - 1) > 0.02) err("scream: the practice walker sped up in a frenzy");
+      // one killed outright by the hit that wakes it (the silent bow on a sleeper past earshot, inside SCREAM.spot)
+      // never screams: dead on that frame, it does nothing more (the shot and the traps land before the walkers move)
+      I.walkers.length = 0;
+      const dead = at(screamer, 27.5, 30.5 - (I.HEAR + SC.spot) / 2, false);
+      const by = at("walker", 26.5, 24.5, true);
+      const updWas = I.yardUpdate;
+      let shot = false;
+      I.yardUpdate = function (dt) {
+        updWas.call(this, dt);
+        if (!shot) {
+          shot = true;
+          this.hurtWalker(dead, 1e6, this.player);
+        }
+      };
+      screams = 0;
+      try {
+        run(0.05);
+      } finally {
+        I.yardUpdate = updWas;
+      }
+      if (!shot || dead.hp > 0 || I.walkers.includes(dead)) err("scream: setup, the sleeping screamer was not killed in the frame");
+      if (screams || by.frenzyT) err(`scream: a screamer killed by the hit that woke it screamed anyway (${screams} screams, a walker near it sped up for ${by.frenzyT.toFixed(2)} s)`);
+      I.walkers.length = 0;
+      I.fallen.length = 0;
+    }
+
+    // a walker that dies falls out of the walkers at once (not solid, not a target, not counted), away from the shot
+    I.walkers.length = 0;
+    I.fallen.length = 0;
+    I.blood.length = 0;
+    const f = at("brute", 27.5, 26.5, true);
+    I.phase = { kind: "wave", size: "some", total: 1, spawned: 1, spawnT: 99, t: 0, sides: ["n"] };
+    S.save.met = {};
+    I.hurtWalker(f, 1e6, p);
+    if (S.save.met.brute !== S.save.day) err("walker kinds: shooting a brute did not meet it (save.met)");
+    if (W.SETTINGS.walkerGore && !I.blood.length) err("blood: a kill sprayed no blood with SETTINGS.walkerGore on");
+    I.update(0.05);
+    if (I.walkers.includes(f) || !I.fallen.includes(f)) err("fallen: a dead walker is still among the walkers, or not falling");
+    if (!(f.fallT > 0)) err("fallen: a downed walker's fall did not start");
+    if (turnErr(f.fallDir, Math.atan2(f.y - p.y, f.x - p.x)) > 1e-6) err("fallen: a walker shot from the south did not fall away from the shot");
+    if (I.walkerOnTile(Math.floor(f.x), Math.floor(f.y))) err("fallen: a downed walker still stands on its tile");
+    p.a = Math.atan2(f.y - p.y, f.x - p.x);
+    if (I.walkerAt(0)) err("fallen: a downed walker can still be shot");
+    I.update(0.05); // (the yard checks the wave's end before the dead leave the walkers: one frame later)
+    if (I.phase.kind !== "calm" || !I.fallen.includes(f)) err(`fallen: the wave did not end with its last walker down and still falling (${I.phase.kind})`);
+    run(fallSecs);
+    if (I.fallen.length) err(`fallen: a downed walker is still there after ${fallSecs} s`);
+    run(5);
+    if (I.blood.length) err(`blood: ${I.blood.length} drops still there 5 s later`);
+    for (let i = 0; i < 40; i++) I.hurtWalker(at(kinds[i % kinds.length], 27.5, 26.5, true), 1e6, p);
+    if (I.blood.length > I.BLOOD_MAX) err(`blood: ${I.blood.length} drops, past BLOOD_MAX ${I.BLOOD_MAX}`);
+    I.update(0.05);
+    if (I.walkers.length || I.fallen.length > I.FALLEN_MAX) err(`fallen: 40 kills at once left ${I.walkers.length} walkers and ${I.fallen.length} falling (FALLEN_MAX ${I.FALLEN_MAX})`);
+    W.SETTINGS.walkerGore = false;
+    I.blood.length = 0;
+    I.hurtWalker(at("walker", 27.5, 26.5, true), 10, p);
+    if (I.blood.length) err("blood: a hit sprayed blood with SETTINGS.walkerGore off");
+    W.SETTINGS.walkerGore = true;
+    I.walkers.length = 0;
+    I.fallen.length = 0;
+    I.blood.length = 0;
+    I.phase = I.calmPhase(999);
+
+    // which way it faces: where it walks; you, while it bites; and its gait goes by the distance it walked
+    p.a = -Math.PI / 2;
+    kinds.forEach((id) => {
+      I.walkers.length = 0;
+      const z = at(id, 27.5, 18.5, true);
+      z.heading = -Math.PI / 2; // facing away from you
+      z.pathT = 0;
+      let gait = 0;
+      let walked = 0;
+      let x0 = z.x;
+      let y0 = z.y;
+      let g0 = z.gait;
+      let dir = 0;
+      run(1.2, () => {
+        walked += Math.hypot(z.x - x0, z.y - y0);
+        dir = Math.atan2(z.y - y0, z.x - x0);
+        gait += (((z.gait - g0) % 1) + 1) % 1;
+        x0 = z.x;
+        y0 = z.y;
+        g0 = z.gait;
+      });
+      if (walked < 1) err(`heading: a ${id} walked only ${walked.toFixed(2)} tiles in 1.2 s`);
+      if (turnErr(z.heading, dir) > 0.2) err(`heading: a ${id} walking at you faces ${z.heading.toFixed(2)}, travels ${dir.toFixed(2)}`);
+      if (Math.abs(gait - walked / I.walkerStride(id)) > 1e-6) err(`gait: a ${id} took ${gait.toFixed(3)} strides over ${walked.toFixed(2)} tiles (stride ${I.walkerStride(id)})`);
+      // up close: it faces you while it bites, even turned away (each kind turns at its look's turnRate: a brute
+      // takes longer to come round than a runner)
+      Object.assign(z, { x: 27.5, y: 30.5 - z.reach * 0.7, heading: -Math.PI / 2, cool: 0, screamT: SC.cooldown }); // (a screamer would scream first)
+      const look = W3 && W3.TYPES && (W3.TYPES[id] || W3.TYPES.walker);
+      const turnRate = (look && look.gait && look.gait.turnRate) || I.TURN_RATE;
+      run(Math.max(0.5, Math.PI / turnRate + 0.1));
+      if (z.act !== "bite" || turnErr(z.heading, Math.atan2(p.y - z.y, p.x - z.x)) > 0.2) err(`heading: a biting ${id} does not face you (${z.act}, ${z.heading.toFixed(2)})`);
+    });
+    // clawing: it faces the fence segment it claws (outside the north fence, the yard whole)
+    I.walkers.length = 0;
+    const fy = Math.min(...Object.keys(I.fence).map((k) => +k.split(",")[1]));
+    const claw = at("walker", 27.5, fy - 0.7, true);
+    claw.heading = -Math.PI / 2;
+    run(3);
+    if (claw.act !== "claw" || !claw.fenceTarget) err(`heading: a walker outside the fence is not clawing it (${claw.act})`);
+    else if (turnErr(claw.heading, Math.atan2(claw.fenceTarget[1] - claw.y, claw.fenceTarget[0] - claw.x)) > 0.2) err(`heading: a clawing walker does not face the fence (${claw.heading.toFixed(2)})`);
+    I.walkers.length = 0;
+
+    // the alarm: the most dangerous building, day 30, 300 s of it: never past ALARM.cap, only its mix, more than one kind
+    S.save.day = 30;
+    const loud = W.LOCATIONS.filter((l) => l.id !== "base" && !l.outdoor && I.layoutFor(l)).sort((a, b) => b.danger - a.danger)[0];
+    S.startTrip();
+    I.enter(loud);
+    I.stop();
+    const first = new Set(I.walkers);
+    I.startAlarm();
+    const mix = I.alarm.mix || {};
+    const came = new Set();
+    let most = 0;
+    for (let t = 0; t < 300; t += 0.25) {
+      I.buildingUpdate(0.25);
+      most = Math.max(most, I.walkers.length);
+      I.walkers.forEach((z) => !first.has(z) && came.add(z.type));
+    }
+    if (most > W.ALARM.cap) err(`alarm: ${most} walkers in ${loud.id}, past ALARM.cap ${W.ALARM.cap}`);
+    if (I.walkers.length !== W.ALARM.cap) err(`alarm: ${I.walkers.length} walkers after 300 s in ${loud.id}; it should fill to ALARM.cap ${W.ALARM.cap}`);
+    [...came].forEach((t) => !mix[t] && err(`alarm: a ${t} came in ${loud.id}; not in its alarm mix`));
+    if (came.size < 2) err(`alarm: only ${[...came].join(", ")} came in ${loud.id} on day 30`);
+    // a return visit: each walker's look, heading and scream come back
+    I.walkers[0].screamed = true;
+    const was = I.walkers.map((z) => [z.type, z.seed, z.heading]);
+    const snap = I.snapshot();
+    I.walkers = [];
+    I.restore(snap);
+    if (JSON.stringify(I.walkers.map((z) => [z.type, z.seed, z.heading])) !== JSON.stringify(was)) err("building: a return visit changed its walkers' kinds, looks or headings");
+    if (!I.walkers[0].screamed || I.walkers[0].screamT !== SC.cooldown) err("building: a walker that screamed would scream again at once on a return visit");
+    I.alarm = null;
+    I.walkers.length = 0;
+    S.abandonTrip();
+    // kinds met (save.met): an old save without it loads with none met; one met on a trip is kept at home, and lost
+    // with a dead trip (the save on disk is untouched until home)
+    S.save.met = { walker: 1 };
+    S.commit();
+    const slot = [...store.keys()].find((k) => {
+      try {
+        return JSON.parse(store.get(k)).label === "Kinds";
+      } catch (e) {
+        return false;
+      }
+    });
+    const old = JSON.parse(store.get(slot));
+    delete old.met;
+    store.set(slot, JSON.stringify(old));
+    S.loadSave();
+    if (!S.save.met || Object.keys(S.save.met).length) err(`old saves: a save from before save.met loaded with ${JSON.stringify(S.save.met)}`);
+    S.startTrip();
+    if (!S.meetWalker("runner") || S.meetWalker("runner") || S.meetWalker("no-such-kind")) err("met: meetWalker is not true once, the first time, for a known kind");
+    S.abandonTrip();
+    if (S.save.met.runner != null) err("met: a kind met on a trip that ended in death was kept");
+    const day = S.save.day;
+    S.startTrip();
+    S.meetWalker("runner");
+    S.returnHome();
+    if (S.save.met.runner !== day) err(`met: a kind met on a trip was not kept at home (${JSON.stringify(S.save.met)})`);
+  } finally {
+    ctxMath.random = realRandom;
+    I.screamWalker = screamWas;
+    W.SETTINGS.walkerGore = true;
+  }
+} catch (e) {
+  err(`walker kinds: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
+}
+
+/* ---------- What the owner took out, and what a walker cannot do (2026-10-15) ----------
+   No walker counts: no WALKERS box on the HUD (the engine, the page, the style sheet), the yard's wave label is
+   only WAVE or HEAVY WAVE, and the river's toast never says how many came. The scream's toast is said once per
+   SCREAM_TOAST_GAP however often they scream. A lanky's long reach never bites round a wall's corner. A kind
+   already met is not looked for again. Math.random is seeded here. */
+let countsChecked = 0;
+try {
+  const ctxMath = vm.runInContext("Math", sb);
+  const realRandom = ctxMath.random;
+  ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(5151);
+  const toastWas = I.toast;
+  const said = [];
+  I.toast = function (text, secs, pickup) {
+    said.push(String(text));
+    return toastWas.call(this, text, secs, pickup);
+  };
+  const seesWas = I.seesWalker;
+  try {
+    S.newGame(1, "Counts");
+    // the HUD's WALKERS box is gone from every on-foot scene
+    countsChecked++;
+    if ("walkers" in I.hud) err("HUD: Interior.hud.walkers is back (the WALKERS box, removed 2026-10-15)");
+    if (/int-box-walkers|id="int-walkers"/.test(html)) err("HUD: index.html has the WALKERS box again");
+    const css = fs.readFileSync(path.join(ROOT, "css", "style.css"), "utf8");
+    if (/#int-box-walkers|#int-walkers\b/.test(css)) err("HUD: css/style.css styles the WALKERS box again");
+
+    // the yard's wave label: WAVE or HEAVY WAVE, never a count
+    S.save.day = 12;
+    for (const size of ["some", "many"]) {
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      I.player.maxHp = I.player.hp = 1e9;
+      I.phase = { kind: "wave", size, total: 8, spawned: 0, spawnT: 0, t: 0, sides: ["n", "s"] };
+      const want = size === "many" ? "HEAVY WAVE" : "WAVE";
+      let frames = 0;
+      let bad = null;
+      for (let t = 0; t < 20 && I.phase.kind === "wave"; t += 0.05) {
+        I.update(0.05);
+        if (I.phase.kind !== "wave") break;
+        frames++;
+        const label = I.hud.phase.textContent;
+        // (walkers in the cabin while you are out of it: the label says where, never how many)
+        const where = !I.indoorAt(I.player.x, I.player.y) && I.walkers.some((z) => I.inCabin(z.x, z.y)) ? " · walkers in the cabin" : "";
+        if (!bad && (label !== want + where || /\d/.test(label))) bad = label;
+      }
+      countsChecked++;
+      if (!frames || !I.walkers.length) err(`yard: a ${size} wave brought no walkers to check its label against`);
+      if (bad != null) err(`yard: a ${size} wave's label read "${bad}", want exactly "${want}" (no count)`);
+      I.walkers.length = 0;
+    }
+    S.save.day = 1;
+
+    // the scream's toast: once per SCREAM_TOAST_GAP, however often they scream
+    const screamer = Object.keys(W.WALKER_TYPES).find((id) => W.WALKER_TYPES[id].scream);
+    if (screamer) {
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      const p = I.player;
+      p.maxHp = p.hp = 1e9;
+      Object.assign(p, { x: 27.5, y: 30.5, a: -Math.PI / 2 });
+      I.walkers.length = 0;
+      const sc = I.makeWalker(screamer, 27.5, 27.5, 1);
+      sc.awake = true;
+      I.walkers.push(sc);
+      const screams = () => said.filter((t) => /^A scream!/.test(t)).length;
+      said.length = 0;
+      I.update(0.05);
+      countsChecked++;
+      if (screams() !== 1) err(`scream: a screamer in sight gave ${screams()} "A scream!" toasts, want 1`);
+      // it screams again (its cooldown cut short) well inside the gap: no second toast
+      sc.screamT = 0;
+      sc.yell = 0;
+      I.update(0.05);
+      if (!(sc.yell > 0)) err("scream: a screamer with its cooldown spent did not scream again");
+      if (screams() !== 1) err(`scream: two screams inside SCREAM_TOAST_GAP (${I.SCREAM_TOAST_GAP} s) gave ${screams()} toasts`);
+      // past the gap, the next scream is told again
+      I.time += I.SCREAM_TOAST_GAP;
+      sc.screamT = 0;
+      sc.yell = 0;
+      I.update(0.05);
+      if (screams() !== 2) err(`scream: a scream past SCREAM_TOAST_GAP gave no toast (${screams()} in all)`);
+      I.walkers.length = 0;
+    }
+
+    // a kind already met is not looked for (State.save.met); one not met yet is, and is met once seen
+    {
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      const p = I.player;
+      p.maxHp = p.hp = 1e9;
+      Object.assign(p, { x: 27.5, y: 30.5, a: -Math.PI / 2 });
+      let looks = 0;
+      I.seesWalker = function (z) {
+        looks++;
+        return seesWas.call(this, z);
+      };
+      for (const metBefore of [true, false]) {
+        S.save.met = metBefore ? { walker: 1 } : {};
+        I.walkers.length = 0;
+        const z = I.makeWalker("walker", 27.5, 26.5, 1);
+        z.awake = true;
+        I.walkers.push(z);
+        looks = 0;
+        for (let i = 0; i < 20; i++) I.update(0.05);
+        countsChecked++;
+        if (metBefore && looks) err(`met: a walker of a kind already met was looked for ${looks} times in 1 s`);
+        if (metBefore && !z.met) err("met: a walker of a kind already met is not marked met");
+        if (!metBefore && (!looks || S.save.met.walker !== S.save.day)) err(`met: a walker in front of you was not looked for or not met (${looks} looks, ${JSON.stringify(S.save.met)})`);
+      }
+      I.seesWalker = seesWas;
+      // seen anywhere on screen, out to its sides (the view is wider than FOV, which is its height), not past them
+      const half = I.halfView();
+      countsChecked++;
+      if (!(I.W > I.H) || !(half > I.FOV / 2 + 0.1)) err(`met: setup, a wide screen's half view ${half.toFixed(3)} rad is not wider than FOV / 2`);
+      for (const off of [0.3, 0.6, 0.8, half - 0.04, half + 0.15]) {
+        for (const side of [-1, 1]) {
+          const a = p.a + side * off;
+          const z = I.makeWalker("walker", p.x + Math.cos(a) * 5, p.y + Math.sin(a) * 5, 1);
+          if (I.solidAt(z.x, z.y) || !I.lineClear(p.x, p.y, z.x, z.y)) continue;
+          const q = I.project(z.x, z.y);
+          const onScreen = !!q && q.x >= 0 && q.x <= I.W;
+          if (onScreen !== I.seesWalker(z)) err(`met: a walker ${off.toFixed(2)} rad to the ${side < 0 ? "left" : "right"} (screen x ${q ? q.x.toFixed(0) : "-"} of ${I.W}, a clear line) is ${onScreen ? "on screen but not seen" : "off screen but seen"}`);
+        }
+      }
+      I.walkers.length = 0;
+    }
+
+    // a lanky's long reach never bites round a wall's corner: the line between them must be clear past a plain
+    // walker's reach. A wall tile with open floor north, east and north-east of it: the lanky hugs its north face,
+    // you hug its east face, about 1.15 tiles apart, the corner between you
+    const lanky = Object.keys(W.WALKER_TYPES).filter((id) => W.WALKER_TYPES[id].reach > W.WALKER_TYPES.walker.reach + 0.2).sort((a, b) => W.WALKER_TYPES[b].reach - W.WALKER_TYPES[a].reach)[0];
+    const building = W.LOCATIONS.find((l) => l.id !== "base" && !l.outdoor && I.layoutFor(l));
+    if (lanky) {
+      S.startTrip();
+      I.enter(building);
+      I.stop();
+      I.walkers.length = 0;
+      const open = (x, y) => !I.solidAt(x + 0.5, y + 0.5) && !I.solidForPlayer(x + 0.5, y + 0.5) && !I.opaqueAt(x + 0.5, y + 0.5);
+      let corner = null;
+      for (let y = 2; y < I.gh - 2 && !corner; y++) {
+        for (let x = 1; x < I.gw - 3 && !corner; x++) {
+          if (!I.solidAt(x + 0.5, y + 0.5) || !I.opaqueAt(x + 0.5, y + 0.5)) continue;
+          if ([[x + 1, y], [x, y - 1], [x + 1, y - 1], [x + 2, y], [x + 2, y - 1], [x + 1, y + 1], [x + 2, y + 1]].every(([a, b]) => open(a, b))) corner = [x, y];
+        }
+      }
+      if (!corner) err(`lanky: no wall corner with open floor round it in ${building.id} to test against`);
+      else {
+        const [cx, cy] = corner;
+        const T = W.WALKER_TYPES[lanky];
+        const p = I.player;
+        const place = (px, py, zx, zy) => {
+          Object.assign(p, { x: px, y: py, hp: 1000, maxHp: 1000 });
+          p.a = Math.atan2(zy - py, zx - px);
+          I.walkers.length = 0;
+          const z = I.makeWalker(lanky, zx, zy, 1);
+          Object.assign(z, { awake: true, cool: 0, met: true });
+          I.walkers.push(z);
+          return z;
+        };
+        // round the corner: in reach, but the wall between
+        const lx = cx + 0.5;
+        const ly = cy - T.r - 0.02;
+        const px = cx + 1.3;
+        const py = cy + 0.5;
+        const d = Math.hypot(px - lx, py - ly);
+        countsChecked++;
+        if (!(d < T.reach && d > W.WALKER_TYPES.walker.reach) || I.lineClear(lx, ly, px, py)) err(`lanky: the corner test is not round a corner (${d.toFixed(2)} tiles, line clear ${I.lineClear(lx, ly, px, py)})`);
+        const z = place(px, py, lx, ly);
+        I.update(0.05);
+        if (p.hp !== 1000 || z.act === "bite") err(`lanky: it bit you round a wall's corner from ${d.toFixed(2)} tiles (${z.act}, hp ${p.hp})`);
+        // it comes round the corner and bites, soon
+        let bit = false;
+        for (let t = 0; t < 4 && !bit; t += 0.05) {
+          I.update(0.05);
+          bit = p.hp < 1000;
+        }
+        if (!bit) err("lanky: round a wall's corner, it never came round to bite");
+        // the same reach with a clear line bites
+        const qx = cx + 1.5;
+        const qy = ly - 0.6;
+        const d2 = Math.hypot(qx - lx, qy - ly);
+        if (!(d2 < T.reach && d2 > W.WALKER_TYPES.walker.reach) || !I.lineClear(lx, ly, qx, qy)) err(`lanky: the open test spot is off (${d2.toFixed(2)} tiles)`);
+        const z2 = place(qx, qy, lx, ly);
+        I.update(0.05);
+        if (!(p.hp < 1000) || z2.act !== "bite") err(`lanky: in the open at ${d2.toFixed(2)} tiles (its reach ${T.reach}) it did not bite (${z2.act})`);
+      }
+      I.walkers.length = 0;
+      S.abandonTrip();
+    }
+  } finally {
+    ctxMath.random = realRandom;
+    I.toast = toastWas;
+    I.seesWalker = seesWas;
+  }
+
+  // the river: what comes out of the trees is never counted, two at once included
+  const river = W.LOCATIONS.find((l) => l.id === "river");
+  if (river) {
+    const R = W.RIVER;
+    const pair = R.pairChance;
+    const toastWas2 = I.toast;
+    const toasts = [];
+    I.toast = function (text, secs, pickup) {
+      toasts.push(String(text));
+      return toastWas2.call(this, text, secs, pickup);
+    };
+    try {
+      S.startTrip();
+      I.enterRiver(river);
+      I.stop();
+      R.pairChance = 1;
+      let pairs = 0;
+      const a0 = I.player.a;
+      for (let k = 0; k < 8; k++) {
+        I.player.a = a0 + (k * Math.PI) / 4; // some in view, some behind you
+        I.walkers.length = 0;
+        I.riverSpawnT = 0;
+        toasts.length = 0;
+        I.update(1 / 30);
+        if (I.walkers.length === 2) pairs++;
+        const t = toasts[toasts.length - 1] || "";
+        if (!t || /\d|\btwo\b|\bboth\b|\bpair\b/i.test(t)) err(`river: two walkers out of the trees were told as "${t}" (no count)`);
+      }
+      countsChecked++;
+      if (!pairs) err("river: with RIVER.pairChance 1, two never came out of the trees together");
+    } finally {
+      R.pairChance = pair;
+      I.toast = toastWas2;
+      I.walkers.length = 0;
+      S.abandonTrip();
+    }
+  }
+} catch (e) {
+  err(`counts: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
+}
+
+/* ---------- Live walkers on screen (js/walker3d.js through the renderer) ----------
+   Every kind, near and far, behind you, biting, clawing, screaming, falling and in a spray of blood, drawn in a
+   building, the yard and the cabin without a throw; each walker's canvas is reused (none made while walkers come
+   closer) and let go with the scene; a walker behind a wall is never drawn; nothing stands taller than the ceiling
+   (indoors and in the cabin); the pose and its ease; a downed walker falls and fades; a live picture never goes
+   through Draw3.dim or dimOwn; a still walker (and a body lying still) is drawn once; the redraws a frame stay under
+   the cap without leaving anyone out, also the frame the governor goes back to sharper pictures; the near ones draw
+   every frame at every governor level, bodies at your feet take no near place, two at the edge of the near ones do
+   not swap detail as they jostle, and a hit flashes at once on anyone; turning back to a crowd (after a few frames
+   away, or after its canvases were let go) is no burst of redraws; the governor starts on the defaults, steps down
+   in the order the spec gives, climbs to richer rows when fast, waits longer each time before climbing back to a row
+   it could not hold, and counts only frames with walkers on screen; the health bar sits over the head; the blood is
+   drawn only with SETTINGS.walkerGore, and a hit's spray starts at the chest as drawn (shrunk under a ceiling). */
+let liveChecked = 0;
+const liveErrors0 = errors.length;
+try {
+  const WT = W.WALKER_TYPES;
+  const kinds = Object.keys(WT);
+  const W3 = ZSR.Walker3D;
+  const ctxMath = vm.runInContext("Math", sb);
+  const realRandom = ctxMath.random;
+  ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(5150);
+  const drawWas = W3.draw;
+  const makeWas = sb.document.createElement;
+  const dimWas = D.dim;
+  const dimOwnWas = I.dimOwn;
+  const fillWas = I.ctx.fillRect;
+  const goreWas = W.SETTINGS.walkerGore;
+  const ok = (cond, msg) => {
+    liveChecked++;
+    if (!cond) err(`live walkers: ${msg}`);
+  };
+  let draws = [];
+  let made = 0;
+  let dimmedLive = 0;
+  const pooled = () => {
+    const set = new Set();
+    I.livePool.forEach((t) => set.add(t.c));
+    (I.liveSpare || []).forEach((t) => set.add(t.c));
+    return set;
+  };
+  try {
+    W3.draw = function (g, type, st, cam) {
+      draws.push({ type, seed: st.seed, lod: st.lod, pose: st.pose, poseT: st.poseT, poseW: st.poseW, hit: st.hit, fall: st.fall, fallDir: st.fallDir, fog: st.fog, yaw: st.yaw, w: cam.w, h: cam.h, px: cam.px, dist: cam.dist, eye: cam.eye, frame: I.frameNo });
+      return drawWas.call(this, g, type, st, cam);
+    };
+    sb.document.createElement = function (tag) {
+      if (String(tag).toLowerCase() === "canvas") made++;
+      return makeWas(tag);
+    };
+    D.dim = function (img, lvl) {
+      if (pooled().has(img)) dimmedLive++;
+      return dimWas.call(this, img, lvl);
+    };
+    I.dimOwn = function (img, lvl) {
+      if (pooled().has(img)) dimmedLive++;
+      return dimOwnWas.call(this, img, lvl);
+    };
+    const p0 = () => I.player;
+    const put = (type, x, y, o) => {
+      const z = I.makeWalker(type, x, y, 1);
+      z.awake = true;
+      Object.assign(z, o || {});
+      I.walkers.push(z);
+      return z;
+    };
+    const ahead = (d, side) => {
+      const p = p0();
+      return [p.x + Math.cos(p.a) * d - Math.sin(p.a) * (side || 0), p.y + Math.sin(p.a) * d + Math.cos(p.a) * (side || 0)];
+    };
+    const frame = () => {
+      I.frameNo = I.frameNo || 0;
+      I.render();
+    };
+    const clear = () => {
+      I.walkers.length = 0;
+      I.fallen.length = 0;
+      I.blood.length = 0;
+    };
+    /** Look along the longest clear line from where you stand (so walkers ahead of you are in the open). */
+    const lookLongest = () => {
+      const p = p0();
+      let best = 0;
+      for (let k = 0; k < 32; k++) {
+        const a = (k / 32) * Math.PI * 2;
+        let d = 0;
+        while (d < 30 && !I.solidAt(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d) && !I.solidAt(p.x + Math.cos(a) * d - Math.sin(a) * 0.6, p.y + Math.sin(a) * d + Math.cos(a) * 0.6) && !I.solidAt(p.x + Math.cos(a) * d + Math.sin(a) * 0.6, p.y + Math.sin(a) * d - Math.cos(a) * 0.6)) d += 0.25;
+        if (d > best) (best = d), (p.a = a);
+      }
+      return best;
+    };
+    /** Every kind all around you and in every state; frames from four sides must not throw. */
+    const crowd = (where) => {
+      clear();
+      const p = p0();
+      let n = 0;
+      [0.35, 1, 3, 8, 20].forEach((d, di) => {
+        kinds.forEach((type, ki) => {
+          const a = p.a + ((ki + di * kinds.length) / (kinds.length * 5)) * Math.PI * 2;
+          const x = p.x + Math.cos(a) * d;
+          const y = p.y + Math.sin(a) * d;
+          if (I.solidAt(x, y)) return;
+          const z = put(type, x, y, { heading: a * 3, gait: (ki * 0.17) % 1, move: di % 2, seed: 1000 + n++ });
+          const k = (ki + di) % 5;
+          if (k === 1) Object.assign(z, { act: "bite", biteT: 0.2, pose: "bite", poseW: 0.5 });
+          if (k === 2) Object.assign(z, { act: "claw", clawPh: 0.4, pose: "claw", aim: [x + 1, y] });
+          if (k === 3) Object.assign(z, { yell: 0.6, act: "scream", pose: "scream" });
+          if (k === 4) Object.assign(z, { awake: false, act: "sleep", pose: "idle", hp: z.maxHp * 0.4, hit: 0.1 });
+        });
+      });
+      // three downed walkers (just hit, half down, nearly gone) and a spray
+      [0, 1, 1.9].forEach((t, i) => {
+        const [x, y] = ahead(2 + i, (i - 1) * 0.8);
+        if (I.solidAt(x, y)) return;
+        const z = I.makeWalker(kinds[i % kinds.length], x, y, 1);
+        z.hp = 0;
+        z.fallDir = p.a + i;
+        I.downWalker(z);
+        z.fallT = t;
+      });
+      const z = put("walker", ...ahead(2.5, 0));
+      for (let i = 0; i < 3; i++) I.hurtWalker(z, 5, p);
+      I.updateBlood(0.1);
+      renderAround(`live walkers ${where}`);
+      I.update(0.05);
+      renderAround(`live walkers ${where}, a frame later`);
+      ok(draws.length > 0, `${where}: no walker was drawn`);
+    };
+
+    /* a building: under a ceiling */
+    const building = W.LOCATIONS.find((l) => l.id !== "base" && !l.outdoor && I.layoutFor(l));
+    S.startTrip();
+    I.enter(building);
+    I.stop();
+    p0().maxHp = p0().hp = 1e9;
+    lookLongest();
+    draws = [];
+    crowd(`in ${building.id}`);
+    // nothing stands taller than the ceiling: every kind's sprite (standing and falling) and what it is drawn at
+    kinds.forEach((type) => {
+      const z = I.makeWalker(type, p0().x + 1, p0().y, 1);
+      [false, true].forEach((falling) => {
+        const s = I.walkerSprite(z, falling);
+        ok(s.scale <= I.CEIL_CAP + 1e-9, `in ${building.id}: a ${type}${falling ? " (down)" : ""} stands ${s.scale} tiles under a ceiling (cap ${I.CEIL_CAP})`);
+        ok(Math.abs(s.scale - Math.min(W3.box(type, falling).h, I.CEIL_CAP)) < 1e-9, `in ${building.id}: a ${type} is not drawn at its box's height, capped`);
+      });
+      ok(I.walkerHeight(z) <= I.CEIL_CAP + 1e-9, `in ${building.id}: walkerHeight(${type}) ${I.walkerHeight(z)} is over the ceiling`);
+    });
+    // a hit's spray starts at the chest as drawn: under the ceiling a tall kind is drawn shrunk, and so is its spray
+    {
+      const goreNow = W.SETTINGS.walkerGore;
+      W.SETTINGS.walkerGore = true;
+      kinds.forEach((type) => {
+        const z = I.makeWalker(type, p0().x + 1, p0().y, 1);
+        I.blood.length = 0;
+        I.bleed(z, 10, p0(), false);
+        const h = I.walkerHeight(z);
+        const top = Math.max(...I.blood.map((b) => b.h));
+        ok(I.blood.length > 0 && top <= h * 0.75 + 1e-9, `in ${building.id}: a ${type}'s spray starts ${top.toFixed(2)} tiles up, over its chest as drawn (${h} tall)`);
+      });
+      I.blood.length = 0;
+      W.SETTINGS.walkerGore = goreNow;
+    }
+    // what Walker3D was asked for: the whole box in its region, at the walker's distance (seen from farther off when
+    // it is capped), in view of its own feet
+    const badCam = draws.filter((d) => !(d.w >= 2 && d.h >= 2 && d.h <= I.LIVE_MAX_PX + 1 && d.px > 0 && d.dist > 0.1 && d.eye > 0 && Number.isFinite(d.yaw) && d.fog >= 0 && d.fog <= 0.9 && [0, 1, 2].includes(d.lod) && W3.POSES.includes(d.pose)));
+    ok(!badCam.length, `in ${building.id}: ${badCam.length} draws with an odd region or state (${JSON.stringify(badCam[0])})`);
+    // a walker behind a wall is never drawn; one in the open is
+    {
+      clear();
+      const p = p0();
+      let spot = null;
+      for (let gy = 1; gy < I.gh - 1 && !spot; gy++) {
+        for (let gx = 1; gx < I.gw - 1 && !spot; gx++) {
+          const px = gx + 0.5;
+          const py = gy + 0.5;
+          if (I.solidAt(px, py)) continue;
+          for (let k = 0; k < 8 && !spot; k++) {
+            const a = (k / 8) * Math.PI * 2;
+            const wx = px + Math.cos(a) * 3.2;
+            const wy = py + Math.sin(a) * 3.2;
+            if (I.solidAt(wx, wy) || I.opaqueAt(wx, wy)) continue;
+            // walled off: no line from you to any point its picture spans (its box is about 1.6 tiles wide on the
+            // floor, sideways: Walker3D.box(...).w in screen tiles, times STRETCH)
+            let hidden = true;
+            for (let s = -1; s <= 1 && hidden; s += 0.125) {
+              const sx = wx - Math.sin(a) * s * 0.9;
+              const sy = wy + Math.cos(a) * s * 0.9;
+              if (I.lineClear(px, py, sx, sy)) hidden = false;
+            }
+            if (hidden) spot = [px, py, a, wx, wy];
+          }
+        }
+      }
+      ok(!!spot, `in ${building.id}: no spot with a walker right behind a wall to test`);
+      if (spot) {
+        [p.x, p.y, p.a] = spot;
+        const hid = put("walker", spot[3], spot[4], { seed: 777, heading: 0 });
+        const [ox, oy] = [p.x + Math.cos(p.a) * 0.9, p.y + Math.sin(p.a) * 0.9];
+        if (I.lineClear(p.x, p.y, ox, oy) && !I.solidAt(ox, oy)) put("walker", ox, oy, { seed: 778 });
+        draws = [];
+        frame();
+        frame();
+        ok(!draws.some((d) => d.seed === 777), `in ${building.id}: a walker behind a wall was drawn (${draws.filter((d) => d.seed === 777).length} times)`);
+        ok(I.walkers.length < 2 || draws.some((d) => d.seed === 778), `in ${building.id}: a walker in front of you was not drawn`);
+        ok(!I.livePool.has(hid), `in ${building.id}: a walker behind a wall got a canvas`);
+      }
+    }
+    // a walker's canvas is reused: six kinds coming at you from 3 tiles to 1.5 (their pictures double in size) make
+    // no canvas after the first frame; each one's own canvas grows instead
+    lookLongest();
+    clear();
+    I.liveRelease(); // no spares from the walkers above: each of the six starts on a canvas its own size
+    const six = kinds.map((type, i) => put(type, ...ahead(3, (i - (kinds.length - 1) / 2) * 0.25), { move: 1, seed: 2000 + i, heading: p0().a + Math.PI }));
+    frame();
+    const firstH = six.map((z) => (I.livePool.get(z) ? I.livePool.get(z).c.height : 0));
+    made = 0;
+    for (let f = 0; f < 30; f++) {
+      six.forEach((z) => {
+        z.x -= Math.cos(p0().a) * 0.05;
+        z.y -= Math.sin(p0().a) * 0.05;
+        z.gait = (z.gait + 0.07) % 1;
+      });
+      frame();
+    }
+    ok(made === 0, `in ${building.id}: ${made} canvases made while six walkers came closer (each keeps its own)`);
+    ok(I.livePool.size === six.length, `in ${building.id}: ${I.livePool.size} pooled canvases for ${six.length} walkers`);
+    ok(six.every((z, i) => I.livePool.get(z) && I.livePool.get(z).c.height > firstH[i]), `in ${building.id}: coming closer, the walkers' canvases did not grow (${firstH} -> ${six.map((z) => I.livePool.get(z) && I.livePool.get(z).c.height)})`);
+    // the picture shown is the one drawn: the top-left iw x ih of the walker's own canvas, and nothing past it goes
+    // on screen (the canvas is bigger than the picture: it grows in steps and keeps old pictures' size)
+    {
+      const seen = [];
+      const ds = I.drawSprite;
+      I.drawSprite = function (ctx, s) {
+        if (s.live) seen.push(s);
+        return ds.call(this, ctx, s);
+      };
+      const own = new Map();
+      I.livePool.forEach((t) => own.set(t.c, t));
+      let outside = 0;
+      let blits = 0;
+      I.ctx.drawImage = function (img, sx, sy, sw, sh) {
+        const t = own.get(img);
+        if (!t || arguments.length < 9) return;
+        blits++;
+        if (sx < -1e-6 || sy < -1e-6 || sx + sw > t.lw + 1e-6 || sy + sh > t.lh + 1e-6) outside++;
+      };
+      frame();
+      delete I.ctx.drawImage;
+      I.drawSprite = ds;
+      const bad = seen.filter((s) => !(s.im && s.im === I.livePool.get(s.live).c && s.iw > 0 && s.ih > 0 && s.iw <= s.im.width && s.ih <= s.im.height));
+      ok(seen.length && !bad.length, `in ${building.id}: ${bad.length} of ${seen.length} live sprites point at an empty or wrong picture`);
+      ok(blits > 0 && !outside, `in ${building.id}: ${outside} of ${blits} draws of a live picture read past its drawn part`);
+    }
+    // a still walker (asleep) is drawn once, then keeps its picture
+    clear();
+    const still = put("walker", ...ahead(5, 0), { awake: false, act: "sleep", pose: "idle", seed: 2100 });
+    draws = [];
+    for (let f = 0; f < 6; f++) frame();
+    ok(draws.filter((d) => d.seed === still.seed).length === 1, `in ${building.id}: a sleeping walker was drawn ${draws.filter((d) => d.seed === still.seed).length} times in 6 frames (want once)`);
+    // fog: farther is darker (in its own colours)
+    const len = lookLongest();
+    clear();
+    put("walker", ...ahead(2, 0), { seed: 2201 });
+    put("walker", ...ahead(Math.min(12, len - 1), 0), { seed: 2202 });
+    draws = [];
+    frame();
+    const fNear = draws.find((d) => d.seed === 2201);
+    const fFar = draws.find((d) => d.seed === 2202);
+    ok(fNear && fFar && fFar.fog > fNear.fog, `in ${building.id}: a far walker is not foggier than a near one (${fNear && fNear.fog}, ${fFar && fFar.fog})`);
+    I.stop();
+    ok(I.livePool.size === 0 && !(I.liveSpare || []).length, `in ${building.id}: leaving kept ${I.livePool.size} walker canvases (+${(I.liveSpare || []).length} spare)`);
+    S.abandonTrip();
+
+    /* the yard: open sky, the dirt path north of the cabin door */
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    const p = p0();
+    p.maxHp = p.hp = 1e9;
+    Object.assign(p, { x: 27.5, y: 30.5, a: -Math.PI / 2 });
+    draws = [];
+    crowd("in the yard");
+    Object.assign(p, { x: 27.5, y: 30.5, a: -Math.PI / 2 });
+    kinds.forEach((type) => {
+      const z = I.makeWalker(type, 27.5, 26.5, 1);
+      ok(Math.abs(I.walkerSprite(z, false).scale - W3.box(type, false).h) < 1e-9, `in the yard: a ${type} under the open sky is not its full height`);
+    });
+    // the health bar sits just over the head (the look's head top), as wide as the walker is to hit
+    {
+      clear();
+      const z = put("brute", 27.5, 27.5, { seed: 2300, heading: Math.PI / 2 });
+      z.hp = z.maxHp / 2;
+      const bars = [];
+      I.ctx.fillRect = function (x, y, w, h) {
+        if (this.fillStyle === "#b3261e" && h === 5) bars.push({ x, y, w });
+      };
+      frame();
+      I.ctx.fillRect = fillWas;
+      const s = I.walkerSprite(z, false);
+      const head = I.project(z.x, z.y, s.head);
+      const unit = I.project(z.x, z.y, 0).y - I.project(z.x, z.y, 1).y; // px per tile tall here
+      ok(bars.length === 1, `in the yard: ${bars.length} health bars for one hurt brute`);
+      if (bars.length === 1 && head) {
+        ok(Math.abs(bars[0].y - (head.y - 9)) < 0.5, `in the yard: the health bar is at ${bars[0].y.toFixed(1)}, not just over the head (${(head.y - 9).toFixed(1)})`);
+        ok(Math.abs(bars[0].w - unit * s.barW * 0.5) < 0.5 && Math.abs(bars[0].x + unit * s.barW / 2 - head.x) < 1, `in the yard: the health bar is ${bars[0].w.toFixed(1)} px from ${bars[0].x.toFixed(1)}, not half of ${(unit * s.barW).toFixed(1)} centred over it`);
+      }
+    }
+    // the pose: what a walker does picks it; from walking straight in, from anything else out first (POSE_BLEND)
+    {
+      clear();
+      const z = put("walker", 27.5, 27.5, { seed: 2400 });
+      const blend = W3.POSE_BLEND || 0.15;
+      const want = (o) => I.walkerPose(Object.assign(I.makeWalker("walker", 0, 0, 1), { awake: true }, o));
+      ok(want({ yell: 0.5, biteT: 0.2, act: "bite" }) === "scream", "a yelling walker does not scream");
+      ok(want({ biteT: 0.2, act: "walk" }) === "bite" && want({ act: "bite" }) === "bite", "a biting walker does not bite");
+      ok(want({ act: "claw" }) === "claw", "a clawing walker does not claw");
+      ok(["sleep", "idle", "wait"].every((act) => want({ act }) === "idle"), "a still walker is not idle");
+      ok(want({ act: "walk" }) === "walk" && want({ act: "something-new" }) === "walk", "a walking walker (or one doing a mode's own thing) does not walk");
+      Object.assign(z, { pose: "walk", poseW: 1, act: "walk" });
+      const dt = blend / 6;
+      I.animWalker(z, dt, z.x, z.y, "claw");
+      ok(z.pose === "claw" && z.poseW === 0, `from walking into a claw: ${z.pose} at ${z.poseW} (want claw at 0)`);
+      for (let i = 0; i < 7; i++) I.animWalker(z, dt, z.x, z.y, "claw");
+      ok(z.pose === "claw" && z.poseW === 1, `a claw is not all the way in after POSE_BLEND (${z.poseW})`);
+      I.animWalker(z, dt, z.x, z.y, "walk");
+      ok(z.pose === "claw" && z.poseW < 1 && z.poseW > 0, `out of a claw: it did not ease out first (${z.pose} at ${z.poseW})`);
+      for (let i = 0; i < 7; i++) I.animWalker(z, dt, z.x, z.y, "walk");
+      ok(z.pose === "walk", `out of a claw: still ${z.pose} after POSE_BLEND`);
+      // a claw at anything (a mode's own target: a build, the van) faces it and swipes at its look's rate
+      [[30.5, 27.5], { x: 30.5, y: 27.5 }].forEach((aim) => {
+        Object.assign(z, { heading: Math.PI, aim, clawPh: 0, pose: "walk", poseW: 1 });
+        for (let i = 0; i < 20; i++) I.animWalker(z, 0.05, z.x, z.y, "claw");
+        const L = W3.TYPES.walker.gait;
+        ok(Math.abs(Math.atan2(Math.sin(z.heading), Math.cos(z.heading))) < 0.2, `a walker clawing at ${JSON.stringify(aim)} does not face it (${z.heading.toFixed(2)})`);
+        ok(Math.abs(z.clawPh - ((20 * 0.05 * L.clawRate) % 1)) < 1e-9, `a clawing walker swipes at ${z.clawPh}, not its look's clawRate ${L.clawRate}`);
+        ok(z.pose === "claw", `a walker clawing at ${JSON.stringify(aim)} shows ${z.pose}`);
+      });
+      // drawn as it is: the pose, its ease, the bite's time
+      Object.assign(z, { pose: "bite", poseW: 0.5, biteT: (W3.BITE_SECS || 0.45) / 2, act: "bite", heading: Math.PI / 2 });
+      draws = [];
+      frame();
+      const d = draws.find((x) => x.seed === 2400);
+      ok(d && d.pose === "bite" && Math.abs(d.poseW - 0.5) < 1e-9 && Math.abs(d.poseT - 0.5) < 1e-9, `a biting walker is drawn as ${JSON.stringify(d && [d.pose, d.poseW, d.poseT])}`);
+      ok(d && Math.abs(d.yaw) < 1e-6, `a walker facing you is drawn turned ${d && d.yaw}`);
+    }
+    // a downed walker falls (by COLLAPSE_SECS), away from the shot, then fades over FADE_SECS; no health bar
+    {
+      clear();
+      const z = put("armored", 27.5, 27.5, { seed: 2500, heading: Math.PI / 2 });
+      I.hurtWalker(z, 1e6, p);
+      I.update(0.05);
+      ok(I.fallen.includes(z), "a dead walker is not falling");
+      const fallSecs = W3.FALL_SECS;
+      const fade = W3.FADE_SECS;
+      [[0.05, 0], [W3.COLLAPSE_SECS / 2, 0], [fallSecs - fade - 0.01, 0], [fallSecs - fade / 2, 0.5], [fallSecs - 0.01, 0.99]].forEach(([t, dim]) => {
+        z.fallT = t;
+        const s = I.walkerSprite(z, true);
+        ok(Math.abs(s.dim - dim) < 0.02 && s.hp == null, `a downed walker at ${t.toFixed(2)} s fades ${s.dim.toFixed(2)} (want ${dim}), bar ${s.hp}`);
+        draws = [];
+        frame();
+        const d = draws.find((x) => x.seed === 2500);
+        if (d) ok(Math.abs(d.fall - Math.min(1, t / W3.COLLAPSE_SECS)) < 1e-9 && Math.abs(Math.atan2(Math.sin(d.fallDir), Math.cos(d.fallDir)) - Math.atan2(Math.sin(z.fallDir - z.heading), Math.cos(z.fallDir - z.heading))) < 1e-9, `a downed walker at ${t.toFixed(2)} s is drawn at fall ${d.fall}, direction ${d.fallDir}`);
+      });
+      ok(draws.length <= 1, "a settled, fading walker is drawn again every frame");
+      // one that stood idle and awake when it fell (it breathed): its picture holds still once it lies there
+      clear();
+      const y = put("walker", 27.5, 28.5, { seed: 2501, heading: Math.PI / 2, act: "idle", pose: "idle", poseW: 1 });
+      I.hurtWalker(y, 1e6, p);
+      I.update(0.05);
+      Object.assign(y, { fallT: W3.COLLAPSE_SECS + 0.05, hit: 0 });
+      frame();
+      draws = [];
+      for (let f = 0; f < 8; f++) {
+        I.time += 0.1; // as the scene's clock and the fall's run on
+        y.fallT += 0.1;
+        frame();
+      }
+      ok(!draws.some((d) => d.seed === 2501), `a downed walker that fell idle was drawn ${draws.filter((d) => d.seed === 2501).length} times more as it lay still (its breathing kept going)`);
+    }
+    // blood: cached sprites only with SETTINGS.walkerGore (Draw3's bloodDrop / bloodSplat; fog through D.dim is fine)
+    {
+      const shown = (gore) => {
+        clear();
+        W.SETTINGS.walkerGore = gore;
+        const z = put("walker", 27.5, 27.5, { seed: 2600, hp: 1000, maxHp: 1000 });
+        I.hurtWalker(z, 20, p);
+        if (!gore) I.blood.push({ x: 27.6, y: 27.6, h: 0.5, vx: 0, vy: 0, vh: 0, t: 0, life: 1, size: 0.05, splat: false }); // left over from before
+        I.updateBlood(0.05);
+        const imgs = new Set([D.sprite("bloodDrop"), D.sprite("bloodSplat")]);
+        let n = 0;
+        const ds = I.drawSprite;
+        I.drawSprite = function (ctx, s) {
+          if (imgs.has(s.img)) n++;
+          return ds.call(this, ctx, s);
+        };
+        frame();
+        I.drawSprite = ds;
+        return n;
+      };
+      ok(shown(true) > 0, "a hit's spray is not drawn with SETTINGS.walkerGore on");
+      ok(shown(false) === 0, "blood is drawn with SETTINGS.walkerGore off");
+      W.SETTINGS.walkerGore = goreWas;
+    }
+    // the redraws a frame: under the cap after the first frame, nobody left out, the near ones every frame at every
+    // governor level (thirty walkers ahead in the open, walking on the spot, three of them near)
+    {
+      clear();
+      Object.assign(p, { x: 27.5, y: 30.5, a: -Math.PI / 2 });
+      const crowdZ = [];
+      for (let i = 0; i < 30; i++) crowdZ.push(put(kinds[i % kinds.length], 27.5 + ((i % 5) - 2) * 0.7, 30.5 - 4 - Math.floor(i / 5) * 1.6, { seed: 3000 + i, move: 1, heading: Math.PI / 2 }));
+      // (the test view is 270 px tall: lod 0 is within about 1.5 tiles, 1.1 on the governor's last row)
+      const near = [put("walker", 27.15, 29.65, { seed: 3100, move: 1 }), put("runner", 27.85, 29.65, { seed: 3101, move: 1 }), put("brute", 27.5, 29.55, { seed: 3102, move: 1 })];
+      const all = crowdZ.concat(near);
+      const step = () => {
+        all.forEach((z) => (z.gait = (z.gait + 0.047) % 1)); // over a step of its picture's gait (1/32) every frame
+        frame();
+      };
+      for (let lvl = 0; lvl < I.LIVE_LEVELS.length; lvl++) {
+        I.setLiveLevel(lvl);
+        const L = I.LIVE_LEVELS[lvl];
+        if (!lvl) {
+          step(); // every picture new: the first frame draws them all
+          step();
+        } // (a new row changes no one's size on screen: its first frame stays under its cap too)
+        draws = [];
+        const perFrame = [];
+        const F = 24;
+        for (let f = 0; f < F; f++) {
+          const n0 = draws.length;
+          step();
+          perFrame.push(draws.length - n0);
+        }
+        const most = Math.max(...perFrame);
+        ok(most <= L.max, `governor level ${lvl}: ${most} redraws in one frame (cap ${L.max})`);
+        near.forEach((z) => {
+          const n = draws.filter((d) => d.seed === z.seed).length;
+          const lod0 = draws.filter((d) => d.seed === z.seed && d.lod === 0).length;
+          ok(n === F && lod0 === F, `governor level ${lvl}: a near ${z.type} was drawn ${n} times (${lod0} at lod 0) in ${F} frames (want every frame)`);
+        });
+        const starved = crowdZ.filter((z) => draws.filter((d) => d.seed === z.seed).length < 2);
+        ok(!starved.length, `governor level ${lvl}: ${starved.length} of the crowd drawn under twice in ${F} frames (one every ${Math.ceil(crowdZ.length / Math.max(1, L.max - near.length))} frames or so, want no one left out)`);
+        const tooOften = crowdZ.filter((z) => {
+          const fr = draws.filter((d) => d.seed === z.seed).map((d) => d.frame);
+          return fr.some((v, i) => i && v - fr[i - 1] < L.far);
+        });
+        ok(!tooOften.length, `governor level ${lvl}: ${tooOften.length} far walkers drawn more often than every ${L.far} frames (${JSON.stringify(tooOften.slice(0, 2).map((z) => [z.seed, draws.filter((d) => d.seed === z.seed).map((d) => d.frame + ":" + d.lod + ":" + d.h)]))})`);
+        ok(!draws.some((d) => d.h > Math.ceil(L.maxPx * L.scale) + 1), `governor level ${lvl}: a picture taller than ${L.maxPx} x ${L.scale}`);
+      }
+      // turning to face the crowd again is no burst of redraws (a look behind you in a breached wave): a few frames
+      // turned away, then back. The near ones draw at once; the others show their old pictures a frame or two and
+      // take their turns first (the longest-waiting first), under the cap, so each has a new one within a few frames
+      [I.LIVE_START, 0].forEach((lvl) => {
+        I.setLiveLevel(lvl);
+        const L = I.LIVE_LEVELS[lvl];
+        for (let f = 0; f < 4; f++) step();
+        p.a += Math.PI;
+        for (let f = 0; f < 3; f++) step();
+        p.a -= Math.PI;
+        draws = [];
+        step();
+        const first = draws.length;
+        const nearNow = near.filter((z) => draws.some((d) => d.seed === z.seed && d.lod === 0)).length;
+        const within = Math.ceil(crowdZ.length / (L.max - L.near)) + 1;
+        for (let f = 1; f < within; f++) step();
+        const missed = crowdZ.filter((z) => !draws.some((d) => d.seed === z.seed));
+        ok(first <= L.max, `governor level ${lvl}: turning back to a crowd of ${all.length}, ${first} redraws in the first frame (cap ${L.max})`);
+        ok(nearNow === near.length, `governor level ${lvl}: turning back to a crowd, ${nearNow} of the ${near.length} near ones drawn in the first frame`);
+        ok(!missed.length, `governor level ${lvl}: turning back to a crowd, ${missed.length} of ${crowdZ.length} not drawn again within ${within} frames`);
+      });
+      // one taking turns whose picture grew on screen (it came much nearer) gets a new one in the next frame, ahead
+      // of the others' turns, though it was drawn the frame before
+      {
+        I.setLiveLevel(I.LIVE_START);
+        const z = crowdZ[crowdZ.length - 1]; // the farthest row, 12 tiles off
+        for (let f = 0; f < 8 && !(I.livePool.get(z) && I.livePool.get(z).drawnAt === I.frameNo); f++) step();
+        ok(I.livePool.get(z) && I.livePool.get(z).drawnAt === I.frameNo, "the far walker was not drawn in 8 frames");
+        const y0 = z.y;
+        z.y = 30.5 - 4; // 4 tiles off: three times as tall on screen
+        draws = [];
+        step();
+        ok(draws.some((d) => d.seed === z.seed), "a walker taking turns that came much nearer kept its small picture past the next frame (want it first in the wait)");
+        z.y = y0;
+        step();
+      }
+      // looking away longer (past LIVE_IDLE frames, so their canvases are let go): every walker in view shows in the
+      // first frame back, but the first pictures past the cap are the cheapest (lod 2); each gets its own detail on
+      // its turn, first in the wait (twenty walkers 1.9 to 3.3 tiles off: lod 1 in the test view, three near)
+      {
+        clear();
+        I.setLiveLevel(I.LIVE_START);
+        const L = I.LIVE_LEVELS[I.LIVE_START];
+        const mid = [];
+        for (let i = 0; i < 20; i++) mid.push(put(kinds[i % kinds.length], 27.5 + ((i % 5) - 2) * 0.7, 30.5 - 1.9 - Math.floor(i / 5) * 0.45, { seed: 3500 + i, move: 1, heading: Math.PI / 2 }));
+        const close = [put("walker", 27.15, 29.65, { seed: 3520, move: 1 }), put("runner", 27.85, 29.65, { seed: 3521, move: 1 }), put("brute", 27.5, 29.55, { seed: 3522, move: 1 })];
+        const both = mid.concat(close);
+        const stepM = () => {
+          both.forEach((z) => (z.gait = (z.gait + 0.047) % 1));
+          frame();
+        };
+        for (let f = 0; f < 8; f++) stepM();
+        const settled = mid.filter((z) => I.livePool.get(z) && I.livePool.get(z).sLod === 1).length;
+        ok(settled === mid.length, `${settled} of ${mid.length} walkers 1.9 to 3.3 tiles off drawn at lod 1 (the test wants them there)`);
+        p.a += Math.PI;
+        for (let f = 0; f < I.LIVE_IDLE + 2; f++) stepM();
+        ok(both.every((z) => !I.livePool.has(z)), "looking away past LIVE_IDLE frames kept the walkers' canvases");
+        p.a -= Math.PI;
+        draws = [];
+        stepM();
+        const back = draws.slice();
+        const shownBack = both.filter((z) => back.some((d) => d.seed === z.seed)).length;
+        const fine = back.filter((d) => d.lod < 2).length;
+        ok(shownBack === both.length, `looking back after the canvases went: ${shownBack} of ${both.length} walkers drawn in the first frame (want all: none may vanish)`);
+        ok(fine <= L.max, `looking back after the canvases went: ${fine} pictures past lod 2 in the first frame (cap ${L.max})`);
+        ok(close.every((z) => back.some((d) => d.seed === z.seed && d.lod === 0)), "looking back after the canvases went: a near walker was not drawn at once in full detail");
+        const within = Math.ceil(mid.length / (L.max - L.near));
+        draws = [];
+        for (let f = 0; f < within; f++) stepM();
+        const coarse = mid.filter((z) => !(I.livePool.get(z) && I.livePool.get(z).sLod === 1));
+        ok(!coarse.length, `looking back after the canvases went: ${coarse.length} of ${mid.length} still at lod 2 after ${within} more frames`);
+        clear();
+        all.forEach((z) => I.walkers.push(z)); // the crowd back for the checks below
+      }
+      // stepping back up to full resolution (and to bigger pictures) is no burst of redraws: the sharper pictures
+      // take their turns, under the cap
+      // (canvases new at the low resolution, so many are too small for the sharper pictures: they grow on their turn)
+      [I.LIVE_START, 0].forEach((lvl) => {
+        I.setLiveLevel(I.LIVE_LEVELS.length - 1);
+        I.liveRelease();
+        for (let f = 0; f < 6; f++) step();
+        I.setLiveLevel(lvl);
+        draws = [];
+        step();
+        ok(draws.length <= I.LIVE_LEVELS[lvl].max, `back up to governor level ${lvl} (from a lower resolution): ${draws.length} redraws in its first frame (cap ${I.LIVE_LEVELS[lvl].max})`);
+      });
+      I.setLiveLevel(I.LIVE_START);
+      // five in full-detail range: the liveNear nearest draw every frame in full detail, the others take turns at
+      // lod 1 at most
+      clear();
+      const five = [1.0, 1.1, 1.2, 1.3, 1.4].map((d, i) => put(kinds[i % kinds.length], 27.5 + (i % 2 ? 0.35 : -0.35), 30.5 - d, { seed: 3200 + i, move: 1 }));
+      const step5 = () => {
+        five.forEach((z) => (z.gait = (z.gait + 0.047) % 1));
+        frame();
+      };
+      step5();
+      draws = [];
+      for (let f = 0; f < 12; f++) step5();
+      five.forEach((z, i) => {
+        const mine = draws.filter((d) => d.seed === z.seed);
+        if (i < I.liveNear) ok(mine.length === 12 && mine.every((d) => d.lod === 0), `the ${i + 1}th nearest walker (of ${I.liveNear} near) was drawn ${mine.length} times in 12 frames, lods ${[...new Set(mine.map((d) => d.lod))]}`);
+        else ok(mine.length >= 2 && mine.length <= 6 && mine.every((d) => d.lod >= 1), `the ${i + 1}th nearest walker (past the ${I.liveNear} near ones) was drawn ${mine.length} times in 12 frames, lods ${[...new Set(mine.map((d) => d.lod))]} (want turns, lod 1 at most)`);
+      });
+      // a hit on one taking turns shows at once, and so does the end of its flash (not on its next turn)
+      {
+        const z = five[five.length - 1];
+        let f = 0;
+        for (draws = []; f < 6 && !draws.some((d) => d.seed === z.seed && d.frame === I.frameNo); f++) step5();
+        z.hit = 0.12;
+        draws = [];
+        step5();
+        ok(draws.some((d) => d.seed === z.seed && d.hit === 1), `a walker taking turns, just drawn and then hit, did not flash in the next frame (${JSON.stringify(draws.filter((d) => d.seed === z.seed))})`);
+        z.hit = 0;
+        draws = [];
+        step5();
+        ok(draws.some((d) => d.seed === z.seed && d.hit === 0), "a walker taking turns kept its hit flash past the hit");
+      }
+      // bodies at your feet take no near place: two settled ones nearer than three walkers leave all three drawn every
+      // frame in full detail (and are not drawn again while they lie still)
+      {
+        clear();
+        const three = [1.1, 1.2, 1.3].map((d, i) => put(kinds[i % kinds.length], 27.5 + (i % 2 ? 0.4 : -0.4), 30.5 - d, { seed: 3300 + i, move: 1 }));
+        const bodies = [0.75, 0.85].map((d, i) => {
+          const z = I.makeWalker(kinds[(i + 1) % kinds.length], 27.5 + (i ? 0.3 : -0.3), 30.5 - d, 1);
+          z.seed = 3310 + i;
+          I.downWalker(z);
+          z.fallT = W3.COLLAPSE_SECS + 0.1;
+          return z;
+        });
+        const step3 = () => {
+          three.forEach((z) => (z.gait = (z.gait + 0.047) % 1));
+          frame();
+        };
+        step3();
+        draws = [];
+        for (let f = 0; f < 12; f++) step3();
+        three.forEach((z) => {
+          const mine = draws.filter((d) => d.seed === z.seed);
+          ok(mine.length === 12 && mine.every((d) => d.lod === 0), `with two bodies nearer, a walker ${(30.5 - z.y).toFixed(1)} tiles off was drawn ${mine.length} times in 12 frames, lods ${[...new Set(mine.map((d) => d.lod))]} (want every frame at lod 0)`);
+        });
+        ok(!draws.some((d) => bodies.some((b) => b.seed === d.seed)), "settled bodies lying still were drawn again");
+        // one still collapsing does take a place (it moves every frame): the farthest of the three takes turns
+        bodies[0].fallT = 0.1;
+        step3();
+        draws = [];
+        for (let f = 0; f < 12; f++) {
+          bodies[0].fallT += 0.05;
+          step3();
+        }
+        const falls = draws.filter((d) => d.seed === bodies[0].seed);
+        const last = draws.filter((d) => d.seed === three[2].seed);
+        ok(falls.length === 12 && falls.every((d) => d.lod === 0), `a body collapsing at your feet was drawn ${falls.length} times in 12 frames (want every frame, full detail)`);
+        ok(last.length < 12 && last.every((d) => d.lod >= 1), `with a body collapsing nearer, the third walker was still drawn ${last.length} times in 12 frames (want turns)`);
+        // settled, it gives its place back but keeps its full detail (no pop as it lands)
+        bodies[0].fallT = W3.COLLAPSE_SECS + 0.05;
+        draws = [];
+        for (let f = 0; f < 6; f++) step3();
+        const landed = draws.filter((d) => d.seed === bodies[0].seed);
+        ok(landed.length >= 1 && landed.every((d) => d.lod === 0), `a body that landed at your feet was drawn at lods ${JSON.stringify(landed.map((d) => d.lod))} (want its full detail kept)`);
+        ok(draws.filter((d) => d.seed === three[2].seed && d.lod === 0).length >= 5, "a body that landed did not give its near place back");
+      }
+      // two at about the same depth at the edge of the near ones keep their places: no detail flicker as they jostle;
+      // one clearly nearer does take the place
+      {
+        clear();
+        const a = put("walker", 27.1, 30.5 - 1.0, { seed: 3400, move: 1 });
+        const b = put("runner", 27.9, 30.5 - 1.1, { seed: 3401, move: 1 });
+        const c = put("lanky", 27.0, 30.5 - 1.25, { seed: 3402, move: 1 });
+        const d = put("screamer", 28.0, 30.5 - 1.26, { seed: 3403, move: 1 });
+        const stepJ = (f) => {
+          [a, b, c, d].forEach((z) => (z.gait = (z.gait + 0.047) % 1));
+          d.y = 30.5 - (f % 2 ? 1.24 : 1.26); // nearer than c every other frame, by a hair
+          frame();
+        };
+        stepJ(0);
+        draws = [];
+        for (let f = 1; f <= 12; f++) stepJ(f);
+        const lodsOf = (z) => [...new Set(draws.filter((x) => x.seed === z.seed).map((x) => x.lod))];
+        ok(draws.filter((x) => x.seed === c.seed).length === 12 && lodsOf(c).join() === "0", `a near walker swapped out by one a hair nearer: drawn ${draws.filter((x) => x.seed === c.seed).length} times, lods ${lodsOf(c)}`);
+        ok(!lodsOf(d).includes(0), `a walker a hair nearer every other frame took the near place: lods ${lodsOf(d)}`);
+        d.y = 30.5 - 1.05;
+        frame();
+        draws = [];
+        for (let f = 0; f < 6; f++) {
+          [a, b, c, d].forEach((z) => (z.gait = (z.gait + 0.047) % 1));
+          frame();
+        }
+        ok(draws.filter((x) => x.seed === d.seed && x.lod === 0).length === 6 && !lodsOf(c).includes(0), `a walker clearly nearer did not take the near place (${lodsOf(d)} / ${lodsOf(c)})`);
+      }
+    }
+    // the governor: it starts on the defaults (LIVE_START); slow frames step it down a row at a time, in the spec's
+    // order (far ones less often, fewer redraws, a lower resolution, less detail), never below the last row; fast
+    // frames step it back up, past the defaults to the richest row (the first design's settings) on a fast machine;
+    // a row it could not hold takes twice as long to climb back to each time, up to GOV_BACKOFF x
+    {
+      const was = [I.planeRes, I.renderN, I.renderMs, I.frameMs, I.liveDrawn, I.liveShown];
+      const fresh = () => {
+        I.renderN = 0;
+        I.renderMs = null;
+        I.frameMs = null;
+        I.liveLevel = null;
+        I.liveUpWait = null;
+      };
+      // (what the frames drew: a crowd on screen, ten of them redrawn; only such frames count)
+      const crowdOn = () => {
+        I.liveShown = 30;
+        I.liveDrawn = 10;
+      };
+      I.planeRes = 3; // (the floor's own step is checked above)
+      fresh();
+      // frames with no live walkers on screen (a calm yard, an empty room) move it neither way, and leave its runs of
+      // slow and fast frames as they were; nor does a fast frame with fewer than liveNear on screen count to climb
+      I.liveShown = I.liveDrawn = 0;
+      for (let i = 0; i < 2000; i++) I.adaptQuality(2, 16);
+      ok(I.liveLevel === I.LIVE_START, `2000 fast frames with no walkers on screen moved the governor to row ${I.liveLevel} (want ${I.LIVE_START})`);
+      for (let i = 0; i < 2000; i++) I.adaptQuality(40, 60);
+      ok(I.liveLevel === I.LIVE_START, `2000 slow frames with no walkers on screen moved the governor to row ${I.liveLevel} (want ${I.LIVE_START})`);
+      fresh();
+      I.liveShown = I.liveDrawn = I.LIVE_NEAR - 1;
+      for (let i = 0; i < 4000; i++) I.adaptQuality(2, 16);
+      ok(I.liveLevel === I.LIVE_START, `4000 fast frames with ${I.liveShown} walkers on screen (under ${I.LIVE_NEAR}) climbed the governor to row ${I.liveLevel}`);
+      fresh();
+      crowdOn();
+      for (let i = 0; i < I.QUALITY_WAIT + 1 + I.GOV_WAIT - 20; i++) I.adaptQuality(40, 60);
+      const slowRun = I.liveSlowN;
+      I.liveShown = I.liveDrawn = 0;
+      for (let i = 0; i < 50; i++) I.adaptQuality(40, 60);
+      ok(I.liveSlowN === slowRun && I.liveLevel === I.LIVE_START, `frames with no walkers on screen changed the governor's run of slow frames (${slowRun} -> ${I.liveSlowN}, row ${I.liveLevel})`);
+      crowdOn();
+      for (let i = 0; i < 20; i++) I.adaptQuality(40, 60);
+      ok(I.liveLevel === I.LIVE_START + 1, `slow frames with walkers, a calm between, did not add up to a step down (row ${I.liveLevel})`);
+      fresh();
+      I.adaptQuality(5, 16);
+      ok(I.liveLevel === I.LIVE_START, `a fresh governor starts on row ${I.liveLevel}, not the defaults (${I.LIVE_START})`);
+      crowdOn(); // (from here on, every frame drew a crowd)
+      const rows = I.LIVE_LEVELS;
+      const S0 = I.LIVE_START;
+      const keys = ["near", "farLod", "far", "max", "maxPx", "scale", "lodPx"];
+      const changed = (a, b) => keys.filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k]));
+      const flat = [];
+      for (let i = S0 + 1; i < rows.length; i++) flat.push(changed(rows[i - 1], rows[i]).join("+"));
+      ok(JSON.stringify(flat) === JSON.stringify(["far", "max", "max", "scale", "lodPx"]), `below the defaults the governor's rows step ${JSON.stringify(flat)}, not far, max, max, scale, lodPx`);
+      const R = rows[S0];
+      ok(R.near === I.LIVE_NEAR && R.farLod === I.FAR_LOD && R.far === I.FAR_EVERY && R.max === I.LIVE_RENDERS_MAX && R.maxPx === I.LIVE_MAX_PX && R.scale === 1 && R.lodPx === I.LOD_PX, "the governor's starting row is not the defaults");
+      ok(S0 > 0 && rows[0].max >= 24 && rows[0].maxPx >= 400 && rows[0].farLod === 0 && rows[0].far <= I.FAR_EVERY && rows[0].near > I.LIVE_NEAR, `the governor's richest row is not the first design's settings (24 redraws, 400 px, full detail): ${JSON.stringify(rows[0])}`);
+      const cheaper = (r, q) => r.near <= q.near && r.farLod >= q.farLod && r.far >= q.far && r.max <= q.max && r.maxPx <= q.maxPx && r.scale <= q.scale && r.lodPx[0] >= q.lodPx[0] && changed(r, q).length > 0;
+      ok(rows.every((r, i) => !i || cheaper(r, rows[i - 1])), "a governor row is not cheaper than the one before it");
+      ok(rows.every((r) => r.near >= 1 && r.max > r.near), "a governor row draws no near walkers every frame, or leaves no room past them");
+      // slow: down from the defaults to the last row, a row at a time
+      const levels = [I.liveLevel];
+      let n = 0;
+      for (; n < 4000 && I.liveLevel < rows.length - 1; n++) {
+        I.adaptQuality(40, 60);
+        if (levels[levels.length - 1] !== I.liveLevel) levels.push(I.liveLevel);
+      }
+      ok(JSON.stringify(levels) === JSON.stringify(rows.map((r, i) => i).slice(S0)), `slow frames stepped the governor through ${JSON.stringify(levels)}`);
+      ok(n <= I.QUALITY_WAIT + I.GOV_WAIT * (rows.length - 1 - S0) + 2, `the governor took ${n} slow frames to reach its last row`);
+      const L = rows[rows.length - 1];
+      ok(I.liveNear === L.near && I.liveFarLod === L.farLod && I.liveFar === L.far && I.liveMax === L.max && I.liveMaxPx === L.maxPx && I.liveScale === L.scale && I.liveLodPx === L.lodPx, "the last row's settings are not in place");
+      for (let i = 0; i < 500; i++) I.adaptQuality(40, 60);
+      ok(I.liveLevel === rows.length - 1, "still slow, the governor left its last row");
+      // a frame or two fast in a slow run does not step it up; staying fast does, one row at a time, to the top
+      I.adaptQuality(1, 16);
+      ok(I.liveLevel === rows.length - 1, "one fast frame stepped the governor up");
+      const up = [I.liveLevel];
+      for (let i = 0; i < 20000 && I.liveLevel > 0; i++) {
+        I.adaptQuality(2, 16);
+        if (up[up.length - 1] !== I.liveLevel) up.push(I.liveLevel);
+      }
+      ok(JSON.stringify(up) === JSON.stringify(rows.map((r, i) => i).reverse()), `fast frames stepped the governor up through ${JSON.stringify(up)}`);
+      ok(I.liveNear === rows[0].near && I.liveFarLod === rows[0].farLod && I.liveMax === rows[0].max && I.liveMaxPx === rows[0].maxPx && I.liveScale === 1, "on its richest row, the governor's settings are not that row's");
+      // too slow up there: it steps back down; each time it climbs back to a row it had to leave, it waits longer
+      const climbs = [];
+      for (let k = 0; k < 5; k++) {
+        for (let i = 0; i < 1000 && I.liveLevel === 0; i++) I.adaptQuality(40, 60);
+        let m = 0;
+        for (; m < 20000 && I.liveLevel > 0; m++) I.adaptQuality(2, 16);
+        climbs.push(m);
+      }
+      const smooth = 200; // fast frames before the smoothed times are fast again
+      ok(climbs.every((m, k) => m >= Math.min(I.GOV_BACKOFF, 2 ** (k + 1)) * I.GOV_WAIT_UP && m <= Math.min(I.GOV_BACKOFF, 2 ** (k + 1)) * I.GOV_WAIT_UP + smooth), `climbing back to a row it had to leave took ${JSON.stringify(climbs)} fast frames (want ${I.GOV_WAIT_UP} x 2, 4, 8 ... up to ${I.GOV_BACKOFF})`);
+      // in between (neither slow nor fast) it holds
+      I.setLiveLevel(S0 + 2);
+      for (let i = 0; i < 1000; i++) I.adaptQuality(10, 20);
+      ok(I.liveLevel === S0 + 2, `frames neither slow nor fast moved the governor (${I.liveLevel})`);
+      fresh();
+      I.setLiveLevel(S0);
+      [I.planeRes, I.renderN, I.renderMs, I.frameMs, I.liveDrawn, I.liveShown] = was;
+      I.sizePlane();
+    }
+    I.stop();
+    ok(I.livePool.size === 0, "leaving the yard kept walker canvases");
+
+    /* the cabin: the tall kinds inside stay under its ceiling (Interior.indoorAt) */
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    let cabin = null;
+    for (let y = 0; y < I.gh && !cabin; y++) for (let x = 0; x < I.gw && !cabin; x++) if (I.indoorAt(x + 0.5, y + 0.5) && !I.solidAt(x + 0.5, y + 0.5)) cabin = [x + 0.5, y + 0.5];
+    ok(!!cabin, "no floor inside the cabin to test");
+    if (cabin) {
+      clear();
+      Object.assign(p0(), { x: cabin[0], y: cabin[1], hp: 1e9, maxHp: 1e9 });
+      kinds.forEach((type) => {
+        const z = I.makeWalker(type, cabin[0], cabin[1], 1);
+        ok(I.walkerSprite(z, false).scale <= I.CEIL_CAP + 1e-9 && I.walkerHeight(z) <= I.CEIL_CAP + 1e-9, `in the cabin: a ${type} stands ${I.walkerSprite(z, false).scale} tiles, over its ceiling`);
+      });
+      lookLongest();
+      draws = [];
+      crowd("in the cabin");
+    }
+    I.stop();
+    ok(dimmedLive === 0, `a live walker's canvas went through Draw3.dim or dimOwn ${dimmedLive} times (a frozen walker and a leak)`);
+    ok(I.livePool.size === 0 && !(I.liveSpare || []).length, "Interior.stop() kept walker canvases");
+    I.dropSceneCaches();
+  } finally {
+    W3.draw = drawWas;
+    sb.document.createElement = makeWas;
+    D.dim = dimWas;
+    I.dimOwn = dimOwnWas;
+    I.ctx.fillRect = fillWas;
+    W.SETTINGS.walkerGore = goreWas;
+    I.liveUpWait = null;
+    I.setLiveLevel(I.LIVE_START);
+    ctxMath.random = realRandom;
+    I.walkers.length = 0;
+    I.fallen.length = 0;
+    I.blood.length = 0;
+  }
+} catch (e) {
+  err(`live walkers: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
+}
+// (its own OK line, here: the summary at the end of the file is shared with other sections)
+if (errors.length === liveErrors0) console.log(`OK: live walkers: ${liveChecked} checks (every kind in every state drawn in a building, the yard and the cabin; canvases reused and let go; walls hide; ceilings cap; poses ease; the fallen fade; no Draw3.dim; still walkers drawn once; the redraw cap, the near ones and the governor; turning back to a crowd is no burst; the health bar; blood only with gore, its spray from the chest as drawn).`);
+
 /* ---------- June's first-run tutorial (js/tutorial.js) ----------
    Last in the file, so nothing it leaves behind can touch the checks above. The cards go to a stand-in view that
    records them; the clock is ours (Got it arms after TUNE.armMs). A frame runs only while the scene runs and is not
@@ -1733,7 +3910,8 @@ try {
     const inFence = (w) => w.x > Math.min(...F.map((f) => f[0])) && w.x < Math.max(...F.map((f) => f[0])) + 1 && w.y > Math.min(...F.map((f) => f[1])) && w.y < Math.max(...F.map((f) => f[1])) + 1;
     if (practice.length !== 1) err(`tutorial: ${practice.length} practice walkers after the shoot card; want 1`);
     else {
-      if (z.speed > 1.25 * 1.1 * T.PRACTICE.speed + 1e-9) err(`tutorial: the practice walker is not slow (${z.speed})`);
+      if (z.type !== T.PRACTICE.type) err(`tutorial: the practice walker is a ${z.type}, want ${T.PRACTICE.type}`);
+      if (z.speed > W.WALKER_TYPES[T.PRACTICE.type].speed * (1 + I.SPEED_JITTER) * T.PRACTICE.speed + 1e-9) err(`tutorial: the practice walker is not slow (${z.speed})`);
       if (z.dps !== 0 || z.scrap !== 0 || z.dmg !== T.PRACTICE.bite) err(`tutorial: the practice walker claws (${z.dps}), pays scrap (${z.scrap}) or bites too hard (${z.dmg})`);
       if (I.solidForPlayer(z.x, z.y) || !inFence(z)) err(`tutorial: the practice walker came in at ${z.x},${z.y}, not on open ground inside the fence`);
       if (I.indoorAt(z.x, z.y) !== I.indoorAt(I.player.x, I.player.y)) err("tutorial: the practice walker came in on the other side of the cabin walls");
@@ -2114,4 +4292,4 @@ if (errors.length) {
   console.log(`\n${errors.length} engine problem(s).`);
   process.exit(1);
 }
-console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock).`);
+console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), the breach rule (3/6/12/30 steps, a mend, a corner hole, raiders and wreckers, two holes), wreckers (the builds, the van's floor, provoked, Can't die), wrecked builds and their repairs, a walker reaching you from all ${wreckSpotsTried} wreck spots, and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock), and ${kindsChecked} walker kinds (stats, spawned in front of you in a building, the yard and the river, the scream, downed walkers and blood, heading, gait, the river's and the alarm's kinds, the alarm's cap, a return visit), and ${countsChecked} checks that walkers are never counted (no HUD box, the wave label, the river's toast), the scream's toast, kinds met, and no bite round a corner.`);
