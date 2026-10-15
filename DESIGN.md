@@ -591,3 +591,25 @@ sandbox in `js/state.js`, `godBegin` / `godGo` / `godExit` in `js/main.js`; test
 | Does it change with the Radio room? | Yes. Level 0 a dead radio; 1 the dial glows; 2 a ham set and speaker, and Pip's map and list of voices on the table; 3 a mic, headphones, an ON AIR light, and a cork board of the town in the corner. |
 | The yard | Tower only, on the same 3x3 plot: a timber tower (about 2 tiles), a steel lattice on guy wires with a dish and a beacon (about 3.6), a red and white broadcast tower with two dishes, two beacons, an equipment hut and solar panels (about 5). |
 | Judgment calls | Only the newest day's broadcast waits: an older one never tuned in to shows with its day. Old saves (no `tuned` field) count every broadcast as heard. The radio's words count toward words read when it is first shown. |
+
+## Owner decisions: How it works, rewritten as backstory (2026-10-15)
+
+The owner asked to "rewrite the How it works for each level. Decrease the length by 50%. Only
+explain the important information that are not the controls in the body and include mostly back
+story for all 6 levels."
+
+| Question | Owner's answer |
+|----------|----------------|
+| The validator required ~21 rule topics and 5 numbers. | Trim it to the core: the only save, waves, scrap, typing, notes, alarms, stashes, keys, road signs and turning lanes (`HOWTO_MUST`). The numbers check is gone. |
+| New lore, or existing canon? | Existing canon only (`docs/STORY.md`, June's Day 1 entry, the house notes). No new facts. |
+| Keys in the body? | None. The controls list under it names every key. |
+| The crew paragraph? | Folded into the story: who June, Tomas and Pip are, then talk, favors and trust stars. The fence fixer and the shelter are left to the crew's own words. |
+
+- **Length:** each level is 47 to 51 percent of its old word count (level 1 740 words, level 6
+  1,046), seven paragraphs: the Fall and the van; the Hollis cabin and saving; the crew; living
+  among the Hollises' things; the notes and the key ring; the road; home, waves and typing.
+- **What left How it works** (still taught elsewhere: the tutorial, the controls, plot signs,
+  notes, item tags, the crew's tips): kit counts, repair prices, restock days, save slots, the bed,
+  journal and radio details, late rooms, crowbars, traps, the House tab and the van's cargo.
+- **Judgment call:** the convoy is written as "meant to carry people north", never as gone or
+  still waiting, since the Hollises left with it and its departure stays off screen.

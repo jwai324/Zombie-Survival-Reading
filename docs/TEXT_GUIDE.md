@@ -214,12 +214,17 @@ must use every one its facts carry. Copy them exactly, braces and all: the game 
   reads well whatever they become. A count that can be 1 goes where no plural hangs on it, or
   before a noun the game mends ("1 holes" reads "1 hole").
 
-How it works, at every level, has a crew paragraph: June, Tomas and Pip by name; walk up to one
-and press E to talk (the yard keeps running); the favors they ask (E again to answer, bring the
-thing home, talk to hand it over); their trust stars; Tomas fixes fence holes in the calm and you
-still pay the scrap; in a wave they hide in the office closet, and a walker that gets in there
-costs a medical kit, or food. The fence is never "patched" (that word stays banned with the fence);
-June still "patches you up". The controls list's E line says E talks to the crew.
+How it works, at every level, has a crew paragraph: June, Tomas and Pip by name, who they are,
+walk up to one to talk, the favors they ask, and their trust stars. The fence is never "patched"
+(that word stays banned with the fence); June still "patches you up". The controls list's E line
+says E talks to the crew.
+
+How it works is mostly backstory (owner decision 2026-10-15, `DESIGN.md`): the Fall, the van, the
+Hollis family's cabin, the crew, the people who write the notes and the key ring. It names no keys
+(the controls list below it does) and carries only the rules a player cannot find out alone:
+the base is the only save, waves and scrap, typing builds, read the notes (a wrong code sets off an
+alarm), stashes and their keys in another building, and the road signs (your own lane may turn).
+`HOWTO_MUST` in `tests/validate-text.js` is that list. Keep it about half the length it was.
 
 `node tests/validate-text.js` holds the crew's words to all of the above. Until a level has any
 crew words it only warns how many are missing; once it has some, every missing text is an error,

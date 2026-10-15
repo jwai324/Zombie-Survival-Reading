@@ -177,36 +177,20 @@ const CABIN_BANNED = [
 // How it works: paragraphs at every level (the crew have their own since the crew drop). SCALE: a warning bound;
 // raise the top when a new feature earns a paragraph of its own
 const HOWTO_PARAGRAPHS = [3, 7];
+/* How it works is mostly backstory now (owner decision 2026-10-15, DESIGN.md): the keys live in the controls list,
+   the yard basics in June's tutorial, and the rest in the notes, signs and plot signs. It must still carry the few
+   rules a player cannot find out alone, the ones that cost a run when missed. */
 const HOWTO_MUST = [
-  [/door/i, "the cabin's doors (E opens and shuts them; walkers break a shut one, walk through an open one)"],
-  [/window/i, "the cabin's windows (walkers smash them and climb in; you cannot climb out)"],
-  [/computer/i, "the office computer (E there opens the build menu)"],
-  [/\bbell\b/i, "the dinner bell (it brings the next wave)"],
-  [/trap/i, "traps (crafted at the bench, placed in the yard)"],
-  [/kit/i, "medical kits (the backpack carries them, one heals to full)"],
-  [/typ/i, "typing (how you build, upgrade, and craft)"],
-  [/scrap/i, "scrap (fence holes and van repair cost scrap)"],
-  [/save/i, "saving (the base is the only place the game saves)"],
-  [/\bwell\b/i, "the Well (late game: water)"],
-  [/\bfarm/i, "the Farm (late game: crops and animals for food)"],
-  [/\blab\b/i, "the Lab (late game: medicine made at home)"],
+  [/save/i, "saving (the base is the only place the game saves; going down loads the last save)"],
+  [/\bwaves?\b/i, "waves (the calm ends and walkers come for the fence and the cabin)"],
+  [/scrap/i, "scrap (a fence hole stays until fixed, and every fix costs scrap)"],
+  [/typ/i, "typing (how you build)"],
+  [/\bnotes?\b/i, "the notes (read them: they say where things are and how to open the cache)"],
+  [/alarm/i, "alarms (a wrong code sets one off, and walkers pour in)"],
   [/\bstash/i, "stashes (a locked room in every building)"],
-  [/\bkeys?\b/i, "stash keys (hidden in another building, found by reading)"],
-  [/crowbar/i, "the crowbar (a jammed lock needs one; build it at the workbench)"],
-  [/alarm/i, "alarms (a wrong code or button sets one off)"],
-  [/journal/i, "June's journal (a page every day at home)"],
-  [/radio/i, "the radio (broadcasts once the Radio room is built)"],
-  [/\blanes?\b/i, "lanes on the road (be in the right lane before the stop line)"],
+  [/\bkeys?\b/i, "stash keys (hidden in a different building, found by reading)"],
   [/\bsigns?\b/i, "the road signs (they say where each lane goes)"],
-  [JUNCTION_LANES, "that where roads meet your own lane may turn (one lane per road, as the sign's arrows show)"],
-];
-/* numbers the How it works text must carry, straight from the world file */
-const HOWTO_NUMBERS = () => [
-  [WORLD.SETTINGS.fenceRepairScrap, "the scrap a fence hole costs"],
-  [WORLD.SETTINGS.houseRepairScrap, "the scrap a broken door or window costs"],
-  [WORLD.SETTINGS.kitsMax, "how many kits the backpack holds"],
-  [WORLD.SETTINGS.saveSlots, "how many saves there are"],
-  [WORLD.SETTINGS.restockDays, "the days until shelf items come back"],
+  [JUNCTION_LANES, "that where roads meet your own lane may turn"],
 ];
 /* the controls list: one "Head: text" line per group, keys named as capitals */
 const CONTROLS_MUST = [
@@ -742,25 +726,17 @@ function checkCrew(ctx, n, t, spec, mode) {
 }
 
 /* How it works and the controls, once a level has its crew words (they are written with them): the crew by name,
-   talking (E, the yard keeps running), the favors they ask, trust stars, the fence fixer's work and its price, and
-   the shelter in a wave with what a walker there costs. Each test takes the howto paragraphs (or controls lines). */
+   talking, the favors they ask and trust stars. The fence fixer and the shelter are taught in the crew's own words.
+   Each test takes the howto paragraphs (or controls lines). */
 const namesCrew = (p) => crewNames().concat("crew").some((nm) => nameRe(nm).test(p));
 const crewPara = (re) => (P) => P.some((p) => namesCrew(p) && re.test(p));
 function howtoCrewMust() {
-  const W = WORLD;
-  const R = W.CREW_RULES || {};
-  const fixers = Object.values(crewOf()).filter((c) => c && (c.jobs || []).some((j) => j.job === "fence")).map((c) => c.name);
-  const shelter = String((((W.HOUSE || {}).rooms || {})[R.shelter] || {}).name || "");
-  const shelterWord = shelter.split(/\s+/).pop();
-  const rules = [
+  return [
     [(P) => crewNames().every((nm) => P.some((p) => nameRe(nm).test(p))), `the crew by name (${crewNames().join(", ")})`],
-    [crewPara(/\btalk/i), "talking to the crew (walk up to one and press E; the yard keeps running)"],
-    [crewPara(/\b(favou?rs?|quests?|errands?|requests?)\b/i), "the favors the crew ask (press E again to answer, bring it home, talk to hand it over)"],
-    [crewPara(/\bstars?\b/i), "the crew's trust stars (talks and favors earn them; a raid, a late errand or giving up costs some)"],
+    [crewPara(/\btalk/i), "talking to the crew (walk up to one; the yard keeps running)"],
+    [crewPara(/\b(favou?rs?|quests?|errands?|requests?)\b/i), "the favors the crew ask (bring what they need home from town)"],
+    [crewPara(/\bstars?\b/i), "the crew's trust stars (talks and favors earn them)"],
   ];
-  fixers.forEach((nm) => rules.push([(P) => P.some((p) => nameRe(nm).test(p) && /\b(fence|holes?)\b/i.test(p) && /\bscrap\b/i.test(p)), `${nm} fixing fence holes in the calm, and that you still pay the scrap (${W.SETTINGS.fenceRepairScrap} scrap a hole), in one paragraph`]));
-  if (shelterWord) rules.push([(P) => P.some((p) => new RegExp("\\b" + escRe(shelterWord) + "\\b", "i").test(p) && /\b(kits?|food)\b/i.test(p)), `where the crew hide in a wave (the ${shelter.toLowerCase()}) and what a walker that gets in costs (a medical kit, else food), in one paragraph`]);
-  return rules;
 }
 const CONTROLS_CREW_MUST = [[(L) => L.some((l) => /\bE\b/.test(l) && /\btalk/i.test(l)), "that E talks to the crew (on the E line)"]];
 
@@ -872,7 +848,6 @@ function checkLevel(n) {
     if (HOWTO_BANNED.test(all)) err(ctx, `howto says the fence is patched (${(all.match(HOWTO_BANNED) || [""])[0].slice(0, 60)}...): holes stay until fixed, by you or by the crew in the calm, and each fix costs ${WORLD.SETTINGS.fenceRepairScrap} scrap`);
     HOWTO_MUST.forEach(([re, what]) => { if (!re.test(all)) err(ctx, `howto must mention ${what}`); });
     CABIN_BANNED.forEach(([re, what]) => { if (re.test(all)) err(ctx, `howto ${what}`); });
-    HOWTO_NUMBERS().forEach(([num, what]) => { if (!hasNumber(num, all)) err(ctx, `howto must give ${what} (${num})`); });
     if (crewNeed) howtoCrewMust().forEach(([test, what]) => { if (!test(t.howto.map(String))) crewNeed(ctx, `howto must mention ${what}`); });
   }
   // controls: the key list under How it works, at this level too
