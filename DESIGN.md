@@ -581,3 +581,25 @@ sandbox in `js/state.js`, `godBegin` / `godGo` / `godExit` in `js/main.js`; test
 - **E steps away from the computer.** E opens the office computer and E closes it, like B and the
   backpack. Not while the workbench, the backpack, a question, a tutorial card or a lock prompt sits
   over the menu: those keep their own keys.
+
+## Owner decisions: How it works, rewritten as backstory (2026-10-15)
+
+The owner asked to "rewrite the How it works for each level. Decrease the length by 50%. Only
+explain the important information that are not the controls in the body and include mostly back
+story for all 6 levels."
+
+| Question | Owner's answer |
+|----------|----------------|
+| The validator required ~21 rule topics and 5 numbers. | Trim it to the core: the only save, waves, scrap, typing, notes, alarms, stashes, keys, road signs and turning lanes (`HOWTO_MUST`). The numbers check is gone. |
+| New lore, or existing canon? | Existing canon only (`docs/STORY.md`, June's Day 1 entry, the house notes). No new facts. |
+| Keys in the body? | None. The controls list under it names every key. |
+| The crew paragraph? | Folded into the story: who June, Tomas and Pip are, then talk, favors and trust stars. The fence fixer and the shelter are left to the crew's own words. |
+
+- **Length:** each level is 47 to 51 percent of its old word count (level 1 740 words, level 6
+  1,046), seven paragraphs: the Fall and the van; the Hollis cabin and saving; the crew; living
+  among the Hollises' things; the notes and the key ring; the road; home, waves and typing.
+- **What left How it works** (still taught elsewhere: the tutorial, the controls, plot signs,
+  notes, item tags, the crew's tips): kit counts, repair prices, restock days, save slots, the bed,
+  journal and radio details, late rooms, crowbars, traps, the House tab and the van's cargo.
+- **Judgment call:** the convoy is written as "meant to carry people north", never as gone or
+  still waiting, since the Hollises left with it and its departure stays off screen.
