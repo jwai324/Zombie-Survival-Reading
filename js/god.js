@@ -198,10 +198,10 @@
       const name = T.name.toLowerCase();
       const a = /^[aeiou]/.test(name) ? "An " : "A "; // an armored, a lanky
       const G = ZSR.Game;
-      if (G && G.running && G.zombies && typeof G.spawnZombie === "function") {
-        // the road's spawnZombie(type, side) places that kind ("ahead": on screen, ahead of the van) and returns it;
-        // one that takes no kind would spawn a random one, so it is not called
-        const z = G.spawnZombie.length >= 1 ? G.spawnZombie(type, "ahead") : null;
+      if (G && G.running && G.zombies) {
+        // the road's contract (as Interior's): spawnWalkerAhead(type) places that kind on screen, ahead of the van,
+        // and returns it. A road without it cannot place a kind (its spawnZombie picks one at random): not asked
+        const z = typeof G.spawnWalkerAhead === "function" ? G.spawnWalkerAhead(type) : null;
         return z && z.type === type ? a + name + " on the road ahead." : "The road cannot place " + a.toLowerCase() + name + " yet.";
       }
       const I = ZSR.Interior;
@@ -253,6 +253,7 @@
   let msg = "";
   let held = {}; // what the menu paused: { game, interior }
   let started = ""; // what the sandbox started from, for the Sandbox tab
+  let spawnKind = null; // the Cheats tab's "Spawn walker" kind (a WALKER_TYPES id), kept while the tab is rebuilt
 
   /** A small element builder: h("button", { class: "btn", onclick }, "Go"). */
   function h(tag, attrs, kids) {
@@ -436,9 +437,12 @@
     body.appendChild(tog("holdCalm", "Hold the calm: no wave comes in the yard until this is off (Start a wave still works)"));
     body.appendChild(h("div", { class: "god-row" }, [btn("Start a wave now", () => say(Scene.startWave()), "go"), btn("Clear all walkers", () => say(Scene.clearWalkers())), btn("Heal to full", () => say(Scene.heal()))]));
     // one walker of any kind, from the facts (WALKER_TYPES), in front of you
+    // (the kind picked is kept: say() rebuilds this tab, and Spawn again spawns the same kind)
     const kinds = walkerTypes();
-    const kind = h("select", {}, kinds.map((id) => h("option", { value: id }, W().WALKER_TYPES[id].name)));
-    body.appendChild(h("div", { class: "god-row" }, [h("label", {}, ["Spawn walker: ", kind]), btn("Spawn in front of you", () => say(Scene.spawnWalker(kind.value)), "go")]));
+    if (!kinds.includes(spawnKind)) spawnKind = kinds[0];
+    const kind = h("select", { onchange: (e) => (spawnKind = e.target.value) }, kinds.map((id) => h("option", { value: id, selected: id === spawnKind }, W().WALKER_TYPES[id].name)));
+    kind.value = spawnKind;
+    body.appendChild(h("div", { class: "god-row" }, [h("label", {}, ["Spawn walker: ", kind]), btn("Spawn in front of you", () => say(Scene.spawnWalker(spawnKind)), "go")]));
     body.appendChild(h("p", { class: "god-note" }, "Wave and walker buttons act on the scene under this menu: close it to see them."));
   }
 

@@ -1094,10 +1094,13 @@
       const hear = this.keys.shift && this.player.moving ? 9 : 6;
       if (!z.awake && (dist < hear || (this.time - this.noise < 1.5 && dist < this.noiseR) || z.hurtT > 0)) z.awake = true;
       if (!z.awake) return "sleep";
-      // the first one of its kind you see: the save remembers the day (looked for a few times a second, until then)
+      // the first one of its kind you see: the save remembers the day (looked for a few times a second, until then;
+      // a kind already met is not looked for at all)
       if (!z.met && (z.seeT = (z.seeT || 0) - dt) <= 0) {
         z.seeT = 0.4;
-        if (this.seesWalker(z)) this.noticeWalker(z);
+        const S = State();
+        if (S && S.save && S.save.met && S.save.met[z.type] != null) z.met = true;
+        else if (this.seesWalker(z)) this.noticeWalker(z);
       }
       if (z.frameT > 0.35 / (z.speed / WT().walker.speed)) {
         z.frameT = 0;
@@ -1112,7 +1115,10 @@
       }
       // a scream's frenzy: faster for a while (never the tutorial's practice walker)
       const speed = z.speed * (z.frenzyT > 0 && !z.practice ? SC.mult : 1);
-      if (dist < (z.reach != null ? z.reach : WT().walker.reach)) {
+      // a bite past a plain walker's reach (a lanky's long arms) needs a clear line: never round a wall's corner
+      const reach0 = WT().walker.reach;
+      const reach = z.reach != null ? z.reach : reach0;
+      if (dist < reach && (dist <= reach0 || this.lineClear(z.x, z.y, p.x, p.y))) {
         z.aim = p;
         if (z.cool <= 0) {
           z.cool = 1.1;
@@ -2432,6 +2438,7 @@
     },
     SPEED_JITTER,
     TURN_RATE,
+    SCREAM_TOAST_GAP,
     FALL_SECS,
     FALLEN_MAX,
     BLOOD_MAX,

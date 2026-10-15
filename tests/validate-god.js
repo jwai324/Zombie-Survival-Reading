@@ -145,11 +145,17 @@ try {
   ZSR.Interior.blood = [{}];
   ok(G.scene.clearWalkers() === "1 walker gone." && !ZSR.Interior.walkers.length && !ZSR.Interior.fallen.length && !ZSR.Interior.blood.length, "clearWalkers clears the walkers, the downed ones and the blood");
   delete ZSR.Interior;
-  ZSR.Game = { running: true, zombies: [], spawnZombie(type, side) { const z = { type, side }; this.zombies.push(z); return z; } };
+  // the road's contract: Game.spawnWalkerAhead(type) puts that kind ahead of the van and returns it (as Interior's);
+  // a road with only spawnZombie (a kind picked at random, whatever its parameters) is never asked
+  ZSR.Game = { running: true, zombies: [], spawnWalkerAhead(type) { const z = { type }; this.zombies.push(z); return z; }, spawnZombie() { this.zombies.push({ type: "walker", random: true }); } };
   const last = kinds[kinds.length - 1];
-  ok(said(last) === a(last) + " on the road ahead." && ZSR.Game.zombies[0].type === last && ZSR.Game.zombies[0].side === "ahead", "spawnWalker on the road puts that kind ahead of the van");
-  ZSR.Game = { running: true, zombies: [], spawnZombie() { this.zombies.push({ type: "walker" }); } };
-  ok(/^The road cannot /.test(said(kinds[0])) && !ZSR.Game.zombies.length, "a road that cannot place a kind is not asked to");
+  ok(said(last) === a(last) + " on the road ahead." && ZSR.Game.zombies.length === 1 && ZSR.Game.zombies[0].type === last && !ZSR.Game.zombies[0].random, "spawnWalker on the road puts that kind ahead of the van (Game.spawnWalkerAhead)");
+  ZSR.Game.spawnWalkerAhead = () => null;
+  ok(/^The road cannot /.test(said(kinds[0])), "a road with no room for the kind says it cannot place it");
+  for (const spawnZombie of [function () { this.zombies.push({ type: "walker" }); }, function (type = "walker", side) { this.zombies.push({ type, side }); }, function (side) { this.zombies.push({ type: "walker", side }); }]) {
+    ZSR.Game = { running: true, zombies: [], spawnZombie };
+    ok(/^The road cannot /.test(said(kinds[0])) && !ZSR.Game.zombies.length, `a road without spawnWalkerAhead is not asked to place a kind (spawnZombie(${spawnZombie.length} params))`);
+  }
   delete ZSR.Game;
 
   ok(writes() === before, `nothing written to localStorage in god mode (${writes() - before} writes)`);

@@ -1840,6 +1840,226 @@ try {
   err(`walker kinds: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
 }
 
+/* ---------- What the owner took out, and what a walker cannot do (2026-10-15) ----------
+   No walker counts: no WALKERS box on the HUD (the engine, the page, the style sheet), the yard's wave label is
+   only WAVE or HEAVY WAVE, and the river's toast never says how many came. The scream's toast is said once per
+   SCREAM_TOAST_GAP however often they scream. A lanky's long reach never bites round a wall's corner. A kind
+   already met is not looked for again. Math.random is seeded here. */
+let countsChecked = 0;
+try {
+  const ctxMath = vm.runInContext("Math", sb);
+  const realRandom = ctxMath.random;
+  ctxMath.random = ((s) => () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296)(5151);
+  const toastWas = I.toast;
+  const said = [];
+  I.toast = function (text, secs, pickup) {
+    said.push(String(text));
+    return toastWas.call(this, text, secs, pickup);
+  };
+  const seesWas = I.seesWalker;
+  try {
+    S.newGame(1, "Counts");
+    // the HUD's WALKERS box is gone from every on-foot scene
+    countsChecked++;
+    if ("walkers" in I.hud) err("HUD: Interior.hud.walkers is back (the WALKERS box, removed 2026-10-15)");
+    if (/int-box-walkers|id="int-walkers"/.test(html)) err("HUD: index.html has the WALKERS box again");
+    const css = fs.readFileSync(path.join(ROOT, "css", "style.css"), "utf8");
+    if (/#int-box-walkers|#int-walkers\b/.test(css)) err("HUD: css/style.css styles the WALKERS box again");
+
+    // the yard's wave label: WAVE or HEAVY WAVE, never a count
+    S.save.day = 12;
+    for (const size of ["some", "many"]) {
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      I.player.maxHp = I.player.hp = 1e9;
+      I.phase = { kind: "wave", size, total: 8, spawned: 0, spawnT: 0, t: 0, sides: ["n", "s"] };
+      const want = size === "many" ? "HEAVY WAVE" : "WAVE";
+      let frames = 0;
+      let bad = null;
+      for (let t = 0; t < 20 && I.phase.kind === "wave"; t += 0.05) {
+        I.update(0.05);
+        if (I.phase.kind !== "wave") break;
+        frames++;
+        const label = I.hud.phase.textContent;
+        if (!bad && (label !== want || /\d/.test(label))) bad = label;
+      }
+      countsChecked++;
+      if (!frames || !I.walkers.length) err(`yard: a ${size} wave brought no walkers to check its label against`);
+      if (bad != null) err(`yard: a ${size} wave's label read "${bad}", want exactly "${want}" (no count)`);
+      I.walkers.length = 0;
+    }
+    S.save.day = 1;
+
+    // the scream's toast: once per SCREAM_TOAST_GAP, however often they scream
+    const screamer = Object.keys(W.WALKER_TYPES).find((id) => W.WALKER_TYPES[id].scream);
+    if (screamer) {
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      const p = I.player;
+      p.maxHp = p.hp = 1e9;
+      Object.assign(p, { x: 27.5, y: 30.5, a: -Math.PI / 2 });
+      I.walkers.length = 0;
+      const sc = I.makeWalker(screamer, 27.5, 27.5, 1);
+      sc.awake = true;
+      I.walkers.push(sc);
+      const screams = () => said.filter((t) => /^A scream!/.test(t)).length;
+      said.length = 0;
+      I.update(0.05);
+      countsChecked++;
+      if (screams() !== 1) err(`scream: a screamer in sight gave ${screams()} "A scream!" toasts, want 1`);
+      // it screams again (its cooldown cut short) well inside the gap: no second toast
+      sc.screamT = 0;
+      sc.yell = 0;
+      I.update(0.05);
+      if (!(sc.yell > 0)) err("scream: a screamer with its cooldown spent did not scream again");
+      if (screams() !== 1) err(`scream: two screams inside SCREAM_TOAST_GAP (${I.SCREAM_TOAST_GAP} s) gave ${screams()} toasts`);
+      // past the gap, the next scream is told again
+      I.time += I.SCREAM_TOAST_GAP;
+      sc.screamT = 0;
+      sc.yell = 0;
+      I.update(0.05);
+      if (screams() !== 2) err(`scream: a scream past SCREAM_TOAST_GAP gave no toast (${screams()} in all)`);
+      I.walkers.length = 0;
+    }
+
+    // a kind already met is not looked for (State.save.met); one not met yet is, and is met once seen
+    {
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      const p = I.player;
+      p.maxHp = p.hp = 1e9;
+      Object.assign(p, { x: 27.5, y: 30.5, a: -Math.PI / 2 });
+      let looks = 0;
+      I.seesWalker = function (z) {
+        looks++;
+        return seesWas.call(this, z);
+      };
+      for (const metBefore of [true, false]) {
+        S.save.met = metBefore ? { walker: 1 } : {};
+        I.walkers.length = 0;
+        const z = I.makeWalker("walker", 27.5, 26.5, 1);
+        z.awake = true;
+        I.walkers.push(z);
+        looks = 0;
+        for (let i = 0; i < 20; i++) I.update(0.05);
+        countsChecked++;
+        if (metBefore && looks) err(`met: a walker of a kind already met was looked for ${looks} times in 1 s`);
+        if (metBefore && !z.met) err("met: a walker of a kind already met is not marked met");
+        if (!metBefore && (!looks || S.save.met.walker !== S.save.day)) err(`met: a walker in front of you was not looked for or not met (${looks} looks, ${JSON.stringify(S.save.met)})`);
+      }
+      I.seesWalker = seesWas;
+      I.walkers.length = 0;
+    }
+
+    // a lanky's long reach never bites round a wall's corner: the line between them must be clear past a plain
+    // walker's reach. A wall tile with open floor north, east and north-east of it: the lanky hugs its north face,
+    // you hug its east face, about 1.15 tiles apart, the corner between you
+    const lanky = Object.keys(W.WALKER_TYPES).filter((id) => W.WALKER_TYPES[id].reach > W.WALKER_TYPES.walker.reach + 0.2).sort((a, b) => W.WALKER_TYPES[b].reach - W.WALKER_TYPES[a].reach)[0];
+    const building = W.LOCATIONS.find((l) => l.id !== "base" && !l.outdoor && I.layoutFor(l));
+    if (lanky) {
+      S.startTrip();
+      I.enter(building);
+      I.stop();
+      I.walkers.length = 0;
+      const open = (x, y) => !I.solidAt(x + 0.5, y + 0.5) && !I.solidForPlayer(x + 0.5, y + 0.5) && !I.opaqueAt(x + 0.5, y + 0.5);
+      let corner = null;
+      for (let y = 2; y < I.gh - 2 && !corner; y++) {
+        for (let x = 1; x < I.gw - 3 && !corner; x++) {
+          if (!I.solidAt(x + 0.5, y + 0.5) || !I.opaqueAt(x + 0.5, y + 0.5)) continue;
+          if ([[x + 1, y], [x, y - 1], [x + 1, y - 1], [x + 2, y], [x + 2, y - 1], [x + 1, y + 1], [x + 2, y + 1]].every(([a, b]) => open(a, b))) corner = [x, y];
+        }
+      }
+      if (!corner) err(`lanky: no wall corner with open floor round it in ${building.id} to test against`);
+      else {
+        const [cx, cy] = corner;
+        const T = W.WALKER_TYPES[lanky];
+        const p = I.player;
+        const place = (px, py, zx, zy) => {
+          Object.assign(p, { x: px, y: py, hp: 1000, maxHp: 1000 });
+          p.a = Math.atan2(zy - py, zx - px);
+          I.walkers.length = 0;
+          const z = I.makeWalker(lanky, zx, zy, 1);
+          Object.assign(z, { awake: true, cool: 0, met: true });
+          I.walkers.push(z);
+          return z;
+        };
+        // round the corner: in reach, but the wall between
+        const lx = cx + 0.5;
+        const ly = cy - T.r - 0.02;
+        const px = cx + 1.3;
+        const py = cy + 0.5;
+        const d = Math.hypot(px - lx, py - ly);
+        countsChecked++;
+        if (!(d < T.reach && d > W.WALKER_TYPES.walker.reach) || I.lineClear(lx, ly, px, py)) err(`lanky: the corner test is not round a corner (${d.toFixed(2)} tiles, line clear ${I.lineClear(lx, ly, px, py)})`);
+        const z = place(px, py, lx, ly);
+        I.update(0.05);
+        if (p.hp !== 1000 || z.act === "bite") err(`lanky: it bit you round a wall's corner from ${d.toFixed(2)} tiles (${z.act}, hp ${p.hp})`);
+        // it comes round the corner and bites, soon
+        let bit = false;
+        for (let t = 0; t < 4 && !bit; t += 0.05) {
+          I.update(0.05);
+          bit = p.hp < 1000;
+        }
+        if (!bit) err("lanky: round a wall's corner, it never came round to bite");
+        // the same reach with a clear line bites
+        const qx = cx + 1.5;
+        const qy = ly - 0.6;
+        const d2 = Math.hypot(qx - lx, qy - ly);
+        if (!(d2 < T.reach && d2 > W.WALKER_TYPES.walker.reach) || !I.lineClear(lx, ly, qx, qy)) err(`lanky: the open test spot is off (${d2.toFixed(2)} tiles)`);
+        const z2 = place(qx, qy, lx, ly);
+        I.update(0.05);
+        if (!(p.hp < 1000) || z2.act !== "bite") err(`lanky: in the open at ${d2.toFixed(2)} tiles (its reach ${T.reach}) it did not bite (${z2.act})`);
+      }
+      I.walkers.length = 0;
+      S.abandonTrip();
+    }
+  } finally {
+    ctxMath.random = realRandom;
+    I.toast = toastWas;
+    I.seesWalker = seesWas;
+  }
+
+  // the river: what comes out of the trees is never counted, two at once included
+  const river = W.LOCATIONS.find((l) => l.id === "river");
+  if (river) {
+    const R = W.RIVER;
+    const pair = R.pairChance;
+    const toastWas2 = I.toast;
+    const toasts = [];
+    I.toast = function (text, secs, pickup) {
+      toasts.push(String(text));
+      return toastWas2.call(this, text, secs, pickup);
+    };
+    try {
+      S.startTrip();
+      I.enterRiver(river);
+      I.stop();
+      R.pairChance = 1;
+      let pairs = 0;
+      const a0 = I.player.a;
+      for (let k = 0; k < 8; k++) {
+        I.player.a = a0 + (k * Math.PI) / 4; // some in view, some behind you
+        I.walkers.length = 0;
+        I.riverSpawnT = 0;
+        toasts.length = 0;
+        I.update(1 / 30);
+        if (I.walkers.length === 2) pairs++;
+        const t = toasts[toasts.length - 1] || "";
+        if (!t || /\d|\btwo\b|\bboth\b|\bpair\b/i.test(t)) err(`river: two walkers out of the trees were told as "${t}" (no count)`);
+      }
+      countsChecked++;
+      if (!pairs) err("river: with RIVER.pairChance 1, two never came out of the trees together");
+    } finally {
+      R.pairChance = pair;
+      I.toast = toastWas2;
+      I.walkers.length = 0;
+      S.abandonTrip();
+    }
+  }
+} catch (e) {
+  err(`counts: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
+}
+
 /* ---------- June's first-run tutorial (js/tutorial.js) ----------
    Last in the file, so nothing it leaves behind can touch the checks above. The cards go to a stand-in view that
    records them; the clock is ours (Got it arms after TUNE.armMs). A frame runs only while the scene runs and is not
@@ -2427,4 +2647,4 @@ if (errors.length) {
   console.log(`\n${errors.length} engine problem(s).`);
   process.exit(1);
 }
-console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock), and ${kindsChecked} walker kinds (stats, spawned in front of you in a building, the yard and the river, the scream, downed walkers and blood, heading, gait, the river's and the alarm's kinds, the alarm's cap, a return visit).`);
+console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock), and ${kindsChecked} walker kinds (stats, spawned in front of you in a building, the yard and the river, the scream, downed walkers and blood, heading, gait, the river's and the alarm's kinds, the alarm's cap, a return visit), and ${countsChecked} checks that walkers are never counted (no HUD box, the wave label, the river's toast), the scream's toast, kinds met, and no bite round a corner.`);
