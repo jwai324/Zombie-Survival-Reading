@@ -1089,6 +1089,7 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
       ["speed", "r"].forEach((k) => { if (!fin(R[k]) || R[k] <= 0) err(`${c}.road: ${k} must be a number above 0`); });
       ["dmg", "scrap", "reach"].forEach((k) => { if (!fin(R[k]) || R[k] < 0) err(`${c}.road: ${k} must be a number, 0 or more`); });
       if (!Array.isArray(R.w) || R.w.length !== 2 || !R.w.every((v) => fin(v) && v >= 0) || !(R.w[0] + R.w[1] > 0)) err(`${c}.road: w must be [base, perN], both 0 or more, not both 0`);
+      if (R.armor != null && !(fin(R.armor) && R.armor >= 0 && R.armor <= 1)) err(`${c}.road: armor must be a share from 0 to 1 (${R.armor})`);
     }
   });
   // the weights: finite, above 0, known kinds, never empty

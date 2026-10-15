@@ -151,7 +151,10 @@ try {
   const last = kinds[kinds.length - 1];
   ok(said(last) === a(last) + " on the road ahead." && ZSR.Game.zombies.length === 1 && ZSR.Game.zombies[0].type === last && !ZSR.Game.zombies[0].random, "spawnWalker on the road puts that kind ahead of the van (Game.spawnWalkerAhead)");
   ZSR.Game.spawnWalkerAhead = () => null;
-  ok(/^The road cannot /.test(said(kinds[0])), "a road with no room for the kind says it cannot place it");
+  ok(/^No room on the road/.test(said(kinds[0])), "a road with no room ahead says so");
+  // Clear walkers on the road: its walkers, the downed ones and the blood go
+  Object.assign(ZSR.Game, { zombies: [{}, {}], fallen: [{}], particles: [{}] });
+  ok(G.scene.clearWalkers() === "2 walkers gone." && !ZSR.Game.zombies.length && !ZSR.Game.fallen.length && !ZSR.Game.particles.length, "clearWalkers on the road clears its walkers, the downed ones and the blood");
   for (const spawnZombie of [function () { this.zombies.push({ type: "walker" }); }, function (type = "walker", side) { this.zombies.push({ type, side }); }, function (side) { this.zombies.push({ type: "walker", side }); }]) {
     ZSR.Game = { running: true, zombies: [], spawnZombie };
     ok(/^The road cannot /.test(said(kinds[0])) && !ZSR.Game.zombies.length, `a road without spawnWalkerAhead is not asked to place a kind (spawnZombie(${spawnZombie.length} params))`);

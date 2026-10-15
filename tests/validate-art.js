@@ -922,6 +922,208 @@ else {
   sb.document.createElement = realCreate;
 }
 
+/* ---------- The road's walkers (js/sprites.js): a top-down look for every kind, as its 3D look ----------
+   Every kind in the facts has a road look, its skin, shirt and hair (each variant's) the 3D look's colours; every
+   kind draws cleanly in every state (walking, hit, hurt, frenzied, screaming) with walker gore on and off, and so
+   does a downed one through its whole fall; gore off paints no blood, gore on does (and a pool under a downed
+   walker); a downed walker fades out; the title screen's walkers come from the facts and take turns through them. */
+const ROAD_OPS = 360; // SCALE: most canvas calls one road walker (or a downed one) may make (253 today); a busy road draws ~25
+let roadDraws = 0;
+{
+  ["world.js", "upgrades.js", "sprites.js", "game.js"].forEach((f) => {
+    if (!pageScripts.includes(f)) err(`index.html does not load js/${f}`);
+    load(f);
+  });
+  const Dr = ZSR.Draw;
+  const WD = ZSR.WORLD;
+  if (!Dr || !WD || typeof Dr.zombie !== "function" || typeof Dr.zombieShadow !== "function" || typeof Dr.zombieDown !== "function" || !Dr.ZOMBIE_LOOK || typeof Dr.zombieLook !== "function") err("js/sprites.js does not export Draw.zombie, zombieShadow, zombieDown, zombieLook and ZOMBIE_LOOK");
+  else {
+    const kinds = Object.keys(WD.WALKER_TYPES);
+    const hex = (c) => (typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c) ? [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)) : null);
+    // blood: a dark-to-mid red (the health bar is a rect, and a frenzy's bright red eyes are not blood)
+    const rgb = (c) => {
+      if (typeof c !== "string") return null;
+      const h = hex(c);
+      if (h) return h;
+      const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(c);
+      return m ? [+m[1], +m[2], +m[3]] : null;
+    };
+    const bloody = (c) => {
+      const v = rgb(c);
+      return !!v && v[0] >= 70 && v[0] <= 230 && v[1] <= 0.28 * v[0] && v[2] <= 0.28 * v[0];
+    };
+    const W3T = (W3 && W3.TYPES) || {};
+    kinds.forEach((id) => {
+      if (!Dr.ZOMBIE_LOOK[id]) return err(`walker type "${id}" has no road look (ZOMBIE_LOOK in js/sprites.js)`);
+      // the same skin, shirt and hair as its 3D look, variant by variant (the seed picks both the same way)
+      const looks3 = W3T[id] ? W3T[id].looks : null;
+      const nv = (Dr.ZOMBIE_LOOK[id].variants || [0]).length;
+      if (!looks3) return;
+      if (nv !== looks3.length) err(`road look ${id}: ${nv} variant(s), its 3D look has ${looks3.length} (a seed must pick the same one)`);
+      for (let v = 0; v < Math.min(nv, looks3.length); v++) {
+        const L = Dr.zombieLook(id, v);
+        ["skin", "shirt", "hair"].forEach((k) => {
+          const a = hex(L[k]);
+          const b = looks3[v][k];
+          if (!a || !b || a.some((x, i) => x !== b[i])) err(`road look ${id} variant ${v}: ${k} ${L[k]} is not the 3D look's rgb(${b})`);
+        });
+      }
+    });
+    Object.keys(Dr.ZOMBIE_LOOK).forEach((id) => WD.WALKER_TYPES[id] || warn(`road look "${id}" is for a kind the facts do not have`));
+    /** Draw on a fresh checking canvas; returns its calls (null after reporting a throw). */
+    const roadDraw = (what, fn) => {
+      const c = element("canvas");
+      const ctx = c.getContext("2d");
+      current = what;
+      try {
+        fn(ctx);
+      } catch (e) {
+        err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+        return null;
+      }
+      roadDraws++;
+      const ops = c.ops;
+      if (ops.length > ROAD_OPS) err(`${what}: ${ops.length} canvas calls (over ${ROAD_OPS})`);
+      const saves = ops.filter((o) => o.k === "save").length;
+      if (saves !== ops.filter((o) => o.k === "restore").length) err(`${what}: save and restore do not pair up (the next thing drawn would inherit its transform)`);
+      if (ops.some((o) => o.k === "set shadowBlur" || o.k === "set filter")) err(`${what}: sets shadowBlur or filter (slow on a busy road)`);
+      return ops;
+    };
+    const paints = (ops) => ops.filter((o) => o.k === "fill" || o.k === "stroke").map((o) => ({ col: o.k === "fill" ? o.fillStyle : o.strokeStyle, a: o.globalAlpha, k: o.k }));
+    let maxOps = 0;
+    const Y = (WD.SCREAM && WD.SCREAM.yell) || 1.2;
+    const STATES = [["walking", {}], ["hit", { hit: 0.1 }], ["hurt", { hp: 0.3 }], ["frenzied", { frenzyT: 3 }], ["screaming", { yell: Y * 0.5 }], ["starting a scream", { yell: Y }], ["ending a scream", { yell: 0.05 }], ["screaming in a frenzy", { yell: Y * 0.5, frenzyT: 2, hit: 0.05, hp: 0.5 }]];
+    kinds.forEach((id) => {
+      const nv = Dr.ZOMBIE_LOOK[id] ? (Dr.ZOMBIE_LOOK[id].variants || [0]).length : 1;
+      const R = WD.WALKER_TYPES[id].road;
+      for (let seed = 0; seed < nv; seed++) {
+        for (const gore of [true, false]) {
+          WD.SETTINGS.walkerGore = gore;
+          let red = 0;
+          STATES.forEach(([state, o]) => {
+            [0, 0.37, 1.9].forEach((t, ti) => {
+              const z = Object.assign({ type: id, seed, x: 40, y: 50, r: R.r, hp: 1, maxHp: 1, angle: ti * 2.1 - 1, phase: 0.4, hit: 0, frenzyT: 0, yell: 0 }, o);
+              const what = `road walker ${id} seed ${seed} ${state} t ${t} gore ${gore ? "on" : "off"}`;
+              const ops = roadDraw(what, (ctx) => Dr.zombie(ctx, z, t));
+              if (!ops) return;
+              maxOps = Math.max(maxOps, ops.length);
+              const p = paints(ops);
+              if (!gore) {
+                const b = p.find((q) => bloody(q.col));
+                if (b) err(`${what}: gore is off but it paints ${b.col}`);
+              } else red += p.filter((q) => bloody(q.col)).length;
+              // the road draws every walker's shadow (or frenzy glow) on the ground first, then the bodies without
+              // one: the two together are the walker, the shadow just where its own would be
+              const body = roadDraw(what + " (no shadow)", (ctx) => Dr.zombie(ctx, z, t, true));
+              const sh = roadDraw(what + " (shadow)", (ctx) => Dr.zombieShadow(ctx, z, t));
+              if (!body || !sh) return;
+              const fills = (o) => o.filter((q) => q.k === "fill").length;
+              if (sh.map((q) => q.k).join() !== "beginPath,ellipse,fill") err(`${what}: its shadow is ${sh.map((q) => q.k).join(", ")} (one filled ellipse expected)`);
+              else if (fills(body) !== fills(ops) - 1 || body.length !== ops.length - sh.length) err(`${what}: drawn without its shadow it still paints ${fills(body)} of ${fills(ops)} fills`);
+              else {
+                const rot = ops.find((q) => q.k === "rotate");
+                const own = ops.find((q) => q.k === "ellipse");
+                const e = sh[1].args;
+                const a = rot ? rot.args[0] : NaN;
+                const cx = z.x + own.args[0] * Math.cos(a) - own.args[1] * Math.sin(a);
+                const cy = z.y + own.args[0] * Math.sin(a) + own.args[1] * Math.cos(a);
+                const near = (u, v) => Math.abs(u - v) < 1e-6;
+                if (!(near(e[0], cx) && near(e[1], cy) && near(e[2], own.args[2]) && near(e[3], own.args[3]) && near(e[4], a + own.args[4]))) err(`${what}: its shadow on the ground (${e.slice(0, 5).map((v) => v.toFixed(2)).join(", ")}) is not where its own is (${[cx, cy, own.args[2], own.args[3], a + own.args[4]].map((v) => v.toFixed(2)).join(", ")})`);
+                if (sh[2].fillStyle !== ops[ops.indexOf(own) + 1].fillStyle) err(`${what}: its shadow is ${sh[2].fillStyle}, its own ${ops[ops.indexOf(own) + 1].fillStyle}`);
+              }
+            });
+          });
+          if (gore && !red) err(`road walker ${id} seed ${seed}: gore on, but no blood anywhere on it`);
+        }
+      }
+      WD.SETTINGS.walkerGore = true;
+      // a downed one: through its whole fall, gore on and off, falling any way
+      for (let seed = 0; seed < nv; seed++) {
+        for (const gore of [true, false]) {
+          WD.SETTINGS.walkerGore = gore;
+          [0, 0.05, 0.12, 0.2, 0.25, 0.3, 0.45, 0.6, 0.7, 0.85, 0.97, 1].forEach((age) => {
+            [-Math.PI / 2, 0.8, Math.PI].forEach((rot) => {
+              const max = 2;
+              const f = { kind: "fallen", type: id, seed, x: 60, y: 60, size: R.r, rot, life: max * (1 - age), max };
+              const what = `downed road walker ${id} seed ${seed} age ${age} rot ${rot.toFixed(2)} gore ${gore ? "on" : "off"}`;
+              const ops = roadDraw(what, (ctx) => Dr.zombieDown(ctx, f));
+              if (!ops) return;
+              maxOps = Math.max(maxOps, ops.length);
+              const p = paints(ops);
+              // the road draws every downed walker's ground (its pool, its shadow) before any body: the two parts
+              // together are the whole, the ground is only blood and shadow, and the body has no pool
+              const gr = roadDraw(what + " (ground)", (ctx) => Dr.zombieDown(ctx, f, "ground"));
+              const bd = roadDraw(what + " (body)", (ctx) => Dr.zombieDown(ctx, f, "body"));
+              if (gr && bd) {
+                const pg = paints(gr);
+                const pb = paints(bd);
+                if (pg.length + pb.length !== p.length) err(`${what}: ground ${pg.length} + body ${pb.length} paints, the whole ${p.length}`);
+                const odd = pg.find((q) => q.k !== "fill" || !(bloody(q.col) || /^rgba\(0,0,0,/.test(q.col)));
+                if (odd) err(`${what}: its ground part paints ${odd.k} ${odd.col} (only the pool and a shadow belong there)`);
+                if (bd.some((o, i) => o.k === "fill" && bloody(o.fillStyle) && i > 0 && bd[i - 1].k === "ellipse" && Math.min(bd[i - 1].args[2], bd[i - 1].args[3]) > R.r * 0.8)) err(`${what}: its body part has the pool in it`);
+              }
+              if (!gore && p.some((q) => bloody(q.col))) err(`${what}: gore is off but it paints blood`);
+              if (age >= 1 && p.some((q) => q.a > 0)) err(`${what}: still drawn at the end of its life`);
+              if (age > 0.7 && age < 1 && p.some((q) => q.a >= 0.999)) err(`${what}: not fading (something drawn at full alpha)`);
+              if (age < 0.6 && !p.length) err(`${what}: draws nothing`);
+              if (gore && age >= 0.45 && age < 1) {
+                // a pool under it: a blood-red ellipse wider than its body radius, drawn before the body
+                let ell = null;
+                let pool = false;
+                for (const o of ops) {
+                  if (o.k === "beginPath") ell = null;
+                  else if (o.k === "ellipse") ell = o.args;
+                  else if (o.k === "fill" && ell && bloody(o.fillStyle) && Math.min(ell[2], ell[3]) > R.r * 0.8) pool = true;
+                }
+                if (!pool) err(`${what}: no pool of blood under it with gore on`);
+              }
+            });
+          });
+        }
+      }
+      WD.SETTINGS.walkerGore = true;
+    });
+    // an unknown kind draws as a walker, standing and downed, and never throws
+    roadDraw("road walker of an unknown kind", (ctx) => Dr.zombie(ctx, { type: "zz-new", seed: 3, x: 0, y: 0, r: 18, hp: 1, maxHp: 1, angle: 0, phase: 0, hit: 0 }, 1));
+    roadDraw("downed road walker of an unknown kind", (ctx) => Dr.zombieDown(ctx, { type: "zz-new", seed: NaN, x: 0, y: 0, size: 18, rot: 0, life: 1, max: 2 }));
+    // blood drops and splats on the road, and the other particles
+    [{ blood: true, vx: 90, vy: -40 }, { blood: true, splat: true, vx: 0, vy: 0, rot: 0.4 }, { grow: true, vx: 10, vy: 0 }, { vx: 100, vy: 100 }].forEach((p, i) =>
+      roadDraw(`road particle ${i}`, (ctx) => Dr.particle(ctx, Object.assign({ x: 10, y: 10, life: 0.2, maxLife: 0.4, size: 3, color: "#a3201a" }, p)))
+    );
+    // the title screen (Game.showcase): its two walkers come from the facts, the first two at t 0, every kind in turn
+    const G = ZSR.Game;
+    if (!G || typeof G.showcase !== "function") err("js/game.js does not export Game.showcase");
+    else {
+      const shown = new Set();
+      const first = [];
+      const real = Dr.zombie;
+      Dr.zombie = (ctx, z, t) => {
+        shown.add(z.type);
+        if (t === 0) first.push(z.type);
+        if (!(z.r > 0)) err(`the title screen's ${z.type} has radius ${z.r}`);
+        return real(ctx, z, t);
+      };
+      const ups = { armor: 2, engine: 1, bumper: 2, paint: 3, damage: 2, fireRate: 0, spread: 1 };
+      for (let t = 0; t <= kinds.length * 4 + 1; t += 0.5) {
+        const c = element("canvas");
+        c.width = 320;
+        c.height = 200;
+        current = `title screen at ${t} s`;
+        try {
+          G.showcase(c, ups, t);
+        } catch (e) {
+          err(`${current}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+          break;
+        }
+      }
+      Dr.zombie = real;
+      kinds.forEach((id) => shown.has(id) || err(`the title screen never shows a ${id}`));
+      if (first.join() !== kinds.slice(0, 2).join()) err(`the title screen's still picture shows ${first.join(", ")} (the facts' first two kinds expected: ${kinds.slice(0, 2).join(", ")})`);
+    }
+    console.log(`road walkers: ${kinds.length} kinds, ${roadDraws} drawn (most canvas calls ${maxOps} of ${ROAD_OPS})`);
+  }
+}
+
 warnings.forEach((w) => console.log("warn  " + w));
 if (errors.length) {
   errors.slice(0, 60).forEach((e) => console.log("ERROR " + e));

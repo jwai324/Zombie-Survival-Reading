@@ -179,8 +179,17 @@
       return "Here they come.";
     },
     clearWalkers() {
+      const G = ZSR.Game;
+      if (G && G.running && G.zombies) {
+        // the road: its walkers, the downed ones and the blood on it
+        const n = G.zombies.length;
+        G.zombies.length = 0;
+        if (G.fallen) G.fallen.length = 0;
+        if (G.particles) G.particles.length = 0;
+        return n + " walker" + (n === 1 ? "" : "s") + " gone.";
+      }
       const I = ZSR.Interior;
-      if (!I || !I.running || !I.walkers) return "Only in the yard or a building.";
+      if (!I || !I.running || !I.walkers) return "Only in the yard, a building, the river or on the road.";
       const n = I.walkers.length;
       I.walkers.length = 0;
       if (I.fallen) I.fallen.length = 0; // the downed ones and the blood go too
@@ -200,9 +209,10 @@
       const G = ZSR.Game;
       if (G && G.running && G.zombies) {
         // the road's contract (as Interior's): spawnWalkerAhead(type) places that kind on screen, ahead of the van,
-        // and returns it. A road without it cannot place a kind (its spawnZombie picks one at random): not asked
-        const z = typeof G.spawnWalkerAhead === "function" ? G.spawnWalkerAhead(type) : null;
-        return z && z.type === type ? a + name + " on the road ahead." : "The road cannot place " + a.toLowerCase() + name + " yet.";
+        // and returns it, or null when there is no room. A road without it cannot place a kind: not asked
+        if (typeof G.spawnWalkerAhead !== "function") return "The road cannot place " + a.toLowerCase() + name + " yet.";
+        const z = G.spawnWalkerAhead(type);
+        return z && z.type === type ? a + name + " on the road ahead." : "No room on the road ahead: try again in a moment.";
       }
       const I = ZSR.Interior;
       if (!I || !I.running || !I.player || !I.walkers || !I.spawnWalkerAhead) return "Only in the yard, a building, the river or on the road.";
