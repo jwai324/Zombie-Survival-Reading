@@ -28,7 +28,8 @@
    transform or drawImage; no new canvases; no Path2D, OffscreenCanvas, DOMMatrix, shadowBlur or filter; context
    state is never read back; the same inputs make the same calls (seeded random only); nothing is allocated per
    draw (preallocated joint buffers, part records and a colour-string table); colours are "rgb(r,g,b)" or
-   "rgba(r,g,b,a)" with whole channels, the light, fog and hit flash already in them; at most OPS_MAX[lod] calls.
+   "rgba(r,g,b,a)" with whole channels, the light, fog and hit flash already in them; within the per-lod call ceilings
+   tests/validate-art.js sets (WALKER_OPS).
    The model keeps screen proportions: the engine squashes the floor sideways by STRETCH, but a walker with real
    proportions squashed the same way looks about 30% too thin, so it is not squashed (DESIGN.md). */
 (function (root) {
@@ -37,7 +38,6 @@
   const TAU = Math.PI * 2;
   const PI = Math.PI;
 
-  const OPS_MAX = [600, 350, 160]; // SCALE: most canvas calls one figure may make at lod 0 / 1 / 2 (validate-art holds every draw to it)
   const K_MIN = 0.6; // perspective: the far side of a figure is drawn at least this big, the near side at most K_MAX
   const K_MAX = 1.6;
   const POSES = ["idle", "walk", "bite", "claw", "scream"];
@@ -354,11 +354,12 @@
           topple = Math.pow(fall, 1.9);
           pivot = 0.08;
           break;
-        case "fold": // knees buckle and it folds over them
+        case "fold": // knees buckle, it folds over them and goes down in a heap (forward, a little toward the shot's side)
           buckle = 0.62 * smooth(fall / 0.5);
-          slump = 1.1 * smooth(fall / 0.7);
+          slump = 1.1 * smooth(fall / 0.6) * (1 - 0.6 * smooth((fall - 0.6) / 0.4));
           limp = smooth(fall / 0.5);
-          topple = 0.8 * smooth((fall - 0.4) / 0.6);
+          topple = 0.95 * smooth((fall - 0.4) / 0.6);
+          fd = 0.4 * Math.sin(fd);
           pivot = 0.12;
           break;
         case "kneel": // drops to its knees, then forward
@@ -439,9 +440,10 @@
     rot(TF, 2, 0, twist);
     let lean = g.lean * (0.55 + 0.45 * m) + 0.35 * lunge + clawing * (0.12 + 0.06 * Math.sin(TAU * 2 * (st.claw || 0))) - 0.38 * scream;
     lean += idle * (0.07 + 0.025 * breath) - hit * 0.14 + g.lean * 0.15 * Math.cos(2 * A) * m;
-    lean += slump * Math.cos(fd);
+    const fold = t.fall === "fold";
+    lean += fold ? slump : slump * Math.cos(fd); // a fold always jackknifes forward over its knees
     rot(TF, 1, 2, lean);
-    rot(TF, 1, 0, g.tilt + g.roll * Math.sin(A) * m + slump * Math.sin(fd) * 0.6);
+    rot(TF, 1, 0, g.tilt + g.roll * Math.sin(A) * m + (fold ? 0 : slump * Math.sin(fd) * 0.6));
     offJ(CHE, PEL, TF, 0, b.torso, 0);
     for (let i = 0; i < 2; i++) {
       const s = i ? 1 : -1;
@@ -493,9 +495,9 @@
       if (clawing) {
         const q = frac((st.claw || 0) + (i ? 0.5 : 0));
         const k = q < 0.4 ? smooth(q / 0.4) : 1 - smooth((q - 0.4) / 0.6);
-        armSet((0.14 - 0.26 * k) * L, (0.58 - 0.85 * k) * L, (0.36 + 0.26 * k) * L, 0, 0.55, 1, 0.4 * (1 - k));
+        armSet((0.24 - 0.3 * k) * L, (0.34 - 0.62 * k) * L, (0.38 + 0.24 * k) * L, 0, 0.55, 1, 0.4 * (1 - k));
       }
-      armBlend(scream, 0.58 * L, 0.42 * L, 0.14 * L, 0, 0.3, 1.25, 0.75);
+      armBlend(scream, 0.7 * L, 0.26 * L, 0.16 * L, 0, 0.3, 1.25, 0.75);
       armBlend(limp, 0.16 * L, -0.95 * L, 0.02 * L, 1, 0.3, 0.4, 0);
       // a dropped shoulder's arm hangs lower
       for (let k = 0; k < 3; k++) J[HA[i] * 3 + k] = J[SH[i] * 3 + k] + TF[k] * s * AR + TF[3 + k] * AU + TF[6 + k] * AF;
@@ -552,7 +554,23 @@
       if (topple > 0) {
         const dx = Math.sin(fd);
         const dz = Math.cos(fd);
-        toppleAll(dx, dz, dx * pivot, dz * pivot, topple * PI * 0.5 * (t.fall === "fold" ? 1.05 : 1));
+        toppleAll(dx, dz, dx * pivot, dz * pivot, topple * PI * 0.5);
+      }
+      // limp arms drop toward the ground as the body goes over (gravity, not the torso's down), elbows up
+      const drop = limp * LYING;
+      if (drop > 0.01) {
+        for (let i = 0; i < 2; i++) {
+          const s = i ? 1 : -1;
+          const o = SH[i] * 3;
+          const h = HA[i] * 3;
+          const tx = J[o] + TF[0] * s * 0.35 * L + Math.sin(fd) * 0.15 * L;
+          const ty = Math.max(b.hand * 0.6, J[o + 1] - 0.9 * L);
+          const tz = J[o + 2] + TF[2] * s * 0.35 * L + Math.cos(fd) * 0.15 * L;
+          J[h] += (tx - J[h]) * drop;
+          J[h + 1] += (ty - J[h + 1]) * drop;
+          J[h + 2] += (tz - J[h + 2]) * drop;
+          ik(SH[i], EL[i], HA[i], b.upper, b.fore, TF[0] * s, 1, TF[2] * s);
+        }
       }
       // rest on the ground: nothing below it
       let low = Infinity;
@@ -920,7 +938,7 @@
     if (V.pads) {
       const f = facing(KF[i * 3], KF[i * 3 + 2]);
       const r0 = b.rShin;
-      ellipsoid(kx + KF[i * 3] * r0 * 0.55, ky + 0.012, kz + KF[i * 3 + 2] * r0 * 0.55, r0 * 1.12, 0, 0, 0, r0 * 1.4, 0, 0, 0, r0 * 0.9, 0);
+      ellipsoid(kx + KF[i * 3] * r0 * 0.7, ky + 0.008, kz + KF[i * 3 + 2] * r0 * 0.7, r0 * 0.95, 0, 0, 0, r0 * 1.15, 0, 0, 0, r0 * 0.7, 0);
       if (f > -0.4) {
         ellInk(col(V.pad, 1 + 0.3 * f, 1));
         if (LOD === 0) shine(0.22);
@@ -1094,6 +1112,17 @@
         G.lineWidth = Math.max(0.7, OUT * 0.7);
         G.stroke();
       }
+    } else if (LOD === 1) {
+      G.beginPath();
+      mt(S[sh * 3], S[sh * 3 + 1]);
+      lt(S[el * 3], S[el * 3 + 1]);
+      lt(S[ha * 3], S[ha * 3 + 1]);
+      G.strokeStyle = INKS;
+      G.lineWidth = (wu + wf) / 2 + OUT * 2;
+      G.stroke();
+      G.strokeStyle = col(armCol, 1, 1);
+      G.lineWidth = (wu + wf) / 2;
+      G.stroke();
     } else {
       G.strokeStyle = INKS;
       G.lineWidth = wu + OUT * 2;
@@ -1232,6 +1261,7 @@
   // hand scratch: finger points
   const HP = new Float64Array(5 * 4 * 2);
   function drawHand(i) {
+    if (LOD === 2) return; // far away the arm's round end is the hand
     const b = T.build;
     const el = EL[i];
     const ha = HA[i];
@@ -1973,7 +2003,7 @@
     // neck and jaw (behind the skull, dropped open); seen from behind, the neck hides the jaw
     const jo = JAW;
     const jb = b.jaw;
-    if (ff < 0) {
+    if (ff < 0 && LOD < 2) {
       ellF(HF, HED, 0, -ry * (0.55 + 0.2 * jo), rz * (0.3 - 0.06 * jo), jb[0], jb[1] * (1 + 0.15 * jo), jb[2]);
       ellInk(col(skin, 0.86, 1));
     }
@@ -1991,7 +2021,7 @@
     G.strokeStyle = col(look.hood ? look.shirt : skin, 0.82, 1);
     G.lineWidth = wn;
     G.stroke();
-    if (ff >= 0) {
+    if (ff >= 0 && LOD < 2) {
       ellF(HF, HED, 0, -ry * (0.55 + 0.2 * jo), rz * (0.3 - 0.06 * jo), jb[0], jb[1] * (1 + 0.15 * jo), jb[2]);
       ellInk(col(skin, 0.86, 1));
     }
@@ -2325,6 +2355,16 @@
     ellInk(col(V.helmetCol, 1.35, 1));
   }
 
+  // per visible eye: socket ellipse (x, y, a, b, rot), side, scale, lid corners (4 x, y), brow ends (2 x, y)
+  const EYE_N = 19;
+  const EYEP = new Float64Array(EYE_N * 2);
+  // lid corners then brow ends, head-local (across x side x rx, up x ry, forward x rz) from the eye's centre
+  const EYE_LID = [0.3, 0.2, 0.82, -0.28, 0.02, 0.9, -0.22, -0.04, 0.9, 0.24, 0.07, 0.84, 0.36, 0.28, 0.78, -0.3, 0.12, 0.9];
+  /** Eye e's socket ellipse scaled (ka, kb), nudged (dx across, dy down) in its own size, as a sub-path. */
+  function eyeSub(e, ka, kb, dx, dy) {
+    const o = e * EYE_N;
+    elSub(EYEP[o] + EYEP[o + 2] * dx, EYEP[o + 1] + EYEP[o + 3] * dy, EYEP[o + 2] * ka, EYEP[o + 3] * kb, EYEP[o + 4]);
+  }
   /** Eyes in dark sockets, a heavy brow, nose, open mouth with teeth, gaunt cheeks. Only the parts whose
       surface faces the camera: a profile shows one eye, the back none. */
   function drawFace(rx, ry, rz, ff) {
@@ -2343,9 +2383,11 @@
       ellA(EX, EY, ERA, ERB, ERO, 0, TAU);
       G.fillStyle = col(look.mouth, 1, 1);
       G.fill();
-      G.strokeStyle = INKS;
-      G.lineWidth = Math.min(OUT, Math.max(0.6, ERB * 0.3));
-      G.stroke();
+      if (LOD < 2) {
+        G.strokeStyle = INKS;
+        G.lineWidth = Math.min(OUT, Math.max(0.6, ERB * 0.3));
+        G.stroke();
+      }
       if (LOD < 2) {
         // upper teeth hang from the top of the opening, lower ones stand on the jaw; one is missing
         const nt = LOD === 0 ? 6 : 4;
@@ -2411,7 +2453,7 @@
       }
     }
     // a short, sunken nose: a bump on the profile
-    if (LOD < 2 && ff > -0.1) {
+    if (LOD === 0 && ff > -0.1) {
       ellF(HF, HED, 0, -ry * 0.2, rz * 0.9, rx * 0.12, ry * 0.2, rz * 0.17);
       ellPath(0);
       G.fillStyle = col(look.skin, 0.9, 1);
@@ -2420,69 +2462,74 @@
       G.lineWidth = Math.max(0.6, OUT * 0.7);
       G.stroke();
     }
-    // eyes
-    let anyEye = false;
+    // eyes: both worked out first, then drawn in one fill per layer (socket, glow, eye, pupil, lid) and one brow stroke
+    let n = 0;
     for (let s = -1; s <= 1; s += 2) {
       const ex = s * rx * 0.4;
       const eu = ry * 0.08;
-      const fe = faceDecal(ex, eu, rz * 0.84, rx * 0.27, ry * 0.21, s * 0.45, 0.1, 0.89);
-      if (fe < 0.04) continue;
-      anyEye = true;
-      const ox = EX;
-      const oy = EY;
-      const sA = ERA;
-      const sB = ERB;
-      const sO = ERO;
-      // socket
+      if (faceDecal(ex, eu, rz * 0.84, rx * 0.27, ry * 0.21, s * 0.45, 0.1, 0.89) < 0.04) continue;
+      const o = n * EYE_N;
+      EYEP[o] = EX;
+      EYEP[o + 1] = EY;
+      EYEP[o + 2] = ERA;
+      EYEP[o + 3] = ERB;
+      EYEP[o + 4] = ERO;
+      EYEP[o + 5] = s;
+      EYEP[o + 6] = QK;
+      // the lid's four corners and the brow's two ends
+      for (let k = 0; k < 6; k++) {
+        const q = k * 3;
+        headPt(ex + s * rx * EYE_LID[q], eu + ry * EYE_LID[q + 1], rz * EYE_LID[q + 2]);
+        EYEP[o + 7 + k * 2] = QX;
+        EYEP[o + 8 + k * 2] = QY;
+      }
+      n++;
+    }
+    if (n) {
       if (LOD < 2) {
         G.beginPath();
-        ellA(ox, oy, sA, sB, sO, 0, TAU);
+        for (let e = 0; e < n; e++) eyeSub(e, 1, 1, 0, 0);
         G.fillStyle = col(look.socket || [22, 20, 18], 1, 0.92);
         G.fill();
       }
       // glow, then the eye (no fog: they glow in the dark)
-      const gl = look.glow;
       G.beginPath();
-      ellA(ox, oy, sA * 1.05, sB * 1.05, sO, 0, TAU);
-      G.fillStyle = glow(gl, 0.28);
+      for (let e = 0; e < n; e++) eyeSub(e, 1.05, 1.05, 0, 0);
+      G.fillStyle = glow(look.glow, 0.28);
       G.fill();
       G.beginPath();
-      ellA(ox, oy + sB * 0.08, sA * 0.52, sB * 0.4, sO, 0, TAU);
+      for (let e = 0; e < n; e++) eyeSub(e, 0.52, 0.4, 0, 0.08);
       G.fillStyle = glow(look.eye, 1);
       G.fill();
       if (LOD === 0) {
-        // pupil, and a heavy lid slanting down to the nose
+        // pupils, and heavy lids slanting down to the nose
         G.beginPath();
-        ellA(ox + s * -sA * 0.06, oy + sB * 0.1, sA * 0.13, sB * 0.15, sO, 0, TAU);
+        for (let e = 0; e < n; e++) eyeSub(e, 0.13, 0.15, -0.06 * EYEP[e * EYE_N + 5], 0.1);
         G.fillStyle = col(look.pupil || [70, 48, 20], 1, 1);
         G.fill();
-        headPt(ex + s * rx * 0.3, eu + ry * 0.2, rz * 0.82);
-        const lx0 = QX;
-        const ly0 = QY;
-        headPt(ex - s * rx * 0.28, eu + ry * 0.02, rz * 0.9);
         G.beginPath();
-        mt(lx0, ly0);
-        lt(QX, QY);
-        headPt(ex - s * rx * 0.22, eu - ry * 0.04, rz * 0.9);
-        lt(QX, QY);
-        headPt(ex + s * rx * 0.24, eu + ry * 0.07, rz * 0.84);
-        lt(QX, QY);
-        G.closePath();
+        for (let e = 0; e < n; e++) {
+          const o = e * EYE_N + 7;
+          mt(EYEP[o], EYEP[o + 1]);
+          for (let k = 1; k < 4; k++) lt(EYEP[o + k * 2], EYEP[o + k * 2 + 1]);
+          G.closePath();
+        }
         G.fillStyle = col(skin, 0.42, 1);
         G.fill();
       }
       if (LOD < 2) {
-        // brow
-        headPt(ex + s * rx * 0.36, eu + ry * 0.28, rz * 0.78);
         G.beginPath();
-        mt(QX, QY);
-        headPt(ex - s * rx * 0.3, eu + ry * 0.12, rz * 0.9);
-        lt(QX, QY);
+        for (let e = 0; e < n; e++) {
+          const o = e * EYE_N + 15;
+          mt(EYEP[o], EYEP[o + 1]);
+          lt(EYEP[o + 2], EYEP[o + 3]);
+        }
         G.strokeStyle = col(look.brow || INK, 1, 0.85);
-        G.lineWidth = Math.max(0.8, ry * 0.09 * PXS * QK);
+        G.lineWidth = Math.max(0.8, ry * 0.09 * PXS * EYEP[6]);
         G.stroke();
       }
     }
+    const anyEye = n > 0;
     FACE = anyEye;
   }
 
@@ -2628,13 +2675,14 @@
     pKey[PT_TORSO] = (jDepth(PEL) + jDepth(CHE)) / 2 + 0.01;
     pKey[PT_ARM0] = md3(SH[0], EL[0], HA[0]) - 0.01;
     pKey[PT_ARM1] = md3(SH[1], EL[1], HA[1]) - 0.01;
-    pKey[PT_HEAD] = jDepth(HED) - 0.12;
+    // the head goes after the torso even from behind: a hunched walker's head shows over its shoulders
+    pKey[PT_HEAD] = Math.min(jDepth(HED) - 0.12, pKey[PT_TORSO] - 0.001);
     const back = 0.15;
     pKey[PT_HAIR] = depth(J[HED * 3] - HF[6] * back, J[HED * 3 + 2] - HF[8] * back);
     let n = 0;
     for (let p = 0; p < NP; p++) {
       if (p === PT_HAIR && !V.hairLen) continue;
-      if (p === PT_PELVIS && V.hem > 0.14) continue;
+      if (p === PT_PELVIS && (V.hem > 0.14 || LOD === 2)) continue;
       // insertion sort, farthest first
       let i = n++;
       while (i > 0 && pKey[pOrd[i - 1]] < pKey[p]) {
@@ -2793,7 +2841,6 @@
     BITE_SECS: 0.45,
     SCREAM_SECS: 1.2,
     POSES,
-    OPS_MAX,
     TYPES,
     addType,
     gore,

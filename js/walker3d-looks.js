@@ -122,7 +122,7 @@
   // cadence, high knees, stooped, arms dangling and swinging wide, head bobbing.
   W3.addType("lanky", {
     h: 1.15,
-    w: 1.2,
+    w: 1.4,
     r: 0.3,
     fall: "fold",
     build: {
@@ -172,7 +172,7 @@
       skin: [146, 158, 124], hair: [44, 38, 32], hairStyle: "none", ears: false, sleeve: "long", smears: 3, handBlood: true,
     },
     variants: [
-      { top: "vest", hem: 0.05, shirt: [45, 58, 82], sleeveCol: [44, 48, 58], pants: [38, 40, 46], shoe: [30, 30, 34], pads: true, pad: [34, 38, 46], helmet: "riot", helmetCol: [43, 47, 54], visor: [143, 163, 181], kneeRip: [false, false] },
+      { top: "vest", hem: 0.05, shirt: [45, 58, 82], sleeveCol: [44, 48, 58], pants: [38, 40, 46], shoe: [30, 30, 34], pads: true, pad: [62, 68, 80], helmet: "riot", helmetCol: [43, 47, 54], visor: [143, 163, 181], kneeRip: [false, false] },
       { top: "turnout", hem: 0.2, shirt: [168, 145, 95], sleeveCol: [160, 138, 90], cuff: [70, 62, 48], pants: [150, 128, 84], shoe: [34, 32, 30], helmet: "fire", helmetCol: [32, 32, 35], bands: true, band: [217, 211, 106], band2: [207, 211, 214], rip: [0.35, 0.3, 0.32], kneeRip: [false, false] },
     ],
   });
