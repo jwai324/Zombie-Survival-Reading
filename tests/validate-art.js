@@ -11,6 +11,11 @@
    - the walk-in house's art (js/houseart.js, loaded by the page after sprites3d.js): every texture,
      sprite and floor listed in ZSR.HOUSE_ART draws cleanly with every opts set listed for it, at its
      size; its wall faces, floors and ceiling start by painting the whole tile opaque;
+   - the walkers (js/walker3d.js and its looks, loaded after sprites3d.js and before interior.js): every type in the
+     facts has a look; every type draws cleanly in every pose, from every side, at every level of detail, falling and
+     hit, in tiny to large regions, near and far, with no transforms, images, gradients, read-backs or new canvases,
+     inside its region with its feet on the bottom, within its canvas-call ceiling, the same way twice; no strong red
+     with gore off; fog darkens all but the eyes; its boxes, strides and blood sprites are sane;
    - the crew's art (js/crewart.js, loaded by the page after sprites3d.js): every sprite ZSR.CREW_ART
      lists is registered and draws cleanly, at its size, with every opts set listed for it; the list
      covers every crew member in every pose and frame, the poses and quest object kinds docs/CREW.md
@@ -27,6 +32,10 @@ const ART_FILES = ["decor.js", "landmarks1.js", "landmarks2.js"]; // SCALE: add 
 const HOUSE_FILE = "houseart.js";
 const CREW_FILE = "crewart.js";
 const CREW_SPRITES = ["crew", "crewDog", "crewFace", "qObj"]; // the names js/crew.js, js/building.js and the crew card draw
+const WALKER_FILES = ["walker3d.js", "walker3d-looks.js"]; // SCALE: the walker module, then its looks; add walker3d-looks2.js ... here as types grow
+const WALKER_OPS = [600, 350, 160]; // SCALE: most canvas calls one walker may make at lod 0 / 1 / 2 (each one is drawn every frame it changes)
+const WALKER_H_MAX = 1.3; // SCALE: tallest walker box, tiles (the engine caps it at 0.98 under a ceiling)
+const WALKER_COLOURS = 6000; // SCALE: most colour strings random walker draws may use (Walker3D's colour table, CC_N, holds 16384)
 // docs/CREW.md's own lists: the post poses (plus "walk", between posts) and the quest object kinds. The art
 // must cover them even before a fact uses one (validate-world.js holds the facts to the same kinds).
 const CREW_POSES = ["stand", "sit", "work", "read", "walk"];
@@ -39,6 +48,7 @@ const warn = (m) => warnings.push(m);
 
 /* ---------- A 2D context that records and checks every call ---------- */
 let current = "(loading)"; // what is being drawn, for the messages
+let noRead = false; // while a walker draws: reading context state back is an error
 const finite = (v) => typeof v === "number" && Number.isFinite(v);
 // how many leading arguments must be finite numbers (fillText / strokeText: the 2 after the text)
 const NUMS = { fillRect: 4, strokeRect: 4, clearRect: 4, rect: 4, moveTo: 2, lineTo: 2, arc: 5, ellipse: 7, quadraticCurveTo: 4, bezierCurveTo: 6, arcTo: 5, translate: 2, scale: 2, rotate: 1, roundRect: 4, setTransform: 6, transform: 6, createLinearGradient: 4, createRadialGradient: 6, putImageData: 3 };
@@ -78,6 +88,7 @@ function context2d(canvas) {
   const target = {};
   return new Proxy(target, {
     get(o, k) {
+      if (noRead && (k === "canvas" || k in state || k in o)) err(`${current}: reads ${String(k)} back from the context`);
       if (k === "canvas") return canvas;
       if (k in state) return state[k];
       if (k in o) return o[k];
@@ -99,11 +110,12 @@ function context2d(canvas) {
           if (!img || !(img.width > 0) || !(img.height > 0)) err(`${current}: drawImage() of something with no size`);
           for (let i = 1; i < args.length; i++) if (!finite(args[i])) err(`${current}: drawImage() argument ${i + 1} is ${args[i]}`);
         }
-        ops.push({ k, args, fillStyle: state.fillStyle, globalAlpha: state.globalAlpha });
+        ops.push({ k, args, fillStyle: state.fillStyle, strokeStyle: state.strokeStyle, lineWidth: state.lineWidth, globalAlpha: state.globalAlpha });
         return calls[k] ? calls[k](...args) : undefined;
       };
     },
     set(o, k, v) {
+      if (k === "shadowBlur" || k === "filter") ops.push({ k: "set " + k, args: [v] });
       if (k === "fillStyle" || k === "strokeStyle") checkColor(v, k);
       else if (k === "globalAlpha" && !(finite(v) && v >= 0 && v <= 1)) err(`${current}: globalAlpha ${v}`);
       else if (k === "lineWidth" && !(finite(v) && v > 0)) err(`${current}: lineWidth ${v}`);
@@ -162,6 +174,19 @@ else {
   if (at < 0) err(`index.html does not load js/${HOUSE_FILE}`);
   else if (at < pageScripts.indexOf("sprites3d.js")) err(`index.html loads js/${HOUSE_FILE} before sprites3d.js (it needs Draw3)`);
 }
+
+// the walkers: after Draw3 (they register their blood sprites with it), before the engine that draws them
+WALKER_FILES.forEach((f, i) => {
+  if (!fs.existsSync(path.join(ROOT, "js", f))) return err(`js/${f} is missing`);
+  load(f);
+  const at = pageScripts.indexOf(f);
+  if (at < 0) err(`index.html does not load js/${f}`);
+  else {
+    if (at < pageScripts.indexOf("sprites3d.js")) err(`index.html loads js/${f} before sprites3d.js`);
+    if (pageScripts.includes("interior.js") && at > pageScripts.indexOf("interior.js")) err(`index.html loads js/${f} after interior.js (the engine reads Walker3D)`);
+    if (i && at < pageScripts.indexOf(WALKER_FILES[0])) err(`index.html loads js/${f} before js/${WALKER_FILES[0]}`);
+  }
+});
 
 if (!fs.existsSync(path.join(ROOT, "js", CREW_FILE))) err(`js/${CREW_FILE} is missing`);
 else {
@@ -511,6 +536,391 @@ Object.keys(D.POSES || {}).forEach((id) => {
   });
 });
 
+/* ---------- The walkers (js/walker3d.js + looks): live 3D figures drawn straight into a region ---------- */
+const W3 = ZSR.Walker3D;
+let walkerDraws = 0;
+if (!W3) err("js/walker3d.js does not export ZSR.Walker3D");
+else {
+  const PI = Math.PI;
+  // the walker ids: walker, runner, brute and every id in the facts (WORLD.WALKER_TYPES, when the facts have it)
+  const wsb = { console };
+  wsb.globalThis = wsb;
+  wsb.window = wsb;
+  vm.createContext(wsb);
+  pageScripts.filter((f) => /^(layouts|world)\.js$/.test(f)).forEach((f) => {
+    try {
+      vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), wsb, { filename: "js/" + f });
+    } catch (e) {
+      warn(`could not load js/${f} to check the walker looks against the facts: ${String(e.message).split("\n")[0]}`);
+    }
+  });
+  const factTypes = Object.keys((wsb.ZSR && wsb.ZSR.WORLD && wsb.ZSR.WORLD.WALKER_TYPES) || {});
+  const ids = [...new Set(["walker", "runner", "brute"].concat(factTypes))];
+  ids.forEach((id) => W3.TYPES[id] || err(`walker type "${id}" has no look (Walker3D.addType in js/walker3d-looks.js)`));
+  const types = Object.keys(W3.TYPES);
+  ["FALL_SECS", "COLLAPSE_SECS", "FADE_SECS", "BITE_SECS", "SCREAM_SECS"].forEach((k) => (finite(W3[k]) && W3[k] > 0) || err(`Walker3D.${k} is ${W3[k]}`));
+  if (!(W3.COLLAPSE_SECS + W3.FADE_SECS <= W3.FALL_SECS)) err(`Walker3D: COLLAPSE_SECS + FADE_SECS (${W3.COLLAPSE_SECS + W3.FADE_SECS}) must fit in FALL_SECS (${W3.FALL_SECS})`);
+  ["idle", "walk", "bite", "claw", "scream"].forEach((p) => (W3.POSES || []).includes(p) || err(`Walker3D.POSES lacks "${p}"`));
+  if (typeof W3.gore() !== "boolean") err("Walker3D.gore() is not a boolean");
+  // boxes and strides: finite, sane, the same object handed back each time (the engine calls them every frame)
+  types.concat(["zz-new"]).forEach((t) => {
+    [false, true].forEach((falling) => {
+      const b = W3.box(t, falling);
+      const what = `Walker3D.box("${t}", ${falling})`;
+      if (!b || !["h", "w", "head", "bar"].every((k) => finite(b[k]) && b[k] > 0)) return err(`${what} is ${JSON.stringify(b)}`);
+      if (b.h > WALKER_H_MAX) err(`${what}.h is ${b.h}: over ${WALKER_H_MAX} tiles`);
+      if (b.head > b.h + 1e-9) err(`${what}.head ${b.head} is over its height ${b.h}`);
+      if (falling && b.w < 2 * b.h) err(`${what}.w ${b.w} cannot hold the body lying on its side (2 h = ${2 * b.h})`);
+      if (b !== W3.box(t, falling)) err(`${what} makes a new object each call`);
+      // the health bar is about the hit width on screen (2 r 1.1 / STRETCH) and the region holds it
+      const r = (W3.TYPES[t] || W3.TYPES.walker).r;
+      if (W3.TYPES[t] && !(b.bar > r && b.bar < 2.4 * r)) err(`${what}.bar ${b.bar.toFixed(3)} does not match the hit radius ${r}`);
+      if (b.w < b.bar) err(`${what}.w ${b.w} is narrower than its health bar ${b.bar}`);
+    });
+    const s = W3.stride(t);
+    if (!(finite(s) && s > 0)) err(`Walker3D.stride("${t}") is ${s}`);
+    const T = W3.TYPES[t];
+    if (T && !(finite(T.gait.clawRate) && T.gait.clawRate > 0 && finite(T.gait.turnRate) && T.gait.turnRate > 0)) err(`walker type ${t}: gait.clawRate and gait.turnRate must be above 0 (the engine reads them)`);
+  });
+  // every blood sprite is registered with Draw3 and draws
+  Object.keys(W3.SPRITES || {}).forEach((name) => {
+    if (!D.hasSprite(name)) return err(`Walker3D.SPRITES.${name} is not registered (Draw3.registerSprite)`);
+    current = `walker sprite ${name}`;
+    try {
+      const c = D.sprite(name, {});
+      if (!c || !(c.width > 0) || !(c.height > 0)) err(`${current}: no image`);
+      else if (c.ops && c.ops.length < 4) err(`${current}: draws almost nothing (${c.ops.length} calls)`);
+    } catch (e) {
+      err(`${current}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+    }
+  });
+  ["bloodDrop", "bloodSplat"].forEach((n) => (W3.SPRITES || {})[n] || err(`Walker3D.SPRITES lacks ${n} (the engine's blood spray draws it)`));
+
+  // the draws
+  const FORBID = new Set(["translate", "scale", "rotate", "setTransform", "transform", "drawImage", "resetTransform", "set shadowBlur", "set filter", "createLinearGradient", "createRadialGradient", "createPattern", "getImageData", "putImageData"]);
+  const parse = (c) => {
+    const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/.exec(typeof c === "string" ? c : "");
+    return m ? [+m[1], +m[2], +m[3], m[4] == null ? 1 : +m[4]] : null;
+  };
+  const base = { yaw: 0, gait: 0.3, move: 1, pose: "walk", poseT: 0.5, claw: 0.3, hit: 0, fall: 0, fallDir: PI, seed: 0, lod: 0, fog: 0, gore: true };
+  let made = 0;
+  const realCreate = sb.document.createElement;
+  sb.document.createElement = (t) => {
+    made++;
+    return realCreate(t);
+  };
+  /** Draw one figure on a fresh checking canvas; returns { ops, res } or null (after reporting). */
+  function drawOne(type, o, cam, what) {
+    const c = element("canvas");
+    c.width = cam.w;
+    c.height = cam.h;
+    const ctx = c.getContext("2d");
+    const st = Object.assign({}, base, o);
+    current = what;
+    const before = made;
+    noRead = true;
+    let res;
+    try {
+      res = W3.draw(ctx, type, st, cam);
+    } catch (e) {
+      noRead = false;
+      err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+      return null;
+    }
+    noRead = false;
+    walkerDraws++;
+    if (made !== before) err(`${what}: made ${made - before} canvas(es) while drawing`);
+    if (!res || typeof res.face !== "boolean" || !finite(res.parts)) err(`${what}: draw() returned ${JSON.stringify(res)}, not { face, parts }`);
+    const ops = c.ops;
+    const lod = st.lod;
+    const min = lod === 2 ? 10 : 20;
+    if (ops.length < min) err(`${what}: only ${ops.length} canvas calls`);
+    if (ops.length > WALKER_OPS[lod]) err(`${what}: ${ops.length} canvas calls, over the lod ${lod} ceiling of ${WALKER_OPS[lod]}`);
+    const bad = ops.find((op) => FORBID.has(op.k));
+    if (bad) err(`${what}: calls ${bad.k} (walkers draw straight, with no transforms, images, gradients or read-backs)`);
+    // inside the region (a camera nearer than a tile may push a reaching hand past it)
+    if (cam.dist >= 1) {
+      let worst = null;
+      const out = (x, y, r, lw, k, ry) => {
+        const m = 2 + lw / 2;
+        const rh = ry == null ? r : ry;
+        if (x - r < -m || x + r > cam.w + m || y - rh < -m || y + rh > cam.h + m) worst = worst || `${k} at ${x.toFixed(1)}, ${y.toFixed(1)} (r ${r.toFixed(1)}, ${rh.toFixed(1)}) outside ${cam.w} x ${cam.h}`;
+      };
+      ops.forEach((op) => {
+        const a = op.args;
+        if (op.k === "moveTo" || op.k === "lineTo") out(a[0], a[1], 0, op.lineWidth, op.k);
+        else if (op.k === "quadraticCurveTo") {
+          out(a[0], a[1], 0, op.lineWidth, op.k);
+          out(a[2], a[3], 0, op.lineWidth, op.k);
+        } else if (op.k === "bezierCurveTo") for (let i = 0; i < 6; i += 2) out(a[i], a[i + 1], 0, op.lineWidth, op.k);
+        else if (op.k === "arc") out(a[0], a[1], a[2], op.lineWidth, op.k);
+        else if (op.k === "ellipse") {
+          // the rotated ellipse's own reach across and down
+          const c = Math.cos(a[4]);
+          const sn = Math.sin(a[4]);
+          out(a[0], a[1], Math.hypot(a[2] * c, a[3] * sn), op.lineWidth, op.k, Math.hypot(a[2] * sn, a[3] * c));
+        }
+        else if (op.k === "fillRect" || op.k === "strokeRect" || op.k === "rect") {
+          out(a[0], a[1], 0, op.lineWidth, op.k);
+          out(a[0] + a[2], a[1] + a[3], 0, op.lineWidth, op.k);
+        }
+      });
+      if (worst) err(`${what}: draws outside its region: ${worst}`);
+    }
+    // gore off: nothing strong red
+    if (st.gore === false) {
+      const red = ops.find((op) => {
+        const c = parse(op.k === "stroke" ? op.strokeStyle : op.k === "fill" ? op.fillStyle : null);
+        return c && c[0] > 120 && c[1] < 60 && c[2] < 60;
+      });
+      if (red) err(`${what}: gore is off but it paints ${red.k === "stroke" ? red.strokeStyle : red.fillStyle}`);
+    }
+    return { ops, res };
+  }
+  const camFor = (type, falling, h, dist) => {
+    const b = W3.box(type, falling);
+    const px = h / b.h;
+    return { w: Math.ceil(b.w * px), h, px, dist: dist || 3, eye: 0.5 };
+  };
+  const lowest = (ops) => {
+    let y = -Infinity;
+    ops.forEach((op) => {
+      const a = op.args;
+      if (op.k === "moveTo" || op.k === "lineTo") y = Math.max(y, a[1] + (op.lineWidth || 0) / 2);
+    });
+    return y;
+  };
+  const sig = (ops) => JSON.stringify(ops.map((op) => [op.k, op.args, op.fillStyle, op.strokeStyle, op.lineWidth, op.globalAlpha]));
+  types.forEach((type) => {
+    const nv = W3.TYPES[type].looks ? W3.TYPES[type].looks.length : 1;
+    // A: every pose, from 8 sides, at every level of detail, each look
+    for (let seed = 0; seed < Math.max(2, nv); seed++) {
+      W3.POSES.forEach((pose) => {
+        for (let k = 0; k < 8; k++) {
+          for (let lod = 0; lod < 3; lod++) {
+            const yaw = (k * PI) / 4 - PI;
+            const o = { pose, yaw, lod, seed, move: pose === "walk" ? 1 : 0 };
+            const cam = camFor(type, false, 300);
+            const what = `walker ${type} ${pose} yaw ${yaw.toFixed(2)} lod ${lod} seed ${seed}`;
+            const r = drawOne(type, o, cam, what);
+            if (!r) continue;
+            if ((pose === "idle" || pose === "walk") && lowest(r.ops) < 0.94 * cam.h) err(`${what}: its feet do not reach the bottom (lowest point ${lowest(r.ops).toFixed(1)} of ${cam.h})`);
+            if (k === 4 && !r.res.face) err(`${what}: facing the camera, draw() says no face`);
+            if (k === 0 && r.res.face) err(`${what}: facing away, draw() says it drew a face`);
+            if (lod === 0 && (k & 1) === 0) {
+              const again = drawOne(type, o, cam, what + " (again)");
+              if (again && sig(again.ops) !== sig(r.ops)) err(`${what}: the same inputs drew different calls`);
+            }
+          }
+        }
+      });
+    }
+    // B: through the walk cycle, front and side, half and full stride
+    for (let g = 0; g < 8; g++) {
+      [0, PI / 2].forEach((yaw) => {
+        [0.5, 1].forEach((move) => {
+          const what = `walker ${type} walk gait ${g / 8} yaw ${yaw.toFixed(2)} move ${move}`;
+          const cam = camFor(type, false, 300);
+          const r = drawOne(type, { gait: g / 8, yaw, move }, cam, what);
+          if (r && lowest(r.ops) < 0.94 * cam.h) err(`${what}: its feet do not reach the bottom`);
+        });
+      });
+    }
+    // C: hit, falling (four ways), gore on and off, from four sides
+    [0, PI / 2, -PI / 2, PI].forEach((yaw) => {
+      [true, false].forEach((gore) => {
+        drawOne(type, { yaw, gore, hit: 1 }, camFor(type, false, 300), `walker ${type} hit yaw ${yaw.toFixed(2)} gore ${gore}`);
+        [0.25, 0.6].forEach((fall) => drawOne(type, { yaw, gore, fall }, camFor(type, true, 300), `walker ${type} fall ${fall} yaw ${yaw.toFixed(2)} gore ${gore}`));
+        [0, PI / 2, PI, -PI / 2].forEach((fallDir) => drawOne(type, { yaw, gore, fall: 1, fallDir }, camFor(type, true, 300), `walker ${type} fallen dir ${fallDir.toFixed(2)} yaw ${yaw.toFixed(2)} gore ${gore}`));
+      });
+    });
+    // D: tiny to large regions, near and far cameras, clear and fogged; fog darkens everything but the eyes
+    [[12, 16], [90, 120], [400, 520]].forEach(([w, h]) => {
+      [0.4, 2, 25].forEach((dist) => {
+        const b = W3.box(type, false);
+        const cam = { w, h, px: h / b.h, dist, eye: 0.5 };
+        const what = `walker ${type} in ${w} x ${h} at ${dist} tiles`;
+        const clear = drawOne(type, { yaw: 0.6, fog: 0 }, cam, what + " fog 0");
+        const fog = drawOne(type, { yaw: 0.6, fog: 0.9 }, cam, what + " fog 0.9");
+        if (!clear || !fog) return;
+        if (clear.ops.length !== fog.ops.length) return err(`${what}: fog changed what is drawn (${clear.ops.length} vs ${fog.ops.length} calls)`);
+        let darker = 0;
+        let colored = 0;
+        for (let i = 0; i < clear.ops.length; i++) {
+          const k = clear.ops[i].k;
+          if (k !== "fill" && k !== "stroke") continue;
+          const a = parse(k === "fill" ? clear.ops[i].fillStyle : clear.ops[i].strokeStyle);
+          const z = parse(k === "fill" ? fog.ops[i].fillStyle : fog.ops[i].strokeStyle);
+          if (!a || !z) continue;
+          colored++;
+          if (z[0] > a[0] + 1 || z[1] > a[1] + 1 || z[2] > a[2] + 1) return err(`${what}: fog 0.9 made ${k} ${a.join(",")} lighter (${z.join(",")})`);
+          if (z[0] + z[1] + z[2] < (a[0] + a[1] + a[2]) * 0.5) darker++;
+        }
+        if (darker < colored * 0.7) err(`${what}: fog 0.9 darkened only ${darker} of ${colored} colours`);
+      });
+    });
+    // E: through a bite, a pair of claw swipes and a scream
+    ["bite", "claw", "scream"].forEach((pose) => {
+      [0, 0.25, 0.75, 1].forEach((t) => drawOne(type, { pose, poseT: t, claw: t, move: 0, yaw: 0.4 }, camFor(type, false, 300), `walker ${type} ${pose} at ${t}`));
+    });
+  });
+  // a type the looks do not know draws as a walker, never throws
+  drawOne("zz-new", {}, camFor("walker", false, 200), "walker of an unknown type");
+
+  // F: the ground is seen in perspective: the contact shadow and (gore on) the pool under a downed walker are discs on
+  // the floor, not one-pixel lines. The first fills are the ground's: the shadow, then the pool (its colour is red).
+  const groundFills = (ops) => {
+    const out = [];
+    let ell = null;
+    for (const op of ops) {
+      if (op.k === "beginPath") ell = null;
+      else if (op.k === "ellipse") ell = op.args;
+      else if (op.k === "fill") {
+        out.push({ ell, fill: parse(op.fillStyle) });
+        if (out.length >= 3) break;
+      }
+    }
+    return out;
+  };
+  types.forEach((type) => {
+    [0, PI / 2, PI].forEach((yaw) => {
+      const what = `walker ${type} yaw ${yaw.toFixed(2)}`;
+      const stand = drawOne(type, { yaw }, camFor(type, false, 300), what + " standing (ground)");
+      const sh = stand && groundFills(stand.ops)[0];
+      if (stand && (!sh || !sh.ell || Math.min(sh.ell[2], sh.ell[3]) < 2 || Math.max(sh.ell[2], sh.ell[3]) < 10)) err(`${what}: its ground shadow is ${sh && sh.ell ? sh.ell[2].toFixed(1) + " x " + sh.ell[3].toFixed(1) : "missing"} px at 300 px tall (a flat line, not a disc on the floor)`);
+      [PI, 0].forEach((fallDir) => {
+        const r = drawOne(type, { yaw, fall: 1, fallDir, gore: true }, camFor(type, true, 300), `${what} fallen dir ${fallDir.toFixed(2)} (pool)`);
+        if (!r) return;
+        const pool = groundFills(r.ops).find((f) => f.fill && f.fill[0] > 2 * f.fill[1] && f.fill[0] > 60);
+        if (!pool || !pool.ell) err(`${what} fallen dir ${fallDir.toFixed(2)}: no blood pool under it with gore on`);
+        else if (Math.min(pool.ell[2], pool.ell[3]) < 3 || Math.max(pool.ell[2], pool.ell[3]) < 20) err(`${what} fallen dir ${fallDir.toFixed(2)}: its blood pool is ${pool.ell[2].toFixed(1)} x ${pool.ell[3].toFixed(1)} px at 300 px tall (it must read as a pool, at least 20 x 3)`);
+      });
+    });
+  });
+
+  // the tests below read the joints and the fit back through Walker3D.probe() (for the tests only): its j and s are
+  // the live joint buffers; its fit is the last draw's when probe() is called
+  const noop = () => {};
+  const quiet = new Proxy({}, { get: () => noop, set: () => true });
+  if (typeof W3.probe !== "function") err("Walker3D.probe() is missing (the art tests read the joints and the fit through it)");
+  else {
+    const PB = W3.probe();
+    const stQ = (o) => Object.assign({}, base, o);
+    // G: smooth walk cycles: through 200 gait steps, no boot, toe or hand jumps more than 4 x its usual step (+ 1 px)
+    const LIMBS = { "left hand": 6, "right hand": 9, "left ankle": 12, "left toe": 13, "right ankle": 16, "right toe": 17 };
+    types.forEach((type) => {
+      [PI / 2, 0.4].forEach((yaw) => {
+        [0, 1].forEach((seed) => {
+          const cam = camFor(type, false, 160);
+          const steps = {};
+          let prev = null;
+          for (let i = 0; i <= 200; i++) {
+            W3.draw(quiet, type, stQ({ yaw, seed, gait: i / 200, move: 1 }), cam);
+            const now = Array.from(PB.s);
+            if (prev) Object.entries(LIMBS).forEach(([n, j]) => (steps[n] = steps[n] || []).push(Math.hypot(now[j * 3] - prev[j * 3], now[j * 3 + 1] - prev[j * 3 + 1])));
+            prev = now;
+          }
+          Object.entries(steps).forEach(([n, a]) => {
+            const sorted = a.slice().sort((x, y) => x - y);
+            const med = sorted[sorted.length >> 1];
+            const max = sorted[sorted.length - 1];
+            if (max > 4 * med + 1) err(`walker ${type} yaw ${yaw.toFixed(2)} seed ${seed}: its ${n} jumps ${max.toFixed(1)} px in one step of the walk cycle (its usual step is ${med.toFixed(2)} px at 160 px tall): a snap`);
+          });
+        });
+      });
+    });
+    // H: the size never follows the swing: at 0.85 tiles (biting range) the fit is the same through bites, claw swipes,
+    // a scream, the walk and idle, and through a pose blending in (poseW)
+    types.forEach((type) => {
+      [0, 0.3, -0.3, PI / 2].forEach((yaw) => {
+        let lo = Infinity;
+        let hi = 0;
+        const b = W3.box(type, false);
+        const cam = { w: Math.ceil((b.w * 300) / b.h), h: 300, px: 300 / b.h, dist: 0.85, eye: 0.5 };
+        ["bite", "claw", "scream", "walk", "idle"].forEach((pose) => {
+          for (let i = 0; i <= 20; i++) {
+            [1, 0.5].forEach((poseW) => {
+              W3.draw(quiet, type, stQ({ yaw, pose, poseT: i / 20, claw: i / 20, gait: i / 20, move: pose === "walk" ? 1 : 0.3, poseW }), cam);
+              const fit = W3.probe().fit; // probe() reads the fit of the last draw
+              lo = Math.min(lo, fit);
+              hi = Math.max(hi, fit);
+            });
+          }
+        });
+        if (hi / lo - 1 > 0.03) err(`walker ${type} yaw ${yaw.toFixed(2)} at 0.85 tiles: its size changes ${((hi / lo - 1) * 100).toFixed(1)}% with the pose (fit ${lo.toFixed(3)}..${hi.toFixed(3)}): it would pulse as it attacks`);
+      });
+    });
+    // I: the same inputs draw the same even with other walkers drawn in between (no state leaks from one draw to the next)
+    for (let k = 0; k < types.length; k++) {
+      const a = types[k];
+      const bT = types[(k + 1) % types.length];
+      const sa = { yaw: 0.7, gait: 0.37, pose: "claw", claw: 0.6, seed: 3, lod: k % 3, fog: 0.2 };
+      const camA = camFor(a, false, 240);
+      const one = drawOne(a, sa, camA, `walker ${a} (determinism, first)`);
+      drawOne(bT, { yaw: -2, gait: 0.9, pose: "bite", poseT: 0.4, seed: 8, lod: (k + 1) % 3, fog: 0.7, hit: 1, fall: 0.5, fallDir: 1 }, camFor(bT, true, 120, 1.2), `walker ${bT} (determinism, between)`);
+      const two = drawOne(a, sa, camA, `walker ${a} (determinism, again)`);
+      if (one && two && sig(one.ops) !== sig(two.ops)) err(`walker ${a}: drawing a ${bT} in between changed how the same ${a} draws`);
+    }
+    // J: a downed walker lies flat: at fall 1 no ankle above its pelvis plus a thigh's thickness (a side-lying body's
+    // upper leg may stack its foot spacing on top)
+    types.forEach((type) => {
+      const bd = W3.TYPES[type].build;
+      [0, PI, PI / 2, -PI / 2, 2.5].forEach((fallDir) => {
+        ["walk", "claw", "idle"].forEach((pose) => {
+          [0.1, 0.6].forEach((gait) => {
+            W3.draw(quiet, type, stQ({ yaw: 0, fall: 1, fallDir, pose, gait, move: 1 }), camFor(type, true, 200));
+            const J = PB.j;
+            const side = Math.abs(Math.sin(fallDir)) > 0.3 ? 2 * bd.footW : 0;
+            const top = J[1] + bd.rThigh + side;
+            const an = Math.max(J[12 * 3 + 1], J[16 * 3 + 1]);
+            if (an > top + 1e-6) err(`walker ${type} fallen dir ${fallDir.toFixed(2)} ${pose} gait ${gait}: an ankle at ${an.toFixed(3)} is above its pelvis (${J[1].toFixed(3)}): legs in the air`);
+          });
+        });
+      });
+    });
+    // K: missing or broken inputs draw as their defaults (the checking context errs on any non-finite coordinate)
+    [{ move: undefined }, { move: NaN }, { fallDir: NaN, fall: 0.6 }, { fallDir: undefined, fall: 0.6 }, { fallDir: null, fall: 1 }, { gait: NaN }, { gait: Infinity }, { poseT: NaN, pose: "bite" }, { claw: NaN, pose: "claw" }, { poseW: NaN, pose: "claw" }, { fall: NaN }, { yaw: NaN }, { fog: NaN }, { seed: -5 }, { lod: 7 }, { pose: "dance" }].forEach((o) =>
+      types.forEach((type) => drawOne(type, o, camFor(type, !!o.fall, 200), `walker ${type} with ${JSON.stringify(o, (k, v) => (typeof v === "number" && !Number.isFinite(v) ? String(v) : v === undefined ? "undefined" : v))}`))
+    );
+    // L: poseW 0 is the walk exactly (a pose change starts where the walk is); fog comes in steps (1 / FOG_STEPS)
+    types.forEach((type) => {
+      const cam = camFor(type, false, 200);
+      W3.draw(quiet, type, stQ({ pose: "walk", gait: 0.4, move: 0.8 }), cam);
+      const walk = Array.from(PB.j);
+      ["bite", "claw", "scream", "idle"].forEach((pose) => {
+        W3.draw(quiet, type, stQ({ pose, gait: 0.4, move: 0.8, poseW: 0, poseT: 0.5, claw: 0.3 }), cam);
+        const d = Math.max(...Array.from(PB.j).map((v, i) => Math.abs(v - walk[i])));
+        if (d > 1e-9) err(`walker ${type}: ${pose} at poseW 0 is not the walk (a joint is ${d.toFixed(4)} tiles off): the pose would jump in`);
+      });
+      if (!(W3.FOG_STEPS > 0)) return;
+      const f1 = drawOne(type, { fog: 0.3 }, cam, `walker ${type} fog 0.3`);
+      const f2 = drawOne(type, { fog: 0.3 + 0.2 / W3.FOG_STEPS }, cam, `walker ${type} fog a little more`);
+      if (f1 && f2 && sig(f1.ops) !== sig(f2.ops)) err(`walker ${type}: fog 0.3 and ${(0.3 + 0.2 / W3.FOG_STEPS).toFixed(4)} draw differently (fog must come in steps of 1 / FOG_STEPS, so colours repeat)`);
+    });
+    // M: the colour table converges: random continuous inputs (yaw, gait, fog, poses, hits, falls) use a bounded set
+    // of colour strings, and the last third of the draws adds almost none
+    const colours = new Set();
+    let late = 0;
+    const grab = new Proxy({}, { get: () => noop, set: (o, k, v) => ((k === "fillStyle" || k === "strokeStyle") && !colours.has(v) && (colours.add(v), late += addLate), true) });
+    let addLate = 0;
+    let seedR = 7;
+    const rr = () => ((seedR = (seedR * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    const poses = W3.POSES;
+    for (let i = 0; i < 3000; i++) {
+      if (i === 2000) addLate = 1;
+      const type = types[i % types.length];
+      W3.draw(grab, type, stQ({ yaw: rr() * 6.3 - 3.15, gait: rr(), fog: rr() * 0.9, pose: poses[i % poses.length], poseT: rr(), claw: rr(), hit: i % 9 === 0 ? 1 : 0, fall: i % 13 === 0 ? rr() : 0, fallDir: rr() * 6.3, lod: i % 3, seed: i % 5, gore: i % 2 === 0 }), camFor(type, false, 120));
+    }
+    if (colours.size > WALKER_COLOURS) err(`walkers: ${colours.size} different colour strings in 3000 random draws (over ${WALKER_COLOURS}): the colour table cannot hold them, so every draw would make new strings`);
+    if (late > colours.size * 0.05) err(`walkers: the last 1000 of 3000 random draws still made ${late} new colours (of ${colours.size}): light or fog is not stepped`);
+  }
+  // the health bar's width uses the engine's field of view: the same number in both files
+  const fovM = /const FOV = ([\d.]+)/.exec(fs.readFileSync(path.join(ROOT, "js", "interior.js"), "utf8"));
+  if (!fovM) warn("could not find js/interior.js's FOV to check Walker3D.FOV against");
+  else if (Math.abs(+fovM[1] - W3.FOV) > 1e-9) err(`Walker3D.FOV ${W3.FOV} is not js/interior.js's FOV ${fovM[1]} (the health bar's width comes from it)`);
+  sb.document.createElement = realCreate;
+}
+
 warnings.forEach((w) => console.log("warn  " + w));
 if (errors.length) {
   errors.slice(0, 60).forEach((e) => console.log("ERROR " + e));
@@ -518,4 +928,4 @@ if (errors.length) {
   console.log(`\n${errors.length} art problem(s).`);
   process.exit(1);
 }
-console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), ${crewDrawn} crew pictures, every call checked.`);
+console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), ${crewDrawn} crew pictures, ${walkerDraws} walker figures (${W3 ? Object.keys(W3.TYPES).length : 0} types), every call checked.`);
