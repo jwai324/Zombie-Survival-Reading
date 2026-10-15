@@ -365,3 +365,11 @@ won; the reading expansion was moved into them.
 
 - **Nothing is drawn right under the camera.** A walker that close would otherwise cast a shadow over the
   whole screen.
+- **A click hits the walker clicked.** The shot is aimed at the walker whose picture is under the pointer, at
+  the height clicked, and led: it carries the van's speed and the walker walks on, so it is aimed where the two
+  meet. A shot is tested along its whole step each frame (fast shots skipped past an edge) and only below the
+  walker's head.
+- **Walkers stay outside the van.** One that gets inside its sides is put back out at the nearest side, where it
+  presses against the van and hits it. Only one right behind the back doors is see-through.
+- **The van parks short of the door** (45 units), so in 3D its nose is not in the wall; the building is kept
+  in view by its own middle, not its lot's front, so it stays standing once parked.

@@ -94,11 +94,13 @@
       return this.unproject(sx, sy, 0);
     },
 
-    /** The roof gun: its mount (h * 0.1 behind the van's middle, as sprites.js draws it), the world angle to what
-        is under the pointer at chest height, the barrels' height and how much a shot drops per unit it flies to
-        reach that, and the aim's angle on the screen (for the headlights at night).
-        Aim assist: with a pointer, a walker right under it; keys only, the walker closest to straight ahead. */
-    aim(g, assist) {
+    /** The roof gun: its mount (h * 0.1 behind the van's middle, as sprites.js draws it), the world angle to shoot
+        at, the barrels' height and how much a shot drops per unit it flies, and the aim's angle on the screen (for
+        the headlights at night). With a pointer: the walker whose picture is under it, led (a shot carries the van's
+        speed and the walker walks on, so it is aimed at where the two meet); else what is under the pointer at
+        chest height (the shot then flies straight at the pointer on the screen). Aim assist: with a pointer, a
+        walker a little off it counts too; keys only, the walker closest to straight ahead. shot: the shots' speed. */
+    aim(g, assist, shot) {
       const k = this.setup(g);
       const van = g.van;
       const fx = Math.cos(van.heading);
@@ -107,38 +109,58 @@
       const my = van.y - fy * van.h * 0.1;
       let tx = mx + k.Fx * 600;
       let ty = my + k.Fy * 600;
+      let tz = AIM_Z;
+      let target = null;
       const p = g.pointer;
-      if (p.seen) {
+      // with a pointer: the walker whose standing picture is under it, at the spot on it under the pointer;
+      // else what is under the pointer at chest height (with aim assist, a walker a little off it counts too)
+      const hit = p.seen ? this.pick(g, p.x, p.y, 0) || (assist ? this.pick(g, p.x, p.y, 28) : null) : null;
+      if (hit) {
+        tx = hit.x;
+        ty = hit.y;
+        tz = hit.z;
+        target = hit.walker;
+      } else if (p.seen) {
         const t = this.unproject(p.x, p.y, AIM_Z);
         tx = t.x;
         ty = t.y;
       }
-      if (assist) {
-        let best = p.seen ? Infinity : 0.42;
+      if (assist && !p.seen) {
+        let best = 0.42;
         const ahead = Math.atan2(ty - my, tx - mx);
         for (const z of g.zombies) {
-          if (p.seen) {
-            const q = this.project(z.x, z.y, this.walkerH(z) / 2);
-            const d = q ? Math.hypot(q.x - p.x, q.y - p.y) : Infinity;
-            if (q && d < z.r * q.s + 28 && d < best) {
-              best = d;
-              tx = z.x;
-              ty = z.y;
-            }
-          } else if (Math.hypot(z.x - mx, z.y - my) < 650) {
+          if (Math.hypot(z.x - mx, z.y - my) < 650) {
             const az = Math.atan2(z.y - my, z.x - mx);
             const d = Math.abs(Math.atan2(Math.sin(az - ahead), Math.cos(az - ahead)));
             if (d < best) {
               best = d;
               tx = z.x;
               ty = z.y;
+              tz = this.walkerH(z) * 0.55;
+              target = z;
             }
           }
         }
       }
+      let dist = Math.hypot(tx - mx, ty - my);
+      if (target && shot > 0) {
+        // where a shot meets the walker: it flies at `shot` plus the van's speed, the walker at its own
+        const wx = fx * (g.curSpeed || 0) - (target.vx || 0);
+        const wy = fy * (g.curSpeed || 0) - (target.vy || 0);
+        const Dx = tx - mx;
+        const Dy = ty - my;
+        const a = shot * shot - wx * wx - wy * wy;
+        const b = Dx * wx + Dy * wy;
+        const t = a > 1 ? (-b + Math.sqrt(b * b + a * (Dx * Dx + Dy * Dy))) / a : 0;
+        if (t > 0) {
+          tx = mx + Dx - wx * t;
+          ty = my + Dy - wy * t;
+          dist = shot * t;
+        }
+      }
       const s0 = this.project(mx, my, GUN_Z);
-      const s1 = this.project(tx, ty, AIM_Z);
-      const dz = (AIM_Z - GUN_Z) / Math.max(60, Math.hypot(tx - mx, ty - my));
+      const s1 = this.project(tx, ty, tz);
+      const dz = (tz - GUN_Z) / Math.max(60, dist);
       return { x: mx, y: my, angle: Math.atan2(ty - my, tx - mx), z: GUN_Z, dz, screen: s0 && s1 ? Math.atan2(s1.y - s0.y, s1.x - s0.x) : -Math.PI / 2 };
     },
     /** A point's place from the camera's spot: X to the right, Y ahead (after setup). */
@@ -168,6 +190,30 @@
     /** The haze's color: dusty by day, darker in fog, near black at night. */
     haze(g) {
       return g.mods.night ? [28, 29, 26] : g.mods.fog ? [150, 148, 122] : [201, 194, 164];
+    },
+    /** The walker whose standing picture (its body: the middle of the sprite, from feet to head, leaning as it is
+        drawn) is under screen point (sx, sy), within `margin` px; the nearest if several. Returns the point on it
+        under the pointer: { x, y, z }, its body's middle at that height, a little to the side if pointed there. */
+    pick(g, sx, sy, margin) {
+      const k = this.k;
+      let best = null;
+      for (const z of g.zombies) {
+        const foot = this.project(z.x, z.y, 0);
+        const H = this.walkerH(z);
+        const head = this.project(z.x, z.y, H);
+        if (!foot || !head || foot.s > NEAR_PX) continue;
+        const hpx = foot.y - head.y;
+        if (hpx < 2) continue;
+        const t = (foot.y - sy) / hpx;
+        if (t < -margin / hpx || t > 1 + margin / hpx) continue;
+        const cx = foot.x + (head.x - foot.x) * 0.5 * clamp(t, 0, 1);
+        const half = H * 0.75 * foot.s * 0.3;
+        if (Math.abs(sx - cx) > half + margin) continue;
+        if (best && best.foot.s >= foot.s) continue;
+        const u = clamp((sx - cx) / foot.s, -z.r * 0.7, z.r * 0.7);
+        best = { foot, walker: z, x: z.x + k.Rx * u, y: z.y + k.Ry * u, z: clamp(t, 0.15, 0.9) * H };
+      }
+      return best;
     },
     /** How tall a walker stands, in world units: about the van's roof (50), brutes well over it. A little over
         life size, so a walker down the road still reads as a target. */
@@ -590,12 +636,17 @@
       });
     },
     /** A walker: the interiors' standing sprite on its feet, two walk frames at their pace and a lurch. New ones
-        fade in; one right behind the van (between it and the camera) is see-through, so it never hides the van. */
+        fade in; one right behind the van's back doors (between it and the camera) is see-through, so it never hides
+        the van. One beside the van is drawn solid, in front of the van or behind it as it stands. */
     walker(g, ctx, z) {
       let a = z.born == null ? 1 : clamp((g.time - z.born) / FADE_IN, 0, 1);
-      const v = this.project(g.van.x, g.van.y, 0);
+      const van = g.van;
+      const fx = Math.cos(van.heading);
+      const fy = Math.sin(van.heading);
+      const ly = (z.x - van.x) * fx + (z.y - van.y) * fy;
+      const lx = (z.x - van.x) * -fy + (z.y - van.y) * fx;
+      if (ly < -van.h / 2 + 6 && ly > -van.h / 2 - 140 && Math.abs(lx) < van.w / 2 + z.r) a *= 0.45;
       const foot = this.project(z.x, z.y, 0);
-      if (v && foot && foot.Y < v.Y && Math.hypot(z.x - g.van.x, z.y - g.van.y) < 170) a *= 0.45;
       if (a <= 0 || !foot) return;
       const frame = Math.floor((g.time + z.phase) / ((0.35 * 55) / Math.max(20, z.speed))) % 2;
       ctx.save();
@@ -758,13 +809,13 @@
       const list = this.list || (this.list = []);
       list.length = 0;
       const yMin = this.groundY(k.H) - 260;
-      const add = (o, t, x, y, back) => {
+      const add = (o, t, x, y, back, size) => {
         const dx = x - k.ox;
         const dy = y - k.oy;
         const Y = dx * k.Fx + dy * k.Fy;
-        if (Y < yMin || Y > k.far + 150) return;
+        if (Y < yMin - (size || 0) || Y > k.far + 150 + (size || 0)) return;
         const X = dx * k.Rx + dy * k.Ry;
-        if (Math.abs(X) > ((k.W / 2 + 300) * this.depthAt(Y)) / k.f) return;
+        if (Math.abs(X) > ((k.W / 2 + 300) * this.depthAt(Math.max(Y, yMin))) / k.f + (size || 0)) return;
         o._t = t;
         o._Y = Y + (back || 0);
         list.push(o);
@@ -772,7 +823,10 @@
       for (const o of this.veg) add(o, "plant", o.x, o.y);
       for (const p of g.props) if (p.kind !== "tire" && p.kind !== "rubble") add(p, "prop", p.x, p.y);
       for (const c of g.crates) add(c, "crate", c.x, c.y);
-      for (const l of g.drive.lots) add(l, "lot", l.qx, l.qy, 300);
+      // a building by its own middle (its lot's front can be behind the camera while the building is in view)
+      const G = ZSR.Streets.GEOM;
+      const mid = G.half + G.shoulder + G.lotGap + 168 + (G.lotDepth - 186) / 2;
+      for (const l of g.drive.lots) add(l, "lot", l.qx - l.uy * l.side * mid, l.qy + l.ux * l.side * mid, 0, 260);
       for (const z of g.zombies) add(z, "walker", z.x, z.y);
       if (g.gameOverAt == null || g.gameOverAt > 0.9) add(g.van, "van", g.van.x, g.van.y);
       list.sort((a, b) => b._Y - a._Y);

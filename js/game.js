@@ -59,7 +59,8 @@
   const PERSP_ROUTES = ["base>grocery"];
   // ... and on them: the van a little faster, its shots much faster (far down the road they look slow), walkers
   // coming a little more often (they are seen from further off, so take longer to arrive)
-  const PERSP = { pace: 1.25, shot: 1.6, spawns: 1.4, range: 2600, keepUp: 900 };
+  // ...; the van parks parkShort short of the door (seen in 3D its nose would be in the wall)
+  const PERSP = { pace: 1.25, shot: 1.6, spawns: 1.4, range: 2600, keepUp: 900, parkShort: 45 };
   const SIZE = { normal: 1, large: 1.3, huge: 2 };
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -642,11 +643,12 @@
       }
 
       // drive: the van follows its track; it brakes into a parking spot or a dead end
-      const left = this.track.len - van.s;
+      const end = this.track.len - (this.persp && this.arrive ? PERSP.parkShort : 0);
+      const left = end - van.s;
       const brake = this.arrive || !this.onMain ? clamp(Math.sqrt(Math.max(0, left) / 260), 0, 1) : 1;
       this.curSpeed = this.speed * brake;
       // through a turn on the route, s runs at the rate that keeps the van's own speed on its path
-      van.s = Math.min(this.track.len, van.s + (this.curSpeed * dt) / (this.turn && this.turn.main ? this.turn.k : 1));
+      van.s = Math.min(end, van.s + (this.curSpeed * dt) / (this.turn && this.turn.main ? this.turn.k : 1));
       t.miles += DIFF.milesPerSecond * stats.speed * dt * brake;
       while (this.onMain && !this.arrive && this.next < this.drive.decisions.length && van.s >= this.drive.decisions[this.next].stop) this.commit(this.drive.decisions[this.next]);
       // a place at the end of its one road: past the last decision the road runs on to it, and the van parks there
@@ -682,7 +684,7 @@
         if (this.fail.t >= DIFF.wrongDrive && !this.fade) this.startFade(this.fail.msg);
       }
       if (this.arrive) {
-        if (van.s >= this.track.len - 3) {
+        if (van.s >= end - 3) {
           if (!this.arrive.parked) {
             this.arrive.parked = true;
             this.banner(St.text(this.opts.to === "base" ? "home" : "here").toUpperCase(), 2500);
@@ -701,7 +703,7 @@
       van.cooldown -= dt;
       // gun: where its mount is in the world, the world angle it points, and that angle on the screen
       let gun;
-      if (this.persp) gun = ZSR.Persp.aim(this, State().settings.aimAssist);
+      if (this.persp) gun = ZSR.Persp.aim(this, State().settings.aimAssist, stats.bulletSpeed * PERSP.shot);
       else {
         const vs = this.toScreen(van.x, van.y);
         const rot = van.heading - this.cam.th;
@@ -754,10 +756,21 @@
           this.bullets.splice(i, 1);
           continue;
         }
+        // the angled camera: the shot's whole step this frame (fast shots would skip past an edge), and only
+        // below the walker's head (a shot over it flies on)
+        const stepX = (b.vx + b.cx) * dt;
+        const stepY = (b.vy + b.cy) * dt;
         for (let j = 0; j < this.zombies.length; j++) {
           const z = this.zombies[j];
-          const dx = z.x - b.x;
-          const dy = z.y - b.y;
+          let dx = z.x - b.x;
+          let dy = z.y - b.y;
+          if (this.persp) {
+            // nearest point of this frame's step (from where it was, t 0, to where it is, t 1)
+            const t = clamp((dx * stepX + dy * stepY) / (stepX * stepX + stepY * stepY || 1) + 1, 0, 1);
+            dx -= stepX * (t - 1);
+            dy -= stepY * (t - 1);
+            if (b.z != null && b.z > ZSR.Persp.walkerH(z) + 8) continue;
+          }
           if (dx * dx + dy * dy < (z.r + 6) * (z.r + 6)) {
             z.hp -= b.dmg;
             z.hit = 0.12;
@@ -804,16 +817,34 @@
         }
         z.x += vx * dt;
         z.y += vy * dt;
+        z.vx = vx; // for the angled camera's aim, which leads a walker
+        z.vy = vy;
         z.kx *= 0.85;
         z.ky *= 0.85;
         z.hit = Math.max(0, z.hit - dt);
         z.cool = Math.max(0, z.cool - dt);
         // touching the van: in the van's own frame, an ellipse around its body
-        const lx = (z.x - van.x) * rx + (z.y - van.y) * ry;
-        const ly = (z.x - van.x) * fx + (z.y - van.y) * fy;
-        const nx = lx / (van.w / 2 + z.r * 0.8);
-        const ny = ly / (van.h / 2 + z.r * 0.8);
-        if (nx * nx + ny * ny < 1 && z.cool <= 0 && !this.fade) {
+        let lx = (z.x - van.x) * rx + (z.y - van.y) * ry;
+        let ly = (z.x - van.x) * fx + (z.y - van.y) * fy;
+        let touching;
+        if (this.persp) {
+          // seen in 3D a walker must stay outside the van: one inside its sides is put back out at the nearest
+          // side, where it presses against the van and hits it
+          const ax = van.w / 2 + z.r * 0.85;
+          const ay = van.h / 2 + z.r * 0.85;
+          if (Math.abs(lx) < ax && Math.abs(ly) < ay) {
+            if (ax - Math.abs(lx) < ay - Math.abs(ly)) lx = (lx < 0 ? -1 : 1) * ax;
+            else ly = (ly < 0 ? -1 : 1) * ay;
+            z.x = van.x + rx * lx + fx * ly;
+            z.y = van.y + ry * lx + fy * ly;
+          }
+          touching = Math.abs(lx) < ax + 4 && Math.abs(ly) < ay + 4;
+        } else {
+          const nx = lx / (van.w / 2 + z.r * 0.8);
+          const ny = ly / (van.h / 2 + z.r * 0.8);
+          touching = nx * nx + ny * ny < 1;
+        }
+        if (touching && z.cool <= 0 && !this.fade) {
           z.cool = 1.0;
           z.hp -= stats.ram;
           const push = stats.ramKnock;

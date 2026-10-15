@@ -8,7 +8,9 @@
      "try again" starts the drive over with the trip's miles, walkers and scrap kept, and the next try arrives;
    - the roof gun: a shot flies straight at the pointer on screen, whichever way it points, at any van speed;
    - the angled camera's test drive (js/perspective.js): only Home Base to Corner Grocery, screen and world
-     map back onto each other, and there too a shot flies straight at the pointer.
+     map back onto each other, and there too a shot flies straight at the pointer; a walker clicked anywhere on
+     its picture is hit, walking or not, ahead or aside; walkers stay outside the van and hit it; the van parks
+     short of the grocery's wall.
    Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -287,6 +289,73 @@ for (const deg of [0, 45, 90, 135, 180, 225, 270, 315]) {
 }
 if (worstPersp > 6) err("persp gun", `a shot drifted ${worstPersp.toFixed(1)} px off the line to the pointer`);
 console.log(`persp: screen and world agree within ${worstTrip.toFixed(3)} px; shots stay within ${worstPersp.toFixed(1)} px of the line to the pointer`);
+
+/* ---------- the angled camera: shots hit the walker clicked, walkers stay outside the van, parking ---------- */
+// a walker standing ahead or off to a side: clicking its head, chest or feet on the screen hits it
+let missed = 0;
+let shots = 0;
+for (const [ahead, side] of [[420, 0], [520, 160], [380, -260], [700, 420], [260, 300]]) {
+  for (const at of [0.85, 0.5, 0.12]) {
+    start("base", "grocery");
+    for (let i = 0; i < 90; i++) G.update(1 / 60);
+    P.setup(G);
+    const k = P.k;
+    const z = { type: "walker", x: k.ox + k.Fx * ahead + k.Rx * side, y: k.oy + k.Fy * ahead + k.Ry * side, r: 18, hp: 1000, maxHp: 1000, speed: 55, dmg: 0, scrap: 0, angle: 0, phase: 0, hit: 0, cool: 9, kx: 0, ky: 0 };
+    G.zombies = [z];
+    G.update(1 / 60); // walking (and, near the van, keeping up with it)
+    P.setup(G);
+    const foot = P.project(z.x, z.y, 0);
+    const head = P.project(z.x, z.y, P.walkerH(z));
+    // the picture leans half the camera's upright lines (Persp.billboard)
+    Object.assign(G.pointer, { x: foot.x + (head.x - foot.x) * 0.5 * at, y: foot.y + (head.y - foot.y) * at, seen: true, down: true });
+    G.van.cooldown = 0;
+    G.update(1 / 60);
+    G.pointer.down = false;
+    for (let i = 0; i < 60 && G.bullets.length; i++) G.update(1 / 60);
+    shots++;
+    if (z.hp >= 1000) {
+      missed++;
+      err("persp aim", `a shot at a walker ${ahead} ahead, ${side} aside, clicked ${Math.round(at * 100)}% up it, missed`);
+    }
+    G.stop();
+  }
+}
+// a walker that gets inside the van's sides is put back out, and hits the van
+let inside = 0;
+start("base", "grocery");
+for (let i = 0; i < 90; i++) G.update(1 / 60);
+G.van.cooldown = 1e9;
+for (const [lx, ly] of [[0, 0], [20, -40], [-25, 50], [30, 0], [0, -55]]) {
+  const v = G.van;
+  const fx = Math.cos(v.heading);
+  const fy = Math.sin(v.heading);
+  const z = { type: "walker", x: v.x - fy * lx + fx * ly, y: v.y + fx * lx + fy * ly, r: 18, hp: 1000, maxHp: 1000, speed: 55, dmg: 5, scrap: 0, angle: 0, phase: 0, hit: 0, cool: 0, kx: 0, ky: 0 };
+  G.zombies = [z];
+  const hp0 = ZSR.State.trip.vanHp;
+  G.update(1 / 60);
+  const qx = (z.x - v.x) * -fy + (z.y - v.y) * fx;
+  const qy = (z.x - v.x) * fx + (z.y - v.y) * fy;
+  if (Math.abs(qx) < v.w / 2 + z.r * 0.85 - 1 && Math.abs(qy) < v.h / 2 + z.r * 0.85 - 1) {
+    inside++;
+    err("persp van", `a walker at ${lx}, ${ly} in the van stayed inside it`);
+  }
+  if (ZSR.State.trip.vanHp >= hp0) err("persp van", `a walker pressed against the van at ${lx}, ${ly} did not hit it`);
+}
+G.stop();
+// the van parks short of the grocery's front wall (its nose would be in it, seen in 3D)
+let gap = null;
+start("base", "grocery");
+drive(right, 1.0, () => {
+  if (G.arrive && G.arrive.parked && gap == null) {
+    const l = G.drive.lots.find((q) => q.node === "grocery");
+    const nose = [G.van.x + Math.cos(G.van.heading) * G.van.h / 2, G.van.y + Math.sin(G.van.heading) * G.van.h / 2];
+    const v = (nose[0] - l.qx) * -l.uy * l.side + (nose[1] - l.qy) * l.ux * l.side;
+    gap = S.GEOM.half + S.GEOM.shoulder + S.GEOM.lotGap + 168 - v;
+  }
+  return false;
+});
+if (gap == null || gap < 30) err("persp park", `the van parked ${gap == null ? "never" : gap.toFixed(1) + " units"} from the grocery's front wall`);
+console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside} walkers left inside the van; parked ${gap == null ? "-" : gap.toFixed(0)} units short of the wall`);
 console.log(`drive: ${routes} routes driven (${turns} turns), largest step back ${maxBack.toFixed(2)} px; left alone the first wrong way is ${Object.entries(failedAt).map(([k, n]) => k + " " + n).join(", ")}`);
 errors.slice(0, 40).forEach((e) => console.log("ERROR " + e));
 if (errors.length > 40) console.log(`... ${errors.length - 40} more errors`);
