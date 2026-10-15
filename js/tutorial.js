@@ -367,7 +367,8 @@
   function arrowTarget(Im) {
     const kind = CARDS[run.step] && CARDS[run.step].arrow;
     const t = words().arrow || {};
-    if (kind === "walker" && run.walker) return { x: run.walker.x, y: run.walker.y, lift: 1.25, label: t.walker };
+    // over its head: its kind's drawn height (Interior.walkerHeight: its look's box, capped under a roof) and a gap
+    if (kind === "walker" && run.walker) return { x: run.walker.x, y: run.walker.y, lift: (Im.walkerHeight ? Im.walkerHeight(run.walker) : 0.95) + 0.3, label: t.walker };
     if (kind === "computer") {
       const s = computerSpot(Im);
       return s && { x: s.x, y: s.y, lift: 0.9, label: t.computer };

@@ -26,7 +26,9 @@
    and the crew's cards), `eatClick` (the next click into the view only takes the mouse back); walker fields
    `practice` and `floorHp` (a bite never takes you below it). startLoop and stop clear the first two.
    Walkers (their kinds and stats: WORLD.WALKER_TYPES): stepWalker decides what one does each frame and animWalker
-   turns that into how it looks (heading, gait, pose timers) for the walker art; a screamer's scream speeds up the
+   turns that into how it looks (heading, gait, pose timers) for the walker art (js/walker3d.js draws each one live
+   into a pooled canvas when it looks different: walkerSprite, liveRenderAll; adaptQuality's governor trims how often
+   far ones redraw when frames run slow, and draws more when they run fast); a screamer's scream speeds up the
    awake walkers near it (WORLD.SCREAM); a killed walker leaves `walkers` at once for `fallen` (collapsing, then
    gone after FALL_SECS), and `blood` holds a hit's spray (only with SETTINGS.walkerGore).
    Everything reads and writes the trip through ZSR.State. */
@@ -62,6 +64,75 @@
   const SPLAT_SECS = 3; // a droplet that lands lies there this long
   const MEET_RANGE = 12; // tiles: a walker in view and in sight this close counts as met (State.meetWalker)
   const SCREAM_TOAST_GAP = 20; // seconds: "A scream!" is said at most this often
+  // live walkers: each on screen is drawn by Walker3D into its own pooled canvas, at its size on screen, whenever it
+  // looks different, then goes up like any sprite (clipped by walls, sorted, fogged in its own colours)
+  const CEIL_CAP = 0.98; // tiles: under a ceiling (and inside the cabin) nothing drawn stands taller; it shrinks to fit
+  const LIVE_MAX_PX = 320; // SCALE: tallest live render, px; a nearer walker's picture is scaled up (cost grows with pixels)
+  const LIVE_STEP = 32; // SCALE: px a live canvas grows and shrinks in steps of (coarser: fewer resizes, more memory per walker)
+  const LIVE_SPARE = 8; // SCALE: spare live canvases kept for the next walkers (the rest are let go)
+  const LIVE_IDLE = 60; // frames a walker's canvas is kept while it is not drawn (behind you, behind a wall)
+  const LIVE_SHRINK = 30; // renders in a row at under half its canvas before the canvas is made smaller
+  const LOD_PX = [160, 64]; // SCALE: on-screen height (px) for detail lod 0 / lod 1; shorter: lod 2
+  // the governor's first row (LIVE_START, below), the one the perf A/B measured; a fast machine climbs to richer rows
+  const LIVE_NEAR = 3; // SCALE: the nearest this many lod-0 walkers draw every frame they change; the rest take turns
+  const NEAR_STICK = 0.95; // a walker near last frame counts as this much nearer when the near ones are picked (no swaps)
+  const FAR_LOD = 1; // the most detail a walker taking turns is drawn with (full detail is for the near ones)
+  const FAR_EVERY = 2; // SCALE: every other walker draws again only every Nth frame (1 = every frame)
+  const LIVE_RENDERS_MAX = 10; // SCALE: live redraws a frame (the near ones count, and go first); the rest keep their picture
+  const LIVE_SCALE_LOW = 0.7; // the governor's resolution step: live pictures at 70% (drawn up unsmoothed)
+  const POSE_BLEND = 0.15; // seconds into (and out of) a pose (Walker3D.POSE_BLEND when loaded)
+  // the frame-time governor (adaptQuality): slow = the smoothed render over QUALITY_RENDER_MS or frames slower than
+  // QUALITY_FRAME_MS; each LIVE_LEVELS row is a whole setting, richest first. It starts on LIVE_START (the defaults
+  // above), steps down one row when slow for GOV_WAIT frames and up one when fast (under GOV_FAST x both) for
+  // GOV_WAIT_UP frames; a row it had to leave takes twice as long to climb back to each time (up to GOV_BACKOFF x),
+  // so a machine on the edge does not see-saw. Near walkers (lod 0, the liveNear nearest) draw every frame they change
+  // at every row.
+  const QUALITY_RENDER_MS = 12;
+  const QUALITY_FRAME_MS = 24;
+  const QUALITY_WAIT = 180; // frames before the first quality step (the floor's, then the governor's)
+  const GOV_WAIT = 120;
+  const GOV_WAIT_UP = 300;
+  const GOV_FAST = 0.75;
+  const GOV_BACKOFF = 8;
+  const LIVE_DEFAULT = { near: LIVE_NEAR, farLod: FAR_LOD, far: FAR_EVERY, max: LIVE_RENDERS_MAX, maxPx: LIVE_MAX_PX, scale: 1, lodPx: LOD_PX };
+  // SCALE: the governor's rows; more walkers on screen may need another row below (fewer redraws, lower LOD_PX), a
+  // faster target machine another above. Above the defaults, for a machine that stays fast: richer, up to the first
+  // design's settings (24 redraws a frame, 400 px pictures, full detail for every walker big enough). Below: cheaper,
+  // the cheapest change first
+  const LIVE_LEVELS = [
+    { near: 6, farLod: 0, far: FAR_EVERY, max: 24, maxPx: 400, scale: 1, lodPx: LOD_PX },
+    { near: 4, farLod: FAR_LOD, far: FAR_EVERY, max: 16, maxPx: 400, scale: 1, lodPx: LOD_PX },
+    LIVE_DEFAULT,
+    Object.assign({}, LIVE_DEFAULT, { far: 3 }),
+    Object.assign({}, LIVE_DEFAULT, { far: 3, max: 8 }),
+    Object.assign({}, LIVE_DEFAULT, { far: 3, max: 6 }),
+    Object.assign({}, LIVE_DEFAULT, { far: 3, max: 6, scale: LIVE_SCALE_LOW }),
+    Object.assign({}, LIVE_DEFAULT, { far: 3, max: 6, scale: LIVE_SCALE_LOW, lodPx: [224, 96] }),
+  ];
+  const LIVE_START = LIVE_LEVELS.indexOf(LIVE_DEFAULT);
+  // what Walker3D gets (one object each, refilled per draw: nothing is made per walker per frame)
+  const LIVE_ST = { yaw: 0, gait: 0, move: 0, pose: "idle", poseT: 0, poseW: 1, claw: 0, hit: 0, fall: 0, fallDir: Math.PI, seed: 0, lod: 0, fog: 0, gore: true };
+  const LIVE_CAM = { w: 0, h: 0, px: 0, dist: 1, eye: 0.5 };
+  // has anything the picture shows changed since it was drawn? (numbers in the steps the art draws in)
+  const sigGait = (g) => Math.round(g * 32) & 31;
+  function sameSig(t, st, fogSteps) {
+    return t.sLod === st.lod && t.sPose === st.pose && t.sYaw === Math.round(st.yaw * 64) && t.sGait === sigGait(st.gait) && t.sMove === Math.round(st.move * 16) && t.sPoseT === Math.round(st.poseT * 16) && t.sPoseW === Math.round(st.poseW * 16) && t.sClaw === Math.round(st.claw * 32) && t.sHit === st.hit && t.sFall === Math.round(st.fall * 32) && t.sFallDir === Math.round(st.fallDir * 16) && t.sFog === Math.round(st.fog * fogSteps) && t.sGore === st.gore;
+  }
+  function saveSig(t, st, fogSteps) {
+    t.sLod = st.lod;
+    t.sPose = st.pose;
+    t.sYaw = Math.round(st.yaw * 64);
+    t.sGait = sigGait(st.gait);
+    t.sMove = Math.round(st.move * 16);
+    t.sPoseT = Math.round(st.poseT * 16);
+    t.sPoseW = Math.round(st.poseW * 16);
+    t.sClaw = Math.round(st.claw * 32);
+    t.sHit = st.hit;
+    t.sFall = Math.round(st.fall * 32);
+    t.sFallDir = Math.round(st.fallDir * 16);
+    t.sFog = Math.round(st.fog * fogSteps);
+    t.sGore = st.gore;
+  }
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const normAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -294,6 +365,7 @@
       this.walkers = [];
       this.fallen = []; // downed walkers collapsing, then fading (never in walkers: not solid, not a target, not counted)
       this.blood = []; // blood droplets and splats, world space (only with SETTINGS.walkerGore)
+      this.liveRelease(); // the last scene's walker canvases go (liveTarget makes or reuses them as walkers show)
       this.screamToldT = -Infinity; // when "A scream!" was last said
       this.fence = {}; // "x,y" -> hp
       this.doors = []; // interior doors: { x, y, open }
@@ -368,6 +440,7 @@
     dropSceneCaches() {
       if (this.dimMemo) this.dimMemo.clear();
       if (this.texMemo) this.texMemo.clear();
+      this.liveRelease();
       this.sc = null;
     },
     /** A walk-in house under the open sky: `inside(x, y)` says which tiles are under its roof (walls,
@@ -554,7 +627,7 @@
         heading (radians, where it faces), vx vy (smoothed velocity), gait 0..1 (driven by distance walked), move
         0..1 (idle to walking), act (what stepWalker did last), aim (what it bites or claws), biteT (the lunge),
         screamT (the scream's cooldown), yell (the arms-up scream pose), frenzyT (a scream's speed-up left),
-        clawPh 0..1, seed (its look). `frame` and `frameT` drive the old two-frame sprite. */
+        clawPh 0..1, seed (its look), pose and poseW (the pose drawn and how far into it: animWalker eases them). */
     makeWalker(type, x, y, hpMult) {
       const all = WT();
       const id = all[type] ? type : "walker";
@@ -563,9 +636,9 @@
       return {
         type: id, x, y, hp, maxHp: hp, speed: t.speed * rand(1 - SPEED_JITTER, 1 + SPEED_JITTER), r: t.r,
         dmg: t.bite, reach: t.reach, dps: t.fenceDps, scrap: t.scrap, knock: t.knock, scream: !!t.scream,
-        awake: false, path: [], pathT: rand(0, 0.4), cool: 0, hit: 0, frame: 0, frameT: rand(0, 0.3), hurtT: 0, fenceTarget: null,
+        awake: false, path: [], pathT: rand(0, 0.4), cool: 0, hit: 0, hurtT: 0, fenceTarget: null,
         heading: rand(-Math.PI, Math.PI), vx: 0, vy: 0, gait: Math.random(), move: 0, act: "sleep", aim: null,
-        biteT: 0, screamT: 0, yell: 0, frenzyT: 0, clawPh: 0, seed: (Math.random() * 1e9) | 0,
+        biteT: 0, screamT: 0, yell: 0, frenzyT: 0, clawPh: 0, seed: (Math.random() * 1e9) | 0, pose: "idle", poseW: 1,
       };
     },
     /** God mode and the tests: one awake walker of `type` 2 to 4 tiles in front of you, in sight, on ground you could
@@ -841,15 +914,57 @@
     },
     /** A slow machine trades floor detail for speed: one step coarser if drawing a frame stays slow
         (script time alone, or frames arriving slower than ~42 a second, which also counts the browser's
-        own drawing of the uploaded floor and the wall strips). */
+        own drawing of the uploaded floor and the wall strips). The live walkers have a governor of their own
+        (governLive): it steps down through LIVE_LEVELS while frames stay slow, and back up once they are fast. */
     adaptQuality(ms, gap) {
       this.renderMs = this.renderMs == null ? ms : this.renderMs * 0.97 + ms * 0.03;
       if (gap > 0) this.frameMs = this.frameMs == null ? Math.min(gap, 100) : this.frameMs * 0.97 + Math.min(gap, 100) * 0.03;
       this.renderN = (this.renderN || 0) + 1;
-      if (this.planeRes < 3 && this.renderN > 180 && (this.renderMs > 12 || this.frameMs > 24)) {
+      const slow = this.renderMs > QUALITY_RENDER_MS || this.frameMs > QUALITY_FRAME_MS;
+      if (this.planeRes < 3 && this.renderN > QUALITY_WAIT && slow) {
         this.planeRes = 3;
         this.sizePlane(); // the floor image only: resizing the view's canvas would blank this frame
       }
+      this.governLive(slow);
+    },
+    /** The live walkers' frame-time governor. It starts on LIVE_START; one LIVE_LEVELS row down after GOV_WAIT slow
+        frames in a row (far walkers less often, fewer redraws a frame, a lower resolution, then less detail), one row
+        up after enough fast ones (GOV_WAIT_UP, doubled for a row each time it had to step down from it, up to
+        GOV_BACKOFF x). Only frames that redrew live walkers count (a calm yard or an empty room says nothing about
+        them, and leaves both runs as they are); a fast one counts toward a climb only with liveNear or more of them
+        on screen, so a climb means the machine kept up with a crowd. Its state is the row (liveLevel), the waits to
+        climb back (liveUpWait, one a row) and the settings it puts in place (setLiveLevel). */
+    governLive(slow) {
+      if (this.liveLevel == null) this.setLiveLevel(LIVE_START);
+      if (this.renderN <= QUALITY_WAIT || !this.liveDrawn) return;
+      const fast = this.renderMs < QUALITY_RENDER_MS * GOV_FAST && !(this.frameMs >= QUALITY_FRAME_MS * GOV_FAST);
+      if (!slow) this.liveSlowN = 0;
+      else this.liveSlowN = (this.liveSlowN || 0) + 1;
+      if (!fast) this.liveFastN = 0;
+      else if ((this.liveShown || 0) >= this.liveNear) this.liveFastN = (this.liveFastN || 0) + 1;
+      const upWait = this.liveUpWait || (this.liveUpWait = []);
+      const at = this.liveLevel;
+      if (this.liveSlowN >= GOV_WAIT && at < LIVE_LEVELS.length - 1) {
+        upWait[at] = Math.min(GOV_WAIT_UP * GOV_BACKOFF, (upWait[at] || GOV_WAIT_UP) * 2); // this row was too much
+        this.setLiveLevel(at + 1);
+      } else if (at > 0 && this.liveFastN >= (upWait[at - 1] || GOV_WAIT_UP)) this.setLiveLevel(at - 1);
+    },
+    /** Put one governor row in place: liveNear (how many draw every frame), liveFarLod (the most detail for the
+        rest), liveFar (they draw at most every Nth frame), liveMax (redraws a frame), liveMaxPx (the tallest
+        picture), liveScale (picture resolution) and liveLodPx (the LOD heights). Instance fields, so a perf run can
+        try other values. */
+    setLiveLevel(i) {
+      const L = LIVE_LEVELS[clamp(i | 0, 0, LIVE_LEVELS.length - 1)];
+      this.liveLevel = LIVE_LEVELS.indexOf(L);
+      this.liveNear = L.near;
+      this.liveFarLod = L.farLod;
+      this.liveFar = L.far;
+      this.liveMax = L.max;
+      this.liveMaxPx = L.maxPx;
+      this.liveScale = L.scale;
+      this.liveLodPx = L.lodPx;
+      this.liveSlowN = 0;
+      this.liveFastN = 0;
     },
 
     update(dt) {
@@ -1089,7 +1204,6 @@
       z.cool = Math.max(0, z.cool - dt);
       z.hurtT = Math.max(0, z.hurtT - dt);
       z.trapT = Math.max(0, (z.trapT || 0) - dt);
-      z.frameT += dt;
       // running is loud: sprinting players are noticed from farther away
       const hear = this.keys.shift && this.player.moving ? 9 : 6;
       if (!z.awake && (dist < hear || (this.time - this.noise < 1.5 && dist < this.noiseR) || z.hurtT > 0)) z.awake = true;
@@ -1101,10 +1215,6 @@
         const S = State();
         if (S && S.save && S.save.met && S.save.met[z.type] != null) z.met = true;
         else if (this.seesWalker(z)) this.noticeWalker(z);
-      }
-      if (z.frameT > 0.35 / (z.speed / WT().walker.speed)) {
-        z.frameT = 0;
-        z.frame = z.frame ? 0 : 1;
       }
       // a screamer that spots you screams (SCREAM): it stands and yells, and every awake walker near it speeds up
       const SC = W().SCREAM;
@@ -1201,14 +1311,18 @@
       this.moveCircle(z, vx * dt, vy * dt, z.r);
       return "walk";
     },
-    /** How a walker's frame looks: its smoothed velocity, its heading (turning at most TURN_RATE toward where it walks,
-        or what it bites, claws or screams at), its gait (by distance walked over its stride), the walk blend and the
-        pose timers. Only looks: nothing here moves it. */
+    /** How a walker's frame looks: its smoothed velocity, its heading (turning at most its look's turnRate, else
+        TURN_RATE, toward where it walks, or what it bites, claws or screams at), its gait (by distance walked over its
+        stride), the walk blend, the pose timers and the pose it shows (eased: out of the old pose, into the new one,
+        POSE_BLEND each way). Only looks: nothing here moves it. */
     animWalker(z, dt, x0, y0, act) {
       const mx = z.x - x0;
       const my = z.y - y0;
       const d = Math.hypot(mx, my);
       const g = Math.min(1, dt * 6);
+      const M = W3();
+      const look = M && M.TYPES ? M.TYPES[z.type] || M.TYPES.walker : null;
+      const gt = (look && look.gait) || {};
       if (dt > 0) {
         // smoothed, so a path's grid zig-zag does not swing the heading
         z.vx += (mx / dt - z.vx) * g;
@@ -1222,7 +1336,7 @@
         if (Math.hypot(ax - z.x, ay - z.y) > 1e-3) want = Math.atan2(ay - z.y, ax - z.x);
       } else if (Math.hypot(z.vx, z.vy) > 0.15) want = Math.atan2(z.vy, z.vx);
       if (want != null) {
-        const m = TURN_RATE * dt;
+        const m = (gt.turnRate > 0 ? gt.turnRate : TURN_RATE) * dt;
         z.heading = normAngle(z.heading + clamp(normAngle(want - z.heading), -m, m));
       }
       z.gait = (z.gait + d / this.walkerStride(z.type)) % 1;
@@ -1231,8 +1345,28 @@
       z.screamT = Math.max(0, z.screamT - dt);
       z.yell = Math.max(0, z.yell - dt);
       z.frenzyT = Math.max(0, z.frenzyT - dt);
-      if (act === "claw") z.clawPh = (z.clawPh + dt * CLAW_RATE) % 1;
+      if (act === "claw") z.clawPh = (z.clawPh + dt * (gt.clawRate > 0 ? gt.clawRate : CLAW_RATE)) % 1;
       z.act = act;
+      // the pose: from walking straight into the new one; from any other, out of it first (poseW 0 is the walk)
+      const pose = this.walkerPose(z);
+      const step = dt / ((M && M.POSE_BLEND) || POSE_BLEND);
+      if (z.pose == null) {
+        z.pose = pose;
+        z.poseW = 1;
+      } else if (pose === z.pose) z.poseW = Math.min(1, (z.poseW || 0) + step);
+      else if (z.pose === "walk" || !(z.poseW > step)) {
+        z.pose = pose;
+        z.poseW = pose === "walk" ? 1 : 0;
+      } else z.poseW -= step;
+    },
+    /** The pose a walker shows for what it does (Walker3D.POSES): any act this file does not know (a mode's own)
+        shows as walking, and the walk blend (move) stands it still when it does not move. */
+    walkerPose(z) {
+      if (z.yell > 0) return "scream";
+      if (z.biteT > 0 || z.act === "bite") return "bite"; // between bites it holds the lunge's end: arms out, at you
+      if (z.act === "claw") return "claw"; // a fence, a door, a build, the van: whatever z.aim is
+      if (z.act === "sleep" || z.act === "idle" || z.act === "wait") return "idle";
+      return "walk";
     },
     /** Tiles a walker of `type` walks per gait cycle (its look's stride, else STRIDE). */
     walkerStride(type) {
@@ -1292,18 +1426,21 @@
         if (z.fallT >= secs) fallen.splice(i, 1);
       }
     },
-    /** A hit's spray (only with SETTINGS.walkerGore): droplets fly away from `from` and land as splats. */
+    /** A hit's spray (only with SETTINGS.walkerGore): droplets fly away from `from` and land as splats. One in three
+        splashes back out to the sides from the front of the body instead, so the shooter sees the spray (the rest
+        fly out behind the walker, where its body hides them). */
     bleed(z, dmg, from, kill) {
       if (!W().SETTINGS.walkerGore) return;
       const blood = this.blood || (this.blood = []);
-      const M = W3();
-      const h = M && M.box ? M.box(z.type, false).h : 0.95;
+      const h = this.walkerHeight(z); // as drawn: capped under a ceiling and in the cabin
       const away = from ? Math.atan2(z.y - from.y, z.x - from.x) : normAngle(z.heading + Math.PI);
       const n = Math.round((4 + Math.min(8, dmg / 5)) * (kill ? 1.5 : 1));
       for (let i = 0; i < n; i++) {
-        const a = away + rand(-0.6, 0.6);
-        const v = rand(1.5, 3);
-        blood.push({ x: z.x + Math.cos(away) * z.r * 0.5, y: z.y + Math.sin(away) * z.r * 0.5, h: h * rand(0.55, 0.75), vx: Math.cos(a) * v, vy: Math.sin(a) * v, vh: rand(0.5, 1.5), t: 0, life: 1.5, size: rand(0.03, 0.06), splat: false });
+        const back = i % 3 === 2;
+        const a = back ? away + Math.PI + (i % 2 ? 1 : -1) * rand(0.8, 1.3) : away + rand(-0.6, 0.6);
+        const v = back ? rand(1, 2) : rand(1.5, 3);
+        const off = (back ? -0.6 : 0.5) * z.r; // the front of the body, or its back
+        blood.push({ x: z.x + Math.cos(away) * off, y: z.y + Math.sin(away) * off, h: h * rand(0.55, 0.75), vx: Math.cos(a) * v, vy: Math.sin(a) * v, vh: rand(0.5, 1.5), t: 0, life: 1.5, size: rand(0.03, 0.06), splat: false });
       }
       if (blood.length > BLOOD_MAX) blood.splice(0, blood.length - BLOOD_MAX);
     },
@@ -1516,6 +1653,7 @@
       const p = this.player;
       if (!p || !this.grid) return;
       const sc = this.prepScene();
+      this.frameNo = (this.frameNo || 0) + 1; // the live walkers' cadence and canvas sweep count frames
       ctx.save();
       if (this.shake > 0.5) ctx.translate(rand(-this.shake, this.shake), rand(-this.shake, this.shake));
       if (this.sky) {
@@ -2253,8 +2391,19 @@
       const gp = this.gunPickup;
       if (gp && !gp.taken) sprites.push({ x: gp.x, y: gp.y, img: D.weaponIcon(gp.id), scale: 0.36, lift: 0.18 + Math.sin(this.time * 3) * 0.03, wide: 2 });
       this.traps.forEach((tr) => tr.uses > 0 && sprites.push({ x: tr.x, y: tr.y, img: D.trap(tr.type, false), scale: 0.3, lift: 0, wide: 1.6, dim: tr.flash > 0 ? 0.4 : 0 }));
-      this.walkers.forEach((z) => sprites.push({ x: z.x, y: z.y, img: D.walker(z.type, z.frame, z.hit > 0), scale: z.type === "brute" ? 1.05 : 0.95, lift: 0, wide: 0.75, hp: z.hp / z.maxHp }));
-      const ceil = this.sky ? Infinity : 0.98;
+      // the walkers and the downed ones, live (Walker3D draws each into its own canvas below, once it is known to show)
+      const M = W3();
+      if (M && M.draw && M.box) {
+        this.walkers.forEach((z) => sprites.push(this.walkerSprite(z, false)));
+        (this.fallen || []).forEach((z) => sprites.push(this.walkerSprite(z, true)));
+        // a hit's spray: cached pictures, so they fog like any sprite (only with SETTINGS.walkerGore)
+        if (M.gore() && this.blood && this.blood.length && D.hasSprite("bloodDrop")) {
+          const drop = D.sprite("bloodDrop");
+          const splat = D.sprite("bloodSplat");
+          this.blood.forEach((b) => sprites.push(b.splat ? { x: b.x, y: b.y, img: splat, scale: b.size * 0.3, lift: 0, wide: 3, dim: clamp(1 - (b.life - b.t), 0, 1) } : { x: b.x, y: b.y, img: drop, scale: b.size, lift: b.h, wide: 2 / 3 }));
+        }
+      }
+      const ceil = this.sky ? Infinity : CEIL_CAP;
       this.props.forEach((pr) => {
         const img = pr.img || (pr.art ? (pr.img = D.sprite(pr.art, pr.opts)) : null); // a named sprite is resolved once
         if (!img || pr.hidden) return;
@@ -2268,6 +2417,8 @@
       });
       const invDet = 1 / (planeX * dirY - dirX * planeY);
       const list = [];
+      const liveQ = this.liveQ || (this.liveQ = []);
+      liveQ.length = 0;
       sprites.forEach((s) => {
         const sx = s.x - p.x;
         const sy = s.y - p.y;
@@ -2282,12 +2433,27 @@
         s.c0 = Math.max(0, Math.floor(s.left / COL));
         s.c1 = Math.min(cols - 1, Math.ceil((s.left + s.sw) / COL));
         if (s.c0 > s.c1) return;
+        if (s.live) {
+          // a live walker: drawn only if some of it shows past the walls; its fog goes into its own colours (the
+          // alpha the darker copies use, without their steps). Never through D.dim or dimOwn: their memos would
+          // hand back an old darker copy of the pooled canvas (a frozen walker) and keep it alive
+          if (!this.liveVisible(s)) return;
+          s.fog = Math.min(sc.fogMax, s.ty * sc.fogK) * 0.75;
+          liveQ.push(s);
+          list.push(s);
+          return;
+        }
         // sprites darken with distance too, a little less than walls so walkers stay readable
-        // (a prop's darker copies belong to this scene; walkers, items and notes are shared by every scene)
+        // (a prop's darker copies belong to this scene; items and notes are shared by every scene)
         const lvl = Math.round(Math.min(sc.fogMax, s.ty * sc.fogK) * 7.5);
         s.im = lvl > 0 ? (s.own ? this.dimOwn(s.img, lvl) : D.dim(s.img, lvl)) : s.img;
         list.push(s);
       });
+      // the live walkers that show draw again only if they look different: nearest first, the near ones and any
+      // picture that must be drawn at once; then the others whose turn it is (liveFar frames since their last
+      // picture), the longest-waiting first, while this frame's redraws last (liveMax); the rest keep theirs
+      this.liveShown = liveQ.length; // (the governor counts only frames with live walkers on screen)
+      this.liveDrawn = liveQ.length ? this.liveRenderAll(liveQ) : 0;
       list.sort((a, b) => b.ty - a.ty);
       // Painter's order, far to near, per column. Every draw stays inside its own 2-px column, so the order
       // only matters within a column: each sprite (far to near) first draws, in each of its columns, the
@@ -2313,17 +2479,279 @@
         this.drawSprite(ctx, s);
       }
       for (let col = 0; col < cols; col++) for (let li = next[col]; li >= 0; li--) this.drawLowCapped(ctx, col, li, sc);
-      // health bars over the walkers you can see
+      // health bars over the walkers you can see: just over the head (its look's head top, not its box), as wide as
+      // the walker is to hit (it does not change as it turns)
       list.forEach((s) => {
         if (s.hp == null || s.hp >= 1) return;
         const c = clamp(Math.floor(s.screenX / COL), 0, cols - 1);
-        if (this.clipAt(c, s.ty) <= s.top) return;
-        if (s.ty > this.capD[c] && this.capY[c] > s.top - 10) return; // its head is above an opening, under the ceiling
+        const top = s.head != null ? H / 2 + (H / s.ty) * (0.5 - s.lift - s.head) : s.top;
+        const bw = s.barW != null ? (H / s.ty) * s.barW : s.sw * 0.7;
+        if (this.clipAt(c, s.ty) <= top) return;
+        if (s.ty > this.capD[c] && this.capY[c] > top - 10) return; // its head is above an opening, under the ceiling
         ctx.fillStyle = INK;
-        ctx.fillRect(s.screenX - s.sw * 0.35 - 1, s.top - 10, s.sw * 0.7 + 2, 7);
+        ctx.fillRect(s.screenX - bw / 2 - 1, top - 10, bw + 2, 7);
         ctx.fillStyle = "#b3261e";
-        ctx.fillRect(s.screenX - s.sw * 0.35, s.top - 9, s.sw * 0.7 * s.hp, 5);
+        ctx.fillRect(s.screenX - bw / 2, top - 9, bw * s.hp, 5);
       });
+      this.liveSweep();
+    },
+
+    /* ---------- Live walkers (Walker3D): one pooled canvas each, drawn again only when the walker looks different ---------- */
+    /** The drawn height of a walker (tiles): its look's box, capped under a ceiling and inside the cabin. */
+    walkerHeight(z) {
+      const M = W3();
+      const h = M && M.box ? M.box(z.type, false).h : 0.95;
+      return Math.min(h, this.walkerCap(z));
+    },
+    /** How tall anything may stand where this walker is: CEIL_CAP under a ceiling or in the cabin, else no cap. */
+    walkerCap(z) {
+      return this.sky && !(this.house && this.indoorAt(z.x, z.y)) ? Infinity : CEIL_CAP;
+    },
+    /** A walker's sprite entry (a downed one when `falling`): its box from Walker3D.box (a tall type shrinks under a
+        ceiling, as props do), the head top and bar width for the health bar, and its fade while it goes. The
+        picture (img, iw x ih: the part of the pooled canvas drawn) is filled in by liveRenderAll. */
+    walkerSprite(z, falling) {
+      const M = W3();
+      const box = M.box(z.type, falling);
+      const scale = Math.min(box.h, this.walkerCap(z));
+      const shrink = scale / box.h;
+      let dim = 0;
+      if (falling) {
+        const fallSecs = M.FALL_SECS || FALL_SECS;
+        const fade = M.FADE_SECS || 0.7;
+        dim = clamp((z.fallT - (fallSecs - fade)) / fade, 0, 1);
+      }
+      return { x: z.x, y: z.y, live: z, falling, img: null, im: null, iw: 0, ih: 0, scale, lift: 0, wide: box.w / box.h, boxH: box.h, head: box.head * shrink, barW: box.bar * shrink, hp: falling ? null : z.hp / z.maxHp, dim, fog: 0, rw: 0, rh: 0, lod: 0, liveT: null, liveAge: 0, liveFirst: false };
+    },
+    /** Does any column of this sprite show past the opaque faces in front of it (and under an opening's top)? */
+    liveVisible(s) {
+      const bottom = s.top + s.sh;
+      for (let col = s.c0; col <= s.c1; col++) {
+        const clip = this.clipAt(col, s.ty);
+        const cap = s.ty > this.capD[col] ? this.capY[col] : -Infinity;
+        if ((clip < bottom ? clip : bottom) > (cap > s.top ? cap : s.top)) return true;
+      }
+      return false;
+    },
+    /** What Walker3D draws for this walker now (LIVE_ST, refilled): which way it faces you, its gait, pose and
+        timers, a hit's flash, how far it has fallen and which way, its look, the detail and the fog. */
+    walkerState(z, s, lod) {
+      const M = W3();
+      const p = this.player;
+      const st = LIVE_ST;
+      st.yaw = normAngle(z.heading - Math.atan2(p.y - z.y, p.x - z.x)); // 0: it faces you; +: it turns to your left
+      st.gait = z.gait || 0;
+      st.move = z.move || 0;
+      const pose = z.pose || "walk";
+      st.pose = pose;
+      st.poseW = z.poseW == null ? 1 : z.poseW;
+      st.claw = z.clawPh || 0;
+      if (pose === "bite") st.poseT = clamp(1 - (z.biteT || 0) / ((M && M.BITE_SECS) || BITE_SECS), 0, 1);
+      else if (pose === "scream") st.poseT = clamp(1 - (z.yell || 0) / W().SCREAM.yell, 0, 1);
+      else if (pose === "claw") st.poseT = st.claw;
+      // awake it sways and breathes; a downed one stops where it was when it fell (a settled body is one still picture)
+      else if (pose === "idle" && z.awake) st.poseT = ((s.falling ? this.time - (z.fallT || 0) : this.time) * 0.25 + (z.seed % 997) * 0.618) % 1;
+      else st.poseT = 0; // asleep it stands still (the same picture every frame)
+      st.hit = z.hit > 0 ? 1 : 0;
+      st.fall = s.falling ? clamp((z.fallT || 0) / ((M && M.COLLAPSE_SECS) || 0.9), 0, 1) : 0;
+      st.fallDir = s.falling ? normAngle((z.fallDir == null ? z.heading + Math.PI : z.fallDir) - z.heading) : Math.PI;
+      st.seed = z.seed | 0;
+      st.lod = lod;
+      st.fog = s.fog;
+      st.gore = M && M.gore ? M.gore() : true;
+      return st;
+    },
+    /** Redraw the live walkers that need it (q: the ones that show this frame) and point each sprite at its picture.
+        First, nearest first: a picture never drawn and one just hit (or its flash over) draw at once, and so do the
+        near ones (lod 0 and picked by liveNearOnes) when they look different. A first picture past this frame's
+        redraws (liveMax) is drawn at lod 2, the cheapest. Then, while this frame's redraws last (the near ones count
+        too): the others with an old picture (not shown last frame, less detail than they now get, or grown on
+        screen), then those that look different and whose turn it is (liveFar frames or more since their last
+        picture), the longest-waiting first. So turning to face a crowd is no burst: each shows its old picture until
+        its turn. Returns how many drew. */
+    liveRenderAll(q) {
+      if (this.liveLevel == null) this.setLiveLevel(LIVE_START);
+      q.sort((a, b) => a.ty - b.ty);
+      this.liveNearOnes(q);
+      const wait = this.liveWait || (this.liveWait = []);
+      wait.length = 0;
+      let drawn = 0;
+      for (let i = 0; i < q.length; i++) {
+        const s = q[i];
+        const want = this.liveCheck(s);
+        if (want === 1) {
+          // a first picture past this frame's redraws (a crowd seen again after its canvases were let go): the
+          // cheapest detail now (it must show something), its own on its next turn
+          if (!s.near && !s.liveT.lh && drawn >= this.liveMax) s.lod = 2;
+          this.liveDraw(s);
+          drawn++;
+        } else if (want === 2) wait.push(s);
+      }
+      if (wait.length && drawn < this.liveMax) {
+        wait.sort((a, b) => b.liveFirst - a.liveFirst || b.liveAge - a.liveAge || a.ty - b.ty);
+        for (let i = 0; i < wait.length && drawn < this.liveMax; i++) {
+          this.liveDraw(wait[i]);
+          drawn++;
+        }
+      }
+      for (let i = 0; i < q.length; i++) {
+        const s = q[i];
+        const t = s.liveT;
+        t.used = this.frameNo;
+        s.img = s.im = t.c;
+        s.iw = t.lw;
+        s.ih = t.lh;
+      }
+      wait.length = 0;
+      return drawn;
+    },
+    /** Pick the near ones (s.near; q is nearest first): the liveNear nearest walkers that stand, or are still
+        collapsing. A settled body takes no place (it keeps its picture until it looks different, then takes turns),
+        so bodies at your feet never push a walker out. One near last frame counts as NEAR_STICK nearer, so two at
+        about the same depth do not swap places (and detail) frame by frame. */
+    liveNearOnes(q) {
+      const M = W3();
+      const settled = (M && M.COLLAPSE_SECS) || 0.9;
+      const pool = this.livePool;
+      const last = this.frameNo - 1;
+      const pick = this.liveNearQ || (this.liveNearQ = []);
+      pick.length = 0;
+      for (let i = 0; i < q.length; i++) {
+        const s = q[i];
+        s.near = false;
+        if (s.falling && s.live.fallT >= settled) continue;
+        const t = pool && pool.get(s.live);
+        s.nearKey = t && t.nearAt === last ? s.ty * NEAR_STICK : s.ty;
+        pick.push(s);
+      }
+      if (pick.length > this.liveNear) pick.sort((a, b) => a.nearKey - b.nearKey);
+      for (let i = 0; i < pick.length && i < this.liveNear; i++) pick[i].near = true;
+      pick.length = 0;
+    },
+    /** What one live walker needs this frame: 0 keep its picture, 1 draw now, 2 draw if this frame's redraws last.
+        Works out its render size (liveScale, at most liveMaxPx tall), detail (liveLodPx by its height on screen)
+        and canvas (liveTarget), kept on the sprite for liveDraw. */
+    liveCheck(s) {
+      const z = s.live;
+      const M = W3();
+      const k = Math.min(this.liveScale, this.liveMaxPx / s.sh); // render px per screen px (<= 1)
+      const rw = (s.rw = Math.max(2, Math.ceil(s.sw * k)));
+      const rh = (s.rh = Math.max(2, Math.ceil(s.sh * k)));
+      const lodPx = this.liveLodPx;
+      const t = (s.liveT = this.liveTarget(z, rw, rh));
+      if (s.near) t.nearAt = this.frameNo;
+      // full detail for the near ones; one taking turns gets at most liveFarLod. A downed one keeps the detail it was
+      // last drawn with (no pop as it settles and gives up its near place), until it is smaller on screen
+      let most = s.near ? 0 : this.liveFarLod;
+      if (s.falling && t.lh && t.sLod < most) most = t.sLod;
+      const lod = (s.lod = Math.max(s.sh >= lodPx[0] ? 0 : s.sh >= lodPx[1] ? 1 : 2, most));
+      s.liveAge = this.frameNo - (t.drawnAt || 0);
+      // an old picture: not on screen last frame (behind you, behind a wall), drawn with less detail than it now gets
+      // (a first picture past the cap, one coming nearer), or grown on screen past what scaling up hides. Only growth
+      // on screen counts: a picture the governor wants sharper (liveScale, liveMaxPx) waits its turn, and one too big
+      // just scales down, so a walker going away waits too
+      const old = (s.liveFirst = t.used < this.frameNo - 1 || t.sLod > lod || (rh > t.lh * 1.15 && s.sh > t.shAt * 1.15) || (rw > t.lw * 1.15 && s.sw > t.swAt * 1.15));
+      // at once: a picture never drawn (there is nothing to show yet), or a near one's old picture
+      if (!t.lh || (old && s.near)) return 1;
+      const st = this.walkerState(z, s, lod);
+      const sized = Math.abs(rh - t.lh) <= Math.max(2, rh * 0.02) && Math.abs(rw - t.lw) <= Math.max(2, rw * 0.02);
+      if (sized && sameSig(t, st, M.FOG_STEPS || 32)) return 0; // nothing it shows has changed
+      if (t.sHit !== st.hit) return 1; // a hit's flash shows at once, and goes at once (two redraws a hit at most)
+      if (lod === 0 && s.near) return 1;
+      // one taking turns with an old picture shows it a frame or two longer: first in the wait, under this frame's
+      // cap (so turning to face a crowd is no burst of redraws); the rest when their turn comes
+      return old || s.liveAge >= this.liveFar ? 2 : 0;
+    },
+    /** Draw one live walker into its canvas (liveCheck set its size, detail and canvas). */
+    liveDraw(s) {
+      const z = s.live;
+      const M = W3();
+      const t = s.liveT;
+      const st = this.walkerState(z, s, s.lod);
+      const rw = s.rw;
+      const rh = s.rh;
+      const bw = Math.ceil(rw / LIVE_STEP) * LIVE_STEP;
+      const bh = Math.ceil(rh / LIVE_STEP) * LIVE_STEP;
+      const c = t.c;
+      if (c.width < rw || c.height < rh) {
+        // bigger than its canvas: the canvas grows (a new size clears it; it is drawn right after). Only here, so the
+        // old picture shows, scaled up, until this one's turn
+        c.width = Math.max(c.width, bw);
+        c.height = Math.max(c.height, bh);
+        t.small = 0;
+      } else {
+        t.small = c.height >= 2 * bh || c.width >= 2 * bw ? t.small + 1 : 0;
+        if (t.small >= LIVE_SHRINK) {
+          // drawn this small for a while: a smaller canvas
+          c.width = bw;
+          c.height = bh;
+          t.small = 0;
+        } else t.g.clearRect(0, 0, Math.max(t.lw, rw), Math.max(t.lh, rh));
+      }
+      const shrink = s.scale / s.boxH; // < 1 under a ceiling: drawn as the whole figure, seen from farther off
+      const cam = LIVE_CAM;
+      cam.w = rw;
+      cam.h = rh;
+      cam.px = rh / s.boxH;
+      cam.dist = s.ty / shrink;
+      cam.eye = (0.5 - s.lift) / shrink;
+      M.draw(t.g, z.type, st, cam);
+      t.lw = rw;
+      t.lh = rh;
+      t.shAt = s.sh; // its size on screen when drawn
+      t.swAt = s.sw;
+      t.drawnAt = this.frameNo;
+      saveSig(t, st, M.FOG_STEPS || 32);
+    },
+    /** This walker's canvas: its own, else a spare one, else a new one rw x rh (in LIVE_STEP steps). liveDraw grows
+        it when a picture needs more room, and makes it smaller after LIVE_SHRINK renders at under half of it. A
+        canvas new to this walker has no picture yet (lw = lh = 0). */
+    liveTarget(z, rw, rh) {
+      const pool = this.livePool || (this.livePool = new Map());
+      let t = pool.get(z);
+      if (!t) {
+        const spare = this.liveSpare || (this.liveSpare = []);
+        t = spare.pop();
+        if (!t) {
+          const c = document.createElement("canvas");
+          c.width = Math.ceil(rw / LIVE_STEP) * LIVE_STEP;
+          c.height = Math.ceil(rh / LIVE_STEP) * LIVE_STEP;
+          t = { c, g: c.getContext("2d"), lw: 0, lh: 0, shAt: 0, swAt: 0, used: 0, drawnAt: 0, nearAt: -1, small: 0 };
+        }
+        t.lw = t.lh = 0;
+        t.small = 0;
+        t.nearAt = -1;
+        pool.set(z, t);
+      }
+      return t;
+    },
+    /** End of a frame: a canvas whose walker is gone (neither walking nor falling) goes back to the spares at once,
+        one not drawn for LIVE_IDLE frames too. */
+    liveSweep() {
+      const pool = this.livePool;
+      if (!pool || !pool.size) return;
+      const now = this.frameNo;
+      pool.forEach((t, z) => {
+        if (t.used === now) return;
+        if (now - t.used > LIVE_IDLE || (!this.walkers.includes(z) && !(this.fallen && this.fallen.includes(z)))) {
+          pool.delete(z);
+          this.liveFree(t);
+        }
+      });
+    },
+    /** A canvas back to the spares (LIVE_SPARE at most); past that its memory goes (a zero size). */
+    liveFree(t) {
+      const spare = this.liveSpare || (this.liveSpare = []);
+      t.lw = t.lh = 0;
+      if (spare.length < LIVE_SPARE) spare.push(t);
+      else t.c.width = t.c.height = 0;
+    },
+    /** Let every live canvas go (leaving a scene, a new grid). */
+    liveRelease() {
+      if (this.livePool) this.livePool.forEach((t) => (t.c.width = t.c.height = 0));
+      if (this.liveSpare) this.liveSpare.forEach((t) => (t.c.width = t.c.height = 0));
+      this.livePool = new Map();
+      this.liveSpare = [];
     },
     /** One sprite over its columns c0..c1: each run of whole columns (inside the picture, and no nearer
         opaque face cutting into it) goes up in a single draw; a column a wall cuts, or one the picture's
@@ -2331,7 +2759,9 @@
         run and the cut column beside it meet without a seam. */
     drawSprite(ctx, s) {
       const img = s.im;
-      const iw = img.width;
+      // a live walker's picture is the top-left iw x ih of its pooled canvas; any other picture is the whole image
+      const iw = s.iw || img.width;
+      const ih = s.ih || img.height;
       const k = iw / s.sw; // picture pixels per screen pixel
       const bottom = s.top + s.sh;
       const c1 = s.c1;
@@ -2352,7 +2782,7 @@
         if (run >= 0) {
           const x0 = run * COL;
           const w = (col - run) * COL;
-          ctx.drawImage(img, (x0 - s.left) * k, 0, w * k, img.height, x0, s.top, w, s.sh);
+          ctx.drawImage(img, (x0 - s.left) * k, 0, w * k, ih, x0, s.top, w, s.sh);
           run = -1;
         }
         if (col <= c1 && clip > s.top && clip > cap) this.drawSpriteCol(ctx, s, col, k, clip, cap);
@@ -2363,7 +2793,8 @@
         and, seen out through an opening from under the roof, above `cap`. */
     drawSpriteCol(ctx, s, col, k, clip, cap) {
       const img = s.im;
-      const iw = img.width;
+      const iw = s.iw || img.width;
+      const ih = s.ih || img.height;
       const x0 = col * COL;
       const u0 = (x0 - s.left) * k;
       const u1 = u0 + COL * k;
@@ -2371,12 +2802,13 @@
       const y0 = cap > s.top ? cap : s.top;
       const y1 = clip < s.top + s.sh ? clip : s.top + s.sh;
       if (y1 <= y0) return;
-      const sy = (img.height * (y0 - s.top)) / s.sh;
-      const sh = (img.height * (y1 - y0)) / s.sh;
+      const sy = (ih * (y0 - s.top)) / s.sh;
+      const sh = (ih * (y1 - y0)) / s.sh;
       if (u0 >= 0 && u1 <= iw) ctx.drawImage(img, u0, sy, u1 - u0, sh, x0, y0, COL, y1 - y0);
       else {
-        // the picture's left or right edge is in this column: what is left of it fills the column
-        const a = u0 > 0 ? u0 : 0;
+        // the picture's left or right edge is in this column: what is left of it fills the column (read from inside
+        // the picture: past it a live walker's canvas may hold nothing drawn)
+        const a = u0 > 0 ? Math.min(u0, iw - 1) : 0;
         ctx.drawImage(img, a, sy, Math.max(1, Math.min(iw, u1) - a), sh, x0, y0, COL, y1 - y0);
       }
     },
@@ -2442,6 +2874,24 @@
     FALL_SECS,
     FALLEN_MAX,
     BLOOD_MAX,
+    FOV,
+    CEIL_CAP,
+    LIVE_MAX_PX,
+    LIVE_STEP,
+    LIVE_SPARE,
+    LIVE_IDLE,
+    LOD_PX,
+    LIVE_NEAR,
+    FAR_LOD,
+    FAR_EVERY,
+    LIVE_RENDERS_MAX,
+    LIVE_LEVELS,
+    LIVE_START,
+    NEAR_STICK,
+    QUALITY_WAIT,
+    GOV_WAIT,
+    GOV_WAIT_UP,
+    GOV_BACKOFF,
     SOLID,
     OPAQUE,
   };

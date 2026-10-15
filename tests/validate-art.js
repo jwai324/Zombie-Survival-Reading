@@ -399,9 +399,10 @@ else {
       delete c.ops;
     });
   });
-  // a crew figure is drawn like a walker (192 x 256, wide 0.75), and a portrait is square
+  // a crew figure is drawn on its own canvas (CREW_ART.size.crew, 192 x 256: PERSON_TOP in js/crewart.js is measured in
+  // it; drawn wide 0.75), and a portrait is square
   const crewImg = D.hasSprite("crew") && D.sprite("crew", (CREW.sprites.crew || [{}])[0]);
-  if (crewImg && (crewImg.width !== 192 || crewImg.height !== 256)) err(`crew sprite is ${crewImg.width} x ${crewImg.height}; it must be 192 x 256 like a walker`);
+  if (crewImg && (crewImg.width !== 192 || crewImg.height !== 256)) err(`crew sprite is ${crewImg.width} x ${crewImg.height}; it must be 192 x 256 (the figure canvas PERSON_TOP is measured in)`);
   const face = D.hasSprite("crewFace") && D.sprite("crewFace", (CREW.sprites.crewFace || [{}])[0]);
   if (face && face.width !== face.height) err(`crewFace is ${face.width} x ${face.height}; the crew card wants a square`);
   // the list covers every crew member in every pose and frame, the dog in every pose and frame

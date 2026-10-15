@@ -1636,7 +1636,7 @@ simGroup("yard", "yard: the crew's props, ten minutes of calm, a build", () => {
   ok(ids.length && same(I.crew.map((c) => c.id), ids), `yard: the crew in the yard (${I.crew.map((c) => c.id)}) are not every CREW id with posts (${ids})`);
   const scale = (Z.CREW_ART && Z.CREW_ART.scale && Z.CREW_ART.scale.crew) || 0;
   ok(scale > 0, "yard: CREW_ART.scale.crew is missing");
-  // (a) the prop: in the scene, at their feet, the walkers' scale times theirs, 0.75 wide, never solid, and one
+  // (a) the prop: in the scene, at their feet, the crew's prop scale (CREW_ART.scale.crew) times theirs, 0.75 wide, never solid, and one
   // cached picture per opts set ({ who, pose, f }, f exactly 0 or 1)
   const propBad = [];
   const props = (when) =>
