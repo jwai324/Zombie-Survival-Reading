@@ -169,32 +169,37 @@
       },
     ],
     radio: [
-      // a plank shack with a radio in the window and a whip antenna (the plaque stands beside the shack, a
-      // little back, so it never covers the window or, at the next levels, the shack's own RADIO sign)
+      // a timber tower lashed with rope, a whip antenna on top, a car battery and a spool of wire at its feet
       (b) => {
-        const P = "#6b5a46";
-        b.box(0, 1, 2, 2, { h: 0.95, tex: wall("plank", P), front: (iu) => wall("plank", P, iu === 0 ? "radio" : "door"), roof: { ridge: 1.3, tex: "yRoofTin", gable: "yGablePlank" } });
-        b.prop(2.5, 2.5, "yWhip", null, { scale: 2.1, solid: true, cover: false });
-        b.plaque = [2.65, 1.5];
+        b.low(1, 1, 1, 1, { h: 2.2, tex: { name: "yTimber", opts: { n: 3 } } });
+        b.prop(1.5, 1.5, "yWhip", null, { scale: 1.1, lift: 2.2 });
+        b.prop(2.5, 2.4, "ySpool", null, { scale: 0.45, solid: true });
+        b.prop(0.6, 2.4, "yJerry", null, { scale: 0.34 });
       },
-      // the shack gets a sign, and a tall mast on guy wires
+      // a steel lattice tower on guy wires: a dish halfway up, the whip and a blinking red light on top
       (b) => {
-        const P = "#6b5a46";
-        b.box(0, 1, 2, 2, { h: 0.95, tex: wall("plank", P), front: (iu) => wall("plank", P, iu === 0 ? "radio" : "door", { t: "RADIO", i: iu, n: 2 }), roof: { ridge: 1.3, tex: "yRoofTin", gable: "yGablePlank" } });
-        b.prop(2.5, 2.5, "yMast", null, { scale: 3.3, solid: true, cover: false });
-        b.plaque = [2.65, 1.5];
+        b.floor(0, 0, b.W, b.D, "gravel");
+        b.low(1, 1, 1, 1, { h: 3.6, tex: { name: "yLattice", opts: { n: 5 } } });
+        b.prop(1.5, 1.5, "yGuys", null, { scale: 3.6 });
+        b.prop(1.5, 0.95, "yDish", null, { scale: 0.6, lift: 2.0 });
+        b.prop(1.5, 1.5, "yWhip", null, { scale: 1.0, lift: 3.6 });
+        b.anim(b.prop(1.5, 1.5, "yBeacon", null, { scale: 0.26, lift: 3.55 }), "blink");
+        b.prop(2.5, 2.4, "ySpool", null, { scale: 0.45, solid: true });
       },
-      // a lattice tower with a dish and a blinking light, a dish on the shack
+      // a red and white broadcast tower: two dishes, blinking lights at the middle and the top, a tall whip,
+      // the guy wires, and an equipment hut with solar panels at its feet
       (b) => {
         const M = "#6f7a80";
         b.floor(0, 0, b.W, b.D, "gravel");
-        b.box(0, 1, 2, 2, { h: 1.0, tex: wall("metal", M), front: (iu) => wall("metal", M, iu === 0 ? "radio" : "door", { t: "RADIO", i: iu, n: 2 }), roof: { ridge: 1.3, tex: "yRoofTin", gable: "yGableMetal" } });
-        b.low(2, 2, 1, 1, { h: 3.4, tex: "yLattice" });
-        b.prop(2.5, 2.5, "yDish", null, { scale: 0.62, lift: 2.2 });
-        b.prop(2.5, 2.5, "yWhip", null, { scale: 0.9, lift: 3.35 });
-        b.anim(b.prop(2.5, 2.5, "yBeacon", null, { scale: 0.26, lift: 3.32 }), "blink");
-        b.prop(1.0, 2.0, "yDish", null, { scale: 0.5, lift: 1.0 });
-        b.plaque = [2.65, 1.5];
+        b.low(1, 1, 1, 1, { h: 5.2, tex: { name: "yTower", opts: { n: 7 } } });
+        b.prop(1.5, 1.5, "yGuys", null, { scale: 5.2 });
+        b.prop(1.5, 0.95, "yDish", null, { scale: 0.7, lift: 2.1 });
+        b.prop(0.95, 1.5, "yDish", null, { scale: 0.55, lift: 3.5 });
+        b.prop(1.5, 1.5, "yWhip", null, { scale: 1.3, lift: 5.2 });
+        b.anim(b.prop(1.5, 1.5, "yBeacon", null, { scale: 0.3, lift: 5.15 }), "blink");
+        b.anim(b.prop(1.5, 0.92, "yBeacon", null, { scale: 0.24, lift: 2.9 }), "blink");
+        b.box(2, 2, 1, 1, { h: 0.9, tex: wall("metal", M), front: wall("metal", M, "door", { t: "RADIO", i: 0, n: 1 }), roof: { ridge: 1.2, tex: "yRoofTin", gable: "yGableMetal" } });
+        b.low(0, 2, 1, 1, { h: 0.62, tex: "ySolar" });
       },
     ],
     medbay: [

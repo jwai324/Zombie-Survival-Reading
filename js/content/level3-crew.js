@@ -14,7 +14,7 @@
     /* June: dry, warm, in her sixties, a retired school gardener */
     "june-t1": {
       title: "June's Green Ledger",
-      text: "June was a school gardener for years before the Fall. She taught kids to grow beans and to wait for them. Now she keeps the crew's days in a green ledger, one page a day. The ledger sits on the radio shelf by the couch. You can read the old pages there whenever you like. June says a day is not over until it is written down.",
+      text: "June was a school gardener for years before the Fall. She taught kids to grow beans and to wait for them. Now she keeps the crew's days in a green ledger, one page a day. The ledger sits on the radio shelf in the dining room. You can read the old pages there whenever you like. June says a day is not over until it is written down.",
     },
     "june-t2": {
       title: "When a Wave Comes",
@@ -166,7 +166,7 @@
     },
     "pip-t7": {
       title: "A Radio That Reaches Town",
-      text: "Pip finally has a radio that reaches town. Every new voice goes on the list, spelled the best Pip can. The radio plays one broadcast each day you come home. You can hear every broadcast again at the radio shelf by the couch. Pip says nobody should miss a voice, not even a crackly one.",
+      text: "Pip finally has a radio that reaches town. Every new voice goes on the list, spelled the best Pip can. The radio plays one broadcast each day you come home. Pip moved the radio to the dining room. Tune in there for each day's news, and hear old broadcasts again. Pip says nobody should miss a voice, not even a crackly one.",
     },
     "pip-t8": {
       title: "Take What You Need",
@@ -223,7 +223,7 @@
       wave: "Pip has been watching the trees from the lookout all through the quiet. Here is Pip's call for what comes next: {size}, from {sides}.",
       keys: "Pip says you are holding {keys}. Each key's note says which stash it opens. Your notes are in the backpack, so read them again.",
       walkers: "Pip keeps count on the wall. In {days} days, each building in town gets one more walker. That keeps happening, up to a limit. Pip says the sooner you go, the fewer walkers you meet.",
-      radio: "Pip says the radio plays a new broadcast each day you come home. You can hear them all again at the radio shelf by the couch.",
+      radio: "Pip says a new broadcast waits each day you come home. It waits at the radio in the dining room. Tune in there, and hear the old ones again too.",
       full: "Pip says every building in town is as full of walkers as it gets. From now on, a place is only as dangerous as it is today.",
     }),
   });

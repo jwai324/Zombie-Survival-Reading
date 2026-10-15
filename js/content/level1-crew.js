@@ -11,7 +11,7 @@
     // June: topics
     "june-t1": {
       title: "The Green Ledger",
-      text: "June says she was a school gardener for years. That was before the Fall. Now she keeps a green ledger for the crew. She writes one page for each day. It sits by the couch, on the radio shelf. You can read the old pages there.",
+      text: "June says she was a school gardener for years. That was before the Fall. Now she keeps a green ledger for the crew. She writes one page for each day. The ledger sits on the dining room radio shelf. You can read the old pages there.",
     },
     "june-t2": {
       title: "Where We Hide",
@@ -165,7 +165,7 @@
     },
     "pip-t7": {
       title: "A Radio That Reaches",
-      text: "Pip has a radio that reaches town at last. Every new voice goes on Pip's list. A new show plays each day you come home. You can hear every show again. Go to the radio shelf by the couch.",
+      text: "Pip has a radio that reaches town at last. Every new voice goes on Pip's list. A new show plays each day you come home. Pip moved the radio to the dining room. Tune in there for each day's news. You can hear old shows there again.",
     },
     "pip-t8": {
       title: "Rule on the Door",
@@ -223,7 +223,7 @@
       wave: "Pip watches the trees from the lookout. Pip calls out what comes next: {size}, from {sides}.",
       keys: "Pip says you are holding {keys}. Each key's note says which stash it opens. Your notes are in the backpack. Read them again.",
       walkers: "Pip keeps count of the walkers in town. In {days} days, each building gets one more walker. It stops at a limit.",
-      radio: "Pip says the radio plays a new show. One comes each day you come home. The radio shelf by the couch plays them again.",
+      radio: "A new show waits each day you get home. Pip says it is at the dining room radio. Tune in, and hear old ones.",
       full: "Pip says the town's buildings are full of walkers. No building will get any more. Each place stays as dangerous as it is today.",
     }),
   });

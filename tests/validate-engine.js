@@ -623,6 +623,10 @@ try {
     I.stop();
     const p = I.player;
     p.maxHp = p.hp = 1e9;
+    // out in the open middle of the yard, far from the cabin: a raider that passes within 5 tiles of you turns
+    // on you instead (yardWalkerGoal), and the start by the front door is on their way in
+    p.x = 22.5;
+    p.y = 13.5;
     I.phase = { kind: "wave", size: "some", total: 6, spawned: 0, spawnT: 0, t: 0, sides: ["s"] };
     let t = 0;
     while (t < 240 && !(I.phase.spawned >= 6 && I.walkers.every((z) => z.inHouse))) {

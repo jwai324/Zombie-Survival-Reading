@@ -262,7 +262,7 @@
       return row;
     },
 
-    /** The backpack open at June's journal and the radio (the radio shelf in the cabin's living room). */
+    /** The backpack open at June's journal and the radio (the radio shelf in the cabin's dining room). */
     openDays(onClose) {
       this.open(onClose);
       const det = document.querySelector("#backpack-days details");
@@ -286,7 +286,8 @@
         const card = el("button", "note-card");
         const jt = j && j.title ? j.title : "";
         card.appendChild(el("span", "note-title", /^day\s*\d/i.test(jt) ? esc(jt) : "Day " + entry.day + (jt ? ": " + esc(jt) : "")));
-        card.appendChild(el("span", "note-found", entry.radio != null ? "Journal and a radio broadcast" : "Journal"));
+        const waiting = entry.radio != null && State().radioWaiting() === entry;
+        card.appendChild(el("span", "note-found", waiting ? "Journal (news waiting on the radio)" : entry.radio != null ? "Journal and a radio broadcast" : "Journal"));
         card.addEventListener("click", () => {
           document.getElementById("screen-backpack").classList.add("hidden");
           this.showDay(entry, { primary: "Back", onClose: () => this.open(onClose) });
@@ -327,32 +328,49 @@
     },
 
     /** One day: a recap of the trip, June's journal entry, and the radio if the Radio room is built.
-        opts: { primary, onClose }. The first reading counts toward words read. */
+        Today's broadcast waits at the radio in the dining room (State.radioWaiting) until the player tunes
+        in there (opts.tune: the broadcast alone, see tuneIn); until then the page says where the news is.
+        opts: { primary, onClose, tune }. The first reading counts toward words read (the broadcast on its own). */
     showDay(entry, opts) {
       const o = opts || {};
       const S = State();
       const screen = document.getElementById("screen-note");
       const j = entry.journal != null ? ZSR.dayText("journal", entry.journal) : { title: "", text: "" };
       const r = entry.radio != null ? ZSR.dayText("radio", entry.radio) : null;
+      const waiting = !!r && !o.tune && S.radioWaiting() === entry;
+      const showR = !!r && !waiting;
       const recap = ZSR.recapText(entry.recap);
-      document.getElementById("note-caption").textContent = "Day " + entry.day + " · home";
-      document.getElementById("note-title").textContent = j.title || "June's journal";
-      document.getElementById("note-found").textContent = "From June's green ledger" + (r ? ", and the radio" : "");
       let html = "";
-      if (recap) html += '<p class="recap">' + esc(recap) + "</p>";
-      html += paragraphs(j.text);
-      // June's ledger line for each story quest handed in since the day before (docs/CREW.md), counted once
-      (entry.quests || []).forEach((qid) => {
-        const line = crewWords("quest", qid, "journal");
-        if (!line.trim()) return;
-        html += '<div class="ledger-quest">' + paragraphs(line) + "</div>";
-        if (S.seeCrewTalk) S.seeCrewTalk("quest:" + qid + ":journal", wordCount(line));
-      });
-      if (r) html += '<h4 class="radio-head">On the radio' + (r.title ? ": " + esc(r.title) : "") + "</h4>" + paragraphs(r.text);
+      if (o.tune) {
+        document.getElementById("note-caption").textContent = "Day " + entry.day + " · the radio in the dining room";
+        document.getElementById("note-title").textContent = "On the radio" + (r && r.title ? ": " + r.title : "");
+        document.getElementById("note-found").textContent = "Pip turns the dial, and a voice comes through";
+        if (r) html += paragraphs(r.text);
+      } else {
+        document.getElementById("note-caption").textContent = "Day " + entry.day + " · home";
+        document.getElementById("note-title").textContent = j.title || "June's journal";
+        document.getElementById("note-found").textContent = "From June's green ledger" + (showR ? ", and the radio" : "");
+        if (recap) html += '<p class="recap">' + esc(recap) + "</p>";
+        html += paragraphs(j.text);
+        // June's ledger line for each story quest handed in since the day before (docs/CREW.md), counted once
+        (entry.quests || []).forEach((qid) => {
+          const line = crewWords("quest", qid, "journal");
+          if (!line.trim()) return;
+          html += '<div class="ledger-quest">' + paragraphs(line) + "</div>";
+          if (S.seeCrewTalk) S.seeCrewTalk("quest:" + qid + ":journal", wordCount(line));
+        });
+        if (showR) html += '<h4 class="radio-head">On the radio' + (r.title ? ": " + esc(r.title) : "") + "</h4>" + paragraphs(r.text);
+        else if (waiting) html += '<p class="radio-wait">News on the radio today. Tune in at the radio in the dining room.</p>';
+      }
       document.getElementById("note-text").innerHTML = html;
-      if (!entry.read) {
+      if (!o.tune && !entry.read) {
         entry.read = true;
-        S.save.stats.wordsRead += wordCount(recap + " " + j.text + " " + (r ? r.text : ""));
+        // a day from before the radio waited to be tuned in (no `tuned` field) counts its broadcast here, as it did
+        S.save.stats.wordsRead += wordCount(recap + " " + j.text + " " + (showR && entry.tuned == null ? r.text : ""));
+      }
+      if (showR && entry.tuned === false) {
+        entry.tuned = true;
+        S.save.stats.wordsRead += wordCount(r.text);
       }
       const primary = document.getElementById("btn-note-primary");
       document.getElementById("btn-note-secondary").classList.add("hidden");
@@ -364,6 +382,11 @@
       };
       screen.classList.remove("hidden");
       screen.querySelector(".panel").scrollTop = 0;
+    },
+
+    /** The radio in the dining room: today's broadcast on its own, heard now (State.radioWaiting). */
+    tuneIn(entry, onClose) {
+      this.showDay(entry, { tune: true, primary: "Close", onClose });
     },
 
     /** Medical kits: packed in the backpack, in storage at the cabin, or in the van's cargo. One kit heals to full. */
