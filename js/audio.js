@@ -136,6 +136,11 @@
     reel() {
       for (let i = 0; i < 6; i++) setTimeout(() => tone(1400 + (i % 2) * 200, 0.025, "square", 0.06), i * 45);
     },
+    scream() {
+      // a screamer spotted you: a rising shriek over a hiss
+      tone(700, 0.5, "sawtooth", 0.18, 1500);
+      noise(0.5, 0.25, 3200, 1800);
+    },
     alarm() {
       // a building alarm: two hard tones, over and over while it rings
       tone(880, 0.32, "square", 0.16);

@@ -123,6 +123,7 @@
       labAcc: 0, // partial medical kits brewing in the Lab
       crew: State.crewFresh ? State.crewFresh() : null, // June, Tomas and Pip: trust, talk, requests, the dog (js/crewstate.js)
       stats: { trips: 0, walkers: 0, notesRead: 0, wordsRead: 0, items: 0 },
+      met: {}, // walker kinds met: { [WALKER_TYPES id]: the day one was first seen or hurt } (the crew's told-once tips)
       wave: 0, // waves survived during this stay at the base (escalation)
       best: { days: 1, baseLevel: 0 },
       savedAt: Date.now(),
@@ -542,6 +543,18 @@
       this.save.scrap -= c.scrap;
       if (type === "crowbar") this.save.crowbars = (this.save.crowbars || 0) + 1;
       this.commit();
+      return true;
+    },
+
+    /* ---------- Walker kinds met ---------- */
+    /** A walker kind seen (or hurt) for the first time: save.met[type] = today. True the first time. Out on a trip
+        it rides on the save in memory, kept by returnHome's commit and dropped with a dead trip (abandonTrip). */
+    meetWalker(type) {
+      const s = this.save;
+      if (!s || !W().WALKER_TYPES[type]) return false;
+      const met = (s.met = s.met || {});
+      if (met[type] != null) return false;
+      met[type] = s.day;
       return true;
     },
 

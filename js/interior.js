@@ -25,6 +25,10 @@
    Fields other modules set: `yardHold` (js/tutorial.js: the first-run basics hold the waves, the bell, the van
    and the crew's cards), `eatClick` (the next click into the view only takes the mouse back); walker fields
    `practice` and `floorHp` (a bite never takes you below it). startLoop and stop clear the first two.
+   Walkers (their kinds and stats: WORLD.WALKER_TYPES): stepWalker decides what one does each frame and animWalker
+   turns that into how it looks (heading, gait, pose timers) for the walker art; a screamer's scream speeds up the
+   awake walkers near it (WORLD.SCREAM); a killed walker leaves `walkers` at once for `fallen` (collapsing, then
+   gone after FALL_SECS), and `blood` holds a hit's spray (only with SETTINGS.walkerGore).
    Everything reads and writes the trip through ZSR.State. */
 (function (root) {
   "use strict";
@@ -44,11 +48,20 @@
   const MAX_LOW = 8; // see-through low runs kept per screen column (only ones that can show)
   const MAX_HITS = 10; // opaque faces kept per column (only ones that rise above the faces in front)
   const INK = "#0f1012";
-  const WALKER_TYPES = {
-    walker: { hp: 30, speed: 1.25, r: 0.32, dmgKey: "footDamageWalker", scrap: 2 },
-    runner: { hp: 18, speed: 2.4, r: 0.28, dmgKey: "footDamageRunner", scrap: 3 },
-    brute: { hp: 90, speed: 0.95, r: 0.4, dmgKey: "footDamageBrute", scrap: 5 },
-  };
+  // walkers: the kinds and their stats are facts (WORLD.WALKER_TYPES); how they move and look on foot is here
+  const WT = () => W().WALKER_TYPES;
+  const W3 = () => ZSR.Walker3D; // the live 3D walker models (js/walker3d.js), when loaded
+  const SPEED_JITTER = 0.1; // each walker's speed is its kind's x (1 +- this)
+  const TURN_RATE = 7; // radians a second a walker turns toward where it goes, bites or claws
+  const STRIDE = 0.9; // tiles walked per gait cycle when Walker3D gives none
+  const CLAW_RATE = 2; // claw swipes a second at a fence, a door or a build
+  const FALL_SECS = 2; // a downed walker collapses and fades this long, then is gone (Walker3D.FALL_SECS when loaded)
+  const BITE_SECS = 0.45; // the bite lunge (Walker3D.BITE_SECS when loaded)
+  const FALLEN_MAX = 24; // SCALE: downed walkers kept collapsing at once; past it the oldest goes at once
+  const BLOOD_MAX = 200; // SCALE: blood droplets and splats in the air and on the floor at once (only with SETTINGS.walkerGore)
+  const SPLAT_SECS = 3; // a droplet that lands lies there this long
+  const MEET_RANGE = 12; // tiles: a walker in view and in sight this close counts as met (State.meetWalker)
+  const SCREAM_TOAST_GAP = 20; // seconds: "A scream!" is said at most this often
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const normAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -101,7 +114,7 @@
       this.keys = {};
       this.mouseDown = false;
       const $ = (id) => document.getElementById(id);
-      this.hud = { root: $("int-hud"), hpFill: $("int-hp-fill"), hpText: $("int-hp-text"), scrap: $("int-scrap"), cargo: $("int-cargo"), walkers: $("int-walkers"), gun: $("int-gun"), place: $("int-place"), goal: $("int-goal"), hint: $("int-hint"), toast: $("int-toast"), phase: $("int-phase"), read: $("int-read") };
+      this.hud = { root: $("int-hud"), hpFill: $("int-hp-fill"), hpText: $("int-hp-text"), scrap: $("int-scrap"), cargo: $("int-cargo"), gun: $("int-gun"), place: $("int-place"), goal: $("int-goal"), hint: $("int-hint"), toast: $("int-toast"), phase: $("int-phase"), read: $("int-read") };
       this.bind();
       root.addEventListener("resize", () => this.resize());
       this.resize();
@@ -279,6 +292,9 @@
       this.notes = [];
       this.piles = [];
       this.walkers = [];
+      this.fallen = []; // downed walkers collapsing, then fading (never in walkers: not solid, not a target, not counted)
+      this.blood = []; // blood droplets and splats, world space (only with SETTINGS.walkerGore)
+      this.screamToldT = -Infinity; // when "A scream!" was last said
       this.fence = {}; // "x,y" -> hp
       this.doors = []; // interior doors: { x, y, open }
       this.traps = []; // yard traps: { x, y, type, uses }
@@ -534,9 +550,54 @@
       if (next === "rod") this.selectRod();
       else this.switchWeapon(next);
     },
+    /** A walker of `type` (WORLD.WALKER_TYPES; an unknown kind is a plain walker), asleep. Its look and moves:
+        heading (radians, where it faces), vx vy (smoothed velocity), gait 0..1 (driven by distance walked), move
+        0..1 (idle to walking), act (what stepWalker did last), aim (what it bites or claws), biteT (the lunge),
+        screamT (the scream's cooldown), yell (the arms-up scream pose), frenzyT (a scream's speed-up left),
+        clawPh 0..1, seed (its look). `frame` and `frameT` drive the old two-frame sprite. */
     makeWalker(type, x, y, hpMult) {
-      const t = WALKER_TYPES[type];
-      return { type, x, y, hp: Math.round(t.hp * hpMult), maxHp: Math.round(t.hp * hpMult), speed: t.speed * rand(0.9, 1.1), r: t.r, dmg: W().SETTINGS[t.dmgKey], dps: W().DEFENSE.fenceDps[type], scrap: t.scrap, awake: false, path: [], pathT: rand(0, 0.4), cool: 0, hit: 0, frame: 0, frameT: rand(0, 0.3), hurtT: 0, fenceTarget: null };
+      const all = WT();
+      const id = all[type] ? type : "walker";
+      const t = all[id];
+      const hp = Math.round(t.hp * (hpMult == null ? 1 : hpMult));
+      return {
+        type: id, x, y, hp, maxHp: hp, speed: t.speed * rand(1 - SPEED_JITTER, 1 + SPEED_JITTER), r: t.r,
+        dmg: t.bite, reach: t.reach, dps: t.fenceDps, scrap: t.scrap, knock: t.knock, scream: !!t.scream,
+        awake: false, path: [], pathT: rand(0, 0.4), cool: 0, hit: 0, frame: 0, frameT: rand(0, 0.3), hurtT: 0, fenceTarget: null,
+        heading: rand(-Math.PI, Math.PI), vx: 0, vy: 0, gait: Math.random(), move: 0, act: "sleep", aim: null,
+        biteT: 0, screamT: 0, yell: 0, frenzyT: 0, clawPh: 0, seed: (Math.random() * 1e9) | 0,
+      };
+    },
+    /** God mode and the tests: one awake walker of `type` 2 to 4 tiles in front of you, in sight, on ground you could
+        walk to in a straight line (so on your side of walls, the fence and the cabin). Null when there is no room. */
+    spawnWalkerAhead(type) {
+      const p = this.player;
+      if (!p || !this.grid) return null;
+      const S = State();
+      const day = S && S.save ? S.save.day : 1;
+      const where = this.mode === "yard" || this.mode === "river" ? this.mode : "building";
+      const r = (WT()[type] || WT().walker).r * 0.7;
+      const clearWalk = (x, y) => {
+        const steps = Math.ceil(Math.hypot(x - p.x, y - p.y) * 4);
+        for (let i = 1; i <= steps; i++) if (this.solidForPlayer(p.x + ((x - p.x) * i) / steps, p.y + ((y - p.y) * i) / steps)) return false;
+        return true;
+      };
+      for (const d of [3, 2.5, 3.5, 2, 4]) {
+        for (const off of [0, 0.25, -0.25, 0.5, -0.5]) {
+          const x = p.x + Math.cos(p.a + off) * d;
+          const y = p.y + Math.sin(p.a + off) * d;
+          if (this.solidForPlayer(x, y) || !clearWalk(x, y) || !this.lineClear(p.x, p.y, x, y)) continue;
+          if (this.solidAt(x - r, y - r) || this.solidAt(x + r, y - r) || this.solidAt(x - r, y + r) || this.solidAt(x + r, y + r)) continue;
+          const z = this.makeWalker(type, x, y, W().walkerHpMult(where, day));
+          z.awake = true;
+          z.heading = normAngle(p.a + Math.PI);
+          this.walkers.push(z);
+          this.noticeWalker(z);
+          this.updateHud();
+          return z;
+        }
+      }
+      return null;
     },
 
     /** Stop the loop and release every input hold (shared by leave and death). */
@@ -843,7 +904,10 @@
       this.modeCall("Update", dt);
 
       this.walkers.forEach((z) => this.updateWalker(z, dt));
-      for (let i = this.walkers.length - 1; i >= 0; i--) if (this.walkers[i].hp <= 0) this.walkers.splice(i, 1);
+      // the dead leave the walkers at once and fall where they stood (this.fallen), then fade
+      for (let i = this.walkers.length - 1; i >= 0; i--) if (this.walkers[i].hp <= 0) this.downWalker(this.walkers.splice(i, 1)[0]);
+      this.updateFallen(dt);
+      this.updateBlood(dt);
 
       if (p.hp <= 0) {
         if (this.fx.revive && S.trip && !S.trip.revived && this.mode === "building") {
@@ -854,6 +918,8 @@
           this.walkers.forEach((z) => {
             z.awake = false;
             z.cool = 2;
+            z.frenzyT = 0;
+            z.yell = 0;
           });
           this.toast("Medbay kit: back up at half health.", 3);
         } else {
@@ -1004,7 +1070,17 @@
       return el.scrollHeight > el.clientHeight + 2 ? el : null;
     },
 
+    /** One walker's frame: what it does (stepWalker), then how that looks (animWalker). */
     updateWalker(z, dt) {
+      const x0 = z.x;
+      const y0 = z.y;
+      const act = this.stepWalker(z, dt);
+      this.animWalker(z, dt, x0, y0, act);
+    },
+    /** What a walker does this frame: wake, scream, bite, wait, claw, walk. Returns what it did:
+        "sleep" | "scream" (a screamer's yell: it stands, facing you) | "bite" (at you: lunging or about to) |
+        "wait" (where the mode sent it) | "claw" (at a fence, a door or a build) | "walk" | "idle" (nowhere to go). */
+    stepWalker(z, dt) {
       const p = this.player;
       const dx = p.x - z.x;
       const dy = p.y - z.y;
@@ -1017,14 +1093,30 @@
       // running is loud: sprinting players are noticed from farther away
       const hear = this.keys.shift && this.player.moving ? 9 : 6;
       if (!z.awake && (dist < hear || (this.time - this.noise < 1.5 && dist < this.noiseR) || z.hurtT > 0)) z.awake = true;
-      if (!z.awake) return;
-      if (z.frameT > 0.35 / (z.speed / 1.25)) {
+      if (!z.awake) return "sleep";
+      // the first one of its kind you see: the save remembers the day (looked for a few times a second, until then)
+      if (!z.met && (z.seeT = (z.seeT || 0) - dt) <= 0) {
+        z.seeT = 0.4;
+        if (this.seesWalker(z)) this.noticeWalker(z);
+      }
+      if (z.frameT > 0.35 / (z.speed / WT().walker.speed)) {
         z.frameT = 0;
         z.frame = z.frame ? 0 : 1;
       }
-      if (dist < 0.85) {
+      // a screamer that spots you screams (SCREAM): it stands and yells, and every awake walker near it speeds up
+      const SC = W().SCREAM;
+      if (z.scream && z.screamT <= 0 && z.yell <= 0 && dist < SC.spot && this.lineClear(z.x, z.y, p.x, p.y)) this.screamWalker(z);
+      if (z.yell > 0) {
+        z.aim = p;
+        return "scream";
+      }
+      // a scream's frenzy: faster for a while (never the tutorial's practice walker)
+      const speed = z.speed * (z.frenzyT > 0 && !z.practice ? SC.mult : 1);
+      if (dist < (z.reach != null ? z.reach : WT().walker.reach)) {
+        z.aim = p;
         if (z.cool <= 0) {
           z.cool = 1.1;
+          z.biteT = (W3() && W3().BITE_SECS) || BITE_SECS;
           const bite = Math.round(z.dmg * this.fx.footDamage);
           // the tutorial's practice walker (floorHp) never takes you below it; already below, it does nothing.
           // God mode's can't die: the hit lands, no harm
@@ -1034,11 +1126,11 @@
           Audio().play("crunch");
           this.updateHud();
         }
-        return;
+        return "bite";
       }
       // the mode may send a walker somewhere else first (the yard: into the cabin, to wait there)
       const goal = this.modeCall("WalkerGoal", z) || p;
-      if (goal !== p && Math.hypot(goal.x - z.x, goal.y - z.y) < 0.5) return; // there: it waits
+      if (goal !== p && Math.hypot(goal.x - z.x, goal.y - z.y) < 0.5) return "wait"; // there: it waits
       z.pathT -= dt;
       if (z.pathT <= 0) {
         z.pathT = 0.4;
@@ -1061,6 +1153,7 @@
         const ty = fy - z.y;
         const d = Math.hypot(tx, ty) || 1;
         if (d < 0.95) {
+          z.aim = z.fenceTarget;
           const key = Math.floor(fx) + "," + Math.floor(fy);
           const harm = State().cheat("noDie") ? 0 : z.dps * dt; // god mode: they claw, nothing gives
           if (z.barrier) {
@@ -1076,30 +1169,159 @@
               Audio().play("crunch");
             }
           } else z.pathT = 0;
-          return;
+          return "claw";
         }
-        this.moveCircle(z, (tx / d) * z.speed * dt, (ty / d) * z.speed * dt, z.r);
-        return;
+        this.moveCircle(z, (tx / d) * speed * dt, (ty / d) * speed * dt, z.r);
+        return "walk";
       }
       const target = z.path && z.path.length ? z.path[0] : null;
-      if (target) {
-        const tx = target[0] - z.x;
-        const ty = target[1] - z.y;
-        const d = Math.hypot(tx, ty) || 1;
-        if (d < 0.2 && z.path.length > 1) z.path.shift();
-        let vx = (tx / d) * z.speed;
-        let vy = (ty / d) * z.speed;
-        this.walkers.forEach((o) => {
-          if (o === z) return;
-          const ox = z.x - o.x;
-          const oy = z.y - o.y;
-          const od = Math.hypot(ox, oy);
-          if (od < z.r + o.r && od > 0.001) {
-            vx += (ox / od) * 1.2;
-            vy += (oy / od) * 1.2;
+      if (!target) return "idle";
+      const tx = target[0] - z.x;
+      const ty = target[1] - z.y;
+      const d = Math.hypot(tx, ty) || 1;
+      if (d < 0.2 && z.path.length > 1) z.path.shift();
+      let vx = (tx / d) * speed;
+      let vy = (ty / d) * speed;
+      this.walkers.forEach((o) => {
+        if (o === z) return;
+        const ox = z.x - o.x;
+        const oy = z.y - o.y;
+        const od = Math.hypot(ox, oy);
+        if (od < z.r + o.r && od > 0.001) {
+          vx += (ox / od) * 1.2;
+          vy += (oy / od) * 1.2;
+        }
+      });
+      this.moveCircle(z, vx * dt, vy * dt, z.r);
+      return "walk";
+    },
+    /** How a walker's frame looks: its smoothed velocity, its heading (turning at most TURN_RATE toward where it walks,
+        or what it bites, claws or screams at), its gait (by distance walked over its stride), the walk blend and the
+        pose timers. Only looks: nothing here moves it. */
+    animWalker(z, dt, x0, y0, act) {
+      const mx = z.x - x0;
+      const my = z.y - y0;
+      const d = Math.hypot(mx, my);
+      const g = Math.min(1, dt * 6);
+      if (dt > 0) {
+        // smoothed, so a path's grid zig-zag does not swing the heading
+        z.vx += (mx / dt - z.vx) * g;
+        z.vy += (my / dt - z.vy) * g;
+      }
+      let want = null;
+      const a = z.aim;
+      if (a && (act === "bite" || act === "claw" || act === "scream")) {
+        const ax = Array.isArray(a) ? a[0] : a.x;
+        const ay = Array.isArray(a) ? a[1] : a.y;
+        if (Math.hypot(ax - z.x, ay - z.y) > 1e-3) want = Math.atan2(ay - z.y, ax - z.x);
+      } else if (Math.hypot(z.vx, z.vy) > 0.15) want = Math.atan2(z.vy, z.vx);
+      if (want != null) {
+        const m = TURN_RATE * dt;
+        z.heading = normAngle(z.heading + clamp(normAngle(want - z.heading), -m, m));
+      }
+      z.gait = (z.gait + d / this.walkerStride(z.type)) % 1;
+      z.move += ((dt > 0 && d / dt > 0.2 * z.speed ? 1 : 0) - z.move) * g;
+      z.biteT = Math.max(0, z.biteT - dt);
+      z.screamT = Math.max(0, z.screamT - dt);
+      z.yell = Math.max(0, z.yell - dt);
+      z.frenzyT = Math.max(0, z.frenzyT - dt);
+      if (act === "claw") z.clawPh = (z.clawPh + dt * CLAW_RATE) % 1;
+      z.act = act;
+    },
+    /** Tiles a walker of `type` walks per gait cycle (its look's stride, else STRIDE). */
+    walkerStride(type) {
+      const M = W3();
+      const s = M && M.stride ? M.stride(type) : 0;
+      return s > 0 ? s : STRIDE;
+    },
+    /** The screamer's scream (WORLD.SCREAM): it yells, arms up, and every awake walker near it (itself too) speeds up;
+        sleepers sleep on. Again only after the cooldown. */
+    screamWalker(z) {
+      const SC = W().SCREAM;
+      z.screamT = SC.cooldown;
+      z.yell = SC.yell;
+      z.screamed = true;
+      this.walkers.forEach((o) => {
+        if (!o.awake || o.practice || o.hp <= 0) return;
+        if (Math.hypot(o.x - z.x, o.y - z.y) <= SC.radius) o.frenzyT = Math.max(o.frenzyT || 0, SC.secs);
+      });
+      Audio().play("scream");
+      if (this.time - this.screamToldT >= SCREAM_TOAST_GAP) {
+        this.screamToldT = this.time;
+        this.toast("A scream! Walkers near it speed up.", 3);
+      }
+    },
+    /** In view, in sight and near enough to count as seen. */
+    seesWalker(z) {
+      const p = this.player;
+      if (!p || Math.hypot(z.x - p.x, z.y - p.y) > MEET_RANGE) return false;
+      return Math.abs(this.sideOf(z.x, z.y)) < FOV / 2 + 0.05 && this.lineClear(p.x, p.y, z.x, z.y);
+    },
+    /** The first walker of its kind seen or hurt: the save keeps the day (State.meetWalker; the crew's tips read it). */
+    noticeWalker(z) {
+      if (z.met) return;
+      z.met = true;
+      const S = State();
+      if (S && S.meetWalker && S.save) S.meetWalker(z.type);
+    },
+    /** A walker just killed falls where it stood: out of the walkers, into this.fallen for FALL_SECS. */
+    downWalker(z) {
+      const fallen = this.fallen || (this.fallen = []);
+      z.fallT = 0;
+      if (z.fallDir == null) z.fallDir = normAngle(z.heading + Math.PI); // no shot to fall away from: backwards
+      z.act = "fall";
+      z.path = [];
+      z.aim = null;
+      fallen.push(z);
+      if (fallen.length > FALLEN_MAX) fallen.shift();
+    },
+    updateFallen(dt) {
+      const fallen = this.fallen;
+      if (!fallen || !fallen.length) return;
+      const secs = (W3() && W3().FALL_SECS) || FALL_SECS;
+      for (let i = fallen.length - 1; i >= 0; i--) {
+        const z = fallen[i];
+        z.fallT += dt;
+        z.hit = Math.max(0, z.hit - dt);
+        if (z.fallT >= secs) fallen.splice(i, 1);
+      }
+    },
+    /** A hit's spray (only with SETTINGS.walkerGore): droplets fly away from `from` and land as splats. */
+    bleed(z, dmg, from, kill) {
+      if (!W().SETTINGS.walkerGore) return;
+      const blood = this.blood || (this.blood = []);
+      const M = W3();
+      const h = M && M.box ? M.box(z.type, false).h : 0.95;
+      const away = from ? Math.atan2(z.y - from.y, z.x - from.x) : normAngle(z.heading + Math.PI);
+      const n = Math.round((4 + Math.min(8, dmg / 5)) * (kill ? 1.5 : 1));
+      for (let i = 0; i < n; i++) {
+        const a = away + rand(-0.6, 0.6);
+        const v = rand(1.5, 3);
+        blood.push({ x: z.x + Math.cos(away) * z.r * 0.5, y: z.y + Math.sin(away) * z.r * 0.5, h: h * rand(0.55, 0.75), vx: Math.cos(a) * v, vy: Math.sin(a) * v, vh: rand(0.5, 1.5), t: 0, life: 1.5, size: rand(0.03, 0.06), splat: false });
+      }
+      if (blood.length > BLOOD_MAX) blood.splice(0, blood.length - BLOOD_MAX);
+    },
+    /** Blood in the air falls (and stops at walls); landed, it lies a while, then goes. */
+    updateBlood(dt) {
+      const blood = this.blood;
+      if (!blood || !blood.length) return;
+      for (let i = blood.length - 1; i >= 0; i--) {
+        const b = blood[i];
+        b.t += dt;
+        if (!b.splat) {
+          const nx = b.x + b.vx * dt;
+          const ny = b.y + b.vy * dt;
+          if (this.solidAt(nx, ny)) {
+            blood.splice(i, 1);
+            continue;
           }
-        });
-        this.moveCircle(z, vx * dt, vy * dt, z.r);
+          b.x = nx;
+          b.y = ny;
+          b.vh -= 5 * dt;
+          b.h += b.vh * dt;
+          if (b.h <= 0) Object.assign(b, { h: 0, vx: 0, vy: 0, vh: 0, t: 0, life: SPLAT_SECS, splat: true, size: b.size * 2 });
+        }
+        if (b.t >= b.life) blood.splice(i, 1);
       }
     },
     nearestFence(z) {
@@ -1181,14 +1403,18 @@
       return path.length ? path : [[p.x, p.y]];
     },
 
-    /** Damage a walker; a kill pays scrap to the trip (out there) or the save (at home). */
-    hurtWalker(z, dmg) {
+    /** Damage a walker; a kill pays scrap to the trip (out there) or the save (at home). `from` ({ x, y }: the player,
+        a trap) is where the hit came from: the spray flies away from it, and a kill falls away from it. */
+    hurtWalker(z, dmg, from) {
       if (z.hp <= 0) return;
       z.hp -= dmg;
       z.hit = 0.12;
       z.hurtT = 1;
       z.awake = true;
+      this.noticeWalker(z);
+      this.bleed(z, dmg, from, z.hp <= 0);
       if (z.hp <= 0) {
+        if (from) z.fallDir = Math.atan2(z.y - from.y, z.x - from.x);
         const S = State();
         if (S.trip) {
           S.trip.walkers += 1;
@@ -1228,7 +1454,7 @@
       const spread = g.spread * (p.moving ? 1.6 : 1) * (g.draw ? 2 - power : 1);
       const hits = this.walkersOnLine((Math.random() * 2 - 1) * spread, g.range).slice(0, g.pierce);
       const dmg = g.draw ? g.damage * (0.3 + 0.7 * power) : g.damage;
-      hits.forEach((z, i) => this.hurtWalker(z, Math.round(dmg * (i ? 0.6 : 1)))); // a round that went through one walker hits the next softer
+      hits.forEach((z, i) => this.hurtWalker(z, Math.round(dmg * (i ? 0.6 : 1)), p)); // a round that went through one walker hits the next softer
       if (hits.length) Audio().play("hit");
     },
     /** Walkers under the crosshair (plus an angle), nearest first, within range, with a clear shot
@@ -1267,7 +1493,6 @@
       h.scrap.textContent = S.save.scrap + (S.trip ? S.trip.scrap : 0);
       const cargoN = S.trip ? Object.values(S.trip.cargo).reduce((a, b) => a + b, 0) : 0;
       h.cargo.textContent = cargoN;
-      h.walkers.textContent = this.walkers.length;
       if (h.gun && this.gun) h.gun.textContent = this.tool === "rod" ? "6 Fishing pole" : this.gun.slot + " " + this.gun.name;
       h.goal.textContent = this.modeCall("Goal") || "";
     },
@@ -2201,7 +2426,15 @@
       ctx.fillRect(x, yT, COL, 2);
     },
 
-    WALKER_TYPES,
+    /** The walker kinds (the facts: WORLD.WALKER_TYPES). */
+    get WALKER_TYPES() {
+      return WT();
+    },
+    SPEED_JITTER,
+    TURN_RATE,
+    FALL_SECS,
+    FALLEN_MAX,
+    BLOOD_MAX,
     SOLID,
     OPAQUE,
   };

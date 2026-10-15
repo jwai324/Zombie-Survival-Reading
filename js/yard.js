@@ -737,12 +737,12 @@
         if (!stepped) return;
         if (def.radius > 0.6) {
           this.walkers.forEach((z) => {
-            if (Math.hypot(z.x - tr.x, z.y - tr.y) < def.radius) this.hurtWalker(z, def.damage);
+            if (Math.hypot(z.x - tr.x, z.y - tr.y) < def.radius) this.hurtWalker(z, def.damage, tr);
           });
           tr.uses = 0;
           this.shake = State().settings.shake ? 10 : 0;
         } else {
-          this.hurtWalker(stepped, def.damage);
+          this.hurtWalker(stepped, def.damage, tr);
           (tr.hit = tr.hit || new Set()).add(stepped);
           tr.uses -= 1;
         }
@@ -899,8 +899,9 @@
           if (!decks[key] || !decks[key].length) decks[key] = shuffle(this.spawns.filter((p) => !side || p[2] === side));
           const [x, y] = decks[key].pop();
           const day = S.save.day;
-          const type = ph.size === "many" && ph.spawned % 5 === 4 ? "brute" : ph.spawned % 3 === 2 && day >= 2 ? "runner" : "walker";
-          const z = this.makeWalker(type, x + rand(-0.3, 0.3), y + rand(-0.3, 0.3), 1 + 0.08 * (day - 1));
+          // the kinds by the day and the wave (WORLD.walkerWeights "yard": a heavy wave brings brutes from day 1)
+          const type = W().pickWalkerType(W().walkerWeights("yard", { day, size: ph.size }));
+          const z = this.makeWalker(type, x + rand(-0.3, 0.3), y + rand(-0.3, 0.3), W().walkerHpMult("yard", day));
           z.awake = true;
           z.raid = Math.random() < D.raidShare; // it makes for the cabin, not for you (js/house.js)
           this.walkers.push(z);
@@ -929,7 +930,7 @@
       }
       // HUD phase line (cheap enough every frame)
       const h = this.hud.phase;
-      const text = ph.kind === "calm" ? (this.yardHold ? "QUIET" : "QUIET · next in " + Math.max(0, Math.ceil(this.phase.t)) + "s") : (ph.size === "many" ? "HEAVY WAVE" : "WAVE") + " · " + (ph.total - ph.spawned + this.walkers.length) + " left";
+      const text = ph.kind === "calm" ? (this.yardHold ? "QUIET" : "QUIET · next in " + Math.max(0, Math.ceil(this.phase.t)) + "s") : ph.size === "many" ? "HEAVY WAVE" : "WAVE"; // no count: you see them, you do not count them (owner, 2026-10-15)
       if (h.textContent !== text) h.textContent = text;
       h.classList.toggle("alarm", ph.kind === "wave");
     },

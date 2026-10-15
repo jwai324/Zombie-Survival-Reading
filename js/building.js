@@ -210,9 +210,12 @@
         const far = this.floors.filter(([x, y]) => (reach.get(Math.floor(x) + "," + Math.floor(y)) || 0) >= 6);
         const spots = this.spawns.slice();
         while (spots.length < n && far.length) spots.push(far.splice(Math.floor(Math.random() * far.length), 1)[0]);
-        const hpMult = 1 + 0.1 * (day - 1);
+        const hpMult = W().walkerHpMult("building", day);
+        // the kinds: the place's mix by danger, day and theme (WORLD.walkerWeights); the first spot of a danger 4+
+        // building is a brute, as the police and lumberyard notes say ("a big one by the police bike")
+        const mix = W().walkerWeights("building", { danger: loc.danger, day, place: loc.id });
         spots.slice(0, n).forEach(([x, y], i) => {
-          const type = loc.danger >= 4 && i === 0 ? "brute" : loc.danger >= 2 && i % 3 === 1 ? "runner" : loc.danger >= 3 && i % 4 === 3 ? "brute" : "walker";
+          const type = loc.danger >= 4 && i === 0 ? "brute" : W().pickWalkerType(mix);
           this.walkers.push(this.makeWalker(type, x, y, hpMult));
         });
       }
@@ -447,10 +450,12 @@
       this.stop();
       if (this.hooks.onDeath) this.hooks.onDeath();
     },
-    /** The alarm rings: walkers pour in, from deep inside and through the way out, until you go down. */
+    /** The alarm rings: walkers pour in, from deep inside and through the way out, until you go down (WORLD.ALARM). */
     startAlarm() {
       if (this.alarm) return;
-      this.alarm = { t: 0, next: 0.4, siren: 0 };
+      const loc = this.loc || {};
+      const mix = W().walkerWeights("alarm", { danger: loc.danger || 0, day: State().save.day, place: loc.id });
+      this.alarm = { t: 0, next: W().ALARM.first, siren: 0, mix };
       this.toast("ALARM! Walkers are pouring in, even through the way out.", 4);
       this.updateHud();
     },
@@ -465,19 +470,21 @@
         Audio().play("alarm");
       }
       if (A.next > 0) return;
-      A.next = Math.max(1.1, 3 - A.t * 0.04); // faster and faster
-      if (this.walkers.length >= 40) return;
-      const hpMult = 1 + 0.1 * (State().save.day - 1);
+      const AL = W().ALARM;
+      A.next = Math.max(AL.minGap, AL.gap - A.t * AL.speedup); // faster and faster
+      if (this.walkers.length >= AL.cap) return;
+      const hpMult = W().walkerHpMult("alarm", State().save.day);
       const p = this.player;
       const add = (x, y) => {
-        const z = this.makeWalker(Math.random() < 0.3 ? "runner" : "walker", x, y, hpMult);
+        if (this.walkers.length >= AL.cap) return; // two a tick never overshoot the cap
+        const z = this.makeWalker(W().pickWalkerType(A.mix || { walker: 1 }), x, y, hpMult);
         z.awake = true;
         this.walkers.push(z);
       };
       // one through the way out, so there is no leaving
       add(this.startPos[0] + rand(-0.15, 0.15), this.startPos[1] + rand(-0.15, 0.15));
       // and one from somewhere deeper in the building
-      const far = this.floors.filter(([x, y]) => Math.hypot(x - p.x, y - p.y) > 7);
+      const far = this.floors.filter(([x, y]) => Math.hypot(x - p.x, y - p.y) > AL.farFrom);
       if (far.length) {
         const [x, y] = far[Math.floor(Math.random() * far.length)];
         add(x, y);
@@ -613,7 +620,8 @@
     /** What this building looks like right now, so a return visit on the same trip finds it unchanged. */
     snapshot() {
       return {
-        walkers: this.walkers.map((z) => ({ type: z.type, x: z.x, y: z.y, hp: z.hp, maxHp: z.maxHp })),
+        // (a walker's look and the way it faces come back too; a screamer that screamed does not scream again at once)
+        walkers: this.walkers.map((z) => ({ type: z.type, x: z.x, y: z.y, hp: z.hp, maxHp: z.maxHp, seed: z.seed, heading: z.heading, screamed: !!z.screamed })),
         piles: this.piles.map((pl) => pl.taken),
         doors: this.doors.map((d) => ({ x: d.x, y: d.y, open: d.open })), // by position: the cache door joins the list late
         seen: State().packSeen(this.seen, this.gw, this.gh),
@@ -626,6 +634,12 @@
         z.hp = w.hp;
         z.maxHp = w.maxHp;
         z.cool = 1;
+        if (w.seed != null) z.seed = w.seed;
+        if (w.heading != null) z.heading = w.heading;
+        if (w.screamed) {
+          z.screamed = true;
+          z.screamT = W().SCREAM.cooldown;
+        }
         this.walkers.push(z);
       });
       snap.piles.forEach((taken, i) => {

@@ -117,6 +117,39 @@ try {
   A.setCheat("noDie", true);
   ok(S.cheat("noDie"), "setCheat");
 
+  // a walker of any kind in front of you: the kinds are the facts' (WALKER_TYPES); with no scene under the menu it says
+  // where it works, an unknown kind is refused, and against a scene it says what happened (no engine is loaded here,
+  // so the yard and the road are stand-ins; tests/validate-engine.js spawns every kind in the real scenes)
+  const G = ZSR.God;
+  const kinds = Object.keys(W.WALKER_TYPES);
+  ok(typeof G.scene.spawnWalker === "function", "Scene.spawnWalker exists");
+  ok(typeof G.walkerTypes === "function" && JSON.stringify(G.walkerTypes()) === JSON.stringify(kinds), "walkerTypes() is Object.keys(WALKER_TYPES), in order");
+  const said = (id) => {
+    try {
+      return String(G.scene.spawnWalker(id));
+    } catch (e) {
+      return "threw " + e.message;
+    }
+  };
+  kinds.forEach((id) => ok(/^Only in /.test(said(id)), `spawnWalker(${id}) with no scene says where it works (${said(id)})`));
+  ok(/^No walker kind /.test(said("dragon")), "spawnWalker refuses an unknown kind");
+  const placed = [];
+  ZSR.Interior = { running: true, player: { x: 1, y: 1, a: 0 }, walkers: [], fallen: [{}], blood: [{}], spawnWalkerAhead: (t) => (placed.push(t), { type: t }), updateHud() {} };
+  kinds.forEach((id) => ok(said(id) === "A " + W.WALKER_TYPES[id].name.toLowerCase() + " in front of you.", `spawnWalker(${id}) on foot says so (${said(id)})`));
+  ok(placed.length === kinds.length * 2 && placed.every((t, i) => t === kinds[i >> 1]), "spawnWalker asks the scene for the kind picked");
+  ZSR.Interior.spawnWalkerAhead = () => null;
+  ok(/^No room /.test(said(kinds[0])), "spawnWalker with no room in front says to turn");
+  ZSR.Interior.walkers = [{}];
+  ZSR.Interior.fallen = [{}];
+  ZSR.Interior.blood = [{}];
+  ok(G.scene.clearWalkers() === "1 walker gone." && !ZSR.Interior.walkers.length && !ZSR.Interior.fallen.length && !ZSR.Interior.blood.length, "clearWalkers clears the walkers, the downed ones and the blood");
+  delete ZSR.Interior;
+  ZSR.Game = { running: true, zombies: [], spawnZombie(type, side) { const z = { type, side }; this.zombies.push(z); return z; } };
+  ok(said(kinds[1] || kinds[0]) === "A " + W.WALKER_TYPES[kinds[1] || kinds[0]].name.toLowerCase() + " on the road ahead." && ZSR.Game.zombies[0].side === "ahead", "spawnWalker on the road puts that kind ahead of the van");
+  ZSR.Game = { running: true, zombies: [], spawnZombie() { this.zombies.push({ type: "walker" }); } };
+  ok(/^The road cannot /.test(said(kinds[0])) && !ZSR.Game.zombies.length, "a road that cannot place a kind is not asked to");
+  delete ZSR.Game;
+
   ok(writes() === before, `nothing written to localStorage in god mode (${writes() - before} writes)`);
   ok(JSON.stringify([...store.entries()].sort()) === disk, "the disk is exactly as before god mode");
 

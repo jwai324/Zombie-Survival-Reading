@@ -358,11 +358,25 @@
   };
 
   const DEFENSE = {
-    fenceHp: [150, 240, 360, 520], // by Walls level 0..3
-    fenceDps: { walker: 6, runner: 4, brute: 14 }, // damage per second to a fence segment
+    fenceHp: [150, 240, 360, 520], // by Walls level 0..3 (what a walker claws off a second: WALKER_TYPES[type].fenceDps)
     calmSeconds: [240, 400], // quiet time between waves (long enough to work inside the cabin)
     firstCalmSeconds: 180, // after arriving home
-    raidShare: 0.25, // this share of a wave's walkers make for the cabin, not for you: they break in and wait inside
+    // a wave's walkers, one roll each: 25% raiders (raidShare), 25% wreckers (wreckShare), the other 50% come for you.
+    // raidShare: they make for the cabin, not for you: they break in and wait inside
+    raidShare: 0.25,
+    // wreckShare: inside the fence they go for the van and the room builds, until wreckSeconds after getting in,
+    // or shot, or the player within wreckProvoke tiles; then they come for you like the rest
+    wreckShare: 0.25,
+    wreckSeconds: 30,
+    wreckProvoke: 5, // tiles
+    wreckDps: 1, // x their fenceDps, to a build or the van
+    // SCALE: a room build's strength, one entry per room level (index 0: not built). A wrecked build (0) gives no
+    // room bonus until it is fixed (SETTINGS.buildRepairScrap)
+    buildHp: [0, 120, 180, 260],
+    vanWreckFloor: 0.3, // wreckers leave the van at this share of its max (a trip never starts wrecked)
+    // SCALE: a fence hole draws only the walkers within this many tiles of it, walking outside the fence;
+    // everyone else keeps clawing their own segment. Tuned for today's 55 x 68 yard
+    breachRange: 8,
     innerDoorHp: 60, // a shut door inside the cabin: walkers force it open after this much (it is not broken)
     noiseCut: 0.15, // in the calm, every shot takes noise x this many seconds off the clock (the bow is silent)
     bellSeconds: 4, // the dinner bell: the next wave comes this many seconds after it rings
@@ -377,6 +391,121 @@
     // heavy one on all four, spread out so no single breach takes them all
     waveSides: { some: 2, many: 4 },
   };
+
+  /* ---------- Walkers: the kinds there are ----------
+     SCALE: every mix, menu, look and test reads Object.keys(WALKER_TYPES). The ids are permanent (a building's
+     snapshot, save.met and every look key on them): add a kind, never rename or remove one. An unknown id is
+     a plain walker everywhere (never a throw).
+     On foot (js/interior.js): name, hp, speed (tiles a second), r (body and hit radius, tiles), bite (damage, before
+     the Medbay's footDamage), reach (bite reach, tiles), fenceDps (claw damage a second to the fence, the cabin's
+     doors and windows, room builds and the van), scrap (paid for a kill), knock (road knockback multiplier),
+     scream (it screams: SCREAM).
+     mix: its weight in a building (danger, day) and a yard wave (day, heavy) before the place's theme
+     (WALKER_THEMES); the river reads RIVER.walkerMix, an alarm ALARM.mix, the road `road.w`. walkerWeights adds
+     them up. road (js/game.js, the van's top-down view): speed px/s, r px, dmg to the van, scrap, reach px past
+     its radius, w [base, perN]: its road weight is base + perN * n (n: the trip's danger and day). */
+  const WALKER_TYPES = {
+    walker: {
+      name: "Walker", hp: 30, speed: 1.25, r: 0.32, bite: 12, reach: 0.85, fenceDps: 6, scrap: 2, knock: 1, scream: false,
+      mix: { building: () => 1, yard: () => 1 },
+      road: { speed: 55, r: 18, dmg: 5, scrap: 1, reach: 0, w: [1, 0] },
+    },
+    runner: {
+      name: "Runner", hp: 18, speed: 2.4, r: 0.28, bite: 9, reach: 0.85, fenceDps: 4, scrap: 3, knock: 1.2, scream: false,
+      mix: { building: (danger, day) => (danger >= 2 ? 0.45 : day >= 6 ? 0.15 : 0), yard: (day) => (day >= 2 ? 0.5 : 0) },
+      road: { speed: 125, r: 15, dmg: 4, scrap: 2, reach: 0, w: [0.12, 0.05] },
+    },
+    brute: {
+      name: "Brute", hp: 90, speed: 0.95, r: 0.4, bite: 22, reach: 0.9, fenceDps: 14, scrap: 5, knock: 0.45, scream: false,
+      mix: { building: (danger, day) => (danger >= 3 ? 0.22 : danger === 2 && day >= 10 ? 0.08 : 0), yard: (day, heavy) => (heavy ? 0.25 : day >= 6 ? 0.08 : 0) },
+      road: { speed: 40, r: 26, dmg: 12, scrap: 4, reach: 0, w: [0.05, 0.04] },
+    },
+    // tall and thin, arms past its knees: it bites from farther off
+    lanky: {
+      name: "Lanky", hp: 40, speed: 1.5, r: 0.3, bite: 14, reach: 1.25, fenceDps: 7, scrap: 3, knock: 0.9, scream: false,
+      mix: { building: (danger, day) => (danger >= 2 && day >= 3 ? Math.min(0.3, 0.12 + 0.01 * day) : 0), yard: (day) => (day >= 3 ? 0.2 : 0) },
+      road: { speed: 66, r: 17, dmg: 6, scrap: 2, reach: 12, w: [0.04, 0.03] },
+    },
+    // riot gear or a firefighter's coat: slow, hard to put down, hardly knocked back
+    armored: {
+      name: "Armored", hp: 60, speed: 1.0, r: 0.36, bite: 14, reach: 0.85, fenceDps: 10, scrap: 4, knock: 0.35, scream: false,
+      mix: { building: (danger, day) => (danger >= 3 && day >= 5 ? 0.12 : 0), yard: (day, heavy) => (day >= 5 ? (heavy ? 0.22 : 0.15) : 0) },
+      road: { speed: 44, r: 21, dmg: 6, scrap: 3, reach: 0, w: [0.02, 0.03] },
+    },
+    // weak, but it screams when it spots you: every walker near it speeds up (SCREAM)
+    screamer: {
+      name: "Screamer", hp: 22, speed: 1.35, r: 0.29, bite: 8, reach: 0.85, fenceDps: 4, scrap: 3, knock: 1.1, scream: true,
+      mix: { building: (danger, day) => (danger >= 2 && day >= 4 ? 0.12 : 0), yard: (day) => (day >= 4 ? 0.15 : 0) },
+      road: { speed: 60, r: 16, dmg: 3, scrap: 2, reach: 0, w: [0.03, 0.02] },
+    },
+  };
+  /* The screamer's scream, in tiles and seconds (the road multiplies tiles by its px per tile): an awake screamer
+     that sees you within `spot` screams, and every AWAKE walker within `radius` of it (itself too) moves `mult`
+     times faster for `secs`. It wakes nobody. Again after `cooldown`; `yell` is how long it stands, arms up. */
+  const SCREAM = { spot: 8, radius: 10, mult: 1.3, secs: 5, cooldown: 12, yell: 1.2 };
+  /* A building's alarm (js/building.js): the first walkers come `first` s after it rings, then every `gap` s, the gap
+     shrinking by `speedup` for each second it has rung, down to `minGap`; one through the way out and one from
+     farther than `farFrom` tiles. mix: times the building's own weights (walkerWeights "building", so a police
+     alarm brings armored walkers); a kind missing here keeps its building weight. No screamers: the siren is
+     loud enough. SCALE: cap is the most walkers a building holds while its alarm rings; every one is a live 3D
+     model, so this is also the frame-time knob (validate-world: at least the most walkersPerLocation + 6). */
+  const ALARM = { first: 0.4, gap: 3, minGap: 1.1, speedup: 0.04, farFrom: 7, cap: 40, mix: { walker: 1, runner: 2, brute: 0.3, lanky: 1, armored: 0.5, screamer: 0 } };
+  /* Places with a kind of their own (owner, 2026-10-15): there a kind's building weight (at least
+     WALKER_THEME_FLOOR, so a kind still gated off by the day comes anyway) is multiplied by this.
+     validate-world: on day 5 the themed kind is the likeliest after the plain walker. */
+  const WALKER_THEMES = {
+    police: { armored: 3.5 },
+    firehouse: { armored: 3.5 },
+    hospital: { lanky: 3 },
+    library: { lanky: 3 },
+    school: { screamer: 3.5 },
+    mall: { screamer: 3.5 },
+    lumberyard: { brute: 2.25 },
+  };
+  const WALKER_THEME_FLOOR = 0.15;
+  /** How much tougher walkers get each day, by where they are: health x (1 + step * (day - 1)). The road has its own (js/game.js). */
+  const WALKER_HP_STEP = { building: 0.1, alarm: 0.1, yard: 0.08, river: 0.08 };
+  /** Each walker kind's weight where walkers come from, only kinds above 0: where is "road" ({ n }), "river" ({ day }),
+      "building" or "alarm" ({ danger, day, place }), "yard" ({ day, size: "some" | "many" }). Feed it to pickWalkerType. */
+  function walkerWeights(where, o) {
+    const opt = o || {};
+    const day = Math.max(1, opt.day || 1);
+    const out = {};
+    Object.keys(WALKER_TYPES).forEach((id) => {
+      const T = WALKER_TYPES[id];
+      const mix = T.mix || {};
+      let w = 0;
+      if (where === "road") w = T.road.w[0] + T.road.w[1] * (opt.n || 0);
+      else if (where === "river") {
+        const m = (RIVER.walkerMix || {})[id];
+        w = m && day >= m[1] ? m[0] : 0;
+      } else if (where === "yard") w = mix.yard ? mix.yard(day, opt.size === "many") : 0;
+      else {
+        // a building (anything else counts as one), and its alarm
+        w = mix.building ? mix.building(opt.danger || 0, day) : 0;
+        const theme = (WALKER_THEMES[opt.place] || {})[id];
+        if (theme) w = Math.max(w, WALKER_THEME_FLOOR) * theme;
+        if (where === "alarm" && ALARM.mix[id] != null) w *= ALARM.mix[id];
+      }
+      if (w > 0 && Number.isFinite(w)) out[id] = w;
+    });
+    return out;
+  }
+  /** One kind from walkerWeights' weights (one call of rnd); the first kind when nothing has a weight. */
+  function pickWalkerType(weights, rnd) {
+    const r0 = (rnd || Math.random)();
+    const ids = Object.keys(weights || {}).filter((id) => WALKER_TYPES[id] && weights[id] > 0);
+    let r = r0 * ids.reduce((a, id) => a + weights[id], 0);
+    for (const id of ids) {
+      if (r < weights[id]) return id;
+      r -= weights[id];
+    }
+    return ids.length ? ids[ids.length - 1] : Object.keys(WALKER_TYPES)[0];
+  }
+  /** The health multiplier for walkers out of `where` on `day`. */
+  function walkerHpMult(where, day) {
+    return 1 + (WALKER_HP_STEP[where] || 0) * (Math.max(1, day || 1) - 1);
+  }
 
   /* ---------- Locations on the city map (1000 x 700 units) ----------
      SCALE: the city will grow well past these 15 buildings. Never rename or remove an id (saves key on it),
@@ -436,6 +565,8 @@
     castMax: 6,
     walkerEvery: [45, 90], // seconds between walkers out of the trees
     pairChance: 0.25, // sometimes two at once
+    // what comes out of the trees: kind -> [weight, from day] (WALKER_TYPES ids; a kind not here never comes, no armored)
+    walkerMix: { walker: [1, 1], runner: [0.33, 2], lanky: [0.15, 3], screamer: [0.1, 4], brute: [0.05, 6] },
     bellReach: 2.0, // E takes the propped rod back from this close
     rod: { at: "firehouse", reveals: ["river"] }, // where the pole lies (on its layout's rod spot), and what its tag reveals
     /* The bank, north up, as the city map has it: the river on the west, Frog Lane coming in from the east
@@ -621,9 +752,15 @@
     hungryVanPenalty: 0.7, // van max HP multiplier for a trip with no food
     footHp: 100,
     yardRegen: 1 / 15, // health per second at home before the Water room: 1 every 15 seconds (the Water room and the Well replace it)
-    footDamageWalker: 12,
-    footDamageRunner: 9,
-    footDamageBrute: 22,
+    // (a walker's bite: WALKER_TYPES[type].bite)
+    // THE gore switch for walker art (owner, 2026-10-15): blood smears and exposed ribs on the models, a short spray
+    // on a hit, a pool under a downed walker. false: grime instead of blood, no ribs, no spray, no pool. Reading
+    // text never has gore either way.
+    walkerGore: true,
+    // SCALE: where a building's walkers start, in steps (tiles), tuned for 30-42 wide interiors: at least minSteps
+    // from the door, `gap` apart (groupGap inside a note's group), a named walker within `ring` steps of the spot
+    // its note names, that spot within `near` tiles of the landmark the note names (js/building.js planWalkers)
+    walkerSpawn: { minSteps: 6, gap: 3, groupGap: 1.5, ring: 3, near: 5 },
     scrapPileValue: [10, 20],
     tripSecondsPerUnit: 0.15, // map distance -> road seconds
     tripMinSeconds: 28,
@@ -632,6 +769,7 @@
     startScrap: 30,
     fenceRepairScrap: 1, // scrap to rebuild one hole (or brace one cracked segment) of the fence; holes never close on their own
     houseRepairScrap: 2, // scrap to fix one broken or cracked door or window of the cabin
+    buildRepairScrap: 3, // scrap to fix one wrecked or damaged room build (DEFENSE.buildHp)
     repairScrapPerHp: 3, // van repair: 1 scrap for every 3 health missing, back to full
     repairMinScrap: 5,
     kitsMax: 3, // medical kits the backpack can carry; one kit heals you to full
@@ -644,5 +782,5 @@
     },
   };
 
-  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TOOLS, LOCKS, TEMPLATES, HOUSE, HOUSE_UPGRADES, YARD, DEFENSE, LOCATIONS, JUNCTIONS, place, isJunction, RIVER, KEYS, NOTES, ROADS, SETTINGS };
+  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TOOLS, LOCKS, TEMPLATES, HOUSE, HOUSE_UPGRADES, YARD, DEFENSE, WALKER_TYPES, SCREAM, ALARM, WALKER_THEMES, WALKER_HP_STEP, walkerWeights, pickWalkerType, walkerHpMult, LOCATIONS, JUNCTIONS, place, isJunction, RIVER, KEYS, NOTES, ROADS, SETTINGS };
 })(typeof globalThis !== "undefined" ? globalThis : this);
