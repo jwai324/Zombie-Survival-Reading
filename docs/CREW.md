@@ -115,7 +115,7 @@ Ids are permanent once shipped (saves store them): append, never rename or remov
 W.CREW = {
   june: {
     name: "June", pronoun: "she", color: "#5b8a3c", // bubble and map accent
-    scale: 0.9, // sprite height as a share of a walker's (Pip about 0.74)
+    scale: 0.9, // sprite height as a share of a grown-up about 0.905 tiles tall (Pip about 0.74)
     jobs: [{ job: "heal", stars: 1 }], // engine jobs: fence, builds, cabin, heal, lookout
     posts: [
       // where they spend the calm; `at` is a yard tile [x, y] or `house` a cabin tile [hx, hy]
@@ -445,7 +445,7 @@ bubble open first pages through it ("Press E to read on"); the crew card's DOM i
   plus `Interior.dog` once home. Built by `crewEnter()` from `enterYard`, re-added to props by
   `crewDress()` from `dressYard`, moved by `crewUpdate(dt)` from `yardUpdate`. Props are not solid.
   Sprite: `D3().sprite("crew", { who, pose, f })` at scale `CREW[id].scale * CREW_ART.scale.crew`
-  (0.95, the walkers' scale), lift 0, wide 0.75; f is exactly 0 or 1 (every opts set is a cached
+  (0.95, a grown-up's prop scale; `PERSON_TOP` in js/crewart.js), lift 0, wide 0.75; f is exactly 0 or 1 (every opts set is a cached
   canvas). Dog: `D3().sprite("crewDog", { pose, f })` (pose stand | walk | sit | bark; add
   `left: true` only to face left) at `CREW_ART.scale.crewDog` (0.36). Quest objects:
   `qObj { kind }` at `CREW_ART.scale.qObj` (0.3). Portraits: `crewFace { who }`, 256 x 256.

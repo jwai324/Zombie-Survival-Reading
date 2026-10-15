@@ -82,7 +82,13 @@ at every level, in words a reader at that level can use. `npm test` checks numbe
   how it looks, never what it opens, so the player has to remember or reread the note.
 - Decoys read as believable; they are allowed to be wrong.
 
-Door notes also give the walker count and rough positions. Keep numbers exact.
+Door notes also give the walker count and rough positions. Keep numbers exact. The count is "at
+least" the day-1 count. Walkers start at random spots on every visit, so a position ("in the truck
+bay", "by the robot", "along the main hall") in a door note, a note or a graffiti needs a rule in
+`NOTES[id].walkers` (`js/world.js`) whose `says` names that text, and "most" needs the rule's share
+above half (`tests/validate-world.js` checks both). Name a kind by what the player sees ("a big
+one", "the tall, thin walkers", "a screamer"), and in a place's notes only where its mix or a rule's
+`type` makes it true.
 
 See `docs/STORY.md` for the people and the five story threads, and `js/layouts.js` for the
 building maps (landmarks, rooms, note spots, signs, the stash and the key).
