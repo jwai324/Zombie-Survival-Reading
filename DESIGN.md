@@ -809,10 +809,13 @@ the refusals would still explain the wait.
   up is +1; exported on `Walker3D`) it draws no face decals, no jaw and no riot visor, and sorts by its
   real depth, so a body lying away from you covers its head. Upright poses never pitch the head below
   -0.58 (every kind, pose, gait and seed probed). Before, a brute shot in the back and seen from behind
-  showed its open red mouth between its boots. Fallen face down at yaw pi, the walker, brute, armored
-  and screamer show no face; the runner and the lanky still do, because their heads end turned or
-  tipped back toward the camera (the lanky's face normal is about 0.68 toward it), so the rule "a
-  face only when it faces the camera" still holds for them. Left for an art pass: the brute's tree fall
+  showed its open red mouth between its boots. The line rises with how far the body has gone over:
+  -0.7 standing to `FACE_DOWN_LYING` (-0.4) lying flat, because the lanky's fold (-0.63) and the
+  runner's tumble (-0.58) end with the head folded back under the body. Every kind shot in the back,
+  every look and seed, seen from behind, the sides and 3/4 behind, now shows no face (validate-art
+  J2b); a body that lands face up still shows it (J2c). Kept on purpose: a runner shot about 0.3 rad
+  off-centre lands on its cheek (face about 20 degrees down), which still shows a face from the side
+  and reads as a head turned sideways. Left for an art pass: the brute's tree fall
   still drops the head below the legs' line (the review asked to keep it on the torso's line); with
   the depth sort and no face, the reported artefact is gone.
 - **Variants by seed:** armored is riot gear (even seed) or a firefighter (odd); lanky a hospital gown
@@ -945,11 +948,10 @@ the refusals would still explain the wait.
 - **Tips:** the told-once tips (Tomas `lanky` and `armored`, Pip `screamer` and `wreckers`) are urgent,
   told at the next talk; `wreckers` applies once any room with a yard plot is built (the Walls have
   none); Tomas's `wrecked` tip is a regular one after `fence`, with `{rooms}` and `{cost}`.
-- **Tomas's `{cost}` is the wrecked builds only:** `buildRepairScrap` (3) x the wrecked builds, said
-  as "fixing it all costs {cost} scrap". The office computer's Builds row quotes "Fix all for N scrap"
-  over the wrecked and the cracked builds together (3 x (wrecked + cracked)), and Fix all fixes both.
-  The two totals agree while no build is only cracked; with a build wrecked and another cracked, Tomas
-  quotes less than the button. Open question for the owner: quote the Fix all total in the tip?
+- **Tomas's `{cost}` is the Fix all price:** one rule, `State.buildFixAll(dmg)` (every wrecked build,
+  then every cracked one, `buildRepairScrap` 3 each), feeds the office computer's "Fix all for N
+  scrap", `repairAllBuilds` and the tip, said as "fixing it all costs {cost} scrap". With a build
+  wrecked and another cracked, Tomas and the button both say 6 (validate-crew checks the two match).
 - **Tomas's `fine` waits for the builds.** "Nothing needs fixing right now" is not said while any yard
   build is cracked (under `CRACKED` 0.5 of its strength, the share `buildDmg` uses) or wrecked, read
   from the yard's live lists (`ctx.cracked`, `ctx.wrecked`) or else the save, since the lot panel and

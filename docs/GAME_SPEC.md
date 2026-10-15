@@ -173,7 +173,7 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   when it is fixed; the lot panel's status and a "Wrecked" row; the room card in the build menu;
   the Garage tab says "Fix the Garage" when a wrecked Garage caps an upgrade. Pip warns about
   wreckers once a room with a plot is built; Tomas lists the wrecked builds and what fixing them
-  costs (3 scrap each: the wrecked ones only, where Fix all also counts the cracked), and does not
+  costs (the same total as the computer's Fix all: 3 scrap for each wrecked or cracked build), and does not
   say "Nothing needs fixing" while any build is cracked or wrecked.
 
 ## Driving: lanes, signs, side streets
