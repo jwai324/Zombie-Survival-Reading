@@ -19,14 +19,16 @@
             limp (phase offset of the second leg), shrug, jerk (0..1 twitchy tempo), arms ("reach" | "pump" |
             "hang" | "dangle" | "stiff" | "bent"), reachSide (-1 left, 1 right), armSwing, headFwd, headUp
             (share of the lean the head looks back up), headTilt, headBob, headTic, jaw (0..1 open), toeOut,
-            clawRate (claw cycles a second: the engine reads it), turnRate (rad/s: the engine reads it),
+            clawRate (claw cycles a second: the engine reads it), clawUp (how high over the shoulder a swipe starts,
+            x arm length; keep the swipe inside the box h), turnRate (rad/s: the engine reads it),
             scream (can scream; else the scream pose is a bite)
      look   colours ([r,g,b] or "#rrggbb"): skin, shirt, sleeveCol, cuff, pants, shoe, sole, hair, eye, glow,
             mouth, teeth, nail, flesh, bone, blood, grime, stain, mottle, pad, helmetCol, visor, band, band2;
             gear: top ("tee" | "hoodie" | "tank" | "gown" | "coat" | "vest" | "turnout"), hem (tiles below the
             hips), sleeve ("short" | "long" | "none"), hood, helmet ("riot" | "fire"), hairStyle ("messy" |
             "long" | "none"), hairLen (long hair, tiles), hairFront, hairBack (hairline height, rad), ears,
-            rip / rip2 ([angle round from the front, + its right; height 0 waist..1 chest; size]), ribs, kneeRip
+            flare (a long garment's hem width x the waist's, default 1.25), rip / rip2 ([angle round from the front,
+            + its right; height 0 waist..1 chest; size]), ribs, kneeRip
             ([left, right]), fray, pads, bands, smears (n), armBlood ([left, right]), handBlood, mouthW, jag
      variants  looks the seed picks between (each overrides look)
    The road's top-down walkers (js/sprites.js) use the same skin, shirt and hair colours. */
@@ -40,7 +42,7 @@
   // one arm reaching. Shuffles with a limp, one foot dragging, lurching.
   W3.addType("walker", {
     h: 0.92,
-    w: 1.05,
+    w: 1.12,
     r: 0.32,
     fall: "crumple",
     build: {
@@ -57,7 +59,7 @@
     },
     look: {
       skin: [156, 168, 128], hair: [90, 63, 42], shirt: [104, 116, 142], pants: [78, 90, 128], shoe: [100, 74, 50],
-      top: "tee", hem: 0.055, sleeve: "short", hairStyle: "messy", ears: true,
+      top: "tee", hem: 0.055, sleeve: "short", hairStyle: "messy", hairBack: -0.85, ears: true,
       rip: [-0.5, 0.5, 0.42], ribs: true, kneeRip: [true, true], fray: true, smears: 4, armBlood: [false, true], handBlood: true,
     },
   });
@@ -94,12 +96,12 @@
   // shoulders rolling, arms hanging low, one reaching.
   W3.addType("brute", {
     h: 1.05,
-    w: 1.3,
+    w: 1.56,
     r: 0.4,
     fall: "tree",
     build: {
-      ankle: 0.055, shin: 0.215, thigh: 0.215, torso: 0.3, neck: -0.005,
-      hipW: 0.085, shW: 0.2, footW: 0.11, upper: 0.19, fore: 0.18, hand: 0.088, foot: 0.13,
+      ankle: 0.055, shin: 0.215, thigh: 0.215, torso: 0.3, neck: 0.058,
+      hipW: 0.085, shW: 0.2, footW: 0.11, upper: 0.19, fore: 0.18, hand: 0.112, foot: 0.13,
       chest: [0.2, 0.135], waist: [0.165, 0.125], head: [0.068, 0.08, 0.076], jaw: [0.058, 0.04, 0.056],
       rThigh: 0.075, rShin: 0.062, rUpper: 0.064, rFore: 0.058, rNeck: 0.066, rFoot: 0.05, rise: 0.075,
       muscle: true, finger: 1.05, pool: 0.44, shadow: 0.3,
@@ -107,7 +109,7 @@
     gait: {
       stride: 0.85, duty: 0.66, lift: 0.05, crouch: 0.06, lean: 0.16, bob: 0.022, sway: 0.04, twist: 0.12,
       roll: 0.08, shrug: 0.025, arms: "hang", reachSide: 1, headFwd: 0.15, headUp: 0.5, headTilt: 0.06, jaw: 0.55,
-      toeOut: 0.22, clawRate: 1.1, turnRate: 4,
+      toeOut: 0.22, clawRate: 1.1, clawUp: 0.12, turnRate: 4,
     },
     look: {
       skin: [150, 165, 118], hair: [40, 36, 30], shirt: [188, 142, 86], pants: [98, 76, 56], shoe: [86, 66, 48],
@@ -122,7 +124,7 @@
   // cadence, high knees, stooped, arms dangling and swinging wide, head bobbing.
   W3.addType("lanky", {
     h: 1.15,
-    w: 1.4,
+    w: 1.5,
     r: 0.3,
     fall: "fold",
     build: {
@@ -135,7 +137,7 @@
     gait: {
       stride: 1.2, duty: 0.6, lift: 0.11, crouch: 0.02, lean: 0.3, bob: 0.024, sway: 0.03, twist: 0.1,
       roll: 0.05, arms: "dangle", headFwd: 0.05, headUp: 0.4, headBob: 0.12, headTilt: 0.15, jaw: 0.35,
-      toeOut: 0.1, clawRate: 1.3, turnRate: 5,
+      toeOut: 0.1, clawRate: 1.3, clawUp: 0.16, turnRate: 5,
     },
     look: {
       skin: [166, 170, 150], hair: [42, 38, 34], pants: [92, 96, 104], shoe: [70, 62, 56],
@@ -173,7 +175,7 @@
     },
     variants: [
       { top: "vest", hem: 0.05, shirt: [45, 58, 82], sleeveCol: [44, 48, 58], pants: [38, 40, 46], shoe: [30, 30, 34], pads: true, pad: [62, 68, 80], helmet: "riot", helmetCol: [43, 47, 54], visor: [143, 163, 181], kneeRip: [false, false] },
-      { top: "turnout", hem: 0.2, shirt: [168, 145, 95], sleeveCol: [160, 138, 90], cuff: [70, 62, 48], pants: [150, 128, 84], shoe: [34, 32, 30], helmet: "fire", helmetCol: [32, 32, 35], bands: true, band: [217, 211, 106], band2: [207, 211, 214], rip: [0.35, 0.3, 0.32], kneeRip: [false, false] },
+      { top: "turnout", hem: 0.2, flare: 1.04, shirt: [168, 145, 95], sleeveCol: [160, 138, 90], cuff: [70, 62, 48], pants: [150, 128, 84], shoe: [34, 32, 30], helmet: "fire", helmetCol: [32, 32, 35], bands: true, band: [217, 211, 106], band2: [207, 211, 214], rip: [0.35, 0.3, 0.32], kneeRip: [false, false] },
     ],
   });
 
@@ -181,7 +183,7 @@
   // head tics and bent arms. Screams with its head thrown back, arms spread up and out.
   W3.addType("screamer", {
     h: 0.9,
-    w: 1.05,
+    w: 1.1,
     r: 0.29,
     fall: "crumple",
     build: {

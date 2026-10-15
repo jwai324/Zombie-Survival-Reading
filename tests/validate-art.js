@@ -35,6 +35,7 @@ const CREW_SPRITES = ["crew", "crewDog", "crewFace", "qObj"]; // the names js/cr
 const WALKER_FILES = ["walker3d.js", "walker3d-looks.js"]; // SCALE: the walker module, then its looks; add walker3d-looks2.js ... here as types grow
 const WALKER_OPS = [600, 350, 160]; // SCALE: most canvas calls one walker may make at lod 0 / 1 / 2 (each one is drawn every frame it changes)
 const WALKER_H_MAX = 1.3; // SCALE: tallest walker box, tiles (the engine caps it at 0.98 under a ceiling)
+const WALKER_COLOURS = 6000; // SCALE: most colour strings random walker draws may use (Walker3D's colour table, CC_N, holds 16384)
 // docs/CREW.md's own lists: the post poses (plus "walk", between posts) and the quest object kinds. The art
 // must cover them even before a fact uses one (validate-world.js holds the facts to the same kinds).
 const CREW_POSES = ["stand", "sit", "work", "read", "walk"];
@@ -765,6 +766,158 @@ else {
   });
   // a type the looks do not know draws as a walker, never throws
   drawOne("zz-new", {}, camFor("walker", false, 200), "walker of an unknown type");
+
+  // F: the ground is seen in perspective: the contact shadow and (gore on) the pool under a downed walker are discs on
+  // the floor, not one-pixel lines. The first fills are the ground's: the shadow, then the pool (its colour is red).
+  const groundFills = (ops) => {
+    const out = [];
+    let ell = null;
+    for (const op of ops) {
+      if (op.k === "beginPath") ell = null;
+      else if (op.k === "ellipse") ell = op.args;
+      else if (op.k === "fill") {
+        out.push({ ell, fill: parse(op.fillStyle) });
+        if (out.length >= 3) break;
+      }
+    }
+    return out;
+  };
+  types.forEach((type) => {
+    [0, PI / 2, PI].forEach((yaw) => {
+      const what = `walker ${type} yaw ${yaw.toFixed(2)}`;
+      const stand = drawOne(type, { yaw }, camFor(type, false, 300), what + " standing (ground)");
+      const sh = stand && groundFills(stand.ops)[0];
+      if (stand && (!sh || !sh.ell || Math.min(sh.ell[2], sh.ell[3]) < 2 || Math.max(sh.ell[2], sh.ell[3]) < 10)) err(`${what}: its ground shadow is ${sh && sh.ell ? sh.ell[2].toFixed(1) + " x " + sh.ell[3].toFixed(1) : "missing"} px at 300 px tall (a flat line, not a disc on the floor)`);
+      [PI, 0].forEach((fallDir) => {
+        const r = drawOne(type, { yaw, fall: 1, fallDir, gore: true }, camFor(type, true, 300), `${what} fallen dir ${fallDir.toFixed(2)} (pool)`);
+        if (!r) return;
+        const pool = groundFills(r.ops).find((f) => f.fill && f.fill[0] > 2 * f.fill[1] && f.fill[0] > 60);
+        if (!pool || !pool.ell) err(`${what} fallen dir ${fallDir.toFixed(2)}: no blood pool under it with gore on`);
+        else if (Math.min(pool.ell[2], pool.ell[3]) < 3 || Math.max(pool.ell[2], pool.ell[3]) < 20) err(`${what} fallen dir ${fallDir.toFixed(2)}: its blood pool is ${pool.ell[2].toFixed(1)} x ${pool.ell[3].toFixed(1)} px at 300 px tall (it must read as a pool, at least 20 x 3)`);
+      });
+    });
+  });
+
+  // the tests below read the joints and the fit back through Walker3D.probe() (for the tests only): its j and s are
+  // the live joint buffers; its fit is the last draw's when probe() is called
+  const noop = () => {};
+  const quiet = new Proxy({}, { get: () => noop, set: () => true });
+  if (typeof W3.probe !== "function") err("Walker3D.probe() is missing (the art tests read the joints and the fit through it)");
+  else {
+    const PB = W3.probe();
+    const stQ = (o) => Object.assign({}, base, o);
+    // G: smooth walk cycles: through 200 gait steps, no boot, toe or hand jumps more than 4 x its usual step (+ 1 px)
+    const LIMBS = { "left hand": 6, "right hand": 9, "left ankle": 12, "left toe": 13, "right ankle": 16, "right toe": 17 };
+    types.forEach((type) => {
+      [PI / 2, 0.4].forEach((yaw) => {
+        [0, 1].forEach((seed) => {
+          const cam = camFor(type, false, 160);
+          const steps = {};
+          let prev = null;
+          for (let i = 0; i <= 200; i++) {
+            W3.draw(quiet, type, stQ({ yaw, seed, gait: i / 200, move: 1 }), cam);
+            const now = Array.from(PB.s);
+            if (prev) Object.entries(LIMBS).forEach(([n, j]) => (steps[n] = steps[n] || []).push(Math.hypot(now[j * 3] - prev[j * 3], now[j * 3 + 1] - prev[j * 3 + 1])));
+            prev = now;
+          }
+          Object.entries(steps).forEach(([n, a]) => {
+            const sorted = a.slice().sort((x, y) => x - y);
+            const med = sorted[sorted.length >> 1];
+            const max = sorted[sorted.length - 1];
+            if (max > 4 * med + 1) err(`walker ${type} yaw ${yaw.toFixed(2)} seed ${seed}: its ${n} jumps ${max.toFixed(1)} px in one step of the walk cycle (its usual step is ${med.toFixed(2)} px at 160 px tall): a snap`);
+          });
+        });
+      });
+    });
+    // H: the size never follows the swing: at 0.85 tiles (biting range) the fit is the same through bites, claw swipes,
+    // a scream, the walk and idle, and through a pose blending in (poseW)
+    types.forEach((type) => {
+      [0, 0.3, -0.3, PI / 2].forEach((yaw) => {
+        let lo = Infinity;
+        let hi = 0;
+        const b = W3.box(type, false);
+        const cam = { w: Math.ceil((b.w * 300) / b.h), h: 300, px: 300 / b.h, dist: 0.85, eye: 0.5 };
+        ["bite", "claw", "scream", "walk", "idle"].forEach((pose) => {
+          for (let i = 0; i <= 20; i++) {
+            [1, 0.5].forEach((poseW) => {
+              W3.draw(quiet, type, stQ({ yaw, pose, poseT: i / 20, claw: i / 20, gait: i / 20, move: pose === "walk" ? 1 : 0.3, poseW }), cam);
+              const fit = W3.probe().fit; // probe() reads the fit of the last draw
+              lo = Math.min(lo, fit);
+              hi = Math.max(hi, fit);
+            });
+          }
+        });
+        if (hi / lo - 1 > 0.03) err(`walker ${type} yaw ${yaw.toFixed(2)} at 0.85 tiles: its size changes ${((hi / lo - 1) * 100).toFixed(1)}% with the pose (fit ${lo.toFixed(3)}..${hi.toFixed(3)}): it would pulse as it attacks`);
+      });
+    });
+    // I: the same inputs draw the same even with other walkers drawn in between (no state leaks from one draw to the next)
+    for (let k = 0; k < types.length; k++) {
+      const a = types[k];
+      const bT = types[(k + 1) % types.length];
+      const sa = { yaw: 0.7, gait: 0.37, pose: "claw", claw: 0.6, seed: 3, lod: k % 3, fog: 0.2 };
+      const camA = camFor(a, false, 240);
+      const one = drawOne(a, sa, camA, `walker ${a} (determinism, first)`);
+      drawOne(bT, { yaw: -2, gait: 0.9, pose: "bite", poseT: 0.4, seed: 8, lod: (k + 1) % 3, fog: 0.7, hit: 1, fall: 0.5, fallDir: 1 }, camFor(bT, true, 120, 1.2), `walker ${bT} (determinism, between)`);
+      const two = drawOne(a, sa, camA, `walker ${a} (determinism, again)`);
+      if (one && two && sig(one.ops) !== sig(two.ops)) err(`walker ${a}: drawing a ${bT} in between changed how the same ${a} draws`);
+    }
+    // J: a downed walker lies flat: at fall 1 no ankle above its pelvis plus a thigh's thickness (a side-lying body's
+    // upper leg may stack its foot spacing on top)
+    types.forEach((type) => {
+      const bd = W3.TYPES[type].build;
+      [0, PI, PI / 2, -PI / 2, 2.5].forEach((fallDir) => {
+        ["walk", "claw", "idle"].forEach((pose) => {
+          [0.1, 0.6].forEach((gait) => {
+            W3.draw(quiet, type, stQ({ yaw: 0, fall: 1, fallDir, pose, gait, move: 1 }), camFor(type, true, 200));
+            const J = PB.j;
+            const side = Math.abs(Math.sin(fallDir)) > 0.3 ? 2 * bd.footW : 0;
+            const top = J[1] + bd.rThigh + side;
+            const an = Math.max(J[12 * 3 + 1], J[16 * 3 + 1]);
+            if (an > top + 1e-6) err(`walker ${type} fallen dir ${fallDir.toFixed(2)} ${pose} gait ${gait}: an ankle at ${an.toFixed(3)} is above its pelvis (${J[1].toFixed(3)}): legs in the air`);
+          });
+        });
+      });
+    });
+    // K: missing or broken inputs draw as their defaults (the checking context errs on any non-finite coordinate)
+    [{ move: undefined }, { move: NaN }, { fallDir: NaN, fall: 0.6 }, { fallDir: undefined, fall: 0.6 }, { fallDir: null, fall: 1 }, { gait: NaN }, { gait: Infinity }, { poseT: NaN, pose: "bite" }, { claw: NaN, pose: "claw" }, { poseW: NaN, pose: "claw" }, { fall: NaN }, { yaw: NaN }, { fog: NaN }, { seed: -5 }, { lod: 7 }, { pose: "dance" }].forEach((o) =>
+      types.forEach((type) => drawOne(type, o, camFor(type, !!o.fall, 200), `walker ${type} with ${JSON.stringify(o, (k, v) => (typeof v === "number" && !Number.isFinite(v) ? String(v) : v === undefined ? "undefined" : v))}`))
+    );
+    // L: poseW 0 is the walk exactly (a pose change starts where the walk is); fog comes in steps (1 / FOG_STEPS)
+    types.forEach((type) => {
+      const cam = camFor(type, false, 200);
+      W3.draw(quiet, type, stQ({ pose: "walk", gait: 0.4, move: 0.8 }), cam);
+      const walk = Array.from(PB.j);
+      ["bite", "claw", "scream", "idle"].forEach((pose) => {
+        W3.draw(quiet, type, stQ({ pose, gait: 0.4, move: 0.8, poseW: 0, poseT: 0.5, claw: 0.3 }), cam);
+        const d = Math.max(...Array.from(PB.j).map((v, i) => Math.abs(v - walk[i])));
+        if (d > 1e-9) err(`walker ${type}: ${pose} at poseW 0 is not the walk (a joint is ${d.toFixed(4)} tiles off): the pose would jump in`);
+      });
+      if (!(W3.FOG_STEPS > 0)) return;
+      const f1 = drawOne(type, { fog: 0.3 }, cam, `walker ${type} fog 0.3`);
+      const f2 = drawOne(type, { fog: 0.3 + 0.2 / W3.FOG_STEPS }, cam, `walker ${type} fog a little more`);
+      if (f1 && f2 && sig(f1.ops) !== sig(f2.ops)) err(`walker ${type}: fog 0.3 and ${(0.3 + 0.2 / W3.FOG_STEPS).toFixed(4)} draw differently (fog must come in steps of 1 / FOG_STEPS, so colours repeat)`);
+    });
+    // M: the colour table converges: random continuous inputs (yaw, gait, fog, poses, hits, falls) use a bounded set
+    // of colour strings, and the last third of the draws adds almost none
+    const colours = new Set();
+    let late = 0;
+    const grab = new Proxy({}, { get: () => noop, set: (o, k, v) => ((k === "fillStyle" || k === "strokeStyle") && !colours.has(v) && (colours.add(v), late += addLate), true) });
+    let addLate = 0;
+    let seedR = 7;
+    const rr = () => ((seedR = (seedR * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+    const poses = W3.POSES;
+    for (let i = 0; i < 3000; i++) {
+      if (i === 2000) addLate = 1;
+      const type = types[i % types.length];
+      W3.draw(grab, type, stQ({ yaw: rr() * 6.3 - 3.15, gait: rr(), fog: rr() * 0.9, pose: poses[i % poses.length], poseT: rr(), claw: rr(), hit: i % 9 === 0 ? 1 : 0, fall: i % 13 === 0 ? rr() : 0, fallDir: rr() * 6.3, lod: i % 3, seed: i % 5, gore: i % 2 === 0 }), camFor(type, false, 120));
+    }
+    if (colours.size > WALKER_COLOURS) err(`walkers: ${colours.size} different colour strings in 3000 random draws (over ${WALKER_COLOURS}): the colour table cannot hold them, so every draw would make new strings`);
+    if (late > colours.size * 0.05) err(`walkers: the last 1000 of 3000 random draws still made ${late} new colours (of ${colours.size}): light or fog is not stepped`);
+  }
+  // the health bar's width uses the engine's field of view: the same number in both files
+  const fovM = /const FOV = ([\d.]+)/.exec(fs.readFileSync(path.join(ROOT, "js", "interior.js"), "utf8"));
+  if (!fovM) warn("could not find js/interior.js's FOV to check Walker3D.FOV against");
+  else if (Math.abs(+fovM[1] - W3.FOV) > 1e-9) err(`Walker3D.FOV ${W3.FOV} is not js/interior.js's FOV ${fovM[1]} (the health bar's width comes from it)`);
   sb.document.createElement = realCreate;
 }
 

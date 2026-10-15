@@ -2,9 +2,9 @@
    game's comic style (ink outline, flat fills, a little light and shade), from any side, in any pose, falling.
    No images and no WebGL: plain Canvas 2D calls straight into the context the engine hands over.
 
-   The looks are data. js/walker3d-looks.js adds the six types with Walker3D.addType(id, def): build (bone
-   lengths and widths in tiles), gait (stride, lean, sway, arms...), fall style and look (palette and gear,
-   with variants a walker's seed picks between). More types go in an appended js/walker3d-looks2.js.
+   The looks are data. js/walker3d-looks.js adds the types with Walker3D.addType(id, def): build (bone lengths and
+   widths in tiles), gait (stride, lean, sway, arms...), fall style and look (palette and gear, with variants a
+   walker's seed picks between). More types go in an appended js/walker3d-looks2.js.
 
    draw(ctx, type, st, cam) -> { face, parts } (one reused object; copy what you keep)
    st (one object, reused by the caller):
@@ -13,24 +13,33 @@
      move    0..1 from standing to walking
      pose    "idle" | "walk" | "bite" | "claw" | "scream" (a type that cannot scream bites instead)
      poseT   0..1 through a bite or a scream; for idle, a slow breathing cycle (0 is fine)
+     poseW   0..1 (optional, default 1): how far the figure has gone from its walk into the pose. The engine ramps it
+             from 0 to 1 over about POSE_BLEND seconds whenever the pose changes, so the arms swing into a claw or a
+             bite instead of jumping there
      claw    0..1 through a pair of overhead swipes (pose "claw")
      hit     0 | 1: the white flash of a shot landing
      fall    0..1 the collapse (0 standing); fallDir: rad relative to its forward (pi = backwards; + toward its
              right, the yaw sense: in the model, x its right and z its forward, fallDir fd points (sin fd, 0, cos fd))
      seed    int: which arm reaches, which gear, grime, hair
      lod     0 full | 1 no sheen, ribs or fingers | 2 silhouette, head and eyes
-     fog     0..0.9: every colour times (1 - fog); the eyes keep their glow
+     fog     0..0.9: every colour times (1 - fog); the eyes keep their glow. Drawn in steps of 1 / FOG_STEPS, so the
+             engine's "has it changed" signature should compare Math.round(fog * FOG_STEPS), not the raw fog
      gore    bool, default gore(): blood smears, ribs through the rips, a pool under a fallen walker
+   A missing or non-numeric field draws as its default (never NaN coordinates).
    cam: w, h (px of the region drawn from 0,0), px (px per tile), dist (tiles to the camera plane),
         eye (tiles above the feet: the camera's height)
 
    Contract (tests/validate-art.js checks it): everything inside [0,w] x [0,h], the feet on y = h and the figure
-   centred on x = w/2 (a figure too big for the region is shrunk about its feet); no translate, scale, rotate,
-   transform or drawImage; no new canvases; no Path2D, OffscreenCanvas, DOMMatrix, shadowBlur or filter; context
-   state is never read back; the same inputs make the same calls (seeded random only); nothing is allocated per
-   draw (preallocated joint buffers, part records and a colour-string table); colours are "rgb(r,g,b)" or
-   "rgba(r,g,b,a)" with whole channels, the light, fog and hit flash already in them; within the per-lod call ceilings
-   tests/validate-art.js sets (WALKER_OPS).
+   centred on x = w/2; no translate, scale, rotate, transform or drawImage; no new canvases; no Path2D,
+   OffscreenCanvas, DOMMatrix, shadowBlur or filter; context state is never read back; the same inputs make the same
+   calls (seeded random only); no objects, arrays, closures or strings are made per draw (preallocated joint
+   buffers, part records, one Float64Array for every number passed between functions, and a colour-string table that
+   converges because light and fog come in fixed steps; only the engine's own boxing of numbers at calls is left,
+   short-lived and cheap); colours are "rgb(r,g,b)" or "rgba(r,g,b,a)" with whole channels, the light, fog and hit
+   flash already in them; within the per-lod call ceilings tests/validate-art.js sets (WALKER_OPS).
+   Size: a figure too big for its region (a near camera, a claw over its head) is shrunk about its feet. How much
+   depends only on the type, the camera and whether it is walking or attacking (an envelope of all its poses
+   worked out once in addType), never on the moment of the swing, so an attacker does not pulse in size.
    The model keeps screen proportions: the engine squashes the floor sideways by STRETCH, but a walker with real
    proportions squashed the same way looks about 30% too thin, so it is not squashed (DESIGN.md). */
 (function (root) {
@@ -38,9 +47,17 @@
   const ZSR = (root.ZSR = root.ZSR || {});
   const TAU = Math.PI * 2;
   const PI = Math.PI;
+  // lengths (Math.hypot would allocate its argument list on every call)
+  const hyp2 = (x, y) => Math.sqrt(x * x + y * y);
+  const hyp3 = (x, y, z) => Math.sqrt(x * x + y * y + z * z);
 
-  const K_MIN = 0.6; // perspective: the far side of a figure is drawn at least this big, the near side at most K_MAX
+  // SCALE: perspective inside one figure: its far side is drawn at least K_MIN times as big as its middle, its near
+  // side at most K_MAX (a hand reaching at a near camera). A lying body uses half the perspective (see PSC).
+  const K_MIN = 0.6;
   const K_MAX = 1.6;
+  const FOG_STEPS = 32; // fog is drawn in steps of 1/32 (and the light in steps of 1/LIGHT_STEPS): the colour table converges
+  const LIGHT_STEPS = 64;
+  const POSE_BLEND = 0.15; // seconds the engine should take to ramp st.poseW from 0 to 1 after a pose change
   const POSES = ["idle", "walk", "bite", "claw", "scream"];
   const P_IDLE = 0;
   const P_WALK = 1;
@@ -51,11 +68,11 @@
   const BLACK = [0, 0, 0];
   const WHITE = [255, 255, 255];
   // the light, in camera space (x right, y up, z away from the camera): from the upper left, toward the viewer
-  const LN = Math.hypot(0.45, 0.8, 0.4);
+  const LN = hyp3(0.45, 0.8, 0.4);
   const LX = -0.45 / LN;
   const LY = 0.8 / LN;
-  const SLX = LX / Math.hypot(LX, LY); // its direction on screen (y down)
-  const SLY = -LY / Math.hypot(LX, LY);
+  const SLX = LX / hyp2(LX, LY); // its direction on screen (y down)
+  const SLY = -LY / hyp2(LX, LY);
 
   /* ---------- Joints: model tiles, origin between the feet, x the walker's right, y up, z its forward ---------- */
   const PEL = 0;
@@ -81,38 +98,99 @@
   const CURL = new Float64Array(2);
   const SPREAD = new Float64Array(2);
   const WRIST = new Float64Array(2);
-  let JAW = 0.4; // how far the jaw hangs open, 0..1.3
-  let LYING = 0; // how far over the body has gone, 0..1
-  let POOL = 0; // blood pool radius, tiles (0: none)
-  let POOLX = 0;
-  let POOLZ = 0;
 
   /* ---------- Per-draw state ---------- */
   let G = null;
-  let CW = 0;
-  let CH = 0;
-  let W2 = 0;
-  let PXS = 1;
-  let DIST = 3;
-  let EYE = 0.5;
-  let CYAW = 1;
-  let SYAW = 0;
-  let TCX = 0; // toward the camera, model space: (-sin yaw, 0, cos yaw)
-  let TCZ = 1;
-  let FIT = 1;
-  let FOGK = 1;
-  let FLASH = 0;
   let LOD = 0;
   let GORE = true;
   let SEED = 1;
   let T = null; // the type
   let V = null; // its look (the variant this seed picked)
-  let OUT = 1; // ink outline, px
   let FACE = false;
   let INKS = "rgb(13,14,16)";
   const RESULT = { face: false, parts: 0 };
 
-  const clamp01 = (v) => (v < 0 ? 0 : v > 1 ? 1 : v);
+  /* ---------- Numbers passed between the drawing functions ----------
+     Every one lives in this buffer, never in a closure variable: V8 boxes a double written to a closure variable
+     (a new heap number each time), which would be thousands of objects a draw. The names are its indexes. */
+  const RG = new Float64Array(58);
+  const JAW = 0; // how far the jaw hangs open, 0..1.3
+  const LYING = 1; // how far over the body has gone, 0..1
+  const POOL = 2; // blood pool radius, tiles (0: none)
+  const POOLX = 3;
+  const POOLZ = 4;
+  const CW = 5;
+  const CH = 6;
+  const W2 = 7;
+  const PXS = 8;
+  const DIST = 9;
+  const EYE = 10;
+  const CYAW = 11;
+  const SYAW = 12;
+  const TCX = 13; // toward the camera, model space: (-sin yaw, 0, cos yaw)
+  const TCZ = 14;
+  const FIT = 15;
+  const FOGK = 16;
+  const FLASH = 17;
+  const OUT = 18; // ink outline, px
+  const FZ = 19;
+  const FY = 20;
+  const FP = 21;
+  const AR = 22;
+  const AU = 23;
+  const AF = 24;
+  const APALM = 25; // 0 palm forward (a claw), 1 palm in (hanging), 2 palm down; in between blends (continuous)
+  const ACURL = 26;
+  const ASPREAD = 27;
+  const AWRIST = 28;
+  const RC = 29;
+  const RS = 30;
+  const RKX = 31;
+  const RKZ = 32;
+  const QX = 33;
+  const QY = 34;
+  const QK = 35;
+  const PSC = 36; // share of the perspective used: a body lying toward the camera uses half (its near head would balloon)
+  const FIT_ENV = 37;
+  const EX = 38;
+  const EY = 39;
+  const ERA = 40;
+  const ERB = 41;
+  const ERO = 42;
+  const ECX = 43;
+  const ECY = 44;
+  const NX = 45;
+  const NY = 46;
+  const GX = 47;
+  const GY = 48;
+  const TX = 49;
+  const TY = 50;
+  const TDX = 51;
+  const TDY = 52;
+  const TRW = 53;
+  const TRL = 54;
+  const SFX = 55;
+  const SFY = 56;
+  const SFZ = 57;
+  RG[JAW] = 0.4;
+  RG[PXS] = 1;
+  RG[DIST] = 3;
+  RG[EYE] = 0.5;
+  RG[CYAW] = 1;
+  RG[TCZ] = 1;
+  RG[FIT] = 1;
+  RG[FOGK] = 1;
+  RG[OUT] = 1;
+  RG[ACURL] = 0.5;
+  RG[ASPREAD] = 0.8;
+  RG[RC] = 1;
+  RG[QK] = 1;
+  RG[PSC] = 1;
+  RG[FIT_ENV] = 1;
+  RG[ERA] = 1;
+  RG[ERB] = 1;
+
+  const clamp01 = (v) => (v > 0 ? (v < 1 ? v : 1) : 0); // NaN and undefined -> 0
   const smooth = (v) => {
     const t = clamp01(v);
     return t * t * (3 - 2 * t);
@@ -129,16 +207,24 @@
   }
 
   /* ---------- Colours: rgb arrays in, strings out, from a fixed table (a miss builds one string) ---------- */
-  const CC_N = 8192;
+  // SCALE: colour-string table slots (a power of two). Every type x variant x light level x fog step x hit flash is one
+  // colour; more types and variants mean more of them. A miss only builds one string (garbage), so keep it a few
+  // times the colours a busy scene uses (about 4,000 with the six types and every fog step).
+  const CC_N = 16384;
+  const CC_SHIFT = 32 - Math.log2(CC_N);
   const ccKey = new Float64Array(CC_N).fill(-1);
   const ccStr = new Array(CC_N).fill("");
   function cstr(r, g, b, a) {
     const key = ((r * 256 + g) * 256 + b) * 128 + a;
-    let i = Math.imul(key | 0, 0x9e3779b1) >>> 19;
-    if (ccKey[i] === key) return ccStr[i];
-    const j = (i + 1) & (CC_N - 1);
-    if (ccKey[j] === key) return ccStr[j];
-    if (ccKey[i] !== -1) i = j;
+    const h = Math.imul(key | 0, 0x9e3779b1) >>> CC_SHIFT;
+    // up to four slots from its hash; a miss takes the first empty one, else the last (an old colour is rebuilt later)
+    let i = -1;
+    for (let p = 0; p < 4; p++) {
+      const j = (h + p) & (CC_N - 1);
+      if (ccKey[j] === key) return ccStr[j];
+      if (i < 0 && ccKey[j] === -1) i = j;
+    }
+    if (i < 0) i = (h + 3) & (CC_N - 1);
     const s = a >= 100 ? "rgb(" + r + "," + g + "," + b + ")" : "rgba(" + r + "," + g + "," + b + "," + a / 100 + ")";
     ccKey[i] = key;
     ccStr[i] = s;
@@ -147,13 +233,14 @@
   const ch = (v) => (v <= 0 ? 0 : v >= 255 ? 255 : Math.round(v));
   /** Colour c (rgb array) times light m, alpha a, with the hit flash and the fog baked in. */
   function col(c, m, a) {
-    const f = FLASH;
-    const k = FOGK;
+    m = Math.round(m * LIGHT_STEPS) / LIGHT_STEPS;
+    const f = RG[FLASH];
+    const k = RG[FOGK];
     return cstr(ch(((1 - f) * c[0] * m + f * 255) * k), ch(((1 - f) * c[1] * m + f * 255) * k), ch(((1 - f) * c[2] * m + f * 255) * k), Math.round(clamp01(a) * 100));
   }
   /** The same without the fog: the eyes glow in the dark. */
   function glow(c, a) {
-    const f = FLASH;
+    const f = RG[FLASH];
     return cstr(ch((1 - f) * c[0] + f * 255), ch((1 - f) * c[1] + f * 255), ch((1 - f) * c[2] + f * 255), Math.round(clamp01(a) * 100));
   }
   /** Blood when gore is on, grime when it is off. */
@@ -197,7 +284,7 @@
     let dx = J[c * 3] - ax;
     let dy = J[c * 3 + 1] - ay;
     let dz = J[c * 3 + 2] - az;
-    let d = Math.hypot(dx, dy, dz);
+    let d = hyp3(dx, dy, dz);
     if (d < 1e-6) {
       dx = 0;
       dy = -1;
@@ -222,62 +309,56 @@
     let vx = px - pd * ux;
     let vy = py - pd * uy;
     let vz = pz - pd * uz;
-    let vl = Math.hypot(vx, vy, vz);
+    let vl = hyp3(vx, vy, vz);
     if (vl < 1e-6) {
       vx = uy;
       vy = -ux;
       vz = 0;
-      vl = Math.hypot(vx, vy) || 1;
+      vl = hyp2(vx, vy) || 1;
     }
     setJ(m, ax + la * (ca * ux + sa * (vx / vl)), ay + la * (ca * uy + sa * (vy / vl)), az + la * (ca * uz + sa * (vz / vl)));
   }
 
   /* ---------- The pose: st -> joints ---------- */
-  let FZ = 0;
-  let FY = 0;
-  let FP = 0;
-  /** A foot's path through one step (q 0..1): planted for the first `duty` of it, then a lifted swing. */
+  /** A foot's path through one step (q 0..1): planted for the first `duty` of it, then a lifted swing from -S/2 to
+      +S/2 (the caller shortens S for a dragging foot, over the whole cycle, so the swing meets the stance at both
+      ends). The toe points down as the foot pushes off, up as it reaches for the ground; every part is continuous. */
   function footPath(q, S, lift, duty, drag) {
     if (q < duty) {
-      FZ = S * (0.5 - q / duty);
-      FY = 0;
-      FP = 0;
+      RG[FZ] = S * (0.5 - q / duty);
+      RG[FY] = 0;
+      RG[FP] = 0;
     } else {
       const t = (q - duty) / (1 - duty);
       const e = 0.5 - 0.5 * Math.cos(PI * t);
       const sn = Math.sin(PI * t);
-      FZ = S * (e - 0.5) * (1 - 0.3 * drag);
-      FY = lift * sn * (1 - 0.85 * drag);
-      FP = (t < 0.5 ? -0.55 : 0.3) * sn * (1 - drag) - drag * 0.5 * sn;
+      // two lobes, each zero at its ends: toe down (push-off) in the first half, toe up (heel strike) in the second
+      const lobe = t < 0.5 ? -0.55 * Math.sin(TAU * t) : 0.3 * Math.sin(TAU * (t - 0.5));
+      RG[FZ] = S * (e - 0.5);
+      RG[FY] = lift * sn * (1 - 0.85 * drag);
+      RG[FP] = lobe * (1 - drag) - drag * 0.5 * sn;
     }
   }
   // arm targets from the shoulder, in the torso frame (r outward, u up, f forward, tiles) and the hand's set
-  let AR = 0;
-  let AU = 0;
-  let AF = 0;
-  let APALM = 0; // 0 palm forward (a claw), 1 palm in (hanging), 2 palm down
-  let ACURL = 0.5;
-  let ASPREAD = 0.8;
-  let AWRIST = 0;
   function armSet(r, u, f, palm, curl, spread, wrist) {
-    AR = r;
-    AU = u;
-    AF = f;
-    APALM = palm;
-    ACURL = curl;
-    ASPREAD = spread;
-    AWRIST = wrist;
+    RG[AR] = r;
+    RG[AU] = u;
+    RG[AF] = f;
+    RG[APALM] = palm;
+    RG[ACURL] = curl;
+    RG[ASPREAD] = spread;
+    RG[AWRIST] = wrist;
   }
   function armBlend(w, r, u, f, palm, curl, spread, wrist) {
     if (w <= 0) return;
     const k = clamp01(w);
-    AR += (r - AR) * k;
-    AU += (u - AU) * k;
-    AF += (f - AF) * k;
-    if (k > 0.5) APALM = palm;
-    ACURL += (curl - ACURL) * k;
-    ASPREAD += (spread - ASPREAD) * k;
-    AWRIST += (wrist - AWRIST) * k;
+    RG[AR] += (r - RG[AR]) * k;
+    RG[AU] += (u - RG[AU]) * k;
+    RG[AF] += (f - RG[AF]) * k;
+    RG[APALM] += (palm - RG[APALM]) * k;
+    RG[ACURL] += (curl - RG[ACURL]) * k;
+    RG[ASPREAD] += (spread - RG[ASPREAD]) * k;
+    RG[AWRIST] += (wrist - RG[AWRIST]) * k;
   }
   /** The arm swing of the type's gait (g.arms) for side s (-1 left, 1 right) at phase angle A, walk blend m. */
   function armGait(g, s, A, m, L, ph) {
@@ -285,15 +366,15 @@
     const sw = Math.sin(A + opp) * m * (g.armSwing == null ? 1 : g.armSwing);
     switch (g.arms) {
       case "pump": {
-        // a sprint: big clawing pumps, elbows bent, hands up and out in front on the forward swing
+        // a sprint: big clawing pumps, elbows bent and kept in, hands up and out in front on the forward swing
         const a = Math.sin(A + opp);
         const f0 = 0.5 * (1 - m) + (0.2 + 0.5 * a) * m;
-        armSet(0.08 * L, -(0.22 * (1 - m) + (0.38 - 0.3 * Math.max(0, a)) * m) * L, f0 * L, 0, 0.55, 0.95, 0.55);
+        armSet(0.06 * L, -(0.22 * (1 - m) + (0.38 - 0.3 * Math.max(0, a)) * m) * L, f0 * L, 0, 0.55, 0.95, 0.55);
         break;
       }
       case "hang": {
-        // heavy arms hanging low and swinging; one reaches out
-        if (s === g.reachSide) armSet(0.2 * L, (-0.2 + 0.05 * Math.sin(A)) * L, (0.6 + 0.05 * Math.sin(A * 2)) * L, 0, 0.3, 1.1, 0.4);
+        // heavy arms hanging low and swinging; one reaches out at chest height, palm down, a grabbing hand
+        if (s === g.reachSide) armSet(0.22 * L, (-0.34 + 0.05 * Math.sin(A)) * L, (0.62 + 0.05 * Math.sin(A * 2)) * L, 1.7, 0.5, 1.15, 0.15);
         else armSet(0.16 * L, -0.86 * L, (0.12 + 0.3 * sw) * L, 1, 0.55, 0.7, 0.1);
         break;
       }
@@ -314,27 +395,38 @@
         break;
       }
       default: {
-        // "reach": one arm reaching ahead at shoulder height, the other hanging forward; they take turns a little
-        const alt = (0.5 + 0.5 * Math.sin(A)) * m;
-        if (s === g.reachSide) armSet(0.3 * L, (-0.16 - 0.12 * alt + 0.04 * Math.sin(A * 2)) * L, (0.84 - 0.08 * alt) * L, 0, 0.28, 1.15, 0.55);
-        else armSet(0.12 * L, (-0.68 + 0.18 * alt) * L, (0.3 + 0.15 * sw + 0.18 * alt) * L, 1, 0.62, 0.65, 0.12);
+        // "reach": the arms take turns. The reaching arm (reachSide) is held out, a little to the side and down so it
+        // reads from the front, clawed hand toward you; on the other arm's forward swing that one comes up to chest
+        // height and the reaching one dips.
+        const up = (0.5 + 0.5 * Math.sin(A + opp)) * m; // this arm's own forward swing (with the other leg)
+        if (s === g.reachSide) {
+          const dip = (0.5 + 0.5 * Math.sin(A + PI - opp)) * m; // while the other arm is up
+          armSet(0.42 * L, (-0.25 - 0.16 * dip + 0.04 * Math.sin(A * 2)) * L, (0.8 - 0.14 * dip) * L, 0, 0.28, 1.15, 0.55);
+        } else armSet((0.12 + 0.14 * up) * L, (-0.68 + 0.43 * up) * L, (0.3 + 0.3 * up + 0.08 * sw) * L, 1 - up, 0.62 - 0.25 * up, 0.65 + 0.4 * up, 0.12 + 0.35 * up);
       }
     }
   }
 
-  /** Fill J (and the frames, palms, jaw, pool) for type t in state st. */
+  /** Fill J (and the frames, palms, jaw, pool) for type t in state st. Every input is sanitised: a missing or
+      non-numeric field acts as its default. */
   function solve(t, st) {
     const b = t.build;
     const g = t.gait;
     let pose = POSES.indexOf(st.pose);
     if (pose < 0) pose = P_WALK;
     if (pose === P_SCREAM && !g.scream) pose = P_BITE;
-    const m = pose === P_CLAW || pose === P_SCREAM ? clamp01(st.move) * 0.25 : clamp01(st.move);
-    const pT = clamp01(st.poseT || 0);
-    let ph = frac(st.gait || 0);
+    // how far into the pose from the walk (the engine ramps it after a pose change)
+    const fall = clamp01(+st.fall);
+    // (a falling body lets go of its pose: a bite or a swipe fades out as the knees give)
+    const pw = (st.poseW == null || !Number.isFinite(+st.poseW) ? 1 : clamp01(+st.poseW)) * (1 - smooth(fall / 0.35));
+    // the stride closes up as the knees give, so a walker shot mid-step does not land with a foot in the air
+    const mv = (Number.isFinite(+st.move) ? clamp01(+st.move) : 0) * (1 - smooth(fall / 0.45));
+    const m = pose === P_CLAW || pose === P_SCREAM ? mv * (1 - 0.75 * pw) : mv;
+    const pT = clamp01(+st.poseT);
+    const cl = Number.isFinite(+st.claw) ? +st.claw : 0;
+    let ph = frac(Number.isFinite(+st.gait) ? +st.gait : 0);
     if (g.jerk) ph = frac(ph + g.jerk * (0.02 * Math.sin(TAU * 3 * ph + SEED * 0.37) + 0.012 * Math.sin(TAU * 7 * ph + SEED * 0.11)));
     const A = TAU * ph;
-    const fall = clamp01(st.fall || 0);
     const hit = st.hit ? 1 : 0;
     const L = b.upper + b.fore;
     const hipH = b.ankle + b.shin + b.thigh;
@@ -346,8 +438,9 @@
     let topple = 0;
     let kneel = 0;
     let spin = 0;
-    let fd = st.fallDir == null ? PI : st.fallDir;
+    let fd = Number.isFinite(+st.fallDir) && st.fallDir !== null ? +st.fallDir : PI;
     let pivot = 0.06;
+    let land = 0; // how far the body has come down flat (a fold stays in a heap)
     if (fall > 0) {
       switch (t.fall) {
         case "tree": // stays rigid and goes over like a felled tree
@@ -384,49 +477,61 @@
           topple = Math.pow(clamp01((fall - 0.3) / 0.7), 1.4);
           pivot = 0.1;
       }
+      // the legs straighten as the body goes over, so it lands lying flat, not with its knees or shins in the air
+      land = smooth(clamp01(topple));
+      buckle *= t.fall === "fold" ? 1 - 0.75 * land : 1 - land;
+      if (t.fall !== "fold") slump *= 1 - land;
     }
-    LYING = clamp01(topple);
+    RG[LYING] = clamp01(topple);
+    // kneeling legs unbend from a third of the way over: the shins swing back under the hips, so they lie flat
+    const kneelLeg = kneel * (1 - smooth((topple - 0.3) / 0.7));
 
-    // pose blends
-    const lunge = pose === P_BITE ? Math.sin(PI * pT) : 0;
-    const scream = pose === P_SCREAM ? smooth(pT / 0.18) * (1 - smooth((pT - 0.82) / 0.18)) : 0;
-    const clawing = pose === P_CLAW ? 1 : 0;
-    const idle = pose === P_IDLE ? 1 : 0;
+    // pose blends (pw: how far into the pose from the walk)
+    const lunge = pose === P_BITE ? Math.sin(PI * pT) * pw : 0;
+    const scream = pose === P_SCREAM ? smooth(pT / 0.18) * (1 - smooth((pT - 0.82) / 0.18)) * pw : 0;
+    const clawing = pose === P_CLAW ? pw : 0;
+    const idle = pose === P_IDLE ? pw : 0;
     const breath = idle ? Math.sin(TAU * pT) : 0;
+    const biting = pose === P_BITE ? pw : 0;
 
     // legs: where each foot is
     const S = g.stride * g.duty * m;
     const q1 = frac(ph + 0.5 + (g.limp || 0));
+    const plant = Math.max(clawing, scream);
     for (let i = 0; i < 2; i++) {
       const s = i ? 1 : -1;
       const drag = s === g.dragSide ? g.drag || 0 : 0;
       footPath(i ? q1 : ph, S * (drag ? 0.8 : 1), g.lift * m, g.duty, drag);
-      if (clawing || scream) {
-        FZ = (i ? -0.04 : 0.06) * b.thigh;
-        FY = 0;
-        FP = 0;
+      if (plant > 0) {
+        // set feet for a swipe or a scream
+        RG[FZ] += ((i ? -0.04 : 0.06) * b.thigh - RG[FZ]) * plant;
+        RG[FY] *= 1 - plant;
+        RG[FP] *= 1 - plant;
       }
       let ax = s * b.footW;
-      let ay = b.ankle + FY;
-      let az = FZ;
-      if (kneel) {
-        az = az * (1 - kneel) - b.shin * 0.92 * kneel;
-        ay = ay * (1 - kneel) + 0.04 * kneel;
-        FP = FP * (1 - kneel) - 1.2 * kneel;
+      let ay = b.ankle + RG[FY];
+      let az = RG[FZ];
+      if (kneelLeg) {
+        az = az * (1 - kneelLeg) - b.shin * 0.92 * kneelLeg;
+        ay = ay * (1 - kneelLeg) + 0.04 * kneelLeg;
+        RG[FP] = RG[FP] * (1 - kneelLeg) - 1.2 * kneelLeg;
       }
       setJ(AN[i], ax, ay, az);
       const to = s * (g.toeOut || 0.1);
       const fl = b.foot;
-      const cp = Math.cos(FP);
-      setJ(TO[i], ax + Math.sin(to) * fl * cp, ay - b.ankle * 0.55 + Math.sin(FP) * fl, az + Math.cos(to) * fl * cp);
+      const cp = Math.cos(RG[FP]);
+      setJ(TO[i], ax + Math.sin(to) * fl * cp, ay - b.ankle * 0.55 + Math.sin(RG[FP]) * fl, az + Math.cos(to) * fl * cp);
     }
 
     // pelvis
     const bob = g.bob * m * (0.5 + 0.5 * Math.cos(2 * A));
     const dip = (g.drag || 0) * 0.03 * m * Math.max(0, Math.sin(A + (g.dragSide > 0 ? PI : 0)));
     let py = hipH * (1 - g.crouch) - bob - dip - buckle * hipH * 0.55;
-    if (idle) py -= 0.006 * (1 + breath);
-    if (kneel) py = py * (1 - kneel) + (b.thigh * 0.96 + 0.05) * kneel;
+    if (idle) py -= 0.006 * (1 + breath) * idle;
+    if (kneelLeg) py = py * (1 - kneelLeg) + (b.thigh * 0.96 + 0.05) * kneelLeg;
+    // lying flat, the legs are straight (no crouch or bob left in the knees)
+    const flatLeg = t.fall === "fold" ? 0 : land;
+    if (flatLeg) py += (b.ankle + (b.thigh + b.shin) * 0.995 - py) * flatLeg;
     const px = g.sway * Math.sin(A) * (0.35 + 0.65 * m);
     const pz = 0.07 * lunge * b.thigh * 2 - 0.03 * scream;
     setJ(PEL, px, py, pz);
@@ -437,14 +542,16 @@
     // torso
     frameSet(TF, null);
     let twist = g.twist * Math.sin(A) * m;
-    if (clawing) twist += 0.18 * Math.sin(TAU * (st.claw || 0));
+    if (clawing) twist += 0.18 * Math.sin(TAU * cl) * clawing;
     rot(TF, 2, 0, twist);
-    let lean = g.lean * (0.55 + 0.45 * m) + 0.35 * lunge + clawing * (0.12 + 0.06 * Math.sin(TAU * 2 * (st.claw || 0))) - 0.38 * scream;
+    let lean = g.lean * (0.55 + 0.45 * m) + 0.35 * lunge + clawing * (0.12 + 0.06 * Math.sin(TAU * 2 * cl)) - 0.38 * scream;
     lean += idle * (0.07 + 0.025 * breath) - hit * 0.14 + g.lean * 0.15 * Math.cos(2 * A) * m;
     const fold = t.fall === "fold";
     lean += fold ? slump : slump * Math.cos(fd); // a fold always jackknifes forward over its knees
-    rot(TF, 1, 2, lean);
-    rot(TF, 1, 0, g.tilt + g.roll * Math.sin(A) * m + (fold ? 0 : slump * Math.sin(fd) * 0.6));
+    // a body lying flat is straight from its feet to its shoulders (else its legs would point up off the floor)
+    const flat = fold ? 0 : land;
+    rot(TF, 1, 2, lean * (1 - flat));
+    rot(TF, 1, 0, (g.tilt + g.roll * Math.sin(A) * m + (fold ? 0 : slump * Math.sin(fd) * 0.6)) * (1 - flat));
     offJ(CHE, PEL, TF, 0, b.torso, 0);
     for (let i = 0; i < 2; i++) {
       const s = i ? 1 : -1;
@@ -484,52 +591,48 @@
     offJ(HED, NEC, HF, 0, b.head[1] * 0.78, -b.head[2] * 0.1);
 
     // jaw
-    JAW = g.jaw + 0.09 * Math.sin(2 * A + 1) * m + 0.55 * lunge + 0.5 * scream + idle * -0.1 + hit * 0.2 + limp * 0.3;
-    if (JAW < 0.05) JAW = 0.05;
+    RG[JAW] = g.jaw + 0.09 * Math.sin(2 * A + 1) * m + 0.55 * lunge + 0.5 * scream + idle * -0.1 + hit * 0.2 + limp * 0.3;
+    if (RG[JAW] < 0.05) RG[JAW] = 0.05;
 
-    // arms
+    // arms: the gait's swing, then each pose blended in by its weight (so a pose change never jumps)
+    const pumpK = g.arms === "pump" ? (1 - idle) * (1 - clawing) * (1 - biting) * (1 - limp) : 0;
     for (let i = 0; i < 2; i++) {
       const s = i ? 1 : -1;
-      if (idle) armSet(0.08 * L, -0.85 * L, (0.14 + 0.02 * breath) * L, 1, 0.5, 0.5, 0.05);
-      else armGait(g, s, A, m, L, ph);
-      if (pose === P_BITE) armBlend(0.3 + 1.4 * lunge, -0.1 * L, 0.04 * L, 0.86 * L, 0, 0.5, 1, 0.55);
+      armGait(g, s, A, m, L, ph);
+      armBlend(idle, 0.08 * L, -0.85 * L, (0.14 + 0.02 * breath) * L, 1, 0.5, 0.5, 0.05);
+      if (biting) armBlend(biting * 0.3 + 1.4 * lunge, -0.1 * L, 0.04 * L, 0.86 * L, 0, 0.5, 1, 0.55);
       if (clawing) {
-        const q = frac((st.claw || 0) + (i ? 0.5 : 0));
+        const q = frac(cl + (i ? 0.5 : 0));
         const k = q < 0.4 ? smooth(q / 0.4) : 1 - smooth((q - 0.4) / 0.6);
-        armSet((0.24 - 0.3 * k) * L, (0.34 - 0.62 * k) * L, (0.38 + 0.24 * k) * L, 0, 0.55, 1, 0.4 * (1 - k));
+        const cu = g.clawUp; // how high over the shoulder the swipe starts (x arm length)
+        armBlend(clawing, (0.24 - 0.3 * k) * L, (cu - (cu + 0.28) * k) * L, (0.38 + 0.24 * k) * L, 0, 0.55, 1, 0.4 * (1 - k));
       }
       armBlend(scream, 0.7 * L, 0.26 * L, 0.16 * L, 0, 0.3, 1.25, 0.75);
       armBlend(limp, 0.16 * L, -0.95 * L, 0.02 * L, 1, 0.3, 0.4, 0);
       // a dropped shoulder's arm hangs lower
-      for (let k = 0; k < 3; k++) J[HA[i] * 3 + k] = J[SH[i] * 3 + k] + TF[k] * s * AR + TF[3 + k] * AU + TF[6 + k] * AF;
-      // elbows bend back, down and out; raised arms bend out
-      const up = clamp01(AU / L + 0.3);
-      const fw = clamp01(AF / L);
-      const eo = 0.55 + 0.3 * up;
-      const eb = (0.55 - 0.25 * up) * (1 - fw);
+      for (let k = 0; k < 3; k++) J[HA[i] * 3 + k] = J[SH[i] * 3 + k] + TF[k] * s * RG[AR] + TF[3 + k] * RG[AU] + TF[6 + k] * RG[AF];
+      // elbows bend back, down and out; raised arms bend out; a sprinter's pumping elbows stay in and go back
+      const up = clamp01(RG[AU] / L + 0.3);
+      const fw = clamp01(RG[AF] / L);
+      const eo = 0.55 + 0.3 * up + (0.25 - 0.55 - 0.3 * up) * pumpK;
+      const eb = (0.55 - 0.25 * up) * (1 - fw) + (0.6 - (0.55 - 0.25 * up) * (1 - fw)) * pumpK;
       const ed = 0.45 + 0.4 * fw;
       const ex = TF[0] * s * eo - TF[6] * eb - TF[3] * ed;
       const ey = TF[1] * s * eo - TF[7] * eb - TF[4] * ed;
       const ez = TF[2] * s * eo - TF[8] * eb - TF[5] * ed;
       ik(SH[i], EL[i], HA[i], b.upper, b.fore, ex, ey, ez);
-      // the palm faces forward (a claw), in toward the leg, or down
+      // the palm faces forward (0, a claw), in toward the leg (1) or down (2); in between blends
       const o = i * 3;
-      if (APALM === 0) {
-        PALM[o] = TF[6] - TF[3] * 0.25;
-        PALM[o + 1] = TF[7] - TF[4] * 0.25;
-        PALM[o + 2] = TF[8] - TF[5] * 0.25;
-      } else if (APALM === 1) {
-        PALM[o] = -TF[0] * s - TF[6] * 0.3;
-        PALM[o + 1] = -TF[1] * s - TF[7] * 0.3;
-        PALM[o + 2] = -TF[2] * s - TF[8] * 0.3;
-      } else {
-        PALM[o] = -TF[3];
-        PALM[o + 1] = -TF[4];
-        PALM[o + 2] = -TF[5];
-      }
-      CURL[i] = ACURL;
-      SPREAD[i] = ASPREAD;
-      WRIST[i] = AWRIST;
+      const pa = RG[APALM] < 0 ? 0 : RG[APALM] > 2 ? 2 : RG[APALM];
+      const w0 = pa < 1 ? 1 - pa : 0;
+      const w2 = pa > 1 ? pa - 1 : 0;
+      const w1 = 1 - w0 - w2;
+      PALM[o] = w0 * (TF[6] - TF[3] * 0.25) + w1 * (-TF[0] * s - TF[6] * 0.3) - w2 * TF[3];
+      PALM[o + 1] = w0 * (TF[7] - TF[4] * 0.25) + w1 * (-TF[1] * s - TF[7] * 0.3) - w2 * TF[4];
+      PALM[o + 2] = w0 * (TF[8] - TF[5] * 0.25) + w1 * (-TF[2] * s - TF[8] * 0.3) - w2 * TF[5];
+      CURL[i] = RG[ACURL];
+      SPREAD[i] = RG[ASPREAD];
+      WRIST[i] = RG[AWRIST];
     }
 
     // reach around each joint (for the fit and the ground)
@@ -549,7 +652,7 @@
     }
 
     // the fall's second stage: the whole body goes over about a point on the ground, toward fd
-    POOL = 0;
+    RG[POOL] = 0;
     if (fall > 0) {
       if (spin) spinAll(spin * (SEED & 1 ? 1 : -1));
       if (topple > 0) {
@@ -557,45 +660,64 @@
         const dz = Math.cos(fd);
         toppleAll(dx, dz, dx * pivot, dz * pivot, topple * PI * 0.5);
       }
-      // limp arms drop toward the ground as the body goes over (gravity, not the torso's down), elbows up
-      const drop = limp * LYING;
-      if (drop > 0.01) {
+      // rest on the ground: nothing below it. The torso by its real thickness the way it lies (on its back: front to
+      // back; on its side: across), a hand by its palm, the rest by their reach. Limp arms are left out here: they are
+      // laid on the floor next (else a body resting on its heap would lift them into the air)
+      const cy = hyp2(b.chest[0] * TF[1], b.chest[1] * TF[7]);
+      const wy = hyp2(b.waist[0] * TF[1], b.waist[1] * TF[7]);
+      const groundR = (j) => (j === CHE ? cy * 1.1 : j === PEL ? Math.max(wy, b.rThigh) * 1.1 : j === HA[0] || j === HA[1] ? b.hand * 0.3 : JR[j]);
+      const drop = limp * RG[LYING];
+      const armsLaid = drop > 0.01;
+      let low = Infinity;
+      for (let j = 0; j < NJ; j++) {
+        if (armsLaid && (j === EL[0] || j === EL[1] || j === HA[0] || j === HA[1])) continue;
+        low = Math.min(low, J[j * 3 + 1] - groundR(j));
+      }
+      if (low < 0) for (let j = 0; j < NJ; j++) J[j * 3 + 1] -= low;
+      // limp arms drop to the ground as the body goes over (gravity, not the torso's down): flung out to the side and
+      // a little down along the body, the elbow bending out along the floor, so they lie flat
+      if (armsLaid) {
+        let lowA = 0;
         for (let i = 0; i < 2; i++) {
           const s = i ? 1 : -1;
           const o = SH[i] * 3;
           const h = HA[i] * 3;
-          const tx = J[o] + TF[0] * s * 0.35 * L + Math.sin(fd) * 0.15 * L;
+          const tx = J[o] + TF[0] * s * 0.8 * L - TF[3] * 0.15 * L;
           const ty = Math.max(b.hand * 0.6, J[o + 1] - 0.9 * L);
-          const tz = J[o + 2] + TF[2] * s * 0.35 * L + Math.cos(fd) * 0.15 * L;
+          const tz = J[o + 2] + TF[2] * s * 0.8 * L - TF[5] * 0.15 * L;
           J[h] += (tx - J[h]) * drop;
           J[h + 1] += (ty - J[h + 1]) * drop;
           J[h + 2] += (tz - J[h + 2]) * drop;
-          ik(SH[i], EL[i], HA[i], b.upper, b.fore, TF[0] * s, 1, TF[2] * s);
+          // the elbow points out along the floor (across the body when it lies on its side)
+          let ox = TF[0] * s;
+          let oz = TF[2] * s;
+          if (ox * ox + oz * oz < 0.09) {
+            ox = TF[5] * s;
+            oz = -TF[3] * s;
+          }
+          ik(SH[i], EL[i], HA[i], b.upper, b.fore, ox, -0.15, oz);
+          lowA = Math.min(lowA, J[EL[i] * 3 + 1] - JR[EL[i]], J[h + 1] - groundR(HA[i]));
         }
+        // an arm still under the floor (the body lying on it) lifts the body
+        if (lowA < 0) for (let j = 0; j < NJ; j++) J[j * 3 + 1] -= lowA;
       }
-      // rest on the ground: nothing below it
-      let low = Infinity;
-      for (let j = 0; j < NJ; j++) low = Math.min(low, J[j * 3 + 1] - JR[j] * (j === PEL || j === CHE ? 1.25 : 1));
-      if (low < 0) for (let j = 0; j < NJ; j++) J[j * 3 + 1] -= low;
       if (GORE) {
-        POOL = b.pool * smooth((fall - 0.15) / 0.85);
-        POOLX = (J[PEL * 3] + J[CHE * 3]) / 2;
-        POOLZ = (J[PEL * 3 + 2] + J[CHE * 3 + 2]) / 2;
+        RG[POOL] = b.pool * smooth((fall - 0.15) / 0.85);
+        RG[POOLX] = (J[PEL * 3] + J[CHE * 3]) / 2;
+        RG[POOLZ] = (J[PEL * 3 + 2] + J[CHE * 3 + 2]) / 2;
       }
     }
   }
   /** Turn every joint, frame and palm about the vertical through the feet. */
-  let RC = 1;
-  let RS = 0;
   function turnY(A, o) {
     const x = A[o];
     const z = A[o + 2];
-    A[o] = x * RC + z * RS;
-    A[o + 2] = z * RC - x * RS;
+    A[o] = x * RG[RC] + z * RG[RS];
+    A[o + 2] = z * RG[RC] - x * RG[RS];
   }
   function spinAll(a) {
-    RC = Math.cos(a);
-    RS = Math.sin(a);
+    RG[RC] = Math.cos(a);
+    RG[RS] = Math.sin(a);
     for (let j = 0; j < NJ; j++) turnY(J, j * 3);
     for (let k = 0; k < 3; k++) {
       turnY(TF, k * 3);
@@ -609,22 +731,20 @@
   }
   /** Rotate everything by angle a about the horizontal axis through the ground point (cx, 0, cz) that tips
       "up" toward (dx, 0, dz). Rodrigues, axis k = up x d = (dz, 0, -dx). */
-  let RKX = 0;
-  let RKZ = 0;
   function turnK(A, o, ox, oz) {
     const x = A[o] - ox;
     const y = A[o + 1];
     const z = A[o + 2] - oz;
-    const kv = RKX * x + RKZ * z;
-    A[o] = ox + x * RC - RKZ * y * RS + RKX * kv * (1 - RC);
-    A[o + 1] = y * RC + (RKZ * x - RKX * z) * RS;
-    A[o + 2] = oz + z * RC + RKX * y * RS + RKZ * kv * (1 - RC);
+    const kv = RG[RKX] * x + RG[RKZ] * z;
+    A[o] = ox + x * RG[RC] - RG[RKZ] * y * RG[RS] + RG[RKX] * kv * (1 - RG[RC]);
+    A[o + 1] = y * RG[RC] + (RG[RKZ] * x - RG[RKX] * z) * RG[RS];
+    A[o + 2] = oz + z * RG[RC] + RG[RKX] * y * RG[RS] + RG[RKZ] * kv * (1 - RG[RC]);
   }
   function toppleAll(dx, dz, cx, cz, a) {
-    RKX = dz;
-    RKZ = -dx;
-    RC = Math.cos(a);
-    RS = Math.sin(a);
+    RG[RKX] = dz;
+    RG[RKZ] = -dx;
+    RG[RC] = Math.cos(a);
+    RG[RS] = Math.sin(a);
     for (let j = 0; j < NJ; j++) turnK(J, j * 3, cx, cz);
     for (let k = 0; k < 3; k++) {
       turnK(TF, k * 3, 0, 0);
@@ -638,83 +758,111 @@
   }
 
   /* ---------- Projection ---------- */
-  let QX = 0;
-  let QY = 0;
-  let QK = 1;
+  /** The perspective scale of a point at depth D (tiles, + away from the camera) in front of the figure's middle. */
+  function kAt(D) {
+    const den = RG[DIST] + D;
+    let k = den > RG[DIST] / K_MAX ? RG[DIST] / den : K_MAX;
+    if (RG[PSC] !== 1) k = 1 + (k - 1) * RG[PSC];
+    return k < K_MIN ? K_MIN : k;
+  }
   /** Model point -> screen (QX, QY) and scale QK (px per tile = PXS * QK). rb: how far the part reaches below the point,
       so nothing is drawn under the floor line. */
   function proj(x, y, z, rb) {
-    const X = -(x * CYAW + z * SYAW);
-    const D = x * SYAW - z * CYAW;
-    const den = DIST + D;
-    let k = den > DIST / K_MAX ? DIST / den : K_MAX;
-    if (k < K_MIN) k = K_MIN;
-    QX = W2 + X * PXS * k * FIT;
-    QY = CH - (EYE - (EYE - y) * k) * PXS * FIT;
+    const X = -(x * RG[CYAW] + z * RG[SYAW]);
+    const k = kAt(x * RG[SYAW] - z * RG[CYAW]);
+    RG[QX] = RG[W2] + X * RG[PXS] * k * RG[FIT];
+    RG[QY] = RG[CH] - (RG[EYE] - (RG[EYE] - y) * k) * RG[PXS] * RG[FIT];
     // nothing under the floor line: a part nearer than the feet sits on it
-    const low = CH - rb * PXS * k * FIT;
-    if (QY > low) QY = low;
-    QK = k * FIT;
+    const low = RG[CH] - rb * RG[PXS] * k * RG[FIT];
+    if (RG[QY] > low) RG[QY] = low;
+    RG[QK] = k * RG[FIT];
   }
   const projJ = (j) => proj(J[j * 3], J[j * 3 + 1], J[j * 3 + 2], JR[j]);
-  const depth = (x, z) => x * SYAW - z * CYAW;
+  const depth = (x, z) => x * RG[SYAW] - z * RG[CYAW];
   const jDepth = (j) => depth(J[j * 3], J[j * 3 + 2]);
   const md3 = (a, b, c) => (jDepth(a) + jDepth(b) + jDepth(c)) / 3;
-  /** Shrink the figure about its feet (FIT < 1) when a pose or a near camera would take it out of the region. */
-  function fit() {
-    FIT = 1;
+
+  /* ---------- Fit: how much a figure is shrunk about its feet to stay inside its region ----------
+     Not from the pose being drawn (an attacker would pulse in size with every swipe, or zoom out each time it starts
+     a bite) but from an envelope of every pose, worked out once per type in addType: the farthest any part reaches
+     from the vertical through the feet (rh), and the highest points against how far out they are (a frontier of
+     (rho, top) pairs). It holds at any yaw, so the size depends only on the type and the camera. The pose being
+     drawn is still checked as a safety net (a falling body; an odd pose between the samples). */
+  const ENV_MAX = 24; // SCALE: most frontier points kept per type (only the outermost few ever matter)
+  /** How much the envelope env lets the figure be drawn (1 = full size) with half-width wlim and the region's height. */
+  function envFit(env, wlim, pad) {
+    const R = env.rh;
     let hx = 0;
-    let top = CH;
-    const pad = 1 + OUT;
-    for (let j = 0; j < NJ; j++) {
-      projJ(j);
-      const r = JR[j] * PXS * QK + pad;
-      hx = Math.max(hx, Math.abs(QX - W2) + r);
-      top = Math.min(top, QY - r);
+    for (let k = 0; k <= 4; k++) {
+      const sn = -k / 4; // from the side round to straight at the camera, where the perspective is biggest
+      const v = R * Math.sqrt(1 - sn * sn) * kAt(R * sn);
+      if (v > hx) hx = v;
+    }
+    let top = 0;
+    for (let i = 0; i < env.n; i++) {
+      const rho = env.rho[i];
+      const y = env.top[i] - RG[EYE];
+      const v = RG[EYE] + y * Math.max(kAt(-rho), kAt(rho));
+      if (v > top) top = v;
     }
     let f = 1;
-    if (hx > W2) f = W2 / hx;
-    if (top < 0) f = Math.min(f, CH / (CH - top));
-    FIT = f;
+    if (hx > 0) f = Math.min(f, (wlim - pad) / (hx * RG[PXS]));
+    if (top > 0) f = Math.min(f, (RG[CH] - pad) / (top * RG[PXS]));
+    return f > 0.05 ? f : 0.05;
+  }
+  function fit() {
+    const pad = 1 + RG[OUT];
+    // the envelope: the region's half-width, but never more than the standing box's (a falling body's wider region
+    // must not make it grow as it starts to fall)
+    RG[FIT_ENV] = envFit(T.env, Math.min(RG[W2], (T.w * RG[PXS]) / 2), pad);
+    // the pose itself, as a safety net
+    RG[FIT] = 1;
+    let hx = 0;
+    let top = RG[CH];
     for (let j = 0; j < NJ; j++) {
       projJ(j);
-      S[j * 3] = QX;
-      S[j * 3 + 1] = QY;
-      S[j * 3 + 2] = QK;
+      const r = JR[j] * RG[PXS] * RG[QK] + pad;
+      hx = Math.max(hx, Math.abs(RG[QX] - RG[W2]) + r);
+      top = Math.min(top, RG[QY] - r);
+    }
+    let f = RG[FIT_ENV];
+    if (hx > RG[W2]) f = Math.min(f, RG[W2] / hx);
+    if (top < 0) f = Math.min(f, RG[CH] / (RG[CH] - top));
+    RG[FIT] = f;
+    for (let j = 0; j < NJ; j++) {
+      projJ(j);
+      S[j * 3] = RG[QX];
+      S[j * 3 + 1] = RG[QY];
+      S[j * 3 + 2] = RG[QK];
     }
   }
 
   /* ---------- Ellipses: an ellipsoid or a flat ellipse in the model, as its outline on screen ---------- */
-  let EX = 0;
-  let EY = 0;
-  let ERA = 1;
-  let ERB = 1;
-  let ERO = 0;
   /** Centre c and up to three half-axis vectors a, b, g (model tiles; pass zeros for a flat one). */
   function ellipsoid(cx, cy, cz, ax, ay, az, bx, by, bz, gx, gy, gz, rb) {
     proj(cx, cy, cz, rb);
-    EX = QX;
-    EY = QY;
-    const K = PXS * QK;
-    const a1 = -(ax * CYAW + az * SYAW) * K;
+    RG[EX] = RG[QX];
+    RG[EY] = RG[QY];
+    const K = RG[PXS] * RG[QK];
+    const a1 = -(ax * RG[CYAW] + az * RG[SYAW]) * K;
     const a2 = -ay * K;
-    const b1 = -(bx * CYAW + bz * SYAW) * K;
+    const b1 = -(bx * RG[CYAW] + bz * RG[SYAW]) * K;
     const b2 = -by * K;
-    const g1 = -(gx * CYAW + gz * SYAW) * K;
+    const g1 = -(gx * RG[CYAW] + gz * RG[SYAW]) * K;
     const g2 = -gy * K;
     const p = a1 * a1 + b1 * b1 + g1 * g1;
     const q = a1 * a2 + b1 * b2 + g1 * g2;
     const r = a2 * a2 + b2 * b2 + g2 * g2;
     const mm = (p + r) / 2;
     const d = Math.sqrt(((p - r) / 2) * ((p - r) / 2) + q * q);
-    ERA = Math.sqrt(Math.max(0.01, mm + d));
-    ERB = Math.sqrt(Math.max(0.01, mm - d));
-    ERO = 0.5 * Math.atan2(2 * q, p - r);
+    RG[ERA] = Math.sqrt(Math.max(0.01, mm + d));
+    RG[ERB] = Math.sqrt(Math.max(0.01, mm - d));
+    RG[ERO] = 0.5 * Math.atan2(2 * q, p - r);
     // keep it above the floor line
-    const sn = Math.sin(ERO);
-    const cs = Math.cos(ERO);
-    const ext = Math.sqrt(ERA * ERA * sn * sn + ERB * ERB * cs * cs);
-    if (EY + ext > CH) EY = CH - ext;
+    const sn = Math.sin(RG[ERO]);
+    const cs = Math.cos(RG[ERO]);
+    const ext = Math.sqrt(RG[ERA] * RG[ERA] * sn * sn + RG[ERB] * RG[ERB] * cs * cs);
+    if (RG[EY] + ext > RG[CH]) RG[EY] = RG[CH] - ext;
   }
   /** An ellipsoid on head frame axes: centre (local r, u, f from joint j's frame F) with radii. */
   function ellF(F, j, r, u, f, ra, rb, rc) {
@@ -737,13 +885,13 @@
   }
   function ellPath(grow) {
     G.beginPath();
-    ellA(EX, EY, ERA + grow, ERB + grow, ERO, 0, TAU);
+    ellA(RG[EX], RG[EY], RG[ERA] + grow, RG[ERB] + grow, RG[ERO], 0, TAU);
   }
   /** Add the current ellipse as its own sub-path (no line from the last point). */
   function ellSub(grow) {
-    ellIn(EX, EY, ERA + grow, ERB + grow, ERO);
-    G.moveTo(ECX + (ERA + grow) * Math.cos(ERO), ECY + (ERA + grow) * Math.sin(ERO));
-    G.ellipse(ECX, ECY, ERA + grow, ERB + grow, ERO, 0, TAU);
+    ellIn(RG[EX], RG[EY], RG[ERA] + grow, RG[ERB] + grow, RG[ERO]);
+    G.moveTo(RG[ECX] + (RG[ERA] + grow) * Math.cos(RG[ERO]), RG[ECY] + (RG[ERA] + grow) * Math.sin(RG[ERO]));
+    G.ellipse(RG[ECX], RG[ECY], RG[ERA] + grow, RG[ERB] + grow, RG[ERO], 0, TAU);
   }
   /** Fill the current ellipse and ink its edge. */
   function ellInk(fill) {
@@ -751,16 +899,16 @@
     G.fillStyle = fill;
     G.fill();
     G.strokeStyle = INKS;
-    G.lineWidth = Math.min(OUT * 2, Math.max(0.8, ERB * 0.4));
+    G.lineWidth = Math.min(RG[OUT] * 2, Math.max(0.8, RG[ERB] * 0.4));
     G.stroke();
   }
   /** A model direction n (unit-ish) faces the camera by this much (-1..1). */
-  const facing = (nx, nz) => nx * TCX + nz * TCZ;
+  const facing = (nx, nz) => nx * RG[TCX] + nz * RG[TCZ];
 
   /* ---------- Path calls, kept inside the region (the fit sizes the figure; these only catch the odd tatter or
      tooth of a body lying near the floor line) ---------- */
-  const clx = (x) => (x < 0 ? 0 : x > CW ? CW : x);
-  const cly = (y) => (y < 0 ? 0 : y > CH ? CH : y);
+  const clx = (x) => (x < 0 ? 0 : x > RG[CW] ? RG[CW] : x);
+  const cly = (y) => (y < 0 ? 0 : y > RG[CH] ? RG[CH] : y);
   function mt(x, y) {
     G.moveTo(clx(x), cly(y));
   }
@@ -770,26 +918,24 @@
   function qt(x1, y1, x, y) {
     G.quadraticCurveTo(clx(x1), cly(y1), clx(x), cly(y));
   }
-  let ECX = 0;
-  let ECY = 0;
   /** Centre (x, y) of an ellipse moved just enough to keep it inside the region. */
   function ellIn(x, y, a, b, r) {
     const c = Math.cos(r);
     const s = Math.sin(r);
     const ex = Math.sqrt(a * a * c * c + b * b * s * s);
     const ey = Math.sqrt(a * a * s * s + b * b * c * c);
-    ECX = ex * 2 >= CW ? W2 : x < ex ? ex : x > CW - ex ? CW - ex : x;
-    ECY = ey * 2 >= CH ? CH / 2 : y < ey ? ey : y > CH - ey ? CH - ey : y;
+    RG[ECX] = ex * 2 >= RG[CW] ? RG[W2] : x < ex ? ex : x > RG[CW] - ex ? RG[CW] - ex : x;
+    RG[ECY] = ey * 2 >= RG[CH] ? RG[CH] / 2 : y < ey ? ey : y > RG[CH] - ey ? RG[CH] - ey : y;
   }
   /** A whole ellipse as its own sub-path (no line from the last point). */
   function elSub(x, y, a, b, r) {
     ellIn(x, y, a, b, r);
-    G.moveTo(ECX + a * Math.cos(r), ECY + a * Math.sin(r));
-    G.ellipse(ECX, ECY, a, b, r, 0, TAU);
+    G.moveTo(RG[ECX] + a * Math.cos(r), RG[ECY] + a * Math.sin(r));
+    G.ellipse(RG[ECX], RG[ECY], a, b, r, 0, TAU);
   }
   function ellA(x, y, a, b, r, a0, a1, ccw) {
     ellIn(x, y, a, b, r);
-    G.ellipse(ECX, ECY, a, b, r, a0, a1, ccw);
+    G.ellipse(RG[ECX], RG[ECY], a, b, r, a0, a1, ccw);
   }
 
   /* ---------- Strokes ---------- */
@@ -804,42 +950,92 @@
     seg(S[a * 3], S[a * 3 + 1], S[b * 3], S[b * 3 + 1]);
   }
   /** The side of a stroke from (x0,y0) to (x1,y1) away from the light, as a unit offset (NX, NY). */
-  let NX = 0;
-  let NY = 0;
   function shadeSide(x0, y0, x1, y1) {
     let dx = x1 - x0;
     let dy = y1 - y0;
-    const l = Math.hypot(dx, dy) || 1;
-    NX = -dy / l;
-    NY = dx / l;
-    if (NX * SLX + NY * SLY > 0) {
-      NX = -NX;
-      NY = -NY;
+    const l = hyp2(dx, dy) || 1;
+    RG[NX] = -dy / l;
+    RG[NY] = dx / l;
+    if (RG[NX] * SLX + RG[NY] * SLY > 0) {
+      RG[NX] = -RG[NX];
+      RG[NY] = -RG[NY];
     }
   }
 
   /* ---------- Ground: the shadow and, when gore is on, the pool under a fallen walker ---------- */
+  /** A disc on the floor, centre (cx, cz), half-axes ra along (ux, uz) (unit) and rb square to it, seen in
+      perspective (from the camera's height its depth shrinks to EYE / DIST of its width), as EX.. . The floor line
+      is the bottom of the region, so a disc that would reach below it is lifted to sit on it (the light is behind
+      the camera, so a shadow falls away from it anyway). */
+  function projG(x, z) {
+    const k = kAt(x * RG[SYAW] - z * RG[CYAW]);
+    RG[GX] = RG[W2] - (x * RG[CYAW] + z * RG[SYAW]) * RG[PXS] * k * RG[FIT];
+    RG[GY] = RG[CH] - RG[EYE] * (1 - k) * RG[PXS] * RG[FIT];
+  }
+  function groundEll(cx, cz, ux, uz, ra, rb) {
+    projG(cx, cz);
+    const x0 = RG[GX];
+    const y0 = RG[GY];
+    projG(cx + ux * ra, cz + uz * ra);
+    let a1 = RG[GX];
+    let a2 = RG[GY];
+    projG(cx - ux * ra, cz - uz * ra);
+    a1 = (a1 - RG[GX]) / 2;
+    a2 = (a2 - RG[GY]) / 2;
+    projG(cx - uz * rb, cz + ux * rb);
+    let b1 = RG[GX];
+    let b2 = RG[GY];
+    projG(cx + uz * rb, cz - ux * rb);
+    b1 = (b1 - RG[GX]) / 2;
+    b2 = (b2 - RG[GY]) / 2;
+    const p = a1 * a1 + b1 * b1;
+    const q = a1 * a2 + b1 * b2;
+    const r = a2 * a2 + b2 * b2;
+    const mm = (p + r) / 2;
+    const d = Math.sqrt(((p - r) / 2) * ((p - r) / 2) + q * q);
+    RG[ERA] = Math.sqrt(Math.max(0.01, mm + d));
+    RG[ERB] = Math.sqrt(Math.max(0.01, mm - d));
+    RG[ERO] = 0.5 * Math.atan2(2 * q, p - r);
+    RG[EX] = x0;
+    const sn = Math.sin(RG[ERO]);
+    const cs = Math.cos(RG[ERO]);
+    const ext = Math.sqrt(RG[ERA] * RG[ERA] * sn * sn + RG[ERB] * RG[ERB] * cs * cs);
+    RG[EY] = Math.min(y0, RG[CH] - ext - 1);
+  }
   function drawGround() {
-    // soft contact shadow under the feet (or the body)
-    const cx = (J[AN[0] * 3] + J[AN[1] * 3]) / 2 * (1 - LYING) + ((J[PEL * 3] + J[CHE * 3]) / 2) * LYING;
-    const cz = (J[AN[0] * 3 + 2] + J[AN[1] * 3 + 2]) / 2 * (1 - LYING) + ((J[PEL * 3 + 2] + J[CHE * 3 + 2]) / 2) * LYING;
-    const r = T.build.shadow * (1 + LYING * 0.9);
-    ellipsoid(cx, 0, cz, r, 0, 0, 0, 0, r * 0.75, 0, 0, 0, 0);
-    shrinkToRegion();
-    G.beginPath();
-    ellA(EX, Math.min(EY, CH - ERB), ERA, ERB, ERO, 0, TAU);
-    G.fillStyle = "rgba(0,0,0,0.32)";
-    G.fill();
-    if (POOL > 0.005) {
-      ellipsoid(POOLX, 0, POOLZ, POOL * 1.15, 0, 0, 0, 0, POOL * 0.8, 0, 0, 0, 0);
+    if (LOD < 2) {
+      // soft contact shadow under the feet (or the body)
+      const cx = ((J[AN[0] * 3] + J[AN[1] * 3]) / 2) * (1 - RG[LYING]) + ((J[PEL * 3] + J[CHE * 3]) / 2) * RG[LYING];
+      const cz = ((J[AN[0] * 3 + 2] + J[AN[1] * 3 + 2]) / 2) * (1 - RG[LYING]) + ((J[PEL * 3 + 2] + J[CHE * 3 + 2]) / 2) * RG[LYING];
+      const r = T.build.shadow * (1 + RG[LYING] * 0.9);
+      groundEll(cx, cz, 1, 0, r, r * 0.75);
       shrinkToRegion();
       G.beginPath();
-      ellA(EX, Math.min(EY, CH - ERB), ERA, ERB, ERO, 0, TAU);
+      ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], 0, TAU);
+      G.fillStyle = "rgba(0,0,0,0.32)";
+      G.fill();
+    }
+    if (RG[POOL] > 0.005) {
+      // longer along the body
+      let ux = J[CHE * 3] - J[PEL * 3];
+      let uz = J[CHE * 3 + 2] - J[PEL * 3 + 2];
+      const ul = hyp2(ux, uz);
+      if (ul > 1e-3) {
+        ux /= ul;
+        uz /= ul;
+      } else {
+        ux = 1;
+        uz = 0;
+      }
+      groundEll(RG[POOLX], RG[POOLZ], ux, uz, RG[POOL] * 1.15, RG[POOL] * 0.8);
+      shrinkToRegion();
+      G.beginPath();
+      ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], 0, TAU);
       G.fillStyle = col(V.blood, 0.8, 0.95);
       G.fill();
       if (LOD < 2) {
         G.beginPath();
-        ellA(EX - ERA * 0.12, Math.min(EY, CH - ERB) - ERB * 0.12, ERA * 0.62, ERB * 0.45, ERO, 0, TAU);
+        ellA(RG[EX] - RG[ERA] * 0.12, RG[EY] - RG[ERB] * 0.12, RG[ERA] * 0.62, RG[ERB] * 0.45, RG[ERO], 0, TAU);
         G.fillStyle = col(V.blood, 1.25, 0.7);
         G.fill();
       }
@@ -847,27 +1043,134 @@
   }
   /** Keep the last ellipse inside the region (the ground ones may be wider than a narrow region). */
   function shrinkToRegion() {
-    const m = OUT + 1;
-    const ext = Math.max(ERA, ERB);
-    const room = Math.min(EX - m, CW - m - EX);
+    const m = RG[OUT] + 1;
+    const ext = Math.max(RG[ERA], RG[ERB]);
+    const room = Math.min(RG[EX] - m, RG[CW] - m - RG[EX]);
     if (ext > room && room > 0.5) {
       const k = room / ext;
-      ERA *= k;
-      ERB *= k;
+      RG[ERA] *= k;
+      RG[ERB] *= k;
     }
-    if (ERB > CH / 2) ERB = CH / 2;
+    if (RG[ERB] > RG[CH] / 2) RG[ERB] = RG[CH] / 2;
   }
 
   /* ---------- Legs ---------- */
+  /** Both legs far away (lod 2): one ink stroke, one trouser stroke and one boot stroke for the pair. */
+  const LL = new Float64Array(28);
+  function legPts(i, o) {
+    const b = T.build;
+    const an = AN[i];
+    const to = TO[i];
+    const kn = KN[i];
+    const ax = J[an * 3];
+    const ay = J[an * 3 + 1];
+    const az = J[an * 3 + 2];
+    const tx = J[to * 3];
+    const ty = J[to * 3 + 1];
+    const tz = J[to * 3 + 2];
+    proj(ax - (tx - ax) * 0.22, ay - b.ankle * 0.45, az - (tz - az) * 0.22, b.rFoot);
+    LL[o] = RG[QX]; // heel
+    LL[o + 1] = RG[QY];
+    proj(tx, ty, tz, b.rFoot);
+    LL[o + 2] = RG[QX]; // toe
+    LL[o + 3] = RG[QY];
+    proj(ax + (J[kn * 3] - ax) * 0.22, ay + (J[kn * 3 + 1] - ay) * 0.22, az + (J[kn * 3 + 2] - az) * 0.22, 0);
+    LL[o + 4] = RG[QX]; // where the trousers stop
+    LL[o + 5] = RG[QY];
+    LL[o + 6] = (b.rThigh + b.rShin) * RG[PXS] * S[kn * 3 + 2];
+    LL[o + 7] = b.rFoot * 2 * RG[PXS] * S[an * 3 + 2];
+  }
+  /** Legs far away (lod 1 and 2): one leg or both (mask bit i). Ink and trousers, the knee rips and pads (lod 1),
+      then the boots' ink and leather: each one call for all of them. Lod 2 boots are just the foot. */
+  function drawLegsLow(mask) {
+    let wl = 0;
+    let wb = 0;
+    for (let i = 0; i < 2; i++) {
+      if (!(mask & (1 << i))) continue;
+      legPts(i, i * 8);
+      wl = Math.max(wl, LL[i * 8 + 6]);
+      wb = Math.max(wb, LL[i * 8 + 7]);
+    }
+    for (let pass = 0; pass < 4; pass++) {
+      if (pass === 2 && LOD === 1) legDecalsLow(mask);
+      G.beginPath();
+      for (let i = 0; i < 2; i++) {
+        if (!(mask & (1 << i))) continue;
+        const o = i * 8;
+        if (pass < 2) {
+          mt(S[HI[i] * 3], S[HI[i] * 3 + 1]);
+          lt(S[KN[i] * 3], S[KN[i] * 3 + 1]);
+          lt(LL[o + 4], LL[o + 5]);
+        } else {
+          if (LOD === 1) {
+            mt(LL[o + 4], LL[o + 5]);
+            lt(S[AN[i] * 3], S[AN[i] * 3 + 1]);
+          }
+          mt(LL[o], LL[o + 1]);
+          lt(LL[o + 2], LL[o + 3]);
+        }
+      }
+      G.strokeStyle = pass === 1 ? col(V.legs || V.pants, 1, 1) : pass === 3 ? col(V.shoe, 1, 1) : INKS;
+      G.lineWidth = pass === 0 ? wl + RG[OUT] * 2 : pass === 1 ? wl : pass === 2 ? wb + RG[OUT] * 2 : wb;
+      G.stroke();
+    }
+  }
+  /** The knee rips (one fill) and knee pads (one fill, one ink) of the legs in mask, far away. */
+  function legDecalsLow(mask) {
+    if (V.kneeRip) {
+      G.beginPath();
+      let any = false;
+      for (let i = 0; i < 2; i++) if (mask & (1 << i) && V.kneeRip[i]) any = ripPath(i, LL[i * 8 + 6], LL[i * 8 + 4], LL[i * 8 + 5]) || any;
+      if (any) {
+        G.fillStyle = col(V.skin, 0.86, 1);
+        G.fill();
+      }
+    }
+    if (V.pads) {
+      G.beginPath();
+      let any = false;
+      for (let i = 0; i < 2; i++) {
+        if (!(mask & (1 << i)) || kneePad(i) <= -0.4) continue;
+        ellSub(0);
+        any = true;
+      }
+      if (any) {
+        G.fillStyle = col(V.pad, 1, 1);
+        G.fill();
+        G.strokeStyle = INKS;
+        G.lineWidth = RG[OUT] * 1.4;
+        G.stroke();
+      }
+    }
+  }
+  /** Knee pad i as EX..; returns how much it faces the camera. */
+  function kneePad(i) {
+    const kn = KN[i] * 3;
+    const r0 = T.build.rShin;
+    ellipsoid(J[kn] + KF[i * 3] * r0 * 0.7, J[kn + 1] + 0.008, J[kn + 2] + KF[i * 3 + 2] * r0 * 0.7, r0 * 0.95, 0, 0, 0, r0 * 1.15, 0, 0, 0, r0 * 0.7, 0);
+    return facing(KF[i * 3], KF[i * 3 + 2]);
+  }
+  /** Adds knee rip i (trouser width wl, the shin's end at bx, by) to the path when it faces the camera. */
+  function ripPath(i, wl, bx, by) {
+    const kn = KN[i];
+    const f = facing(KF[i * 3], KF[i * 3 + 2]) / (hyp3(KF[i * 3], KF[i * 3 + 1], KF[i * 3 + 2]) || 1);
+    if (f <= 0.15) return false;
+    const b = T.build;
+    const r0 = b.rShin * 0.95;
+    proj(J[kn * 3] + KF[i * 3] * r0 * 0.6, J[kn * 3 + 1] - b.shin * 0.1, J[kn * 3 + 2] + KF[i * 3 + 2] * r0 * 0.6, 0);
+    tearPath(RG[QX], RG[QY], S[kn * 3], S[kn * 3 + 1], bx, by, wl * 0.4 * (0.55 + 0.45 * f), wl * 1.05, i * 7 + 3);
+    return true;
+  }
   function drawLeg(i) {
+    if (LOD > 0) return drawLegsLow(LEGPAIR ? 3 : 1 << i);
     const b = T.build;
     const hi = HI[i];
     const kn = KN[i];
     const an = AN[i];
     const to = TO[i];
     const k = S[an * 3 + 2];
-    const wl = (b.rThigh + b.rShin) * PXS * S[kn * 3 + 2];
-    const wb = b.rFoot * 2 * PXS * k;
+    const wl = (b.rThigh + b.rShin) * RG[PXS] * S[kn * 3 + 2];
+    const wb = b.rFoot * 2 * RG[PXS] * k;
     // boot: heel to toe, and the shaft up the shin
     const ax = J[an * 3];
     const ay = J[an * 3 + 1];
@@ -876,18 +1179,18 @@
     const ty = J[to * 3 + 1];
     const tz = J[to * 3 + 2];
     proj(ax - (tx - ax) * 0.22, ay - b.ankle * 0.45, az - (tz - az) * 0.22, b.rFoot);
-    const hx = QX;
-    const hy = QY;
+    const hx = RG[QX];
+    const hy = RG[QY];
     proj(tx, ty, tz, b.rFoot);
-    const ex = QX;
-    const ey = QY;
+    const ex = RG[QX];
+    const ey = RG[QY];
     // the shin's end, where the trousers stop
     const kx = J[kn * 3];
     const ky = J[kn * 3 + 1];
     const kz = J[kn * 3 + 2];
     proj(ax + (kx - ax) * 0.22, ay + (ky - ay) * 0.22, az + (kz - az) * 0.22, 0);
-    const bx = QX;
-    const by = QY;
+    const bx = RG[QX];
+    const by = RG[QY];
     const pants = V.legs || V.pants;
     // trouser leg: ink, then cloth (one path)
     G.beginPath();
@@ -895,49 +1198,31 @@
     lt(S[kn * 3], S[kn * 3 + 1]);
     lt(bx, by);
     G.strokeStyle = INKS;
-    G.lineWidth = wl + OUT * 2;
+    G.lineWidth = wl + RG[OUT] * 2;
     G.stroke();
     G.strokeStyle = col(pants, 1, 1);
     G.lineWidth = wl;
     G.stroke();
-    if (LOD === 2) {
-      G.beginPath();
-      mt(hx, hy);
-      lt(ex, ey);
-      G.strokeStyle = INKS;
-      G.lineWidth = wb + OUT * 2;
-      G.stroke();
-      G.strokeStyle = col(V.shoe, 1, 1);
-      G.lineWidth = wb;
-      G.stroke();
-      return;
-    }
     if (LOD === 0) {
       // shade down the side away from the light
       shadeSide(S[hi * 3], S[hi * 3 + 1], bx, by);
       const o = wl * 0.27;
       G.beginPath();
-      mt(S[hi * 3] + NX * o, S[hi * 3 + 1] + NY * o);
-      lt(S[kn * 3] + NX * o, S[kn * 3 + 1] + NY * o);
-      lt(bx + NX * o, by + NY * o);
+      mt(S[hi * 3] + RG[NX] * o, S[hi * 3 + 1] + RG[NY] * o);
+      lt(S[kn * 3] + RG[NX] * o, S[kn * 3 + 1] + RG[NY] * o);
+      lt(bx + RG[NX] * o, by + RG[NY] * o);
       G.strokeStyle = col(BLACK, 1, 0.22);
       G.lineWidth = wl * 0.42;
       G.stroke();
     }
-    // a rip at the knee: bare, grey-green skin through torn cloth with threads across it
+    // a rip at the knee: bare, grey-green skin through torn cloth
     if (V.kneeRip && V.kneeRip[i]) {
-      const f = facing(KF[i * 3], KF[i * 3 + 2]) / (Math.hypot(KF[i * 3], KF[i * 3 + 1], KF[i * 3 + 2]) || 1);
-      if (f > 0.15) {
-        const r0 = b.rShin * 0.95;
-        proj(kx + KF[i * 3] * r0 * 0.6, ky - b.shin * 0.1, kz + KF[i * 3 + 2] * r0 * 0.6, 0);
-        tear(QX, QY, S[kn * 3], S[kn * 3 + 1], bx, by, wl * 0.4 * (0.55 + 0.45 * f), wl * 1.05, V.skin, i * 7 + 3);
-      }
+      G.beginPath();
+      if (ripPath(i, wl, bx, by)) tearDraw();
     }
     // knee pad (riot gear)
     if (V.pads) {
-      const f = facing(KF[i * 3], KF[i * 3 + 2]);
-      const r0 = b.rShin;
-      ellipsoid(kx + KF[i * 3] * r0 * 0.7, ky + 0.008, kz + KF[i * 3 + 2] * r0 * 0.7, r0 * 0.95, 0, 0, 0, r0 * 1.15, 0, 0, 0, r0 * 0.7, 0);
+      const f = kneePad(i);
       if (f > -0.4) {
         ellInk(col(V.pad, 1 + 0.3 * f, 1));
         if (LOD === 0) shine(0.22);
@@ -948,21 +1233,21 @@
       shadeSide(S[kn * 3], S[kn * 3 + 1], bx, by);
       let dx = bx - S[kn * 3];
       let dy = by - S[kn * 3 + 1];
-      const l = Math.hypot(dx, dy) || 1;
+      const l = hyp2(dx, dy) || 1;
       dx /= l;
       dy /= l;
       G.beginPath();
       for (let n = 0; n < 3; n++) {
         const u = (n / 2 - 0.5) * wl * 0.8;
         const d = wl * (0.18 + 0.22 * rnd(500 + i * 4 + n));
-        mt(bx + NX * u - dx * wl * 0.1, by + NY * u - dy * wl * 0.1);
-        lt(bx + NX * (u + wl * 0.12) + dx * d, by + NY * (u + wl * 0.12) + dy * d);
-        lt(bx + NX * (u + wl * 0.24) - dx * wl * 0.1, by + NY * (u + wl * 0.24) - dy * wl * 0.1);
+        mt(bx + RG[NX] * u - dx * wl * 0.1, by + RG[NY] * u - dy * wl * 0.1);
+        lt(bx + RG[NX] * (u + wl * 0.12) + dx * d, by + RG[NY] * (u + wl * 0.12) + dy * d);
+        lt(bx + RG[NX] * (u + wl * 0.24) - dx * wl * 0.1, by + RG[NY] * (u + wl * 0.24) - dy * wl * 0.1);
       }
       G.fillStyle = col(pants, 0.85, 1);
       G.fill();
       G.strokeStyle = INKS;
-      G.lineWidth = Math.max(0.6, OUT * 0.6);
+      G.lineWidth = Math.max(0.6, RG[OUT] * 0.6);
       G.stroke();
     }
     // boot: ink, then leather (shaft and foot in one path), then the sole and a shine
@@ -972,7 +1257,7 @@
     mt(hx, hy);
     lt(ex, ey);
     G.strokeStyle = INKS;
-    G.lineWidth = wb + OUT * 2;
+    G.lineWidth = wb + RG[OUT] * 2;
     G.stroke();
     G.strokeStyle = col(V.shoe, 1, 1);
     G.lineWidth = wb;
@@ -986,60 +1271,100 @@
       seg(hx - wb * 0.05, hy - wb * 0.24, hx + (ex - hx) * 0.6, hy + (ey - hy) * 0.6 - wb * 0.26);
     }
   }
-  /** A jagged tear at (x, y) across a limb running from (x0,y0) to (x1,y1): skin through it, threads across. */
-  function tear(x, y, x0, y0, x1, y1, rw, rl, skin, salt) {
+  /** A ragged hole torn in the cloth at (x, y) on a limb running from (x0,y0) to (x1,y1): an irregular outline
+      (5 to 7 points, jittered by the seed), skin showing through, the cloth's torn top edge casting a dark band into
+      it and pale frayed threads hanging over its edge. Far away (lod 1) just the hole. */
+  const TEAR = new Float64Array(16);
+  let TN = 0;
+  let TSALT = 0;
+  /** Adds the hole's outline to the path (and keeps it for tearDraw). */
+  function tearPath(x, y, x0, y0, x1, y1, rw, rl, salt) {
     let dx = x1 - x0;
     let dy = y1 - y0;
-    const l = Math.hypot(dx, dy) || 1;
+    const l = hyp2(dx, dy) || 1;
     dx /= l;
     dy /= l;
-    G.beginPath();
-    const n = 10;
+    const n = 5 + Math.floor(rnd(salt) * 3);
     for (let k = 0; k < n; k++) {
-      const a = (k / n) * TAU;
-      const j = k & 1 ? 0.5 + 0.3 * rnd(salt + k) : 1;
-      const u = Math.cos(a) * rw * j;
-      const v = Math.sin(a) * rl * 0.5 * j;
-      const px = x - dy * u + dx * v;
-      const py = y + dx * u + dy * v;
-      if (k) lt(px, py);
-      else mt(px, py);
+      const a = ((k + (rnd(salt + 10 + k) - 0.5) * 0.55) / n) * TAU;
+      const r = 0.62 + 0.38 * rnd(salt + 20 + k);
+      const u = Math.cos(a) * rw * r; // across the limb
+      const v = Math.sin(a) * rl * 0.5 * r; // along it (+ down the limb)
+      TEAR[k * 2] = x - dy * u + dx * v;
+      TEAR[k * 2 + 1] = y + dx * u + dy * v;
     }
+    TN = n;
+    RG[TX] = x;
+    RG[TY] = y;
+    RG[TDX] = dx;
+    RG[TDY] = dy;
+    RG[TRW] = rw;
+    RG[TRL] = rl;
+    TSALT = salt;
+    mt(TEAR[0], TEAR[1]);
+    for (let k = 1; k < n; k++) lt(TEAR[k * 2], TEAR[k * 2 + 1]);
     G.closePath();
-    G.fillStyle = col(skin, 0.86, 1);
+  }
+  /** Fills the hole tearPath just made, then (up close) its ink, the torn edge's shadow and the frayed threads. */
+  function tearDraw() {
+    const n = TN;
+    const x = RG[TX];
+    const y = RG[TY];
+    const dx = RG[TDX];
+    const dy = RG[TDY];
+    const rw = RG[TRW];
+    const rl = RG[TRL];
+    const salt = TSALT;
+    G.fillStyle = col(V.skin, 0.86, 1);
     G.fill();
+    if (LOD > 0) return;
     G.strokeStyle = INKS;
-    G.lineWidth = Math.max(0.7, OUT * 0.8);
+    G.lineWidth = Math.max(0.7, RG[OUT] * 0.8);
     G.stroke();
-    if (LOD === 0) {
-      // white threads left across the hole
-      G.beginPath();
-      for (let t = 0; t < 2; t++) {
-        const v = (t - 0.5) * rl * 0.24 + rl * 0.04;
-        const u = rw * (0.75 - 0.1 * t);
-        mt(x + dy * u + dx * v, y - dx * u + dy * v);
-        lt(x - dy * u + dx * (v + rl * 0.05), y + dx * u + dy * (v + rl * 0.05));
-      }
-      G.strokeStyle = col(V.thread, 1, 0.9);
-      G.lineWidth = Math.max(0.6, OUT * 0.55);
-      G.stroke();
+    // the torn top edge's shadow inside the hole: the points up the limb (v < 0), pulled a little inward
+    G.beginPath();
+    let started = false;
+    for (let k = 0; k <= n; k++) {
+      const i = (k % n) * 2;
+      const v = (TEAR[i] - x) * dx + (TEAR[i + 1] - y) * dy;
+      if (v < rl * 0.08) {
+        const px = x + (TEAR[i] - x) * 0.82 + dx * rl * 0.06;
+        const py = y + (TEAR[i + 1] - y) * 0.82 + dy * rl * 0.06;
+        if (started) lt(px, py);
+        else mt(px, py);
+        started = true;
+      } else started = false;
     }
+    G.strokeStyle = col(BLACK, 1, 0.45);
+    G.lineWidth = Math.max(0.8, rw * 0.32);
+    G.stroke();
+    // frayed threads hanging over the edge, down the limb
+    G.beginPath();
+    for (let k = 0; k < n; k += 2) {
+      const i = k * 2;
+      const fl = rl * (0.12 + 0.14 * rnd(salt + 30 + k));
+      mt(TEAR[i], TEAR[i + 1]);
+      lt(TEAR[i] + dx * fl + (TEAR[i] - x) * 0.12, TEAR[i + 1] + dy * fl + (TEAR[i + 1] - y) * 0.12);
+    }
+    G.strokeStyle = col(V.thread, 1, 0.9);
+    G.lineWidth = Math.max(0.6, RG[OUT] * 0.55);
+    G.stroke();
   }
   /** A soft shine on the upper left of the current ellipse. */
   function shine(a) {
     G.beginPath();
-    ellA(EX - ERA * 0.3 * Math.cos(ERO) + ERB * 0.3 * Math.sin(ERO), EY - ERB * 0.34, ERA * 0.34, ERB * 0.22, ERO, 0, TAU);
+    ellA(RG[EX] - RG[ERA] * 0.3 * Math.cos(RG[ERO]) + RG[ERB] * 0.3 * Math.sin(RG[ERO]), RG[EY] - RG[ERB] * 0.34, RG[ERA] * 0.34, RG[ERB] * 0.22, RG[ERO], 0, TAU);
     G.fillStyle = col(WHITE, 1, a);
     G.fill();
   }
   /** A shadow crescent inside the current ellipse, on the side away from the light. */
   function crescent(a, depth) {
-    const sa = Math.atan2(-SLY, -SLX) - ERO;
-    const dx = -Math.cos(sa + ERO) * ERA * depth;
-    const dy = -Math.sin(sa + ERO) * ERB * depth;
+    const sa = Math.atan2(-SLY, -SLX) - RG[ERO];
+    const dx = -Math.cos(sa + RG[ERO]) * RG[ERA] * depth;
+    const dy = -Math.sin(sa + RG[ERO]) * RG[ERB] * depth;
     G.beginPath();
-    ellA(EX, EY, ERA, ERB, ERO, sa - 1.5, sa + 1.5, false);
-    ellA(EX + dx, EY + dy, ERA * 0.94, ERB * 0.96, ERO, sa + 1.5, sa - 1.5, true);
+    ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], sa - 1.5, sa + 1.5, false);
+    ellA(RG[EX] + dx, RG[EY] + dy, RG[ERA] * 0.94, RG[ERB] * 0.96, RG[ERO], sa + 1.5, sa - 1.5, true);
     G.closePath();
     G.fillStyle = col(BLACK, 1, a);
     G.fill();
@@ -1052,34 +1377,19 @@
     const el = EL[i];
     const ha = HA[i];
     const k = S[el * 3 + 2];
-    const wu = b.rUpper * 2 * PXS * k;
-    const wf = b.rFore * 2 * PXS * k;
+    const wu = b.rUpper * 2 * RG[PXS] * k;
+    const wf = b.rFore * 2 * RG[PXS] * k;
     const sleeve = V.sleeve;
     const skin = V.skin;
     const armCol = sleeve === "long" ? V.sleeveCol || V.shirt : skin;
+    if (LOD > 0) return drawArmsLow(ARMPAIR ? 3 : 1 << i);
     // the hand behind the arm when the arm points away: draw it first
     const handFar = depth(J[ha * 3], J[ha * 3 + 2]) > depth(J[el * 3], J[el * 3 + 2]);
     if (handFar) drawHand(i);
-    if (LOD === 2) {
-      // one stroke for the whole arm
-      const ww = ((wu + wf) / 2) * (b.muscle ? 1.7 : 1);
-      G.beginPath();
-      mt(S[sh * 3], S[sh * 3 + 1]);
-      lt(S[el * 3], S[el * 3 + 1]);
-      lt(S[ha * 3], S[ha * 3 + 1]);
-      G.strokeStyle = INKS;
-      G.lineWidth = ww + OUT * 2;
-      G.stroke();
-      G.strokeStyle = col(armCol, 1, 1);
-      G.lineWidth = ww;
-      G.stroke();
-      if (!handFar) drawHand(i);
-      return;
-    }
     if (b.muscle) {
       // big bare arms: a shoulder cap, a bulging upper arm and forearm (ink first, then skin), each shaded
       for (let pass = 0; pass < 2; pass++) {
-        const grow = pass ? 0 : OUT;
+        const grow = pass ? 0 : RG[OUT];
         G.fillStyle = pass ? col(skin, 1, 1) : INKS;
         G.beginPath();
         muscle(sh, el, 0.08, b.rUpper * 1.25, b.rUpper * 1.22);
@@ -1088,12 +1398,14 @@
         ellSub(grow);
         muscle(el, ha, 0.36, b.fore * 0.64, b.rFore * 1.12);
         ellSub(grow);
+        muscle(el, ha, 0.86, b.fore * 0.24, b.rFore * 0.86);
+        ellSub(grow);
         G.fill();
       }
-      // shade each bulge on its dark side, and (lod 0) a shine on its lit side
+      // shade each bulge on its dark side, and a shine on its lit side
       muscle(el, ha, 0.36, b.fore * 0.64, b.rFore * 1.12);
       crescent(0.24, 0.3);
-      if (LOD === 0) {
+      {
         shine(0.09);
         muscle(sh, el, 0.52, b.upper * 0.6, b.rUpper * 1.02);
         crescent(0.24, 0.3);
@@ -1106,9 +1418,9 @@
         // the line where the shoulder meets the arm
         muscle(sh, el, 0.08, b.rUpper * 1.25, b.rUpper * 1.22);
         G.beginPath();
-        ellA(EX, EY, ERA, ERB, ERO, 0.3, 2.2, false);
+        ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], 0.3, 2.2, false);
         G.strokeStyle = col(INK, 1, 0.55);
-        G.lineWidth = Math.max(0.7, OUT * 0.7);
+        G.lineWidth = Math.max(0.7, RG[OUT] * 0.7);
         G.stroke();
       }
     } else if (LOD === 1) {
@@ -1117,16 +1429,16 @@
       lt(S[el * 3], S[el * 3 + 1]);
       lt(S[ha * 3], S[ha * 3 + 1]);
       G.strokeStyle = INKS;
-      G.lineWidth = (wu + wf) / 2 + OUT * 2;
+      G.lineWidth = (wu + wf) / 2 + RG[OUT] * 2;
       G.stroke();
       G.strokeStyle = col(armCol, 1, 1);
       G.lineWidth = (wu + wf) / 2;
       G.stroke();
     } else {
       G.strokeStyle = INKS;
-      G.lineWidth = wu + OUT * 2;
+      G.lineWidth = wu + RG[OUT] * 2;
       segJ(sh, el);
-      G.lineWidth = wf + OUT * 2;
+      G.lineWidth = wf + RG[OUT] * 2;
       segJ(el, ha);
       G.strokeStyle = col(armCol, 1, 1);
       G.lineWidth = wu;
@@ -1138,9 +1450,9 @@
         G.strokeStyle = col(BLACK, 1, 0.2);
         G.lineWidth = wf * 0.45;
         G.beginPath();
-        mt(S[sh * 3] + NX * wu * 0.28, S[sh * 3 + 1] + NY * wu * 0.28);
-        lt(S[el * 3] + NX * wf * 0.28, S[el * 3 + 1] + NY * wf * 0.28);
-        lt(S[ha * 3] + NX * wf * 0.28, S[ha * 3 + 1] + NY * wf * 0.28);
+        mt(S[sh * 3] + RG[NX] * wu * 0.28, S[sh * 3 + 1] + RG[NY] * wu * 0.28);
+        lt(S[el * 3] + RG[NX] * wf * 0.28, S[el * 3 + 1] + RG[NY] * wf * 0.28);
+        lt(S[ha * 3] + RG[NX] * wf * 0.28, S[ha * 3 + 1] + RG[NY] * wf * 0.28);
         G.stroke();
       }
     }
@@ -1150,7 +1462,7 @@
       const y0 = S[sh * 3 + 1];
       let ux = S[el * 3] - x0;
       let uy = S[el * 3 + 1] - y0;
-      const ul = Math.hypot(ux, uy) || 1;
+      const ul = hyp2(ux, uy) || 1;
       const x1 = x0 + ux * 0.48;
       const y1 = y0 + uy * 0.48;
       ux /= ul;
@@ -1159,8 +1471,8 @@
       // butt ends: the sleeve is cut off, then torn
       G.lineCap = "butt";
       G.strokeStyle = INKS;
-      G.lineWidth = ww + OUT * 2;
-      seg(x0, y0, x1 + ux * OUT, y1 + uy * OUT);
+      G.lineWidth = ww + RG[OUT] * 2;
+      seg(x0, y0, x1 + ux * RG[OUT], y1 + uy * RG[OUT]);
       G.strokeStyle = col(V.shirt, 0.95, 1);
       G.lineWidth = ww;
       seg(x0 - ux * ww * 0.1, y0 - uy * ww * 0.1, x1, y1);
@@ -1179,14 +1491,14 @@
         G.fillStyle = col(V.shirt, 0.95, 1);
         G.fill();
         G.strokeStyle = INKS;
-        G.lineWidth = Math.max(0.6, OUT * 0.7);
+        G.lineWidth = Math.max(0.6, RG[OUT] * 0.7);
         G.stroke();
       }
     } else if (sleeve === "long") {
       const x0 = S[el * 3] + (S[ha * 3] - S[el * 3]) * 0.72;
       const y0 = S[el * 3 + 1] + (S[ha * 3 + 1] - S[el * 3 + 1]) * 0.72;
       G.strokeStyle = INKS;
-      G.lineWidth = wf * 1.3 + OUT * 2;
+      G.lineWidth = wf * 1.3 + RG[OUT] * 2;
       seg(x0, y0, S[ha * 3], S[ha * 3 + 1]);
       G.strokeStyle = col(V.cuff || V.sleeveCol || V.shirt, 0.85, 1);
       G.lineWidth = wf * 1.3;
@@ -1197,15 +1509,12 @@
         const mx = (x0 + S[ha * 3]) / 2;
         const my = (y0 + S[ha * 3 + 1]) / 2;
         shadeSide(x0, y0, S[ha * 3], S[ha * 3 + 1]);
-        seg(mx - NX * wf * 0.62, my - NY * wf * 0.62, mx + NX * wf * 0.62, my + NY * wf * 0.62);
+        seg(mx - RG[NX] * wf * 0.62, my - RG[NY] * wf * 0.62, mx + RG[NX] * wf * 0.62, my + RG[NY] * wf * 0.62);
       }
     }
     if (V.pads) {
       // shoulder pad
-      const o = sh * 3;
-      const s = i ? 1 : -1;
-      const r = b.rUpper;
-      ellipsoid(J[o] + TF[0] * s * r * 0.4 + TF[3] * r * 0.5, J[o + 1] + TF[1] * s * r * 0.4 + TF[4] * r * 0.5, J[o + 2] + TF[2] * s * r * 0.4 + TF[5] * r * 0.5, TF[0] * r * 1.6, TF[1] * r * 1.6, TF[2] * r * 1.6, TF[3] * r * 1.1, TF[4] * r * 1.1, TF[5] * r * 1.1, TF[6] * r * 1.5, TF[7] * r * 1.5, TF[8] * r * 1.5, 0);
+      padEll(i);
       ellInk(col(V.pad, 1, 1));
       if (LOD === 0) shine(0.18);
     }
@@ -1219,6 +1528,175 @@
     }
     if (!handFar) drawHand(i);
   }
+  /** Arms far away (lod 1 and 2): one arm or both (mask bit i set for arm i). Each pass (ink, colour, sleeves, pads,
+      hands) is one canvas call for all of them, which is most of what a far figure costs. */
+  function drawArmsLow(mask) {
+    const b = T.build;
+    const sleeve = V.sleeve;
+    const armCol = sleeve === "long" ? V.sleeveCol || V.shirt : V.skin;
+    let k = 0;
+    for (let i = 0; i < 2; i++) if (mask & (1 << i)) k = Math.max(k, S[EL[i] * 3 + 2]);
+    const wu = b.rUpper * 2 * RG[PXS] * k;
+    const wf = b.rFore * 2 * RG[PXS] * k;
+    if (b.muscle && LOD === 1) {
+      // bulging bare arms: every bulge of every arm in one ink pass, then one skin pass
+      for (let pass = 0; pass < 2; pass++) {
+        const grow = pass ? 0 : RG[OUT];
+        G.beginPath();
+        for (let i = 0; i < 2; i++) {
+          if (!(mask & (1 << i))) continue;
+          muscle(SH[i], EL[i], 0.08, b.rUpper * 1.25, b.rUpper * 1.22);
+          ellSub(grow);
+          muscle(SH[i], EL[i], 0.52, b.upper * 0.6, b.rUpper * 1.02);
+          ellSub(grow);
+          muscle(EL[i], HA[i], 0.36, b.fore * 0.64, b.rFore * 1.12);
+          ellSub(grow);
+          muscle(EL[i], HA[i], 0.86, b.fore * 0.24, b.rFore * 0.86);
+          ellSub(grow);
+        }
+        G.fillStyle = pass ? col(V.skin, 1, 1) : INKS;
+        G.fill();
+      }
+    } else {
+      // one stroke an arm (a muscled arm about as thick as its bulges up close: the same outline at the switch)
+      const ww = ((wu + wf) / 2) * (b.muscle ? 1.12 : 1);
+      G.beginPath();
+      for (let i = 0; i < 2; i++) {
+        if (!(mask & (1 << i))) continue;
+        mt(S[SH[i] * 3], S[SH[i] * 3 + 1]);
+        lt(S[EL[i] * 3], S[EL[i] * 3 + 1]);
+        lt(S[HA[i] * 3], S[HA[i] * 3 + 1]);
+      }
+      G.strokeStyle = INKS;
+      G.lineWidth = ww + RG[OUT] * 2;
+      G.stroke();
+      G.strokeStyle = col(armCol, 1, 1);
+      G.lineWidth = ww;
+      G.stroke();
+    }
+    if (LOD === 1) {
+      if (sleeve === "short") {
+        // a short sleeve, cut off: ink, then cloth
+        const ww = wu * 1.38;
+        G.lineCap = "butt";
+        for (let pass = 0; pass < 2; pass++) {
+          G.beginPath();
+          for (let i = 0; i < 2; i++) {
+            if (!(mask & (1 << i))) continue;
+            const x0 = S[SH[i] * 3];
+            const y0 = S[SH[i] * 3 + 1];
+            let ux = S[EL[i] * 3] - x0;
+            let uy = S[EL[i] * 3 + 1] - y0;
+            const ul = hyp2(ux, uy) || 1;
+            const x1 = x0 + ux * 0.48;
+            const y1 = y0 + uy * 0.48;
+            ux /= ul;
+            uy /= ul;
+            if (pass) {
+              mt(x0 - ux * ww * 0.1, y0 - uy * ww * 0.1);
+              lt(x1, y1);
+            } else {
+              mt(x0, y0);
+              lt(x1 + ux * RG[OUT], y1 + uy * RG[OUT]);
+            }
+          }
+          G.strokeStyle = pass ? col(V.shirt, 0.95, 1) : INKS;
+          G.lineWidth = pass ? ww : ww + RG[OUT] * 2;
+          G.stroke();
+        }
+        G.lineCap = "round";
+      } else if (sleeve === "long") {
+        // the cuff at the wrist
+        for (let pass = 0; pass < 2; pass++) {
+          G.beginPath();
+          for (let i = 0; i < 2; i++) {
+            if (!(mask & (1 << i))) continue;
+            const el = EL[i] * 3;
+            const ha = HA[i] * 3;
+            mt(S[el] + (S[ha] - S[el]) * 0.72, S[el + 1] + (S[ha + 1] - S[el + 1]) * 0.72);
+            lt(S[ha], S[ha + 1]);
+          }
+          G.strokeStyle = pass ? col(V.cuff || V.sleeveCol || V.shirt, 0.85, 1) : INKS;
+          G.lineWidth = pass ? wf * 1.3 : wf * 1.3 + RG[OUT] * 2;
+          G.stroke();
+        }
+      }
+      if (V.pads) {
+        G.beginPath();
+        for (let i = 0; i < 2; i++) {
+          if (!(mask & (1 << i))) continue;
+          padEll(i);
+          ellSub(0);
+        }
+        G.fillStyle = col(V.pad, 1, 1);
+        G.fill();
+        G.strokeStyle = INKS;
+        G.lineWidth = RG[OUT] * 1.4;
+        G.stroke();
+      }
+      // mittens with claw tips: one fill for all, then their outlines and claws in one ink stroke
+      G.beginPath();
+      for (let i = 0; i < 2; i++) {
+        if (!(mask & (1 << i))) continue;
+        handFrame(i);
+        mitten();
+        ellSub(0);
+      }
+      G.fillStyle = col(V.handSkin || V.skin, 1, 1);
+      G.fill();
+      G.beginPath();
+      for (let i = 0; i < 2; i++) {
+        if (!(mask & (1 << i))) continue;
+        handFrame(i);
+        mitten();
+        ellSub(0);
+        const ex = RG[EX];
+        const ey = RG[EY];
+        proj(HPC[0] + HFV[0] * HFV[9] * 0.62, HPC[1] + HFV[1] * HFV[9] * 0.62, HPC[2] + HFV[2] * HFV[9] * 0.62, 0);
+        const tx = RG[QX];
+        const ty = RG[QY];
+        for (let n = -1; n <= 1; n++) {
+          const ox = (tx - ex) * 0.2 * n;
+          const oy = (ty - ey) * 0.2 * n;
+          mt(tx - oy, ty + ox);
+          lt(tx - oy + (tx - ex) * 0.3, ty + ox + (ty - ey) * 0.3);
+        }
+      }
+      G.strokeStyle = INKS;
+      G.lineWidth = Math.max(0.8, RG[OUT]);
+      G.stroke();
+    } else if (b.muscle) {
+      // far away a brute's arm still ends in a big fist
+      G.beginPath();
+      for (let i = 0; i < 2; i++) {
+        if (!(mask & (1 << i))) continue;
+        handFrame(i);
+        ellipsoid(HPC[0], HPC[1], HPC[2], HFV[0] * HFV[9] * 0.55, HFV[1] * HFV[9] * 0.55, HFV[2] * HFV[9] * 0.55, HFV[3] * HFV[10] * 0.55, HFV[4] * HFV[10] * 0.55, HFV[5] * HFV[10] * 0.55, HFV[6] * HFV[9] * 0.3, HFV[7] * HFV[9] * 0.3, HFV[8] * HFV[9] * 0.3, 0);
+        ellSub(0);
+      }
+      G.fillStyle = col(V.skin, 1, 1);
+      G.fill();
+      G.strokeStyle = INKS;
+      G.lineWidth = RG[OUT] * 1.4;
+      G.stroke();
+    }
+  }
+  /** The mitten of the hand handFrame last set, as EX.. */
+  function mitten() {
+    const hl = HFV[9];
+    const hw = HFV[10];
+    const cx = HPC[0] + HFV[0] * hl * 0.22;
+    const cy = HPC[1] + HFV[1] * hl * 0.22;
+    const cz = HPC[2] + HFV[2] * hl * 0.22;
+    ellipsoid(cx, cy, cz, HFV[0] * hl * 0.62, HFV[1] * hl * 0.62, HFV[2] * hl * 0.62, HFV[3] * hw * 0.62, HFV[4] * hw * 0.62, HFV[5] * hw * 0.62, HFV[6] * hl * 0.2, HFV[7] * hl * 0.2, HFV[8] * hl * 0.2, 0);
+  }
+  /** Shoulder pad i as EX.. (riot gear). */
+  function padEll(i) {
+    const o = SH[i] * 3;
+    const s = i ? 1 : -1;
+    const r = T.build.rUpper;
+    ellipsoid(J[o] + TF[0] * s * r * 0.4 + TF[3] * r * 0.5, J[o + 1] + TF[1] * s * r * 0.4 + TF[4] * r * 0.5, J[o + 2] + TF[2] * s * r * 0.4 + TF[5] * r * 0.5, TF[0] * r * 1.6, TF[1] * r * 1.6, TF[2] * r * 1.6, TF[3] * r * 1.1, TF[4] * r * 1.1, TF[5] * r * 1.1, TF[6] * r * 1.5, TF[7] * r * 1.5, TF[8] * r * 1.5, 0);
+  }
   /** A muscle (an ellipsoid along a bone from joint a to b, centred t of the way, half-length hl, radius r). */
   function muscle(a, b, t, hl, r) {
     const ax = J[a * 3];
@@ -1227,7 +1705,7 @@
     let dx = J[b * 3] - ax;
     let dy = J[b * 3 + 1] - ay;
     let dz = J[b * 3 + 2] - az;
-    let l = Math.hypot(dx, dy, dz);
+    let l = hyp3(dx, dy, dz);
     if (l < 1e-6) {
       dx = 0;
       dy = 1;
@@ -1241,7 +1719,7 @@
     let px = dy * TF[8] - dz * TF[7];
     let py = dz * TF[6] - dx * TF[8];
     let pz = dx * TF[7] - dy * TF[6];
-    let pl = Math.hypot(px, py, pz);
+    let pl = hyp3(px, py, pz);
     if (pl < 1e-3) {
       px = TF[0];
       py = TF[1];
@@ -1259,19 +1737,20 @@
 
   // hand scratch: finger points
   const HP = new Float64Array(5 * 4 * 2);
-  function drawHand(i) {
-    if (LOD === 2) return; // far away the arm's round end is the hand
+  const HPC = new Float64Array(3); // the palm's centre (model)
+  const HFV = new Float64Array(11); // fingers' way (0-2), across (3-5), palm normal (6-8), length (9), width (10)
+  /** The hand frame of arm i (into HPC / HFV): the wrist bend, the palm's way, its size (a near hand looms). */
+  function handFrame(i) {
     const b = T.build;
     const el = EL[i];
     const ha = HA[i];
-    const s = i ? 1 : -1;
     const wx = J[ha * 3];
     const wy = J[ha * 3 + 1];
     const wz = J[ha * 3 + 2];
     let dx = wx - J[el * 3];
     let dy = wy - J[el * 3 + 1];
     let dz = wz - J[el * 3 + 2];
-    const dl = Math.hypot(dx, dy, dz) || 1;
+    const dl = hyp3(dx, dy, dz) || 1;
     dx /= dl;
     dy /= dl;
     dz /= dl;
@@ -1283,33 +1762,61 @@
     nx -= nd * dx;
     ny -= nd * dy;
     nz -= nd * dz;
-    let nl = Math.hypot(nx, ny, nz);
+    let nl = hyp3(nx, ny, nz);
     if (nl < 1e-3) {
       nx = -dy;
       ny = dx;
       nz = 0;
-      nl = Math.hypot(nx, ny) || 1;
+      nl = hyp2(nx, ny) || 1;
     }
     nx /= nl;
     ny /= nl;
     nz /= nl;
-    // across the hand: d x n
-    const sx = dy * nz - dz * ny;
-    const sy = dz * nx - dx * nz;
-    const sz = dx * ny - dy * nx;
     // the wrist bends the fingers back (a claw)
     const wb = WRIST[i];
     const cw = Math.cos(wb);
     const sw = Math.sin(wb);
-    const fx = dx * cw - nx * sw;
-    const fy = dy * cw - ny * sw;
-    const fz = dz * cw - nz * sw;
-    const hl = b.hand;
-    const hw = b.hand * 0.82;
-    const pcx = wx + fx * hl * 0.38;
-    const pcy = wy + fy * hl * 0.38;
-    const pcz = wz + fz * hl * 0.38;
-    const k = S[ha * 3 + 2];
+    HFV[0] = dx * cw - nx * sw;
+    HFV[1] = dy * cw - ny * sw;
+    HFV[2] = dz * cw - nz * sw;
+    // across the hand: d x n
+    HFV[3] = dy * nz - dz * ny;
+    HFV[4] = dz * nx - dx * nz;
+    HFV[5] = dx * ny - dy * nx;
+    HFV[6] = nx;
+    HFV[7] = ny;
+    HFV[8] = nz;
+    // a hand near the camera looms (about k^1.5 in all: the projection gives k, this the rest)
+    const kn = S[ha * 3 + 2] / RG[FIT];
+    const hs = kn > 1 ? Math.min(1.3, Math.sqrt(kn)) : 1;
+    HFV[9] = b.hand * hs;
+    // a muscled arm ends in a hand as broad as its forearm, its palm overlapping the wrist (no thin neck there)
+    HFV[10] = (b.muscle ? Math.max(b.hand * 0.82, b.rFore * 2) : b.hand * 0.82) * hs;
+    const po = (b.muscle ? 0.26 : 0.38) * HFV[9];
+    HPC[0] = wx + HFV[0] * po;
+    HPC[1] = wy + HFV[1] * po;
+    HPC[2] = wz + HFV[2] * po;
+  }
+  function drawHand(i) {
+    if (LOD > 0) return; // far away: drawArmsLow draws mittens and fists
+    const b = T.build;
+    const s = i ? 1 : -1;
+    handFrame(i);
+    const fx = HFV[0];
+    const fy = HFV[1];
+    const fz = HFV[2];
+    const sx = HFV[3];
+    const sy = HFV[4];
+    const sz = HFV[5];
+    const nx = HFV[6];
+    const ny = HFV[7];
+    const nz = HFV[8];
+    const hl = HFV[9];
+    const hw = HFV[10];
+    const pcx = HPC[0];
+    const pcy = HPC[1];
+    const pcz = HPC[2];
+    const k = S[HA[i] * 3 + 2];
     const skin = V.handSkin || V.skin;
     if (LOD === 0) {
       // fingers: four long ones and a thumb, two joints each, with dark broken nails
@@ -1324,6 +1831,7 @@
         let uz;
         let l1 = hl * (n === 0 || n === 3 ? 0.44 : 0.52) * (b.finger || 1);
         let l2 = hl * 0.42 * (b.finger || 1);
+        let ln = hl * 0.2; // the nail
         if (n < 4) {
           const t = n / 3 - 0.5;
           bx = pcx + fx * hl * 0.32 + sx * hw * t * 0.9;
@@ -1336,15 +1844,21 @@
           uy = fy * ca + sy * sa;
           uz = fz * ca + sz * sa;
         } else {
-          // the thumb, on the inner side
-          bx = pcx - fx * hl * 0.12 - sx * hw * 0.5 * s;
-          by = pcy - fy * hl * 0.12 - sy * hw * 0.5 * s;
-          bz = pcz - fz * hl * 0.12 - sz * hw * 0.5 * s;
-          ux = fx * 0.55 - sx * 0.7 * s + nx * 0.35;
-          uy = fy * 0.55 - sy * 0.7 * s + ny * 0.35;
-          uz = fz * 0.55 - sz * 0.7 * s + nz * 0.35;
-          l1 *= 0.8;
-          l2 *= 0.75;
+          // the thumb, on the inner side of the palm (s and the across axis keep it there for either hand), angled
+          // along the fingers and curled with them; never longer than about half the hand, whatever the fingers
+          bx = pcx - fx * hl * 0.12 - sx * hw * 0.48 * s;
+          by = pcy - fy * hl * 0.12 - sy * hw * 0.48 * s;
+          bz = pcz - fz * hl * 0.12 - sz * hw * 0.48 * s;
+          ux = fx * 0.8 - sx * 0.45 * s + nx * 0.3;
+          uy = fy * 0.8 - sy * 0.45 * s + ny * 0.3;
+          uz = fz * 0.8 - sz * 0.45 * s + nz * 0.3;
+          const ul = hyp3(ux, uy, uz) || 1;
+          ux /= ul;
+          uy /= ul;
+          uz /= ul;
+          l1 = hl * 0.3;
+          l2 = hl * 0.22;
+          ln = hl * 0.1;
         }
         const c1 = curl * 0.6;
         const c2 = curl * 1.45;
@@ -1356,21 +1870,21 @@
         const e2z = uz * Math.cos(c2) + nz * Math.sin(c2);
         const o = n * 8;
         proj(bx, by, bz, 0);
-        HP[o] = QX;
-        HP[o + 1] = QY;
+        HP[o] = RG[QX];
+        HP[o + 1] = RG[QY];
         proj(m1x, m1y, m1z, 0);
-        HP[o + 2] = QX;
-        HP[o + 3] = QY;
+        HP[o + 2] = RG[QX];
+        HP[o + 3] = RG[QY];
         proj(m1x + e2x * l2, m1y + e2y * l2, m1z + e2z * l2, 0);
-        HP[o + 4] = QX;
-        HP[o + 5] = QY;
-        proj(m1x + e2x * (l2 + hl * 0.2), m1y + e2y * (l2 + hl * 0.2), m1z + e2z * (l2 + hl * 0.2), 0);
-        HP[o + 6] = QX;
-        HP[o + 7] = QY;
+        HP[o + 4] = RG[QX];
+        HP[o + 5] = RG[QY];
+        proj(m1x + e2x * (l2 + ln), m1y + e2y * (l2 + ln), m1z + e2z * (l2 + ln), 0);
+        HP[o + 6] = RG[QX];
+        HP[o + 7] = RG[QY];
       }
       ellipsoid(pcx, pcy, pcz, fx * hl * 0.44, fy * hl * 0.44, fz * hl * 0.44, sx * hw * 0.52, sy * hw * 0.52, sz * hw * 0.52, nx * hl * 0.16, ny * hl * 0.16, nz * hl * 0.16, 0);
       ellInk(col(skin, 1, 1));
-      const fw = Math.max(0.9, hl * 0.23 * PXS * k);
+      const fw = Math.max(0.9, hl * 0.23 * RG[PXS] * k);
       G.beginPath();
       for (let n = 0; n < 5; n++) {
         const o = n * 8;
@@ -1379,7 +1893,7 @@
         lt(HP[o + 4], HP[o + 5]);
       }
       G.strokeStyle = INKS;
-      G.lineWidth = fw + OUT * 1.1;
+      G.lineWidth = fw + RG[OUT] * 1.1;
       G.stroke();
       G.strokeStyle = col(skin, 0.95, 1);
       G.lineWidth = fw;
@@ -1393,29 +1907,6 @@
       G.strokeStyle = col(V.nail, 1, 1);
       G.lineWidth = Math.max(0.8, fw * 0.7);
       G.stroke();
-    } else if (LOD === 1) {
-      // a mitten with claw tips
-      const cx = pcx + fx * hl * 0.22;
-      const cy = pcy + fy * hl * 0.22;
-      const cz = pcz + fz * hl * 0.22;
-      ellipsoid(cx, cy, cz, fx * hl * 0.62, fy * hl * 0.62, fz * hl * 0.62, sx * hw * 0.62, sy * hw * 0.62, sz * hw * 0.62, nx * hl * 0.2, ny * hl * 0.2, nz * hl * 0.2, 0);
-      ellInk(col(skin, 1, 1));
-      proj(cx + fx * hl * 0.62, cy + fy * hl * 0.62, cz + fz * hl * 0.62, 0);
-      const tx = QX;
-      const ty = QY;
-      G.strokeStyle = col(V.nail, 1, 1);
-      G.lineWidth = Math.max(0.8, OUT);
-      G.beginPath();
-      for (let n = -1; n <= 1; n++) {
-        const ox = (tx - EX) * 0.2 * n;
-        const oy = (ty - EY) * 0.2 * n;
-        mt(tx - oy, ty + ox);
-        lt(tx - oy + (tx - EX) * 0.3, ty + ox + (ty - EY) * 0.3);
-      }
-      G.stroke();
-    } else {
-      ellipsoid(pcx, pcy, pcz, fx * hl * 0.6, fy * hl * 0.6, fz * hl * 0.6, sx * hw * 0.6, sy * hw * 0.6, sz * hw * 0.6, 0, 0, 0, 0);
-      ellInk(col(skin, 1, 1));
     }
   }
 
@@ -1424,10 +1915,10 @@
   const TR = new Float64Array(16);
   function ringExtent(cx, cy, cz, a, bb, nx, ny) {
     proj(cx, cy, cz, 0);
-    const K = PXS * QK;
-    const r1 = -(TF[0] * CYAW + TF[2] * SYAW) * K * a;
+    const K = RG[PXS] * RG[QK];
+    const r1 = -(TF[0] * RG[CYAW] + TF[2] * RG[SYAW]) * K * a;
     const r2 = -TF[1] * K * a;
-    const f1 = -(TF[6] * CYAW + TF[8] * SYAW) * K * bb;
+    const f1 = -(TF[6] * RG[CYAW] + TF[8] * RG[SYAW]) * K * bb;
     const f2 = -TF[7] * K * bb;
     const pr = nx * r1 + ny * r2;
     const pf = nx * f1 + ny * f2;
@@ -1435,9 +1926,6 @@
   }
   /** A point on the torso's surface: angle th around (0 = front, + toward its right), v 0 (waist) .. 1 (chest);
       sets QX/QY and returns how much its surface faces the camera (-1..1). Off pushes it out from the surface. */
-  let SFX = 0;
-  let SFY = 0;
-  let SFZ = 0;
   function torsoPoint(th, v, off) {
     const b = T.build;
     const a = b.waist[0] + (b.chest[0] - b.waist[0]) * Math.pow(clamp01(v), 0.8) + off;
@@ -1446,20 +1934,20 @@
     const sn = Math.sin(th);
     const cs = Math.cos(th);
     const o = PEL * 3;
-    SFX = J[o] + TF[3] * u + TF[0] * a * sn + TF[6] * bb * cs;
-    SFY = J[o + 1] + TF[4] * u + TF[1] * a * sn + TF[7] * bb * cs;
-    SFZ = J[o + 2] + TF[5] * u + TF[2] * a * sn + TF[8] * bb * cs;
-    proj(SFX, SFY, SFZ, 0);
+    RG[SFX] = J[o] + TF[3] * u + TF[0] * a * sn + TF[6] * bb * cs;
+    RG[SFY] = J[o + 1] + TF[4] * u + TF[1] * a * sn + TF[7] * bb * cs;
+    RG[SFZ] = J[o + 2] + TF[5] * u + TF[2] * a * sn + TF[8] * bb * cs;
+    proj(RG[SFX], RG[SFY], RG[SFZ], 0);
     const nx = TF[0] * (sn / a) + TF[6] * (cs / bb);
     const nz = TF[2] * (sn / a) + TF[8] * (cs / bb);
     const ny = TF[1] * (sn / a) + TF[7] * (cs / bb);
-    return facing(nx, nz) / (Math.hypot(nx, ny, nz) || 1);
+    return facing(nx, nz) / (hyp3(nx, ny, nz) || 1);
   }
   const TP = new Float64Array(64);
   let TPN = 0;
   function tpSet(i, x, y) {
     TP[i * 2] = x;
-    TP[i * 2 + 1] = y < CH - OUT ? y : CH - OUT;
+    TP[i * 2 + 1] = y < RG[CH] - RG[OUT] ? y : RG[CH] - RG[OUT];
   }
   /** The torso's outline from TP: up the left side, over the shoulders and the neck, down the right, the hem. */
   function torsoPath() {
@@ -1483,15 +1971,15 @@
     const hem = V.hem;
     // rings: hem (hangs straight down), waist, chest, and the shoulder line
     proj(J[o], J[o + 1] - hem, J[o + 2], 0);
-    const h0x = QX;
-    const h0y = QY;
+    const h0x = RG[QX];
+    const h0y = RG[QY];
     proj(J[CHE * 3], J[CHE * 3 + 1], J[CHE * 3 + 2], 0);
-    const h3x = QX;
-    const h3y = QY;
-    const k3 = QK;
+    const h3x = RG[QX];
+    const h3y = RG[QY];
+    const k3 = RG[QK];
     let ax = h3x - h0x;
     let ay = h3y - h0y;
-    let al = Math.hypot(ax, ay);
+    let al = hyp2(ax, ay);
     if (al < 1e-3) {
       ax = 0;
       ay = -1;
@@ -1501,18 +1989,18 @@
     ay /= al;
     const nx = -ay;
     const ny = ax;
-    const flare = hem > 0.12 ? 1.25 : 1;
+    const flare = hem > 0.12 ? (V.flare == null ? 1.25 : V.flare) : 1;
     const e0 = ringExtent(J[o], J[o + 1] - hem, J[o + 2], b.waist[0] * flare, b.waist[1] * flare, nx, ny);
-    TR[0] = QX;
-    TR[1] = QY;
+    TR[0] = RG[QX];
+    TR[1] = RG[QY];
     const u1 = b.torso * 0.18;
     const e1 = ringExtent(J[o] + TF[3] * u1, J[o + 1] + TF[4] * u1, J[o + 2] + TF[5] * u1, b.waist[0], b.waist[1], nx, ny);
-    TR[2] = QX;
-    TR[3] = QY;
+    TR[2] = RG[QX];
+    TR[3] = RG[QY];
     const u2 = b.torso * 0.8;
     const e2 = ringExtent(J[o] + TF[3] * u2, J[o + 1] + TF[4] * u2, J[o + 2] + TF[5] * u2, b.chest[0], b.chest[1], nx, ny);
-    TR[4] = QX;
-    TR[5] = QY;
+    TR[4] = RG[QX];
+    TR[5] = RG[QY];
     const e3 = ringExtent(J[CHE * 3], J[CHE * 3 + 1], J[CHE * 3 + 2], b.shW + b.rUpper * 0.6, b.chest[1] * 0.9, nx, ny);
     // a long garment also covers the legs at its hem
     let eL = e0;
@@ -1525,13 +2013,13 @@
         const lx = S[HI[i] * 3] + (S[KN[i] * 3] - S[HI[i] * 3]) * f;
         const ly = S[HI[i] * 3 + 1] + (S[KN[i] * 3 + 1] - S[HI[i] * 3 + 1]) * f;
         const pos = (lx - h0x) * nx + (ly - h0y) * ny;
-        const r = b.rThigh * PXS * S[KN[i] * 3 + 2] * 1.25;
+        const r = b.rThigh * RG[PXS] * S[KN[i] * 3 + 2] * 1.25;
         eR = Math.max(eR, pos + r);
         eL = Math.max(eL, -pos + r);
       }
     }
-    const rise = b.rise * PXS * k3;
-    const neck = b.rNeck * PXS * k3 * 1.15;
+    const rise = b.rise * RG[PXS] * k3;
+    const neck = b.rNeck * RG[PXS] * k3 * 1.15;
     const shirt = V.shirt;
     // outline: left side up, over the shoulders, down the right side, then the ragged hem back
     tpSet(0, h0x - nx * eL, h0y - ny * eL);
@@ -1539,15 +2027,18 @@
     tpSet(2, TR[4] - nx * e2, TR[5] - ny * e2);
     tpSet(3, h3x - nx * e3 * 1.02 + ax * rise * 0.35, h3y - ny * e3 * 1.02 + ay * rise * 0.35);
     tpSet(4, h3x - nx * e3 * 0.62 + ax * rise, h3y - ny * e3 * 0.62 + ay * rise);
-    tpSet(5, h3x - nx * neck + ax * rise * 1.15, h3y - ny * neck + ay * rise * 1.15);
-    tpSet(6, h3x + nx * neck + ax * rise * 1.15, h3y + ny * neck + ay * rise * 1.15);
+    // the neck notch: up the neck seen from the front; from behind, with the head behind the shoulders, a valley
+    // between the traps where the neck rises into the back of the head
+    const rn = HEADBACK ? 0.62 : 1.15;
+    tpSet(5, h3x - nx * neck + ax * rise * rn, h3y - ny * neck + ay * rise * rn);
+    tpSet(6, h3x + nx * neck + ax * rise * rn, h3y + ny * neck + ay * rise * rn);
     tpSet(7, h3x + nx * e3 * 0.62 + ax * rise, h3y + ny * e3 * 0.62 + ay * rise);
     tpSet(8, h3x + nx * e3 * 1.02 + ax * rise * 0.35, h3y + ny * e3 * 1.02 + ay * rise * 0.35);
     tpSet(9, TR[4] + nx * e2, TR[5] + ny * e2);
     tpSet(10, TR[2] + nx * e1, TR[3] + ny * e1);
     tpSet(11, h0x + nx * eR, h0y + ny * eR);
     TPN = LOD === 2 ? 0 : 7;
-    const jag = (V.jag || 0.03) * PXS * k3;
+    const jag = (V.jag || 0.03) * RG[PXS] * k3;
     for (let k = 1; k <= TPN; k++) {
       const t = k / (TPN + 1);
       const d = k & 1 ? jag * (0.5 + rnd(80 + k)) : -jag * 0.2;
@@ -1557,13 +2048,13 @@
     // ink, then cloth over its inner half (one path; the decals go on top and never cover the outline)
     torsoPath();
     G.strokeStyle = INKS;
-    G.lineWidth = OUT * 3;
+    G.lineWidth = RG[OUT] * 3;
     G.stroke();
     G.fillStyle = col(shirt, 1, 1);
     G.fill();
     if (LOD === 2) return;
-    // shade on the side away from the light
-    if (LOD < 2) {
+    // shade on the side away from the light (up close)
+    if (LOD === 0) {
       const sd = nx * SLX + ny * SLY > 0 ? -1 : 1;
       G.beginPath();
       mt(h0x + nx * sd * (sd > 0 ? eR : eL), h0y + ny * sd * (sd > 0 ? eR : eL));
@@ -1592,8 +2083,8 @@
         const v = rnd(110 + n);
         const f = torsoPoint(th, v, 0);
         if (f < 0.25) continue;
-        const r = (0.018 + 0.02 * rnd(120 + n)) * PXS * QK;
-        elSub(QX, QY, r, r * (0.5 + 0.4 * f), rnd(130 + n) * 3);
+        const r = (0.018 + 0.02 * rnd(120 + n)) * RG[PXS] * RG[QK];
+        elSub(RG[QX], RG[QY], r, r * (0.5 + 0.4 * f), rnd(130 + n) * 3);
         any = true;
       }
       if (any) {
@@ -1608,18 +2099,18 @@
         G.beginPath();
         for (let k = 0; k <= 4; k++) {
           torsoPoint(PI - 0.32 + (k & 1) * 0.08, k / 4, 0.003);
-          if (k) lt(QX, QY);
-          else mt(QX, QY);
+          if (k) lt(RG[QX], RG[QY]);
+          else mt(RG[QX], RG[QY]);
         }
         for (let k = 4; k >= 0; k--) {
           torsoPoint(PI + 0.32 - (k & 1) * 0.08, k / 4, 0.003);
-          lt(QX, QY);
+          lt(RG[QX], RG[QY]);
         }
         G.closePath();
         G.fillStyle = col(look.skin, 0.8, 1);
         G.fill();
         G.strokeStyle = INKS;
-        G.lineWidth = OUT;
+        G.lineWidth = RG[OUT];
         G.stroke();
       }
     }
@@ -1628,26 +2119,26 @@
       if (torsoPoint(0, 0.2, 0) > 0.3) {
         G.beginPath();
         torsoPoint(-0.55, 0.02, 0.003);
-        mt(QX, QY);
+        mt(RG[QX], RG[QY]);
         torsoPoint(-0.4, 0.3, 0.003);
-        lt(QX, QY);
+        lt(RG[QX], RG[QY]);
         torsoPoint(0.4, 0.3, 0.003);
-        lt(QX, QY);
+        lt(RG[QX], RG[QY]);
         torsoPoint(0.55, 0.02, 0.003);
-        lt(QX, QY);
+        lt(RG[QX], RG[QY]);
         G.strokeStyle = col(BLACK, 1, 0.45);
-        G.lineWidth = Math.max(0.8, OUT);
+        G.lineWidth = Math.max(0.8, RG[OUT]);
         G.stroke();
         if (LOD === 0) {
           G.beginPath();
           for (let s = -1; s <= 1; s += 2) {
             torsoPoint(s * 0.16, 1.05, 0.004);
-            mt(QX, QY);
+            mt(RG[QX], RG[QY]);
             torsoPoint(s * 0.13, 0.62 + 0.05 * s, 0.004);
-            lt(QX, QY);
+            lt(RG[QX], RG[QY]);
           }
           G.strokeStyle = col(look.string || [200, 196, 186], 0.8, 1);
-          G.lineWidth = Math.max(0.8, OUT * 0.8);
+          G.lineWidth = Math.max(0.8, RG[OUT] * 0.8);
           G.stroke();
         }
       }
@@ -1658,27 +2149,38 @@
         for (let s = -1; s <= 1; s += 2) {
           if (torsoPoint(s * 0.55, 0.5, 0) < 0.15) continue;
           torsoPoint(s * 0.55, 0.05, 0.003);
-          mt(QX, QY);
+          mt(RG[QX], RG[QY]);
           torsoPoint(s * 0.45, 1, 0.003);
-          lt(QX, QY);
+          lt(RG[QX], RG[QY]);
           any = true;
         }
         if (torsoPoint(0, 0.45, 0) > 0.2) {
           torsoPoint(-0.7, 0.42, 0.003);
-          mt(QX, QY);
+          mt(RG[QX], RG[QY]);
           torsoPoint(0.7, 0.42, 0.003);
-          lt(QX, QY);
+          lt(RG[QX], RG[QY]);
           any = true;
         }
         if (any) {
           G.strokeStyle = col(BLACK, 1, 0.4);
-          G.lineWidth = Math.max(0.8, OUT);
+          G.lineWidth = Math.max(0.8, RG[OUT]);
           G.stroke();
         }
       }
     }
     if (look.bands) {
-      for (let r = 0; r < 2; r++) band(r ? 0.62 : 0.05, look);
+      // both bands in one path: yellow, then (up close) the silver stripe down their middle
+      G.beginPath();
+      if (band(0.05) + band(0.62)) {
+        G.strokeStyle = col(look.band, 1, 1);
+        G.lineWidth = Math.max(1.2, 0.03 * RG[PXS] * RG[QK]);
+        G.stroke();
+        if (LOD === 0) {
+          G.strokeStyle = col(look.band2, 1, 1);
+          G.lineWidth = Math.max(0.7, 0.011 * RG[PXS] * RG[QK]);
+          G.stroke();
+        }
+      }
     }
     // a low scooped neckline (deep at the front, shallow at the back): skin up over the traps
     if (look.neckline) {
@@ -1689,16 +2191,16 @@
         G.beginPath();
         for (let k = 0; k < NECKLINE.length; k += 2) {
           torsoPoint(c + NECKLINE[k], k === 0 || k === NECKLINE.length - 2 ? 1.32 : k === 2 || k === NECKLINE.length - 4 ? 1.02 : v0 + (1 - v0) * NECKLINE[k + 1], 0.003);
-          if (k) lt(QX, QY);
-          else mt(QX, QY);
+          if (k) lt(RG[QX], RG[QY]);
+          else mt(RG[QX], RG[QY]);
         }
         torsoPoint(c, 1.42, 0.003);
-        lt(QX, QY);
+        lt(RG[QX], RG[QY]);
         G.closePath();
         G.fillStyle = col(look.skin, 0.96, 1);
         G.fill();
         G.strokeStyle = INKS;
-        G.lineWidth = OUT * 1.4;
+        G.lineWidth = RG[OUT] * 1.4;
         G.stroke();
       }
     }
@@ -1707,7 +2209,7 @@
     if (look.rip2) ripDecal(look.rip2[0], look.rip2[1], look.rip2[2], look);
     // smears: blood when gore is on, grime when off: a blotch with a drip running down from it
     if (look.smears) {
-      const r0 = 0.02 * PXS * QK;
+      const r0 = 0.02 * RG[PXS] * RG[QK];
       G.beginPath();
       let any = false;
       for (let n = 0; n < look.smears; n++) {
@@ -1716,24 +2218,26 @@
         const f = torsoPoint(th, v, 0.002);
         if (f < 0.3) continue;
         const r = r0 * (0.7 + 0.8 * rnd(170 + n));
-        const x0 = QX;
-        const y0 = QY;
+        const x0 = RG[QX];
+        const y0 = RG[QY];
         elSub(x0, y0, r, r * (0.45 + 0.35 * f), rnd(175 + n) * 3);
         any = true;
       }
       if (any) {
         G.fillStyle = goreCol(0.85, 0.62);
         G.fill();
+      }
+      if (any && LOD === 0) {
         G.beginPath();
         for (let n = 0; n < look.smears; n++) {
           const th = (rnd(150 + n) - 0.5) * 2.6;
           const v = 0.15 + 0.8 * rnd(160 + n);
           if (torsoPoint(th, v, 0.002) < 0.3 || (n & 1)) continue;
-          const x0 = QX;
-          const y0 = QY;
+          const x0 = RG[QX];
+          const y0 = RG[QY];
           torsoPoint(th + 0.04, v - 0.25 - 0.2 * rnd(180 + n), 0.002);
           mt(x0, y0);
-          lt(QX, QY);
+          lt(RG[QX], RG[QY]);
         }
         G.strokeStyle = goreCol(0.8, 0.6);
         G.lineWidth = Math.max(0.8, r0 * 0.45);
@@ -1744,27 +2248,18 @@
   // the neckline's points: angle round, share of the way from the scoop's bottom up to the chest line
   const NECKLINE = [-0.85, 0, -0.6, 0, -0.32, 0.35, 0, 0, 0.32, 0.35, 0.6, 0, 0.85, 0];
   /** A reflective band round the coat at height v: the part facing the camera. */
-  function band(v, look) {
+  function band(v) {
     let started = false;
-    G.beginPath();
     for (let k = 0; k <= 12; k++) {
       const th = -PI + (k / 12) * TAU;
       const f = torsoPoint(th, v, 0.004);
       if (f > 0.05) {
-        if (started) lt(QX, QY);
-        else mt(QX, QY);
+        if (started) lt(RG[QX], RG[QY]);
+        else mt(RG[QX], RG[QY]);
         started = true;
       } else if (started) break;
     }
-    if (!started) return;
-    G.strokeStyle = col(look.band, 1, 1);
-    G.lineWidth = Math.max(1.2, 0.03 * PXS * QK);
-    G.stroke();
-    if (LOD === 0) {
-      G.strokeStyle = col(look.band2, 1, 1);
-      G.lineWidth = Math.max(0.7, 0.011 * PXS * QK);
-      G.stroke();
-    }
+    return started ? 1 : 0;
   }
   // rip outline offsets (angle, height), jagged
   const RIP = [-0.5, 0, -0.32, 0.38, -0.12, 0.3, 0.02, 0.5, 0.2, 0.36, 0.42, 0.42, 0.3, 0.05, 0.46, -0.22, 0.2, -0.36, 0.04, -0.5, -0.16, -0.32, -0.36, -0.42];
@@ -1776,20 +2271,21 @@
     G.beginPath();
     for (let k = 0; k < RIP.length; k += 2) {
       torsoPoint(th0 + RIP[k] * sw, v0 + RIP[k + 1] * sv, 0.002);
-      if (k) lt(QX, QY);
-      else mt(QX, QY);
+      if (k) lt(RG[QX], RG[QY]);
+      else mt(RG[QX], RG[QY]);
     }
     G.closePath();
     G.fillStyle = GORE && look.ribs ? col(look.flesh, 1, 1) : col(look.skin, 0.72, 1);
     G.fill();
+    if (LOD > 0) return;
     G.strokeStyle = INKS;
-    G.lineWidth = Math.max(0.8, OUT * 1.2);
+    G.lineWidth = Math.max(0.8, RG[OUT] * 1.2);
     G.stroke();
     if (LOD === 0 && GORE && look.ribs) {
       // the hole is deep: dark under its top edge
       torsoPoint(th0 + 0.04 * sw, v0 + 0.3 * sv, 0.003);
       G.beginPath();
-      ellA(QX, QY, T.build.chest[0] * sw * 0.32 * PXS * QK, T.build.torso * 0.62 * sv * 0.12 * PXS * QK, 0.1, 0, TAU);
+      ellA(RG[QX], RG[QY], T.build.chest[0] * sw * 0.32 * RG[PXS] * RG[QK], T.build.torso * 0.62 * sv * 0.12 * RG[PXS] * RG[QK], 0.1, 0, TAU);
       G.fillStyle = col(BLACK, 1, 0.45);
       G.fill();
       // ribs: thin pale curved bars across the hole, lightly inked, ends tucked under the cloth
@@ -1797,15 +2293,15 @@
       for (let r = 0; r < 4; r++) {
         const v = v0 + (0.27 - r * 0.19) * sv;
         torsoPoint(th0 - 0.3 * sw, v - 0.05 * sv, 0.004);
-        mt(QX, QY);
+        mt(RG[QX], RG[QY]);
         torsoPoint(th0 - 0.02 * sw, v + 0.03 * sv, 0.004);
-        lt(QX, QY);
+        lt(RG[QX], RG[QY]);
         torsoPoint(th0 + 0.28 * sw, v - 0.03 * sv, 0.004);
-        lt(QX, QY);
+        lt(RG[QX], RG[QY]);
       }
-      const rw = Math.max(0.9, 0.0065 * PXS * QK);
+      const rw = Math.max(0.9, 0.0065 * RG[PXS] * RG[QK]);
       G.strokeStyle = col(INK, 1, 0.8);
-      G.lineWidth = rw + OUT * 0.8;
+      G.lineWidth = rw + RG[OUT] * 0.8;
       G.stroke();
       G.strokeStyle = col(look.bone, 1, 1);
       G.lineWidth = rw;
@@ -1813,21 +2309,21 @@
       // fresh blood round the edge
       G.beginPath();
       torsoPoint(th0 + 0.1 * sw, v0 - 0.45 * sv, 0.003);
-      mt(QX, QY);
+      mt(RG[QX], RG[QY]);
       torsoPoint(th0 + 0.16 * sw, v0 - 0.85 * sv, 0.003);
-      lt(QX, QY);
+      lt(RG[QX], RG[QY]);
       torsoPoint(th0 - 0.3 * sw, v0 - 0.4 * sv, 0.003);
-      mt(QX, QY);
+      mt(RG[QX], RG[QY]);
       torsoPoint(th0 - 0.34 * sw, v0 - 0.7 * sv, 0.003);
-      lt(QX, QY);
+      lt(RG[QX], RG[QY]);
       G.strokeStyle = goreCol(1, 0.75);
-      G.lineWidth = Math.max(1, 0.018 * PXS * QK);
+      G.lineWidth = Math.max(1, 0.018 * RG[PXS] * RG[QK]);
       G.stroke();
     } else if (LOD === 0) {
       // grime and shadow inside the hole
       torsoPoint(th0, v0 - 0.05 * sv, 0.003);
       G.beginPath();
-      ellA(QX, QY, sw * 0.12 * PXS * QK, sv * 0.08 * PXS * QK, 0.3, 0, TAU);
+      ellA(RG[QX], RG[QY], sw * 0.12 * RG[PXS] * RG[QK], sv * 0.08 * RG[PXS] * RG[QK], 0.3, 0, TAU);
       G.fillStyle = col(look.grime, 0.8, 0.5);
       G.fill();
     }
@@ -1839,29 +2335,30 @@
     if (V.hem > 0.14) return;
     const o = PEL * 3;
     proj(J[o] + TF[3] * 0.03, J[o + 1] + TF[4] * 0.03, J[o + 2] + TF[5] * 0.03, 0);
-    const cx = QX;
-    const cy = QY;
+    const cx = RG[QX];
+    const cy = RG[QY];
     let ax = 0;
     let ay = -1;
     proj(J[CHE * 3], J[CHE * 3 + 1], J[CHE * 3 + 2], 0);
-    const dl = Math.hypot(QX - cx, QY - cy);
+    const dl = hyp2(RG[QX] - cx, RG[QY] - cy);
     if (dl > 1e-3) {
-      ax = (QX - cx) / dl;
-      ay = (QY - cy) / dl;
+      ax = (RG[QX] - cx) / dl;
+      ay = (RG[QY] - cy) / dl;
     }
     const e = ringExtent(J[o], J[o + 1], J[o + 2], b.waist[0] * 0.95, b.waist[1] * 0.95, -ay, ax);
     proj(J[o] - TF[3] * b.rThigh * 1.1, J[o + 1] - TF[4] * b.rThigh * 1.1, J[o + 2] - TF[5] * b.rThigh * 1.1, 0);
     G.beginPath();
     mt(cx + ay * e, cy - ax * e);
-    lt(S[HI[0] * 3] + (S[HI[0] * 3] - QX) * 0.3, S[HI[0] * 3 + 1] + (S[HI[0] * 3 + 1] - QY) * 0.3);
-    lt(QX, QY);
-    lt(S[HI[1] * 3] + (S[HI[1] * 3] - QX) * 0.3, S[HI[1] * 3 + 1] + (S[HI[1] * 3 + 1] - QY) * 0.3);
+    lt(S[HI[0] * 3] + (S[HI[0] * 3] - RG[QX]) * 0.3, S[HI[0] * 3 + 1] + (S[HI[0] * 3 + 1] - RG[QY]) * 0.3);
+    lt(RG[QX], RG[QY]);
+    lt(S[HI[1] * 3] + (S[HI[1] * 3] - RG[QX]) * 0.3, S[HI[1] * 3 + 1] + (S[HI[1] * 3 + 1] - RG[QY]) * 0.3);
     lt(cx - ay * e, cy + ax * e);
     G.closePath();
     G.fillStyle = col(V.pants, 0.94, 1);
     G.fill();
+    if (LOD > 0) return;
     G.strokeStyle = INKS;
-    G.lineWidth = OUT * 2;
+    G.lineWidth = RG[OUT] * 2;
     G.stroke();
   }
 
@@ -1885,7 +2382,7 @@
     const mx = HF[0] * nx + HF[3] * ny + HF[6] * nz;
     const my = HF[1] * nx + HF[4] * ny + HF[7] * nz;
     const mz = HF[2] * nx + HF[5] * ny + HF[8] * nz;
-    return facing(mx, mz) / (Math.hypot(mx, my, mz) || 1);
+    return facing(mx, mz) / (hyp3(mx, my, mz) || 1);
   }
   /** The region of the shell's outline (EX.. from ellF) beyond the visible part of the ring in RXs/RYs/RFs:
       hair above the hairline, a hood round the face. Builds the path; returns 0 (nothing), 1 or 2 (fill
@@ -1928,9 +2425,9 @@
     const angA = ellAngle(ax, ay);
     const angB = ellAngle(bx, by);
     let angP;
-    const pdx = ppx - EX;
-    const pdy = ppy - EY;
-    if (pdx * pdx + pdy * pdy > 0.04 * ERB * ERB) angP = ellAngle(ppx, ppy);
+    const pdx = ppx - RG[EX];
+    const pdy = ppy - RG[EY];
+    if (pdx * pdx + pdy * pdy > 0.04 * RG[ERB] * RG[ERB]) angP = ellAngle(ppx, ppy);
     else {
       // the pole is end-on: go the way away from the middle of the visible arc
       const mi = (s + Math.floor(vis / 2)) % n;
@@ -1938,17 +2435,17 @@
     }
     const dcw = mod(angA - angB);
     const ccw = !(mod(angP - angB) < dcw);
-    if (!spikes) ellA(EX, EY, ERA, ERB, ERO, angB, angA, ccw);
+    if (!spikes) ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], angB, angA, ccw);
     else {
       const span = ccw ? -(TAU - dcw) : dcw;
-      const c = Math.cos(ERO);
-      const sn = Math.sin(ERO);
+      const c = Math.cos(RG[ERO]);
+      const sn = Math.sin(RG[ERO]);
       for (let k = 1; k < spikes; k++) {
         const a = angB + (span * k) / spikes;
         const m = k & 1 ? 1.13 + 0.06 * rnd(200 + k) : 0.97;
-        const ux = ERA * m * Math.cos(a);
-        const uy = ERB * m * Math.sin(a);
-        lt(EX + ux * c - uy * sn, EY + ux * sn + uy * c);
+        const ux = RG[ERA] * m * Math.cos(a);
+        const uy = RG[ERB] * m * Math.sin(a);
+        lt(RG[EX] + ux * c - uy * sn, RG[EY] + ux * sn + uy * c);
       }
     }
     G.closePath();
@@ -1956,18 +2453,18 @@
   }
   const mod = (a) => ((a % TAU) + TAU) % TAU;
   function ellAngle(x, y) {
-    const dx = x - EX;
-    const dy = y - EY;
-    const c = Math.cos(ERO);
-    const s = Math.sin(ERO);
-    return Math.atan2((-dx * s + dy * c) / ERB, (dx * c + dy * s) / ERA);
+    const dx = x - RG[EX];
+    const dy = y - RG[EY];
+    const c = Math.cos(RG[ERO]);
+    const s = Math.sin(RG[ERO]);
+    return Math.atan2((-dx * s + dy * c) / RG[ERB], (dx * c + dy * s) / RG[ERA]);
   }
 
   /** A flat decal on the head's surface at local (r, u, f) with axes along the head's right and up, sizes
       (ra, rb): projected to EX.., returns how much the face there looks at the camera. */
   function faceDecal(r, u, f, ra, rb, nr, nu, nf) {
     // the decal's across axis runs round the head (square to its normal), its other axis up the head
-    const tl = Math.hypot(nf, nr) || 1;
+    const tl = hyp2(nf, nr) || 1;
     const tr = (nf / tl) * ra;
     const tf = (-nr / tl) * ra;
     ellipsoid(
@@ -1995,6 +2492,16 @@
     proj(J[o] + HF[0] * r + HF[3] * u + HF[6] * f, J[o + 1] + HF[1] * r + HF[4] * u + HF[7] * f, J[o + 2] + HF[2] * r + HF[5] * u + HF[8] * f, 0);
   }
 
+  /** The dropped jaw (inked up close). */
+  function jaw(jo, jb, ry, rz, skin) {
+    ellF(HF, HED, 0, -ry * (0.55 + 0.2 * jo), rz * (0.3 - 0.06 * jo), jb[0], jb[1] * (1 + 0.15 * jo), jb[2]);
+    if (LOD === 0) ellInk(col(skin, 0.86, 1));
+    else {
+      ellPath(0);
+      G.fillStyle = col(skin, 0.86, 1);
+      G.fill();
+    }
+  }
   function drawHead() {
     const b = T.build;
     const look = V;
@@ -2005,47 +2512,45 @@
     const ff = facing(HF[6], HF[8]); // the face toward the camera (-1..1)
     const skin = look.skin;
     const k = S[HED * 3 + 2];
-    // neck and jaw (behind the skull, dropped open); seen from behind, the neck hides the jaw
-    const jo = JAW;
+    // neck and jaw (behind the skull, dropped open); seen from behind, the neck hides the jaw, and from further
+    // round the jaw is hidden by the skull (no bare "chin" under the back of the hair)
+    const jo = RG[JAW];
     const jb = b.jaw;
-    if (ff < 0 && LOD < 2) {
-      ellF(HF, HED, 0, -ry * (0.55 + 0.2 * jo), rz * (0.3 - 0.06 * jo), jb[0], jb[1] * (1 + 0.15 * jo), jb[2]);
-      ellInk(col(skin, 0.86, 1));
-    }
+    if (ff < 0 && ff > -0.2 && LOD < 2) jaw(jo, jb, ry, rz, skin);
     proj(J[o] - HF[3] * ry * 0.55 - HF[6] * rz * 0.15, J[o + 1] - HF[4] * ry * 0.55 - HF[7] * rz * 0.15, J[o + 2] - HF[5] * ry * 0.55 - HF[8] * rz * 0.15, 0);
-    const nkx = QX;
-    const nky = QY;
+    const nkx = RG[QX];
+    const nky = RG[QY];
     proj(J[CHE * 3] + TF[3] * 0.01, J[CHE * 3 + 1] + TF[4] * 0.01, J[CHE * 3 + 2] + TF[5] * 0.01, 0);
-    const wn = b.rNeck * 2 * PXS * k;
+    const wn = b.rNeck * 2 * RG[PXS] * k;
     G.beginPath();
-    mt(QX, QY);
+    mt(RG[QX], RG[QY]);
     lt(nkx, nky);
-    G.strokeStyle = INKS;
-    G.lineWidth = wn + OUT * 2;
-    G.stroke();
+    if (LOD < 2) {
+      G.strokeStyle = INKS;
+      G.lineWidth = wn + RG[OUT] * 2;
+      G.stroke();
+    }
     G.strokeStyle = col(look.hood ? look.shirt : skin, 0.82, 1);
     G.lineWidth = wn;
     G.stroke();
-    if (ff >= 0 && LOD < 2) {
-      ellF(HF, HED, 0, -ry * (0.55 + 0.2 * jo), rz * (0.3 - 0.06 * jo), jb[0], jb[1] * (1 + 0.15 * jo), jb[2]);
-      ellInk(col(skin, 0.86, 1));
-    }
-    // skull
+    if (ff >= 0 && LOD < 2) jaw(jo, jb, ry, rz, skin);
+    // skull (a bald one a shade darker from behind, so the back of the head never reads as another muscle)
+    const bald = !look.hood && !look.helmet && look.hairStyle === "none";
     ellF(HF, HED, 0, 0, 0, rx, ry, rz);
-    const skullX = EX;
-    const skullY = EY;
-    const skullA = ERA;
-    const skullB = ERB;
-    const skullO = ERO;
-    ellInk(col(skin, 1, 1));
-    if (LOD < 2) {
+    const skullX = RG[EX];
+    const skullY = RG[EY];
+    const skullA = RG[ERA];
+    const skullB = RG[ERB];
+    const skullO = RG[ERO];
+    ellInk(col(skin, bald ? 1 - 0.12 * clamp01(0.3 - ff) : 1, 1));
+    if (LOD === 0) {
       // shade on the side away from the light: a crescent inside the outline
-      const sa = Math.atan2(-SLY, -SLX) - ERO;
-      const dx = -Math.cos(sa + ERO) * ERA * 0.2;
-      const dy = -Math.sin(sa + ERO) * ERB * 0.2;
+      const sa = Math.atan2(-SLY, -SLX) - RG[ERO];
+      const dx = -Math.cos(sa + RG[ERO]) * RG[ERA] * 0.2;
+      const dy = -Math.sin(sa + RG[ERO]) * RG[ERB] * 0.2;
       G.beginPath();
-      ellA(EX, EY, ERA, ERB, ERO, sa - 1.45, sa + 1.45, false);
-      ellA(EX + dx, EY + dy, ERA * 0.92, ERB * 0.95, ERO, sa + 1.45, sa - 1.45, true);
+      ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], sa - 1.45, sa + 1.45, false);
+      ellA(RG[EX] + dx, RG[EY] + dy, RG[ERA] * 0.92, RG[ERB] * 0.95, RG[ERO], sa + 1.45, sa - 1.45, true);
       G.closePath();
       G.fillStyle = col(BLACK, 1, 0.22);
       G.fill();
@@ -2062,8 +2567,8 @@
         const dz = Math.cos(az) * Math.cos(el);
         if (facing(HF[0] * dx + HF[3] * dy + HF[6] * dz, HF[2] * dx + HF[5] * dy + HF[8] * dz) < 0.35) continue;
         headPt(dx * rx * 0.92, dy * ry * 0.92, dz * rz * 0.92);
-        const r = rx * (0.18 + 0.14 * rnd(320 + n)) * PXS * QK;
-        elSub(QX, QY, r, r * 0.7, rnd(330 + n) * 3);
+        const r = rx * (0.18 + 0.14 * rnd(320 + n)) * RG[PXS] * RG[QK];
+        elSub(RG[QX], RG[QY], r, r * 0.7, rnd(330 + n) * 3);
         any = true;
       }
       if (any) {
@@ -2071,20 +2576,44 @@
         G.fill();
       }
     }
-    // ears (short hair or none)
-    if (LOD === 0 && look.ears) {
-      for (let s = -1; s <= 1; s += 2) {
-        const f = faceDecal(s * rx * 0.97, -ry * 0.08, -rz * 0.05, rz * 0.2, ry * 0.26, s, 0, 0.1);
-        if (f < 0.12) continue;
-        ellInk(col(skin, 0.8, 1));
-      }
-    }
     // the cap: hair, hood or helmet
     if (look.hood) hoodCap(rx, ry, rz, ff);
-    else if (look.helmet) helmetCap(rx, ry, rz);
+    else if (look.helmet) {
+      if (look.helmet === "fire") brim(rx, ry, rz, LOD === 2 ? null : true);
+      helmetCap(rx, ry, rz);
+    }
     else if (look.hairStyle !== "none") hairCap(rx, ry, rz);
-    else if (LOD === 0) {
-      // bald: a shine and an old stitched scar
+    else if (LOD === 0 && ff < 0.25) {
+      // the bald back of the head: creases at the nape and an old stitched scar over the crown
+      G.beginPath();
+      for (let n = 0; n < 2; n++) {
+        const u = -ry * (0.42 + n * 0.16);
+        headPt(-rx * (0.5 - n * 0.1), u + ry * 0.06, -rz * 0.8);
+        mt(RG[QX], RG[QY]);
+        headPt(0, u - ry * 0.04, -rz * (0.92 - n * 0.06));
+        lt(RG[QX], RG[QY]);
+        headPt(rx * (0.5 - n * 0.1), u + ry * 0.06, -rz * 0.8);
+        lt(RG[QX], RG[QY]);
+      }
+      headPt(-rx * 0.45, ry * 0.62, -rz * 0.62);
+      mt(RG[QX], RG[QY]);
+      headPt(rx * 0.05, ry * 0.8, -rz * 0.55);
+      lt(RG[QX], RG[QY]);
+      headPt(rx * 0.5, ry * 0.5, -rz * 0.7);
+      lt(RG[QX], RG[QY]);
+      for (let n = 0; n < 3; n++) {
+        const t = 0.2 + n * 0.3;
+        headPt(-rx * 0.45 + rx * 0.95 * t, ry * (0.62 + 0.18 * Math.sin(PI * t) + 0.09), -rz * 0.6);
+        mt(RG[QX], RG[QY]);
+        headPt(-rx * 0.45 + rx * 0.95 * t, ry * (0.62 + 0.18 * Math.sin(PI * t) - 0.09), -rz * 0.66);
+        lt(RG[QX], RG[QY]);
+      }
+      G.strokeStyle = col(look.scar || INK, 0.8, 0.7);
+      G.lineWidth = Math.max(0.7, RG[OUT] * 0.65);
+      G.stroke();
+    }
+    if (bald && LOD === 0 && ff >= 0.25) {
+      // bald, from the front: a shine and an old stitched scar
       G.beginPath();
       ellA(skullX - skullA * 0.28, skullY - skullB * 0.48, skullA * 0.32, skullB * 0.16, skullO - 0.3, 0, TAU);
       G.fillStyle = col(WHITE, 1, 0.16);
@@ -2093,25 +2622,33 @@
       if (f > 0.1) {
         G.beginPath();
         headPt(rx * 0.05, ry * 0.85, rz * 0.35);
-        mt(QX, QY);
+        mt(RG[QX], RG[QY]);
         headPt(rx * 0.55, ry * 0.6, rz * 0.3);
-        lt(QX, QY);
+        lt(RG[QX], RG[QY]);
         for (let n = 0; n < 3; n++) {
           headPt(rx * (0.15 + n * 0.15), ry * (0.86 - n * 0.09), rz * 0.42);
-          mt(QX, QY);
+          mt(RG[QX], RG[QY]);
           headPt(rx * (0.2 + n * 0.15), ry * (0.68 - n * 0.09), rz * 0.42);
-          lt(QX, QY);
+          lt(RG[QX], RG[QY]);
         }
         G.strokeStyle = col(look.scar || [70, 50, 50], 1, 0.75);
-        G.lineWidth = Math.max(0.7, OUT * 0.6);
+        G.lineWidth = Math.max(0.7, RG[OUT] * 0.6);
         G.stroke();
+      }
+    }
+    // ears, over the hair at the sides: from the side and from behind too (they stick out)
+    if (LOD === 0 && look.ears) {
+      for (let s = -1; s <= 1; s += 2) {
+        const f = faceDecal(s * rx * 0.97, -ry * 0.08, -rz * 0.05, rz * 0.2, ry * 0.26, s, 0, 0.1);
+        if (f < -0.3) continue;
+        ellInk(col(skin, 0.8, 1));
       }
     }
     // the face
     FACE = false;
     if (ff > -0.25) drawFace(rx, ry, rz, ff);
     if (look.helmet === "riot") visor(rx, ry, rz, ff);
-    if (look.helmet === "fire") brim(rx, ry, rz);
+    if (look.helmet === "fire" && LOD < 2) brim(rx, ry, rz, false);
   }
 
   // a side lock of long hair, head-local: across (x rx), up (x ry) less a share of the lock's length, forward (x rz)
@@ -2138,32 +2675,38 @@
       const e2 = e + jag;
       const c2 = Math.cos(e2);
       shellPoint(0, cu, cf, sa, sb, sc, Math.sin(az) * c2, Math.sin(e2), Math.cos(az) * c2);
-      RXs[k] = QX;
-      RYs[k] = QY;
+      RXs[k] = RG[QX];
+      RYs[k] = RG[QY];
     }
     ellF(HF, HED, 0, cu, cf, sa, sb, sc);
     // the crown (pole): up and back
     const pf = shellPoint(0, cu, cf, sa, sb, sc, 0, 0.85, -0.53);
-    const r = capPath(n, QX, QY, pf, LOD === 2 || look.spiky === false ? 0 : LOD === 0 ? 11 : 7);
+    const r = capPath(n, RG[QX], RG[QY], pf, LOD === 2 || look.spiky === false ? 0 : LOD === 0 ? 11 : 7);
     if (!r) return;
     G.fillStyle = col(look.hair, 1, 1);
     if (r === 2) G.fill("evenodd");
     else G.fill();
-    G.strokeStyle = INKS;
-    G.lineWidth = OUT * 1.6;
-    G.stroke();
+    if (LOD < 2) {
+      G.strokeStyle = INKS;
+      G.lineWidth = RG[OUT] * 1.6;
+      G.stroke();
+    }
     // long hair: a lock hangs down each side of the face
     if (look.hairStyle === "long" && LOD < 2) {
       const lk = look.lockLen || ry * 1.7;
+      G.beginPath();
+      let any = false;
       for (let s = -1; s <= 1; s += 2) {
         if (facing(HF[0] * s + HF[6] * 0.25, HF[2] * s + HF[8] * 0.25) < -0.3) continue;
-        G.beginPath();
         for (let k = 0; k < LOCK.length; k += 4) {
           headPt(s * rx * LOCK[k], ry * LOCK[k + 1] - lk * LOCK[k + 2], rz * LOCK[k + 3]);
-          if (k) lt(QX, QY);
-          else mt(QX, QY);
+          if (k) lt(RG[QX], RG[QY]);
+          else mt(RG[QX], RG[QY]);
         }
         G.closePath();
+        any = true;
+      }
+      if (any) {
         G.fill();
         G.stroke();
       }
@@ -2175,23 +2718,26 @@
         const az = (rnd(240 + m) - 0.5) * 2.6;
         const d1 = shellPoint(0, cu, cf, sa * 0.98, sb * 0.98, sc * 0.98, Math.sin(az) * 0.3, 0.95, Math.cos(az) * 0.3 - 0.1);
         if (d1 < 0.2) continue;
-        const x0 = QX;
-        const y0 = QY;
+        const x0 = RG[QX];
+        const y0 = RG[QY];
         shellPoint(0, cu, cf, sa * 0.98, sb * 0.98, sc * 0.98, Math.sin(az) * 0.8, 0.45, Math.cos(az) * 0.8);
         mt(x0, y0);
-        lt(QX, QY);
+        lt(RG[QX], RG[QY]);
       }
       G.strokeStyle = col(look.hair, 1.45, 0.7);
-      G.lineWidth = Math.max(0.7, OUT * 0.6);
+      G.lineWidth = Math.max(0.7, RG[OUT] * 0.6);
       G.stroke();
     }
   }
-  /** A hood up over the head: the cloth round the face opening, shadowing it. */
+  /** A hood up over the head: the cloth round the face opening, shadowing it. From behind, a little smaller (it
+      hugs the skull) with a seam down the middle and a dark rim where it drapes onto the shoulders. */
   function hoodCap(rx, ry, rz, ff) {
     const look = V;
-    const sa = rx * 1.36;
-    const sb = ry * 1.28;
-    const sc = rz * 1.18;
+    const back = clamp01(-ff * 2.5);
+    const hk = 1 - 0.1 * back;
+    const sa = rx * 1.36 * hk;
+    const sb = ry * 1.28 * hk;
+    const sc = rz * 1.18 * hk;
     const cu = ry * 0.06;
     const cf = -rz * 0.32;
     const n = 16;
@@ -2202,23 +2748,25 @@
       const e = -0.32 + 0.82 * Math.cos(t) - (Math.cos(t) < 0 ? 0.25 * -Math.cos(t) : 0);
       const ce = Math.cos(e);
       RFs[k] = shellPoint(0, cu, cf, sa, sb, sc, Math.sin(az) * ce, Math.sin(e), Math.cos(az) * ce);
-      RXs[k] = QX;
-      RYs[k] = QY;
+      RXs[k] = RG[QX];
+      RYs[k] = RG[QY];
     }
     ellF(HF, HED, 0, cu, cf, sa, sb, sc);
     const pf = shellPoint(0, cu, cf, sa, sb, sc, 0, 0.3, -0.95);
-    const r = capPath(n, QX, QY, pf, 0);
+    const r = capPath(n, RG[QX], RG[QY], pf, 0);
     if (!r) return;
     G.fillStyle = col(look.shirt, 1.05, 1);
     if (r === 2) G.fill("evenodd");
     else G.fill();
-    G.strokeStyle = INKS;
-    G.lineWidth = OUT * 2;
-    G.stroke();
+    if (LOD < 2) {
+      G.strokeStyle = INKS;
+      G.lineWidth = RG[OUT] * 2;
+      G.stroke();
+    }
     if (LOD < 2) {
       // the shadow just inside the opening, and the hem of the hood
       G.strokeStyle = col(look.hoodShade || [10, 8, 18], 1, 0.6);
-      G.lineWidth = ERB * 0.15;
+      G.lineWidth = RG[ERB] * 0.15;
       G.beginPath();
       let started = false;
       for (let m = 0; m <= n; m++) {
@@ -2234,11 +2782,47 @@
         }
       }
       if (started) G.stroke();
+      if (back > 0) {
+        // the back: the rim where the hood drapes onto the shoulders, then the seam over the crown
+        G.beginPath();
+        let started = false;
+        for (let m = 0; m <= 8; m++) {
+          const az = PI - 1.25 + (m / 8) * 2.5;
+          const e = -0.62;
+          const f = shellPoint(0, cu, cf, sa, sb, sc, Math.sin(az) * Math.cos(e), Math.sin(e), Math.cos(az) * Math.cos(e));
+          if (f > -0.05) {
+            if (started) lt(RG[QX], RG[QY]);
+            else mt(RG[QX], RG[QY]);
+            started = true;
+          }
+        }
+        if (started) {
+          G.strokeStyle = col(look.hoodShade || [10, 8, 18], 1, 0.7 * back);
+          G.lineWidth = Math.max(1, RG[ERB] * 0.2);
+          G.stroke();
+        }
+        G.beginPath();
+        started = false;
+        for (let m = 0; m <= 6; m++) {
+          const e = 1.25 - (m / 6) * 1.75;
+          const f = shellPoint(0, cu, cf, sa * 1.005, sb * 1.005, sc * 1.005, 0, Math.sin(e), -Math.cos(e));
+          if (f > 0.02) {
+            if (started) lt(RG[QX], RG[QY]);
+            else mt(RG[QX], RG[QY]);
+            started = true;
+          }
+        }
+        if (started) {
+          G.strokeStyle = col(INK, 1, 0.55 * back);
+          G.lineWidth = Math.max(0.8, RG[OUT] * 0.8);
+          G.stroke();
+        }
+      }
       if (LOD === 0 && ff > 0.2) {
         // the top of the face sinks into shadow under the hood
         faceDecal(0, ry * 0.45, rz * 0.8, rx * 0.85, ry * 0.42, 0, 0.3, 1);
         G.beginPath();
-        ellA(EX, EY, ERA, ERB, ERO, 0, TAU);
+        ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], 0, TAU);
         G.fillStyle = col(look.hoodShade || [10, 8, 18], 1, 0.35);
         G.fill();
       }
@@ -2261,46 +2845,54 @@
       const e = eb + (ef - eb) * (0.5 + 0.5 * Math.cos(az));
       const ce = Math.cos(e);
       RFs[k] = shellPoint(0, cu, cf, sa, sb, sc, Math.sin(az) * ce, Math.sin(e), Math.cos(az) * ce);
-      RXs[k] = QX;
-      RYs[k] = QY;
+      RXs[k] = RG[QX];
+      RYs[k] = RG[QY];
     }
     ellF(HF, HED, 0, cu, cf, sa, sb, sc);
-    const hx = EX;
-    const hy = EY;
-    const ha = ERA;
-    const hb = ERB;
-    const ho = ERO;
+    const hx = RG[EX];
+    const hy = RG[EY];
+    const ha = RG[ERA];
+    const hb = RG[ERB];
+    const ho = RG[ERO];
     const pf = shellPoint(0, cu, cf, sa, sb, sc, 0, 0.9, -0.4);
-    const r = capPath(n, QX, QY, pf, 0);
+    const r = capPath(n, RG[QX], RG[QY], pf, 0);
     if (!r) return;
     G.fillStyle = col(look.helmetCol, 1, 1);
     if (r === 2) G.fill("evenodd");
     else G.fill();
-    G.strokeStyle = INKS;
-    G.lineWidth = OUT * 2;
-    G.stroke();
     if (LOD < 2) {
+      G.strokeStyle = INKS;
+      G.lineWidth = RG[OUT] * 2;
+      G.stroke();
+    }
+    if (LOD === 0) {
       G.beginPath();
       ellA(hx - ha * 0.3, hy - hb * 0.45, ha * 0.36, hb * 0.18, ho - 0.35, 0, TAU);
       G.fillStyle = col(WHITE, 1, fire ? 0.2 : 0.26);
       G.fill();
     }
     if (fire && LOD === 0) {
-      // the comb along the crown
+      // the comb along the crown: only where it faces the camera and lies on the dome (never floating over it)
       G.beginPath();
       let started = false;
-      for (let m = 0; m <= 6; m++) {
-        const a = -0.5 + (m / 6) * 2.6;
-        const f = shellPoint(0, cu, cf, sa * 1.03, sb * 1.03, sc * 1.03, 0, Math.sin(Math.min(PI / 2, a + 0.6)) * (a < 0.97 ? 1 : 1), Math.cos(a + 0.6));
-        if (f > -0.05) {
-          if (started) lt(QX, QY);
-          else mt(QX, QY);
+      const c = Math.cos(ho);
+      const sn = Math.sin(ho);
+      for (let m = 0; m <= 8; m++) {
+        const a = 0.1 + (m / 8) * 2.4; // from over the brow, over the crown, down the back
+        const f = shellPoint(0, cu, cf, sa * 1.02, sb * 1.02, sc * 1.02, 0, Math.sin(a), Math.cos(a));
+        const dx = RG[QX] - hx;
+        const dy = RG[QY] - hy;
+        const u = (dx * c + dy * sn) / ha;
+        const v = (-dx * sn + dy * c) / hb;
+        if (f > 0.05 && u * u + v * v < 0.92) {
+          if (started) lt(RG[QX], RG[QY]);
+          else mt(RG[QX], RG[QY]);
           started = true;
-        }
+        } else if (started) break;
       }
       if (started) {
         G.strokeStyle = col(look.helmetCol, 1.6, 1);
-        G.lineWidth = Math.max(1, OUT * 1.2);
+        G.lineWidth = Math.max(1, RG[OUT] * 1.2);
         G.stroke();
       }
     }
@@ -2311,37 +2903,79 @@
     const look = V;
     faceDecal(0, -ry * 0.12, rz * 1.18, rx * 1.02, ry * 0.88, 0, 0, 1);
     G.beginPath();
-    ellA(EX, EY, ERA, ERB, ERO, 0, TAU);
+    ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], 0, TAU);
     G.fillStyle = col(look.visor, 1, 0.34);
     G.fill();
+    if (LOD === 2) return;
     G.strokeStyle = INKS;
-    G.lineWidth = OUT * 1.6;
+    G.lineWidth = RG[OUT] * 1.6;
     G.stroke();
     if (LOD === 0) {
-      const cx = EX + ERA * 0.25;
-      const cy = EY - ERB * 0.2;
+      const cx = RG[EX] + RG[ERA] * 0.25;
+      const cy = RG[EY] - RG[ERB] * 0.2;
       G.beginPath();
-      mt(EX - ERA * 0.55, EY - ERB * 0.5);
-      lt(EX - ERA * 0.1, EY - ERB * 0.75);
+      mt(RG[EX] - RG[ERA] * 0.55, RG[EY] - RG[ERB] * 0.5);
+      lt(RG[EX] - RG[ERA] * 0.1, RG[EY] - RG[ERB] * 0.75);
       G.strokeStyle = col(WHITE, 1, 0.35);
-      G.lineWidth = Math.max(1, ERB * 0.08);
+      G.lineWidth = Math.max(1, RG[ERB] * 0.08);
       G.stroke();
       G.beginPath();
       for (let n = 0; n < 4; n++) {
         const a = n * 1.7 + 0.4;
         mt(cx, cy);
-        lt(cx + Math.cos(a) * ERA * 0.45, cy + Math.sin(a) * ERB * 0.42);
+        lt(cx + Math.cos(a) * RG[ERA] * 0.45, cy + Math.sin(a) * RG[ERB] * 0.42);
       }
       G.strokeStyle = col(WHITE, 1, 0.5);
-      G.lineWidth = Math.max(0.6, OUT * 0.5);
+      G.lineWidth = Math.max(0.6, RG[OUT] * 0.5);
       G.stroke();
     }
   }
-  /** Firefighter's brim, longer at the back. */
-  function brim(rx, ry, rz) {
+  /** Firefighter's brim, longer at the back, in two halves: the far one before the dome (so the dome hides what is
+      behind it, no "Saturn ring" across it), the near one after. far: true / false; null: the whole brim. */
+  function brim(rx, ry, rz, far) {
     const o = HED * 3;
     const u = ry * 0.38;
     const f = -rz * 0.22;
+    brimEll(rx, ry, rz, o, u, f);
+    const fill = col(V.helmetCol, 1.35, 1);
+    if (far == null) return ellInk(fill);
+    // the brim point nearest the camera: the camera's direction laid in the brim's plane
+    const nx = HF[3];
+    const ny = HF[4];
+    const nz = HF[5];
+    const dn = RG[TCX] * nx + RG[TCZ] * nz;
+    const vx = RG[TCX] - dn * nx;
+    const vy = -dn * ny;
+    const vz = RG[TCZ] - dn * nz;
+    const A = rx * 1.62;
+    const B = rz * 1.75;
+    const va = vx * HF[0] + vy * HF[1] + vz * HF[2];
+    const vb = vx * HF[6] + vy * HF[7] + vz * HF[8];
+    const vl = hyp2(A * va, B * vb);
+    if (vl < 1e-4) {
+      // seen square from above or below: the whole brim, after the dome
+      if (!far) ellInk(fill);
+      return;
+    }
+    const pa = (A * A * va) / vl;
+    const pb = (B * B * vb) / vl;
+    proj(J[o] + HF[3] * u + HF[6] * f + HF[0] * pa + HF[6] * pb, J[o + 1] + HF[4] * u + HF[7] * f + HF[1] * pa + HF[7] * pb, J[o + 2] + HF[5] * u + HF[8] * f + HF[2] * pa + HF[8] * pb, 0);
+    const tn = ellAngle(RG[QX], RG[QY]);
+    const a0 = far ? tn + PI / 2 : tn - PI / 2;
+    G.beginPath();
+    ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], a0, a0 + PI);
+    G.closePath();
+    G.fillStyle = fill;
+    G.fill();
+    if (LOD > 0) return;
+    // ink the rim only (the cut across the middle is hidden under the dome / covered by the near half)
+    G.beginPath();
+    ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], a0, a0 + PI);
+    G.strokeStyle = INKS;
+    G.lineWidth = Math.min(RG[OUT] * 2, Math.max(0.8, RG[ERB] * 0.4));
+    G.stroke();
+  }
+  function brimEll(rx, ry, rz, o, u, f) {
     ellipsoid(
       J[o] + HF[3] * u + HF[6] * f,
       J[o + 1] + HF[4] * u + HF[7] * f,
@@ -2357,7 +2991,6 @@
       HF[5] * ry * 0.1,
       0
     );
-    ellInk(col(V.helmetCol, 1.35, 1));
   }
 
   // per visible eye: socket ellipse (x, y, a, b, rot), side, scale, lid corners (4 x, y), brow ends (2 x, y)
@@ -2376,7 +3009,7 @@
     const look = V;
     const skin = look.skin;
     const wide = look.mouthW || 1;
-    const jo = JAW;
+    const jo = RG[JAW];
     // mouth: dark opening, teeth top and bottom
     const mu = -ry * (0.5 + 0.12 * jo);
     const mh = ry * (0.08 + 0.17 * jo);
@@ -2385,12 +3018,12 @@
     if (fm > -0.1) {
       ellF(HF, HED, 0, mu, rz * 0.74, mw, mh, rz * 0.3);
       G.beginPath();
-      ellA(EX, EY, ERA, ERB, ERO, 0, TAU);
+      ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], 0, TAU);
       G.fillStyle = col(look.mouth, 1, 1);
       G.fill();
-      if (LOD < 2) {
+      if (LOD === 0) {
         G.strokeStyle = INKS;
-        G.lineWidth = Math.min(OUT, Math.max(0.6, ERB * 0.3));
+        G.lineWidth = Math.min(RG[OUT], Math.max(0.6, RG[ERB] * 0.3));
         G.stroke();
       }
       if (LOD < 2) {
@@ -2402,14 +3035,14 @@
           const yb = top ? mu + mh * 0.92 : mu - mh * 0.92;
           const th = (top ? -1 : 1) * mh * (0.55 + 0.1 * jo);
           headPt(-mw * 0.88, yb, rz * 0.95);
-          mt(QX, QY);
+          mt(RG[QX], RG[QY]);
           for (let t = 0; t < nt; t++) {
             const x0 = -mw * 0.88 + ((t + 0.5) / nt) * mw * 1.76;
             const gap = (t === 2 && top) || (t === nt - 2 && !top);
             headPt(x0, yb + (gap ? th * 0.15 : th * (0.75 + 0.35 * rnd(260 + t + row * 9))), rz * 0.96);
-            lt(QX, QY);
+            lt(RG[QX], RG[QY]);
             headPt(-mw * 0.88 + ((t + 1) / nt) * mw * 1.76, yb, rz * 0.95);
-            lt(QX, QY);
+            lt(RG[QX], RG[QY]);
           }
           G.closePath();
         }
@@ -2417,7 +3050,7 @@
         G.fill();
         if (LOD === 0) {
           G.strokeStyle = col(INK, 1, 0.8);
-          G.lineWidth = Math.max(0.5, OUT * 0.45);
+          G.lineWidth = Math.max(0.5, RG[OUT] * 0.45);
           G.stroke();
         }
       }
@@ -2425,11 +3058,11 @@
         // a dribble from the corner of the mouth
         headPt(mw * 0.7, mu - mh * 0.3, rz * 0.9);
         G.beginPath();
-        mt(QX, QY);
+        mt(RG[QX], RG[QY]);
         headPt(mw * 0.8, mu - mh - ry * 0.32, rz * 0.82);
-        lt(QX, QY);
+        lt(RG[QX], RG[QY]);
         G.strokeStyle = goreCol(1, 0.7);
-        G.lineWidth = Math.max(0.8, rx * 0.09 * PXS * QK);
+        G.lineWidth = Math.max(0.8, rx * 0.09 * RG[PXS] * RG[QK]);
         G.stroke();
       }
     }
@@ -2451,8 +3084,8 @@
       const fn = faceDecal(0, -ry * 0.22, rz * 0.98, rx * 0.12, ry * 0.09, 0, 0, 1);
       if (fn > 0.2) {
         G.beginPath();
-        elSub(EX - ERA * 0.55, EY, ERA * 0.42, ERB * 0.5, ERO);
-        elSub(EX + ERA * 0.55, EY, ERA * 0.42, ERB * 0.5, ERO);
+        elSub(RG[EX] - RG[ERA] * 0.55, RG[EY], RG[ERA] * 0.42, RG[ERB] * 0.5, RG[ERO]);
+        elSub(RG[EX] + RG[ERA] * 0.55, RG[EY], RG[ERA] * 0.42, RG[ERB] * 0.5, RG[ERO]);
         G.fillStyle = col(INK, 1, 0.8);
         G.fill();
       }
@@ -2464,7 +3097,7 @@
       G.fillStyle = col(look.skin, 0.9, 1);
       G.fill();
       G.strokeStyle = col(INK, 1, 0.75);
-      G.lineWidth = Math.max(0.6, OUT * 0.7);
+      G.lineWidth = Math.max(0.6, RG[OUT] * 0.7);
       G.stroke();
     }
     // eyes: both worked out first, then drawn in one fill per layer (socket, glow, eye, pupil, lid) and one brow stroke
@@ -2474,19 +3107,19 @@
       const eu = ry * 0.08;
       if (faceDecal(ex, eu, rz * 0.84, rx * 0.27, ry * 0.21, s * 0.45, 0.1, 0.89) < 0.04) continue;
       const o = n * EYE_N;
-      EYEP[o] = EX;
-      EYEP[o + 1] = EY;
-      EYEP[o + 2] = ERA;
-      EYEP[o + 3] = ERB;
-      EYEP[o + 4] = ERO;
+      EYEP[o] = RG[EX];
+      EYEP[o + 1] = RG[EY];
+      EYEP[o + 2] = RG[ERA];
+      EYEP[o + 3] = RG[ERB];
+      EYEP[o + 4] = RG[ERO];
       EYEP[o + 5] = s;
-      EYEP[o + 6] = QK;
+      EYEP[o + 6] = RG[QK];
       // the lid's four corners and the brow's two ends
       for (let k = 0; k < 6; k++) {
         const q = k * 3;
         headPt(ex + s * rx * EYE_LID[q], eu + ry * EYE_LID[q + 1], rz * EYE_LID[q + 2]);
-        EYEP[o + 7 + k * 2] = QX;
-        EYEP[o + 8 + k * 2] = QY;
+        EYEP[o + 7 + k * 2] = RG[QX];
+        EYEP[o + 8 + k * 2] = RG[QY];
       }
       n++;
     }
@@ -2497,13 +3130,18 @@
         G.fillStyle = col(look.socket || [22, 20, 18], 1, 0.92);
         G.fill();
       }
-      // glow, then the eye (no fog: they glow in the dark)
+      // glow, then the eye (no fog: they glow in the dark); far away just the eye
+      if (LOD < 2) {
+        G.beginPath();
+        for (let e = 0; e < n; e++) eyeSub(e, 1.05, 1.05, 0, 0);
+        G.fillStyle = glow(look.glow, 0.28);
+        G.fill();
+      }
       G.beginPath();
-      for (let e = 0; e < n; e++) eyeSub(e, 1.05, 1.05, 0, 0);
-      G.fillStyle = glow(look.glow, 0.28);
-      G.fill();
-      G.beginPath();
-      for (let e = 0; e < n; e++) eyeSub(e, 0.52, 0.4, 0, 0.08);
+      for (let e = 0; e < n; e++) {
+        if (LOD < 2) eyeSub(e, 0.52, 0.4, 0, 0.08);
+        else eyeSub(e, 0.72, 0.6, 0, 0.05);
+      }
       G.fillStyle = glow(look.eye, 1);
       G.fill();
       if (LOD === 0) {
@@ -2530,7 +3168,7 @@
           lt(EYEP[o + 2], EYEP[o + 3]);
         }
         G.strokeStyle = col(look.brow || INK, 1, 0.85);
-        G.lineWidth = Math.max(0.8, ry * 0.09 * PXS * EYEP[6]);
+        G.lineWidth = Math.max(0.8, ry * 0.09 * RG[PXS] * EYEP[6]);
         G.stroke();
       }
     }
@@ -2550,7 +3188,7 @@
     const sb = ry * g;
     const sc = rz * g;
     const eb = (look.hairBack == null ? -0.5 : look.hairBack) + 0.25;
-    const len = look.hairLen * (1 - 0.7 * LYING);
+    const len = look.hairLen * (1 - 0.7 * RG[LYING]);
     const n = 7;
     const o = HED * 3;
     // top edge round the back of the head, the hair falls straight down from it
@@ -2565,14 +3203,14 @@
       const y = J[o + 1] + HF[1] * lx + HF[4] * ly + HF[7] * lz;
       const z = J[o + 2] + HF[2] * lx + HF[5] * ly + HF[8] * lz;
       proj(x, y, z, 0);
-      RXs[k] = QX;
-      RYs[k] = QY;
+      RXs[k] = RG[QX];
+      RYs[k] = RG[QY];
       // the hair's end below it, a little out from the shoulders
       const out = 0.02 + 0.03 * Math.abs(Math.sin(az));
       const l = len * (k & 1 ? 0.82 + 0.25 * rnd(400 + k) : 1);
       proj(x + (HF[0] * Math.sin(az) + HF[6] * Math.cos(az)) * out, y - l, z + (HF[2] * Math.sin(az) + HF[8] * Math.cos(az)) * out, 0);
-      RXs[n + k] = QX;
-      RYs[n + k] = QY;
+      RXs[n + k] = RG[QX];
+      RYs[n + k] = RG[QY];
     }
     mt(RXs[0], RYs[0]);
     for (let k = 0; k < n; k++) {
@@ -2584,9 +3222,11 @@
     G.closePath();
     G.fillStyle = col(look.hair, 1, 1);
     G.fill();
-    G.strokeStyle = INKS;
-    G.lineWidth = OUT * 1.6;
-    G.stroke();
+    if (LOD < 2) {
+      G.strokeStyle = INKS;
+      G.lineWidth = RG[OUT] * 1.6;
+      G.stroke();
+    }
     if (LOD === 0) {
       G.beginPath();
       for (let k = 1; k < n - 1; k++) {
@@ -2594,7 +3234,7 @@
         lt(RXs[n + k] * 0.85 + RXs[k] * 0.15, RYs[n + k] * 0.85 + RYs[k] * 0.15);
       }
       G.strokeStyle = col(look.hair, 1.6, 0.6);
-      G.lineWidth = Math.max(0.6, OUT * 0.5);
+      G.lineWidth = Math.max(0.6, RG[OUT] * 0.5);
       G.stroke();
     }
   }
@@ -2610,6 +3250,9 @@
   const PT_HAIR = 7;
   const NP = 8;
   const pKey = new Float64Array(NP);
+  let ARMPAIR = false;
+  let HEADBACK = false; // the head is behind the shoulders (drawn before the torso)
+  let LEGPAIR = false;
   const pOrd = new Int32Array(NP);
   function drawPart(p) {
     switch (p) {
@@ -2647,27 +3290,30 @@
     G = ctx;
     SEED = st.seed | 0;
     V = t.looks[(SEED >>> 0) % t.looks.length];
-    CW = Math.max(1, +cam.w || 1);
-    CH = Math.max(1, +cam.h || 1);
-    W2 = CW / 2;
-    PXS = +cam.px > 0 ? +cam.px : CH / t.h;
-    DIST = +cam.dist > 0.05 ? +cam.dist : 0.05;
-    EYE = cam.eye == null || !Number.isFinite(+cam.eye) ? 0.5 : Math.max(0.05, +cam.eye);
+    RG[CW] = Math.max(1, +cam.w || 1);
+    RG[CH] = Math.max(1, +cam.h || 1);
+    RG[W2] = RG[CW] / 2;
+    RG[PXS] = +cam.px > 0 ? +cam.px : RG[CH] / t.h;
+    RG[DIST] = +cam.dist > 0.05 ? +cam.dist : 0.05;
+    RG[EYE] = cam.eye == null || !Number.isFinite(+cam.eye) ? 0.5 : Math.max(0.05, +cam.eye);
     const yaw = +st.yaw || 0;
-    CYAW = Math.cos(yaw);
-    SYAW = Math.sin(yaw);
-    TCX = -SYAW;
-    TCZ = CYAW;
+    RG[CYAW] = Math.cos(yaw);
+    RG[SYAW] = Math.sin(yaw);
+    RG[TCX] = -RG[SYAW];
+    RG[TCZ] = RG[CYAW];
     LOD = st.lod === 1 || st.lod === 2 ? st.lod : 0;
-    FOGK = 1 - Math.min(0.9, Math.max(0, +st.fog || 0));
-    FLASH = st.hit ? 0.5 : 0;
+    // fog in steps of 1/FOG_STEPS: a walker coming out of the dark changes colour 30 times, not every frame (the
+    // colour table stays small and nothing is allocated)
+    RG[FOGK] = 1 - Math.round(Math.min(0.9, Math.max(0, +st.fog || 0)) * FOG_STEPS) / FOG_STEPS;
+    RG[FLASH] = st.hit ? 0.5 : 0;
     GORE = st.gore == null ? gore() : !!st.gore;
     INKS = col(INK, 1, 1);
     FACE = false;
     solve(t, st);
-    OUT = Math.max(0.7, Math.min(3.2, PXS * 0.0105));
+    RG[PSC] = 1 - 0.5 * RG[LYING];
+    RG[OUT] = Math.max(0.7, Math.min(3.2, RG[PXS] * 0.0105));
     fit();
-    OUT = Math.max(0.7, Math.min(3.2, PXS * FIT * 0.0105));
+    RG[OUT] = Math.max(0.7, Math.min(3.2, RG[PXS] * RG[FIT] * 0.0105));
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     ctx.globalAlpha = 1;
@@ -2680,14 +3326,27 @@
     pKey[PT_TORSO] = (jDepth(PEL) + jDepth(CHE)) / 2 + 0.01;
     pKey[PT_ARM0] = md3(SH[0], EL[0], HA[0]) - 0.01;
     pKey[PT_ARM1] = md3(SH[1], EL[1], HA[1]) - 0.01;
-    // the head goes after the torso even from behind: a hunched walker's head shows over its shoulders
-    pKey[PT_HEAD] = Math.min(jDepth(HED) - 0.12, pKey[PT_TORSO] - 0.001);
+    // facing the camera, the head goes after the torso (its chin over the chest). Turned away with the head behind
+    // the shoulders (a hunched walker from behind), it goes by its real depth: the torso and the near shoulder
+    // cover its lower part and the top of the skull shows over them
+    HEADBACK = facing(HF[6], HF[8]) < 0 && jDepth(HED) > jDepth(CHE);
+    if (HEADBACK) pKey[PT_HEAD] = jDepth(HED);
+    else pKey[PT_HEAD] = Math.min(jDepth(HED) - 0.12, pKey[PT_TORSO] - 0.001);
     const back = 0.15;
     pKey[PT_HAIR] = depth(J[HED * 3] - HF[6] * back, J[HED * 3 + 2] - HF[8] * back);
+    // far away, both arms on the same side of the torso are one part (drawn with one call per pass); at lod 2
+    // so are both legs
+    ARMPAIR = LOD > 0 && pKey[PT_ARM0] < pKey[PT_TORSO] === pKey[PT_ARM1] < pKey[PT_TORSO];
+    if (ARMPAIR) pKey[PT_ARM0] = Math.min(pKey[PT_ARM0], pKey[PT_ARM1]);
+    // (lod 1: only from the front or back, where the legs stand side by side; in profile the near one must be
+    // inked over the far one)
+    LEGPAIR = LOD === 2 || (LOD === 1 && Math.abs(RG[CYAW]) > 0.7);
+    if (LEGPAIR) pKey[PT_LEG0] = Math.max(pKey[PT_LEG0], pKey[PT_LEG1]);
     let n = 0;
     for (let p = 0; p < NP; p++) {
       if (p === PT_HAIR && !V.hairLen) continue;
       if (p === PT_PELVIS && (V.hem > 0.14 || LOD === 2)) continue;
+      if ((p === PT_ARM1 && ARMPAIR) || (p === PT_LEG1 && LEGPAIR)) continue;
       // insertion sort, farthest first
       let i = n++;
       while (i > 0 && pKey[pOrd[i - 1]] < pKey[p]) {
@@ -2746,7 +3405,7 @@
       r: def.r,
       fall: def.fall || "crumple",
       build: Object.assign({ finger: 1, pool: 0.3, shadow: 0.2, rise: 0.04 }, def.build),
-      gait: Object.assign({ stride: 0.8, duty: 0.6, lift: 0.05, crouch: 0.03, lean: 0.15, bob: 0.012, sway: 0.02, twist: 0.1, roll: 0.03, tilt: 0, headFwd: 0.02, headUp: 0.6, headTilt: 0.1, jaw: 0.4, arms: "reach", reachSide: -1, dragSide: 1, toeOut: 0.12, clawRate: 1.6, turnRate: 7, scream: false }, def.gait),
+      gait: Object.assign({ stride: 0.8, duty: 0.6, lift: 0.05, crouch: 0.03, lean: 0.15, bob: 0.012, sway: 0.02, twist: 0.1, roll: 0.03, tilt: 0, headFwd: 0.02, headUp: 0.6, headTilt: 0.1, jaw: 0.4, arms: "reach", reachSide: -1, dragSide: 1, toeOut: 0.12, clawRate: 1.6, clawUp: 0.34, turnRate: 7, scream: false }, def.gait),
       looks: [],
     };
     const base = Object.assign({}, LOOK_DEFAULTS, def.look);
@@ -2772,13 +3431,78 @@
     solve(t, st);
     const hb = t.build.head;
     t.headTop = Math.min(t.h, J[HED * 3 + 1] + hb[1] * (V.hood || V.helmet ? 1.3 : 1.12));
+    buildEnv(t, st);
     T = keepT;
     V = keepV;
+  }
+  /** The envelope of every pose (see fit), sampled once per type: idle, the walk cycle at half and full stride (and
+      hit); bites, claws and screams standing and moving. Every look variant, and a few seeds for the types whose
+      tics depend on it. */
+  function buildEnv(t, st) {
+    const g = t.gait;
+    const nSeed = Math.max(t.looks.length, g.headTic || g.jerk ? 4 : 1);
+    const pts = [];
+    let rh = 0;
+    const run = (pose, field, n, move, hit) => {
+      for (let i = 0; i <= n; i++) {
+        st.pose = pose;
+        st.poseT = 0;
+        st.claw = 0;
+        st.gait = 0.3;
+        st[field] = i / n;
+        st.move = move;
+        st.hit = hit;
+        solve(t, st);
+        for (let j = 0; j < NJ; j++) {
+          const rho = hyp2(J[j * 3], J[j * 3 + 2]);
+          if (rho + JR[j] > rh) rh = rho + JR[j];
+          pts.push([rho, J[j * 3 + 1] + JR[j]]);
+        }
+      }
+    };
+    for (let seed = 0; seed < nSeed; seed++) {
+      SEED = seed;
+      V = t.looks[seed % t.looks.length];
+      st.seed = seed;
+      st.poseW = 1;
+      run("idle", "poseT", 8, 0, 0);
+      run("walk", "gait", 32, 1, 0);
+      run("walk", "gait", 16, 0.5, 0);
+      run("walk", "gait", 8, 1, 1);
+      ["bite", "claw", "scream"].forEach((pose) => {
+        const field = pose === "claw" ? "claw" : "poseT";
+        run(pose, field, 24, 0, 0);
+        run(pose, field, 12, 1, 0);
+      });
+    }
+    // the frontier: from the farthest out inward, keep a point only if it is higher than every point farther out
+    pts.sort((a, b) => b[0] - a[0] || b[1] - a[1]);
+    let keep = [];
+    let best = -Infinity;
+    pts.forEach((p) => {
+      if (p[1] > best + 1e-4) {
+        keep.push(p);
+        best = p[1];
+      }
+    });
+    // too many: merge neighbours into one that covers both (as far out and as high as either)
+    while (keep.length > ENV_MAX) {
+      const next = [];
+      for (let i = 0; i < keep.length; i += 2) next.push(i + 1 < keep.length ? [keep[i][0], Math.max(keep[i][1], keep[i + 1][1])] : keep[i]);
+      keep = next;
+    }
+    // a little to spare for the poses between the samples
+    const env = { rh: rh * 1.02 + 0.004, n: keep.length, rho: new Float64Array(keep.length), top: new Float64Array(keep.length) };
+    keep.forEach((p, i) => {
+      env.rho[i] = p[0] * 1.02 + 0.004;
+      env.top[i] = p[1] + 0.004;
+    });
+    t.env = env;
   }
   /** Size of the region a type is drawn in (tiles, natural; the engine caps it under a ceiling). falling: wide
       enough for the body lying on its side. bar: the health bar's width, about the walker's hit width on
       screen (2 r 1.1 / STRETCH, r from WORLD.WALKER_TYPES when the facts are loaded). Reused objects. */
-  const STRETCH = 2 * Math.tan(1.22 / 2); // js/interior.js's FOV
+  const FOV = 1.22; // js/interior.js's FOV (tests/validate-art.js holds the two equal; the engine's own wins when exported)
   function box(type, falling) {
     const t = TYPES[type] || TYPES.walker;
     if (!t) return { h: 0.92, w: 1, head: 0.9, bar: 0.5 };
@@ -2788,7 +3512,9 @@
     const o = falling ? t.boxFall : t.box;
     o.h = t.h;
     o.head = t.headTop;
-    o.bar = (2 * r * 1.1) / STRETCH;
+    const I = ZSR.Interior;
+    const fov = I && +I.FOV > 0 ? +I.FOV : FOV;
+    o.bar = (2 * r * 1.1) / (2 * Math.tan(fov / 2));
     return o;
   }
   /** Tiles walked per gait cycle (feet stay planted when the engine advances gait by distance / stride). */
@@ -2839,12 +3565,23 @@
   const D3 = ZSR.Draw3;
   if (D3 && D3.registerSprite) Object.keys(SPRITES).forEach((k) => D3.registerSprite(k, SPRITES[k].w, SPRITES[k].h, SPRITES[k]));
 
+  /** For the art tests only: the last draw's fit, the joints (model tiles) and their projections (px). Reused. */
+  const PROBE = { fit: 1, fitEnv: 1, j: J, s: S };
+  function probe() {
+    PROBE.fit = RG[FIT];
+    PROBE.fitEnv = RG[FIT_ENV];
+    return PROBE;
+  }
+
   ZSR.Walker3D = {
     FALL_SECS: 2,
     COLLAPSE_SECS: 0.9,
     FADE_SECS: 0.7,
     BITE_SECS: 0.45,
     SCREAM_SECS: 1.2,
+    POSE_BLEND,
+    FOG_STEPS,
+    FOV,
     POSES,
     TYPES,
     addType,
@@ -2853,5 +3590,6 @@
     stride,
     draw,
     SPRITES,
+    probe,
   };
 })(typeof window !== "undefined" ? window : globalThis);
