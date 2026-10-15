@@ -327,3 +327,22 @@ won; the reading expansion was moved into them.
 - **Two drive times.** The road's time on the map now counts the drive in to park too, and the
   validator's ceiling is 150 s.
 
+
+## Owner decisions: an angled road camera, as a test (2026-10-15)
+
+| Question | Answer |
+|----------|--------|
+| Top-down or angled? | A test first. On the drive from Home Base to Corner Grocery only, the camera looks down the road from behind and above the van (pitched 30 degrees, zoomed in a little from the first mockup); every other drive stays top-down. |
+| How is it drawn? | `js/perspective.js`. The ground keeps the road's own art: it is drawn from above into a few layers and warped onto the screen row by row. Buildings, trees, walkers and the van stand up, drawn far to near. The road sign, the names, the HUD and the minimap stay flat. |
+
+- **Walkers come from the same places.** They appear where they do on a top-down drive (just off that
+  screen), so they reach the van as soon as they did; the angled camera sees farther, so they fade in.
+  **Assumption:** half a second.
+- **A walker right behind the van is see-through,** so it never hides the van.
+- **Aim.** A shot flies to what is under the pointer at the gun's height (`Persp.GUN_Z`), so on the
+  screen it goes straight at the pointer. **Bug fixed on the way:** a new shot took a frame of the van's
+  speed after the camera had moved, so it flew a few pixels ahead of the pointer's line on every drive.
+- **The art is still drawn from above.** Walkers and trees are their top-down drawings stood up on a
+  body or a trunk. Real side-on art is the big cost of keeping this camera.
+- **Speed.** It draws more than the flat road. On a slow computer (no graphics card) the ground layers
+  soften themselves to keep the frame rate up.

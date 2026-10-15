@@ -11,6 +11,8 @@
    try again (retry(): the drive starts over where it set out; van damage, scrap, walkers and
    miles stay), the town map, or back to where the van set out.
    The camera follows the van with its heading up; a minimap tracks it but never shows the route.
+   A test: on the drives in PERSP_ROUTES the camera looks down the road from behind and above the van instead
+   (js/perspective.js draws the world, works the roof gun's aim and maps screen <-> world).
    Route geometry lives in js/streets.js. Walkers come from ahead and from both shoulders; the
    player aims and shoots. The trip's van health, scrap and walker count live in ZSR.State.trip.
    All tuning lives in DIFF and ZOMBIE_TYPES. */
@@ -53,6 +55,8 @@
     brute: { hp: 90, speed: 40, r: 26, dmg: 12, scrap: 4 },
   };
   const HIT_WORDS = ["BLAM!", "KRAK!", "THUD!"];
+  // a test of the angled camera (js/perspective.js): only these drives use it; every other drive stays flat
+  const PERSP_ROUTES = ["base>grocery"];
   const SIZE = { normal: 1, large: 1.3, huge: 2 };
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -194,6 +198,7 @@
       this.speed = DIFF.roadScroll * this.stats.speed;
       const secs = opts.seconds || clamp(dist * World().SETTINGS.tripSecondsPerUnit, World().SETTINGS.tripMinSeconds, World().SETTINGS.tripMaxSeconds);
       this.drive = St.buildDrive(path, { scale: St.scaleFor(dist, secs, this.speed), speed: this.speed });
+      this.persp = !!ZSR.Persp && PERSP_ROUTES.includes(path.join(">"));
       this.origin = path[0];
       this.van = { s: 0, d: 0, x: 0, y: 0, heading: 0, vd: 0, w: 66, h: 118, aim: -Math.PI / 2, hurt: 0, cooldown: 0, flash: 0 };
       this.cam = { x: 0, y: 0, th: 0, d: 110, rel: 0 };
@@ -421,16 +426,24 @@
       c.x = p.x - p.uy * off;
       c.y = p.y + p.ux * off;
     },
-    /** World -> screen (CSS px). */
+    /** World -> screen (CSS px): the ground, through the angled camera on its test drive. */
     toScreen(x, y) {
+      return this.persp ? ZSR.Persp.toScreen(this, x, y) : this.flatToScreen(x, y);
+    },
+    /** Screen -> world: the ground under that spot. */
+    toWorld(sx, sy) {
+      return this.persp ? ZSR.Persp.toWorld(this, sx, sy) : this.flatToWorld(sx, sy);
+    },
+    /** World -> screen on the flat, top-down camera. */
+    flatToScreen(x, y) {
       const c = this.cam;
       const a = -Math.PI / 2 - c.th;
       const dx = x - c.x;
       const dy = y - c.y;
       return { x: this.W / 2 + (dx * Math.cos(a) - dy * Math.sin(a)) * this.zoom, y: this.anchorY + (dx * Math.sin(a) + dy * Math.cos(a)) * this.zoom };
     },
-    /** Screen -> world. */
-    toWorld(sx, sy) {
+    /** Screen -> world on the flat, top-down camera. */
+    flatToWorld(sx, sy) {
       const c = this.cam;
       const a = Math.PI / 2 + c.th;
       const dx = (sx - this.W / 2) / this.zoom;
@@ -474,9 +487,11 @@
         sx = side === "left" ? -40 : this.W + 40;
         sy = rand(this.H * 0.05, this.H * 0.6);
       }
-      const w = this.toWorld(sx, sy);
+      // just off the flat camera's screen, on every drive: the angled camera sees farther, so there walkers
+      // come from the same places (and as far from the van) and fade in
+      const w = this.flatToWorld(sx, sy);
       const hp = Math.round(base.hp * this.diff.hpMult);
-      this.zombies.push({ type, x: w.x, y: w.y, r: base.r, hp, maxHp: hp, speed: base.speed * this.diff.speedMult * rand(0.85, 1.15), dmg: base.dmg, scrap: base.scrap, angle: this.cam.th + Math.PI, phase: Math.random() * 6.28, hit: 0, cool: 0, kx: 0, ky: 0 });
+      this.zombies.push({ type, x: w.x, y: w.y, r: base.r, hp, maxHp: hp, speed: base.speed * this.diff.speedMult * rand(0.85, 1.15), dmg: base.dmg, scrap: base.scrap, angle: this.cam.th + Math.PI, phase: Math.random() * 6.28, hit: 0, cool: 0, kx: 0, ky: 0, born: this.time });
     },
 
     burst(text, x, y, color, bg, size) {
@@ -682,32 +697,38 @@
       // the gun
       van.hurt = Math.max(0, van.hurt - dt * 2);
       van.cooldown -= dt;
-      const vs = this.toScreen(van.x, van.y);
-      const rot = van.heading - this.cam.th;
-      // the mount sits h * 0.1 behind the van's middle (sprites.js van)
-      const ty = van.h * 0.1 * this.zoom;
-      const turret = { x: vs.x - Math.sin(rot) * ty, y: vs.y + Math.cos(rot) * ty };
-      if (this.pointer.seen) van.aim = Math.atan2(this.pointer.y - turret.y, this.pointer.x - turret.x);
-      let aim = van.aim;
-      const toWorldAngle = (a) => a + this.cam.th + Math.PI / 2;
-      if (State().settings.aimAssist) aim = this.assist(aim, turret);
+      // gun: where its mount is in the world, the world angle it points, and that angle on the screen
+      let gun;
+      if (this.persp) gun = ZSR.Persp.aim(this, State().settings.aimAssist);
+      else {
+        const vs = this.toScreen(van.x, van.y);
+        const rot = van.heading - this.cam.th;
+        // the mount sits h * 0.1 behind the van's middle (sprites.js van)
+        const ty = van.h * 0.1 * this.zoom;
+        const turret = { x: vs.x - Math.sin(rot) * ty, y: vs.y + Math.cos(rot) * ty };
+        if (this.pointer.seen) van.aim = Math.atan2(this.pointer.y - turret.y, this.pointer.x - turret.x);
+        const aim = State().settings.aimAssist ? this.assist(van.aim, turret) : van.aim;
+        const tw = this.toWorld(turret.x, turret.y);
+        gun = { x: tw.x, y: tw.y, angle: aim + this.cam.th + Math.PI / 2, screen: aim };
+      }
       const firing = (this.pointer.down || this.keys.fire) && !this.fade;
       if (firing && van.cooldown <= 0) {
         van.cooldown = stats.fireInterval;
         const n = stats.bullets;
-        const tw = this.toWorld(turret.x, turret.y);
-        // bullets carry the van's own speed, so on screen (which rides with the van) they fly straight at the pointer
+        // bullets carry the van's own speed, so on screen (which rides with the van) they fly straight at the pointer;
+        // the camera has already moved this frame, so a new one starts a frame's carry back
         const cx = Math.cos(van.heading) * this.curSpeed;
         const cy = Math.sin(van.heading) * this.curSpeed;
         for (let i = 0; i < n; i++) {
-          const a = toWorldAngle(aim + (i - (n - 1) / 2) * ZSR.Upgrades.SPREAD);
-          this.bullets.push({ x: tw.x + Math.cos(a) * 24, y: tw.y + Math.sin(a) * 24, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, cx, cy, dmg: stats.damage });
+          const a = gun.angle + (i - (n - 1) / 2) * ZSR.Upgrades.SPREAD;
+          this.bullets.push({ x: gun.x + Math.cos(a) * 24 - cx * dt, y: gun.y + Math.sin(a) * 24 - cy * dt, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, cx, cy, dmg: stats.damage });
         }
         van.flash = 0.07;
         Audio().play("shoot");
       }
       van.flash = Math.max(0, van.flash - dt);
-      van.drawAim = aim;
+      van.drawAim = gun.screen;
+      van.aimW = gun.angle;
 
       // walkers keep coming down the destination's drive, until the van is nearly at the door
       if (!this.arrive || this.track.len - van.s > DIFF.quietAtDoor) {
@@ -796,7 +817,7 @@
           this.hurtVan(z.dmg, z.x, z.y);
           if (this.gameOverAt != null) return;
         }
-        const zs = this.toScreen(z.x, z.y);
+        const zs = this.flatToScreen(z.x, z.y);
         if (zs.y > this.H + 120 || zs.x < -220 || zs.x > this.W + 220 || zs.y < -900) this.zombies.splice(i, 1);
       }
       for (let i = this.crates.length - 1; i >= 0; i--) {
@@ -923,19 +944,52 @@
     draw() {
       const ctx = this.ctx;
       const D = Draw();
-      const St = Streets();
-      const G = St.GEOM;
       const van = this.van;
       if (!van || !this.drive) return;
       const W = this.W;
       const H = this.H;
       const k = textSize();
       const theme = this.mods.night ? { grass: "#3f3e2c", asphalt: "#2b2c30" } : this.mods.fog ? { grass: "#67654a" } : null;
+      ctx.save();
+      if (this.shake > 0.5) ctx.translate(rand(-this.shake, this.shake), rand(-this.shake, this.shake));
+      // the world: through the angled camera on its test drive (js/perspective.js), else flat from straight above
+      if (this.persp) {
+        ZSR.Persp.drawWorld(this, ctx, theme);
+        ZSR.Persp.drawNames(this, ctx, k);
+      } else this.drawFlat(ctx, theme, k);
+      for (const b of this.bursts) {
+        const p = this.toScreen(b.x, b.y);
+        D.burst(ctx, Object.assign({}, b, { x: p.x, y: p.y }));
+      }
+      const vs = this.toScreen(van.x, van.y);
+      if (this.mods.fog) D.fog(ctx, W, H, this.dpr, vs.x, vs.y, 300 * this.zoom);
+      if (this.mods.night) D.night(ctx, W, H, this.dpr, vs.x, vs.y, van.drawAim == null ? van.aim : van.drawAim);
+      ctx.restore();
+      D.vignette(ctx, W, H);
+      const signRects = this.drawSign(ctx, k);
+      if (signRects && this.gameOverAt == null) this.drawOverSign(ctx, signRects);
+      let dim = 0;
+      if (this.fade) {
+        const f = this.fade;
+        dim = clamp(f.phase === "out" ? f.t / DIFF.fadeOut : f.phase === "choose" ? 1 : 1 - f.t / DIFF.fadeIn, 0, 1);
+        D.card(ctx, W, H, null, null, dim, k, 0); // the dark only: the page's wrong-turn panel says what went wrong
+      }
+      // the card has the screen to itself: the HUD's top row and the minimap fade out with the road (P and Esc still pause)
+      this.hudFade(this.hud.top, 1 - dim);
+      this.hudFade(this.hud.mini, (1 - dim) * this.miniAlpha());
+      this.drawMinimap(k);
+    },
+    /** The world from straight above, heading up: ground, roads, lanes, lots, scenery, walkers, the van, the names. */
+    drawFlat(ctx, theme, k) {
+      const D = Draw();
+      const St = Streets();
+      const G = St.GEOM;
+      const van = this.van;
+      const W = this.W;
+      const H = this.H;
       const viewR = Math.hypot(W, H) / this.zoom;
       const center = this.toWorld(W / 2, H / 2);
       const view = { x: center.x, y: center.y, r: viewR * 0.6 };
-      ctx.save();
-      if (this.shake > 0.5) ctx.translate(rand(-this.shake, this.shake), rand(-this.shake, this.shake));
       ctx.save();
       ctx.translate(W / 2, this.anchorY);
       ctx.scale(this.zoom, this.zoom);
@@ -995,26 +1049,6 @@
         if (p.x < -200 || p.x > W + 200 || p.y < -60 || p.y > H + 60) return;
         D.nameBoard(ctx, p.x, p.y, State().isKnown(l.node) ? this.placeName(l.node).toUpperCase() : "?", Math.max(this.zoom, k * 0.8), false);
       });
-      for (const b of this.bursts) {
-        const p = this.toScreen(b.x, b.y);
-        D.burst(ctx, Object.assign({}, b, { x: p.x, y: p.y }));
-      }
-      if (this.mods.fog) D.fog(ctx, W, H, this.dpr, vs.x, vs.y, 300 * this.zoom);
-      if (this.mods.night) D.night(ctx, W, H, this.dpr, vs.x, vs.y, van.drawAim == null ? van.aim : van.drawAim);
-      ctx.restore();
-      D.vignette(ctx, W, H);
-      const signRects = this.drawSign(ctx, k);
-      if (signRects && this.gameOverAt == null) this.drawOverSign(ctx, signRects);
-      let dim = 0;
-      if (this.fade) {
-        const f = this.fade;
-        dim = clamp(f.phase === "out" ? f.t / DIFF.fadeOut : f.phase === "choose" ? 1 : 1 - f.t / DIFF.fadeIn, 0, 1);
-        D.card(ctx, W, H, null, null, dim, k, 0); // the dark only: the page's wrong-turn panel says what went wrong
-      }
-      // the card has the screen to itself: the HUD's top row and the minimap fade out with the road (P and Esc still pause)
-      this.hudFade(this.hud.top, 1 - dim);
-      this.hudFade(this.hud.mini, (1 - dim) * this.miniAlpha());
-      this.drawMinimap(k);
     },
     /** Is this decision's lane zone on the dirt part of a road (Frog Lane past its paving)? */
     onDirt(dec) {
@@ -1168,6 +1202,7 @@
     },
     /** Walkers behind the sign are drawn again on top of it, so the sign never hides one coming at the van. */
     drawOverSign(ctx, rects) {
+      if (this.persp) return ZSR.Persp.drawOverSign(this, ctx, rects);
       const D = Draw();
       const hit = this.zombies.filter((z) => {
         const p = this.toScreen(z.x, z.y);

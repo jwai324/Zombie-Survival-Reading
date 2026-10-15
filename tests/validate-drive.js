@@ -6,7 +6,9 @@
      (the left lane goes straight on), so the first wrong way is a junction or the destination;
    - a wrong lane on purpose: the fade, the wrong-turn panel (the drive holds until a choice), then
      "try again" starts the drive over with the trip's miles, walkers and scrap kept, and the next try arrives;
-   - the roof gun: a shot flies straight at the pointer on screen, whichever way it points, at any van speed.
+   - the roof gun: a shot flies straight at the pointer on screen, whichever way it points, at any van speed;
+   - the angled camera's test drive (js/perspective.js): only Home Base to Corner Grocery, screen and world
+     map back onto each other, and there too a shot flies straight at the pointer.
    Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -35,7 +37,7 @@ Object.assign(globalThis, {
   requestAnimationFrame: () => 0,
   cancelAnimationFrame: noop,
 });
-for (const f of ["js/layouts.js", "js/world.js", "js/upgrades.js", "js/streets.js", "js/game.js"]) {
+for (const f of ["js/layouts.js", "js/world.js", "js/upgrades.js", "js/streets.js", "js/game.js", "js/perspective.js"]) {
   const file = path.join(ROOT, f);
   if (fs.existsSync(file)) vm.runInThisContext(fs.readFileSync(file, "utf8"), { filename: f });
 }
@@ -233,6 +235,54 @@ upgrades.engine = 0;
 if (worstAim > 6) err("gun", `a shot drifted ${worstAim.toFixed(1)} px off the line to the pointer`);
 
 console.log(`gun: shots stay within ${worstAim.toFixed(1)} px of the line to the pointer`);
+
+/* ---------- the angled camera: Home Base to Corner Grocery only ---------- */
+const P = ZSR.Persp;
+for (const [a, b] of [["base", "gasngo"], ["grocery", "base"], ["base", "hospital"]]) {
+  start(a, b);
+  if (G.persp) err("persp", `${a} > ${b} drove with the angled camera`);
+  G.stop();
+}
+start("base", "grocery");
+if (!G.persp) err("persp", "base > grocery drove with the flat camera");
+for (let i = 0; i < 90; i++) G.update(1 / 60);
+let worstTrip = 0;
+// points on the ground short of the haze (past it, the ground stops at the haze line)
+for (const [sx, sy] of [[60, 700], [640, 560], [1200, 400], [300, 200], [640, 120]]) {
+  const w = G.toWorld(sx, sy);
+  const p = G.toScreen(w.x, w.y);
+  worstTrip = Math.max(worstTrip, Math.hypot(p.x - sx, p.y - sy));
+}
+if (worstTrip > 0.5) err("persp", `a screen point came back ${worstTrip.toFixed(2)} px off through the world`);
+G.stop();
+let worstPersp = 0;
+for (const deg of [0, 45, 90, 135, 180, 225, 270, 315]) {
+  start("base", "grocery");
+  for (let i = 0; i < 90; i++) G.update(1 / 60);
+  // the pointer around the gun as the screen shows it, on the roof
+  P.setup(G);
+  const m = P.project(G.van.x - Math.cos(G.van.heading) * G.van.h * 0.1, G.van.y - Math.sin(G.van.heading) * G.van.h * 0.1, P.GUN_Z);
+  const a = (deg * Math.PI) / 180;
+  Object.assign(G.pointer, { x: m.x + Math.cos(a) * 220, y: m.y + Math.sin(a) * 220, seen: true, down: true });
+  G.van.cooldown = 0;
+  G.update(1 / 60);
+  G.pointer.down = false;
+  const b = G.bullets[G.bullets.length - 1];
+  const at = () => (P.setup(G), P.project(b.x, b.y, P.GUN_Z));
+  const from = at();
+  const ux = G.pointer.x - from.x;
+  const uy = G.pointer.y - from.y;
+  const len = Math.hypot(ux, uy);
+  for (let i = 0; i < 12; i++) {
+    G.update(1 / 60);
+    if (!G.bullets.includes(b)) break;
+    const p = at();
+    if (p) worstPersp = Math.max(worstPersp, Math.abs(((p.x - from.x) * uy - (p.y - from.y) * ux) / len));
+  }
+  G.stop();
+}
+if (worstPersp > 6) err("persp gun", `a shot drifted ${worstPersp.toFixed(1)} px off the line to the pointer`);
+console.log(`persp: screen and world agree within ${worstTrip.toFixed(3)} px; shots stay within ${worstPersp.toFixed(1)} px of the line to the pointer`);
 console.log(`drive: ${routes} routes driven (${turns} turns), largest step back ${maxBack.toFixed(2)} px; left alone the first wrong way is ${Object.entries(failedAt).map(([k, n]) => k + " " + n).join(", ")}`);
 errors.slice(0, 40).forEach((e) => console.log("ERROR " + e));
 if (errors.length > 40) console.log(`... ${errors.length - 40} more errors`);
