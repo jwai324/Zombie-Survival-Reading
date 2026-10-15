@@ -226,13 +226,17 @@
         that placed it, -1 for the others). rng: the dice (Math.random). Called once the gun, the pole and the
         quest objects lie where they lie. Each walker starts on its own tile of floor the player can walk to
         (through the doors they can open, never in a locked room), at least walkerSpawn.minSteps from the start,
-        never on a busy tile (spawnBusy). First the note's rules, in order (WORLD.NOTES says what each field
-        means): a rule's tiles are its z anchors' rings (r steps, doors shut) inside its zone, or its whole zone;
-        they are closed to the other walkers (an exact rule closes its whole zone), so "one by the robot" stays
-        one. Then the rest, over what is left (only inside an `all` rule's zone). Spacing: `gap` tiles apart where
-        there is room (a rule's group by its anchors: `groupGap`), then closer, never two on a tile. Kinds: a
-        rule's `type`, else the place's mix (placeMix). tests/validate-world.js (R6) checks every rule always has
-        room, so the fallbacks never break a rule with today's layouts. */
+        never on a busy tile (spawnBusy), and out of earshot of the start where there is room (farther than
+        Interior.HEAR in a straight line: minSteps along a diagonal is nearer than that, and a walker that close
+        would wake as you come in; a rule's tiles with no such tile left still get its walker, nearer). First the
+        note's rules, in order (WORLD.NOTES says what each field means): a rule's tiles are its z anchors' rings
+        (r steps, doors shut) inside its zone, or its whole zone; a rule that names a landmark (`near`) rings the
+        landmark's footprint itself, so "one by the robot" starts within r steps of the robot. They are closed
+        to the other walkers (an exact rule closes its whole zone), so "one by the robot" stays one. Then the
+        rest, over what is left (only inside an `all` rule's zone). Spacing: `gap` tiles apart where there is
+        room (a rule's group by its anchors: `groupGap`), then closer, never two on a tile. Kinds: a rule's
+        `type`, else the place's mix (placeMix). tests/validate-world.js (R6) checks every rule always has room,
+        so the fallbacks never break a rule with today's layouts. */
     planWalkers(loc, tpl, start, n, day, rng) {
       const rnd = rng || Math.random;
       const today = day || State().save.day;
@@ -250,6 +254,8 @@
         if ((reach.get(key(x, y)) || 0) >= WS.minSteps && !busy.has(key(x, y))) pool.push([x, y]);
       });
       const inPool = new Set(pool.map(([x, y]) => key(x, y)));
+      const hear = this.HEAR + 0.5; // (the half: a walker's middle, not its tile's edge)
+      const quiet = ([x, y]) => Math.hypot(x + 0.5 - start[0], y + 0.5 - start[1]) >= hear;
       const anchors = []; // the z tiles, in reading order
       tpl.grid.forEach((row, y) => {
         for (let x = 0; x < row.length; x++) if (row[x] === "z") anchors.push([x, y]);
@@ -259,9 +265,13 @@
       const closed = new Set(); // tiles the other walkers may not start on
       const spaced = (x, y, gap) => placed.every((p) => (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y) >= gap * gap);
       const pick = (cands, gaps) => {
-        for (const gap of gaps) {
-          const ok = cands.filter(([x, y]) => !used.has(key(x, y)) && spaced(x, y, gap));
-          if (ok.length) return ok[Math.floor(rnd() * ok.length)];
+        // out of earshot first (every spacing), then anywhere
+        const calm = cands.filter(quiet);
+        for (const list of calm.length < cands.length ? [calm, cands] : [cands]) {
+          for (const gap of gaps) {
+            const ok = list.filter(([x, y]) => !used.has(key(x, y)) && spaced(x, y, gap));
+            if (ok.length) return ok[Math.floor(rnd() * ok.length)];
+          }
         }
         return null;
       };
@@ -277,8 +287,9 @@
           return;
         }
         const own = (list) => list.filter(([x, y]) => inPool.has(key(x, y)) && (!Z || inRects(Z, x, y)));
-        // its tiles: one ring per anchor, or the whole zone
-        const rings = (Array.isArray(r.z) ? r.z : []).map((zi) => (anchors[zi] ? own(this.ringFrom(anchors[zi][0], anchors[zi][1], r.r || WS.ring)) : []));
+        // its tiles: one ring per anchor, or the whole zone; one that names a landmark: one ring round its footprint
+        const mark = r.near != null ? this.landmarkRect(r.near) : null;
+        const rings = mark ? [own(this.ringFrom(mark[0], mark[1], r.r || WS.ring, mark[2], mark[3]))] : (Array.isArray(r.z) ? r.z : []).map((zi) => (anchors[zi] ? own(this.ringFrom(anchors[zi][0], anchors[zi][1], r.r || WS.ring)) : []));
         const area = rings.length ? [].concat(...rings) : Z ? own(pool) : [];
         area.forEach(([x, y]) => closed.add(key(x, y)));
         if (r.exact && Z) own(pool).forEach(([x, y]) => closed.add(key(x, y)));
@@ -314,13 +325,20 @@
       [this.gunPickup, this.rodPickup].forEach((o) => o && busy.add(Math.floor(o.x) + "," + Math.floor(o.y)));
       return busy;
     },
-    /** Tiles within r steps of (ax, ay) walking with every door shut, so inside that tile's room: [[x, y], ...]. */
-    ringFrom(ax, ay, r) {
+    /** Tiles within r steps of (ax, ay) walking with every door shut, so inside that tile's room: [[x, y], ...].
+        With (bx, by): of any tile of the rect from (ax, ay) to (bx, by) (a landmark's footprint, solid or not). */
+    ringFrom(ax, ay, r, bx, by) {
       const m = this.solidMask();
       const gw = this.gw;
-      const seen = new Set([ax + "," + ay]);
-      const out = [[ax, ay]];
-      let edge = [[ax, ay]];
+      const seen = new Set();
+      const out = [];
+      for (let y = ay; y <= (by == null ? ay : by); y++) {
+        for (let x = ax; x <= (bx == null ? ax : bx); x++) {
+          seen.add(x + "," + y);
+          out.push([x, y]);
+        }
+      }
+      let edge = out.slice();
       for (let d = 0; d < r; d++) {
         const next = [];
         edge.forEach(([x, y]) => {
@@ -337,6 +355,13 @@
         edge = next;
       }
       return out;
+    },
+    /** The footprint of the landmark called `name` here (its def's foot round its tile): [x0, y0, x1, y1], or null. */
+    landmarkRect(name) {
+      const lm = (this.landmarks || []).find((m) => m.def && m.def.name === name);
+      if (!lm) return null;
+      const [fw, fh] = lm.def.foot || [1, 1];
+      return [lm.x - (fw >> 1), lm.y - (fh >> 1), lm.x + (fw >> 1), lm.y + (fh >> 1)];
     },
     /** The walker kinds of this place, "building" or "alarm" (WORLD.walkerWeights by danger, day and theme), less
         any kind a note's rule keeps to its own walkers (`only`: "One of them is big"). */

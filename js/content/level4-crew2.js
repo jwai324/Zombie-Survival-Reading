@@ -10,13 +10,13 @@
   T.crew = T.crew || {};
   const tips = (T.crew.tips = T.crew.tips || {});
   tips.tomas = Object.assign(tips.tomas || {}, {
-    lanky: "Tomas says the tall, thin walkers are even lankier than he is, and he would know. Their long arms reach farther than any other walker's, so keep more space between you and one than feels necessary.",
+    lanky: "Tomas says the tall, thin walkers are even lankier than he is, and he would know. Their long arms reach farther than any other walker's. Keep more space between you and one than feels necessary.",
     armored: "Tomas says the walkers in helmets and heavy coats take a lot more hits to bring down. He can hear the shots ring off the metal. They are slow, though, so back away and keep shooting.",
     wrecked: "Tomas has walked the plots and lists the builds that walkers have wrecked: {rooms}. A wrecked build does nothing at all until it is fixed, and fixing it all costs {cost} scrap.",
   });
   tips.pip = Object.assign(tips.pip || {}, {
-    screamer: "Pip says some walkers scream the moment they spot you, loud enough to hear across the yard. Every walker nearby hears it and speeds up for a while, so stop a screamer first, before the rest come running.",
-    wreckers: "Pip has counted every wave and noticed something: some walkers ignore you and go for the van and the builds. Pip calls them wreckers. Shoot one or get close, and it turns on you instead.",
+    screamer: "Pip says some walkers scream the moment they spot you, loud enough to hear across the yard. Every awake walker nearby hears it and speeds up for a while, but sleeping ones sleep on. So stop a screamer first, before the rest come running.",
+    wreckers: "Pip has counted every wave and noticed something. Some walkers ignore you and go for the van and the builds. Pip calls them wreckers. Shoot one or get close, and it turns on you instead.",
   });
   T.crew.reports = Object.assign(T.crew.reports || {}, {
     builds: "Tomas spent the quiet fixing wrecked builds in the yard: {fixed} in all. It took {scrap} scrap from the base. Each one he fixed is back to work, and he checked them all twice.",

@@ -879,6 +879,28 @@ else {
         });
       });
     });
+    // J2: a head pointing well down (Walker3D.FACE_DOWN: falling or lying on its face) shows no face from any side,
+    // and goes by its real depth (lying away from you the body covers it: drawn after the torso it would sit between
+    // the boots, the open mouth showing); a brute shot in the back lies face down, from behind: no face
+    let faceDown = 0;
+    types.forEach((type) => {
+      [0, PI, PI / 2, 2.5].forEach((fallDir) => {
+        [0.4, 0.7, 1].forEach((fall) => {
+          for (let k = 0; k < 8; k++) {
+            const yaw = (k * PI) / 4;
+            const res = W3.draw(quiet, type, stQ({ yaw, fall, fallDir, pose: "idle", move: 0 }), camFor(type, true, 200, 1.6));
+            if (!(PB.hf[7] < W3.FACE_DOWN)) continue;
+            faceDown++;
+            if (res.face || !W3.probe().headBack) err(`walker ${type} falling ${fall} dir ${fallDir.toFixed(2)} yaw ${yaw.toFixed(2)}: its head points down (${PB.hf[7].toFixed(2)}) yet ${res.face ? "draws a face" : "is not drawn by its real depth"}`);
+          }
+        });
+      });
+    });
+    if (!faceDown) err("walker falls: no fall ever puts a head face down (the check above checked nothing)");
+    if (types.includes("brute")) {
+      const res = W3.draw(quiet, "brute", stQ({ yaw: PI, fall: 1, fallDir: 0, pose: "idle", move: 0 }), camFor("brute", true, 200, 1.6));
+      if (res.face) err("walker brute shot in the back, lying face down, seen from behind: draws its face");
+    }
     // K: missing or broken inputs draw as their defaults (the checking context errs on any non-finite coordinate)
     [{ move: undefined }, { move: NaN }, { fallDir: NaN, fall: 0.6 }, { fallDir: undefined, fall: 0.6 }, { fallDir: null, fall: 1 }, { gait: NaN }, { gait: Infinity }, { poseT: NaN, pose: "bite" }, { claw: NaN, pose: "claw" }, { poseW: NaN, pose: "claw" }, { fall: NaN }, { yaw: NaN }, { fog: NaN }, { seed: -5 }, { lod: 7 }, { pose: "dance" }].forEach((o) =>
       types.forEach((type) => drawOne(type, o, camFor(type, !!o.fall, 200), `walker ${type} with ${JSON.stringify(o, (k, v) => (typeof v === "number" && !Number.isFinite(v) ? String(v) : v === undefined ? "undefined" : v))}`))
@@ -1035,6 +1057,22 @@ let roadDraws = 0;
           });
           if (gore && !red) err(`road walker ${id} seed ${seed}: gore on, but no blood anywhere on it`);
         }
+        // a hurt one's health bar stays level on the screen however the road view turns the world: it turns back
+        // by the view's turn round the walker, and sits over its head (screen up), as wide as the walker
+        [0.7, -1.9, Math.PI].forEach((turn) => {
+          const z = { type: id, seed, x: 40, y: 50, r: R.r, hp: 0.4, maxHp: 1, angle: 0.3, phase: 0.4, hit: 0, frenzyT: 0, yell: 0 };
+          const what = `road walker ${id} seed ${seed} hurt, view turned ${turn.toFixed(2)}`;
+          const ops = roadDraw(what, (ctx) => Dr.zombie(ctx, z, 0.37, true, turn));
+          if (!ops) return;
+          const bar = ops.map((o, i) => [o, i]).filter(([o]) => o.k === "fillRect").slice(-2); // drawn last
+          const i0 = bar.length ? bar[0][1] : -1;
+          const rot = ops.slice(0, Math.max(0, i0)).reverse().find((o) => o.k === "rotate" || o.k === "restore");
+          const tr = ops.slice(0, Math.max(0, i0)).reverse().find((o) => o.k === "translate");
+          if (bar.length !== 2 || ops.slice(i0 + 1, bar[1][1]).some((o) => o.k !== "set fillStyle" && o.k !== "fillRect")) err(`${what}: no health bar drawn last (the ink, the red)`);
+          else if (!rot || rot.k !== "rotate" || Math.abs(rot.args[0] + turn) > 1e-9) err(`${what}: its health bar is not turned back by the view's turn (${rot ? rot.k + " " + (rot.args || []).join() : "nothing"})`);
+          else if (!tr || tr.args[0] !== z.x || tr.args[1] !== z.y) err(`${what}: its health bar does not turn round the walker`);
+          else if (!(bar[0][0].args[1] < -R.r) || Math.abs(bar[0][0].args[0] + bar[0][0].args[2] / 2) > 1e-9) err(`${what}: its health bar is not centred over its head (${bar[0][0].args.join()})`);
+        });
       }
       WD.SETTINGS.walkerGore = true;
       // a downed one: through its whole fall, gore on and off, falling any way

@@ -42,6 +42,8 @@
   const LEFT = { s: "w", n: "e", e: "s", w: "n" }; // your left hand as you face a plot's front from outside
   const SIDE_BIT = { n: 1, e: 2, s: 4, w: 8 };
   const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+  const CABIN_CUE_SECS = 20; // seconds between "Walkers are waiting in the cabin" while they hold a wave open
+  const CABIN_LABEL = " · walkers in the cabin"; // the wave label's tail while walkers stand in the cabin, out of sight
 
   /** A wall face from yardart's "yWall": material, base color, feature (window, door ...), sign slice, part of a wide feature. */
   const wall = (m, c, f, s, p) => {
@@ -741,7 +743,10 @@
         nowhere: walkers move four ways). One search from every usable hole at once, along the open ground
         outside the fence, out to breachRange: each tile keeps the nearest hole and its walking distance.
         SCALE: that search covers at most breachRange tiles round each hole (a 3-wide strip today: ~50 tiles a
-        hole); the arrays are one entry per yard tile, made once per yard size. Every walker re-paths at once. */
+        hole); the arrays are one entry per yard tile, made once per yard size. Only the walkers the change touches
+        re-path at once (see the end); the rest keep their own re-path clocks, so a wave's searches stay spread over
+        its frames (resetting everyone made all of them search in the same frame, at every breach and mend, and
+        kept their clocks in step afterwards). */
     breachChanged() {
       if (!this.yardInside || !this.grid) return;
       const gw = this.gw;
@@ -750,7 +755,13 @@
       const range = W().DEFENSE.breachRange || 0;
       const m = this.solidMask();
       const inside = this.yardInside;
-      const b = this.breach && this.breach.near.length === n ? this.breach : (this.breach = { near: new Int32Array(n), dist: new Int16Array(n), holes: [], usable: [], block: new Map() });
+      const fresh = !(this.breach && this.breach.near.length === n);
+      const b = fresh ? (this.breach = { near: new Int32Array(n), prev: new Int32Array(n), dist: new Int16Array(n), holes: [], usable: [], block: new Map() }) : this.breach;
+      // the hole each outside tile drew before this change: the two arrays swap, so nothing is made per change
+      const was = b.near;
+      b.near = b.prev;
+      b.prev = was;
+      const holesWas = b.holes;
       b.near.fill(-1);
       b.dist.fill(-1);
       b.holes = [];
@@ -791,18 +802,38 @@
           q.push(j);
         }
       }
-      (this.walkers || []).forEach((z) => (z.pathT = 0));
+      // who finds the way again now: a walker on the fence line (in a hole, or where one was); one outside whose
+      // nearest hole in range changed (a new one draws it, or its own was mended); one whose path steps on a hole
+      // that opened or closed. Everyone else's search would come out the same (the core re-paths them on their own
+      // clock anyway). The first time, everyone.
+      const changed = new Set(holesWas);
+      b.holes.forEach((i) => (changed.has(i) ? changed.delete(i) : changed.add(i)));
+      (this.walkers || []).forEach((z) => {
+        const gx = Math.floor(z.x);
+        const gy = Math.floor(z.y);
+        const i = gy * gw + gx;
+        if (fresh || this.isFenceLine(gx, gy) || (this.yardOutside(gx, gy) && was[i] !== b.near[i])) z.pathT = 0;
+        else if (changed.size && z.path && z.path.some(([px, py]) => changed.has(Math.floor(py) * gw + Math.floor(px)))) z.pathT = 0;
+      });
     },
     /** The core's PathBlock hook: for a walker outside the fence, every hole but the nearest one in range (all of
         them when none is), as tile indices its path search treats as solid. Null inside the fence, in a hole (it is
-        going through), or with no holes at all. */
-    yardPathBlock(z) {
+        going through), or with no holes at all. True (no way at all: the core searches nothing) for a walker outside
+        with no hole in range that is going somewhere inside: every way in is a hole and all of them are shut to it,
+        so a search would walk the whole outside to fail (it claws its own segment, as it would after the search). */
+    yardPathBlock(z, goal) {
       const b = this.breach;
-      if (!b || !b.holes.length) return null;
+      if (!b) return null;
       const gx = Math.floor(z.x);
       const gy = Math.floor(z.y);
       if (!this.yardOutside(gx, gy)) return null;
-      const h = b.near[gy * this.gw + gx];
+      const h = b.holes.length ? b.near[gy * this.gw + gx] : -1;
+      if (h < 0 && goal && !z.practice) {
+        const tx = Math.floor(goal.x);
+        const ty = Math.floor(goal.y);
+        if (tx >= 0 && ty >= 0 && tx < this.gw && ty < this.gh && this.yardInside[ty * this.gw + tx]) return true;
+      }
+      if (!b.holes.length) return null;
       let list = b.block.get(h);
       if (!list) b.block.set(h, (list = b.holes.filter((k) => k !== h)));
       return list;
@@ -1033,6 +1064,7 @@
             const every = sides.length >= 4;
             const where = this.waveWhere(sides);
             this.phase = { kind: "wave", size, total, spawned: 0, spawnT: 0, t: 0, sides };
+            this.raidToast = false; // "Walkers got into the cabin" is said once a wave (js/house.js)
             // the crew hurry to the shelter; the dog's bark joins the toast, so the toast still says where
             const bark = this.crewWave(true);
             const tail = bark ? " " + bark : "";
@@ -1088,11 +1120,24 @@
           this.toast(fence + builds + cabin, holes || broken || builds ? 5.5 : 3);
           Audio().play("correct");
           if (this.hooks.onWaveCleared) this.hooks.onWaveCleared();
-        }
+        } else if (this.cabinHoldsWave() && !this.indoorAt(this.player.x, this.player.y)) {
+          // the last of the wave wait in the cabin, out of sight (raiders: js/house.js), and the wave lasts until
+          // they are cleared out: say so now and every CABIN_CUE_SECS while you stay out (no count: the owner took
+          // the counts out, so without this nothing would say why the wave goes on)
+          if ((ph.cabinCueT = (ph.cabinCueT || 0) - dt) <= 0) {
+            // "Walkers got into the cabin" just now (js/house.js) says it already: the next cue counts from that
+            const since = this.time - (this.raidToastAt == null ? -Infinity : this.raidToastAt);
+            ph.cabinCueT = CABIN_CUE_SECS - (since < CABIN_CUE_SECS ? since : 0);
+            if (since >= CABIN_CUE_SECS) this.toast("Walkers are waiting in the cabin. Clear it out.", 3.5);
+          }
+        } else ph.cabinCueT = 0;
       }
       // HUD phase line (cheap enough every frame)
       const h = this.hud.phase;
-      const text = ph.kind === "calm" ? (this.yardHold ? "QUIET" : "QUIET · next in " + Math.max(0, Math.ceil(this.phase.t)) + "s") : ph.size === "many" ? "HEAVY WAVE" : "WAVE"; // no count: you see them, you do not count them (owner, 2026-10-15)
+      // no count: you see them, you do not count them (owner, 2026-10-15); but walkers in the cabin are out of sight
+      // while you are out of it, so the label says where they are (CABIN_LABEL)
+      const cabin = ph.kind === "wave" && !this.indoorAt(this.player.x, this.player.y) && this.cabinWalkers() ? CABIN_LABEL : "";
+      const text = ph.kind === "calm" ? (this.yardHold ? "QUIET" : "QUIET · next in " + Math.max(0, Math.ceil(this.phase.t)) + "s") : (ph.size === "many" ? "HEAVY WAVE" : "WAVE") + cabin;
       if (h.textContent !== text) h.textContent = text;
       h.classList.toggle("alarm", ph.kind === "wave");
     },
@@ -1149,7 +1194,7 @@
         this.crewInteract(f);
       } else if (f.kind === "van") {
         if (inWave) {
-          this.toast("Not now. Clear the fence first.", 2.5);
+          this.toast(this.cabinHoldsWave() ? "Not now. Walkers are still in the cabin." : "Not now. Clear the fence first.", 2.5);
           Audio().play("wrong");
         } else if (this.yardHold) {
           // the first-run basics come first: June says what is left (js/tutorial.js)
@@ -1167,7 +1212,7 @@
       if (f.kind === "wreck") return this.wreckHint(f.obj);
       if (f.kind === "spot" || f.kind === "pane") return this.houseHint(f);
       if (f.kind === "crew" || f.kind === "dog") return this.crewHint(f);
-      if (f.kind === "van") return inWave ? "The van (clear the wave first)" : this.yardHold ? "The van (after the basics)" : "Press E to head out in the van";
+      if (f.kind === "van") return inWave ? (this.cabinHoldsWave() ? "The van (walkers are still in the cabin)" : "The van (clear the wave first)") : this.yardHold ? "The van (after the basics)" : "Press E to head out in the van";
       return "";
     },
     yardGoal() {

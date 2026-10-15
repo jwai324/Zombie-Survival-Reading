@@ -448,6 +448,28 @@ for (const a of ids) {
   W.SETTINGS.walkerGore = false;
   if (hitOnce(kinds[0]) !== 0) err(c, "a hit with walker gore off sprayed blood");
   W.SETTINGS.walkerGore = true;
+  // the van's bumper is a hit too: it flashes, and sprays with gore on (none off), killing or not
+  const ramOnce = (kill) => {
+    G.zombies.length = 0;
+    G.particles.length = 0;
+    const z = G.spawnWalkerAhead(kinds[0]);
+    z.hp = z.maxHp = kill ? 1 : 1e6;
+    place(z, G.van.h / 2 + z.r * 0.4, 0);
+    z.cool = 0;
+    G.update(1 / 60);
+    return { blood: G.particles.filter((p) => p.blood).length, hit: z.hit, rammed: kill ? !G.zombies.includes(z) : z.cool > 0 };
+  };
+  for (const kill of [false, true]) {
+    const how = kill ? "a ram that kills" : "a ram";
+    const on = ramOnce(kill);
+    if (!on.rammed) err(c, `${how}: setup, the van did not ram the walker`);
+    else if (!(on.blood > 0)) err(c, `${how} with walker gore on sprayed no blood`);
+    if (!kill && !(on.hit > 0)) err(c, `${how} did not flash the walker`);
+    W.SETTINGS.walkerGore = false;
+    const off = ramOnce(kill);
+    W.SETTINGS.walkerGore = true;
+    if (off.blood) err(c, `${how} with walker gore off sprayed blood`);
+  }
   {
     G.zombies.length = 0;
     G.particles.length = 0;

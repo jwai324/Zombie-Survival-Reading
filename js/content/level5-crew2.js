@@ -15,7 +15,7 @@
     wrecked: "Tomas has walked the plots with a frown and lists the builds that walkers have wrecked: {rooms}. A wrecked build does nothing at all until it is fixed, he says, and fixing it all costs {cost} scrap.",
   });
   tips.pip = Object.assign(tips.pip || {}, {
-    screamer: "Pip says some walkers let out a scream the moment they spot you, and the sound carries a long way. Every walker nearby hears it and speeds up for a while, so stop a screamer first, before the others come running at you.",
+    screamer: "Pip says some walkers let out a scream the moment they spot you, and the sound carries a long way. Every awake walker nearby hears it and speeds up for a while, though sleeping ones sleep right through it. So stop a screamer first, before the others come running at you.",
     wreckers: "Pip has counted every wave and noticed a pattern: some walkers ignore you completely and go for the van and the builds. Pip calls them wreckers. Shoot one, or just get close, and it forgets the builds and turns on you instead.",
   });
   T.crew.reports = Object.assign(T.crew.reports || {}, {

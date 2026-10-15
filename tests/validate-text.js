@@ -605,6 +605,11 @@ function checkCrewSlot(ctx, spec, s, v) {
   const briefAt = s.sub === "brief" && s.quest ? W.LOCATIONS.find((l) => l.id === s.quest.at) : null;
   checkText(sctx, v, spec, 1, factsList(s.facts), spec[s.range], { vars: s.vars, skip: [s.speaker, briefAt && briefAt.name].filter(Boolean) });
   if (s.noRule) err(sctx, `the engine has no placeholder rule for this ${s.sec === "tips" ? "tip" : "report"} (tests/validate-crew.js)`);
+  // a crew tip or report keeps to its level's longest sentence exactly (the table above; elsewhere a warning past +3)
+  if (s.sec === "tips" || s.sec === "reports") {
+    const longest = sentences(v).reduce((m, x) => Math.max(m, words(x).length), 0);
+    if (longest > spec.sentence) err(sctx, `longest sentence ${longest} words, max ${spec.sentence} at this level (a crew tip or report keeps to it)`);
+  }
   const text = String(v);
   common(text);
   if (s.speaker && !nameRe(s.speaker).test(text)) err(sctx, `must name its speaker, ${s.speaker} (say who is talking: the bubble and the card show several texts in a row)`);

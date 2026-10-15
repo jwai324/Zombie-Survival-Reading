@@ -229,7 +229,9 @@
       }
       return null;
     },
-    /** Every frame of a wave: each wrecker on its spot claws its target (before the walkers move). */
+    /** Every frame of a wave: each wrecker on its spot that is clawing claws its target (before the walkers move,
+        so `act` is last frame's: one frame late on arrival). Not one that stands there doing something else: a
+        screamer yelling at you (the core's scream comes before the claw), so the harm and the claw pose agree. */
     yardWreck(dt) {
       if (!this.walkers || !this.walkers.length) return;
       const S = State();
@@ -237,7 +239,7 @@
       const god = S.cheat("noDie"); // god mode: they claw, nothing gives
       let floor = null;
       for (const z of this.walkers) {
-        if (z.hp <= 0 || !this.wreckAtSpot(z)) continue;
+        if (z.hp <= 0 || z.act !== "claw" || !this.wreckAtSpot(z)) continue;
         const harm = god ? 0 : z.dps * (D.wreckDps == null ? 1 : D.wreckDps) * dt;
         if (z.wreckTarget === "van") {
           if (floor == null) floor = this.vanFloor();

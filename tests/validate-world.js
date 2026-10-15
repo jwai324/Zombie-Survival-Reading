@@ -258,7 +258,8 @@ W.LOCATIONS.filter((l) => l.outdoor).forEach((l) => {
    R1 ids: `says` names this building's door note, notes and signs. R2 coverage: any door fact about walkers, or a
    red-R graffiti, that puts walkers somewhere ("in the", "by the", ...) is in some rule's `says`. R3 zones: known, inside
    the grid, with floor a walker can start on; no zone left unused. R4 anchors: a real z tile, inside its zone, by
-   the landmark its rule names. R5 kinds: known; `only` needs a `type`. R6 room: a rule's tiles hold its walkers
+   the landmark its rule names; a rule that names a landmark rings the landmark's footprint (its walkers start
+   within r steps of it, so within that many tiles every way: "one by the robot" means by the robot). R5 kinds: known; `only` needs a `type`. R6 room: a rule's tiles hold its walkers
    spaced out (one tile spare for a gun), and so do the tiles left for the others. R7 totals: the rules never want
    more walkers than the building has. R8: an exact zone overlaps no other rule's zone; a text that says "most" of
    them are there has a share above half.
@@ -297,9 +298,14 @@ function checkWalkerRules(l, t, N) {
   }
   const floor = (x, y) => ".inyz$ck1234".includes(at(x, y)) && !foot.has(key(x, y));
   /** Steps from (sx, sy) over floor (and through the doors you can open when `doors`), up to `max`. */
-  const walk = (sx, sy, doors, max) => {
-    const d = new Map([[key(sx, sy), 0]]);
-    const q = [[sx, sy]];
+  const walk = (sx, sy, doors, max, ex, ey) => {
+    // (with ex, ey: from every tile of the rect (sx, sy)-(ex, ey) at once, a landmark's footprint)
+    const d = new Map();
+    const q = [];
+    for (let y = sy; y <= (ey == null ? sy : ey); y++) for (let x = sx; x <= (ex == null ? sx : ex); x++) {
+      d.set(key(x, y), 0);
+      q.push([x, y]);
+    }
     for (let i = 0; i < q.length; i++) {
       const [x, y] = q[i];
       const dd = d.get(key(x, y));
@@ -394,6 +400,18 @@ function checkWalkerRules(l, t, N) {
         }
         return own([...walk(ax, ay, false, r.r || WS.ring).keys()].map((k) => k.split(",").map(Number)));
       });
+      // a rule that names a landmark: one ring round the landmark's footprint (js/building.js planWalkers), every
+      // tile of it within r tiles of the footprint every way
+      const m = r.near != null && marks[r.near];
+      if (m) {
+        const ringTiles = own([...walk(m[0], m[1], false, r.r || WS.ring, m[2], m[3]).keys()].map((k) => k.split(",").map(Number)));
+        ringTiles.forEach(([x, y]) => {
+          const d = Math.max(m[0] - x, x - m[2], 0, m[1] - y, y - m[3]);
+          if (d > (r.r || WS.ring)) err(`${c}: ${x},${y} in its ring is ${d} tiles from ${r.near}`);
+        });
+        if (!ringTiles.length) err(`${c}: no floor a walker can start on within ${r.r || WS.ring} steps of ${r.near}${Z ? " in " + r.zone : ""}`);
+        rings = [ringTiles];
+      }
     } else if (r.near != null) err(`${c}: near needs anchors (z)`);
     const area = rings.length ? [].concat(...rings) : own(pool);
     const shut = r.exact && Z ? own(pool) : area;
@@ -411,7 +429,7 @@ function checkWalkerRules(l, t, N) {
     const most = Math.max(...counts.map((n) => want(r, n)));
     if (rings.length) rings.forEach((ring, k) => {
       const need = Math.ceil(most / rings.length) + 1;
-      if (fits(ring, WS.groupGap) < need) err(`${c}: anchor z${r.z[k]} has room for ${fits(ring, WS.groupGap)} walkers ${WS.groupGap} apart within ${r.r || WS.ring} steps${Z ? " in " + r.zone : ""}, needs ${need}`);
+      if (fits(ring, WS.groupGap) < need) err(`${c}: ${r.near != null && marks[r.near] ? r.near : "anchor z" + r.z[k]} has room for ${fits(ring, WS.groupGap)} walkers ${WS.groupGap} apart within ${r.r || WS.ring} steps${Z ? " in " + r.zone : ""}, needs ${need}`);
     });
     else if (fits(area, WS.groupGap) < most + 1) err(`${c}: zone ${r.zone} has room for ${fits(area, WS.groupGap)} walkers ${WS.groupGap} apart, needs ${most + 1}`);
     return Z ? own(pool) : area;

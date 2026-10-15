@@ -11,11 +11,11 @@
   const tips = (T.crew.tips = T.crew.tips || {});
   tips.tomas = Object.assign(tips.tomas || {}, {
     lanky: "Tomas, who has been called lanky more times than he can count, says the tall, thin walkers are even lankier than he is. Their long arms reach farther than any other walker's, he warns, so leave more space between you and one than your instincts suggest. Do not let it close the distance.",
-    armored: "Tomas says the walkers in helmets and heavy coats, riot gear and firefighter gear by the look of it, take a lot more hits to bring down. He swears he can hear the shots ring off the metal. They are slow, though, he adds, so back away, keep your distance and keep shooting until one stays down.",
+    armored: "Tomas says the walkers in helmets and heavy coats take a lot more hits to bring down. By the look of it, that gear was riot gear and firefighter gear once. He swears he can hear the shots ring off the metal. They are slow, though, he adds, so back away, keep your distance and keep shooting until one stays down.",
     wrecked: "Tomas has walked every plot with a grim face and lists the builds that walkers have wrecked: {rooms}. A wrecked build does nothing at all until it is fixed, he explains, so for now it is only a pile of boards. Fixing it all costs {cost} scrap.",
   });
   tips.pip = Object.assign(tips.pip || {}, {
-    screamer: "Pip says some walkers let out a scream the moment they spot you, a sound that carries a long way and is hard to forget. Every walker nearby takes it as a signal and speeds up for a while, so stop a screamer first, before the rest of them come running.",
+    screamer: "Pip says some walkers let out a scream the moment they spot you, a sound that carries a long way and is hard to forget. Every awake walker nearby takes it as a signal and speeds up for a while, though any sleeping ones sleep right through it. So stop a screamer first, before the rest of them come running.",
     wreckers: "Pip has counted every wave and noticed a pattern worth knowing. Some walkers ignore you entirely and go for the van and the builds, as if they know what you worked for. Pip calls them wreckers. Shoot one, or simply get close, and it abandons the builds and turns on you instead.",
   });
   T.crew.reports = Object.assign(T.crew.reports || {}, {

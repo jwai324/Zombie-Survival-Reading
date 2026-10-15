@@ -1,7 +1,7 @@
 # Text Guide (six reading levels)
 
-Every player-facing in-world text exists at six reading levels in `js/content/` (six
-files per level; level 1 has a seventh, `level1-tutorial.js`; see Schema). The one exception is
+Every player-facing in-world text exists at six reading levels in `js/content/` (seven
+files per level; level 1 has an eighth, `level1-tutorial.js`; see Schema). The one exception is
 June's first-run tutorial: one level-1 text for every reader (see "June's tutorial" below). The facts come from `js/world.js` (`NOTES`, `BASE_ROOMS`,
 `ITEMS`, `LOCATIONS`, `KEYS`), `js/story.js` (extra notes, signs, keys),
 `js/story-home.js` (`JOURNAL`, `RADIO`, `ITEM_TAGS`, `YARD_LOTS`), `js/story-crew.js`
@@ -96,7 +96,7 @@ next: join ideas with because, so, then, but, when. Use the full name of a thing
 order of need. If a fact needs two short sentences to be clear, use two; the note can run long.
 Read every level 1 note aloud: if a first grader would ask "what does that mean?", rewrite it.
 
-## The crew's words (`levelN-crew.js`)
+## The crew's words (`levelN-crew.js`, `levelN-crew2.js`)
 
 June, Tomas and Pip talk in a comic speech bubble in the yard and the cabin (the yard keeps
 running while it is open), ask favors on a short card, and thank you on it. Their words are
@@ -110,8 +110,8 @@ give them a sentence of their own.
 | Kind | Key in `T.crew` | One per | Length |
 |------|-----------------|---------|--------|
 | Talk | `talk[id] = { title, text }` | every `CREW_TALK` topic and mood id | text: Lot sign range |
-| Tip | `tips[crew][tip]` | every tip id of each crew member in `CREW_TIPS` | Tag range |
-| Report | `reports[key]` | every `CREW_REPORTS` key | Tag range |
+| Tip | `tips[crew][tip]` | every tip id of each crew member in `CREW_TIPS` | Tag range; every sentence within the level's Max sentence (an error, not a warning) |
+| Report | `reports[key]` | every `CREW_REPORTS` key | Tag range; every sentence within the level's Max sentence (an error, not a warning) |
 | Story quest | `quests[id] = { title, brief, tag, journal, done, after }` | every `QUESTS` id (the dog quest has no `tag`) | brief: Journal range; done and after: Lot sign range; tag and journal: Tag range |
 | Errand | `errands[id] = { title, brief, done }` | every `ERRANDS` id | brief and done: Tag range |
 | The dog | `dog = { ask, named, pet }` | every `DOG.facts` key | Tag range |
@@ -281,7 +281,7 @@ words count toward level 1's reading floor but not toward a player's words read.
 
 ## Schema
 
-Each level is seven files, loaded in this order (`index.html`):
+Each level is seven files (level 1 eight, with `level1-tutorial.js`), loaded in this order (`index.html`):
 
 - `js/content/levelN.js`: `level`, `howto`, `controls`, `base` (rooms, traps, bench), `typing`.
 - `js/content/levelN-places1.js`: locations gasngo, grocery, hardware, pharmacy, autoshop,

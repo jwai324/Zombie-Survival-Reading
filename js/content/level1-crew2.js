@@ -10,13 +10,13 @@
   T.crew = T.crew || {};
   const tips = (T.crew.tips = T.crew.tips || {});
   tips.tomas = Object.assign(tips.tomas || {}, {
-    lanky: "Tomas says some walkers are tall and thin, like him. Their long arms reach far. Keep more space between you and one.",
-    armored: "Tomas says walkers in helmets and heavy coats take many more hits. But they are slow. Back up and keep shooting.",
+    lanky: "Some walkers are tall and thin, Tomas says. He is too. Their long arms reach far. Keep more space between you and one.",
+    armored: "Some walkers wear helmets and heavy coats, Tomas says. They take many more hits. But they are slow. Back up and keep shooting.",
     wrecked: "Tomas lists the builds walkers wrecked: {rooms}. A wrecked build does nothing until it is fixed. Fixing it all costs {cost} scrap.",
   });
   tips.pip = Object.assign(tips.pip || {}, {
-    screamer: "Pip says some walkers scream when they see you. Walkers close by hear it and speed up. Stop a screamer first.",
-    wreckers: "Some walkers go for the van and the builds. Pip calls them wreckers. Shoot one, or get close, and it comes for you.",
+    screamer: "Pip says some walkers scream when they see you. Awake walkers close by speed up. Sleeping ones sleep on. Stop a screamer first.",
+    wreckers: "Some walkers go for the van and builds. Pip calls them wreckers. Shoot one or get close. Then it comes for you.",
   });
   T.crew.reports = Object.assign(T.crew.reports || {}, {
     builds: "Tomas fixed wrecked builds in the yard. He fixed {fixed} in all. It took {scrap} scrap from the base.",

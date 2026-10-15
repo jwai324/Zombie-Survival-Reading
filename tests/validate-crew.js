@@ -488,6 +488,24 @@ group("tips: the walker kinds and the wreckers, told once; the wrecked builds", 
   ok(!tips("bo", { wrecked: [] }).includes("wrecked"), "wrecked: told when the yard says nothing is wrecked");
   S.save.builds = {};
   ok(!tips("bo").includes("wrecked"), "wrecked: told once it was fixed");
+  // a cracked build (under half its strength) needs fixing too (the lot panel, the computer's Fix all): "nothing needs
+  // fixing" is never said while one is, from the save or the yard's live lists; all whole again, it is
+  const fine = (ctx) => S.crewTips("bo", ctx).fallback.some((t) => t.tip === "fine");
+  ok(fine(), "fine: not said with every build whole");
+  S.save.builds = { garden: Math.floor(S.buildMax("garden") * 0.3) };
+  ok(!S.roomWrecked("garden") && !fine(), "fine: said with a build cracked (the save)");
+  S.save.builds = { garden: 0 };
+  ok(!fine(), "fine: said with a build wrecked (the save)");
+  S.save.builds = {};
+  ok(!fine({ wrecked: [], cracked: ["garden"] }) && !fine({ wrecked: ["garden"], cracked: [] }), "fine: said with a build cracked or wrecked (the yard's live lists)");
+  ok(fine({ wrecked: [], cracked: [] }), "fine: not said with the yard's lists empty");
+  // a room's topic waits while its build is wrecked (its words give the room's bonus as working), and comes once fixed
+  ok(S.crewWhen({ room: "garden", level: 1 }, "bo"), "crewWhen: a room topic waits with its room built and whole");
+  S.save.builds = { garden: 0 };
+  ok(!S.crewWhen({ room: "garden", level: 1 }, "bo"), "crewWhen: a room topic is told while its build is wrecked");
+  S.save.builds = { garden: 1 };
+  ok(S.crewWhen({ room: "garden", level: 1 }, "bo"), "crewWhen: a room topic waits while its build is only cracked (it still works)");
+  S.save.builds = {};
 });
 
 group("jobs", () => {

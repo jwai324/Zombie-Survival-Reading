@@ -313,6 +313,7 @@
       fence: { facts: ["Tomas counts {holes} holes and {cracks} cracked boards in the fence.", "Holes never close on their own, and each fix you make costs 1 scrap."] }, // his own are free with the brackets (tomas-4)
       cabin: { facts: ["Tomas counts the cabin's broken doors and windows: {broken}.", "Each fix costs 2 scrap: press E at it, or use the office computer."] },
       crowbar: { facts: ["Tomas says you have no crowbar.", "A crowbar pries open one jammed lock and is used up; build one at the workbench, from the office computer."] }, // as tomas-t10
+      // the fallback, told only while no yard build is cracked or wrecked either (js/crewstate.js), so "nothing" is true
       fine: { facts: ["Tomas says the van, the fence and the cabin are all in good shape.", "Nothing needs fixing right now."] },
       // told once, the first talk after you first meet one (save.met; js/crewstate.js)
       lanky: { facts: ["Tomas says the tall, thin walkers are even lankier than he is.", "Their long arms reach farther, so keep more space between you."] },
@@ -331,7 +332,8 @@
       // the fallback once every known building is at its walker limit (the walkers tip has nothing left to count)
       full: { facts: ["Pip says every building in town is as full of walkers as it will get.", "From now on, a place is only as dangerous as it is today."] },
       // told once, the first talk after you first meet one (save.met; js/crewstate.js)
-      screamer: { facts: ["Pip says some walkers scream when they spot you.", "Walkers nearby hear it and speed up for a while, so stop a screamer first."] },
+      // the scream speeds up only the walkers already awake near it, and wakes nobody (owner decision, WORLD.SCREAM)
+      screamer: { facts: ["Pip says some walkers scream when they spot you.", "Awake walkers nearby hear it and speed up for a while; sleeping ones sleep on.", "So stop a screamer first."] },
       // told once, as soon as a yard build stands (js/yardwreck.js)
       wreckers: { facts: ["Pip calls the walkers that go for the van and the builds wreckers.", "Shoot one or get close, and it turns on you."] },
     },

@@ -654,8 +654,11 @@
        exact   no other walker starts in the zone (no zone: in the rule's rings)
        type    their kind (WALKER_TYPES); only: no other walker of that kind in the building, its alarm too
        all     every walker starts in the zone (and the rule places none of its own)
-       near    the landmark the anchor stands by (checked by the validator only; with exact, the zone must
-               also cover the floor round that landmark, so "one by the robot" never has a second one beside it)
+       near    the landmark the rule's walkers stand by: they start within r steps (walkerSpawn.ring) of the
+               landmark's footprint itself, doors shut, in place of the anchor's ring, so "one by the robot" is by
+               the robot; the anchor must still stand within walkerSpawn.near of it, in its zone (validator R4).
+               With exact, the zone must also cover the floor round that landmark, so "one by the robot" never
+               has a second one beside it
      A rule's own tiles are closed to the other walkers, so "one by the robot" stays one. Door-note
      counts ("at least eight") never change: SETTINGS.walkersPerLocation keeps them. */
   const NOTES = {
@@ -797,8 +800,10 @@
     // text never has gore either way.
     walkerGore: true,
     // SCALE: where a building's walkers start, in steps (tiles), tuned for 30-42 wide interiors: at least minSteps
-    // from the door, `gap` apart (groupGap inside a note's group), a named walker within `ring` steps of the spot
-    // its note names, that spot within `near` tiles of the landmark the note names (js/building.js planWalkers)
+    // from the door (and out of earshot, Interior.HEAR in a straight line, where there is room), `gap` apart
+    // (groupGap inside a note's group), a named walker within `ring` steps of the spot its note names (the
+    // landmark itself when the rule names one), the rule's anchor within `near` tiles of that landmark
+    // (js/building.js planWalkers)
     walkerSpawn: { minSteps: 6, gap: 3, groupGap: 1.5, ring: 3, near: 5 },
     scrapPileValue: [10, 20],
     tripSecondsPerUnit: 0.15, // map distance -> road seconds

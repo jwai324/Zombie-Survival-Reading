@@ -1296,8 +1296,9 @@
   /* A walker on the road: its look, a stepping walk, arms clawing at the van. z: { type, seed, x, y, r, angle,
      phase, hit, hp, maxHp, yell (a screamer's scream, counting down), frenzyT (sped up by a scream) }. With gore on
      (WORLD.SETTINGS.walkerGore) its smears are blood and its rips show ribs; off, grime and bare skin. noShadow:
-     the caller drew its shadow already (zombieShadow) or wants none. */
-  function zombie(ctx, z, t, noShadow) {
+     the caller drew its shadow already (zombieShadow) or wants none. viewTurn: the angle the caller's view turns
+     the world by (the road's camera), so a hurt walker's health bar is drawn level on the screen. */
+  function zombie(ctx, z, t, noShadow, viewTurn) {
     const L = zombieLook(z.type, z.seed);
     const r = z.r;
     const gore = walkerGore();
@@ -1362,13 +1363,18 @@
       ctx.globalAlpha = 1;
     }
     ctx.restore();
-    // health bar for anything that has taken damage
+    // health bar for anything that has taken damage: level over its head on the screen however the road turns
+    // (viewTurn: the turn the road view draws the world with; the bar turns back by it)
     if (z.hp < z.maxHp) {
       const bw = r * 2;
+      ctx.save();
+      ctx.translate(z.x, z.y);
+      if (viewTurn) ctx.rotate(-viewTurn);
       ctx.fillStyle = INK;
-      ctx.fillRect(z.x - bw / 2 - 1, z.y - r * 1.9 - 1, bw + 2, 6);
+      ctx.fillRect(-bw / 2 - 1, -r * 1.9 - 1, bw + 2, 6);
       ctx.fillStyle = "#b3261e";
-      ctx.fillRect(z.x - bw / 2, z.y - r * 1.9, bw * Math.max(0, Math.min(1, z.hp / z.maxHp)), 4);
+      ctx.fillRect(-bw / 2, -r * 1.9, bw * Math.max(0, Math.min(1, z.hp / z.maxHp)), 4);
+      ctx.restore();
     }
   }
 

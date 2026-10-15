@@ -389,9 +389,11 @@ try {
    Days 1 and 40, SPAWN_TRIPS fresh trips into every building with a gun lying in it: the day's count; each walker on
    its own tile, walkerSpawn.minSteps or more steps in, groupGap or more from the next, never on an item, cache or
    stash spot, a note spot (any level), the key, a scrap pile, a landmark, the gun, the fishing pole or a story
-   quest's spot; and every rule of its notes holds (the rings and zones are worked out here from the layout, with
-   the doors shut): its count in its rings or zone (share), each anchor its part, exact, all, type and only (the
-   police: exactly one brute, in its garage ring). Math.random is seeded here, so every run checks the same visits. */
+   quest's spot, nor in earshot of the door (Interior.HEAR in a straight line: it would wake as you come in); and
+   every rule of its notes holds (the rings and zones are worked out here from the layout, with the doors shut):
+   its count in its rings or zone (share), each anchor its part, a named landmark's walkers within r tiles of it
+   ("one by the robot"), exact, all, type and only (the police: exactly one brute, in its garage ring).
+   Math.random is seeded here, so every run checks the same visits. */
 const SPAWN_TRIPS = 6; // SCALE: fresh visits per building and day (each one an enter(): about 5 ms)
 /** Why a walker the alarm just brought starts where it should not ("" when it is fine; js/building.js updateAlarm):
     it comes through the way out, or from floor it can walk to you from with the doors as they stand (walkers
@@ -425,21 +427,28 @@ function alarmStartWhyNot(z) {
       const foot = new Set();
       const anchors = [];
       const busy0 = new Set();
+      const marks = {}; // landmark name -> its footprint [x0, y0, x1, y1]
       g.forEach((row, y) => [...row].forEach((ch, x) => {
         if (ch === "z") anchors.push([x, y]);
         if ("ickny$1234".includes(ch)) busy0.add(x + "," + y);
         const def = "1234".includes(ch) && lay.landmarks[ch];
-        if (def && def.solid) {
+        if (def) {
           const [fw, fh] = def.foot || [1, 1];
-          for (let yy = y - (fh >> 1); yy <= y + (fh >> 1); yy++) for (let xx = x - (fw >> 1); xx <= x + (fw >> 1); xx++) foot.add(xx + "," + yy);
+          marks[def.name] = [x - (fw >> 1), y - (fh >> 1), x + (fw >> 1), y + (fh >> 1)];
+          if (def.solid) for (let yy = y - (fh >> 1); yy <= y + (fh >> 1); yy++) for (let xx = x - (fw >> 1); xx <= x + (fw >> 1); xx++) foot.add(xx + "," + yy);
         }
       }));
       Object.values(lay.spots || {}).forEach(([x, y]) => busy0.add(x + "," + y));
       (W.QUESTS || []).forEach((q) => q.at === loc.id && Array.isArray(q.spot) && busy0.add(q.spot.join(",")));
       const floor = (x, y) => g[y] && ".inyz$ck1234".includes(g[y][x] || "#") && !foot.has(x + "," + y);
-      const ring = (ax, ay, r) => {
-        const d = new Map([[ax + "," + ay, 0]]);
-        const q = [[ax, ay]];
+      const ring = (ax, ay, r, bx, by) => {
+        // (with bx, by: from every tile of a landmark's footprint at once)
+        const d = new Map();
+        const q = [];
+        for (let y = ay; y <= (by == null ? ay : by); y++) for (let x = ax; x <= (bx == null ? ax : bx); x++) {
+          d.set(x + "," + y, 0);
+          q.push([x, y]);
+        }
         for (let i = 0; i < q.length; i++) {
           const [x, y] = q[i];
           if (d.get(x + "," + y) >= r) continue;
@@ -471,6 +480,8 @@ function alarmStartWhyNot(z) {
           Z.forEach((z, i) => {
             if (busy.has(z.k)) err(`${c}: a walker starts on a busy tile (an item, note, pile, key, landmark, gun, pole or quest spot) at ${z.k}`);
             if ((reach.get(z.k) || 0) < WS.minSteps) err(`${c}: a walker starts ${reach.get(z.k) || "no"} steps in at ${z.k} (need ${WS.minSteps}+)`);
+            const heard = Math.hypot(z.x + 0.5 - I.startPos[0], z.y + 0.5 - I.startPos[1]);
+            if (heard < I.HEAR) err(`${c}: a walker starts ${heard.toFixed(1)} tiles from the door at ${z.k}, in earshot (Interior.HEAR ${I.HEAR}): it wakes as you come in (planWalkers puts one there only when its rule has no room farther off: give it room)`);
             Z.forEach((o, j) => {
               if (j <= i) return;
               const d = Math.hypot(z.x - o.x, z.y - o.y);
@@ -486,11 +497,18 @@ function alarmStartWhyNot(z) {
               return;
             }
             const want = Math.max(r.n || 0, r.share ? Math.ceil(r.share * n) : 0);
-            const rings = (r.z || []).map((zi) => ring(anchors[zi][0], anchors[zi][1], r.r || WS.ring));
+            const m = r.near != null ? marks[r.near] : null;
+            const rings = m ? [ring(m[0], m[1], r.r || WS.ring, m[2], m[3])] : (r.z || []).map((zi) => ring(anchors[zi][0], anchors[zi][1], r.r || WS.ring));
+            if (r.near != null && !m) err(`${rc}: near "${r.near}" is not a landmark here`);
             const mine = (z) => (!R || inRects(R, z.x, z.y)) && (!rings.length || rings.some((d) => d.has(z.k)));
             const there = Z.filter(mine);
             // its tiles are closed to every other walker: exactly its count there
             if (there.length !== want) err(`${rc}: ${there.length} walkers in its ${rings.length ? "rings" : "zone"}${R ? " in " + r.zone : ""}, want ${want}`);
+            // "one by the robot": by the robot, within r tiles of its footprint every way
+            if (m) there.forEach((z) => {
+              const d = Math.max(m[0] - z.x, z.x - m[2], 0, m[1] - z.y, z.y - m[3]);
+              if (d > (r.r || WS.ring)) err(`${rc}: its walker at ${z.k} is ${d} tiles from ${r.near}, want ${r.r || WS.ring} or fewer`);
+            });
             rings.forEach((d, k) => {
               const part = Math.floor(want / rings.length);
               if (Z.filter((z) => d.has(z.k) && (!R || inRects(R, z.x, z.y))).length < part) err(`${rc}: fewer than ${part} walkers by anchor z${r.z[k]}`);
@@ -823,6 +841,80 @@ try {
     }
     if (I.phase.kind === "wave") err(`cabin raid: the walkers inside never came for the player (${I.walkers.length} left)`);
   }
+  // the last of a wave waiting in the cabin hold it open, out of sight; with no counts on screen the game says where
+  // they are: "Walkers got into the cabin" once a wave (not once a stay), then a cue at once and every ~20 s while
+  // you stay out, the wave label's tail, and the van, the bed and the computer. Two waves in one stay.
+  {
+    W.DEFENSE.raidShare = 0;
+    S.save.fence = {};
+    S.save.house.hp = {};
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    const p = I.player;
+    p.maxHp = p.hp = 1e9;
+    const said = [];
+    const toastWas = I.toast;
+    I.toast = function (text) {
+      said.push([I.time, String(text)]);
+      return toastWas.apply(this, arguments);
+    };
+    const told = (re) => said.filter(([, s]) => re.test(s));
+    try {
+      const spot = I.raidSpots.find((s) => I.inCabin(s.x, s.y) && [0, 0.35, -0.35].every((d) => !I.solidAt(s.x + d, s.y + d)));
+      const van = { kind: "van", obj: I.van, x: I.van.x, y: I.van.y };
+      for (const wave of [1, 2]) {
+        p.x = 22.5; // out in the open yard, far from the cabin
+        p.y = 13.5;
+        I.walkers.length = 0;
+        I.phase = { kind: "calm", t: 0.01, total: 0, spawned: 0, spawnT: 0, size: "none", next: { size: "some", sides: ["n"] } };
+        I.update(0.05);
+        if (I.phase.kind !== "wave") {
+          err(`cabin cue: wave ${wave} did not start`);
+          break;
+        }
+        // a walker still at the fence: the van says the fence
+        const out = I.makeWalker("walker", 22.5, 20.5, 1);
+        I.walkers.push(out);
+        Object.assign(I.phase, { total: 2, spawned: 2, spawnT: 99 });
+        said.length = 0;
+        I.yardInteract(van);
+        if (!told(/Clear the fence first/).length || I.cabinHoldsWave()) err(`cabin cue: with a walker out in the yard the van does not say to clear the fence (${JSON.stringify(said.map(([, s]) => s))})`);
+        // that one is down; one raider is in the cabin, at its spot
+        I.walkers.length = 0;
+        const z = I.makeWalker("walker", spot.x, spot.y, 1);
+        Object.assign(z, { awake: true, raid: true, raidSpot: spot });
+        I.walkers.push(z);
+        said.length = 0;
+        const t0 = I.time;
+        const labels = new Set();
+        for (let t = 0; t < 45; t += 0.05) {
+          I.update(0.05);
+          labels.add(I.hud.phase.textContent);
+        }
+        const c = `cabin cue, wave ${wave} of a stay`;
+        if (I.phase.kind !== "wave" || !I.walkers.includes(z) || z.act !== "wait") err(`${c}: setup, the raider is not waiting in the cabin (${I.phase.kind}, ${z.act})`);
+        const gotIn = told(/^Walkers got into the cabin/).length;
+        if (gotIn !== 1) err(`${c}: "Walkers got into the cabin" was said ${gotIn} times, want once a wave`);
+        const cues = told(/^Walkers are waiting in the cabin/).map(([t]) => t - t0);
+        const gaps = cues.slice(1).map((t, i) => t - cues[i]);
+        if (!cues.length || cues[0] > 0.5 || cues.length < 2 || gaps.some((g) => g < 15 || g > 25)) err(`${c}: the cue came at ${cues.map((t) => t.toFixed(1)).join(", ") || "never"} s; want at once and every ~20 s while you stay out`);
+        if ([...labels].some((l) => l !== "WAVE · walkers in the cabin" || /\d/.test(l))) err(`${c}: the wave label read ${JSON.stringify([...labels])}, want "WAVE · walkers in the cabin" (where, never how many)`);
+        said.length = 0;
+        I.yardInteract(van);
+        I.houseInteract({ kind: "spot", obj: "computer" });
+        I.houseInteract({ kind: "spot", obj: "bed" });
+        if (told(/still in the cabin/).length !== 3) err(`${c}: the van, the computer and the bed do not say walkers are still in the cabin (${JSON.stringify(said.map(([, s]) => s))})`);
+        ["computer", "bed"].forEach((obj) => !/still in the cabin/.test(I.houseHint({ kind: "spot", obj })) && err(`${c}: the ${obj}'s hint does not say walkers are still in the cabin`));
+        if (!/still in the cabin/.test(I.yardHint(van))) err(`${c}: the van's hint does not say walkers are still in the cabin`);
+        // you go in and clear it: the wave ends, and the label's tail goes
+        I.walkers.length = 0;
+        I.update(0.05);
+        if (I.phase.kind !== "calm" || /cabin/.test(I.hud.phase.textContent)) err(`${c}: cleared, the wave did not end or the label still says the cabin (${I.phase.kind}, "${I.hud.phase.textContent}")`);
+      }
+    } finally {
+      I.toast = toastWas;
+    }
+  }
   // a siege: you in the living room, both doors shut; they come through the fence and smash their way in
   {
     W.DEFENSE.raidShare = 0;
@@ -1078,7 +1170,47 @@ let wreckSpotsTried = 0;
         const z = put("walker", [hx + 2, hy - 1]); // 3 steps from the first hole, 5 from the second
         run(0.5);
         if (!via(z, hole) || via(z, holeB)) err(`yard breach: with two holes in range a walker did not take the nearer one (via ${via(z, hole) ? "the nearer" : via(z, holeB) ? "the farther" : "neither"})`);
-      }
+        // a new hole sends only the walkers it draws to find their way again at once; one far from every hole keeps
+        // its own re-path clock (everyone at once made all of them search in the same frame, at every breach), and
+        // searches nothing when it does re-path: no hole in range, so no way in (it claws its own segment)
+        yardWith(0, [hole]);
+        const outB = [holeB[0], holeB[1] - 1];
+        if (I.solidAt(outB[0] + 0.5, outB[1] + 0.5) || I.yardInside[idx(...outB)]) err(`yard breach: test tile ${outB} outside the second hole is not open ground outside`);
+        const byB = put("walker", outB);
+        const far = put("walker", at[30]);
+        run(0.5);
+        byB.pathT = far.pathT = 0.3;
+        delete I.fence[holeB[0] + "," + holeB[1]];
+        I.grid[holeB[1]][holeB[0]] = ".";
+        I.maskDirty = true;
+        I.yardBreach(holeB[0], holeB[1]);
+        if (byB.pathT !== 0) err("yard breach: a new hole did not send the walker right outside it to find its way again");
+        if (far.pathT !== 0.3) err(`yard breach: a new hole 24+ steps away reset the re-path clock of a walker it does not draw (${far.pathT})`);
+        const searched = { bfs: 0, barrier: 0 };
+        const bfsWas = I.bfs;
+        const barrierWas = I.yardBarrier;
+        I.bfs = function (z) {
+          if (z === far) searched.bfs++;
+          return bfsWas.apply(this, arguments);
+        };
+        I.yardBarrier = function (z) {
+          if (z === far) searched.barrier++;
+          return barrierWas.apply(this, arguments);
+        };
+        let wentB = false;
+        try {
+          run(1, () => {
+            const [x, y] = tileOf(byB);
+            if (via(byB, holeB) || isInside(byB) || (x === holeB[0] && y === holeB[1])) wentB = true;
+          });
+        } finally {
+          I.bfs = bfsWas;
+          I.yardBarrier = barrierWas;
+        }
+        if (searched.bfs || searched.barrier) err(`yard breach: a walker with no hole in range searched for a way in (${searched.bfs} path searches, ${searched.barrier} barrier searches in 1 s); there is none`);
+        if (!far.fenceTarget || Math.hypot(far.fenceTarget[0] - far.x, far.fenceTarget[1] - far.y) > 1) err("yard breach: a walker with no hole in range is not clawing its own segment");
+        if (!wentB) err("yard breach: the walker right outside a new hole does not go through it");
+      } else err(`yard breach: no fence segment 6 along from ${hole} for the two-hole checks`);
       // 5. a corner hole leads nowhere: never usable, never walked into
       yardWith(0, [corner]);
       if (I.breach.usable.length || !I.breach.holes.includes(idx(...corner))) err(`yard breach: the corner hole at ${corner} counts as a way in`);
@@ -1200,6 +1332,45 @@ let wreckSpotsTried = 0;
       if (b.wreck) err(`wreckers: one with the player ${D.wreckProvoke - 0.5} tiles off did not turn on the player`);
       I.walkers.length = 0;
     }
+    /** Open ground inside the fence `d` tiles from z with a clear line to it, or null. */
+    const screamStand = (z, d) => {
+      for (let i = 0; i < 64; i++) {
+        const a = (i / 64) * Math.PI * 2;
+        const x = z.x + Math.cos(a) * d;
+        const y = z.y + Math.sin(a) * d;
+        if (x < 0 || y < 0 || x >= I.gw || y >= I.gh || !I.yardInside[idx(Math.floor(x), Math.floor(y))]) continue;
+        if (!I.solidForPlayer(x, y) && I.lineClear(z.x, z.y, x, y)) return [x, y];
+      }
+      return null;
+    };
+    // a screamer wrecker yelling at you (you between wreckProvoke and the scream's spotting range, in its sight)
+    // claws nothing meanwhile: its build loses strength only while it claws (the harm goes with the claw pose)
+    {
+      const SC = W.SCREAM;
+      const q = yardWith(3, []);
+      q.x = far[0];
+      q.y = far[1];
+      const room = plotted[0];
+      const spot = I.wreckSpots[room][0];
+      const z = put("screamer", [spot.tx, spot.ty], "wreck");
+      run(0.5);
+      const hp0 = S.buildHp(room);
+      if (!(hp0 < S.buildMax(room))) err(`wreckers: setup, a screamer wrecker at the ${room} build did not claw it (${hp0})`);
+      const stand = screamStand(z, (D.wreckProvoke + SC.spot) / 2);
+      if (stand) {
+        q.x = stand[0];
+        q.y = stand[1];
+        run(0.1); // it spots you and starts yelling (the claw a frame late: the core's act is last frame's)
+        const hp1 = S.buildHp(room);
+        let yelling = 0;
+        run(SC.yell - 0.3, () => {
+          if (z.yell > 0) yelling++;
+        });
+        if (!yelling || !z.wreck) err(`wreckers: setup, the screamer wrecker did not stand yelling at you (yell ${z.yell}, wreck ${z.wreck})`);
+        else if (S.buildHp(room) < hp1) err(`wreckers: the ${room} build lost ${(hp1 - S.buildHp(room)).toFixed(2)} strength while its screamer wrecker stood yelling at you`);
+      }
+      I.walkers.length = 0;
+    }
     // a hurt lasts: a screamer wrecker shot as its yell starts (the yell outlasts hurtT, and the core asks for no
     // goal while it yells) still turns on you once the yell ends, with you out of wreckProvoke but in its sight
     {
@@ -1213,14 +1384,7 @@ let wreckSpotsTried = 0;
       if (!z.wreck || z.wreckIn == null || z.yell > 0) err(`wreckers: a screamer wrecker inside by a build did not settle to wreck (wreck ${z.wreck}, yell ${z.yell})`);
       // you: between wreckProvoke and the scream's spotting range, a clear line, open ground inside the fence
       const d = (D.wreckProvoke + SC.spot) / 2;
-      let stand = null;
-      for (let i = 0; i < 64 && !stand; i++) {
-        const a = (i / 64) * Math.PI * 2;
-        const x = z.x + Math.cos(a) * d;
-        const y = z.y + Math.sin(a) * d;
-        if (x < 0 || y < 0 || x >= I.gw || y >= I.gh || !I.yardInside[idx(Math.floor(x), Math.floor(y))]) continue;
-        if (!I.solidForPlayer(x, y) && I.lineClear(z.x, z.y, x, y)) stand = [x, y];
-      }
+      const stand = screamStand(z, d);
       if (!stand) err(`wreckers: no open ground ${d} tiles from the ${plotted[0]} build's first wreck spot in clear sight`);
       else {
         q.x = stand[0];
@@ -2353,6 +2517,30 @@ try {
       const vp = step(SC.secs, true);
       if (!(v0 > 0) || Math.abs(v1 / v0 - SC.mult) > 0.02) err(`scream: a frenzied walker steps ${(v1 / v0).toFixed(3)} times as far, want ${SC.mult}`);
       if (Math.abs(vp / v0 - 1) > 0.02) err("scream: the practice walker sped up in a frenzy");
+      // one killed outright by the hit that wakes it (the silent bow on a sleeper past earshot, inside SCREAM.spot)
+      // never screams: dead on that frame, it does nothing more (the shot and the traps land before the walkers move)
+      I.walkers.length = 0;
+      const dead = at(screamer, 27.5, 30.5 - (I.HEAR + SC.spot) / 2, false);
+      const by = at("walker", 26.5, 24.5, true);
+      const updWas = I.yardUpdate;
+      let shot = false;
+      I.yardUpdate = function (dt) {
+        updWas.call(this, dt);
+        if (!shot) {
+          shot = true;
+          this.hurtWalker(dead, 1e6, this.player);
+        }
+      };
+      screams = 0;
+      try {
+        run(0.05);
+      } finally {
+        I.yardUpdate = updWas;
+      }
+      if (!shot || dead.hp > 0 || I.walkers.includes(dead)) err("scream: setup, the sleeping screamer was not killed in the frame");
+      if (screams || by.frenzyT) err(`scream: a screamer killed by the hit that woke it screamed anyway (${screams} screams, a walker near it sped up for ${by.frenzyT.toFixed(2)} s)`);
+      I.walkers.length = 0;
+      I.fallen.length = 0;
     }
 
     // a walker that dies falls out of the walkers at once (not solid, not a target, not counted), away from the shot
@@ -2540,7 +2728,9 @@ try {
         if (I.phase.kind !== "wave") break;
         frames++;
         const label = I.hud.phase.textContent;
-        if (!bad && (label !== want || /\d/.test(label))) bad = label;
+        // (walkers in the cabin while you are out of it: the label says where, never how many)
+        const where = !I.indoorAt(I.player.x, I.player.y) && I.walkers.some((z) => I.inCabin(z.x, z.y)) ? " · walkers in the cabin" : "";
+        if (!bad && (label !== want + where || /\d/.test(label))) bad = label;
       }
       countsChecked++;
       if (!frames || !I.walkers.length) err(`yard: a ${size} wave brought no walkers to check its label against`);
@@ -2607,6 +2797,20 @@ try {
         if (!metBefore && (!looks || S.save.met.walker !== S.save.day)) err(`met: a walker in front of you was not looked for or not met (${looks} looks, ${JSON.stringify(S.save.met)})`);
       }
       I.seesWalker = seesWas;
+      // seen anywhere on screen, out to its sides (the view is wider than FOV, which is its height), not past them
+      const half = I.halfView();
+      countsChecked++;
+      if (!(I.W > I.H) || !(half > I.FOV / 2 + 0.1)) err(`met: setup, a wide screen's half view ${half.toFixed(3)} rad is not wider than FOV / 2`);
+      for (const off of [0.3, 0.6, 0.8, half - 0.04, half + 0.15]) {
+        for (const side of [-1, 1]) {
+          const a = p.a + side * off;
+          const z = I.makeWalker("walker", p.x + Math.cos(a) * 5, p.y + Math.sin(a) * 5, 1);
+          if (I.solidAt(z.x, z.y) || !I.lineClear(p.x, p.y, z.x, z.y)) continue;
+          const q = I.project(z.x, z.y);
+          const onScreen = !!q && q.x >= 0 && q.x <= I.W;
+          if (onScreen !== I.seesWalker(z)) err(`met: a walker ${off.toFixed(2)} rad to the ${side < 0 ? "left" : "right"} (screen x ${q ? q.x.toFixed(0) : "-"} of ${I.W}, a clear line) is ${onScreen ? "on screen but not seen" : "off screen but seen"}`);
+        }
+      }
       I.walkers.length = 0;
     }
 

@@ -2533,7 +2533,7 @@
     G.strokeStyle = col(look.hood ? look.shirt : skin, 0.82, 1);
     G.lineWidth = wn;
     G.stroke();
-    if (ff >= 0 && LOD < 2) jaw(jo, jb, ry, rz, skin);
+    if (ff >= 0 && LOD < 2 && !FACEDOWN) jaw(jo, jb, ry, rz, skin);
     // skull (a bald one a shade darker from behind, so the back of the head never reads as another muscle)
     const bald = !look.hood && !look.helmet && look.hairStyle === "none";
     ellF(HF, HED, 0, 0, 0, rx, ry, rz);
@@ -2646,8 +2646,8 @@
     }
     // the face
     FACE = false;
-    if (ff > -0.25) drawFace(rx, ry, rz, ff);
-    if (look.helmet === "riot") visor(rx, ry, rz, ff);
+    if (ff > -0.25 && !FACEDOWN) drawFace(rx, ry, rz, ff);
+    if (look.helmet === "riot" && !FACEDOWN) visor(rx, ry, rz, ff);
     if (look.helmet === "fire" && LOD < 2) brim(rx, ry, rz, false);
   }
 
@@ -3252,6 +3252,8 @@
   const pKey = new Float64Array(NP);
   let ARMPAIR = false;
   let HEADBACK = false; // the head is behind the shoulders (drawn before the torso)
+  let FACEDOWN = false; // the head points well down (a body falling or lying on its face): no face shows
+  const FACE_DOWN = -0.7; // the head's forward points lower than this (up is +1): its face is toward the floor (upright poses stay above -0.6)
   let LEGPAIR = false;
   const pOrd = new Int32Array(NP);
   function drawPart(p) {
@@ -3329,7 +3331,10 @@
     // facing the camera, the head goes after the torso (its chin over the chest). Turned away with the head behind
     // the shoulders (a hunched walker from behind), it goes by its real depth: the torso and the near shoulder
     // cover its lower part and the top of the skull shows over them
-    HEADBACK = facing(HF[6], HF[8]) < 0 && jDepth(HED) > jDepth(CHE);
+    // A head pointing well down (falling or lying on its face) shows no face from anywhere, so it goes by its real
+    // depth too: lying away from you, the body covers it (drawn after the torso it would sit between the boots)
+    FACEDOWN = HF[7] < FACE_DOWN;
+    HEADBACK = FACEDOWN || (facing(HF[6], HF[8]) < 0 && jDepth(HED) > jDepth(CHE));
     if (HEADBACK) pKey[PT_HEAD] = jDepth(HED);
     else pKey[PT_HEAD] = Math.min(jDepth(HED) - 0.12, pKey[PT_TORSO] - 0.001);
     const back = 0.15;
@@ -3565,11 +3570,13 @@
   const D3 = ZSR.Draw3;
   if (D3 && D3.registerSprite) Object.keys(SPRITES).forEach((k) => D3.registerSprite(k, SPRITES[k].w, SPRITES[k].h, SPRITES[k]));
 
-  /** For the art tests only: the last draw's fit, the joints (model tiles) and their projections (px). Reused. */
-  const PROBE = { fit: 1, fitEnv: 1, j: J, s: S };
+  /** For the art tests only: the last draw's fit, the joints (model tiles) and their projections (px), the head's
+      frame (hf: across, up, forward, 3 each) and whether the head was drawn by its real depth (headBack). Reused. */
+  const PROBE = { fit: 1, fitEnv: 1, j: J, s: S, hf: HF, headBack: false };
   function probe() {
     PROBE.fit = RG[FIT];
     PROBE.fitEnv = RG[FIT_ENV];
+    PROBE.headBack = HEADBACK;
     return PROBE;
   }
 
@@ -3581,6 +3588,7 @@
     SCREAM_SECS: 1.2,
     POSE_BLEND,
     FOG_STEPS,
+    FACE_DOWN,
     FOV,
     POSES,
     TYPES,

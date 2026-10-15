@@ -179,7 +179,8 @@ W.CREW_TALK = {
 ```
 
 `when` keys (all optional, all must hold): `day` (at least), `stars` (at least), `quest` (that
-quest done), `note` (that note read, `State.noteRead`), `room` + `level` (built that far), `dog`
+quest done), `note` (that note read, `State.noteRead`), `room` + `level` (built that far and not
+wrecked: `State.roomLevel`, so a topic that gives the room's bonus as working waits until it is fixed), `dog`
 (true: the dog is home). 8 to 10 topics and 4 to 6 moods per crew member. Topics are character:
 their past, their worries and hopes, the town's threads as they hear them, the Hollis family,
 each other. Every topic must be true for any player who meets its `when` (the journal rule:
@@ -206,7 +207,7 @@ facts carry the placeholders exactly.
 | Tomas | `wrecked` | a room build is wrecked (live from the yard, else `State.wreckedRooms`) | `{rooms}` ("Garden and Well"), `{cost}` scrap to fix them all yourself |
 | Tomas | `lanky` | told once: after the first lanky walker is met (`save.met`), until its words are read | |
 | Tomas | `armored` | told once: after the first armored walker is met | |
-| Tomas | `fine` | always (fallback) | |
+| Tomas | `fine` | the fallback, while no yard build is cracked (under half strength) or wrecked (live from the yard, else the save) | |
 | Pip | `wave` | lookout job and a wave is coming in the calm | `{size}` ("a small wave" / "a big wave" / "no wave"), `{sides}` |
 | Pip | `keys` | holding stash keys | `{keys}` |
 | Pip | `walkers` | while a known building is below the walker limit | `{days}` days until the town gets more walkers |
@@ -367,7 +368,7 @@ As built, beyond the table (js/crewstate.js):
 - `crewTip(id, ctx)`: urgent tips win (June `heal` and `hungry`, Pip `wave`), the others that apply
   take turns one per talk, and the fallback shows only when nothing else applies. `ctx`: `heal` (hp
   June gives back now, only when she heals now), `wave: { size, sides }` (Pip's call in the calm),
-  live `holes`, `cracks`, `broken`, `wrecked` (room ids). `crewTips(id, ctx)` lists every tip that
+  live `holes`, `cracks`, `broken`, `wrecked` and `cracked` (room ids). `crewTips(id, ctx)` lists every tip that
   applies. Told-once tips (Tomas `lanky` and `armored`, Pip `screamer` and `wreckers`) are urgent:
   told at the next talk once they apply, then never again once their words were read
   (`crew.read` keeps `tip:<crew>:<tip>`, as for Pip's `radio`). The walker kinds' tips wait for

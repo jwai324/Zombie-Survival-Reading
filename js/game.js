@@ -552,9 +552,10 @@
       Audio().play("scream");
       if (State().settings.shake) this.shake = Math.max(this.shake, 5);
     },
-    /** A bullet into a walker at x, y flying (vx, vy): with walker gore on, a short spray of blood out the far side,
-        every hit. A walker with armor (its road row's share) has that share of its non-fatal hits also glance off
-        a helmet or a vest: grey sparks (gore on or off) and a smaller spray. Skipped past ROAD_PARTICLE_CAP. */
+    /** A hit on a walker at x, y going (vx, vy) (a bullet's flight, or the van's push when it rams one): with
+        walker gore on, a short spray of blood out the far side, every hit (owner, 2026-10-15). A walker with armor
+        (its road row's share) has that share of its non-fatal hits also glance off a helmet or a vest: grey sparks
+        (gore on or off) and a smaller spray. Skipped past ROAD_PARTICLE_CAP. */
     blood(z, x, y, vx, vy, kill) {
       const glance = !kill && z.armor > 0 && Math.random() < z.armor;
       if (glance) this.sparks(x, y, SPARK_ARMOR);
@@ -892,6 +893,9 @@
           const side = lx / Math.max(1, Math.abs(lx));
           z.kx = rx * side * push + fx * push * 0.8;
           z.ky = ry * side * push + fy * push * 0.8;
+          // a hit like a bullet's: the flash, and the spray the way the van pushes it
+          z.hit = 0.12;
+          this.blood(z, z.x, z.y, z.kx, z.ky, z.hp <= 0);
           this.meet(z);
           if (z.hp <= 0) {
             this.killZombie(i, Math.atan2(z.ky, z.kx));
@@ -1064,7 +1068,7 @@
       ctx.save();
       ctx.translate(W / 2, this.anchorY);
       ctx.scale(this.zoom, this.zoom);
-      ctx.rotate(-Math.PI / 2 - this.cam.th);
+      ctx.rotate(this.viewTurn());
       ctx.translate(-this.cam.x, -this.cam.y);
       D.ground(ctx, view, theme);
       D.cityRoads(ctx, this.drive, G, theme, view);
@@ -1287,6 +1291,10 @@
       }
       return boxes;
     },
+    /** The angle the road view turns the world by: the van's way is up the screen. */
+    viewTurn() {
+      return -Math.PI / 2 - this.cam.th;
+    },
     /** The walkers, the downed, the crates, the rounds and the particles (world space), in layers. What lies on
         the road comes first, under every body: blood splats, the pools and shadows of the downed, each walker's
         shadow (or its frenzy's glow). Then the bodies (the downed, the crates, the walkers), the rounds, and what
@@ -1297,7 +1305,8 @@
       for (const z of this.zombies) D.zombieShadow(ctx, z, this.time);
       for (const f of this.fallen) D.zombieDown(ctx, f, "body");
       for (const c of this.crates) crate(c);
-      for (const z of this.zombies) D.zombie(ctx, z, this.time, true);
+      const turn = this.viewTurn();
+      for (const z of this.zombies) D.zombie(ctx, z, this.time, true, turn);
       for (const b of this.bullets) D.bullet(ctx, b);
       for (const p of this.particles) if (!p.splat) D.particle(ctx, p);
     },
@@ -1317,9 +1326,9 @@
       ctx.clip();
       ctx.translate(this.W / 2, this.anchorY);
       ctx.scale(this.zoom, this.zoom);
-      ctx.rotate(-Math.PI / 2 - this.cam.th);
+      ctx.rotate(this.viewTurn());
       ctx.translate(-this.cam.x, -this.cam.y);
-      for (const z of hit) D.zombie(ctx, z, this.time, true);
+      for (const z of hit) D.zombie(ctx, z, this.time, true, this.viewTurn());
       ctx.restore();
     },
 

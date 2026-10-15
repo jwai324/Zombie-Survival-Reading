@@ -1052,7 +1052,8 @@
         else if (hp < half) cracks++;
       });
       // wrecked: the builds walkers wrecked (Tomas's wrecked tip; js/yardwreck.js)
-      const ctx = { holes, cracks, broken: this.houseDamage().broken, wrecked: this.buildDamage().wrecked };
+      const builds = this.buildDamage();
+      const ctx = { holes, cracks, broken: this.houseDamage().broken, wrecked: builds.wrecked, cracked: builds.cracked };
       const p = this.player;
       if (ph && ph.kind === "calm" && !ph.crewHealed && p && p.hp < p.maxHp - 0.5 && S.crewJobs(id).includes("heal")) {
         const hp = Math.round(Math.min(S.crewHealAmount(), p.maxHp - p.hp));

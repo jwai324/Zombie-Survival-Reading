@@ -17,8 +17,9 @@
    and a walk-in house under open sky (setHouse): a ceiling over its tiles, a hip roof over its outline
    seen from outside, and the yard seen through its open doors.
    More mode hooks: WalkerGoal(z) (where a walker heads instead of the player; a goal with `aim` [x, y] is
-   clawed at once the walker stands there), PathBlock(z) (tile indices this walker's path search treats as
-   solid, or null: the yard keeps far fence holes from a walker outside), Barrier(z) (what a walker that cannot
+   clawed at once the walker stands there), PathBlock(z, goal) (tile indices this walker's path search treats as
+   solid, or null: the yard keeps far fence holes from a walker outside; or true: no way to that goal at all, so
+   nothing is searched and it claws the nearest fence segment), Barrier(z) (what a walker that cannot
    reach its goal claws at instead of the fence), HitBarrier(key, damage), Breach(x, y) (a fence segment just
    gave way), Door(d) and DoorHint(d) (a door of the mode's own: true when it handled E), Noise(tiles) (a shot).
    A crew member's speech bubble at home (js/crew.js) rides on the read panel: this.talk while it is open,
@@ -60,11 +61,14 @@
   const STRIDE = 0.9; // tiles walked per gait cycle when Walker3D gives none
   const CLAW_RATE = 2; // claw swipes a second at a fence, a door or a build
   const GOAL_AT = 0.5; // tiles: a walker this close to a mode's WalkerGoal is there (it waits, or claws at the goal's aim)
+  const FENCE_KEYS = new Map(); // a fence key "x,y" -> [x, y], read once (nearestFence); one entry per fence tile ever seen
   const FALL_SECS = 2; // a downed walker collapses and fades this long, then is gone (Walker3D.FALL_SECS when loaded)
   const BITE_SECS = 0.45; // the bite lunge (Walker3D.BITE_SECS when loaded)
   const FALLEN_MAX = 24; // SCALE: downed walkers kept collapsing at once; past it the oldest goes at once
   const BLOOD_MAX = 200; // SCALE: blood droplets and splats in the air and on the floor at once (only with SETTINGS.walkerGore)
   const SPLAT_SECS = 3; // a droplet that lands lies there this long
+  const HEAR = 6; // SCALE: tiles: a sleeping walker this close to you in a straight line wakes (through walls); a building's walkers start farther (planWalkers)
+  const HEAR_SPRINT = 9; // tiles: the same while you sprint (running is loud)
   const MEET_RANGE = 12; // tiles: a walker in view and in sight this close counts as met (State.meetWalker)
   const SCREAM_TOAST_GAP = 20; // seconds: "A scream!" is said at most this often
   // live walkers: each on screen is drawn by Walker3D into its own pooled canvas, at its size on screen, whenever it
@@ -1022,7 +1026,8 @@
 
       this.modeCall("Update", dt);
 
-      this.walkers.forEach((z) => this.updateWalker(z, dt));
+      // (one killed this frame, by a shot or a trap above, does nothing more: no scream, no bite, no claw)
+      this.walkers.forEach((z) => z.hp > 0 && this.updateWalker(z, dt));
       // the dead leave the walkers at once and fall where they stood (this.fallen), then fade
       for (let i = this.walkers.length - 1; i >= 0; i--) if (this.walkers[i].hp <= 0) this.downWalker(this.walkers.splice(i, 1)[0]);
       this.updateFallen(dt);
@@ -1215,7 +1220,7 @@
       z.hurtT = Math.max(0, z.hurtT - dt);
       z.trapT = Math.max(0, (z.trapT || 0) - dt);
       // running is loud: sprinting players are noticed from farther away
-      const hear = this.keys.shift && this.player.moving ? 9 : 6;
+      const hear = this.keys.shift && this.player.moving ? HEAR_SPRINT : HEAR;
       if (!z.awake && (dist < hear || (this.time - this.noise < 1.5 && dist < this.noiseR) || z.hurtT > 0)) z.awake = true;
       if (!z.awake) return "sleep";
       // the first one of its kind you see: the save remembers the day (looked for a few times a second, until then;
@@ -1266,19 +1271,27 @@
       if (z.pathT <= 0) {
         z.pathT = 0.4;
         // tiles the mode keeps out of this walker's way (the yard: fence holes too far for it); then never the
-        // straight-line shortcut either, which could cut through one of them
-        const block = this.modeCall("PathBlock", z) || null;
-        z.path = !block && this.lineClearMove(z.x, z.y, goal.x, goal.y) ? [[goal.x, goal.y]] : this.bfs(z, goal, block);
-        // no way there: the mode may know a way through something to break ({ path to it, target }),
-        // else the nearest fence segment
-        const plan = z.path.length ? null : this.modeCall("Barrier", z, goal);
-        if (plan && plan.path.length) {
-          z.path = plan.path;
+        // straight-line shortcut either, which could cut through one of them. `true`: the mode knows there is no
+        // way there at all (the yard: outside the fence, no hole in range, going somewhere inside), so nothing is
+        // searched (a search that fails walks every tile it can reach) and it claws the nearest fence segment
+        const block = this.modeCall("PathBlock", z, goal) || null;
+        if (block === true) {
+          z.path = [];
           z.barrier = false;
-          z.fenceTarget = null;
+          z.fenceTarget = this.nearestFence(z);
         } else {
-          z.barrier = !!plan;
-          z.fenceTarget = z.path.length ? null : plan ? plan.target : this.nearestFence(z);
+          z.path = !block && this.lineClearMove(z.x, z.y, goal.x, goal.y) ? [[goal.x, goal.y]] : this.bfs(z, goal, block);
+          // no way there: the mode may know a way through something to break ({ path to it, target }),
+          // else the nearest fence segment
+          const plan = z.path.length ? null : this.modeCall("Barrier", z, goal);
+          if (plan && plan.path.length) {
+            z.path = plan.path;
+            z.barrier = false;
+            z.fenceTarget = null;
+          } else {
+            z.barrier = !!plan;
+            z.fenceTarget = z.path.length ? null : plan ? plan.target : this.nearestFence(z);
+          }
         }
       }
       if (z.fenceTarget) {
@@ -1414,7 +1427,13 @@
     seesWalker(z) {
       const p = this.player;
       if (!p || Math.hypot(z.x - p.x, z.y - p.y) > MEET_RANGE) return false;
-      return Math.abs(this.sideOf(z.x, z.y)) < FOV / 2 + 0.05 && this.lineClear(p.x, p.y, z.x, z.y);
+      return Math.abs(this.sideOf(z.x, z.y)) < this.halfView() + 0.05 && this.lineClear(p.x, p.y, z.x, z.y);
+    },
+    /** Half the view's width as an angle (radians off the middle to the screen's edge). FOV spans the view's height;
+        its width is W / H times as wide (project() and the rays), so on a wide screen this is more than FOV / 2. */
+    halfView() {
+      const aspect = this.W > 0 && this.H > 0 ? this.W / this.H : 1;
+      return Math.atan(Math.tan(FOV / 2) * aspect);
     },
     /** The first walker of its kind seen or hurt: the save keeps the day (State.meetWalker; the crew's tips read it). */
     noticeWalker(z) {
@@ -1486,14 +1505,23 @@
         if (b.t >= b.life) blood.splice(i, 1);
       }
     },
+    /** The middle of the fence segment nearest this walker, or null. Every clawing walker asks on each re-path, so the
+        "x,y" keys are read once each (FENCE_KEYS) and nothing is made per segment. */
     nearestFence(z) {
-      let best = null;
-      Object.keys(this.fence).forEach((k) => {
-        const [x, y] = k.split(",").map(Number);
-        const d = Math.hypot(x + 0.5 - z.x, y + 0.5 - z.y);
-        if (!best || d < best.d) best = { d, x: x + 0.5, y: y + 0.5 };
-      });
-      return best ? [best.x, best.y] : null;
+      let bx = 0;
+      let by = 0;
+      let bd = Infinity;
+      for (const k in this.fence) {
+        let xy = FENCE_KEYS.get(k);
+        if (!xy) FENCE_KEYS.set(k, (xy = k.split(",").map(Number)));
+        const d = Math.hypot(xy[0] + 0.5 - z.x, xy[1] + 0.5 - z.y);
+        if (d < bd) {
+          bd = d;
+          bx = xy[0] + 0.5;
+          by = xy[1] + 0.5;
+        }
+      }
+      return bd < Infinity ? [bx, by] : null;
     },
 
     /** Sight line: low tiles (fences, counters) do not block it. */
@@ -2899,6 +2927,8 @@
     },
     SPEED_JITTER,
     TURN_RATE,
+    HEAR,
+    HEAR_SPRINT,
     SCREAM_TOAST_GAP,
     FALL_SECS,
     FALLEN_MAX,

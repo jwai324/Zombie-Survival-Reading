@@ -220,7 +220,7 @@
       wave: "Pip has been watching the trees from the lookout, walkie-talkie in hand. Here is Pip's call for what comes next: {size}, from {sides}. Pip says to get set before the quiet runs out.",
       keys: "Pip says you are holding {keys}, and Pip is very curious about that. Each key's note says which stash it opens, and your notes are all in the backpack. Read them again before you try a lock.",
       walkers: "Pip keeps count on the wall: in {days} days, the buildings in town each get one more walker, up to a limit. So the sooner you go, Pip says, the fewer walkers wait for you inside.",
-      radio: "Pip says a new broadcast waits at the radio in the dining room each day you come home, so every trip ends with news. Tune in there, and you can hear the old ones again too.",
+      radio: "Pip says a new broadcast waits at the radio in the dining room each day you come home. So every trip ends with news. Tune in there, and you can hear the old ones again too.",
       full: "Pip draws a line under the tally marks on the wall, like closing a finished column. Every building in town is as full of walkers as it will get, Pip says. From now on, a place is only as dangerous as it is today, and Pip finds that oddly comforting.",
     }),
   });

@@ -90,7 +90,7 @@
   // the perks a story quest can give (docs/CREW.md "Perks"), with their value when none is active
   const PERKS = { foodPerDay: 0, medsPerDay: 0, footHp: 0, vanHp: 0, scrapPerDay: 0, crewRepairFree: false, lookoutEarly: 0, healAmount: 0, crowbarCost: null };
   const DOG_NAME_MAX = 14; // letters in the dog's name (the card's text box and the HUD)
-  const CRACKED = 0.5; // a fence segment below this share of its health is cracked (as js/yard.js yardFacing)
+  const CRACKED = 0.5; // a fence segment (or a yard build) below this share of its health is cracked (as js/yard.js yardFacing, js/yardwreck.js buildDmg)
   // days Pip looks ahead for the town's next walker (SETTINGS.walkersPerLocation). SCALE: a slower walker curve
   // (one more every 60 days or more) needs this longer, or Pip's walkers tip goes quiet
   const WALKER_LOOKAHEAD = 60;
@@ -119,6 +119,18 @@
   const metOnce = (S, id, tip, type) => ((S.save.met || {})[type] != null && !S.crewSave().read.includes("tip:" + id + ":" + tip) ? {} : null);
   /** The wrecked builds' room ids: the yard's live list, else the save's. */
   const wreckedOf = (S, ctx) => (ctx && Array.isArray(ctx.wrecked) ? ctx.wrecked : S.wreckedRooms ? S.wreckedRooms() : []);
+  /** Any yard build wrecked, or cracked (under CRACKED of its strength, as js/yardwreck.js buildDmg): the yard's live
+      lists (ctx.wrecked, ctx.cracked), else the save's. The game says such a build needs fixing (the lot panel, the
+      computer's Fix all), so Tomas's "nothing needs fixing" is not said while one is. */
+  const buildsHurt = (S, ctx) => {
+    if (wreckedOf(S, ctx).length) return true;
+    if (ctx && Array.isArray(ctx.cracked)) return ctx.cracked.length > 0;
+    if (!S.buildMax) return false;
+    return Object.keys((W().YARD && W().YARD.plots) || {}).some((r) => {
+      const max = S.buildMax(r);
+      return max > 0 && S.buildHp(r) < max * CRACKED;
+    });
+  };
   const TIP_RULES = {
     // June's patch-up: only with the heal job unlocked (CREW[id].jobs), whatever the yard passes
     heal: (S, ctx, id) => (ctx.heal > 0 && S.crewJobs(id).includes("heal") ? { hp: Math.round(ctx.heal) } : null),
@@ -164,7 +176,8 @@
       const per = (W().SETTINGS && W().SETTINGS.foodPerTrip) || 1;
       return { food: S.save.food, days: Math.floor(Math.max(0, S.save.food) / per) };
     },
-    fine: () => ({}),
+    // the van, the fence and the cabin are fine (the regular tips say otherwise first), and so is every build
+    fine: (S, ctx) => (buildsHurt(S, ctx) ? null : {}),
     walkers: (S) => {
       const days = S.crewWalkerDays();
       return days ? { days } : null;
@@ -295,7 +308,9 @@
       }
       if (when.quest != null && this.questState(when.quest) !== "done") return false;
       if (when.note != null && !this.noteRead(when.note)) return false;
-      if (when.room != null && (s.rooms[when.room] || 0) < (when.level != null ? when.level : 1)) return false;
+      // a room's topic waits while its build is wrecked (roomLevel 0): its words give the room's bonus as working
+      // ("the van comes home fixed", "a broadcast each day"), which a wrecked build does not give until it is fixed
+      if (when.room != null && (this.roomLevel ? this.roomLevel(when.room) : s.rooms[when.room] || 0) < (when.level != null ? when.level : 1)) return false;
       if (when.dog != null && !!when.dog !== this.dogHome()) return false;
       return true;
     },

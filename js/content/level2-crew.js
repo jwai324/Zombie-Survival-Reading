@@ -224,7 +224,7 @@
       wave: "Pip has been watching the trees from the lookout. Pip calls what comes next: {size}, from {sides}.",
       keys: "Pip says you are holding {keys}. Each key's note says which stash it opens. Your notes are in the backpack, so read them again.",
       walkers: "Pip keeps count of the walkers in town. In {days} days, each building gets one more walker. That goes on up to a limit, Pip says.",
-      radio: "Pip says a new broadcast waits each day you come home. It waits at the radio in the dining room. Tune in there, and hear the old ones again too.",
+      radio: "Each day you come home, a new broadcast waits. Pip says to tune in at the dining room radio. You can hear the old ones again there too.",
       full: "Pip says the buildings in town are full of walkers. No building will get any more. Each place stays as dangerous as it is now.",
     }),
   });
