@@ -72,7 +72,8 @@
   const PERSP = { pace: 1.25, shot: 1.6, spawns: 1.4, range: 2600, keepUp: 900, parkShort: 45 };
   // ... and its corners. The van brakes lightly into each turn it takes: from the stop line (never before: braking must
   // not tell which way is right) it eases down to brake x its speed by the time its path bends (over brakeIn at
-  // least, for a bend that starts at its stop line), holds that round the bend, then eases back up over brakeOut.
+  // least, for a bend that starts at its stop line: brakeIn at the slowest van, longer for a faster one, so the ease
+  // always takes about the same time), holds that round the bend, then eases back up over brakeOut.
   // The camera follows lazily: it faces a point look ahead along the van's own path, never past a stop line the van
   // has not crossed (from one it looks further ahead again lookRamp times as fast as the van drives), and turns toward
   // it on a critically damped spring of camW per second; the spring's clock runs with the van's speed to the camPace
@@ -883,8 +884,8 @@
     },
 
     /** The angled camera's corner braking for the turn path just committed to (from its stop line, this.stopOdo):
-        where the van has slowed to PERSP.brake (where the path starts to bend, brakeIn at least), where the bend
-        ends, and where it is back up to speed. */
+        where the van has slowed to PERSP.brake (where the path starts to bend, brakeIn at least, by the van's
+        speed), where the bend ends, and where it is back up to speed. */
     planBrake(track) {
       if (!this.persp) return;
       const St = Streets();
@@ -906,7 +907,8 @@
         if (Math.abs(normAngle(Math.atan2(t.uy, t.ux) - h1)) > 0.003) break;
         b = q;
       }
-      const xa = Math.max(a, PERSP.brakeIn);
+      // (brakeIn is for the slowest van: a faster one eases over more road, in the same time, never more sharply)
+      const xa = Math.max(a, (PERSP.brakeIn * this.speed) / (DIFF.roadScroll * PERSP.pace));
       const xb = Math.max(b, xa);
       // from the speed it has now (still easing back up from a turn just before, the share it is at)
       const f0 = this.brakeAt();

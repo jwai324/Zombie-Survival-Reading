@@ -1155,10 +1155,13 @@ plants, `frameStats`), `js/perspective-gl.js` (ground squares) and two additive 
 - **Braking** (angled only; `PERSP.brake` 0.75, `brakeIn` 150, `brakeOut` 300). It starts at the stop line, never
   before (braking earlier would hint which way is right and cut the reading time); it eases down on a smootherstep
   curve to 0.75 where the van's own path starts to bend (over `brakeIn` at least, for a bend that starts at its stop
-  line, as the grocery's does), holds round the bend, and eases back up over `brakeOut`. A wrong-way turn brakes
-  too, so a turn feels the same either way. The corner factor multiplies the parking brake at the door, and a turn
-  committed while the van is still speeding up from the last starts from the speed it has. Walkers keeping up and
-  the miles use the braked speed.
+  line, as the grocery's and every wrong way's do; `brakeIn` is for the slowest van and grows with the van's
+  speed, so the ease always takes about 0.5 s), holds round the bend, and eases back up over `brakeOut`. A
+  wrong-way turn brakes too, so a turn feels the same either way. The corner factor multiplies the parking brake at
+  the door, and a turn committed while the van is still speeding up from the last starts from the speed it has.
+  Walkers keeping up and the miles use the braked speed. (As first built `brakeIn` was a fixed 150 units, 0.33 s at
+  Engine Tune 5: the grocery's bend and every wrong way braked by up to 2.35% of the speed in a 60 fps frame, 1.47
+  times the junction's, past the 2% the test holds; now 1.38% at either engine, the junction's 0.94 to 1.38.)
 - **The lazy camera** (angled only; `PERSP.look` 300, `lookRamp` 2, `camW` 2.2/s, `camPace` 0.5). The view aims
   at a point up to `look` ahead on the van's own committed path. Before a stop line it never looks past it and
   shrinks to nothing at the line (it gives no hint which way is right); from the line it grows back at twice the
@@ -1170,16 +1173,29 @@ plants, `frameStats`), `js/perspective-gl.js` (ground squares) and two additive 
   Engine Tune 5. The square root sits between: there the spin is 1.4 times Engine Tune 0's and the lag 1.2 times.
 - **The van's nose eases into a bend** (`PERSP.nose` 50): its drawn heading averages its path's direction 50 units
   behind and ahead (the part ahead closes at a stop line). With the slow view the van's instant yaw step at the arc
-  ends read as a snap (about 950 deg/s2 on the screen); now 285. The nose points at most about 5 deg off its path;
-  hit tests, the push-out box and parking read the same heading and still pass. The angled camera's sideways pan
+  ends read as a snap (about 950 deg/s2 on the screen); now 285. The drawn nose is up to about 8 deg off its path
+  at Engine Tune 0 and 12 at Engine Tune 5: the averaging alone puts it up to about 3.5 deg off, and the van's own
+  heading easing (`EASE.van`, as on 928ad4f, which gave 8 and 14) the rest. That easing is what keeps the yaw from
+  snapping (without it on the angled camera, 285 rises to 723 deg/s2), so it stays. Hit tests, the push-out box and
+  parking read the same heading and still pass. The angled camera's sideways pan
   through a turn uses smootherstep (no acceleration steps); the flat camera keeps smoothstep.
 - **Lighter turn frames** (`js/perspective-gl.js`). A turn wants about twice a straight's new ground squares, and
   they came in bursts that overran the budget by a square. The budget is now cost-aware (a running mean of each
   size's cost decides whether the next fits; the frame's first square and one haze hole near the van always go).
   With time to spare (up to `AHEAD_BUDGET` 4 ms) the squares the view will need 0.35, 0.7 and 1.1 s on are drawn
   ahead: `Game.viewsAhead` runs the camera's spring forward along the committed path (never past a stop line the van
-  has not crossed); only squares with no copy at all, and never pushing off one used in the last 30 frames. `KEEP`
-  rose from 300 to 360.
+  has not crossed); only squares with no copy at all, and never pushing off one used in the last 30 frames. A square
+  the views ahead need that is on the card already is kept fresh (as of the frame before, so on a tie the squares on
+  the screen outlast it): before that, squares drawn ahead went stale, were pushed off and drawn again (squares made
+  over the grocery drive at 1280 x 800, with a graphics card's costs: 2,826 before, 2,562 after, against 2,547
+  without drawing ahead; made twice, 400 before, 136 after). `KEEP` rose from 300 to 360. A view needs about 190 to
+  250 squares on a 16:9 or 16:10 window, 320 at 21:9 and more than 360 at 32:9; a view that needs more than `KEEP`
+  keeps all its own and `SPARE` (48) more, so a 32:9 screen (5120 x 1300) no longer pushes off squares in use every
+  frame (19,738 squares made over the drive before, 7,011 after, about 300 MB on the card).
+- **A lost graphics context comes back.** If the browser loses the card (a driver reset, a crashed or switched
+  graphics process), the ground falls back to the 2D warp as before; when the browser gives it back, the card's
+  program is set up again and every square drawn anew, as at a drive's start (it used to stay on the slower 2D
+  ground until a reload: draw 23 ms against 13 on software WebGL).
 - **Plants** are filed in 512-unit squares (`VEG_CELL`) and only those under the view are visited; they are culled
   at 40 px past the screen plus their own height (it was 300 px) and dropped when wholly in the haze: a quarter fewer
   listed a frame, none on the screen lost. Props, walkers and the van keep the 300 px margin.
@@ -1205,29 +1221,46 @@ plants, `frameStats`), `js/perspective-gl.js` (ground squares) and two additive 
 - **Seen from above.** Walker3D's level camera is put where the road camera looks from: its eye is the road
   camera's height over the walker for its distance, and its distance the camera's own depth along the bearing, so
   the figure's inner perspective is the pitched camera's (`Persp.liveGeo`). Beside the van that is eye 8.4 and
-  distance 7.9 tiles (47 deg down); 600 ahead, 6.2 and 17 (20 deg). The figure faces the van in the world and is
-  turned for the camera's real bearing to it, so a lagging view through a turn shows each walker from where the
-  camera really is.
-- **Two engine options, not engine changes** (`js/walker3d.js` header): `cam.floor` (room under the feet; a part
-  nearer the camera goes down to the floor under itself, a lying body keeps its perspective past 3 tiles) and
-  `cam.shadow: false` (no contact shadow; the pool stays). Left out they change nothing: 24,192 draws (6 kinds, 168
-  cameras, every pose, falls, detail levels, fog, hit and gore) made the same calls as before, and the old
-  `tests/validate-art.js` passes unchanged against the new engine.
+  distance 7.9 tiles (47 deg down); 600 ahead, 6.2 and 17 (20 deg). The figure faces its own way in the world (see
+  "Heading and legs") and is turned for the camera's real bearing to it, so a lagging view through a turn shows each
+  walker from where the camera really is.
+- **Three engine options, not engine changes** (`js/walker3d.js` header): `cam.floor` (room under the feet; a part
+  nearer the camera goes down to the floor under itself, a lying body keeps its perspective past 3 tiles),
+  `cam.shadow: false` (no contact shadow; the pool stays) and `st.run` (0 to 1: the gait goes over to a sprint; see
+  "Heading and legs"). Left out they change nothing: 24,192 draws (6 kinds, 168 cameras, every pose, falls, detail
+  levels, fog, hit and gore) made the same calls as before, and the old `tests/validate-art.js` passes unchanged
+  against the new engine; `st.run` 0 draws call for call as no `st.run` (validate-art section S), and a type's own
+  envelope (`env`) is unchanged, so the interiors' walkers are sized exactly as before.
 - **The picture.** One pooled canvas per walker and per downed walker, drawn again only when it looks different
   (the interiors' signature, plus the look-down angle in 1/64 rad and the figure's own perspective in 1/16 log
   steps, plus the interiors' size rule), at the device's pixels (up to dpr 2) under the row's scale and largest
   picture. It goes up as wide as a tile is at its feet and as tall as the camera shows its box, leaning half the
-  camera's upright lines (`LEAN` 0.5, as the plants do). Its region comes from the look's envelope, so every pose
-  draws at full size and nothing pulses.
+  camera's upright lines (`LEAN` 0.5, as the plants do). Its region comes from the look's envelope with the sprint in
+  it (`envRun`, and the box widened to `wRun`: up to 5% wider), so every pose, running or not, draws at full size
+  and nothing pulses.
 - **One shadow, one pool.** The road lays one flat shadow under each walker (Walker3D's size, 0.32 dark), or after a
   scream main's frenzy glow (red, amber with gore off). The pool under a downed walker is the figure's own (gore
   only); a body gets a flat shadow that follows it over and fades once, over `FADE_SECS` at the end of
   `FALL_SECS`, as on foot.
-- **Heading and legs.** A walker faces the van but turns toward it at its look's `turnRate`, so it never snaps as
-  the van goes by or a shot throws it back. Its gait advances by the ground it covers (the keep-up carry included)
-  over its kind's stride: about 4 steps a second for a plain walker keeping up at Engine Tune 0, about 7 at Engine
-  Tune 5 (the owner's "they sprint"; Walker3D has no run gait, so faster ground means a faster cadence, as frenzy
-  does on foot). Through a corner the van brakes and the keep-up carry with it, so the legs slow with it.
+- **Heading and legs.** As on foot (`Interior.animWalker`), a walker faces where it is going: its ground motion,
+  the keep-up carry included, smoothed the same way (6 a second), once that is over 0.15 tiles a second; it faces
+  the van while it claws or screams at it, and (left as built until the owner decides; see Open) while the van
+  carries it away from the van, as a walker ahead is carried. It turns at its look's `turnRate`, so it never snaps
+  as the van goes by or a shot throws it back. (As first built every walker faced the van, so one beside or behind
+  it, carried forward with the van, slid its feet sideways at 200 to 250 units a second, the biggest figures on the
+  screen. On the drive's own walkers at Engine Tune 0, beside the van: 217 before, 5 after (median; 253 and 15 at
+  the 90th percentile); behind it: 68 before, 3 after (201 and 11). What is left is a walker the van overtakes
+  turning round (see Open): with ten walkers kept ahead, or at Engine Tune 5, the median beside the van is 6 to 17
+  but the 90th percentile 270 to 465.) Its legs go by the ground it covers, and it runs: from its
+  kind's own walking pace (`WORLD.WALKER_TYPES` speed) its gait goes over to a sprint (Walker3D `st.run`, all the
+  way at three times that pace: `RUN_FROM` 1, `RUN_SPAN` 2), longer strides with both feet off the ground between
+  them and a harder lean (the runner's own gait: stride 1.5, duty 0.38, lift 0.11, crouch 0.08, lean 0.55, bob
+  0.02), and its gait advances over the stride it has at that pace, so the feet stay planted. A claw or a scream
+  (feet set) eases the run out. A plain walker keeping up beside the van takes about 5.3 steps a second at Engine
+  Tune 0 and 8 at Engine Tune 5 (two steps a gait cycle). As first built the gait stayed the walk's at any pace,
+  about 8.7 steps a second and 12 to 14, a flailing walk (the "about 4 and 7" written here then counted gait
+  cycles, not steps). The runner's own gait already is the sprint, so it only goes faster. Through a corner the van
+  brakes and the keep-up carry with it, so the legs slow with it.
 - **Poses.** `scream` while it yells; `claw` (its look's `clawRate`) while it presses on the van or for 0.4 s after
   hitting it (`CLAW_HOLD`); `walk` otherwise; eased in and out over `POSE_BLEND` as `Interior.animWalker` does. No
   bite on the road. A killing hit's flash carries on to the body.
@@ -1244,19 +1277,29 @@ plants, `frameStats`), `js/perspective-gl.js` (ground squares) and two additive 
   walkers fade into the haze with the ground. The 0.5 s fade-in and the see-through walker behind the van's back
   doors stay.
 - **Over the sign** (`drawOverSign`): this frame's pictures again (no new render), bodies and health bars only.
+- **Bodies the van drives onto lie under it.** A body is sorted by its feet and the van by its middle, so one the
+  van had driven over was drawn across its roof for about 0.15 to 0.25 s. A body whose feet, or the far end of it
+  lying there (as its shadow is laid), are inside the van's box (10 units spare) is now drawn just before the van,
+  as main's flat road lays its fallen under everything standing. Rare on today's drives (1 body in 50); common with
+  a crowd kept ahead (8 of 22 at Engine Tune 0), which a game-wide angled camera would bring.
 - **Two governors that never fight.** The walkers' governor steps through the interiors' rows on the walkers' own
   time (renders and pictures against `LIVE_BUDGET_MS` 4, smoothed); it never reads or moves `Persp.res`. The ground
   keeps its own budget (`BUDGET` 7 ms of squares, drawing ahead only with time left in that budget), and `pace`
   softens the 2D ground (no WebGL) on its own draw time. On a slow machine each can step down for its own cost;
   neither makes the other slower. The near walkers (the row's `near` nearest) draw every frame they look
   different; a turn changes every walker's bearing, so the far ones take turns (`far` frames apart), as indoors.
+  A frame that draws no picture anew (the road paused under a card, a note, the backpack or the menu, which still
+  draws every frame) is not counted, as indoors (`Interior.governLive`): it used to count as a fast frame, so a
+  long pause climbed the governor back up two rows, to step down again over about 2.4 s a row once driving.
 - **Measured** (headless Chromium, software WebGL, 1280 x 720, 60 fps stepped by hand, interleaved A/B against the
   merge's stopgap): 25 walkers on screen, walker time 11.0 ms a frame (median) before, 5.9 after; Walker3D renders
   a frame 28 before, 10 after; the whole draw 26.7 ms before, 20.9 after. The drive's own spawns (about 5 walkers):
   1.9 ms before, 1.3 after. At dpr 2 the pictures have four times the pixels for about the same cost (11.7 and
   10.9 ms).
 - **Open:** walkers ahead of the van face it while the keep-up carry moves them away from it, so their feet slide
-  (facing their ground motion instead is one line in `Persp.animate`, if the owner prefers it). Main's frenzy glow
+  (facing their ground motion instead is one condition in `Persp.animate`, if the owner prefers it). Because of
+  that, a walker the van overtakes turns round from facing the van to facing forward, over about half a second,
+  and slides its feet while it turns. Main's frenzy glow
   is large near the camera, where several overlap into one red patch. The see-through walkers right behind the
   van's back doors read as ghosts when several crowd there. `LIVE_BUDGET_MS` is a guess for a real graphics card:
   check `ZSR.Persp.walkerStats` in Chrome or Edge on the owner's PC.
@@ -1264,23 +1307,40 @@ plants, `frameStats`), `js/perspective-gl.js` (ground squares) and two additive 
 ### Tests added (2026-10-16)
 
 - **`tests/validate-drive.js` "turns"** (both cameras): no hop where a turn starts or ends (base to grocery
-  angled, base to hospital flat; Engine Tune 0 and 5; 16.7, 33 and 50 ms frames; three frame phases; within
-  0.5 units, measured 0.43); the van keeps its screen height within 2 px through every turn (measured 0.0); the
-  angled van brakes to 0.75 (within 0.02) through the junction, never before a stop line, never by more than 2% of
-  its speed in a 60 fps frame (the door's older parking brake excluded), and the flat camera never brakes; the
-  angled view's peak spin under 45 / 65 deg/s (37 / 53), spin acceleration under 300 deg/s2 (71 / 134), lag under
-  35 / 38 deg (25 / 31) at Engine Tune 0 / 5, back within 2 deg of the road 4 s after the turn; uneven frames
-  (16, 33, 16, 50 ms) put the view within 0.2 deg of steady 60 fps (0.003). Main's code fails 8 of these.
+  angled, base to hospital flat; Engine Tune 0 and 5; 16.7, 33 and 50 ms frames; three frame phases): each step is
+  what the mean of the speeds at the frame's two ends says, within 0.3 units (measured 0.02; the old hop 6.9), so
+  the corner braking's own slowing, or a re-tune of it, is never read as a hop (a step against its neighbours read
+  0.43 at a 0.75 brake and failed at 0.65 with no hop there); the van keeps its screen height within 2 px through
+  every turn (measured 0.0); the angled van brakes to 0.75 (within 0.02) through the junction and through a wrong
+  way (the first decision at Engine Tune 0, the last at 5), never before a stop line, never by more than 2% of its
+  speed in a 60 fps frame (measured 1.38% at either engine, wrong ways and the grocery's bend included; only the
+  older brake into a parking spot or a dead end, its last 262 units, is left out), and the flat camera never
+  brakes; the angled view's peak spin under 45 / 65 deg/s (37 / 53), spin acceleration under 300 deg/s2 (71 /
+  141), lag under 35 / 38 deg (25 / 31) at Engine Tune 0 / 5, back within 2 deg of the road 4 s after the turn;
+  uneven frames (16, 33, 16, 50 ms) put the view within 0.2 deg of steady 60 fps (0.003). Main's code fails 8 of
+  these.
 - **`tests/validate-drive.js` "persp draw"**: whole angled frames on a recording 2D context (no WebGL): all six
   kinds, a scream and its frenzy, clawing, hurt walkers, kills and downed bodies, gore on and off (night on the
   second pass). No exceptions or NaN, every kind and pose drawn by Walker3D, the glow and health bars there, blood
-  only with gore on, over the sign only this frame's pictures with no shadow or glow, and `walkerStats` and
-  `frameStats` (with the walkers' share inside the world's) filled in. Its script list loads the draw files in page
-  order (`SCALE:`: a new looks file goes in it).
-- **`tests/validate-art.js`** section R checks 5,760 road-camera figures (eyes 5, 7 and 9 tiles, distances 2 to
-  70): inside the region, finite, within the call ceilings, every pose at full size, the ankles where that camera
-  puts them, no shadow of their own, the pool still there; section S checks that 450 draws with the new options set
-  to off match the plain draws call for call.
+  only with gore on, over the sign only this frame's pictures with no shadow or glow, a body under the van (its
+  feet behind the van's middle, or lying back under it) drawn before the van, 600 paused frames leaving the walkers'
+  governor's row and time as they were, and `walkerStats` and `frameStats` (with the walkers' share inside the
+  world's) filled in. Its script list loads the draw files in page order (`SCALE:`: a new looks file goes in it).
+- **`tests/validate-drive.js` "persp feet"**: every kind put beside and behind the van, out of its reach, at
+  Engine Tune 0 and 5: walking, their feet slide under 30 units a second against the way they face (90th
+  percentile; measured 8 and 11, first built 211 and 320); a plain walker keeping up beside the van runs (`st.run`
+  over 0.5) at 3 to 7 steps a second at Engine Tune 0 and 3 to 9.5 at 5 (measured 5.3 and 8.1; first built 10.3
+  and 16).
+- **`tests/validate-drive.js` "persp ground"** (`js/perspective-gl.js` on a stub WebGL context, squares made on a
+  clock charging a graphics card's 1.5, 0.8 and 0.4 ms): over the grocery drive fewer than 10% of the squares made
+  are made again (measured 7.0%; 17.7% before the draw-ahead kept its squares fresh), no square in use is pushed
+  off; a view of 1,200 squares (more than `KEEP`) keeps them all; after the context is lost and given back the
+  card is used again with every square drawn anew.
+- **`tests/validate-art.js`** section R checks 6,480 road-camera figures (eyes 5, 7 and 9 tiles, distances 2 to
+  70), running and clawing out of a run among them: inside the region, finite, within the call ceilings, every
+  pose at full size, the ankles where that camera puts them, no shadow of their own, the pool still there; section
+  S checks that 600 draws with the new options set to off (`st.run` 0 among them) match the plain draws call for
+  call; section G checks the run cycle's limbs move smoothly too.
 
 ### Checked together (2026-10-16)
 

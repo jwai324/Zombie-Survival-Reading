@@ -148,8 +148,8 @@ a straight's new ground squares. With 25 walkers on screen the walkers alone tak
 | `VEG_CELL` | 512 units | `js/perspective.js` | The plants' filing squares (a longer drive has more squares, not more plants a frame) |
 | `TILE`, `LIVE_BUDGET_MS` | 62.5, 4 ms | `js/perspective.js` | See "Walkers" below |
 | `BUDGET` | 7 ms | `js/perspective-gl.js` | Ground squares drawn a frame, by what each size has been costing |
-| `KEEP` | 360 squares | `js/perspective-gl.js` | Squares kept on the card (a view needs under 200, plus a few dozen drawn ahead); a bigger `cfg.far` or wider screens need more |
-| `AHEAD_BUDGET`, `AHEAD_SECS`, `FRESH` | 4 ms; 0.35, 0.7, 1.1 s; 30 frames | `js/perspective-gl.js` | Squares drawn ahead with time left in `BUDGET`, and never pushing off one used this recently; about 7% more squares over a drive |
+| `KEEP`, `SPARE` | 360 squares; 48 | `js/perspective-gl.js` | Squares kept on the card. A view needs about 190 to 250 on a 16:9 or 16:10 window, about 320 at 21:9 and more than 360 at 32:9, plus a few dozen drawn ahead; a view that needs more than `KEEP` keeps its own squares and `SPARE` more (memory grows with it: about 300 MB at 5120 x 1300). Do not lower `KEEP` under about 300: a maximized 1080p window would draw squares again every frame. A bigger `cfg.far` needs more |
+| `AHEAD_BUDGET`, `AHEAD_SECS`, `FRESH` | 4 ms; 0.35, 0.7, 1.1 s; 30 frames | `js/perspective-gl.js` | Squares drawn ahead with time left in `BUDGET`, and never pushing off one used this recently; a square the views ahead will need that is on the card already is kept fresh. Under 1% more squares over a drive |
 
 ### Fixed counts in code
 
@@ -303,6 +303,7 @@ reads `Object.keys(WALKER_TYPES)`, so nothing in the code says "six". The design
 | `K_MIN`, `K_MAX` | 0.6, 1.6 | `js/walker3d.js` | Perspective inside one figure |
 | `CC_N` | 16384 | `js/walker3d.js` | Colour strings kept; keep it a few times what a busy scene uses |
 | `ENV_MAX` | 24 | `js/walker3d.js` | Fit-envelope points kept per kind |
+| `buildEnv` | one envelope walking and one running (`envRun`, half the samples) a kind | `js/walker3d.js` | Runs once per kind as the page loads (about 10 ms a kind on a desktop); a kind's running gait is `RUN_GAIT` blended in by `st.run` |
 | `ROAD_PARTICLE_CAP`, `ROAD_FALLEN_MAX` | 400, 24 | `js/game.js` | Road dust, sparks and blood; downed road walkers (on the angled drive each downed walker also keeps a pooled picture) |
 | `TILE` | 62.5 road units | `js/perspective.js` | A Walker3D tile on the angled drive (on-foot size against the van, whose roof is `VAN_Z` 50); hit circles stay the road's `r` |
 | `LIVE_BUDGET_MS` | 4 ms | `js/perspective.js` | The angled drive's walker renders and pictures a frame (smoothed) before its walker governor steps a row down the interiors' `LIVE_LEVELS` |
@@ -357,7 +358,8 @@ searches and when matters more than how fast one search is.
    entry in `WALKER_FILES` in `tests/validate-art.js`, `WANT` in `tests/validate-engine.js`,
    `ENGINE` in `tests/validate-crew.js` and the script list at the top of `tests/validate-drive.js`, after
    `js/walker3d-looks.js`: without it the angled drive's draw test draws the new kind as a plain walker). It needs a box (height at most `WALKER_H_MAX`, width matching
-   `r`), a gait (stride, `turnRate`, `clawRate`), a fall style (`crumple`, `tree`, `fold`, `kneel` or
+   `r`; on the angled drive it runs toward `RUN_GAIT` as it keeps up with the van, and validate-art's section R
+   holds that at full size too), a gait (stride, `turnRate`, `clawRate`), a fall style (`crumple`, `tree`, `fold`, `kneel` or
    `tumble`), its lod 0 / 1 / 2 parts within `WALKER_OPS`, a look with gore off, and variants by seed if
    any. validate-art fails for a kind with no look; until then it draws as a walker.
 4. Its road look: a `ZOMBIE_LOOK` row in `js/sprites.js`, one variant per 3D variant, with the same

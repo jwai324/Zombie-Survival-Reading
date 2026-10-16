@@ -767,17 +767,18 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   const D = 180 / Math.PI;
   const norm = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   const PE = G.PERSP;
-  /** A careful driver that lands on the lane's centre (so every frame pattern drives the same path): one record a frame. */
-  const rec = (a, b, pat, phase) => {
+  /** A careful driver that lands on the lane's centre (so every frame pattern drives the same path): one record a
+      frame. pick(dec) chooses the way (the right one if left out); a wrong way is recorded until the screen fades. */
+  const rec = (a, b, pat, phase, pick) => {
     start(a, b);
     const rows = [];
     let t = 0;
     let i = 0;
-    while (G.running && t < 260) {
+    while (G.running && !G.fade && t < 260) {
       const dec = G.upcoming();
       G.keys.left = G.keys.right = false;
       if (dec && !G.turn && (dec.stop - G.van.s) / G.speed < 1.0) {
-        const o = right(dec);
+        const o = (pick || right)(dec);
         const lane = o.lanes.reduce((best, l) => (Math.abs(S.laneCenter(l, dec.n) - G.van.d) < Math.abs(S.laneCenter(best, dec.n) - G.van.d) ? l : best), o.lanes[0]);
         const tg = S.laneCenter(lane, dec.n);
         if (Math.abs(G.van.d - tg) < 40) G.van.d = tg;
@@ -787,18 +788,21 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
       const x = G.van.x;
       const y = G.van.y;
       const before = G.upcoming();
+      const sp0 = G.curSpeed;
       let dt = pat[i++ % pat.length];
       if (i === 1 && phase) dt *= phase;
       G.update(dt);
       t += dt;
       if (!G.running) break;
       const sc = G.toScreen(G.van.x, G.van.y);
-      rows.push({ t, dt, step: Math.hypot(G.van.x - x, G.van.y - y), turn: G.turn, start: !!G.turn && G.turn !== was, end: !G.turn && !!was, main: G.turn ? G.turn.main : was && was.main, dest: !!G.arrive, spd: G.curSpeed, vsx: sc.x, vsy: sc.y, th: G.cam.th, head: G.van.heading, tp: Math.atan2(G.vanP.uy, G.vanP.ux), pre: !!before && !G.turn && G.van.s < before.stop && before.stop - G.van.s < 1.5 * G.speed });
+      rows.push({ t, dt, step: Math.hypot(G.van.x - x, G.van.y - y), sp0, turn: G.turn, start: !!G.turn && G.turn !== was, end: !G.turn && !!was, main: G.turn ? G.turn.main : was && was.main, dest: !!G.arrive, park: (!!G.arrive || !G.onMain) && G.driveEnd() - G.van.s < 262, spd: G.curSpeed, vsx: sc.x, vsy: sc.y, th: G.cam.th, head: G.van.heading, tp: Math.atan2(G.vanP.uy, G.vanP.ux), pre: !!before && !G.turn && G.van.s < before.stop && before.stop - G.van.s < 1.5 * G.speed });
     }
     return rows;
   };
-  // 1. the van's step on the frames around a turn's start and end is in line with its neighbours (the part of a
-  // frame past a stop line or a turn's end used to run at the wrong rate: up to 1.7 units at 60 fps, 4.3 at 50 ms)
+  // 1. the van's step on the frames around a turn's start and end is what its speed says (the part of a frame past a
+  // stop line or a turn's end used to run at the wrong rate: up to 1.7 units at 60 fps, 6.9 at 50 ms). Each step is
+  // set against the mean of the speeds at the frame's two ends, so the corner braking's own slowing is no hop (what
+  // is left: the brake's curve inside a frame, and a chord against the arc, about 0.07 at 25 units on a 99 arc)
   let worstHop = 0;
   for (const [a, b] of [["base", "grocery"], ["base", "hospital"]]) {
     for (const engine of [0, 5]) {
@@ -811,7 +815,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
             if (!(r.start || r.end) || !r.main || i < 2 || i > R.length - 3) return;
             for (let j = i - 1; j <= i + 1; j++) {
               if (R[j].spd < 0.3 * G.speed) continue;
-              worstHop = Math.max(worstHop, Math.abs(R[j].step - (R[j - 1].step + R[j + 1].step) / 2));
+              worstHop = Math.max(worstHop, Math.abs(R[j].step - 0.5 * (R[j].sp0 + R[j].spd) * R[j].dt));
             }
           });
         }
@@ -819,7 +823,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     }
   }
   upgrades.engine = 0;
-  if (worstHop > 0.5) err("turns", `the van hops ${worstHop.toFixed(2)} units on a frame where a turn starts or ends`);
+  if (worstHop > 0.3) err("turns", `the van hops ${worstHop.toFixed(2)} units on a frame where a turn starts or ends`);
   // 2. the van keeps its place up and down the screen through every turn, on both cameras (the camera's offset used
   // to be laid off the road, not the view: the van rose 12-17 px through a flat junction, 23 px on the angled one)
   let worstBob = 0;
@@ -830,25 +834,36 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   }
   if (worstBob > 2) err("turns", `the van moves ${worstBob.toFixed(1)} px up or down the screen through the drive's turns`);
   // 3. the angled camera's corner braking: none before a stop line (the reading and the choice keep their time) and
-  // none on the flat camera; down to PERSP.brake into each turn the van takes, smoothly; back to full speed after
+  // none on the flat camera; down to PERSP.brake into each turn the van takes, smoothly (the junction, the grocery's
+  // bend from its stop line, and a wrong way, at either engine); back to full speed after
   let minSpd = 1;
+  let minWrong = 1;
   let worstDv = 0;
   let worstPre = 1;
   for (const engine of [0, 5]) {
     upgrades.engine = engine;
     const R = rec("base", "grocery", [1 / 60]);
-    R.forEach((r, i) => {
-      if (r.pre && !r.dest) worstPre = Math.min(worstPre, r.spd / G.speed);
-      if (r.turn && r.turn.main && !r.dest) minSpd = Math.min(minSpd, r.spd / G.speed);
-      // (the parking brake at the door is its own, and older)
-      if (i && !r.dest && R[i - 1].spd > 0.5 * G.speed) worstDv = Math.max(worstDv, Math.abs(r.spd - R[i - 1].spd) / G.speed);
-    });
+    // ... and a wrong way (the first decision at the slowest van, the last at the fastest)
+    const k = engine ? G.drive.decisions.length - 1 : 0;
+    const wrongAt = (dec) => (G.drive.decisions.indexOf(dec) === k ? dec.options.find((o) => !o.correct) : right(dec));
+    const Rw = rec("base", "grocery", [1 / 60], 0, wrongAt);
+    if (!Rw.some((r) => r.turn && !r.turn.main)) err("persp brake", `engine ${engine}: the wrong way at decision ${k} was never driven`);
+    for (const rows of [R, Rw]) {
+      rows.forEach((r, i) => {
+        if (r.pre && !r.dest) worstPre = Math.min(worstPre, r.spd / G.speed);
+        if (r.turn && r.turn.main && !r.dest) minSpd = Math.min(minSpd, r.spd / G.speed);
+        if (r.turn && !r.turn.main) minWrong = Math.min(minWrong, r.spd / G.speed);
+        // (the brake into a parking spot or a dead end, its last 262 units, is its own, and older)
+        if (i && !r.park && rows[i - 1].spd > 0.5 * G.speed) worstDv = Math.max(worstDv, Math.abs(r.spd - rows[i - 1].spd) / G.speed);
+      });
+    }
     if (R[R.length - 1].spd > 0.2 * G.speed) err("persp brake", `the van was still at ${(R[R.length - 1].spd / G.speed).toFixed(2)} of its speed as it parked`);
   }
   upgrades.engine = 0;
   if (Math.abs(minSpd - PE.brake) > 0.02) err("persp brake", `through the junction the van slowed to ${minSpd.toFixed(3)} of its speed (want ${PE.brake})`);
+  if (Math.abs(minWrong - PE.brake) > 0.02) err("persp brake", `through a wrong way the van slowed to ${minWrong.toFixed(3)} of its speed (want ${PE.brake})`);
   if (worstPre < 0.9999) err("persp brake", `the van slowed (to ${worstPre.toFixed(3)}) before a stop line`);
-  // at 60 fps no frame changes the speed by more than 2% of it (a smooth ease, about 0.6 s at the slowest van)
+  // at 60 fps no frame changes the speed by more than 2% of it (a smooth ease of about 0.5 s at any engine; 1.38%)
   if (worstDv > 0.02) err("persp brake", `the van's speed jumped ${(worstDv * 100).toFixed(1)}% of it in one frame`);
   {
     const R = rec("base", "hospital", [1 / 60]);
@@ -898,7 +913,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     if (worst * D > 0.2) err("persp camera", `uneven frames turned the view ${(worst * D).toFixed(2)} deg off where steady frames put it`);
     yaw.frames = `uneven frames within ${(worst * D).toFixed(3)} deg`;
   }
-  console.log(`turns: van hop at a turn's start or end ${worstHop.toFixed(2)} units, van up/down the screen ${worstBob.toFixed(1)} px; angled: braked to ${minSpd.toFixed(3)}, view ${yaw[0]} (engine 5: ${yaw[5]}), ${yaw.frames}`);
+  console.log(`turns: van hop at a turn's start or end ${worstHop.toFixed(2)} units, van up/down the screen ${worstBob.toFixed(1)} px; angled: braked to ${minSpd.toFixed(3)} (a wrong way ${minWrong.toFixed(3)}), at most ${(worstDv * 100).toFixed(2)}% a frame, view ${yaw[0]} (engine 5: ${yaw[5]}), ${yaw.frames}`);
 }
 
 /* ---------- the angled camera draws: every kind of walker, live, with gore on and off ----------
@@ -1037,6 +1052,42 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     if (!gore && G.particles.some((p) => p.blood)) drawErr(`${label}: blood with walker gore off`);
     for (let n = 0; n < 4; n++) if (!frames(15, label)) break;
     if (!G.fallen.length) drawErr(`${label}: no downed walkers drawn`);
+    // a body the van has driven onto lies under it: drawn before the van, though its feet are nearer the camera than
+    // the van's middle (a walker downed just behind the middle, and one whose body lies back under the van)
+    {
+      const P = ZSR.Persp;
+      const order = [];
+      const dn0 = P.downed;
+      const van0 = P.van;
+      P.downed = function (g2, c2, f, a) {
+        order.push(f);
+        return dn0.call(this, g2, c2, f, a);
+      };
+      P.van = function (g2, c2) {
+        order.push("van");
+        return van0.call(this, g2, c2);
+      };
+      const ups = [];
+      for (const [ahead, side] of [[-20, 0], [-v.h / 2 - 25, 8]]) {
+        const z = put(kinds[0], ahead, side); // (a plain walker crumples the way it was thrown)
+        G.killZombie(G.zombies.indexOf(z), v.heading); // thrown forward: it lies along the van's length, under it
+        ups.push(G.fallen[G.fallen.length - 1]);
+      }
+      // the second one's feet are behind the van: give it its whole length, as if it went down a moment ago
+      const fa = (f) => (f.max || 2) - f.life;
+      ups[1].life = ups[1].max - 1.5;
+      where = `${label} bodies under the van`;
+      log.length = 0;
+      G.draw();
+      P.downed = dn0;
+      P.van = van0;
+      const vi = order.indexOf("van");
+      ups.forEach((f, i) => {
+        const at = order.indexOf(f);
+        if (vi < 0 || at < 0) drawErr(`${label}: the van or a body under it was not drawn (${vi}, ${at}; fallen ${fa(f).toFixed(2)} s)`);
+        else if (at > vi) drawErr(`${label}: a body under the van (${i ? "lying back under it" : "its feet behind the van's middle"}) was drawn over the van`);
+      });
+    }
     const S = ZSR.Persp.walkerStats;
     if (!(S.drawn > 0)) drawErr(`${label}: walkerStats says no walker was drawn (${JSON.stringify(S)})`);
     ["drawn", "renders", "ms", "level"].forEach((k) => finite(S[k]) || drawErr(`${label}: walkerStats.${k} is ${S[k]}`));
@@ -1052,6 +1103,24 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     if (seen.renders !== before) drawErr(`${label}: drawing walkers over the sign drew them anew`);
     if (fillsOf("rgba(0,0,0,0.32)") || fillsOf("rgba(170,24,12,0.42)") || fillsOf("rgba(214,120,30,0.4)")) drawErr(`${label}: a shadow or a frenzy's glow drawn over the sign`);
     if (!log.some((c) => c[1] === "drawImage")) drawErr(`${label}: no walker drawn over a sign covering the screen`);
+    if (gore) {
+      // a long pause (a card or the menu: the road is drawn every frame, nothing moves) after the walkers' governor
+      // has stepped down: the frames that put the same pictures back up neither step it back up nor smooth its time
+      const P = ZSR.Persp;
+      P.liveRow();
+      Object.assign(P, { liveLevel: 5, liveSmooth: 5.5, liveN: 1e4, liveSlowN: 0, liveFastN: 0 });
+      const settle = (n) => {
+        for (let i = 0; i < n; i++) {
+          where = `${label} paused frame ${i}`;
+          log.length = 0;
+          G.draw();
+        }
+      };
+      settle(10);
+      const was = [P.liveLevel, P.liveSmooth];
+      settle(600);
+      if (P.liveLevel !== was[0] || P.liveSmooth !== was[1]) drawErr(`600 paused frames moved the walkers' governor from row ${was[0]} (${was[1].toFixed(2)} ms) to row ${P.liveLevel} (${P.liveSmooth.toFixed(2)} ms)`);
+    }
     G.stop();
   }
   W.SETTINGS.walkerGore = true;
@@ -1062,6 +1131,182 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   if (!seen.falls) drawErr("the angled camera never drew a walker going over");
   [...bad].slice(0, 12).forEach(drawErr);
   console.log(`persp draw: ${seen.renders} Walker3D renders (${[...seen.kinds].length} kinds, poses ${[...seen.poses].join("/")}, ${seen.falls} falling), gore on and off, ${bad.size} bad calls`);
+}
+/* ---------- the angled camera's walkers keeping up with the van: their feet go with them ----------
+   Beside and behind the van (out of its reach) every kind faces the way it goes, so its feet do not slide sideways
+   (as on foot: js/interior.js animWalker), and runs (Walker3D st.run) at a cadence a body can run at. Walkers ahead
+   are left out: facing the van while it carries them away is the owner's to decide (DESIGN.md). */
+{
+  const P = ZSR.Persp;
+  const M = ZSR.Walker3D;
+  const TILE = P.TILE;
+  const kinds = Object.keys(W.WALKER_TYPES);
+  const q90 = (a) => (a.length ? a.slice().sort((x, y) => x - y)[Math.floor(a.length * 0.9)] : NaN);
+  const out = [];
+  for (const engine of [0, 5]) {
+    upgrades.engine = engine;
+    start("base", "grocery");
+    for (let i = 0; i < 30; i++) G.update(1 / 60);
+    const v = G.van;
+    const fx = Math.cos(v.heading);
+    const fy = Math.sin(v.heading);
+    G.zombies.length = 0;
+    const put = (type, ahead, side) => Object.assign(G.addZombie(type, v.x + fx * ahead - fy * side, v.y + fy * ahead + fx * side), { hp: 1e4, maxHp: 1e4, dmg: 0, born: -10 });
+    kinds.forEach((k, i) => {
+      put(k, -40 + 40 * (i % 3), (i % 2 ? 1 : -1) * (300 + 25 * i)); // beside, well out to a side
+      put(k, -260 - 70 * i, (i % 2 ? 1 : -1) * 90); // behind
+    });
+    const slides = [];
+    const steps = [];
+    const runs = [];
+    for (let f = 0; f < 140; f++) {
+      const prev = new Map(G.zombies.map((z) => [z, [z.x, z.y, z.gait]]));
+      G.update(1 / 60);
+      if (!G.running) break;
+      if (f < 45) continue; // (their motion smoothed and turned to)
+      for (const z of G.zombies) {
+        const p0 = prev.get(z);
+        if (!p0 || z.pose !== "walk" || z.poseW < 1) continue;
+        const ly = (z.x - G.van.x) * Math.cos(G.van.heading) + (z.y - G.van.y) * Math.sin(G.van.heading);
+        if (ly > G.van.h / 2) continue;
+        const vx = (z.x - p0[0]) * 60;
+        const vy = (z.y - p0[1]) * 60;
+        const sp = Math.hypot(vx, vy);
+        slides.push(Math.hypot(vx - Math.cos(z.heading) * sp * z.move, vy - Math.sin(z.heading) * sp * z.move));
+        if (z.type === "walker" && sp > 2 * W.WALKER_TYPES.walker.speed * TILE) {
+          steps.push(((((z.gait - p0[2]) % 1) + 1) % 1) * 60 * 2); // two steps a gait cycle
+          runs.push(z.run);
+        }
+      }
+    }
+    const slide = q90(slides);
+    const cad = steps.length ? steps.reduce((a, b) => a + b, 0) / steps.length : NaN;
+    const run = runs.length ? runs.reduce((a, b) => a + b, 0) / runs.length : NaN;
+    if (!(slides.length > 200)) err("persp feet", `engine ${engine}: only ${slides.length} walker frames beside or behind the van to check`);
+    if (!(slide < 30)) err("persp feet", `engine ${engine}: walkers beside and behind the van slide ${slide.toFixed(0)} units/s (90th percentile) against the way they face (want under 30)`);
+    if (!(steps.length > 20)) err("persp feet", `engine ${engine}: no walker kept up with the van beside it`);
+    else {
+      // (a walk cycle at the walk's stride took 8.7 and 12 to 14; running strides, 5.3 and 8.3)
+      const most = engine ? 9.5 : 7;
+      if (!(cad >= 3 && cad <= most)) err("persp feet", `engine ${engine}: a walker keeping up beside the van takes ${cad.toFixed(1)} steps a second (a run: 3 to ${most})`);
+      if (!(run > 0.5)) err("persp feet", `engine ${engine}: a walker keeping up beside the van runs only ${run.toFixed(2)} of the way (Walker3D st.run)`);
+    }
+    out.push(`engine ${engine}: slide ${slide.toFixed(0)} units/s (p90), a walker beside it ${cad.toFixed(1)} steps/s, run ${run.toFixed(2)}`);
+    G.stop();
+  }
+  upgrades.engine = 0;
+  if (M) console.log(`persp feet: ${out.join("; ")}`);
+}
+/* ---------- the angled camera's ground squares on the card (js/perspective-gl.js, WebGL stubbed) ----------
+   A drive's squares, made on a clock that charges each size what a graphics card might (1.5, 0.8 and 0.4 ms): a square
+   the view will need again soon is kept, not pushed off and made again (fewer than 10% made twice); a view that needs
+   more squares than the card keeps (a very wide screen) never loses one it is using; and after the card is lost and
+   given back the ground comes back on it, every square drawn anew. */
+{
+  const GL = ZSR.PerspGL;
+  const P = ZSR.Persp;
+  const glErr = (m) => err("persp ground", m);
+  // a WebGL context that does nothing (every shader compiles), on a canvas that keeps its listeners
+  const stub = new Proxy({}, { get: (o, k) => (typeof k !== "string" ? undefined : /^[A-Z_0-9]+$/.test(k) ? 0 : /^get(Shader|Program)Parameter$/.test(k) ? () => true : k === "getExtension" ? () => null : () => ({})) });
+  const on = {};
+  const card = { width: 0, height: 0, style: {}, setAttribute: noop, addEventListener: (t, fn) => (on[t] = fn), getContext: (kind) => (kind === "webgl" ? stub : null) };
+  const realDoc = globalThis.document;
+  const realPerf = globalThis.performance;
+  const make0 = GL.make;
+  let clock = 0;
+  globalThis.document = Object.assign({}, realDoc, { createElement: () => card });
+  globalThis.performance = { now: () => clock };
+  const COST = { 512: 1.5, 256: 0.8, 128: 0.4 };
+  const made = new Map(); // key -> times made
+  GL.make = function (g, P2, grid, tx, ty, lod) {
+    clock += COST[grid.lods[lod].px];
+    const key = grid.T + ":" + tx + "," + ty + "," + lod;
+    made.set(key, (made.get(key) || 0) + 1);
+    const tile = { tex: {}, lod, used: this.frame };
+    this.tiles.set(key, tile);
+    return tile;
+  };
+  let lostInUse = 0;
+  const tiles = () => GL.tiles;
+  try {
+    GL.ok = null;
+    GL.tiles = new Map();
+    if (!GL.init({ canvas: Object.assign(el(), { parentNode: { insertBefore: noop } }) })) glErr("the card would not start on a stub context");
+    const del = (m) => {
+      const d0 = m.delete.bind(m);
+      m.delete = (key) => {
+        const t = m.get(key);
+        if (t && t.used >= GL.frame) lostInUse++;
+        return d0(key);
+      };
+    };
+    del(tiles());
+    upgrades.engine = 0;
+    start("base", "grocery");
+    let t = 0;
+    while (G.running && !G.fade && t < 200) {
+      const dec = G.upcoming();
+      G.keys.left = G.keys.right = false;
+      if (dec && !G.turn && (dec.stop - G.van.s) / G.speed < 1.0) {
+        const o = right(dec);
+        const tg = S.laneCenter(o.lanes[0], dec.n);
+        G.keys.left = G.van.d > tg + 8;
+        G.keys.right = G.van.d < tg - 8;
+      }
+      G.update(1 / 60);
+      t += 1 / 60;
+      if (!G.running) break;
+      P.setup(G);
+      GL.draw(G, P, null, [150, 150, 140]);
+      clock += 1000 / 60;
+    }
+    let total = 0;
+    let twice = 0;
+    for (const n of made.values()) {
+      total += n;
+      twice += n - 1;
+    }
+    if (arrived !== "grocery") glErr("the drive with the card did not arrive");
+    if (!(total > 100)) glErr(`only ${total} squares made over a drive`);
+    if (twice > 0.1 * total) glErr(`${twice} of the ${total} squares made over a drive were made again (want under 10%)`);
+    if (lostInUse) glErr(`${lostInUse} squares in use were pushed off the card`);
+    // a view that needs more squares than the card keeps (a 32:9 screen): it keeps all it uses
+    const big = new Map();
+    GL.tiles = big;
+    for (let i = 0; i < 1200; i++) big.set("in view " + i, { tex: {}, used: GL.frame });
+    for (let i = 0; i < 300; i++) big.set("old " + i, { tex: {}, used: GL.frame - 5 - i });
+    GL.evict(1200);
+    let kept = 0;
+    for (const t2 of big.values()) if (t2.used === GL.frame) kept++;
+    if (kept !== 1200) glErr(`a view of 1200 squares kept only ${kept} of them`);
+    if (big.size > 1400) glErr(`a view of 1200 squares left ${big.size} on the card`);
+    // the card lost, then given back: the ground goes back on it, every square drawn anew
+    GL.tiles = new Map([["x", { tex: {}, used: GL.frame }]]);
+    if (!on.webglcontextlost || !on.webglcontextrestored) glErr("the card does not listen for a lost or a restored context");
+    else {
+      on.webglcontextlost({ preventDefault: noop });
+      if (GL.ok !== false || GL.draw(G, P, null, [150, 150, 140])) glErr("a lost card still drew the ground");
+      on.webglcontextrestored({});
+      if (GL.ok !== true) glErr("the card given back was not used again");
+      if (GL.tiles.size !== 0) glErr(`the card given back kept ${GL.tiles.size} squares from before`);
+      start("base", "grocery");
+      G.update(1 / 60);
+      P.setup(G);
+      if (!GL.draw(G, P, null, [150, 150, 140]) || !(GL.tiles.size > 0)) glErr("after the card was given back the ground was not drawn on it");
+      console.log(`persp ground: ${total} squares made over a drive, ${twice} of them again (${((100 * twice) / total).toFixed(1)}%); a 1200-square view kept whole; card lost and given back: ${GL.tiles.size} squares drawn anew`);
+    }
+    G.stop();
+  } finally {
+    GL.make = make0;
+    GL.ok = null;
+    GL.gl = null;
+    GL.canvas = null;
+    GL.on = false;
+    GL.tiles = new Map();
+    GL.drive = null;
+    globalThis.document = realDoc;
+    globalThis.performance = realPerf;
+  }
 }
 console.log(`drive: ${routes} routes driven (${turns} turns), largest step back ${maxBack.toFixed(2)} px; left alone the first wrong way is ${Object.entries(failedAt).map(([k, n]) => k + " " + n).join(", ")}`);
 errors.slice(0, 40).forEach((e) => console.log("ERROR " + e));

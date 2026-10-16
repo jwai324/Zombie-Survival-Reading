@@ -8,7 +8,8 @@
    haze, until it is. The squares do not turn, but a turning view needs new ones at its side (a turn wants about twice
    a straight's): with time left in a frame, the squares the view will need a moment later, along the van's own path
    (the turn it has committed to above all), are drawn ahead.
-   Without WebGL (or if it is lost) this says no and js/perspective.js warps the ground on the 2D canvas instead. */
+   Without WebGL (or while it is lost) this says no and js/perspective.js warps the ground on the 2D canvas instead;
+   once the browser gives the card back, its squares are drawn again as at a drive's start. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -21,8 +22,12 @@
   // SCALE: ms of square drawing per frame (the first frames of a drive get more); a turn wants about twice a
   // straight's new squares, and a bigger cfg.far or a wider screen more
   const BUDGET = 7;
-  // SCALE: squares kept on the card at most (a view needs under 200; the view ahead's, drawn early, a few dozen more)
+  // SCALE: squares kept on the card (a view needs about 190 to 250 on a 16:9 or 16:10 window, about 320 at 21:9 and
+  // more than 360 at 32:9; the views ahead, drawn early, a few dozen more: not under about 300). A view that needs
+  // more keeps its own squares and SPARE more (evict), so a very wide screen costs memory, never squares drawn
+  // again every frame
   const KEEP = 360;
+  const SPARE = 48;
   // what is left of the frame's BUDGET (up to AHEAD_BUDGET ms) for the squares the view will need soon: the views
   // AHEAD_SECS seconds on along the van's own path, as the camera's spring will turn them (Game.viewsAhead); a square
   // used in the last FRESH frames is never pushed off the card for one drawn ahead
@@ -61,7 +66,33 @@
       } catch (e) {
         gl = null;
       }
-      if (!gl) return false;
+      if (!gl || !this.setupGL(gl)) return false;
+      this.gl = gl;
+      c.setAttribute("aria-hidden", "true");
+      Object.assign(c.style, { position: "absolute", inset: "0", width: "100%", height: "100%", display: "none", pointerEvents: "none" });
+      g.canvas.parentNode.insertBefore(c, g.canvas);
+      this.canvas = c;
+      this.road = g.canvas;
+      // the road's canvas comes and goes with the screens: the ground goes with it
+      if (root.MutationObserver) new root.MutationObserver(() => this.sync()).observe(g.canvas, { attributes: true, attributeFilter: ["class"] });
+      c.addEventListener("webglcontextlost", (e) => {
+        e.preventDefault();
+        this.ok = false;
+        this.hide(g);
+      });
+      // the card back (a driver reset, a graphics process restarted): a new program, and every square drawn again,
+      // as at a drive's start (the old textures went with the lost context, so there is nothing to delete)
+      c.addEventListener("webglcontextrestored", () => {
+        if (!this.setupGL(this.gl)) return;
+        this.tiles = new Map();
+        this.cost = Object.assign({}, COST0);
+        this.drive = null;
+        this.ok = true;
+      });
+      return (this.ok = true);
+    },
+    /** The card's program, buffer and filtering, on a new context or one given back after a loss; false if it fails. */
+    setupGL(gl) {
       const sh = (type, src) => {
         const s = gl.createShader(type);
         gl.shaderSource(s, src);
@@ -76,25 +107,12 @@
       gl.attachShader(pr, fs);
       gl.linkProgram(pr);
       if (!gl.getProgramParameter(pr, gl.LINK_STATUS)) return false;
-      this.gl = gl;
       this.prog = pr;
       this.loc = { pos: gl.getAttribLocation(pr, "aPos"), uv: gl.getAttribLocation(pr, "aUv"), m: gl.getUniformLocation(pr, "uM"), tex: gl.getUniformLocation(pr, "uTex"), haze: gl.getUniformLocation(pr, "uHaze"), fog: gl.getUniformLocation(pr, "uFog") };
       this.buf = gl.createBuffer();
       this.aniso = gl.getExtension("EXT_texture_filter_anisotropic") || gl.getExtension("WEBKIT_EXT_texture_filter_anisotropic");
       this.maxAniso = this.aniso ? Math.min(8, gl.getParameter(this.aniso.MAX_TEXTURE_MAX_ANISOTROPY_EXT)) : 0;
-      c.setAttribute("aria-hidden", "true");
-      Object.assign(c.style, { position: "absolute", inset: "0", width: "100%", height: "100%", display: "none", pointerEvents: "none" });
-      g.canvas.parentNode.insertBefore(c, g.canvas);
-      this.canvas = c;
-      this.road = g.canvas;
-      // the road's canvas comes and goes with the screens: the ground goes with it
-      if (root.MutationObserver) new root.MutationObserver(() => this.sync()).observe(g.canvas, { attributes: true, attributeFilter: ["class"] });
-      c.addEventListener("webglcontextlost", (e) => {
-        e.preventDefault();
-        this.ok = false;
-        this.hide(g);
-      });
-      return (this.ok = true);
+      return true;
     },
     sync() {
       if (this.canvas) this.canvas.style.display = this.on && !this.road.classList.contains("hidden") ? "block" : "none";
@@ -177,7 +195,7 @@
       // all there, and time to spare: the squares a moment ahead will need
       if (!left && g.viewsAhead && performance.now() - t0 + this.cost[nearGrid.lods[nearGrid.lods.length - 1].px] <= Math.min(budget, AHEAD_BUDGET)) this.ahead(g, P, k, theme, t0, Math.min(budget, AHEAD_BUDGET));
       st.ms = performance.now() - t0;
-      this.evict();
+      this.evict(need.length);
       // lay them down
       gl.viewport(0, 0, cw, ch);
       gl.clearColor(hazeRGB[0] / 255, hazeRGB[1] / 255, hazeRGB[2] / 255, 1);
@@ -266,8 +284,14 @@
       const cand = new Map();
       g.viewsAhead(AHEAD_SECS).forEach((a, n) => {
         this.under(P, a.x, a.y, Math.cos(a.th), Math.sin(a.th), (grid, tx, ty, lod, Y) => {
+          // one the view will need that is on the card already stays fresh (as of last frame: on a tie the squares
+          // on the screen now outlast it), so it is not pushed off and drawn again a moment later
+          const have = this.best(grid, tx, ty, lod);
+          if (have) {
+            have.used = Math.max(have.used, this.frame - 1);
+            return;
+          }
           const key = grid.T + ":" + tx + "," + ty + "," + lod;
-          if (this.best(grid, tx, ty, lod)) return;
           const pr = n * 1e5 + Y;
           const c = cand.get(key);
           if (!c || c.pr > pr) cand.set(key, { grid, tx, ty, lod, pr });
@@ -348,11 +372,13 @@
       this.tiles.set(T + ":" + tx + "," + ty + "," + lod, tile);
       return tile;
     },
-    /** Past the keeping limit, the squares unused longest go. */
-    evict() {
-      if (this.tiles.size <= KEEP) return;
+    /** Past the keeping limit, the squares unused longest go: KEEP, or for a view that needs more (a very wide
+        screen) its own squares and SPARE more, so a square in use this frame never goes. */
+    evict(inView) {
+      const keep = Math.max(KEEP, (inView || 0) + SPARE);
+      if (this.tiles.size <= keep) return;
       const old = [...this.tiles.entries()].sort((a, b) => a[1].used - b[1].used);
-      for (let i = 0; i < old.length - KEEP; i++) {
+      for (let i = 0; i < old.length - keep; i++) {
         this.gl.deleteTexture(old[i][1].tex);
         this.tiles.delete(old[i][0]);
       }

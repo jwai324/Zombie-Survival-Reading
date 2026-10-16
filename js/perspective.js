@@ -51,6 +51,11 @@
   const BLOOD_FALL = 5; // tiles/s/s: a drop of blood falls as it does on foot (js/interior.js updateBlood)
   const BLOOD_HIGH = [0.55, 0.75]; // the share of its height a spray starts at when the hit has none: the chest, as on foot
   const CLAW_HOLD = 0.6; // a walker that just hit the van (its 1 s cooldown above this) still claws at it
+  // a walker covering ground faster than its kind walks on foot (WORLD.WALKER_TYPES speed, tiles/s) runs (Walker3D
+  // st.run): from RUN_FROM times that speed, all the way at RUN_FROM + RUN_SPAN times (beside the van it covers about
+  // 2.6 times a plain walker's, 4.5 at Engine Tune 5)
+  const RUN_FROM = 1;
+  const RUN_SPAN = 2;
   const SHADOW = "rgba(0,0,0,0.32)"; // a walker's shadow on the road (Walker3D's own contact shadow's)
   const FRENZY_GORE = "rgba(170,24,12,0.42)"; // ... and sped up by a scream, its glow (main's road: js/sprites.js shadowAt)
   const FRENZY_CLEAN = "rgba(214,120,30,0.4)"; // (amber with gore off)
@@ -690,11 +695,13 @@
     },
     /* ---------- Walkers: Walker3D's live figures, as the interiors draw theirs (js/interior.js) ---------- */
     /** How a walker on the angled drive looks this frame (game.js update, once it has moved from x0, y0; touching:
-        it presses on the van), as on foot (js/interior.js animWalker): its heading turns toward the van at its look's
-        turn rate (no snap as the van goes by or a shot throws it back); its legs go by the ground it covered,
-        keeping up with the van included (near the van it sprints, owner 2026-10-16); the walk blend; a claw's swipes
-        at its look's rate while it presses on the van or has just hit it; the scream while it yells; each pose eased
-        in and out over Walker3D's POSE_BLEND. Only looks: nothing here moves it. */
+        it presses on the van), as on foot (js/interior.js animWalker): its heading turns at its look's turn rate (no
+        snap as the van goes by or a shot throws it back) toward where it is going (its ground motion, smoothed, the
+        keep-up carry included), or toward the van while it claws or screams at it, or while the van carries it away
+        from it (a walker ahead: the owner's to decide, DESIGN.md); its legs go by the ground it covered, running
+        (Walker3D st.run) as that outpaces its kind's walk (near the van it sprints, owner 2026-10-16); the walk
+        blend; a claw's swipes at its look's rate while it presses on the van or has just hit it; the scream while it
+        yells; each pose eased in and out over Walker3D's POSE_BLEND. Only looks: nothing here moves it. */
     animate(g, z, dt, x0, y0, touching) {
       const M = ZSR.Walker3D;
       if (!M || !(dt > 0)) return;
@@ -707,14 +714,25 @@
         z.clawPh = 0;
         z.pose = "walk";
         z.poseW = 1;
+        z.svx = z.svy = 0;
+        z.run = 0;
       }
+      const mx = z.x - x0;
+      const my = z.y - y0;
+      const d = Math.hypot(mx, my);
+      const ease = Math.min(1, dt * 6);
+      // its ground motion, smoothed (a shove from a neighbour or a shot does not swing it round)
+      z.svx += (mx / dt - z.svx) * ease;
+      z.svy += (my / dt - z.svy) * ease;
+      const sp = Math.hypot(z.svx, z.svy);
+      const claw = touching || z.cool > CLAW_HOLD;
+      const a = z.angle || 0;
+      let want = a;
+      if (!claw && !(z.yell > 0) && sp > 0.15 * TILE && z.svx * Math.cos(a) + z.svy * Math.sin(a) >= 0) want = Math.atan2(z.svy, z.svx);
       const I = ZSR.Interior;
       const m = (gt.turnRate > 0 ? gt.turnRate : I ? I.TURN_RATE : 7) * dt;
-      z.heading = normA(z.heading + clamp(normA((z.angle || 0) - z.heading), -m, m));
-      const d = Math.hypot(z.x - x0, z.y - y0);
-      z.gait = (z.gait + d / TILE / M.stride(z.type)) % 1;
-      z.move += ((d / dt > 0.2 * z.speed ? 1 : 0) - z.move) * Math.min(1, dt * 6);
-      const claw = touching || z.cool > CLAW_HOLD;
+      z.heading = normA(z.heading + clamp(normA(want - z.heading), -m, m));
+      z.move += ((d / dt > 0.2 * z.speed ? 1 : 0) - z.move) * ease;
       if (claw) z.clawPh = (z.clawPh + dt * (gt.clawRate > 0 ? gt.clawRate : 1.6)) % 1;
       // the pose: from walking straight into the new one; from any other, out of it first (poseW 0 is the walk)
       const pose = z.yell > 0 ? "scream" : claw ? "claw" : "walk";
@@ -724,6 +742,13 @@
         z.pose = pose;
         z.poseW = pose === "walk" ? 1 : 0;
       } else z.poseW -= step;
+      // running: by how far its ground speed outpaces its kind's walk; a claw or a scream (feet set) eases it out
+      const W = ZSR.WORLD && ZSR.WORLD.WALKER_TYPES;
+      const row = W && (W[z.type] || W.walker);
+      const foot = (row && row.speed > 0 ? row.speed : 1.25) * TILE;
+      z.run = clamp((sp / foot - RUN_FROM) / RUN_SPAN, 0, 1) * (z.pose === "walk" ? 1 : 1 - z.poseW);
+      // the legs by the ground it covered, over the stride it has at that pace (the feet stay planted)
+      z.gait = (z.gait + d / TILE / M.stride(z.type, z.run)) % 1;
     },
     /** A walker going down (game.js killZombie): its body f goes on from how it looked (heading, legs, pose, the hit's
         flash), so it falls from its last step, the way on foot a walker's own record falls. */
@@ -736,6 +761,7 @@
       f.clawPh = z.clawPh || 0;
       f.yell = z.yell || 0;
       f.hit = z.hit || 0;
+      f.run = z.run || 0;
     },
     /** Where a drop of a hit's spray starts and how it flies up (game.js blood): at the hit's height h (a shot's),
         kept on the body, else at the chest as on foot (js/interior.js bleed); up at 0.5 to 1.5 tiles a second, then
@@ -842,8 +868,10 @@
       const foot = this.project(o.x, o.y, 0);
       if (!foot || foot.s > NEAR_PX || foot.Y > k.far + 150) return null;
       const box = M.box(o.type, falling);
+      const T3 = M.TYPES && (M.TYPES[o.type] || M.TYPES.walker);
       const bh = box.h;
-      const bw = box.w;
+      // (standing, as wide as it may need running: Walker3D's wRun)
+      const bw = !falling && T3 && T3.wRun > box.w ? T3.wRun : box.w;
       const headT = box.head;
       const top = this.project(o.x, o.y, bh * TILE);
       if (!top) return null;
@@ -866,10 +894,10 @@
       const devH = hpx * dpr;
       const lod = devH >= row.lodPx[0] ? 0 : devH >= row.lodPx[1] ? 1 : 2;
       // room for the figure seen from above: a part `reach` tiles nearer shows lower than its feet, one farther higher
-      // than it stands (standing: as far and as high as any of its poses reaches, its look's envelope; going over: its
-      // falling box), with the margin Walker3D keeps inside its region on every side and a spare px
-      const T3 = M.TYPES && (M.TYPES[o.type] || M.TYPES.walker);
-      const env = !falling && T3 && T3.env && T3.env.n > 0 ? T3.env : null;
+      // than it stands (standing: as far and as high as any of its poses reaches, running too, its look's envelope;
+      // going over: its falling box), with the margin Walker3D keeps inside its region on every side and a spare px
+      const E3 = T3 && (T3.envRun || T3.env);
+      const env = !falling && E3 && E3.n > 0 ? E3 : null;
       const reach = env ? env.rh : bw / 2;
       let above = 0;
       if (env) {
@@ -929,7 +957,7 @@
       if (!I || !I.sameSig) return 1;
       const st = this.liveState(g, r, lod);
       const sized = Math.abs(r.rh - r.lh) <= Math.max(2, r.rh * 0.02) && Math.abs(r.rw - r.lw) <= Math.max(2, r.rw * 0.02);
-      if (sized && r.sView === r.view && r.sDepth === r.depth && I.sameSig(r, st, M.FOG_STEPS || 32)) return 0;
+      if (sized && r.sView === r.view && r.sDepth === r.depth && r.sRun === Math.round(st.run * 16) && I.sameSig(r, st, M.FOG_STEPS || 32)) return 0;
       if (r.sHit !== st.hit) return 1; // a hit's flash shows at once, and goes at once
       if (r.near) return 1;
       return old || r.age >= row.far ? 2 : 0;
@@ -939,7 +967,7 @@
         kneel go forward on their own, the rest away from the shot), its look, the detail and the fog. */
     liveState(g, r, lod) {
       const M = ZSR.Walker3D;
-      const st = this.liveSt || (this.liveSt = { yaw: 0, gait: 0, move: 1, pose: "walk", poseT: 0, poseW: 1, claw: 0, hit: 0, fall: 0, fallDir: Math.PI, seed: 0, lod: 0, fog: 0, gore: true });
+      const st = this.liveSt || (this.liveSt = { yaw: 0, gait: 0, move: 1, pose: "walk", poseT: 0, poseW: 1, claw: 0, hit: 0, fall: 0, fallDir: Math.PI, seed: 0, lod: 0, fog: 0, gore: true, run: 0 });
       const k = this.k;
       const o = r.o;
       const heading = o.heading != null ? o.heading : r.falling ? (o.rot || 0) + Math.PI : o.angle || 0;
@@ -958,6 +986,7 @@
       st.lod = lod;
       st.fog = r.fog;
       st.gore = M.gore();
+      st.run = o.run > 0 ? o.run : 0;
       return st;
     },
     /** Draw one picture into its canvas (liveGeo sized it, liveCheck set its detail): Walker3D's figure from above,
@@ -1000,6 +1029,7 @@
       r.drawnAt = no;
       r.sView = r.view;
       r.sDepth = r.depth;
+      r.sRun = Math.round(st.run * 16);
       const I = ZSR.Interior;
       if (I && I.saveSig) I.saveSig(r, st, M.FOG_STEPS || 32);
       else r.sLod = st.lod;
@@ -1057,7 +1087,9 @@
       const T = this.liveTune();
       const S = this.walkerStats;
       S.level = this.liveLevel | 0;
-      if (T === NO_GOVERNOR || !S.drawn) return;
+      // a frame that drew no picture anew (the road paused under a card or a menu: the same pictures put back up)
+      // says nothing about what the walkers cost, as indoors (Interior.governLive)
+      if (T === NO_GOVERNOR || !S.drawn || !S.renders) return;
       this.liveSmooth = this.liveSmooth == null ? S.ms : this.liveSmooth * 0.97 + S.ms * 0.03;
       this.liveN = (this.liveN || 0) + 1;
       if (this.liveN <= T.QUALITY_WAIT) return;
@@ -1458,7 +1490,35 @@
       const mid = G.half + G.shoulder + G.lotGap + 168 + (G.lotDepth - 186) / 2;
       for (const l of g.drive.lots) add(l, "lot", l.qx - l.uy * l.side * mid, l.qy + l.ux * l.side * mid, 0, 260);
       for (const z of g.zombies) add(z, "walker", z.x, z.y);
-      if (ZSR.Walker3D) for (const f of g.fallen) add(f, "downed", f.x, f.y);
+      if (ZSR.Walker3D) {
+        // a body is sorted by its feet, the van by its middle: one the van has driven onto (its feet or the far end of
+        // it lying there inside the van's box) goes under the van, just before it, as main's flat road lays its fallen
+        // under everything standing
+        const v = g.van;
+        const vx = Math.cos(v.heading);
+        const vy = Math.sin(v.heading);
+        const vanY = (v.x - k.ox) * k.Fx + (v.y - k.oy) * k.Fy;
+        const under = (x, y) => {
+          const dx = x - v.x;
+          const dy = y - v.y;
+          return Math.abs(dx * vx + dy * vy) < v.h / 2 + 10 && Math.abs(dy * vx - dx * vy) < v.w / 2 + 10;
+        };
+        const M = ZSR.Walker3D;
+        for (const f of g.fallen) {
+          const Y = (f.x - k.ox) * k.Fx + (f.y - k.oy) * k.Fy;
+          let back = 0;
+          if (Y < vanY + 1) {
+            // where it lies to (as walkerGround lays its shadow: forward for a fold or a kneel, else the way it was
+            // thrown)
+            const look = M.TYPES[f.type] || M.TYPES.walker;
+            const fwd = look && (look.fall === "fold" || look.fall === "kneel");
+            const dir = fwd ? (f.heading == null ? (f.rot || 0) + Math.PI : f.heading) : f.rot || 0;
+            const len = M.box(f.type, true).h * TILE * clamp(fallAge(f) / (M.COLLAPSE_SECS || 0.9), 0, 1);
+            if (under(f.x, f.y) || under(f.x + Math.cos(dir) * len, f.y + Math.sin(dir) * len)) back = vanY + 1 - Y;
+          }
+          add(f, "downed", f.x, f.y, back);
+        }
+      }
       // what flies (blood, sparks, kill dust) at its own depth: a body in front of it covers it, it covers one behind
       for (const p of g.particles) if (!p.splat) add(p, "flying", p.x, p.y);
       if (g.gameOverAt == null || g.gameOverAt > 0.9) add(g.van, "van", g.van.x, g.van.y);

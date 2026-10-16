@@ -810,16 +810,17 @@ else {
   else {
     const PB = W3.probe();
     const stQ = (o) => Object.assign({}, base, o);
-    // G: smooth walk cycles: through 200 gait steps, no boot, toe or hand jumps more than 4 x its usual step (+ 1 px)
+    // G: smooth walk cycles: through 200 gait steps, no boot, toe or hand jumps more than 4 x its usual step (+ 1 px);
+    // running too (st.run, the angled road's walkers keeping up with the van)
     const LIMBS = { "left hand": 6, "right hand": 9, "left ankle": 12, "left toe": 13, "right ankle": 16, "right toe": 17 };
     types.forEach((type) => {
       [PI / 2, 0.4].forEach((yaw) => {
-        [0, 1].forEach((seed) => {
+        [[0, 0], [1, 0], [0, 1]].forEach(([seed, run]) => {
           const cam = camFor(type, false, 160);
           const steps = {};
           let prev = null;
           for (let i = 0; i <= 200; i++) {
-            W3.draw(quiet, type, stQ({ yaw, seed, gait: i / 200, move: 1 }), cam);
+            W3.draw(quiet, type, stQ({ yaw, seed, run, gait: i / 200, move: 1 }), cam);
             const now = Array.from(PB.s);
             if (prev) Object.entries(LIMBS).forEach(([n, j]) => (steps[n] = steps[n] || []).push(Math.hypot(now[j * 3] - prev[j * 3], now[j * 3 + 1] - prev[j * 3 + 1])));
             prev = now;
@@ -828,7 +829,7 @@ else {
             const sorted = a.slice().sort((x, y) => x - y);
             const med = sorted[sorted.length >> 1];
             const max = sorted[sorted.length - 1];
-            if (max > 4 * med + 1) err(`walker ${type} yaw ${yaw.toFixed(2)} seed ${seed}: its ${n} jumps ${max.toFixed(1)} px in one step of the walk cycle (its usual step is ${med.toFixed(2)} px at 160 px tall): a snap`);
+            if (max > 4 * med + 1) err(`walker ${type} yaw ${yaw.toFixed(2)} seed ${seed}${run ? " running" : ""}: its ${n} jumps ${max.toFixed(1)} px in one step of the walk cycle (its usual step is ${med.toFixed(2)} px at 160 px tall): a snap`);
           });
         });
       });
@@ -975,13 +976,15 @@ else {
   }
   // R: seen from above, as the angled road camera sees them (js/perspective.js liveGeo): eyes 5 to 9 tiles up, 2 to
   // 70 tiles off, room under the feet (cam.floor) and no contact shadow (cam.shadow false), in the region the road
-  // gives (the box, the margin and how far a part can show over and under the feet from there). Every kind standing,
-  // walking, clawing, screaming, hit and going over, at every detail, gore on and off: inside the region, finite,
+  // gives (the box, the margin and how far a part can show over and under the feet from there, running included:
+  // envRun). Every kind standing, walking, running (st.run), clawing as it slows from a run, screaming, hit and
+  // going over, at every detail, gore on and off: inside the region, finite,
   // within the call ceilings (drawOne); standing, its feet on the floor line, at full size (no shrink); no shadow
   // of its own, the pool still there
   const roadCam = (type, falling, eye, dist, px) => {
     const b = W3.box(type, falling);
-    const env = !falling && W3.TYPES[type].env;
+    const env = !falling && (W3.TYPES[type].envRun || W3.TYPES[type].env);
+    const bw = falling ? b.w : Math.max(b.w, W3.TYPES[type].wRun || 0);
     const reach = env ? env.rh : b.w / 2;
     let above = 0;
     if (env) {
@@ -995,7 +998,7 @@ else {
     const up = Math.ceil(above * px + pad);
     let fl = Math.ceil(below * px + pad);
     fl = Math.min(fl, Math.floor(up * 1.5)); // (the engine keeps the floor under 0.6 of the region)
-    return { w: Math.ceil(b.w * px + 2 * pad), h: up + fl, px, dist, eye, floor: fl, shadow: false };
+    return { w: Math.ceil(bw * px + 2 * pad), h: up + fl, px, dist, eye, floor: fl, shadow: false };
   };
   let roadCams = 0;
   types.forEach((type) => {
@@ -1004,10 +1007,12 @@ else {
         [0, 1.2, -2.3, PI].forEach((yaw, yi) => {
           const lod = yi % 3;
           const gore = yi % 2 === 0;
-          ["walk", "claw", "scream", "idle"].forEach((pose) => {
+          ["walk", "run", "claw", "run claw", "scream", "idle"].forEach((name) => {
+            const run = name === "run" ? 1 : name === "run claw" ? 0.5 : 0;
+            const pose = name === "run" ? "walk" : name === "run claw" ? "claw" : name;
             const cam = roadCam(type, false, eye, dist, px);
-            const what = `walker ${type} from above (eye ${eye}, ${dist} tiles, ${px} px a tile) ${pose} yaw ${yaw.toFixed(2)} lod ${lod}`;
-            const r = drawOne(type, { pose, yaw, lod, gore, gait: 0.35, move: pose === "walk" ? 1 : 0.4, poseT: 0.5, claw: 0.4, hit: pose === "idle" ? 1 : 0 }, cam, what);
+            const what = `walker ${type} from above (eye ${eye}, ${dist} tiles, ${px} px a tile) ${name} yaw ${yaw.toFixed(2)} lod ${lod}`;
+            const r = drawOne(type, { pose, run, poseW: name === "run claw" ? 0.5 : 1, yaw, lod, gore, gait: 0.35, move: pose === "walk" ? 1 : 0.4, poseT: 0.5, claw: 0.4, hit: pose === "idle" ? 1 : 0 }, cam, what);
             roadCams++;
             if (!r) return;
             if (r.ops.some((op) => op.k === "fill" && op.fillStyle === "rgba(0,0,0,0.32)")) err(`${what}: drew its own contact shadow with cam.shadow false`);
@@ -1041,7 +1046,7 @@ else {
       });
     });
   });
-  // S: the two options left off draw exactly as without them (the interiors' cameras): floor 0 and shadow true
+  // S: the options left off draw exactly as without them (the interiors' cameras): floor 0, shadow true and st.run 0
   // make the same calls as no option at all, across kinds, poses, falls, details and cameras
   let same = 0;
   types.forEach((type) => {
@@ -1057,6 +1062,9 @@ else {
           if (plain && r && sig(r.ops) !== sig(plain.ops)) err(`walker ${type} ${JSON.stringify(o)} at eye ${eye}, ${dist} tiles: cam ${JSON.stringify(opt)} draws differently from no option (an option left off must change nothing)`);
           same++;
         });
+        const r0 = drawOne(type, Object.assign({}, st, { run: 0 }), cam, `walker ${type} with st.run 0`);
+        if (plain && r0 && sig(r0.ops) !== sig(plain.ops)) err(`walker ${type} ${JSON.stringify(o)} at eye ${eye}, ${dist} tiles: st.run 0 draws differently from no run (an option left off must change nothing)`);
+        same++;
       });
     });
   });
