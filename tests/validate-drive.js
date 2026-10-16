@@ -10,7 +10,10 @@
    - the angled camera's test drive (js/perspective.js): only Home Base to Corner Grocery, screen and world
      map back onto each other, and there too a shot flies straight at the pointer; a walker clicked anywhere on
      its picture is hit, walking or not, ahead or aside; walkers stay outside the van and hit it; the van parks
-     short of the grocery's wall.
+     short of the grocery's wall;
+   - the angled camera's whole frame drawn on a recording 2D context (no WebGL: the 2D ground): every kind of
+     walker live (Walker3D), a scream and its frenzy, clawing, hurt (health bars), shot, downed, gore on and off:
+     no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow.
    Exit 1 on any error. */
 "use strict";
 const fs = require("fs");

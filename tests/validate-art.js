@@ -15,7 +15,10 @@
      facts has a look; every type draws cleanly in every pose, from every side, at every level of detail, falling and
      hit, in tiny to large regions, near and far, with no transforms, images, gradients, read-backs or new canvases,
      inside its region with its feet on the bottom, within its canvas-call ceiling, the same way twice; no strong red
-     with gore off; fog darkens all but the eyes; its boxes, strides and blood sprites are sane;
+     with gore off; fog darkens all but the eyes; its boxes, strides and blood sprites are sane; seen from above as
+     the angled road camera sees them (cam.floor, cam.shadow: eyes 5 to 9 tiles, 2 to 70 tiles off) the same
+     promises hold, every pose at full size, the ankles where that camera puts them, no shadow of its own; and the
+     two options left off draw exactly as without them;
    - the crew's art (js/crewart.js, loaded by the page after sprites3d.js): every sprite ZSR.CREW_ART
      lists is registered and draws cleanly, at its size, with every opts set listed for it; the list
      covers every crew member in every pose and frame, the poses and quest object kinds docs/CREW.md
