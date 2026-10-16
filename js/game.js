@@ -10,9 +10,11 @@
    A wrong way: a fade, then the page (hooks.onWrongTurn) offers
    try again (retry(): the drive starts over where it set out; van damage, scrap, walkers and
    miles stay), the town map, or back to where the van set out.
-   The camera follows the van with its heading up; a minimap tracks it but never shows the route.
+   The camera follows the van with its heading up; a minimap tracks it but never shows the route. The drive (the van,
+   its turns and the camera) runs in short fixed steps (DRIVE_STEP), so it moves the same at any frame rate.
    A test: on the drives in PERSP_ROUTES the camera looks down the road from behind and above the van instead
-   (js/perspective.js draws the world, works the roof gun's aim and maps screen <-> world).
+   (js/perspective.js draws the world, works the roof gun's aim and maps screen <-> world). There the van brakes
+   lightly into each turn it takes and the camera follows lazily, facing a point ahead on the van's own path.
    Route geometry lives in js/streets.js. Walkers come from ahead and from both shoulders; the
    player aims and shoots. The trip's van health, scrap and walker count live in ZSR.State.trip.
    Every kind of walker comes, by the trip's danger and day (WORLD.walkerWeights "road"); a screamer that sees
@@ -65,11 +67,27 @@
   // coming a little more often (they are seen from further off, so take longer to arrive)
   // ...; the van parks parkShort short of the door (seen in 3D its nose would be in the wall)
   const PERSP = { pace: 1.25, shot: 1.6, spawns: 1.4, range: 2600, keepUp: 900, parkShort: 45 };
+  // ... and its corners. The van brakes lightly into each turn it takes: from the stop line (never before: braking must
+  // not tell which way is right) it eases down to brake x its speed by the time its path bends (over brakeIn at
+  // least, for a bend that starts at its stop line), holds that round the bend, then eases back up over brakeOut.
+  // The camera follows lazily: it faces a point look ahead along the van's own path, never past a stop line the van
+  // has not crossed (from one it looks further ahead again lookRamp times as fast as the van drives), and turns toward
+  // it on a critically damped spring of camW per second; the spring's clock runs with the van's speed to the camPace
+  // power (0: by time, 1: by distance), so a faster van turns the view a little faster and the bend never runs out of
+  // the view. The van's nose eases into and out of a bend over nose units either side of it.
+  Object.assign(PERSP, { brake: 0.75, brakeIn: 150, brakeOut: 300, look: 300, lookRamp: 2, camW: 2.2, camPace: 0.5, nose: 50 });
+  // the drive (the van along its track, its turns, lane slides and the camera) runs in steps no longer than this,
+  // whatever the frame rate: a slow or uneven frame moves it just as several quick ones would
+  const DRIVE_STEP = 1 / 240;
+  // how fast the van's heading and the flat camera ease toward the road, per second: at 60 fps the same share a
+  // frame as before they were frame-rate independent (the van 0.2 of the way, the camera's heading 1/12, its slide 0.05)
+  const EASE = { van: -60 * Math.log(0.8), camTurn: 60 * Math.log(12 / 11), camSlide: -60 * Math.log(0.95) };
   const SIZE = { normal: 1, large: 1.3, huge: 2 };
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const normAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   const smooth = (x) => x * x * (3 - 2 * x);
+  const smoother = (x) => x * x * x * (x * (6 * x - 15) + 10); // smooth to its second derivative: no jolt at either end
   const textSize = () => SIZE[document.documentElement.getAttribute("data-size")] || 1;
   function seeded(seed) {
     let s = seed >>> 0 || 1;
@@ -210,7 +228,7 @@
       this.drive = St.buildDrive(path, { scale: St.scaleFor(dist, secs, this.speed), speed: this.speed });
       this.origin = path[0];
       this.van = { s: 0, d: 0, x: 0, y: 0, heading: 0, vd: 0, w: 66, h: 118, aim: -Math.PI / 2, hurt: 0, cooldown: 0, flash: 0 };
-      this.cam = { x: 0, y: 0, th: 0, d: 110, rel: 0 };
+      this.cam = { x: 0, y: 0, th: 0, d: 110, rel: 0, w: 0 };
       this.time = 0;
       this.attempt = 0;
       this.gameOverAt = null;
@@ -252,12 +270,16 @@
       this.particles = [];
       this.bursts = [];
       this.fallen = [];
+      this.odo = 0; // how far the van has driven this try, along its own path
+      this.stopOdo = -1e9; // ... at the last stop line it crossed
+      this.corner = null; // the angled camera's braking for a turn: { x0, xa, xb, xc } along odo
+      this.lastTurn = null;
       this.spawnTimer = 2.2;
       this.shake = 0;
-      this.placeVan(0);
+      this.placeVan(0, true);
       this.cam.th = Math.atan2(this.vanP.uy, this.vanP.ux);
       this.cam.d = (Streets().ourLeft(2) + G.half) / 2;
-      this.placeCam(1);
+      this.placeCam(0, true);
     },
 
     /** Trees, wrecks and junk along every road near the route, and the supply crates on it.
@@ -401,8 +423,9 @@
     },
 
     /* ---------- Where things are ---------- */
-    /** Put the van at its (s, d) on the current track, or on its own path through a turn. */
-    placeVan(dt) {
+    /** Put the van at its (s, d) on the current track, or on its own path through a turn; its heading eases toward
+        the road's (and the lean of a lane slide) over dt, or is put there (snap). */
+    placeVan(dt, snap) {
       const tn = this.turn;
       const p = tn ? Streets().at(tn.track, this.turnS()) : Streets().at(this.track, this.van.s);
       this.vanP = p;
@@ -411,31 +434,160 @@
       v.x = p.x - p.uy * d;
       v.y = p.y + p.ux * d;
       const lean = clamp(Math.atan2(v.vd, Math.max(60, this.curSpeed || this.speed)), -0.35, 0.35);
-      const want = Math.atan2(p.uy, p.ux) + lean;
-      v.heading = dt ? v.heading + normAngle(want - v.heading) * Math.min(1, dt * 12) : want;
+      // the angled camera turns slowly enough to show the van's own turn: its nose eases into and out of a bend
+      // (its path's heading averaged PERSP.nose behind and ahead) instead of starting to swing all at once
+      const want = (this.persp ? this.pathHeading(PERSP.nose) : Math.atan2(p.uy, p.ux)) + lean;
+      v.heading = snap ? want : v.heading + normAngle(want - v.heading) * (1 - Math.exp(-dt * EASE.van));
+    },
+    /** The heading of the van's own path around it: its tangent averaged over W behind and ahead (more weight near
+        the van), across the turn it is in or has just left. Never past the next stop line, nor back past the last
+        one: the span closes to nothing at a stop line, so the heading never jumps where a turn begins. */
+    pathHeading(W0) {
+      const St = Streets();
+      const tn = this.turn;
+      const last = this.lastTurn;
+      const dec = tn ? null : this.upcoming();
+      const W = Math.max(0, Math.min(W0, this.odo - this.stopOdo, dec ? dec.stop - this.van.s : W0));
+      const N = 4;
+      let sx = 0;
+      let sy = 0;
+      for (let i = -N; i <= N; i++) {
+        const u = (W * i) / N;
+        let a;
+        if (tn) {
+          const x = this.turnS() + u;
+          a = tn.main && x > tn.track.len ? St.at(this.track, tn.s1 + x - tn.track.len) : St.at(tn.track, x);
+        } else {
+          const s = this.van.s + u;
+          if (last && s < last.s1 && this.van.s - last.s1 < W) a = St.at(last.track, last.track.len + s - last.s1);
+          else a = St.at(this.track, s);
+        }
+        const w = N + 1 - Math.abs(i);
+        sx += a.ux * w;
+        sy += a.uy * w;
+      }
+      return Math.atan2(sy, sx);
     },
     /** How far along its turn path the van is: on the route its place (s) runs on underneath and maps onto the path. */
     turnS() {
       const tn = this.turn;
       return tn.main ? (this.van.s - tn.s0) * tn.k : this.van.s;
     },
-    /** The camera rides the road at the van, heading up, centered on our side of it (through a turn: off the van's path, easing over). */
-    placeCam(k) {
+    /** The camera rides the road at the van, heading up, centered on our side of it (through a turn: off the van's
+        path, easing over). Its heading and its slide ease over dt, or are put where they belong (snap). */
+    placeCam(dt, snap) {
       const c = this.cam;
+      const v = this.van;
       const p = this.vanP;
-      c.th += normAngle(Math.atan2(p.uy, p.ux) - c.th) * k;
-      let off;
+      if (this.persp) this.lazyHeading(dt, snap);
+      else {
+        const road = Math.atan2(p.uy, p.ux);
+        c.th = snap ? road : c.th + normAngle(road - c.th) * (1 - Math.exp(-dt * EASE.camTurn));
+      }
       if (this.turn) {
         const tn = this.turn;
-        off = c.rel = tn.cam0 + (tn.cam1 - tn.cam0) * smooth(clamp(this.turnS() / Math.min(tn.track.len, 700), 0, 1));
+        const x = clamp(this.turnS() / Math.min(tn.track.len, 700), 0, 1);
+        c.rel = tn.cam0 + (tn.cam1 - tn.cam0) * (this.persp ? smoother(x) : smooth(x));
       } else {
         const want = (this.laneRange()[0] - 33 + Streets().GEOM.half) / 2;
-        c.d += (want - c.d) * Math.min(1, k * 0.6);
-        off = c.d;
-        c.rel = c.d - this.van.d;
+        c.d = snap ? want : c.d + (want - c.d) * (1 - Math.exp(-dt * EASE.camSlide));
+        c.rel = c.d - v.d;
       }
-      c.x = p.x - p.uy * off;
-      c.y = p.y + p.ux * off;
+      // off the van along the camera's own right, not the road's: while the view turns (it lags the road through a
+      // turn) the van keeps its place on the screen instead of bobbing up and down it
+      c.x = v.x - Math.sin(c.th) * c.rel;
+      c.y = v.y + Math.cos(c.th) * c.rel;
+    },
+    /** The way the angled camera wants to face: toward a point PERSP.look along the van's own path ahead (its turn,
+        then the road it rejoins), so the view turns into a bend as the van comes to it. Never past the next stop line
+        before the van crosses it (the view gives no way away); from a stop line it looks further ahead again as the
+        van drives on, so the way it faces never jumps. */
+    lookHeading() {
+      const L = Math.min(PERSP.look, (this.odo - this.stopOdo) * PERSP.lookRamp + 4);
+      const a = L >= 4 ? this.ahead(L) : null;
+      return a && a.L >= 4 ? Math.atan2(a.y - this.van.y, a.x - this.van.x) : Math.atan2(this.vanP.uy, this.vanP.ux);
+    },
+    /** The point L along the van's own path ahead of it, in its lane (its turn, then the road it rejoins), the
+        path's heading there (th) and how far ahead it is (L): never past the next stop line the van has not crossed. */
+    ahead(L) {
+      const St = Streets();
+      const v = this.van;
+      const tn = this.turn;
+      let a;
+      let d;
+      if (tn) {
+        const s = this.turnS() + L;
+        if (tn.main && s > tn.track.len) {
+          a = St.at(this.track, tn.s1 + (s - tn.track.len));
+          d = tn.d1;
+        } else {
+          a = St.at(tn.track, s);
+          d = 0;
+        }
+      } else {
+        const dec = this.upcoming();
+        if (dec) L = Math.max(0, Math.min(L, dec.stop - v.s));
+        a = St.at(this.track, v.s + L);
+        d = v.d;
+      }
+      return { x: a.x - a.uy * d, y: a.y + a.ux * d, th: Math.atan2(a.uy, a.ux), L };
+    },
+    /** The angled camera's heading: a critically damped spring toward lookHeading(), stepped exactly over dt (the
+        drive's steps are short enough that the target barely moves in one). Its clock runs with the van's speed to
+        the PERSP.camPace power. */
+    lazyHeading(dt, snap) {
+      const c = this.cam;
+      const tg = this.lookHeading();
+      if (snap) {
+        c.th = tg;
+        c.w = 0;
+        return;
+      }
+      const s = this.spring(c.th, c.w || 0, tg, dt * this.camPace());
+      c.th = s.th;
+      c.w = s.w;
+    },
+    /** How fast the angled camera's spring clock runs: with the van's speed (against the slowest van's) to the
+        PERSP.camPace power. */
+    camPace() {
+      return Math.pow(Math.max(0.25, (this.curSpeed || this.speed) / (DIFF.roadScroll * PERSP.pace)), PERSP.camPace);
+    },
+    /** One exact step of a critically damped spring (PERSP.camW per second) of heading th turning at w, toward tg
+        held still, over h. */
+    spring(th, w, tg, h) {
+      const k = PERSP.camW;
+      const e0 = normAngle(th - tg);
+      const q = w + k * e0;
+      const ex = Math.exp(-k * h);
+      return { th: tg + (e0 + q * h) * ex, w: (w - k * q * h) * ex };
+    },
+    /** Where the angled view will be at each of `times` (seconds from now, rising), so its ground can be drawn ahead:
+        its spot and heading, its spring stepped on along the van's own path at the van's speed now. Stops short at a
+        stop line the van has not crossed (which way it goes is not known yet). */
+    viewsAhead(times) {
+      const c = this.cam;
+      const v = this.curSpeed || this.speed;
+      const pace = this.camPace();
+      let th = c.th;
+      let w = c.w || 0;
+      let t = 0;
+      const out = [];
+      for (const T of times) {
+        while (t < T - 1e-9) {
+          const h = Math.min(1 / 30, T - t);
+          t += h;
+          const L = v * t;
+          const p = this.ahead(L);
+          if (p.L < L - 1) return out;
+          const q = this.ahead(L + Math.min(PERSP.look, (this.odo + L - this.stopOdo) * PERSP.lookRamp + 4));
+          const s = this.spring(th, w, q.L - p.L >= 4 ? Math.atan2(q.y - p.y, q.x - p.x) : p.th, h * pace);
+          th = s.th;
+          w = s.w;
+        }
+        const p = this.ahead(v * T);
+        out.push({ x: p.x - Math.sin(th) * c.rel, y: p.y + Math.cos(th) * c.rel, th });
+      }
+      return out;
     },
     /** World -> screen (CSS px): the ground, through the angled camera on its test drive. */
     toScreen(x, y) {
@@ -629,6 +781,7 @@
     /** The van crossed a stop line: the lane it is in is the way it goes. */
     commit(dec) {
       const St = Streets();
+      this.stopOdo = this.odo - (this.van.s - dec.stop);
       const lane = St.laneOf(this.van.d, dec.n);
       const opt = dec.options[dec.lanes[lane]];
       this.next += 1;
@@ -642,7 +795,10 @@
         const s1 = dec.kind === "dest" ? this.drive.endS : tp.rejoin;
         const cam1 = dec.kind === "dest" ? 0 : (St.ourLeft(2) + St.GEOM.half) / 2 - tp.d1;
         this.turn = { track: tp.track, main: true, s0: dec.stop, s1, k: tp.track.len / Math.max(1, s1 - dec.stop), d1: tp.d1, cam0, cam1 };
+        // the part of this step past the stop line was driven at the road's rate: on the turn's path it is the same distance
+        this.van.s = dec.stop + (this.van.s - dec.stop) / this.turn.k;
         if (dec.kind === "dest") this.arrive = { t: 0, parked: false };
+        this.planBrake(tp.track);
         return;
       }
       // the wrong way: drive into it for a moment, then fade and start over
@@ -651,6 +807,7 @@
       this.van.s = Math.max(0, this.van.s - dec.stop);
       this.van.d = 0;
       this.turn = { track: tp.track, main: false, cam0, cam1: 0 };
+      this.planBrake(tp.track);
       this.fail = { t: 0, msg: this.failText(opt, dec) };
       Audio().play("wrong");
     },
@@ -707,6 +864,100 @@
       f.t = 0;
     },
 
+    /** The angled camera's corner braking for the turn path just committed to (from its stop line, this.stopOdo):
+        where the van has slowed to PERSP.brake (where the path starts to bend, brakeIn at least), where the bend
+        ends, and where it is back up to speed. */
+    planBrake(track) {
+      if (!this.persp) return;
+      const St = Streets();
+      const a0 = St.at(track, 0);
+      const a1 = St.at(track, track.len);
+      const h0 = Math.atan2(a0.uy, a0.ux);
+      const h1 = Math.atan2(a1.uy, a1.ux);
+      // the bend: the first and last places the path's heading is off its start's and its end's (a 4-unit walk;
+      // SCALE: once per turn, so a turn path's length is walked once when it is committed to)
+      let a = 0;
+      let b = track.len;
+      for (let q = 0; q <= track.len; q += 4) {
+        const t = St.at(track, q);
+        if (Math.abs(normAngle(Math.atan2(t.uy, t.ux) - h0)) > 0.003) break;
+        a = q;
+      }
+      for (let q = track.len; q >= a; q -= 4) {
+        const t = St.at(track, q);
+        if (Math.abs(normAngle(Math.atan2(t.uy, t.ux) - h1)) > 0.003) break;
+        b = q;
+      }
+      const xa = Math.max(a, PERSP.brakeIn);
+      const xb = Math.max(b, xa);
+      this.corner = { x0: this.stopOdo, xa, xb, xc: xb + PERSP.brakeOut };
+    },
+    /** The share of its speed the van drives at for its corner now (1 with none). */
+    brakeAt() {
+      const c = this.corner;
+      if (!c) return 1;
+      const x = this.odo - c.x0;
+      const B = PERSP.brake;
+      if (x >= c.xc) {
+        this.corner = null;
+        return 1;
+      }
+      if (x < c.xa) return 1 - (1 - B) * smoother(clamp(x / c.xa, 0, 1));
+      if (x < c.xb) return B;
+      return B + (1 - B) * smoother((x - c.xb) / (c.xc - c.xb));
+    },
+    /** Where the van stops on its track: the end (on the angled camera, a parking spot short of the door). */
+    driveEnd() {
+      return this.track.len - (this.persp && this.arrive ? PERSP.parkShort : 0);
+    },
+    /** One step of the drive: the van follows its track (it brakes into a parking spot or a dead end), commits to the
+        way its lane goes at each stop line, slides between lanes or drives its turn; then the van and the camera are placed. */
+    driveStep(dt) {
+      const t = State().trip;
+      const van = this.van;
+      const end = this.driveEnd();
+      const left = end - van.s;
+      // and on the angled camera, lightly into a turn
+      const brake = (this.arrive || !this.onMain ? clamp(Math.sqrt(Math.max(0, left) / 260), 0, 1) : 1) * this.brakeAt();
+      this.curSpeed = this.speed * brake;
+      // through a turn on the route, s runs at the rate that keeps the van's own speed on its path
+      const s0 = van.s;
+      van.s = Math.min(end, van.s + (this.curSpeed * dt) / (this.turn && this.turn.main ? this.turn.k : 1));
+      this.odo += (van.s - s0) * (this.turn && this.turn.main ? this.turn.k : 1);
+      t.miles += DIFF.milesPerSecond * this.stats.speed * dt * brake;
+      while (this.onMain && !this.arrive && this.next < this.drive.decisions.length && van.s >= this.drive.decisions[this.next].stop) this.commit(this.drive.decisions[this.next]);
+      // a place at the end of its one road: past the last decision the road runs on to it, and the van parks there
+      if (this.onMain && !this.arrive && !this.turn && this.next >= this.drive.decisions.length) this.arrive = { t: 0, parked: false };
+      // lanes: the player slides, or the van drives its turn
+      van.vd = 0;
+      if (this.turn) {
+        const tn = this.turn;
+        if (tn.main && !this.arrive && van.s >= tn.s1) {
+          // back on the route's road, in the lane the turn ended in (the part of this step past the turn's end at the road's own rate)
+          van.s = tn.s1 + (van.s - tn.s1) * tn.k;
+          van.d = tn.d1;
+          this.cam.d = tn.cam1 + tn.d1;
+          this.lastTurn = tn;
+          this.turn = null;
+        }
+      } else {
+        let dir = 0;
+        if (this.keys.left) dir -= 1;
+        if (this.keys.right) dir += 1;
+        const [lo, hi] = this.laneRange();
+        const d0 = van.d;
+        let nd = van.d + dir * this.stats.laneSpeed * dt;
+        // a lane that ends (a bay after its stop line) eases the van back over instead of jumping it
+        const ease = Math.max(this.stats.laneSpeed, 320) * dt;
+        if (nd < lo) nd = Math.min(lo, Math.max(nd, d0) + ease);
+        if (nd > hi) nd = Math.max(hi, Math.min(nd, d0) - ease);
+        van.d = nd;
+        van.vd = dt > 0 ? (van.d - d0) / dt : 0;
+      }
+      this.placeVan(dt);
+      this.placeCam(dt);
+    },
+
     update(dt) {
       const t = State().trip;
       const stats = this.stats;
@@ -739,43 +990,10 @@
         }
       }
 
-      // drive: the van follows its track; it brakes into a parking spot or a dead end
-      const end = this.track.len - (this.persp && this.arrive ? PERSP.parkShort : 0);
-      const left = end - van.s;
-      const brake = this.arrive || !this.onMain ? clamp(Math.sqrt(Math.max(0, left) / 260), 0, 1) : 1;
-      this.curSpeed = this.speed * brake;
-      // through a turn on the route, s runs at the rate that keeps the van's own speed on its path
-      van.s = Math.min(end, van.s + (this.curSpeed * dt) / (this.turn && this.turn.main ? this.turn.k : 1));
-      t.miles += DIFF.milesPerSecond * stats.speed * dt * brake;
-      while (this.onMain && !this.arrive && this.next < this.drive.decisions.length && van.s >= this.drive.decisions[this.next].stop) this.commit(this.drive.decisions[this.next]);
-      // a place at the end of its one road: past the last decision the road runs on to it, and the van parks there
-      if (this.onMain && !this.arrive && !this.turn && this.next >= this.drive.decisions.length) this.arrive = { t: 0, parked: false };
-      // lanes: the player slides, or the van drives its turn
-      van.vd = 0;
-      if (this.turn) {
-        const tn = this.turn;
-        if (tn.main && !this.arrive && van.s >= tn.s1) {
-          // back on the route's road, in the lane the turn ended in
-          van.d = tn.d1;
-          this.cam.d = tn.cam1 + tn.d1;
-          this.turn = null;
-        }
-      } else {
-        let dir = 0;
-        if (this.keys.left) dir -= 1;
-        if (this.keys.right) dir += 1;
-        const [lo, hi] = this.laneRange();
-        const d0 = van.d;
-        let nd = van.d + dir * stats.laneSpeed * dt;
-        // a lane that ends (a bay after its stop line) eases the van back over instead of jumping it
-        const ease = Math.max(stats.laneSpeed, 320) * dt;
-        if (nd < lo) nd = Math.min(lo, Math.max(nd, d0) + ease);
-        if (nd > hi) nd = Math.max(hi, Math.min(nd, d0) - ease);
-        van.d = nd;
-        van.vd = dt > 0 ? (van.d - d0) / dt : 0;
-      }
-      this.placeVan(dt);
-      this.placeCam(Math.min(1, dt * 5));
+      // drive, in steps of at most DRIVE_STEP (the same path and camera however the frames fall)
+      const steps = Math.max(1, Math.ceil(dt / DRIVE_STEP - 1e-9));
+      for (let i = 0; i < steps; i++) this.driveStep(dt / steps);
+      const end = this.driveEnd();
       if (this.fail) {
         this.fail.t += dt;
         if (this.fail.t >= DIFF.wrongDrive && !this.fade) this.startFade(this.fail.msg);
@@ -1122,6 +1340,7 @@
       const D = Draw();
       const van = this.van;
       if (!van || !this.drive) return;
+      const t0 = this.persp ? performance.now() : 0;
       const W = this.W;
       const H = this.H;
       const k = textSize();
@@ -1163,6 +1382,7 @@
       this.hudFade(this.hud.mini, (1 - dim) * this.miniAlpha());
       this.drawMinimap(k);
       this.shakeX = this.shakeY = 0;
+      if (this.persp) ZSR.Persp.frameStats.ms = performance.now() - t0;
     },
     /** The world from straight above, heading up: ground, roads, lanes, lots, scenery, walkers, the van, the names. */
     drawFlat(ctx, theme, k) {
@@ -1723,6 +1943,8 @@
     },
 
     DIFF,
+    PERSP,
+    DRIVE_STEP,
     ROAD_PARTICLE_CAP,
     ROAD_FALLEN_MAX,
     SPARK_ARMOR,

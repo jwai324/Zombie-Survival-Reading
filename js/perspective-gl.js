@@ -3,8 +3,11 @@
    draw where detail does not show). Each is drawn once with the road's own art (Persp.drawGround: grass,
    overgrowth, roads, lanes, lots), as sharp as how near it is, kept, and laid down through the same camera as
    everything else; the far ones first, the near ones over them. The card blends each square's smaller copies, so the far road does not
-   shimmer, and fades the ground into haze toward the far edge. Squares are drawn a few per frame, nearest first; one
-   not drawn yet shows a coarser copy, or haze, until it is. Turning costs nothing: the squares do not turn.
+   shimmer, and fades the ground into haze toward the far edge. Squares are drawn a few per frame, nearest first, as
+   many as fit in the frame's budget by what each size has been costing; one not drawn yet shows a coarser copy, or
+   haze, until it is. The squares do not turn, but a turning view needs new ones at its side (a turn wants about twice
+   a straight's): with time left in a frame, the squares the view will need a moment later, along the van's own path
+   (the turn it has committed to above all), are drawn ahead.
    Without WebGL (or if it is lost) this says no and js/perspective.js warps the ground on the 2D canvas instead. */
 (function (root) {
   "use strict";
@@ -16,7 +19,15 @@
     { T: 256, pad: 8, from: -Infinity, to: 1900, lods: [{ px: 512, upTo: 900 }, { px: 256, upTo: Infinity }] },
   ];
   const BUDGET = 7; // ms of square drawing per frame (the first frames of a drive get more)
-  const KEEP = 300; // squares kept on the card at most (a view needs under 200)
+  // SCALE: squares kept on the card at most (a view needs under 200; the view ahead's, drawn early, a few dozen more)
+  const KEEP = 360;
+  // ... and what is left of it for the squares the view will need soon: the van's own path this many seconds on, the
+  // view facing the way the path does there, and halfway between that and the way it faces now
+  const AHEAD_BUDGET = 4;
+  const AHEAD_SECS = [0.35, 0.7, 1.1];
+  const FRESH = 30; // frames: a square used this recently is never pushed off the card for one drawn ahead
+  const COST0 = { 512: 3, 256: 1.2, 128: 0.5 }; // ms a square of each size is guessed to cost before one has been timed
+  const normA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
   const VS =
     "attribute vec2 aPos; attribute vec2 aUv; uniform mat4 uM; varying vec2 vUv; varying float vD;" +
@@ -32,6 +43,7 @@
     tiles: new Map(), // "x,y,lod" -> { tex, used }
     scratch: {}, // a 2D canvas per size, to draw squares in
     frame: 0,
+    cost: Object.assign({}, COST0), // ms each size of square has been taking (a running mean)
 
     /** The card, its program and its canvas under the road's (once). */
     init(g) {
@@ -121,59 +133,46 @@
         this.canvas.height = ch;
       }
       // the squares under the view, from just behind the van to the far edge: far grid first
-      const top = Math.min(k.far, P.groundY(0));
-      const yMin = P.groundY(k.H) - 256;
-      const hwAt = (Y) => ((k.W / 2 + 80) * P.depthAt(Math.max(Y, yMin))) / k.f;
       const need = [];
       const want = [];
-      for (const grid of GRIDS) {
-        const T = grid.T;
-        const ya = Math.max(yMin, grid.from - T);
-        const yb = Math.min(top, grid.to) + T;
-        if (ya > yb) continue;
-        const corners = [
-          [ya, -hwAt(ya)],
-          [ya, hwAt(ya)],
-          [yb, -hwAt(yb)],
-          [yb, hwAt(yb)],
-        ].map(([Y, X]) => [k.ox + k.Rx * X + k.Fx * Y, k.oy + k.Ry * X + k.Fy * Y]);
-        const tx0 = Math.floor(Math.min(...corners.map((c) => c[0])) / T);
-        const tx1 = Math.floor(Math.max(...corners.map((c) => c[0])) / T);
-        const ty0 = Math.floor(Math.min(...corners.map((c) => c[1])) / T);
-        const ty1 = Math.floor(Math.max(...corners.map((c) => c[1])) / T);
-        for (let tx = tx0; tx <= tx1; tx++) {
-          for (let ty = ty0; ty <= ty1; ty++) {
-            const cx = (tx + 0.5) * T - k.ox;
-            const cy = (ty + 0.5) * T - k.oy;
-            const Y = cx * k.Fx + cy * k.Fy;
-            const X = cx * k.Rx + cy * k.Ry;
-            if (Y < ya - T * 0.75 || Y > yb + T * 0.25 || Math.abs(X) > hwAt(Y + T) + T) continue;
-            let lod = 0;
-            while (Y > grid.lods[lod].upTo) lod++;
-            const tile = this.best(grid, tx, ty, lod);
-            if (!tile || tile.lod !== lod) want.push({ grid, tx, ty, lod, Y });
-            if (tile) {
-              tile.used = this.frame;
-              need.push({ grid, tx, ty, tile });
-            }
-          }
+      const nearGrid = GRIDS[GRIDS.length - 1];
+      const bare = GRIDS[0].from - GRIDS[0].T; // nearer than this no coarser square lies under a near one
+      this.under(P, k.ox, k.oy, k.Fx, k.Fy, (grid, tx, ty, lod, Y) => {
+        const tile = this.best(grid, tx, ty, lod);
+        if (!tile || tile.lod !== lod) want.push({ grid, tx, ty, lod, Y, hole: !tile && grid === nearGrid && Y < bare });
+        if (tile) {
+          tile.used = this.frame;
+          need.push({ grid, tx, ty, tile });
         }
-      }
-      // draw missing squares, nearest first, within the frame's budget
+      });
+      // draw missing squares, nearest first, within the frame's budget: one is started only if what its size has been
+      // costing still fits (so a frame does not run over by a square), except a hole near the van (nothing but haze
+      // under it), one a frame
       want.sort((a, b) => a.Y - b.Y);
       const t0 = performance.now();
       const budget = this.started < 4 ? 60 : BUDGET;
-      this.stats = { want: want.length, have: need.length, made: 0, ms: 0 };
+      const st = (this.stats = { want: want.length, have: need.length, made: 0, ahead: 0, holes: 0, ms: 0 });
+      let forced = false;
+      let left = 0;
       for (const w of want) {
-        if (performance.now() - t0 > budget) break;
-        this.stats.made++;
-        const tile = this.make(g, P, w.grid, w.tx, w.ty, w.lod, theme);
-        tile.used = this.frame;
+        const px = w.grid.lods[w.lod].px;
+        if (performance.now() - t0 + this.cost[px] > budget) {
+          if (forced || !w.hole) {
+            left++;
+            if (w.hole) st.holes++;
+            continue;
+          }
+          forced = true;
+        }
+        st.made++;
+        const tile = this.timed(g, P, w.grid, w.tx, w.ty, w.lod, theme);
         const i = need.findIndex((n) => n.grid === w.grid && n.tx === w.tx && n.ty === w.ty);
         if (i >= 0) need[i].tile = tile;
         else need.push({ grid: w.grid, tx: w.tx, ty: w.ty, tile });
       }
-      this.stats.ms = performance.now() - t0;
+      // all there, and time to spare: the squares a moment ahead will need
+      if (!left && g.viewsAhead && performance.now() - t0 + this.cost[nearGrid.lods[nearGrid.lods.length - 1].px] <= Math.min(budget, AHEAD_BUDGET)) this.ahead(g, P, k, theme, t0, Math.min(budget, AHEAD_BUDGET));
+      st.ms = performance.now() - t0;
       this.evict();
       // lay them down
       gl.viewport(0, 0, cw, ch);
@@ -207,6 +206,86 @@
         gl.drawArrays(gl.TRIANGLE_STRIP, i * 4, 4);
       });
       return true;
+    },
+    /** Every square under a view from (ox, oy) facing (Fx, Fy), at this frame's camera height, pitch and lens (P.k),
+        far grid first: fn(grid, tx, ty, lod, Y) with Y how far ahead of the view's spot it lies. */
+    under(P, ox, oy, Fx, Fy, fn) {
+      const k = P.k;
+      const Rx = -Fy;
+      const Ry = Fx;
+      const top = Math.min(k.far, P.groundY(0));
+      const yMin = P.groundY(k.H) - 256;
+      const hwAt = (Y) => ((k.W / 2 + 80) * P.depthAt(Math.max(Y, yMin))) / k.f;
+      for (const grid of GRIDS) {
+        const T = grid.T;
+        const ya = Math.max(yMin, grid.from - T);
+        const yb = Math.min(top, grid.to) + T;
+        if (ya > yb) continue;
+        const ha = hwAt(ya);
+        const hb = hwAt(yb);
+        let x0 = Infinity;
+        let x1 = -Infinity;
+        let y0 = Infinity;
+        let y1 = -Infinity;
+        for (const [Y, X] of [[ya, -ha], [ya, ha], [yb, -hb], [yb, hb]]) {
+          const x = ox + Rx * X + Fx * Y;
+          const y = oy + Ry * X + Fy * Y;
+          x0 = Math.min(x0, x);
+          x1 = Math.max(x1, x);
+          y0 = Math.min(y0, y);
+          y1 = Math.max(y1, y);
+        }
+        const tx1 = Math.floor(x1 / T);
+        const ty1 = Math.floor(y1 / T);
+        for (let tx = Math.floor(x0 / T); tx <= tx1; tx++) {
+          for (let ty = Math.floor(y0 / T); ty <= ty1; ty++) {
+            const cx = (tx + 0.5) * T - ox;
+            const cy = (ty + 0.5) * T - oy;
+            const Y = cx * Fx + cy * Fy;
+            const X = cx * Rx + cy * Ry;
+            if (Y < ya - T * 0.75 || Y > yb + T * 0.25 || Math.abs(X) > hwAt(Y + T) + T) continue;
+            let lod = 0;
+            while (Y > grid.lods[lod].upTo) lod++;
+            fn(grid, tx, ty, lod, Y);
+          }
+        }
+      }
+    },
+    /** With time left in the frame (up to `until` ms since t0): the squares the view will need a moment on (g.viewsAhead:
+        along the van's own path, its turn and the road it rejoins, never past a stop line it has not crossed), soonest
+        and nearest first, while the card has room for them without pushing off a square in use. */
+    ahead(g, P, k, theme, t0, until) {
+      let fresh = 0;
+      for (const t of this.tiles.values()) if (t.used >= this.frame - FRESH) fresh++;
+      let room = KEEP - fresh;
+      if (room <= 0) return;
+      const cand = new Map();
+      g.viewsAhead(AHEAD_SECS).forEach((a, n) => {
+        this.under(P, a.x, a.y, Math.cos(a.th), Math.sin(a.th), (grid, tx, ty, lod, Y) => {
+          const key = grid.T + ":" + tx + "," + ty + "," + lod;
+          if (this.tiles.has(key)) return;
+          const pr = n * 1e5 + Y;
+          const c = cand.get(key);
+          if (!c || c.pr > pr) cand.set(key, { grid, tx, ty, lod, pr });
+        });
+      });
+      const list = [...cand.values()].sort((a, b) => a.pr - b.pr);
+      for (const c of list) {
+        if (room <= 0) break;
+        if (performance.now() - t0 + this.cost[c.grid.lods[c.lod].px] > until) continue;
+        this.timed(g, P, c.grid, c.tx, c.ty, c.lod, theme);
+        this.stats.ahead++;
+        room--;
+      }
+    },
+    /** make(), timed: what each size of square costs, as a running mean, for the budget. */
+    timed(g, P, grid, tx, ty, lod, theme) {
+      const px = grid.lods[lod].px;
+      const t = performance.now();
+      const tile = this.make(g, P, grid, tx, ty, lod, theme);
+      this.cost[px] = this.cost[px] * 0.8 + (performance.now() - t) * 0.2;
+      tile.used = this.frame;
+      return tile;
     },
     /** The camera as the card wants it: world (relative to the camera's spot) -> clip space, the same sums as
         Persp.project; clipped a little in front of the camera. */
