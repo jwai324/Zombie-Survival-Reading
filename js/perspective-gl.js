@@ -263,7 +263,7 @@
       g.viewsAhead(AHEAD_SECS).forEach((a, n) => {
         this.under(P, a.x, a.y, Math.cos(a.th), Math.sin(a.th), (grid, tx, ty, lod, Y) => {
           const key = grid.T + ":" + tx + "," + ty + "," + lod;
-          if (this.tiles.has(key)) return;
+          if (this.best(grid, tx, ty, lod)) return;
           const pr = n * 1e5 + Y;
           const c = cand.get(key);
           if (!c || c.pr > pr) cand.set(key, { grid, tx, ty, lod, pr });
