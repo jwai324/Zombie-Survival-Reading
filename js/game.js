@@ -439,27 +439,27 @@
       const want = (this.persp ? this.pathHeading(PERSP.nose) : Math.atan2(p.uy, p.ux)) + lean;
       v.heading = snap ? want : v.heading + normAngle(want - v.heading) * (1 - Math.exp(-dt * EASE.van));
     },
-    /** The heading of the van's own path around it: its tangent averaged over W behind and ahead (more weight near
-        the van), across the turn it is in or has just left. Never past the next stop line, nor back past the last
-        one: the span closes to nothing at a stop line, so the heading never jumps where a turn begins. */
+    /** The heading of the van's own path around it: its tangent averaged over W0 behind and ahead (more weight near
+        the van), across the turn it is in or has just left. Ahead it never reaches past the next stop line, and from
+        one it reaches out again only as the van drives on, so the heading never jumps where a turn begins. */
     pathHeading(W0) {
       const St = Streets();
       const tn = this.turn;
       const last = this.lastTurn;
       const dec = tn ? null : this.upcoming();
-      const W = Math.max(0, Math.min(W0, this.odo - this.stopOdo, dec ? dec.stop - this.van.s : W0));
+      const ahead = Math.max(0, Math.min(W0, this.odo - this.stopOdo, dec ? dec.stop - this.van.s : W0));
       const N = 4;
       let sx = 0;
       let sy = 0;
       for (let i = -N; i <= N; i++) {
-        const u = (W * i) / N;
+        const u = ((i < 0 ? W0 : ahead) * i) / N;
         let a;
         if (tn) {
           const x = this.turnS() + u;
           a = tn.main && x > tn.track.len ? St.at(this.track, tn.s1 + x - tn.track.len) : St.at(tn.track, x);
         } else {
           const s = this.van.s + u;
-          if (last && s < last.s1 && this.van.s - last.s1 < W) a = St.at(last.track, last.track.len + s - last.s1);
+          if (last && s < last.s1 && this.van.s - last.s1 < W0) a = St.at(last.track, last.track.len + s - last.s1);
           else a = St.at(this.track, s);
         }
         const w = N + 1 - Math.abs(i);

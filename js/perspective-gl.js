@@ -146,8 +146,8 @@
         }
       });
       // draw missing squares, nearest first, within the frame's budget: one is started only if what its size has been
-      // costing still fits (so a frame does not run over by a square), except a hole near the van (nothing but haze
-      // under it), one a frame
+      // costing still fits (so a frame does not run over by a square), except the frame's first (on a slow computer
+      // one square can cost more than the whole budget) and one hole near the van (nothing but haze under it)
       want.sort((a, b) => a.Y - b.Y);
       const t0 = performance.now();
       const budget = this.started < 4 ? 60 : BUDGET;
@@ -156,7 +156,7 @@
       let left = 0;
       for (const w of want) {
         const px = w.grid.lods[w.lod].px;
-        if (performance.now() - t0 + this.cost[px] > budget) {
+        if (st.made && performance.now() - t0 + this.cost[px] > budget) {
           if (forced || !w.hole) {
             left++;
             if (w.hole) st.holes++;
