@@ -29,6 +29,7 @@
   const FADE_IN = 0.5; // seconds a new walker takes to come out of the weeds
   const TEX_RES = 3; // the van's faces, drawn sharper than the yard's
   const NEAR_PX = 6; // px a world unit: nearer the camera than this, nothing is drawn (the van is about 2)
+  const VEG_CELL = 512; // the overgrowth is filed in squares this big, so a frame looks only at those under the view
   // MERGE TRIAL: the walkers are the interiors' live 3D figures (js/walker3d.js), stood up as billboards
   const TILE = 56; // road units a tile (game.js DIFF.pxPerTile): Walker3D's sizes are in tiles
   const LIFE = 1.12; // a little over life size (the branch's r * 3.2 for a plain walker), so one far off reads
@@ -42,6 +43,9 @@
     AIM_Z,
     res: 1, // ground layer resolution: eased down while frames run slow, back up when they don't
     canvases: [],
+    // this frame's cost, for a test page to show: the whole road draw (ms, set by game.js draw), the ground in it (on
+    // the card or warped), the world standing on it, and the ground squares drawn (on the card)
+    frameStats: { ms: 0, groundMs: 0, worldMs: 0, squaresMade: 0 },
 
     /** The camera for this frame: where it sits, behind the road camera's spot, and how it projects. */
     setup(g) {
@@ -903,6 +907,7 @@
     /** The whole world for one frame (game.js draw): the ground (on the card when there is one), what lies on it
         and changes, everything standing far to near, then shots in the air. */
     drawWorld(g, ctx, theme) {
+      const t0 = performance.now();
       const k = this.setup(g);
       const haze = this.haze(g);
       const GL = ZSR.PerspGL;
@@ -914,33 +919,66 @@
         this.sky(ctx, haze, g.mods.night);
       } else {
         if (GL) GL.hide(g);
-        const t0 = performance.now();
         this.drawWorldGround(g, ctx, theme);
         this.pace(performance.now() - t0);
       }
+      const t1 = performance.now();
       // without the 3D figures a downed walker is the road's own top-down body, lying flat
       if (!ZSR.Walker3D) for (const f of g.fallen) this.flat(ctx, f.x, f.y, 1, () => ZSR.Draw.zombieDown(ctx, f));
       for (const p of g.particles) this.flat(ctx, p.x, p.y, 4, () => ZSR.Draw.particle(ctx, p));
-      // the overgrowth along this drive's roads, made once per drive
+      // the overgrowth along this drive's roads, made once per drive and filed by square
       if (this.vegFor !== g.drive) {
         this.veg = ZSR.PerspArt ? ZSR.PerspArt.scatter(g) : [];
         this.vegFor = g.drive;
+        this.vegCells = new Map();
+        for (const o of this.veg) {
+          const key = Math.floor(o.x / VEG_CELL) + "," + Math.floor(o.y / VEG_CELL);
+          if (!this.vegCells.has(key)) this.vegCells.set(key, []);
+          this.vegCells.get(key).push(o);
+        }
       }
       const list = this.list || (this.list = []);
       list.length = 0;
       const yMin = this.groundY(k.H) - 260;
-      const add = (o, t, x, y, back, size) => {
+      const fog0 = k.far * 0.55;
+      const gone = fog0 + 0.98 * (k.far - fog0); // past this all is haze
+      // margin: px past the screen's sides a thing's foot may stand and still be drawn (size: its own reach, world units)
+      const add = (o, t, x, y, back, size, margin) => {
         const dx = x - k.ox;
         const dy = y - k.oy;
         const Y = dx * k.Fx + dy * k.Fy;
-        if (Y < yMin - (size || 0) || Y > k.far + 150 + (size || 0)) return;
+        if (Y < yMin - (size || 0) || Y > k.far + 150 + (size || 0) || Y + (back || 0) >= gone) return;
         const X = dx * k.Rx + dy * k.Ry;
-        if (Math.abs(X) > ((k.W / 2 + 300) * this.depthAt(Math.max(Y, yMin))) / k.f + (size || 0)) return;
+        if (Math.abs(X) > ((k.W / 2 + (margin == null ? 300 : margin)) * this.depthAt(Math.max(Y, yMin))) / k.f + (size || 0)) return;
         o._t = t;
         o._Y = Y + (back || 0);
         list.push(o);
       };
-      for (const o of this.veg) add(o, "plant", o.x, o.y);
+      // plants: only the squares under the view, and only those reaching onto the screen (a plant's own height
+      // covers its width and its lean)
+      {
+        const C = VEG_CELL;
+        const ya = yMin - 260;
+        const hw = ((k.W / 2 + 40) * this.depthAt(gone)) / k.f + 260;
+        let x0 = Infinity;
+        let x1 = -Infinity;
+        let y0 = Infinity;
+        let y1 = -Infinity;
+        for (const [Y, X] of [[ya, -hw], [ya, hw], [gone, -hw], [gone, hw]]) {
+          const x = k.ox + k.Rx * X + k.Fx * Y;
+          const y = k.oy + k.Ry * X + k.Fy * Y;
+          x0 = Math.min(x0, x);
+          x1 = Math.max(x1, x);
+          y0 = Math.min(y0, y);
+          y1 = Math.max(y1, y);
+        }
+        for (let cx = Math.floor(x0 / C); cx <= Math.floor(x1 / C); cx++) {
+          for (let cy = Math.floor(y0 / C); cy <= Math.floor(y1 / C); cy++) {
+            const cell = this.vegCells.get(cx + "," + cy);
+            if (cell) for (const o of cell) add(o, "plant", o.x, o.y, 0, o.h, 40);
+          }
+        }
+      }
       for (const p of g.props) if (p.kind !== "tire" && p.kind !== "rubble") add(p, "prop", p.x, p.y);
       for (const c of g.crates) add(c, "crate", c.x, c.y);
       // a building by its own middle (its lot's front can be behind the camera while the building is in view)
@@ -952,7 +990,6 @@
       if (g.gameOverAt == null || g.gameOverAt > 0.9) add(g.van, "van", g.van.x, g.van.y);
       list.sort((a, b) => b._Y - a._Y);
       ctx.imageSmoothingQuality = "medium";
-      const fog0 = k.far * 0.55;
       for (const o of list) {
         // far things go into the haze with the ground
         const fade = o._Y > fog0 ? 1 - clamp((o._Y - fog0) / (k.far - fog0), 0, 1) : 1;
@@ -968,6 +1005,10 @@
       }
       ctx.globalAlpha = 1;
       for (const b of g.bullets) this.flat(ctx, b.x, b.y, b.z == null ? AIM_Z : b.z, () => ZSR.Draw.bullet(ctx, b));
+      const fs = this.frameStats;
+      fs.groundMs = t1 - t0;
+      fs.worldMs = performance.now() - t1;
+      fs.squaresMade = GL && GL.on && GL.stats ? GL.stats.made + GL.stats.ahead : 0;
     },
     /** Slow frames (a computer without a graphics card) get softer ground layers; a check every 30 frames. */
     pace(ms) {

@@ -753,6 +753,146 @@ drive(right, 1.0, () => {
 });
 if (gap == null || gap < 30) err("persp park", `the van parked ${gap == null ? "never" : gap.toFixed(1) + " units"} from the grocery's front wall`);
 console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside} walkers left inside the van; parked ${gap == null ? "-" : gap.toFixed(0)} units short of the wall`);
+
+/* ---------- turns: no hop where a turn starts or ends, the van keeps its place on the screen (both cameras); on the
+   angled camera the van brakes lightly into a turn and the view follows lazily, the same at any frame rate ---------- */
+{
+  const D = 180 / Math.PI;
+  const norm = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  const PE = G.PERSP;
+  /** A careful driver that lands on the lane's centre (so every frame pattern drives the same path): one record a frame. */
+  const rec = (a, b, pat, phase) => {
+    start(a, b);
+    const rows = [];
+    let t = 0;
+    let i = 0;
+    while (G.running && t < 260) {
+      const dec = G.upcoming();
+      G.keys.left = G.keys.right = false;
+      if (dec && !G.turn && (dec.stop - G.van.s) / G.speed < 1.0) {
+        const o = right(dec);
+        const lane = o.lanes.reduce((best, l) => (Math.abs(S.laneCenter(l, dec.n) - G.van.d) < Math.abs(S.laneCenter(best, dec.n) - G.van.d) ? l : best), o.lanes[0]);
+        const tg = S.laneCenter(lane, dec.n);
+        if (Math.abs(G.van.d - tg) < 40) G.van.d = tg;
+        else G.keys[G.van.d > tg ? "left" : "right"] = true;
+      }
+      const was = G.turn;
+      const x = G.van.x;
+      const y = G.van.y;
+      const before = G.upcoming();
+      let dt = pat[i++ % pat.length];
+      if (i === 1 && phase) dt *= phase;
+      G.update(dt);
+      t += dt;
+      if (!G.running) break;
+      const sc = G.toScreen(G.van.x, G.van.y);
+      rows.push({ t, dt, step: Math.hypot(G.van.x - x, G.van.y - y), turn: G.turn, start: !!G.turn && G.turn !== was, end: !G.turn && !!was, main: G.turn ? G.turn.main : was && was.main, dest: !!G.arrive, spd: G.curSpeed, vsx: sc.x, vsy: sc.y, th: G.cam.th, head: G.van.heading, tp: Math.atan2(G.vanP.uy, G.vanP.ux), pre: !!before && !G.turn && G.van.s < before.stop && before.stop - G.van.s < 1.5 * G.speed });
+    }
+    return rows;
+  };
+  // 1. the van's step on the frames around a turn's start and end is in line with its neighbours (the part of a
+  // frame past a stop line or a turn's end used to run at the wrong rate: up to 1.7 units at 60 fps, 4.3 at 50 ms)
+  let worstHop = 0;
+  for (const [a, b] of [["base", "grocery"], ["base", "hospital"]]) {
+    for (const engine of [0, 5]) {
+      upgrades.engine = engine;
+      for (const ms of [1000 / 60, 1000 / 30, 50]) {
+        for (const phase of [0, 0.3, 0.7]) {
+          const R = rec(a, b, [ms / 1000], phase);
+          if (arrived !== b) err("turns", `${a} > ${b} (engine ${engine}, ${ms.toFixed(1)} ms frames) did not arrive`);
+          R.forEach((r, i) => {
+            if (!(r.start || r.end) || !r.main || i < 2 || i > R.length - 3) return;
+            for (let j = i - 1; j <= i + 1; j++) {
+              if (R[j].spd < 0.3 * G.speed) continue;
+              worstHop = Math.max(worstHop, Math.abs(R[j].step - (R[j - 1].step + R[j + 1].step) / 2));
+            }
+          });
+        }
+      }
+    }
+  }
+  upgrades.engine = 0;
+  if (worstHop > 0.5) err("turns", `the van hops ${worstHop.toFixed(2)} units on a frame where a turn starts or ends`);
+  // 2. the van keeps its place up and down the screen through every turn, on both cameras (the camera's offset used
+  // to be laid off the road, not the view: the van rose 12-17 px through a flat junction, 23 px on the angled one)
+  let worstBob = 0;
+  for (const [a, b] of [["base", "grocery"], ["base", "hospital"], ["hospital", "base"]]) {
+    const R = rec(a, b, [1 / 60]);
+    const ys = R.filter((r) => r.t > 0.5).map((r) => r.vsy);
+    worstBob = Math.max(worstBob, Math.max(...ys) - Math.min(...ys));
+  }
+  if (worstBob > 2) err("turns", `the van moves ${worstBob.toFixed(1)} px up or down the screen through the drive's turns`);
+  // 3. the angled camera's corner braking: none before a stop line (the reading and the choice keep their time) and
+  // none on the flat camera; down to PERSP.brake into each turn the van takes, smoothly; back to full speed after
+  let minSpd = 1;
+  let worstDv = 0;
+  let worstPre = 1;
+  for (const engine of [0, 5]) {
+    upgrades.engine = engine;
+    const R = rec("base", "grocery", [1 / 60]);
+    R.forEach((r, i) => {
+      if (r.pre && !r.dest) worstPre = Math.min(worstPre, r.spd / G.speed);
+      if (r.turn && r.turn.main && !r.dest) minSpd = Math.min(minSpd, r.spd / G.speed);
+      // (the parking brake at the door is its own, and older)
+      if (i && !r.dest && R[i - 1].spd > 0.5 * G.speed) worstDv = Math.max(worstDv, Math.abs(r.spd - R[i - 1].spd) / G.speed);
+    });
+    if (R[R.length - 1].spd > 0.2 * G.speed) err("persp brake", `the van was still at ${(R[R.length - 1].spd / G.speed).toFixed(2)} of its speed as it parked`);
+  }
+  upgrades.engine = 0;
+  if (Math.abs(minSpd - PE.brake) > 0.02) err("persp brake", `through the junction the van slowed to ${minSpd.toFixed(3)} of its speed (want ${PE.brake})`);
+  if (worstPre < 0.9999) err("persp brake", `the van slowed (to ${worstPre.toFixed(3)}) before a stop line`);
+  // at 60 fps no frame changes the speed by more than 2% of it (a smooth ease, about 0.6 s at the slowest van)
+  if (worstDv > 0.02) err("persp brake", `the van's speed jumped ${(worstDv * 100).toFixed(1)}% of it in one frame`);
+  {
+    const R = rec("base", "hospital", [1 / 60]);
+    if (R.some((r) => !r.dest && r.spd !== G.speed)) err("turns", "the van braked into a turn on the flat camera");
+  }
+  // 4. the angled camera follows lazily: through the junction its yaw stays gentle and smooth, it lags the van but
+  // never so far that the new road leaves the view, and it catches up on the straight after; the same at engine 5
+  const lim = { 0: { w: 45, lag: 35 }, 5: { w: 65, lag: 38 } };
+  const yaw = {};
+  for (const engine of [0, 5]) {
+    upgrades.engine = engine;
+    const R = rec("base", "grocery", [1 / 60]);
+    const i0 = R.findIndex((r) => r.start && !r.dest);
+    const i1 = R.findIndex((r, i) => i > i0 && r.end);
+    let pkW = 0;
+    let pkA = 0;
+    let lag = 0;
+    let wPrev = null;
+    for (let i = Math.max(1, i0 - 30); i < Math.min(R.length, i1 + 240); i++) {
+      const w = norm(R[i].th - R[i - 1].th) / R[i].dt;
+      pkW = Math.max(pkW, Math.abs(w));
+      if (wPrev != null) pkA = Math.max(pkA, Math.abs(w - wPrev) / R[i].dt);
+      wPrev = w;
+      lag = Math.max(lag, Math.abs(norm(R[i].head - R[i].th)));
+    }
+    const left = Math.abs(norm(R[Math.min(R.length - 1, i1 + 240)].tp - R[Math.min(R.length - 1, i1 + 240)].th));
+    yaw[engine] = `peak ${(pkW * D).toFixed(0)} deg/s, ${(pkA * D).toFixed(0)} deg/s2, lag ${(lag * D).toFixed(0)} deg`;
+    if (pkW * D > lim[engine].w) err("persp camera", `engine ${engine}: the view turned at up to ${(pkW * D).toFixed(0)} deg/s in the junction (want under ${lim[engine].w})`);
+    if (pkA * D > 300) err("persp camera", `engine ${engine}: the view's turn sped up or slowed at ${(pkA * D).toFixed(0)} deg/s2 (a jolt)`);
+    if (lag * D > lim[engine].lag) err("persp camera", `engine ${engine}: the view lagged the van by ${(lag * D).toFixed(0)} deg (want under ${lim[engine].lag})`);
+    if (left * D > 2) err("persp camera", `engine ${engine}: 4 s after the turn the view was still ${(left * D).toFixed(1)} deg off the road`);
+  }
+  upgrades.engine = 0;
+  // 5. ... and the same at any frame rate: uneven frames (16, 33, 16, 50 ms) put the view where steady 60 fps does
+  {
+    const A = rec("base", "grocery", [1 / 60]);
+    const B = rec("base", "grocery", [0.016, 0.033, 0.016, 0.05]);
+    let worst = 0;
+    let j = 0;
+    for (const r of B) {
+      while (j < A.length - 2 && A[j + 1].t < r.t) j++;
+      const a = A[j];
+      const b = A[j + 1];
+      const u = Math.max(0, Math.min(1, (r.t - a.t) / (b.t - a.t)));
+      worst = Math.max(worst, Math.abs(norm(r.th - (a.th + norm(b.th - a.th) * u))));
+    }
+    if (worst * D > 0.2) err("persp camera", `uneven frames turned the view ${(worst * D).toFixed(2)} deg off where steady frames put it`);
+    yaw.frames = `uneven frames within ${(worst * D).toFixed(3)} deg`;
+  }
+  console.log(`turns: van hop at a turn's start or end ${worstHop.toFixed(2)} units, van up/down the screen ${worstBob.toFixed(1)} px; angled: braked to ${minSpd.toFixed(3)}, view ${yaw[0]} (engine 5: ${yaw[5]}), ${yaw.frames}`);
+}
 console.log(`drive: ${routes} routes driven (${turns} turns), largest step back ${maxBack.toFixed(2)} px; left alone the first wrong way is ${Object.entries(failedAt).map(([k, n]) => k + " " + n).join(", ")}`);
 errors.slice(0, 40).forEach((e) => console.log("ERROR " + e));
 if (errors.length > 40) console.log(`... ${errors.length - 40} more errors`);
