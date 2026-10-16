@@ -188,7 +188,7 @@
       else body.appendChild(this.inventory());
 
       const row = el("div", "btn-row");
-      const back = tip(el("button", "btn big", "Step away from the computer"), "Close the menu. The yard was paused while you were at the computer.");
+      const back = tip(el("button", "btn big", "Step away from the computer"), "Close the menu (or press E). The yard was paused while you were at the computer.");
       back.addEventListener("click", () => {
         ZSR.Audio.play("click");
         this.close();
@@ -250,6 +250,30 @@
       return row;
     },
 
+    /** The room builds in the yard that wreckers clawed (js/yardwreck.js): wrecked ones give nothing until fixed;
+        fix them all for scrap (wrecked first, then cracked). */
+    buildsRow() {
+      const S = State();
+      const dmg = this.hooks.buildDamage ? this.hooks.buildDamage() : S.buildDamage();
+      // the one Fix all rule (State.buildFixAll): what the button fixes and Tomas's wrecked tip read it too
+      const { rooms, each, cost } = S.buildFixAll(dmg);
+      const n = rooms.length;
+      const names = (list) => list.map((k) => (W().BASE_ROOMS[k] ? W().BASE_ROOMS[k].name : k)).join(", ");
+      const row = el("div", "fence-row" + (dmg.wrecked.length ? " bad" : ""));
+      const parts = (dmg.wrecked.length ? [dmg.wrecked.length + " wrecked (" + esc(names(dmg.wrecked)) + ")"] : []).concat(dmg.cracked.length ? [dmg.cracked.length + " cracked (" + esc(names(dmg.cracked)) + ")"] : []);
+      row.appendChild(el("span", "stock", n ? "Builds: " + parts.join(", ") : "Builds: all working"));
+      if (n) {
+        const b = tip(el("button", "btn" + (S.save.scrap >= cost ? " go" : ""), "Fix all for " + cost + " scrap"), "<strong>Fix the builds</strong><span class='t-line'>" + each + " scrap per build. A wrecked build does nothing until it is fixed. You can also press E at it in the yard.</span>");
+        b.disabled = S.save.scrap < each;
+        b.addEventListener("click", () => {
+          if (this.hooks.onRepairBuilds) this.hooks.onRepairBuilds();
+          this.render();
+        });
+        row.appendChild(b);
+      } else row.appendChild(el("span", "small muted", "Some walkers in a wave go for the builds and the van. A wrecked build does nothing until it is fixed."));
+      return row;
+    },
+
     /** The House tab: doors and windows, three levels each (WORLD.HOUSE_UPGRADES), a typing round each. */
     house() {
       const S = State();
@@ -308,11 +332,13 @@
       const wrap = el("div");
       wrap.appendChild(this.fenceRow());
       wrap.appendChild(this.houseRow());
+      wrap.appendChild(this.buildsRow());
       const grid = el("div", "rooms");
       Object.entries(W().BASE_ROOMS).forEach(([key, room]) => {
         const lvl = s.rooms[key];
         const txt = t && t.base && t.base.rooms && t.base.rooms[key];
-        const card = el("div", "room" + (lvl >= 3 ? " maxed" : ""));
+        const wrecked = S.roomWrecked ? S.roomWrecked(key) : false; // built, but walkers wrecked it (js/yardwreck.js)
+        const card = el("div", "room" + (lvl >= 3 ? " maxed" : "") + (wrecked ? " wrecked" : ""));
         const head = el("div", "room-head");
         head.appendChild(el("h3", null, esc(room.name)));
         const pips = el("div", "pips");
@@ -320,6 +346,7 @@
         head.appendChild(pips);
         card.appendChild(head);
         card.appendChild(el("p", "room-desc", esc(txt ? txt.desc : room.name)));
+        if (wrecked) card.appendChild(el("p", "small bad", "<strong>Wrecked:</strong> it does nothing until it is fixed (" + W().SETTINGS.buildRepairScrap + " scrap: Fix all above, or E at it in the yard)."));
         const can = S.canUpgradeRoom(key);
         const nextText = txt && txt.next ? txt.next[lvl] : "Level " + (lvl + 1);
         const tipHtml = "<strong>" + esc(room.name) + " · level " + lvl + " of 3</strong><span class='t-line'>" + esc(txt ? txt.desc : "") + "</span>" + (can.maxed ? "<span class='t-line'>Fully built.</span>" : "<span class='t-line'><strong>Next:</strong> " + esc(nextText) + "</span><span class='t-line'><strong>Needs:</strong> " + esc(needsText(can.def.needs, can.def.scrap)) + "</span>" + (can.requires.length ? "<span class='t-line'><strong>Requires:</strong> " + esc(can.requires.map((r) => r.name + " " + r.level).join(", ")) + "</span>" : ""));
@@ -362,7 +389,9 @@
       const fx = S.effects();
       const wrap = el("div");
       const cap = fx.tierCap;
-      wrap.appendChild(el("p", "small muted", "Garage level " + s.rooms.garage + ": van and van-gun upgrades up to tier " + cap + ", Spread Shot two tiers lower" + (cap < 5 ? ". Build the Garage room to go higher." : ".") + (fx.freeRepair ? " Repairs are free here." : " Repairs cost " + W().SETTINGS.repairMinScrap + " scrap or more, 1 for every " + W().SETTINGS.repairScrapPerHp + " health missing.")));
+      // a wrecked Garage gives nothing until it is fixed (js/yardwreck.js): the built level still shows, and why
+      const garageWrecked = S.roomWrecked ? S.roomWrecked("garage") : false;
+      wrap.appendChild(el("p", "small muted", "Garage level " + s.rooms.garage + (garageWrecked ? " (wrecked: fix it to use it)" : "") + ": van and van-gun upgrades up to tier " + cap + ", Spread Shot two tiers lower" + (garageWrecked ? ". Fix the Garage to go higher." : cap < 5 ? ". Build the Garage room to go higher." : ".") + (fx.freeRepair ? " Repairs are free here." : " Repairs cost " + W().SETTINGS.repairMinScrap + " scrap or more, 1 for every " + W().SETTINGS.repairScrapPerHp + " health missing.")));
       const preview = el("canvas");
       preview.id = "garage-van";
       preview.width = 360;
@@ -399,10 +428,12 @@
         const now = U().stats(s.upgrades);
         const nextU = Object.assign({}, s.upgrades, { [key]: level + 1 });
         const after = can.maxed ? null : U().stats(nextU);
-        tip(card, "<strong>" + esc(d.name) + " · tier " + level + " of " + d.max + "</strong><span class='t-line'>" + esc(d.desc) + "</span><span class='t-line'><strong>Now:</strong> " + esc(STAT[key](now)) + "</span>" + (after ? "<span class='t-line'><strong>Next:</strong> " + esc(STAT[key](after)) + " for " + can.cost + " scrap</span>" : "<span class='t-line'>Maxed out.</span>") + (can.capped && !can.maxed ? "<span class='t-line'>Garage level " + can.garageNeeded + " needed for the next tier.</span>" : ""));
-        const btn = el("button", "btn" + (can.ok ? " go" : ""), can.maxed ? "MAX" : can.capped ? "Garage " + can.garageNeeded + " needed" : can.cost + " scrap");
+        // capped by a Garage that is built far enough but wrecked: fixing it is what is needed, not building it
+        const fixFirst = can.capped && can.garageWrecked && (s.rooms.garage || 0) >= can.garageNeeded;
+        tip(card, "<strong>" + esc(d.name) + " · tier " + level + " of " + d.max + "</strong><span class='t-line'>" + esc(d.desc) + "</span><span class='t-line'><strong>Now:</strong> " + esc(STAT[key](now)) + "</span>" + (after ? "<span class='t-line'><strong>Next:</strong> " + esc(STAT[key](after)) + " for " + can.cost + " scrap</span>" : "<span class='t-line'>Maxed out.</span>") + (can.capped && !can.maxed ? "<span class='t-line'>" + (fixFirst ? "The Garage is wrecked: fix it for the next tier." : "Garage level " + can.garageNeeded + " needed for the next tier.") + "</span>" : ""));
+        const btn = el("button", "btn" + (can.ok ? " go" : ""), can.maxed ? "MAX" : fixFirst ? "Fix the Garage" : can.capped ? "Garage " + can.garageNeeded + " needed" : can.cost + " scrap");
         btn.disabled = !can.ok;
-        tip(btn, can.ok ? "<strong>Upgrade at the workbench</strong><span class='t-line'>A short typing round. The scrap is spent when you finish.</span>" : can.maxed ? "Nothing more to add." : can.capped ? "Build the Garage room to level " + can.garageNeeded + " first." : "Not enough scrap: " + can.cost + " needed, " + s.scrap + " held.");
+        tip(btn, can.ok ? "<strong>Upgrade at the workbench</strong><span class='t-line'>A short typing round. The scrap is spent when you finish.</span>" : can.maxed ? "Nothing more to add." : fixFirst ? "Walkers wrecked the Garage. Fix it first: Builds on the Rooms tab, or E at it in the yard." : can.capped ? "Build the Garage room to level " + can.garageNeeded + " first." : "Not enough scrap: " + can.cost + " needed, " + s.scrap + " held.");
         btn.addEventListener("click", () => {
           if (!S.canBuyUpgrade(key).ok) return;
           this.craft(d.name + " tier " + (level + 1), can.cost + " scrap", () => {
@@ -421,7 +452,10 @@
       rmid.appendChild(el("div", "name", "Full repair"));
       const full = s.vanHp >= S.vanMaxHp();
       const cost = S.repairCost();
-      rmid.appendChild(el("div", "desc", fx.freeRepair ? "Ruby fixes the van for free. Back to full health." : esc(U().REPAIR.desc) + " Back to full health: 1 scrap for every " + W().SETTINGS.repairScrapPerHp + " missing."));
+      // who fixes it free: the crew member whose tip tells of the free fix (CREW_TIPS[id].vanFree: Tomas)
+      const fixer = Object.keys(W().CREW_TIPS || {}).find((id) => W().CREW_TIPS[id] && W().CREW_TIPS[id].vanFree && (W().CREW || {})[id]);
+      const fixerName = fixer && ZSR.crewName ? ZSR.crewName(fixer) : "The crew";
+      rmid.appendChild(el("div", "desc", fx.freeRepair ? esc(fixerName) + " fixes the van for free. Back to full health." : esc(U().REPAIR.desc) + " Back to full health: 1 scrap for every " + W().SETTINGS.repairScrapPerHp + " missing."));
       rep.appendChild(rmid);
       tip(rep, "<strong>Van repair</strong><span class='t-line'>Van health " + Math.round(s.vanHp) + " of " + S.vanMaxHp() + ".</span><span class='t-line'>" + (full ? "Nothing to fix." : fx.freeRepair ? "Free with the Garage room." : cost + " scrap brings it back to full.") + " No typing needed.</span>");
       const rbtn = el("button", "btn" + (!full && s.scrap >= cost ? " go" : ""), full ? "FULL" : cost ? cost + " scrap" : "Repair");
@@ -574,6 +608,8 @@
       Object.entries(W().TOOLS || {}).forEach(([key, def]) => {
         const txt = t && t.base && t.base.tools && t.base.tools[key];
         const can = S.canCraftTool(key);
+        // what it costs now: a crew perk (js/crewstate.js crowbarCost) can make it cheaper than def.scrap
+        const price = can.scrap != null ? can.scrap : def.scrap;
         const have = key === "crowbar" ? s.crowbars || 0 : 0;
         const desc = txt ? txt.desc : "Pries open one jammed lock: a cache door or a stash that a wrong move, code or key jammed. It breaks doing it. You carry every crowbar you have on every trip.";
         const card = el("div", "room");
@@ -582,20 +618,25 @@
         head.appendChild(el("span", "stock", "x" + have));
         card.appendChild(head);
         card.appendChild(el("p", "room-desc", esc(desc)));
-        tip(card, "<strong>" + esc(def.name) + "</strong><span class='t-line'>" + esc(desc) + "</span><span class='t-line'><strong>Needs:</strong> " + esc(needsText(def.needs, def.scrap)) + "</span>");
+        // the words give the usual price; say when it is less now
+        const perkBy = (W().QUESTS || []).find((q) => q && q.reward && q.reward.perk && q.reward.perk.crowbarCost != null && S.questState && S.questState(q.id) === "done");
+        const thanks = perkBy && ZSR.crewName ? ZSR.crewName(perkBy.giver) : "the crew";
+        const cheaper = price < def.scrap ? "Now " + price + " scrap instead of " + def.scrap + ", thanks to " + thanks + "." : "";
+        if (cheaper) card.appendChild(el("p", "room-desc", "<strong>" + esc(cheaper) + "</strong>"));
+        tip(card, "<strong>" + esc(def.name) + "</strong><span class='t-line'>" + esc(desc) + "</span>" + (cheaper ? "<span class='t-line'>" + esc(cheaper) + "</span>" : "") + "<span class='t-line'><strong>Needs:</strong> " + esc(needsText(def.needs, price)) + "</span>");
         const needs = el("ul", "needs");
         Object.entries(def.needs).forEach(([k, n]) => {
           const h = s.inventory[k] || 0;
           needs.appendChild(el("li", h >= n ? "ok" : "short", esc(itemName(k)) + " <span>" + h + " / " + n + "</span>"));
         });
-        needs.appendChild(el("li", s.scrap >= def.scrap ? "ok" : "short", "Scrap <span>" + s.scrap + " / " + def.scrap + "</span>"));
+        if (price > 0) needs.appendChild(el("li", s.scrap >= price ? "ok" : "short", "Scrap <span>" + s.scrap + " / " + price + "</span>"));
         card.appendChild(needs);
         const btn = el("button", "btn" + (can.ok ? " go" : ""), "Build one");
         btn.disabled = !can.ok;
         tip(btn, can.ok ? "<strong>Build at the workbench</strong><span class='t-line'>A short typing round. Nothing is spent until you finish.</span>" : "Missing: " + esc(Object.entries(can.missing).map(([k, n]) => n + " " + itemName(k)).concat(can.scrapShort ? [can.scrapShort + " scrap"] : []).join(", ")));
         btn.addEventListener("click", () => {
           if (!S.canCraftTool(key).ok) return;
-          this.craft("Build a " + def.name.toLowerCase(), needsText(def.needs, def.scrap), () => S.craftTool(key));
+          this.craft("Build a " + def.name.toLowerCase(), needsText(def.needs, S.canCraftTool(key).scrap), () => S.craftTool(key));
         });
         card.appendChild(btn);
         grid.appendChild(card);

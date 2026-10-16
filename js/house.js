@@ -8,9 +8,11 @@
      computer's House tab (WORLD.HOUSE_UPGRADES).
    - Some of every wave's walkers make for the cabin, not for you: they get in and wait inside.
    - E inside: the office computer (the build menu), the pantry shelves (food and storage, on the read
-     panel), the radio shelf (the old days), the typewriter (typing practice), the big bed (rest: full
+     panel), the radio shelf in the dining room (today's news, and the old days), the typewriter (typing practice), the big bed (rest: full
      health for a minute of the calm), and the dinner bell on the porch (calls the next wave now).
    - The notes the Hollis family left are read up close, like wall signs (ZSR.houseNoteText).
+   - The crew shelter in the office closet in a wave (CREW_RULES.shelter, js/crew.js): some raiders go
+     for it (yardWalkerGoal) and force its shut door like any inner door.
    Art: js/houseart.js. */
 (function (root) {
   "use strict";
@@ -79,13 +81,21 @@
       f.prop(1.45, 4.45, "hLamp", { scale: 0.9, solid: true, cover: false });
     },
     officeCloset(f) {
-      f.prop(1.5, 6.5, "hBoxes", { scale: 0.6, solid: true });
-      f.prop(2.5, 6.5, "hBoxes", { scale: 0.45, solid: true });
+      // the big battery the office computer runs off (the office note), against the end wall and not solid:
+      // the closet's three tiles stay free, the crew's shelter in a wave (CREW_RULES.shelter, js/crew.js)
+      f.prop(1.16, 6.5, "yDrum", { opts: { c: "#2f3a44" }, scale: 0.4 });
     },
     dining(f) {
       f.low(13, 2, 2, 2, { h: 0.4, tex: { name: "hTableSide", opts: { c: "#8a5a2e" } }, top: "#9a6a3e" });
       [[12.55, 2.5], [12.55, 3.5], [15.45, 2.5], [15.45, 3.5]].forEach(([x, y]) => f.prop(x, y, "hChair", { scale: 0.5 }));
-      f.prop(15.5, 1.4, "hPlant", { scale: 0.55, solid: true });
+      // the radio and June's ledger in the corner (WORLD.HOUSE.spots.radio). The room is a one-tile ring
+      // around the table, so this is the only solid thing on the floor: a second one would wall off a pocket.
+      // The set grows with the Radio room; from level 2 Pip's map and list of voices take over the table,
+      // and at 3 a cork board of the town stands on it too.
+      const lvl = Math.min(3, (State().save && State().save.rooms.radio) || 0);
+      f.prop(15.5, 1.45, "hRadioShelf", { scale: 0.6, solid: true, opts: { lvl } });
+      if (lvl >= 3) f.prop(13.55, 2.45, "hRadioBoard", { scale: 0.62, lift: 0.4, cover: false });
+      if (lvl >= 2) f.prop(14.2, 3.15, "hRadioTable", { scale: 0.5, lift: 0.4, cover: false });
     },
     pingpong(f) {
       f.low(7, 9, 2, 3, { h: 0.38, tex: "hPingPong", top: "#2f6b4a" });
@@ -116,7 +126,7 @@
       f.prop(16.5, 19.5, "hPlant", { scale: 0.55, solid: true });
       f.prop(12.5, 17.5, "hArmchair", { scale: 0.5, solid: true });
       f.prop(12.45, 19.45, "hLamp", { scale: 0.9, solid: true, cover: false });
-      f.prop(18.5, 17.5, "hRadioShelf", { scale: 0.6, solid: true });
+      f.prop(18.5, 17.5, "hPlant", { scale: 0.55, solid: true }); // where the radio shelf stood: Pip carried it to the dining room
       f.prop(16.5, 13.4, "hBookcase", { scale: 0.95, solid: true });
     },
     masterBath(f) {
@@ -220,6 +230,7 @@
       };
       this.setHouse(inHouse, { eave: 1, pitch: 0.42, rise: 1.05, roofTex: "hRoof", ceiling: "hCeiling" });
       this.raidToast = false;
+      this.raidToastAt = null;
       this.readSpot = null;
       this.houseStrength();
     },
@@ -337,10 +348,14 @@
         way. { path: to the first of them (empty once beside it), target: its middle }, or null (no way
         even so: it claws at the fence like before). */
     yardBarrier(z, goal) {
+      if (z.practice) return { path: [], target: null }; // the tutorial's practice walker waits; it never claws or breaks in
       const gw = this.gw;
       const gh = this.gh;
       const m = this.solidMask();
       const blocks = this.barriers || {};
+      // outside the fence, the holes too far from it stay shut to it here too (js/yard.js yardPathBlock)
+      const far = this.yardPathBlock(z);
+      const shut = far && far.length ? new Set(far) : null;
       const isBarrier = (x, y) => {
         const b = blocks[x + "," + y];
         return !!b && b.hp > 0 && !(b.door && b.door.open);
@@ -366,7 +381,7 @@
           const ny = y + dy;
           if (nx < 0 || ny < 0 || nx >= gw || ny >= gh) continue;
           const k = ny * gw + nx;
-          if (prev[k] !== -2 || (m[k] && !isBarrier(nx, ny))) continue;
+          if (prev[k] !== -2 || (shut && shut.has(k)) || (m[k] && !isBarrier(nx, ny))) continue;
           prev[k] = v;
           q.push(k);
         }
@@ -438,12 +453,20 @@
         return false;
       }
       S.save.scrap -= cost;
-      b.hp = b.max;
-      this.mendBarrier(key, b);
-      this.houseFaces();
+      this.fixBarrier(key);
       Audio().play("buy");
       this.updateHud();
       if (this.hooks.onYardChanged) this.hooks.onYardChanged();
+      return true;
+    },
+    /** A door or window back at full strength and in one piece (the player's repair above, and Tomas's
+        cabin job in js/crew.js). */
+    fixBarrier(key) {
+      const b = this.barriers[key];
+      if (!b) return false;
+      b.hp = b.max;
+      this.mendBarrier(key, b);
+      this.houseFaces();
       return true;
     },
     /** Fix every door and window the player can afford (the computer's button). Returns how many. */
@@ -471,6 +494,7 @@
 
     /* ---------- Raiders: walkers that make for the cabin and wait inside ---------- */
     yardWalkerGoal(z) {
+      if (z.wreck) return this.wreckGoal(z); // a wrecker: the van or a build once inside the fence (js/yardwreck.js)
       if (!z.raid) return null;
       const p = this.player;
       // you are inside, or close: it comes for you
@@ -479,19 +503,47 @@
         return null;
       }
       if (!z.raidSpot && this.raidSpots) {
-        // somewhere to stand: not on the furniture
-        const open = this.raidSpots.filter((s) => !this.solidAt(s.x, s.y));
-        if (open.length) z.raidSpot = open[Math.floor(Math.random() * open.length)];
+        // some go for the crew in the shelter (CREW_RULES.raidShelterShare, js/crew.js): they force its shut door
+        // like any inner door, and one among the crew too long hurts someone off-screen
+        const shelter = this.crewShelterSpots();
+        const share = (W().CREW_RULES && W().CREW_RULES.raidShelterShare) || 0;
+        if (shelter.length && Math.random() < share) {
+          z.raidSpot = shelter[Math.floor(Math.random() * shelter.length)];
+          z.raidShelter = true;
+        } else {
+          // somewhere to stand: not on the furniture
+          const open = this.raidSpots.filter((s) => !this.solidAt(s.x, s.y));
+          if (open.length) z.raidSpot = open[Math.floor(Math.random() * open.length)];
+        }
       }
       if (!z.raidSpot) return null;
       if (!z.inHouse && this.indoorAt(z.x, z.y)) {
         z.inHouse = true;
         if (!this.raidToast) {
+          // once a wave (yard.js updateYard clears raidToast when a wave starts)
           this.raidToast = true;
+          this.raidToastAt = this.time; // it counts as the yard's "waiting in the cabin" cue (js/yard.js)
           this.toast("Walkers got into the cabin. They wait in there: clear it out.", 3.5);
         }
       }
       return z.raidSpot;
+    },
+    /** Any walker standing inside the cabin. Raiders wait in there out of sight, so the wave label says so while you
+        are out of it (yard.js updateYard): where they are, never how many (the owner took the counts out). */
+    cabinWalkers() {
+      return !!this.house && this.walkers.some((z) => this.inCabin(z.x, z.y));
+    },
+    /** Inside the cabin's walls: under its roof, off the porch (one on the porch is in plain sight). */
+    inCabin(x, y) {
+      return this.indoorAt(x, y) && (this.houseRoom || {})[Math.floor(x) - this.hx + "," + (Math.floor(y) - this.hy)] !== "porch";
+    },
+    /** The wave is held open by walkers in the cabin: all of its walkers are out and every one left stands inside
+        it (a raider at its spot waits there until you come in or near). The cues say so: a toast every
+        CABIN_CUE_SECS (yard.js), the van, the bed and the computer. */
+    cabinHoldsWave() {
+      const ph = this.phase;
+      if (!ph || ph.kind !== "wave" || ph.spawned < ph.total || !this.walkers.length || !this.house) return false;
+      return this.walkers.every((z) => this.inCabin(z.x, z.y));
     },
 
     /* ---------- What E does in and around the cabin ---------- */
@@ -514,7 +566,7 @@
       if (f.kind === "pane") return this.repairBarrier(f.obj);
       const name = f.obj;
       const busy = () => {
-        this.toast("Not now: there are walkers about.", 2.5);
+        this.toast(this.cabinHoldsWave() ? "Not now: walkers are still in the cabin." : "Not now: there are walkers about.", 2.5);
         Audio().play("wrong");
       };
       if (name === "bell") {
@@ -522,8 +574,17 @@
           this.toast("They are already here.", 2);
           return;
         }
+        if (this.yardHold) {
+          // the first-run basics come first (js/tutorial.js)
+          this.toast("Not yet. Finish the basics first.", 3);
+          Audio().play("wrong");
+          return;
+        }
         ph.t = Math.min(ph.t, D.bellSeconds);
         ph.forced = true;
+        // the bell always brings a wave: a calm that was going to stay quiet rolls again, among some and many
+        // (a wave already rolled keeps its size and sides, so what Pip called stays true)
+        if (!ph.next || ph.next.size === "none") ph.next = this.rollWave(true);
         this.toast("You ring the dinner bell. It carries a long way. Here they come.", 3.5);
         Audio().play("haven");
         this.updateHud();
@@ -550,7 +611,7 @@
         Audio().play("click");
       } else {
         if (inWave) return busy();
-        const hook = { computer: "onComputer", radio: "onJournal", typewriter: "onPractice" }[name];
+        const hook = { computer: "onComputer", radio: "onRadio", typewriter: "onPractice" }[name];
         if (hook && this.hooks[hook]) this.hooks[hook]();
       }
     },
@@ -558,10 +619,10 @@
       const D = W().DEFENSE;
       const inWave = this.phase && this.phase.kind === "wave";
       if (f.kind === "pane") return "Press E to fix the window (" + W().SETTINGS.houseRepairScrap + " scrap)";
-      const later = " (clear the wave first)";
+      const later = inWave && this.cabinHoldsWave() ? " (walkers are still in the cabin)" : " (clear the wave first)";
       switch (f.obj) {
         case "bell":
-          return inWave ? "The dinner bell" : "Press E to ring the dinner bell (the next wave comes now)";
+          return inWave ? "The dinner bell" : this.yardHold ? "The dinner bell (after the basics)" : "Press E to ring the dinner bell (the next wave comes now)";
         case "bed":
           return inWave ? "The big bed" + later : "Press E to rest: full health, but " + D.restSeconds + " seconds of the calm go by";
         case "pantry":
@@ -569,7 +630,11 @@
         case "computer":
           return inWave ? "The computer" + later : "Press E to use the computer: build and plan";
         case "radio":
-          return inWave ? "The radio and June's ledger" + later : "Press E to read June's journal and the radio again";
+          if (inWave) return "The radio and June's ledger" + later;
+          if (!(State().save.rooms.radio > 0)) return "Press E to read June's journal (the radio needs the Radio room)";
+          // a wrecked Radio tower hears nothing until it is fixed (js/yardwreck.js)
+          if (!(State().roomLevel("radio") > 0)) return "Press E to read June's journal (the radio tower is wrecked: fix it in the yard)";
+          return State().radioWaiting() ? "Press E to tune in: today's news" : "Press E to read June's journal and the radio again";
         case "typewriter":
           return inWave ? "The typewriter" + later : "Press E to practice typing";
         default:

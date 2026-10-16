@@ -53,12 +53,12 @@
         ],
       },
       radio: {
-        title: "Radio mast",
-        empty: "Pip painted the sign: RADIO, Pip's job. A tall post stands in the yard with a ladder leaning on it. A radio mast here would pick up voices from town. The voices would tell you where places are. Then they show up on the map. Once it is built, a broadcast comes in each day you get home. It needs 1 Radio parts, 1 Spool of wire, and 50 scrap.",
+        title: "Radio tower",
+        empty: "Pip painted the sign: RADIO, Pip's job. A tall post stands in the yard with a ladder leaning on it. A radio tower here would pick up voices from town. A wire would carry them to the radio in the dining room. The voices would tell you where places are, so they show up on the map. It needs 1 Radio parts, 1 Spool of wire, and 50 scrap.",
         built: [
-          "The sign says RADIO: a short mast with an antenna and a receiver. Pip sits by it every night with a pencil. Pip writes down every voice, even the ones that only cough. It finds three new places on the map. A broadcast comes in each day you get home. A taller mast needs radio parts, 2 spools of wire, and 100 scrap.",
-          "The sign says RADIO: a taller mast that reaches all over town. The voices come in clearer now, and there are more of them. It finds every place on the map. Pip has filled four pages of the list already. The last step would add a shelf for a logbook. It needs radio parts, wire, a box of books, and 150 scrap.",
-          "The sign says RADIO: the tall mast, and a shelf of books. A little tin roof keeps the books dry. Pip uses the books to keep the logbook of voices. Every name is in there, spelled right, mostly. It finds every place, and it shows which places still have items. Now you know where to drive before you even start the van.",
+          "The sign says RADIO: a timber tower lashed with rope. A thin whip antenna sticks up from the top. A wire runs from it to the radio in the dining room. Pip sits there every night with a pencil. Pip writes down every voice, even the ones that only cough. It finds three new places on the map. A steel tower needs radio parts, 2 spools of wire, and 100 scrap.",
+          "The sign says RADIO: a steel tower on guy wires. A dish sits halfway up, and a red light blinks on top. It reaches all over town. The voices come in clearer now, and there are more of them. It finds every place on the map. Pip has filled four pages of the list already. The last step builds a taller tower. It needs radio parts, wire, a box of books, and 150 scrap.",
+          "The sign says RADIO: a tall red and white tower. It has two dishes and two blinking lights. A little equipment hut with solar panels sits at its foot. In the dining room, Pip's books keep the logbook of voices. A map of the town hangs next to it. Every name is in there, spelled right, mostly. It finds every place, and it shows which places still have items. Now you know where to drive before you even start the van.",
         ],
       },
       lab: {
@@ -447,7 +447,7 @@
       },
       living: {
         title: "Lines on the Door Frame",
-        text: "Pencil lines on the door frame show how tall the kids grew each year. Gus has the top line, near the very top of the frame. Lucy's lowest line says age 3. Pip stood against the frame for a new mark. It came up between Finn and Gus. The radio and June's green ledger sit on the shelf by the couch. Anyone can sit here and read the past days again.",
+        text: "Pencil lines on the door frame show how tall the kids grew each year. Gus has the top line, near the very top of the frame. Lucy's lowest line says age 3. Pip stood against the frame for a new mark. It came up between Finn and Gus. The radio shelf used to stand here by the couch. Then Pip carried it to the dining room, where the crew eats.",
       },
       gusRoom: {
         title: "Gus's Keep Out Sign",

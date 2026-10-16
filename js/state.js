@@ -18,6 +18,7 @@
     shake: true,
     mouseSens: 1,
     seenHowto: false,
+    tutorial: null, // the first-run tutorial's done ids (js/tutorial.js); null = none. A primitive: read() merges shallowly
   };
 
   function read(key, fallback) {
@@ -36,6 +37,7 @@
     }
   }
   function write(key, value) {
+    if (State.god) return; // god mode (js/god.js): nothing reaches the disk, not even settings
     try {
       if (value == null) root.localStorage.removeItem(key);
       else root.localStorage.setItem(key, JSON.stringify(value));
@@ -114,18 +116,36 @@
       yardTraps: [], // traps set in the yard: [{ x, y, type, uses }]
       yardV: (W().YARD && W().YARD.version) || 1, // the yard grid the fence keys and trap spots belong to
       house: { doors: 0, windows: 0, hp: {} }, // the cabin: door and window levels, and each one's strength ("x,y" in the yard; 0 is broken)
+      // a yard plot's build (WORLD.YARD.plots, keyed by room id: never rename a room): room -> health left; missing =
+      // whole, 0 = wrecked (no room bonus until fixed; js/yardwreck.js). The Walls have no plot, so never a key here
+      builds: {},
       houseRead: [], // notes on the cabin's walls already read (their words counted once)
       typing: { stage: 0, passes: 0, rounds: 0, tutorialSeen: false, v: 2 }, // the workbench typing game: stage, good rounds at it
       rod: false, // Chief Dunn's fishing pole, once it is home (found in Station 12's equipment bay)
       riverRest: null, // the day River Landing was fished out (WORLD.RIVER.cap fish on one trip); it rests restockDays
       labAcc: 0, // partial medical kits brewing in the Lab
+      crew: State.crewFresh ? State.crewFresh() : null, // June, Tomas and Pip: trust, talk, requests, the dog (js/crewstate.js)
       stats: { trips: 0, walkers: 0, notesRead: 0, wordsRead: 0, items: 0 },
+      met: {}, // walker kinds met: { [WALKER_TYPES id]: the day one was first seen or hurt } (the crew's told-once tips)
       wave: 0, // waves survived during this stay at the base (escalation)
       best: { days: 1, baseLevel: 0 },
       savedAt: Date.now(),
     };
   }
-  /** Fill in anything an older save lacks, so every field the game reads exists. */
+  const BUILD_CRACKED = 0.5; // a yard build under this share of its strength is cracked: it still works, it shows cracks
+  /** A room's build strength at its built level in save `s` (DEFENSE.buildHp; the last entry past its end), 0 for a
+      room with no yard plot (the Walls) or not built yet. */
+  function buildMaxOf(s, room) {
+    const Y = W().YARD;
+    const lvl = (s && s.rooms && s.rooms[room]) || 0;
+    if (!(lvl > 0) || !Y || !Y.plots || !Y.plots[room]) return 0;
+    const hp = W().DEFENSE.buildHp || [];
+    return hp[Math.min(lvl, hp.length - 1)] || 0;
+  }
+  /** Fill in anything an older save lacks, so every field the game reads exists.
+   *  SCALE: this only fills missing fields. As the city grows, old saves never learn of new places: `known` is
+   *  not replayed from notes already read or from a Radio room already built. Add that here, behind a version
+   *  bump, when new places ship (docs/SCALING.md, "Old saves must keep working"). */
   function upgradeSave(s) {
     ZSR.Weapons.upgradeSave(s, W().LOCATIONS); // before the fill-in below, so an old pistol keeps its gun upgrades
     const fresh = freshSave(s.label);
@@ -167,6 +187,15 @@
     Object.keys(fresh.house).forEach((k) => {
       if (s.house[k] == null) s.house[k] = fresh.house[k];
     });
+    if (State.crewUpgrade) State.crewUpgrade(s); // the crew's fields, one per crew member (a member added later too)
+    // the builds' health: only built rooms with a plot, a finite number from 0 up to that level's strength
+    if (!s.builds || typeof s.builds !== "object" || Array.isArray(s.builds)) s.builds = {};
+    Object.keys(s.builds).forEach((room) => {
+      const max = buildMaxOf(s, room);
+      const v = s.builds[room];
+      if (!max || typeof v !== "number" || !isFinite(v) || v < 0) delete s.builds[room];
+      else if (v >= max) delete s.builds[room]; // whole: no key
+    });
     // where a note was found comes from the facts: a note that has moved since it was read says where it is now
     (Array.isArray(s.backpack) ? s.backpack : []).forEach((n) => {
       const N = n && W().NOTES[n.locId];
@@ -181,6 +210,34 @@
     settings: null, // the active slot's settings (set below, and again whenever the active slot changes)
     save: null, // committed base save (loaded or new)
     trip: null, // in-memory: { at, vanHp, footHp, cargo, loc overlay, backpack additions, revived, visited, rooms }
+    // god mode, the owner's test sandbox (js/god.js): null, or { base, cheats, offer, onCommit }. While it is on,
+    // write() does nothing, commit() keeps `base` (a copy of the save) in memory in place of the disk, and
+    // loadSave() with no slot (a death, a reload) goes back to `base`. godEnd() reloads the real save from disk.
+    god: null,
+
+    /** Start god mode on a copy of the current save, or on a fresh one (fresh, or no save is loaded). */
+    godStart(fresh) {
+      const s = !fresh && this.save ? clone(this.save) : null;
+      this.god = { base: null, cheats: {}, offer: {}, onCommit: null };
+      this.trip = null;
+      this.save = s || freshSave("God mode");
+      if (!s) this.logDay(null); // Day 1 in June's journal, as newGame writes it
+      this.god.base = clone(this.save);
+      return this.save;
+    },
+    /** Leave god mode: the sandbox is dropped and the real save and settings come back from disk. */
+    godEnd() {
+      if (!this.god) return;
+      this.god = null;
+      this.save = null;
+      this.trip = null;
+      this.settings = this.settingsFor(this.activeSlot());
+      this.loadSave();
+    },
+    /** Is this god mode cheat on? (false outside god mode) */
+    cheat(name) {
+      return !!(this.god && this.god.cheats[name]);
+    },
 
     /** A slot's own settings. A slot from before settings were per save starts from the shared ones. */
     settingsFor(id) {
@@ -239,6 +296,11 @@
       return s.version ? s : null;
     },
     loadSave(id) {
+      if (this.god && !id) {
+        this.save = clone(this.god.base);
+        this.trip = null;
+        return this.save;
+      }
       const sid = id || this.activeSlot();
       if (!sid) return null;
       const s = read(KEYS.slot(sid), {});
@@ -255,8 +317,8 @@
       idx.list[sid] = { label: name, createdAt: Date.now() };
       idx.active = sid;
       write(KEYS.slots, idx);
-      // a new save starts from the settings on screen, and shows its new player the how-to
-      this.settings = Object.assign({}, this.settings, { seenHowto: false });
+      // a new save starts from the settings on screen, and shows its new player the how-to and the tutorial
+      this.settings = Object.assign({}, this.settings, { seenHowto: false, tutorial: null });
       this.saveSettings();
       this.save = freshSave(name);
       this.trip = null;
@@ -282,10 +344,15 @@
     commit() {
       if (!this.save) return;
       const sid = this.activeSlot();
-      if (!sid) return;
+      if (!sid && !this.god) return;
       this.save.savedAt = Date.now();
       this.save.best.days = Math.max(this.save.best.days, this.save.day);
       this.save.best.baseLevel = Math.max(this.save.best.baseLevel, this.baseLevel());
+      if (this.god) {
+        if (this.god.onCommit) this.god.onCommit(this.save); // the "unlimited" top-up
+        this.god.base = clone(this.save);
+        return;
+      }
       write(KEYS.slot(sid), this.save);
     },
     wipe() {
@@ -299,14 +366,75 @@
       return Object.values(this.save.rooms).reduce((a, b) => a + b, 0);
     },
     maxBaseLevel() {
+      // SCALE: assumes 3 levels per room (also Math.min(level, 3) in the room effects, js/base.js and the tests)
       return Object.keys(W().BASE_ROOMS).length * 3;
     },
 
+    /* ---------- The yard's builds: their strength, and wrecked ones (js/yardwreck.js) ----------
+       A room with a yard plot puts up a build (js/yard.js). Wreckers in a wave claw it down; a wrecked build (save
+       builds[room] 0) gives no room bonus until it is fixed. Construction, requirements, story gates and the art
+       keep the built level (save.rooms); every bonus goes through effects(), which skips a wrecked room, and the
+       few direct readers of a bonus use roomLevel(). */
+    /** The build's full strength at its built level (DEFENSE.buildHp), 0 with no plot (the Walls) or not built. */
+    buildMax(room) {
+      return buildMaxOf(this.save, room);
+    },
+    /** Its strength now: save.builds[room], or whole when it has no entry; 0 when there is no build. */
+    buildHp(room) {
+      const max = this.buildMax(room);
+      if (!max) return 0;
+      const v = (this.save.builds || {})[room];
+      return v == null ? max : Math.max(0, Math.min(max, v));
+    },
+    /** Built, with a plot, and clawed down to 0: it gives nothing until fixed. */
+    roomWrecked(room) {
+      const v = (this.save.builds || {})[room];
+      return v != null && v <= 0 && this.buildMax(room) > 0;
+    },
+    /** The level that gives a bonus: 0 while wrecked, else the built level. */
+    roomLevel(room) {
+      return this.roomWrecked(room) ? 0 : this.save.rooms[room] || 0;
+    },
+    /** The wrecked rooms, in WORLD.BASE_ROOMS order. */
+    wreckedRooms() {
+      return Object.keys(W().BASE_ROOMS).filter((room) => this.roomWrecked(room));
+    },
+    /** 0 whole (or not built, or no plot), 1 cracked (under BUILD_CRACKED of its strength), 2 wrecked. */
+    buildDmg(room) {
+      const max = this.buildMax(room);
+      if (!max) return 0;
+      const hp = this.buildHp(room);
+      return hp <= 0 ? 2 : hp < max * BUILD_CRACKED ? 1 : 0;
+    },
+    /** { wrecked: [rooms], cracked: [rooms] } (the computer's row, the crew's tips, the toasts), in WORLD.BASE_ROOMS
+        order like wreckedRooms, so every list of them reads the same. */
+    buildDamage() {
+      const out = { wrecked: [], cracked: [] };
+      Object.keys(W().BASE_ROOMS).forEach((room) => {
+        const d = this.buildDmg(room);
+        if (d === 2) out.wrecked.push(room);
+        else if (d === 1) out.cracked.push(room);
+      });
+      return out;
+    },
+    /** The office computer's "Fix all" for damage `dmg` ({ wrecked, cracked }; the save's when left out): every
+        wrecked, then every cracked build (rooms, a room in both lists once), at SETTINGS.buildRepairScrap each (each),
+        and the scrap for them all (cost). The one rule for the computer's button, what it fixes
+        (js/yardwreck.js repairAllBuilds) and Tomas's wrecked tip ({cost}, js/crewstate.js). */
+    buildFixAll(dmg) {
+      const d = dmg || this.buildDamage();
+      const rooms = d.wrecked.concat(d.cracked.filter((room) => !d.wrecked.includes(room)));
+      const each = W().SETTINGS.buildRepairScrap || 0;
+      return { rooms, each, cost: rooms.length * each };
+    },
+
     /* ---------- Derived effects of the base rooms ---------- */
+    /** What the built rooms give (a wrecked build gives nothing until it is fixed), plus the crew's perks. */
     effects() {
       const fx = { vanHp: 0, footHp: 0, tierCap: 2, freeRepair: false, showDanger: false, crates: 0, headlights: false, footRegen: 0, fullHealOnEntry: false, foodPerDay: 0, medsPerDay: 0, water: 0, reveal: 0, showStock: false, footDamage: 1, revive: 0, vanDamage: 1, notesShowStock: false, mapShowsCaches: false, mapShowsStock: false };
       const ADD = { foodPerDay: true, medsPerDay: true }; // these stack across rooms; everything else takes the best level
       Object.entries(this.save.rooms).forEach(([room, lvl]) => {
+        if (this.roomWrecked(room)) return;
         const levels = W().BASE_ROOMS[room] ? W().BASE_ROOMS[room].levels : [];
         const best = {};
         for (let i = 0; i < lvl && i < levels.length; i++) {
@@ -319,6 +447,11 @@
         }
         Object.entries(best).forEach(([k, v]) => (fx[k] += v));
       });
+      // the crew's perks from story quests handed in add on top (js/crewstate.js)
+      if (this.crewFx && this.save.crew) {
+        const c = this.crewFx();
+        ["foodPerDay", "medsPerDay", "footHp", "vanHp"].forEach((k) => (fx[k] += c[k] || 0));
+      }
       return fx;
     },
     vanMaxHp() {
@@ -356,6 +489,8 @@
         crowbarsUsed: 0, // crowbars spent on jammed locks this trip
         tags: [], // item tags read this trip
         signs: [], // wall signs read this trip (counted once for words read)
+        quest: [], // story quest objects picked up this trip (found once you get home; js/crewstate.js)
+        dog: false, // the dog follows you this trip (Pip's quest; home with you, lost if you die)
         walkers: 0,
         wordsRead: 0,
         items: 0,
@@ -476,16 +611,31 @@
         const have = this.save.inventory[k] || 0;
         if (have < n) missing[k] = n - have;
       });
-      const scrapShort = Math.max(0, def.scrap - this.save.scrap);
-      return { ok: !Object.keys(missing).length && !scrapShort, missing, scrapShort, def, requires: [], locked: [] };
+      // scrap: what it costs now (a crew perk can make a crowbar cheaper)
+      const perk = type === "crowbar" && this.crewFx ? this.crewFx().crowbarCost : null;
+      const scrap = perk != null ? Math.min(def.scrap, perk) : def.scrap;
+      const scrapShort = Math.max(0, scrap - this.save.scrap);
+      return { ok: !Object.keys(missing).length && !scrapShort, missing, scrapShort, scrap, def, requires: [], locked: [] };
     },
     craftTool(type) {
       const c = this.canCraftTool(type);
       if (!c.ok) return false;
       Object.entries(c.def.needs).forEach(([k, n]) => (this.save.inventory[k] -= n));
-      this.save.scrap -= c.def.scrap;
+      this.save.scrap -= c.scrap;
       if (type === "crowbar") this.save.crowbars = (this.save.crowbars || 0) + 1;
       this.commit();
+      return true;
+    },
+
+    /* ---------- Walker kinds met ---------- */
+    /** A walker kind seen (or hurt) for the first time: save.met[type] = today. True the first time. Out on a trip
+        it rides on the save in memory, kept by returnHome's commit and dropped with a dead trip (abandonTrip). */
+    meetWalker(type) {
+      const s = this.save;
+      if (!s || !W().WALKER_TYPES[type]) return false;
+      const met = (s.met = s.met || {});
+      if (met[type] != null) return false;
+      met[type] = s.day;
       return true;
     },
 
@@ -579,6 +729,8 @@
         (t.tags || []).forEach((item) => {
           if (!s.tagsSeen.includes(item)) s.tagsSeen.push(item);
         });
+        // the crew: story objects and the dog brought home are found; an open errand counts its item's cargo
+        const crewHome = this.crewTripHome ? this.crewTripHome(t) : [];
         // the crew patches the worst of it overnight, so a near-dead van is never saved as a trap;
         // a hungry trip ran on a lower ceiling, so scale its health back before saving it as damage
         const hp = t.hungry ? t.vanHp / W().SETTINGS.hungryVanPenalty : t.vanHp;
@@ -598,7 +750,14 @@
           s.labAcc -= 1;
           s.inventory.meds = (s.inventory.meds || 0) + 1;
         }
-        this.logDay({ items: Object.values(t.cargo).reduce((a, b) => a + b, 0), scrap: t.scrap, notes: t.notes.length, keys: (t.keys || []).length });
+        if (this.crewDayPassed) this.crewDayPassed(); // late errands, the dog's food, the scrapPerDay perk
+        // quests: story objects (and the dog) brought home, so a day with only one of those is not "nothing"
+        const haul = { items: Object.values(t.cargo).reduce((a, b) => a + b, 0), scrap: t.scrap, notes: t.notes.length, keys: (t.keys || []).length };
+        if (crewHome.length) haul.quests = crewHome.length;
+        const entry = this.logDay(haul);
+        // June's ledger line for each story quest handed in since the last day page (js/crewstate.js)
+        const ledger = this.crewLedgerDrain ? this.crewLedgerDrain() : [];
+        if (ledger.length) entry.quests = ledger;
       }
       this.trip = null;
       if (this.effects().freeRepair) s.vanHp = this.vanMaxHp();
@@ -610,23 +769,58 @@
     cycleIndex(n, len) {
       if (!len) return null;
       if (n < len) return n;
-      const loop = Math.max(1, Math.min(len, Math.floor(len / 3)));
+      const loop = this.cycleLoop(len);
       return len - loop + ((n - len) % loop);
+    },
+    /** How many entries at the end of a list of len repeat (the last third). */
+    cycleLoop(len) {
+      return Math.max(1, Math.min(len, Math.floor(len / 3)));
+    },
+    /** June's page for day index n (cycleIndex). Once the dog is home (js/crewstate.js), a repeating page that
+        wishes for a dog (JOURNAL dogWish: true) would read wrong, so the repeat goes round only the pages of the
+        window that do not, in order, so no page is written two days running (if every page there wishes for a
+        dog, the day's own page stays). Pages before the window are the one-time story: tests/validate-world.js
+        keeps the dog away until the last page that mentions a dog is written, so none of them needs skipping;
+        should one in the window's first pass still wish for a dog, the next page that does not takes its day. */
+    journalIndex(n, J) {
+      const i = this.cycleIndex(n, J.length);
+      if (i == null || !(this.dogHome && this.dogHome())) return i;
+      const loop = this.cycleLoop(J.length);
+      const start = J.length - loop;
+      if (i < start) return i;
+      const keep = [];
+      for (let k = 0; k < loop; k++) {
+        const j = start + ((i - start + k) % loop); // from the day's own page on, round the window
+        if (!(J[j] && J[j].dogWish)) keep.push(j);
+      }
+      if (!keep.length) return i;
+      if (n < J.length) return keep[0]; // the first pass: the day's own page, or the next one that wishes for none
+      keep.sort((a, b) => a - b);
+      return keep[(n - J.length) % keep.length];
     },
     /** Write today's entry (called when a day passes, and on Day 1). `trip` is null on Day 1. */
     logDay(trip) {
       const s = this.save;
       const J = W().JOURNAL || [];
       const R = W().RADIO || [];
-      const entry = { day: s.day, journal: this.cycleIndex(s.day - 1, J.length), radio: null, recap: null };
-      if (s.rooms.radio > 0 && R.length) {
+      const entry = { day: s.day, journal: this.journalIndex(s.day - 1, J), radio: null, recap: null };
+      // a wrecked Radio tower hears nothing that day (roomLevel); the broadcasts keep their order (radioHeard)
+      if (this.roomLevel("radio") > 0 && R.length) {
         entry.radio = this.cycleIndex(s.radioHeard || 0, R.length);
+        entry.tuned = false; // heard when the player tunes in at the radio in the dining room (older saves: no field, heard)
         s.radioHeard = (s.radioHeard || 0) + 1;
       }
       if (trip) entry.recap = Object.assign({ food: s.food, hungry: s.food <= 0, next: this.nextBuild() }, trip);
       s.log.push(entry);
       if (s.log.length > 120) s.log.splice(0, s.log.length - 120);
       return entry;
+    },
+    /** Today's broadcast, still waiting at the radio: the newest day's, not yet tuned in to (an older day's
+        missed broadcast just shows with its day). The entry, or null. */
+    radioWaiting() {
+      const log = (this.save && this.save.log) || [];
+      const e = log[log.length - 1];
+      return e && e.radio != null && e.tuned === false ? e : null;
     },
     /** The room closest to buildable (fewest things missing, not locked): { room, missing: {item: n}, scrap }. */
     nextBuild() {
@@ -655,15 +849,13 @@
       if ((this.save.inventory.meds || 0) < 1 || (this.save.kits || 0) >= W().SETTINGS.kitsMax) return false;
       this.save.inventory.meds -= 1;
       this.save.kits = (this.save.kits || 0) + 1;
-      this.commit();
-      return true;
+      return true; // the caller saves (js/backpack.js: the yard's sync, which never saves mid-wave)
     },
     unpackKit() {
       if (this.trip || !(this.save.kits > 0)) return false;
       this.save.kits -= 1;
       this.save.inventory.meds = (this.save.inventory.meds || 0) + 1;
-      this.commit();
-      return true;
+      return true; // the caller saves, as packKit
     },
     /** Spend a kit from the backpack ("pack") or the van's cargo ("cargo"). The caller heals the player. */
     useKit(from) {
@@ -703,8 +895,10 @@
       Object.entries(c.def.needs).forEach(([k, n]) => (this.save.inventory[k] -= n));
       this.save.scrap -= c.def.scrap;
       this.save.rooms[room] += 1;
+      if (this.save.builds) delete this.save.builds[room]; // the new level goes up whole (a wrecked one is rebuilt)
       if (room === "walls") this.save.vanHp = Math.min(this.vanMaxHp(), this.save.vanHp + 30);
       if (room === "radio") {
+        // SCALE: reveal 99 means every unknown building at once; with many more places, make the steps smaller
         const fx = this.effects();
         // buildings only: River Landing is found by reading the fishing pole's tag
         const unknown = W().LOCATIONS.filter((l) => !l.outdoor && !this.save.known.includes(l.id)).sort((a, b) => a.danger - b.danger);
@@ -728,7 +922,9 @@
       const garageLevels = W().BASE_ROOMS.garage.levels;
       const needIdx = garageLevels.findIndex((l) => capFor(l.effect.tierCap) > level);
       const garageNeeded = capped && cost != null ? (needIdx < 0 ? garageLevels.length : needIdx + 1) : 0;
-      return { ok: cost != null && !capped && this.save.scrap >= cost, cost, capped, maxed: cost == null, garageNeeded, level };
+      // garageWrecked: the Garage is built far enough but wrecked (it gives nothing until fixed), so the menu says so
+      const garageWrecked = this.roomWrecked("garage");
+      return { ok: cost != null && !capped && this.save.scrap >= cost, cost, capped, maxed: cost == null, garageNeeded, level, garageWrecked };
     },
     buyUpgrade(key) {
       const c = this.canBuyUpgrade(key);
@@ -1033,7 +1229,17 @@
     const f = ((kind === "journal" ? ZSR.WORLD.JOURNAL : ZSR.WORLD.RADIO) || [])[idx];
     return { title: "", text: f ? f.facts.join(" ") : "" };
   };
-  /** The recap of a day, from the level's templates: {items} {scrap} {notes} {food} {room} {needs} {keys}. */
+  /** An item counted in running text: "1 box of nails", "2 boxes of nails" (WORLD.ITEMS one / many; an item
+      without them falls back to its label, "2 Generator"). For rewards, what a build still needs, and the crew. */
+  ZSR.itemCount = function itemCount(item, n) {
+    const it = ((ZSR.WORLD && ZSR.WORLD.ITEMS) || {})[item];
+    return n + " " + (it ? (n === 1 ? it.one : it.many) || it.name : String(item));
+  };
+  /** "a", "a and b", "a, b and c". */
+  const listWords = (parts) => (parts.length < 2 ? parts.join("") : parts.slice(0, -1).join(", ") + " and " + parts[parts.length - 1]);
+  /** The recap of a day, from the level's templates: {items} {scrap} {notes} {food} {room} {needs} {keys}.
+      r.quests: story objects (or the dog) brought home that day; with nothing else, the "nothing" line is left out
+      (June's ledger line for a story quest follows the recap on the first day page after its hand-in: entry.quests). */
   ZSR.recapText = function recapText(r) {
     if (!r) return "";
     const tpl = ZSR.textAt((t) => (t.recap && t.recap.haul ? t.recap : null)) || {
@@ -1049,10 +1255,11 @@
     const W2 = ZSR.WORLD;
     const fill = (s, o) => String(s || "").replace(/\{(\w+)\}/g, (m, k) => (o[k] != null ? o[k] : m));
     const nb = r.next;
-    const needs = nb ? Object.entries(nb.missing || {}).map(([k, n]) => n + " " + W2.ITEMS[k].name).concat(nb.scrap ? [nb.scrap + " scrap"] : []).join(", ") : "";
+    const needs = nb ? listWords(Object.entries(nb.missing || {}).map(([k, n]) => ZSR.itemCount(k, n)).concat(nb.scrap ? [nb.scrap + " scrap"] : [])) : "";
     const o = Object.assign({}, r, { room: nb ? W2.BASE_ROOMS[nb.room].name : "", needs });
     const out = [];
-    out.push(fill(r.items || r.scrap ? tpl.haul : tpl.nothing, o));
+    if (r.items || r.scrap) out.push(fill(tpl.haul, o));
+    else if (!r.quests) out.push(fill(tpl.nothing, o));
     if (r.notes) out.push(fill(tpl.notes, o));
     if (r.keys) out.push(fill(tpl.keys, o));
     out.push(fill(r.hungry ? tpl.hungry : tpl.food, o));

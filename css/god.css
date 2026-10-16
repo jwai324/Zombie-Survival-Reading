@@ -1,0 +1,27 @@
+/* God mode (js/god.js): the menu over everything, and the badge that says nothing is being saved. */
+#screen-god { z-index: 60; }
+.god-panel { max-width: 56rem; border-color: var(--red); padding-top: 2.25rem; }
+.god-panel h3 { font-family: var(--font-head); text-transform: uppercase; letter-spacing: .06em; font-size: 1rem; margin: 1rem 0 .4rem; }
+.god-panel p { margin: .4rem 0; }
+.god-sub { font-weight: 700; color: var(--red); }
+.god-msg { background: var(--ink); color: var(--amber-2); padding: .4rem .6rem; font-weight: 600; }
+.god-note { font-size: .85rem; color: var(--muted); }
+.god-tabs { display: flex; flex-wrap: wrap; gap: .4rem; margin: .6rem 0; }
+.god-tabs .btn { font-size: .9rem; padding: .35rem .7rem; }
+.god-tabs .btn.on { background: var(--amber-2); outline: .15rem solid var(--ink); }
+.god-body { position: relative; z-index: 1; }
+.god-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .8rem; margin: .35rem 0; }
+.god-row .btn, .god-start .btn { font-size: .85rem; padding: .35rem .7rem; }
+.god-start .btn.big { font-size: 1.05rem; padding: .55rem 1rem; }
+.god-card { border: .15rem solid var(--ink); background: var(--paper-3); padding: .4rem .6rem; margin: .5rem 0; }
+.god-quest { border-top: .08rem dashed var(--paper-2); padding-top: .3rem; font-size: .9rem; }
+.god-quest > span { flex: 1 1 18rem; }
+.god-mod { font-size: .85rem; }
+.god-tog { display: block; margin: .45rem 0; font-weight: 600; }
+.god-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: .35rem .9rem; }
+.god-grid label { display: flex; justify-content: space-between; align-items: center; gap: .5rem; font-size: .9rem; }
+.god-grid input { width: 5.5rem; }
+.god-panel input[type="number"] { width: 5.5rem; }
+.god-panel select, .god-panel input[type="number"] { font: inherit; font-size: .9rem; padding: .15rem .3rem; border: .12rem solid var(--ink); background: #fff; }
+#god-badge { position: fixed; bottom: .5rem; right: .5rem; z-index: 55; background: var(--red); color: var(--paper-3); font-size: .8rem; padding: .25rem .7rem; box-shadow: .15rem .15rem 0 var(--ink); }
+#god-badge:hover { transform: none; }

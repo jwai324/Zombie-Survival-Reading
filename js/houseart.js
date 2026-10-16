@@ -1539,8 +1539,12 @@
     }
     box(ctx, 30, 57, 36, 3, "#efe9d8", 1.2);
   });
-  /* A small side table with an old radio (dial, antenna) and the green ledger. */
-  sprite("hRadioShelf", 128, 128, (ctx, w, h) => {
+  /* The radio shelf in the dining room: a small side table with an old radio and the green ledger. It grows
+     with the Radio room (o.lvl): 0 the radio is dead (a dark dial), 1 the dial glows and a wire runs out the
+     window, 2 a ham set with green meters and a speaker sits on the lower shelf, 3 a desk mic, headphones and
+     a red ON AIR light join them. */
+  sprite("hRadioShelf", 128, 128, (ctx, w, h, o) => {
+    const lvl = (o && o.lvl) | 0;
     shadow(ctx, w / 2, h - 3, 56);
     box(ctx, 14, 72, 7, 54, "#6b4423", 2.5);
     box(ctx, 107, 72, 7, 54, "#6b4423", 2.5);
@@ -1552,13 +1556,20 @@
     // the radio
     rod(ctx, [[70, 30], [96, 2]], "#c9cdd0", 1.6);
     circle(ctx, 96, 2.5, 2, "#c9cdd0", 1);
+    if (lvl >= 1) line(ctx, [[96, 3], [124, 0]], "rgba(30,30,30,0.7)", 1.2); // the wire out to the tower
     rbox(ctx, 12, 26, 66, 38, 12, "#8a5a32", 3);
     ctx.fillStyle = "rgba(255,255,255,0.12)";
     ctx.fillRect(18, 29, 54, 3);
     rbox(ctx, 18, 34, 26, 25, 4, "#c9b48a", 2);
     for (let x = 22; x < 42; x += 4) line(ctx, [[x, 36], [x, 57]], "rgba(90,60,30,0.6)", 1.2);
-    rbox(ctx, 49, 34, 24, 12, 3, "#ffd36b", 2);
-    ctx.fillStyle = "rgba(90,50,10,0.6)";
+    if (lvl >= 1) {
+      ctx.fillStyle = "rgba(255,200,90,0.35)";
+      ctx.beginPath();
+      ctx.arc(61, 40, 16, 0, TAU);
+      ctx.fill();
+    }
+    rbox(ctx, 49, 34, 24, 12, 3, lvl >= 1 ? "#ffd36b" : "#5a4a32", 2);
+    ctx.fillStyle = lvl >= 1 ? "rgba(90,50,10,0.6)" : "rgba(20,15,10,0.5)";
     for (let x = 52; x < 72; x += 3) ctx.fillRect(x, 36, 0.8, 3);
     line(ctx, [[60, 45], [63, 35]], "#c0302a", 1.4);
     circle(ctx, 55, 54, 4, "#3a2412", 1.8);
@@ -1572,6 +1583,93 @@
     line(ctx, [[93, 45], [100, 45]], INK, 1);
     ctx.fillStyle = "rgba(255,255,255,0.15)";
     ctx.fillRect(88, 28, 3, 34);
+    if (lvl >= 2) {
+      // the ham set on the lower shelf: two green meters, knobs, and a speaker box beside it
+      rbox(ctx, 22, 82, 56, 22, 3, "#3a3d42", 2.5);
+      [[26, 85], [44, 85]].forEach(([x, y]) => {
+        rbox(ctx, x, y, 14, 9, 2, "#9fe3a0", 1.5);
+        line(ctx, [[x + 3, y + 8], [x + 10, y + 2]], INK, 1);
+      });
+      [64, 72].forEach((x) => circle(ctx, x, 90, 3.2, "#c9cdd0", 1.5));
+      box(ctx, 26, 97, 48, 3, "#1f2023", 0);
+      rbox(ctx, 82, 82, 22, 22, 3, "#5a4a3a", 2.5);
+      circle(ctx, 93, 93, 7, "#2a2420", 1.8);
+      circle(ctx, 93, 93, 2.5, "#6b5a46", 1);
+    }
+    if (lvl >= 3) {
+      // a desk mic on its stand, headphones over the ledger, a red ON AIR light
+      box(ctx, 98, 58, 18, 6, "#3a3d42", 2);
+      rod(ctx, [[107, 58], [107, 40]], "#8f969c", 2);
+      rbox(ctx, 101, 26, 12, 16, 6, "#4b5057", 2);
+      for (let y = 30; y < 40; y += 3) line(ctx, [[103, y], [111, y]], "rgba(255,255,255,0.35)", 1);
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(98, 26, 13, Math.PI, TAU);
+      ctx.stroke();
+      rbox(ctx, 82, 22, 8, 12, 3, "#c0302a", 1.8);
+      ctx.fillStyle = "rgba(255,70,50,0.35)";
+      ctx.beginPath();
+      ctx.arc(32, 12, 15, 0, TAU);
+      ctx.fill();
+      rbox(ctx, 14, 4, 36, 16, 3, "#ff4a3a", 2);
+      fitText(ctx, "ON AIR", 32, 12, 30, 11, "#fff3e8", 0);
+    }
+  });
+  /* Pip's radio table (on the dining table, Radio room 2 and up): a desk lamp, the town map propped on a
+     book, the list of voices on a clipboard, a jar of pencils. */
+  sprite("hRadioTable", 160, 96, (ctx, w, h) => {
+    // the lamp's glow first
+    ctx.fillStyle = "rgba(255,225,140,0.3)";
+    ctx.beginPath();
+    ctx.arc(30, 40, 26, 0, TAU);
+    ctx.fill();
+    box(ctx, 18, h - 8, 26, 6, "#3a3d42", 2);
+    rod(ctx, [[31, h - 8], [22, 40], [34, 26]], "#3a3d42", 3);
+    poly(ctx, [[24, 20], [46, 22], [42, 36], [26, 34]], "#2f6a3c", 2.5);
+    // the map, propped on a book
+    box(ctx, 52, h - 12, 54, 10, "#8a3a2e", 2.5);
+    poly(ctx, [[54, h - 12], [104, h - 12], [98, 22], [60, 22]], "#efe3c2", 2.5);
+    line(ctx, [[62, 40], [96, 54]], "#c9a86a", 2);
+    line(ctx, [[70, 26], [78, h - 14]], "#c9a86a", 2);
+    line(ctx, [[60, 62], [100, 34]], "#7aa0b8", 2.5);
+    [[70, 46, "#c0302a"], [86, 36, "#2f6aa0"], [80, 62, "#c0302a"]].forEach(([x, y, c]) => circle(ctx, x, y, 3, c, 1.2));
+    // the list of voices on a clipboard
+    rbox(ctx, 112, 30, 30, h - 32, 3, "#a8834e", 2.5);
+    box(ctx, 116, 36, 22, h - 42, "#f6f2e6", 1.5);
+    box(ctx, 121, 27, 12, 6, "#8f969c", 1.5);
+    for (let y = 42; y < h - 10; y += 6) line(ctx, [[119, y], [119 + 10 + ((y * 7) % 8), y]], INK, 1);
+    // a jar of pencils
+    rbox(ctx, 144, h - 22, 12, 20, 3, "rgba(200,225,235,0.75)", 2);
+    [[146, "#d9a21b"], [150, "#c0302a"], [154, "#2f6aa0"]].forEach(([x, c]) => rod(ctx, [[x, h - 20], [x + 1, h - 34]], c, 2.5));
+  });
+  /* The town on a cork board (Radio room 3): the city map pinned up, red string between pins, notes from
+     the broadcasts, propped on its two legs on the dining table. */
+  sprite("hRadioBoard", 128, 160, (ctx, w, h) => {
+    shadow(ctx, w / 2, h - 3, 46);
+    box(ctx, 20, 96, 8, h - 98, "#6b4423", 2);
+    box(ctx, w - 28, 96, 8, h - 98, "#6b4423", 2);
+    box(ctx, 6, 8, w - 12, 96, "#6b4423", 3);
+    box(ctx, 12, 14, w - 24, 84, "#c9a26a", 1.5);
+    ctx.fillStyle = "rgba(90,60,30,0.25)";
+    for (let k = 0; k < 60; k++) ctx.fillRect(14 + ((k * 37) % (w - 28)), 16 + ((k * 23) % 80), 2, 2);
+    // the map
+    box(ctx, 22, 22, 62, 50, "#efe3c2", 2);
+    line(ctx, [[24, 40], [82, 50]], "#c9a86a", 2.5);
+    line(ctx, [[46, 24], [56, 70]], "#c9a86a", 2.5);
+    line(ctx, [[24, 64], [80, 28]], "#7aa0b8", 3);
+    const pins = [[34, 34], [62, 44], [50, 62], [74, 30], [100, 30], [98, 70]];
+    ctx.strokeStyle = "#c0302a";
+    ctx.lineWidth = 1.4;
+    ctx.beginPath();
+    pins.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.stroke();
+    // notes from the broadcasts
+    box(ctx, 90, 22, 22, 18, "#fff3a8", 1.5);
+    box(ctx, 88, 60, 24, 20, "#f6f2e6", 1.5);
+    box(ctx, 26, 78, 30, 16, "#bfe0f0", 1.5);
+    [[93, 29], [93, 34], [91, 67], [91, 72], [29, 84], [29, 89]].forEach(([x, y]) => line(ctx, [[x, y], [x + 14, y]], INK, 1));
+    pins.forEach(([x, y], i) => circle(ctx, x, y, 3, i % 2 ? "#2f6aa0" : "#c0302a", 1.2));
   });
   /* A white fridge with a few magnets and a drawing. */
   sprite("hFridge", 80, 160, (ctx, w, h) => {

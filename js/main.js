@@ -11,9 +11,10 @@
   const Backpack = ZSR.Backpack;
   const Audio = ZSR.Audio;
   const W = ZSR.WORLD;
+  const Tutorial = ZSR.Tutorial; // June's first-run tutorial (js/tutorial.js): told of every new screen
 
   const $ = (id) => document.getElementById(id);
-  const SCREENS = ["screen-title", "screen-newsave", "screen-settings", "screen-howto", "screen-map", "screen-base", "screen-backpack", "screen-note", "screen-pause", "screen-death", "screen-confirm", "screen-wrong"];
+  const SCREENS = ["screen-title", "screen-newsave", "screen-settings", "screen-howto", "screen-map", "screen-base", "screen-backpack", "screen-note", "screen-pause", "screen-death", "screen-confirm", "screen-wrong", "screen-crew"];
   const ORDINAL = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th" };
   let settingsReturn = "screen-title";
   let titleRaf = 0;
@@ -59,6 +60,241 @@
     confirmCancel = o.onCancel || o.onNo || null;
   }
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const paragraphs = (text) => String(text).split(/\n\s*\n/).filter((p) => p.trim()).map((p) => "<p>" + esc(p.trim()).replace(/\n/g, "<br>") + "</p>").join("");
+  const wordCount = (t) => String(t).trim().split(/\s+/).filter(Boolean).length;
+
+  /* ---------- The crew card: a crew member asks a favor ("offer"), thanks you for one ("handIn"), or Pip names
+     the dog ("name"). js/crew.js opens it from the talk bubble (hooks.onCrewCard); the yard waits while it is open.
+     Enter is the main button, Esc is "Not now" (or closes), P does nothing here. Words read count once per text
+     (State.seeCrewTalk; keys as docs/CREW.md lists). No questions about the words: they are there to be useful. */
+  // the lasting perks a story quest gives, in plain words for the thank-you's reward line (docs/CREW.md "Perks");
+  // a perk key missing here is still active, just not spelled out on the card
+  const PERK_WORDS = {
+    foodPerDay: (n) => "+" + n + " food every day",
+    medsPerDay: (n) => "+" + n + " medical kit" + (n === 1 ? "" : "s") + " a day",
+    footHp: (n) => "+" + n + " health for you",
+    vanHp: (n) => "+" + n + " van health",
+    scrapPerDay: (n) => "+" + n + " scrap every day you come home",
+    crewRepairFree: (v) => (v ? "the crew's repairs cost no scrap" : ""),
+    lookoutEarly: (n) => "waves called " + n + " seconds sooner",
+    healAmount: (n) => "+" + n + " health when " + jobHolder("heal") + " patches you up",
+    crowbarCost: (n) => "crowbars cost " + n + " scrap",
+  };
+  /** The crew member who has this job (CREW[id].jobs), by name; "the crew" if nobody does. */
+  function jobHolder(job) {
+    const id = Object.keys(W.CREW || {}).find((k) => ((W.CREW[k] && W.CREW[k].jobs) || []).some((j) => j && j.job === job));
+    return id ? ZSR.crewName(id) : "the crew";
+  }
+  let crewCard = null; // the open card: { id, action, primary, cancel }
+  const crewCardOpen = () => !$("screen-crew").classList.contains("hidden");
+  function crewSeen(key, text) {
+    if (State.seeCrewTalk && text) State.seeCrewTalk(key, wordCount(text));
+  }
+  /** A copy of a sprite canvas (the cache keeps its own), or null when the art is not loaded. */
+  function spriteCopy(name, opts) {
+    const D3 = ZSR.Draw3;
+    const src = D3 && D3.sprite ? D3.sprite(name, opts) : null;
+    if (!src || !src.width) return null;
+    const c = document.createElement("canvas");
+    c.width = src.width;
+    c.height = src.height;
+    c.getContext("2d").drawImage(src, 0, 0);
+    return c;
+  }
+  /** The card's buttons: [{ label, cls, primary, onClick }]. The primary one answers Enter and takes the focus. */
+  function crewButtons(list) {
+    const row = $("crew-buttons");
+    row.innerHTML = "";
+    let first = null;
+    crewCard.primary = null;
+    list.forEach((b) => {
+      const btn = document.createElement("button");
+      btn.className = "btn" + (b.cls ? " " + b.cls : "");
+      btn.textContent = b.label;
+      btn.addEventListener("click", () => {
+        Audio.play("click");
+        b.onClick();
+      });
+      row.appendChild(btn);
+      if (b.primary) {
+        crewCard.primary = b.onClick;
+        first = btn;
+      }
+    });
+    return first;
+  }
+  function crewHint(text) {
+    $("crew-hint").textContent = text || "";
+    $("crew-hint").classList.toggle("hidden", !text);
+  }
+  function crewReward(text) {
+    $("crew-reward").textContent = text || "";
+    $("crew-reward").classList.toggle("hidden", !text);
+  }
+  function crewStarsNow(id) {
+    const box = $("crew-stars");
+    box.innerHTML = "";
+    if (Backpack.crewStars) box.appendChild(Backpack.crewStars(id));
+  }
+  /** Fill the card's frame: who, their portrait, their trust stars, the caption and the title. */
+  function crewFrame(id, caption, title) {
+    const c = (W.CREW || {})[id] || {};
+    const panel = $("crew-panel");
+    if (c.color) panel.style.setProperty("--crew", c.color);
+    else panel.style.removeProperty("--crew");
+    $("crew-caption").textContent = caption;
+    $("crew-name").textContent = ZSR.crewName(id);
+    crewStarsNow(id);
+    $("crew-title").textContent = title || "";
+    const face = $("crew-face");
+    face.innerHTML = "";
+    const pic = spriteCopy("crewFace", { who: id });
+    if (pic) face.appendChild(pic);
+    face.classList.toggle("hidden", !pic);
+    $("crew-names").classList.add("hidden");
+    crewHint("");
+    crewReward("");
+  }
+  function crewSetText(text) {
+    $("crew-text").innerHTML = paragraphs(text);
+  }
+  /** "You get: 30 scrap and 1 medical kit. From now on: +1 food every day. Trust +5." */
+  function crewRewardLine(res, id) {
+    const parts = [];
+    const got = State.rewardWords ? State.rewardWords(res.reward) : "";
+    if (got) parts.push("You get: " + got + ".");
+    const perk = (res.reward && res.reward.perk) || {};
+    const lasting = Object.entries(perk).map(([k, v]) => (PERK_WORDS[k] ? PERK_WORDS[k](v) : "")).filter(Boolean);
+    if (lasting.length) parts.push("From now on: " + lasting.join(", ") + ".");
+    const gain = ((W.CREW_RULES || {}).gain || {})[res.kind === "errand" ? "errand" : "quest"];
+    if (gain) parts.push(ZSR.crewName(id) + "'s trust +" + gain + ".");
+    return parts.join(" ");
+  }
+  /** Show the card for one action. Returns false (and shows nothing) when there is nothing to show now.
+      finish(result) closes it: offer -> { accepted, kind, id, title }; handIn -> State.handIn's
+      { kind, def, reward }; name -> { name } (null when not named). */
+  function crewCardShow(id, action, finish) {
+    const name = ZSR.crewName(id);
+    crewCard = { id, action, primary: null, cancel: null };
+    let focus = null;
+    if (action === "offer") {
+      const o = State.offer(id);
+      if (!o || !o.def) return false;
+      const vars = State.requestVars(o);
+      const title = ZSR.crewFill(ZSR.crewText(o.kind, o.def.id, "title"), vars);
+      const text = ZSR.crewFill(ZSR.crewText(o.kind, o.def.id, "brief"), vars);
+      crewFrame(id, name + " asks", title);
+      crewSetText(text);
+      crewSeen(o.kind + ":" + o.def.id + ":brief", text);
+      crewReward(vars.reward ? "Reward: " + vars.reward + "." : "");
+      const no = () => finish({ accepted: false, kind: o.kind, id: o.def.id, title });
+      crewCard.cancel = no;
+      focus = crewButtons([
+        { label: "Not now", cls: "alt", onClick: no },
+        { label: "I'll do it", cls: "big go", primary: true, onClick: () => finish({ accepted: !!State.accept(id, o), kind: o.kind, id: o.def.id, title }) },
+      ]);
+    } else if (action === "handIn") {
+      const r = State.request(id);
+      if (!r || !State.requestReady(r)) return false;
+      const vars = State.requestVars(r); // before the payout: an errand's count and item go with it
+      const res = State.handIn(id, r.def.id); // pays out this request, once: the card is open from here on
+      if (!res) return false;
+      const title = ZSR.crewFill(ZSR.crewText(res.kind, res.def.id, "title"), vars);
+      const text = ZSR.crewFill(ZSR.crewText(res.kind, res.def.id, "done"), vars);
+      crewFrame(id, name + " says thanks", title);
+      crewSetText(text);
+      crewSeen(res.kind + ":" + res.def.id + ":done", text);
+      crewReward(crewRewardLine(res, id));
+      const close = () => finish(res);
+      crewCard.cancel = close;
+      focus = crewButtons([{ label: "You're welcome", cls: "big go", primary: true, onClick: close }]);
+    } else if (action === "name") {
+      if (!State.dogHome || !State.dogHome() || State.dogName()) return false;
+      const ask = ZSR.crewFill(ZSR.crewText("dog", null, "ask"));
+      crewFrame(id, name + " asks", "Name the dog");
+      crewSetText(ask);
+      crewSeen("dog:ask", ask);
+      const box = $("crew-names");
+      box.classList.remove("hidden", "named");
+      const dog = $("crew-dog");
+      dog.innerHTML = "";
+      const pic = spriteCopy("crewDog", { pose: "sit", f: 0 });
+      if (pic) dog.appendChild(pic);
+      const named = (clean) => {
+        // the name is kept: say so, then one button closes
+        const words = ZSR.crewFill(ZSR.crewText("dog", null, "named"), { dog: clean });
+        box.classList.add("named"); // the dog stays in the picture; the name buttons go
+        crewHint("");
+        $("crew-title").textContent = clean;
+        crewSetText(words);
+        crewSeen("dog:named", words);
+        const close = () => finish({ name: clean });
+        crewCard.cancel = close;
+        const btn = crewButtons([{ label: "Good dog", cls: "big go", primary: true, onClick: close }]);
+        crewCardFit();
+        if (btn) btn.focus({ preventScroll: true });
+      };
+      const tryName = (raw) => {
+        const clean = State.nameDog(raw);
+        if (!clean) {
+          crewHint("Use letters for the name: 1 to " + $("crew-dogname").maxLength + " of them.");
+          $("crew-dogname").focus();
+          return;
+        }
+        Audio.play("correct");
+        named(clean);
+      };
+      const ideas = $("crew-ideas");
+      ideas.innerHTML = "";
+      ((W.DOG && W.DOG.ideas) || []).forEach((idea) => {
+        const b = document.createElement("button");
+        b.className = "btn cc-idea";
+        b.textContent = idea;
+        b.addEventListener("click", () => tryName(idea));
+        ideas.appendChild(b);
+      });
+      const input = $("crew-dogname");
+      input.value = "";
+      $("btn-crew-name").onclick = () => tryName(input.value);
+      const no = () => finish({ name: null });
+      crewCard.cancel = no;
+      crewButtons([{ label: "Not now", cls: "alt", onClick: no }]);
+      focus = input;
+    } else return false;
+    $("screen-crew").classList.remove("hidden");
+    crewCardFit();
+    // after this key press is done, so the E that opened the card never lands in the name box
+    // (no scrolling to it: crewCardFit chose what shows first)
+    if (focus) setTimeout(() => crewCardOpen() && focus.focus({ preventScroll: true }), 30);
+    return true;
+  }
+  /** Where a card opens. At its top, unless it is taller than the window and scrolling it down far enough to show
+      its buttons still keeps the start of the words in view (a short window at Normal or Large): then there, so
+      the words and the buttons show together. At Huge the words come first: it opens at its top. */
+  function crewCardFit() {
+    const panel = $("crew-panel");
+    panel.scrollTop = 0;
+    const over = panel.scrollHeight - panel.clientHeight;
+    if (over <= 0) return;
+    const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16;
+    const above = $("crew-text").getBoundingClientRect().top - panel.getBoundingClientRect().top - rem; // the tape strips stay in view
+    if (over <= above) panel.scrollTop = over;
+  }
+  /** The card is a modal dialog: Tab and Shift+Tab go round its own buttons (and the name box), never out to the
+      HUD buttons behind it. */
+  function crewCardTab(back) {
+    const list = Array.from($("crew-panel").querySelectorAll("button, input")).filter((b) => !b.disabled && b.offsetParent !== null);
+    if (!list.length) return;
+    const i = list.indexOf(document.activeElement);
+    const next = back ? list[i <= 0 ? list.length - 1 : i - 1] : list[i < 0 || i >= list.length - 1 ? 0 : i + 1];
+    next.focus();
+  }
+  /** Close the card (no callback). */
+  function crewCardHide() {
+    crewCard = null;
+    $("screen-crew").classList.add("hidden");
+    if (document.activeElement && $("screen-crew").contains(document.activeElement)) document.activeElement.blur();
+  }
 
   /* ---------- Settings ---------- */
   function applySettings() {
@@ -185,7 +421,7 @@
     };
     loop();
   }
-  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D, the arrow keys or the side buttons change lanes. Your left lane goes straight past side streets. Where roads meet there is one lane per road, and one for the drive of a place there, and yours may turn: match the arrow on the sign and be in that lane before the white stop line. To park, take your destination's drive.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, M opens the map of a building, P or Esc pauses.", "E does it all: reads notes, opens and closes doors (the cabin's too), uses keypads, stuck locks, drawers and alarm panels (do exactly what the note says), tries a key at a stash, leaves a building, uses the computer and the things in the cabin, rings the dinner bell, starts the van, and fixes a hole in the fence (1 scrap) or a broken door or window (2 scrap).", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Guns: more guns are hidden in buildings around town. Walk over one to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns. Hold to draw the bow, let go to shoot. Mod guns with scrap in the cabin's Weapons tab.", "Fishing: the pole is 6 (or Q). Click to cast at the water, click again when the float dips. Take a gun with the line out and the pole stays propped on the bank; E at it takes it back.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
+  const CONTROLS_FALLBACK = ["Road: aim with the mouse, hold to fire. A and D, the arrow keys or the side buttons change lanes. Your left lane goes straight past side streets. Where roads meet there is one lane per road, and one for the drive of a place there, and yours may turn: match the arrow on the sign and be in that lane before the white stop line. To park, take your destination's drive.", "Inside and in the yard: W A S D move, the mouse looks, click fires, Shift runs, B opens the backpack, M opens the map of a building, P or Esc pauses.", "E does it all: reads notes, opens and closes doors (the cabin's too), uses keypads, stuck locks, drawers and alarm panels (do exactly what the note says), tries a key at a stash, leaves a building, uses the computer and the things in the cabin, rings the dinner bell, starts the van, and fixes a hole in the fence (1 scrap), a broken door or window (2 scrap) or a wrecked build (3 scrap).", "Traps in the yard: T sets a spike trap, R a blast trap, on the ground in front of you or just past the fence.", "Guns: more guns are hidden in buildings around town. Walk over one to pick it up; bring it home to keep it. 1 to 5, Q or the mouse wheel switch guns. Hold to draw the bow, let go to shoot. Mod guns with scrap in the cabin's Weapons tab.", "Fishing: the pole is 6 (or Q). Click to cast at the water, click again when the float dips. Take a gun with the line out and the pole stays propped on the bank; E at it takes it back.", "Backpack: notes you have read, and medical kits. Use a kit to heal to full.", "Workbench: building and upgrading is a short typing round. Type what is on the screen before the timer runs out; out of time just means try again.", "Map: tap a place, then Drive. At a place you can go back inside."];
   function renderHowto() {
     const t = ZSR.text();
     const body = $("howto-body");
@@ -227,6 +463,7 @@
     active = "yard";
     showCanvas("fp");
     Interior.enterYard(opts);
+    Tutorial.enter("yard");
   }
   /** Copy the yard's fence and traps into the save and write it. Never in the middle of a wave:
       a wave is saved only once it is cleared, so dying in it reloads the state before it began. */
@@ -246,6 +483,7 @@
         onClose() {
           Interior.refreshYard();
           Interior.resume();
+          Tutorial.note("computer");
         },
         onChanged(key) {
           Interior.refreshYard({ rebuildFence: key === "walls" });
@@ -263,12 +501,26 @@
           syncYard();
           return n;
         },
+        // the room builds the wreckers clawed (js/yardwreck.js): { wrecked, cracked }, and "Fix all"
+        buildDamage: () => Interior.buildDamage(),
+        onRepairBuilds() {
+          const n = Interior.repairAllBuilds();
+          syncYard();
+          return n;
+        },
       });
     },
-    /** The radio shelf in the living room: June's journal and the radio, every day so far. */
-    onJournal() {
+    /** The radio shelf in the dining room: today's news if it is still waiting (tune in), else June's
+        journal and the radio, every day so far. */
+    onRadio() {
       Interior.pause();
-      Backpack.openDays(() => Interior.resume());
+      const news = State.roomLevel("radio") > 0 ? State.radioWaiting() : null; // a wrecked tower hears nothing
+      if (news) {
+        Backpack.tuneIn(news, () => {
+          State.commit(); // keeps the "tuned" mark (words read) on the saved day
+          Interior.resume();
+        });
+      } else Backpack.openDays(() => Interior.resume());
     },
     /** The typewriter in the play room: a free typing round. */
     onPractice() {
@@ -307,6 +559,46 @@
         }
       );
     },
+    /** A crew member's card from the talk bubble (js/crew.js): offer, handIn or name. The yard waits while it is
+        open; on close Interior.crewCardDone(id, action, result) hears how it went, then the yard runs and is saved. */
+    onCrewCard(id, action) {
+      if (crewCardOpen()) return; // one card at a time
+      const done = (result) => {
+        try {
+          if (Interior.crewCardDone) Interior.crewCardDone(id, action, result);
+        } finally {
+          // crewCardDone may open the next card (the dog's name after its thank-you): the yard waits for that one
+          if (!crewCardOpen()) Interior.resume();
+          syncYard();
+        }
+      };
+      let finished = false;
+      const finish = (result) => {
+        if (finished) return;
+        finished = true;
+        crewCardHide();
+        done(result);
+        if (action === "offer" && result && result.accepted) Interior.toast("You said yes: " + result.title + ". Read it again in the backpack (B).", 4);
+      };
+      // a wave locks the crew in the shelter (js/crew.js never asks then): nothing is shown or paid mid-wave.
+      // Nothing to show (the offer or the hand-in is gone): the yard never stops
+      const wave = Interior.mode === "yard" && Interior.phase && Interior.phase.kind === "wave";
+      let shown = false;
+      try {
+        shown = !wave && crewCardShow(id, action, finish);
+      } catch (e) {
+        // a missing text or picture never leaves the yard stuck behind a half-drawn card
+        if (root.console) root.console.error(e);
+        crewCardHide();
+      }
+      if (!shown) {
+        crewCard = null;
+        finished = true;
+        done(null);
+        return;
+      }
+      Interior.pause();
+    },
     onWaveCleared() {
       syncYard();
     },
@@ -323,6 +615,7 @@
     $("map-btn-yard").classList.toggle("hidden", at !== "base");
     show("screen-map");
     Map.show(at);
+    Tutorial.enter("map");
   }
   function drive(destId) {
     if (!State.trip) return goYard();
@@ -337,6 +630,7 @@
     active = "road";
     // the road follows the route the map showed; a wrong turn asks what next (onWrongTurn)
     Game.startTrip({ to: destId, name: loc.name, seconds: secs, danger: loc.danger, path: r.path });
+    Tutorial.enter("road");
   }
   /** A wrong turn on the road: try the drive again, open the town map, or go back where the van set out. */
   function onWrongTurn(info) {
@@ -373,6 +667,25 @@
     Map.hide();
     goYard({ firstCalm: 30 });
   }
+  /** The start of the home toast, saying what came home besides the cargo (plain English, like the card's lines):
+      "Home.", "Home with the dog.", "Home. You brought back the roll of knee tape for June." (story objects and the
+      dog this trip brings home: js/crewstate.js crewTripHome makes them found). */
+  function homeWords(t) {
+    const S = State;
+    const quests = (W.QUESTS || []).filter((q) => q && S.questState && S.questState(q.id) === "active");
+    const dog = !!t.dog && quests.some((q) => q.kind === "dog" && (!t.dogQuest || t.dogQuest === q.id));
+    const objs = quests.filter((q) => q.kind !== "dog" && (t.quest || []).includes(q.id));
+    const names = objs.map((q) => {
+      const title = ZSR.crewFill(ZSR.crewText("quest", q.id, "title")).trim() || (q.object && q.object.name) || "";
+      // a label in running text: "the roll of knee tape"; a possessive keeps its capital ("Rosa's jar of beans"),
+      // a title with its own article keeps it ("The old map" -> "the old map")
+      const low = title.charAt(0).toLowerCase() + title.slice(1);
+      const what = /^\S+'s\b/.test(title) ? title : /^(the|a|an) /i.test(title) ? low : "the " + low;
+      return what + " for " + ZSR.crewName(q.giver);
+    });
+    const list = names.length < 2 ? names.join("") : names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
+    return "Home" + (dog ? " with the dog" : "") + "." + (list ? " You brought back " + list + "." : "");
+  }
   function onArrive(destId) {
     if (!State.trip) return goYard();
     State.trip.at = destId;
@@ -380,8 +693,10 @@
     if (destId === "base") {
       const t = State.trip;
       const cargo = Object.values(t.cargo).reduce((a, b) => a + b, 0);
+      const brought = homeWords(t); // before returnHome makes them found
       State.returnHome();
-      goYardWithDay({ firstCalm: W.DEFENSE.firstCalmSeconds }, () => Interior.toast("Home. " + cargo + " item" + (cargo === 1 ? "" : "s") + " unloaded. Day " + State.save.day + ". Saved.", 4));
+      const said = brought + (cargo ? " " + cargo + " item" + (cargo === 1 ? "" : "s") + " unloaded." : "");
+      goYardWithDay({ firstCalm: W.DEFENSE.firstCalmSeconds }, () => Interior.toast(said + " Day " + State.save.day + ". Saved.", 4));
       return;
     }
     const dest = W.LOCATIONS.find((l) => l.id === destId);
@@ -396,13 +711,16 @@
     const door = W.NOTES[destId].door;
     State.trip.atDoor = destId;
     hideScreens();
-    Backpack.read(destId, door.id, {
-      isDoor: true,
-      found: door.found,
-      primary: "Go in",
-      secondary: { label: "Back to the map", action: () => openMap(destId) },
-      onClose: () => enterBuilding(loc),
-    });
+    // the first door: June's card on the door note comes first
+    Tutorial.first("door", () =>
+      Backpack.read(destId, door.id, {
+        isDoor: true,
+        found: door.found,
+        primary: "Go in",
+        secondary: { label: "Back to the map", action: () => openMap(destId) },
+        onClose: () => enterBuilding(loc),
+      })
+    );
   }
   /** From the map, at a place: straight back in once the door note has been read. */
   function reenter(destId) {
@@ -419,6 +737,7 @@
     showCanvas("fp");
     active = "building";
     Interior.enter(loc);
+    Tutorial.enter("building");
   }
   /** River Landing: out of the van on the dirt turnout, the dock and the river ahead. */
   function enterRiver(loc) {
@@ -427,6 +746,7 @@
     showCanvas("fp");
     active = "river";
     Interior.enterRiver(loc);
+    Tutorial.enter("river");
   }
 
   /* ---------- Building hooks ---------- */
@@ -450,7 +770,7 @@
 
   /* ---------- Shared: pause, backpack, death ---------- */
   function overlayOpen() {
-    return ["screen-pause", "screen-note", "screen-backpack", "screen-base", "screen-bench", "screen-confirm", "screen-wrong", "screen-lock"].some((id) => $(id) && !$(id).classList.contains("hidden"));
+    return ["screen-pause", "screen-note", "screen-backpack", "screen-base", "screen-bench", "screen-confirm", "screen-wrong", "screen-lock", "screen-crew", "screen-tutorial"].some((id) => $(id) && !$(id).classList.contains("hidden"));
   }
   function pauseActive() {
     if (active === "road" && Game.running && !Game.paused) Game.pause();
@@ -464,10 +784,14 @@
   function onPause() {
     if (overlayOpen()) return;
     pauseActive();
-    $("pause-note").textContent = active === "yard" ? "The base is saved after every wave, build and repair." : "Nothing since your last save at the cabin is kept if you quit.";
+    $("pause-note").textContent = State.god ? "God mode: nothing is saved. Type !godmode for the god menu." : active === "yard" ? "The base is saved after every wave, build and repair." : "Nothing since your last save at the cabin is kept if you quit.";
+    const can = Tutorial.canReplay(active); // never in a wave: the pause menu is no place to hide from one
+    $("btn-pause-tutorial").disabled = !can;
+    $("btn-pause-tutorial").title = can ? "" : "Not during a wave";
     show("screen-pause");
   }
   function onPauseKey() {
+    if (crewCardOpen()) return; // the crew card takes Esc itself ("Not now"); P does nothing there
     if (!$("screen-confirm").classList.contains("hidden")) {
       $("screen-confirm").classList.add("hidden"); // Esc answers "No", or cancels when the dialog says how
       const cancel = confirmCancel;
@@ -479,11 +803,16 @@
     else onPause();
   }
   function onBackpack() {
-    if (!$("screen-backpack").classList.contains("hidden")) return;
+    // never over the crew card or a tutorial card (its HUD button sits behind the card): the card is answered first
+    if (crewCardOpen() || Tutorial.isOpen() || !$("screen-backpack").classList.contains("hidden")) return;
     pauseActive();
-    Backpack.open(() => resumeActive());
+    Backpack.open(() => {
+      resumeActive();
+      Tutorial.note("bag"); // the tutorial's backpack step: B or the HUD button, opened and closed again
+    });
   }
   function onDeath() {
+    Tutorial.enter(null);
     showCanvas(null);
     const t = State.trip;
     const stats = $("death-stats");
@@ -506,13 +835,85 @@
     goYard();
   }
   function quitToTitle() {
+    Tutorial.enter(null);
     Game.stop();
     Interior.leave();
     showCanvas(null);
+    if (State.god) {
+      // the title is the real game: quitting there ends god mode, and the real save and settings come back
+      State.godEnd();
+      applySettings();
+      if (ZSR.God) ZSR.God.sync();
+    }
     State.loadSave(); // resync memory to the disk save; drops the trip and any uncommitted yard scrap
     active = null;
     show("screen-title");
     refreshTitle();
+  }
+
+  /* ---------- God mode (js/god.js): the owner's test sandbox. Nothing is saved while it is on ---------- */
+  /** Close whatever is up and stop whatever runs: a card or menu, the road, a building, the yard, the map.
+      False, with nothing touched, while a lock prompt is open: it closes only through its own keys (Esc). */
+  function godClear() {
+    if (ZSR.Locks && ZSR.Locks.isOpen()) return false;
+    Tutorial.enter(null); // a tutorial card or "Now you try" is dropped; the next screen shows its own
+    if (ZSR.Typing && ZSR.Typing.isOpen()) ZSR.Typing.close();
+    if (!$("screen-base").classList.contains("hidden")) Base.close();
+    if (!$("screen-backpack").classList.contains("hidden")) Backpack.close();
+    crewCardHide();
+    $("screen-confirm").classList.add("hidden");
+    confirmCancel = null;
+    Game.stop();
+    if (firstPerson()) Interior.leave();
+    Map.hide();
+    hideScreens();
+    showCanvas(null);
+    active = null;
+    return true;
+  }
+  /** Start god mode on a copy of the loaded save (or a fresh one) and go to the yard. */
+  function godBegin(fresh) {
+    if (!godClear()) return false;
+    State.godStart(fresh || !State.save);
+    applySettings();
+    goYard({ firstCalm: W.DEFENSE.firstCalmSeconds });
+    return true;
+  }
+  /** Go anywhere in god mode. where: { kind: "yard" } | { kind: "drive", from, to } (the road, from any place)
+      | { kind: "jump", to } (out of the van at the door) | { kind: "inside", to } (straight in, no door note).
+      Every trip starts fresh from the sandbox's base save. False when it could not go. */
+  function godGo(where) {
+    const w = where || {};
+    if (!State.god || !godClear()) return false;
+    const loc = W.LOCATIONS.find((l) => l.id === w.to);
+    if (w.kind === "yard" || !loc || (w.to === "base" && w.kind !== "drive")) {
+      State.trip = null;
+      goYard({ firstCalm: W.DEFENSE.firstCalmSeconds });
+      return true;
+    }
+    State.startTrip();
+    if (w.kind === "drive") {
+      const from = w.from || "base";
+      State.trip.at = from;
+      if (from === w.to || !Map.route(from, w.to)) {
+        openMap(from);
+        return false;
+      }
+      drive(w.to);
+      return true;
+    }
+    State.trip.at = w.to;
+    if (w.kind === "inside") {
+      if (loc.outdoor) enterRiver(loc);
+      else enterBuilding(loc);
+    } else onArrive(w.to);
+    return true;
+  }
+  /** Leave god mode for the title screen (the sandbox is dropped). */
+  function godExit() {
+    if (!godClear()) return false;
+    quitToTitle();
+    return true;
   }
 
   /* ---------- Full screen ---------- */
@@ -618,6 +1019,13 @@
       renderHowto();
       show("screen-howto");
     });
+    // June's tutorial from the start: every card and the yard part again (off in a wave, onPause)
+    $("btn-pause-tutorial").addEventListener("click", () => {
+      Audio.play("click");
+      if (!Tutorial.canReplay(active)) return;
+      resumeActive(); // the pause menu goes; the card is not in SCREENS, so nothing hides it after
+      Tutorial.replay(active); // this screen's card shows now (the yard's in a moment)
+    });
     $("btn-pause-settings").addEventListener("click", () => {
       settingsReturn = "screen-pause";
       show("screen-settings");
@@ -637,17 +1045,76 @@
       State.abandonTrip();
       quitToTitle();
     });
+    // the crew card: Enter is its main button, Esc is "Not now" (or closes). On the document, so the yard's own
+    // key handler on the window never sees them; a focused button or the name box answers Enter itself
+    document.addEventListener("keydown", (e) => {
+      if (!crewCard || !crewCardOpen() || !$("screen-confirm").classList.contains("hidden")) return;
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (crewCard.cancel) crewCard.cancel();
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        e.stopPropagation();
+        crewCardTab(e.shiftKey);
+      } else if (e.key === "Enter") {
+        const t = e.target;
+        if (t && (t.tagName === "BUTTON" || t.tagName === "INPUT") && $("screen-crew").contains(t)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        if (crewCard.primary) crewCard.primary();
+      }
+    });
+    // B closes the backpack it opens (from anywhere the backpack is up). On the document and stopped there, so the
+    // game's own handler on the window never sees it and opens the backpack again once the close resumes play
+    document.addEventListener("keydown", (e) => {
+      if (e.code !== "KeyB" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      if ($("screen-backpack").classList.contains("hidden") || !$("screen-confirm").classList.contains("hidden")) return;
+      const tag = e.target && e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      e.preventDefault();
+      e.stopPropagation();
+      Backpack.close();
+    });
+    // E steps away from the computer it opens, the same way, so the yard never sees it and opens the computer again.
+    // Not while something sits over the menu (the workbench, the backpack, a question, a tutorial card, a lock)
+    document.addEventListener("keydown", (e) => {
+      if (e.code !== "KeyE" || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+      if ($("screen-base").classList.contains("hidden") || !$("screen-backpack").classList.contains("hidden") || !$("screen-confirm").classList.contains("hidden")) return;
+      if ((ZSR.Typing && ZSR.Typing.isOpen()) || (ZSR.Locks && ZSR.Locks.isOpen()) || Tutorial.isOpen() || crewCardOpen()) return;
+      const tag = e.target && e.target.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      e.preventDefault();
+      e.stopPropagation();
+      Audio.play("click");
+      Base.close();
+    });
+    // the dog's name box: typing stays in the box (P, E and the rest never reach the yard); Enter names, Esc cancels
+    $("crew-dogname").addEventListener("keydown", (e) => {
+      e.stopPropagation();
+      if (e.key === "Enter") {
+        e.preventDefault();
+        $("btn-crew-name").click();
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        if (crewCard && crewCard.cancel) crewCard.cancel();
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        crewCardTab(e.shiftKey);
+      }
+    });
   }
 
   document.addEventListener("DOMContentLoaded", () => {
     Game.init($("game"), { onArrive, onWrongTurn, onDeath, onPause, onPauseKey });
     Interior.init($("fp"), {
       onComputer: () => yardHooks.onComputer(),
-      onJournal: () => yardHooks.onJournal(),
+      onRadio: () => yardHooks.onRadio(),
       onPractice: () => yardHooks.onPractice(),
       onVan: () => yardHooks.onVan(),
       onWaveCleared: () => yardHooks.onWaveCleared(),
       onYardChanged: () => yardHooks.onYardChanged(),
+      onCrewCard: (id, action) => yardHooks.onCrewCard(id, action),
       onReadNote: (n, loc) => buildingHooks.onReadNote(n, loc),
       onExit: () => buildingHooks.onExit(),
       onDeath,
@@ -655,6 +1122,7 @@
       onPauseKey,
       onBackpack,
     });
+    if (ZSR.TutorialUI) ZSR.TutorialUI.init(); // June's card, panel and arrow; while a card is up it holds every key
     Map.init($("map-canvas"), { onDrive: drive, onEnter: reenter });
     if (ZSR.Typing && ZSR.Typing.init) ZSR.Typing.init();
     wire();
@@ -663,5 +1131,8 @@
     show("screen-title");
   });
 
-  ZSR.Main = { syncYard };
+  // syncYard: js/crew.js and js/backpack.js save the base through it; confirm: the Yes/No dialog (the backpack's
+  // "Give it up"); onCrewCard: the crew card, as js/crew.js opens it through the yard's hooks
+  // god: js/god.js drives the screens through these (begin, go, exit)
+  ZSR.Main = { syncYard, confirm, onCrewCard: (id, action) => yardHooks.onCrewCard(id, action), god: { begin: godBegin, go: godGo, exit: godExit } };
 })(typeof globalThis !== "undefined" ? globalThis : this);

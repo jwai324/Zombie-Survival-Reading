@@ -16,6 +16,9 @@
   const PAPER3 = "#f3eee0";
   const AMBER = "#d9a21b";
   const TAU = Math.PI * 2;
+  // SCALE: the whole city fits this fixed board. index.html's canvas, the CSS aspect-ratio (10/7), the test bounds in
+  // tests/validate-streets.js and the hand-drawn river, hills, DISTRICTS and compass all assume it. A bigger city
+  // changes them together (docs/SCALING.md).
   const MW = 1000; // the board in map units
   const MH = 700;
   const ZMIN = 1;
@@ -38,6 +41,17 @@
     return e;
   }
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  /** The crew's story quests whose object (or the dog) still waits in this building (js/crewstate.js questsAt). */
+  const questsAt = (id) => (State().questsAt ? State().questsAt(id) : []);
+  const crewColor = (giver) => ((W().CREW || {})[giver] || {}).color || AMBER;
+  /** "June asked you to find: Bag of sunflower seeds" / "Pip asked you to bring home the dog in here." (a stray:
+      not anyone's dog until it is home) */
+  function questLine(q) {
+    const who = ZSR.crewName ? ZSR.crewName(q.giver) : q.giver;
+    if (q.kind === "dog") return who + " asked you to bring home the dog in here.";
+    const title = ZSR.crewText ? ZSR.crewFill(ZSR.crewText("quest", q.id, "title")) : (q.object && q.object.name) || q.id;
+    return who + " asked you to find: " + title;
+  }
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const unit = (x, y) => {
     const d = Math.hypot(x, y) || 1;
@@ -443,7 +457,10 @@
         if (huge) {
           const list = el("div", "btn-col");
           W().LOCATIONS.filter((l) => S.isKnown(l.id) && l.id !== this.at).forEach((l) => {
-            const b = el("button", "btn", esc(l.name));
+            // the board (and its quest marks) is hidden at this size: the list says whose request waits there
+            // each giver once, even with two of their requests in one place
+            const who = Array.from(new Set(questsAt(l.id).map((q) => (ZSR.crewName ? ZSR.crewName(q.giver) : q.giver))));
+            const b = el("button", "btn", esc(l.name) + (who.length ? " (" + esc(who.join(", ")) + ")" : ""));
             b.addEventListener("click", () => this.select(l.id));
             list.appendChild(b);
           });
@@ -466,6 +483,12 @@
       info.appendChild(el("p", "small muted", esc(TYPE_LABEL[loc.type] || loc.type) + (loc.id === "base" ? "" : " · " + (fx.showDanger || S.locState(id).visits ? "danger " + loc.danger + " of 5" : "danger unknown"))));
       const blurb = loc.outdoor ? ZSR.riverText && ZSR.riverText("blurb") : t && t.locations && t.locations[id] && t.locations[id].blurb;
       if (blurb) info.appendChild(el("p", null, esc(blurb)));
+      // a crew request waiting in here, in the giver's color (the same mark as on the board)
+      questsAt(id).forEach((q) => {
+        const p = el("p", "small map-quest", esc(questLine(q)));
+        p.style.borderLeftColor = crewColor(q.giver);
+        info.appendChild(p);
+      });
       if (loc.outdoor) {
         // River Landing: no shelves, just the river; the pole is what you need
         const left = S.fishLeft();
@@ -933,6 +956,7 @@
       for (let y = 4 + Math.max(0, Math.floor((vy0 - 4) / 8)) * 8; y < Math.min(MH, vy1 + 8); y += 8)
         for (let x = 4 + ((y / 8) % 2) * 4 + Math.max(0, Math.floor((vx0 - 8) / 8)) * 8; x < Math.min(MW, vx1 + 8); x += 8) ctx.rect(x - 0.8 * ik, y - 0.8 * ik, 1.6 * ik, 1.6 * ik);
       ctx.fill();
+      // SCALE: the same curve, in map units, is drawn on the road (js/sprites.js riverBand): change both together
       const river = () => {
         ctx.beginPath();
         ctx.moveTo(40, 120);
@@ -1176,7 +1200,8 @@
       });
     },
 
-    drawIcon(ctx, l, selected, hover, fx, k) {
+    /** A place's building at (l.x, l.y), icon scale k. bare: just the building (the road's minimap), no danger pips or cache marker. */
+    drawIcon(ctx, l, selected, hover, fx, k, bare) {
       const S = State();
       const size = iconSize(l);
       ctx.save();
@@ -1255,7 +1280,7 @@
       ctx.fillRect(-size * 0.75, -size * 0.1, size * 0.4, size * 0.35);
       ctx.fillRect(size * 0.35, -size * 0.1, size * 0.4, size * 0.35);
       // danger pips
-      if (l.id !== "base" && (fx.showDanger || S.locState(l.id).visits)) {
+      if (!bare && l.id !== "base" && (fx.showDanger || S.locState(l.id).visits)) {
         for (let i = 0; i < 5; i++) {
           ctx.fillStyle = i < l.danger ? (l.danger >= 4 ? "#b3261e" : AMBER) : PAPER3;
           ctx.fillRect(-size + i * 10, size * 0.95, 8, 6);
@@ -1265,7 +1290,7 @@
         }
       }
       // cache marker
-      if (l.id !== "base" && !l.outdoor && fx.mapShowsCaches && !S.locState(l.id).cacheOpened) {
+      if (!bare && l.id !== "base" && !l.outdoor && fx.mapShowsCaches && !S.locState(l.id).cacheOpened) {
         ctx.fillStyle = "#b3261e";
         ctx.beginPath();
         ctx.arc(size, -size * 0.4, 7, 0, TAU);
@@ -1273,6 +1298,35 @@
         ctx.strokeStyle = INK;
         ctx.lineWidth = 2;
         ctx.stroke();
+      }
+      // crew quest markers: a diamond in the giver's color for each story object (or the dog) waiting inside,
+      // on the corner opposite the cache marker, side by side (at most two quest spots a building). A paper ring
+      // outside its ink edge keeps it apart from any roof, a giver's color on a roof of the same color too
+      // (Tomas's navy on Reyes Hardware's navy roof): on a dark roof the paper ring shows, on a light one the ink
+      if (l.id !== "base") {
+        questsAt(l.id).forEach((q, i) => {
+          const x = -size - 2 + i * 21;
+          const y = -size * 0.75;
+          ctx.beginPath();
+          ctx.moveTo(x, y - 12);
+          ctx.lineTo(x + 10, y);
+          ctx.lineTo(x, y + 12);
+          ctx.lineTo(x - 10, y);
+          ctx.closePath();
+          ctx.lineJoin = "round";
+          ctx.strokeStyle = PAPER3;
+          ctx.lineWidth = 7.5;
+          ctx.stroke();
+          ctx.fillStyle = crewColor(q.giver);
+          ctx.fill();
+          ctx.strokeStyle = INK;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.beginPath();
+          ctx.arc(x, y, 3, 0, TAU);
+          ctx.fillStyle = PAPER3;
+          ctx.fill();
+        });
       }
       ctx.restore();
     },

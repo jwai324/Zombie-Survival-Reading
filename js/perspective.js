@@ -8,7 +8,7 @@
    The road sign, the names over the buildings, the HUD and the minimap stay flat.
    The camera is pitched down cfg.pitch degrees; the van sits at cfg.vanAt of the screen's height, drawn
    cfg.scale times the road's zoom; ground past cfg.far fades into haze.
-   Walkers are the interiors' standing sprites (sprites3d.js Draw3.walker); they come in from far down the road and
+   Walkers are the interiors' live 3D figures (js/walker3d.js Walker3D.draw), each in its own canvas; they come in from far down the road and
    out of the overgrowth at the sides (spawn), small at first. The van is a box in the yard van's own faces
    (Draw3.texture), the top-down art on its roof and a roof gun standing on it. A shot leaves the barrels and drops
    to chest height (AIM_Z) where the pointer is, so on the screen it flies at the pointer. */
@@ -29,6 +29,12 @@
   const FADE_IN = 0.5; // seconds a new walker takes to come out of the weeds
   const TEX_RES = 3; // the van's faces, drawn sharper than the yard's
   const NEAR_PX = 6; // px a world unit: nearer the camera than this, nothing is drawn (the van is about 2)
+  // MERGE TRIAL: the walkers are the interiors' live 3D figures (js/walker3d.js), stood up as billboards
+  const TILE = 56; // road units a tile (game.js DIFF.pxPerTile): Walker3D's sizes are in tiles
+  const LIFE = 1.12; // a little over life size (the branch's r * 3.2 for a plain walker), so one far off reads
+  const LIVE_MAX_PX = 200; // SCALE: the tallest a walker's own canvas is drawn; taller on screen scales it up
+  const LIVE_EYE = 0.5; // tiles: the height Walker3D's camera looks from (the interiors' eye)
+  const normA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
   const Persp = {
     cfg: { pitch: 30, fov: 60, vanAt: 0.8, scale: 1.55, far: 3600 },
@@ -218,7 +224,8 @@
     /** How tall a walker stands, in world units: about the van's roof (50), brutes well over it. A little over
         life size, so a walker down the road still reads as a target. */
     walkerH(z) {
-      return z.r * 3.2;
+      const M = ZSR.Walker3D;
+      return M ? M.box(z.type, false).h * TILE * LIFE : z.r * 3.2;
     },
 
     /** Ground layers from the bottom of the screen to the far edge, each reaching twice as deep as the last. */
@@ -635,9 +642,9 @@
         ZSR.Draw.prop(ctx, { kind: "crate", x: 0, y: 0, t: c.t });
       });
     },
-    /** A walker: the interiors' standing sprite on its feet, two walk frames at their pace and a lurch. New ones
-        fade in; one right behind the van's back doors (between it and the camera) is see-through, so it never hides
-        the van. One beside the van is drawn solid, in front of the van or behind it as it stands. */
+    /** A walker: the interiors' live 3D figure (Walker3D) on its feet, turned as it faces from this camera, walking,
+        screaming or clawing at the van, flashing when hit. New ones fade in; one right behind the van's back doors
+        (between it and the camera) is see-through, so it never hides the van. */
     walker(g, ctx, z) {
       let a = z.born == null ? 1 : clamp((g.time - z.born) / FADE_IN, 0, 1);
       const van = g.van;
@@ -647,13 +654,125 @@
       const lx = (z.x - van.x) * -fy + (z.y - van.y) * fx;
       if (ly < -van.h / 2 + 6 && ly > -van.h / 2 - 140 && Math.abs(lx) < van.w / 2 + z.r) a *= 0.45;
       const foot = this.project(z.x, z.y, 0);
-      if (a <= 0 || !foot) return;
-      const frame = Math.floor((g.time + z.phase) / ((0.35 * 55) / Math.max(20, z.speed))) % 2;
+      const M = ZSR.Walker3D;
+      if (a <= 0 || !foot || !M) return;
       ctx.save();
       ctx.globalAlpha *= a;
-      this.shadow(ctx, z.x, z.y, z.r * 0.95, z.r * 0.7, 0, 0.18);
-      const H = this.walkerH(z);
-      this.billboard(ctx, ZSR.Draw3.walker(z.type, frame, z.hit > 0), z.x, z.y, H, 0.75, Math.sin(z.phase * 3) > 0, 0.5 + Math.sin(g.time * 2.4 + z.phase) * 0.15);
+      // its shadow, or a frenzy's glow (the road's own colours)
+      const fr = z.frenzyT > 0;
+      this.flat(ctx, z.x, z.y, 0, () => {
+        ctx.fillStyle = fr ? (M.gore() ? "rgba(170,24,12,0.42)" : "rgba(214,120,30,0.4)") : "rgba(0,0,0,0.18)";
+        ctx.beginPath();
+        ctx.ellipse(z.x, z.y, z.r * (fr ? 1.15 : 0.95), z.r * (fr ? 0.85 : 0.7), 0, 0, TAU);
+        ctx.fill();
+      });
+      this.figure(g, ctx, z, z.x, z.y, false, this.liveState(g, z, null));
+      ctx.restore();
+    },
+    /** A downed walker (game.js fallen): its figure going over the way it was knocked, lying, then fading. */
+    downed(g, ctx, f) {
+      const M = ZSR.Walker3D;
+      if (!M) return;
+      const a = clamp(f.life / (M.FADE_SECS || 0.7), 0, 1);
+      if (a <= 0) return;
+      ctx.save();
+      ctx.globalAlpha *= a;
+      // its pool (gore on) and shadow lie flat on the road, as the road draws them
+      this.flat(ctx, f.x, f.y, 0.5, () => ZSR.Draw.zombieDown(ctx, f, "ground"));
+      this.figure(g, ctx, f, f.x, f.y, true, this.liveState(g, null, f));
+      ctx.restore();
+    },
+    /** What Walker3D draws (one reused state): which way it faces this camera, its gait, pose, hit and fall. */
+    liveState(g, z, f) {
+      const M = ZSR.Walker3D;
+      const st = this.liveSt || (this.liveSt = { yaw: 0, gait: 0, move: 1, pose: "walk", poseT: 0, poseW: 1, claw: 0, hit: 0, fall: 0, fallDir: Math.PI, seed: 0, lod: 0, fog: 0, gore: true });
+      const k = this.k;
+      // the camera's spot on the ground, behind the road camera's
+      const cx = k.ox - k.Fx * k.b;
+      const cy = k.oy - k.Fy * k.b;
+      const o = z || f;
+      // a downed one faced the van and went over backward, the way the shot or the bumper threw it (f.rot)
+      const heading = z ? z.angle : f.rot + Math.PI;
+      st.yaw = normA(heading - Math.atan2(cy - o.y, cx - o.x));
+      st.seed = o.seed | 0;
+      st.gore = M.gore();
+      st.fog = g.mods.night ? 0.35 : 0;
+      st.poseW = 1;
+      st.claw = 0;
+      st.poseT = 0;
+      if (f) {
+        const max = f.max > 0 ? f.max : M.FALL_SECS || 2;
+        st.fall = clamp((max - f.life) / (M.COLLAPSE_SECS || 0.9), 0, 1);
+        st.fallDir = Math.PI;
+        st.pose = "idle";
+        st.move = 0;
+        st.hit = 0;
+        st.gait = 0;
+        return st;
+      }
+      st.fall = 0;
+      st.fallDir = Math.PI;
+      st.hit = z.hit > 0 ? 1 : 0;
+      // its own walk (not the van's carry): the feet stay planted, gait by distance walked over its stride
+      const SC = ZSR.WORLD.SCREAM;
+      const own = z.yell > 0 ? 0 : z.speed * (z.frenzyT > 0 ? SC.mult : 1);
+      const dt = z.gaitAt == null ? 0 : Math.max(0, g.time - z.gaitAt);
+      z.gaitAt = g.time;
+      z.gait = ((z.gait == null ? z.phase / TAU : z.gait) + (dt * own) / TILE / M.stride(z.type)) % 1;
+      st.gait = z.gait;
+      if (z.yell > 0) {
+        st.pose = "scream";
+        st.poseT = clamp(1 - z.yell / SC.yell, 0, 1);
+        st.move = 0;
+      } else if (z.cool > 0) {
+        // just hit the van: a claw at it
+        st.pose = "claw";
+        st.claw = clamp(1 - z.cool, 0, 1);
+        st.poseT = st.claw;
+        st.move = 1;
+      } else {
+        st.pose = "walk";
+        st.move = 1;
+      }
+      return st;
+    },
+    /** Draw one figure (key: the walker or the downed body, which owns the canvas) at world x, y, standing up. */
+    figure(g, ctx, key, x, y, falling, st) {
+      const M = ZSR.Walker3D;
+      const box = M.box(key.type, falling);
+      const H = box.h * TILE * LIFE;
+      const foot = this.project(x, y, 0);
+      const head = this.project(x, y, H);
+      if (!foot || !head || foot.s > NEAR_PX) return;
+      const hpx = foot.y - head.y;
+      if (hpx < 2) return;
+      const q = Math.min(1, LIVE_MAX_PX / hpx);
+      const rh = Math.max(2, Math.ceil(hpx * q));
+      const rw = Math.max(2, Math.ceil((rh * box.w) / box.h));
+      const pool = this.livePool || (this.livePool = new WeakMap());
+      let t = pool.get(key);
+      if (!t) {
+        const c = document.createElement("canvas");
+        t = { c, g: c.getContext("2d") };
+        pool.set(key, t);
+      }
+      if (t.c.width < rw || t.c.height < rh) {
+        t.c.width = Math.max(t.c.width, rw);
+        t.c.height = Math.max(t.c.height, rh);
+      } else t.g.clearRect(0, 0, t.c.width, t.c.height);
+      st.lod = hpx >= 160 ? 0 : hpx >= 64 ? 1 : 2;
+      const cam = this.liveCam || (this.liveCam = { w: 0, h: 0, px: 0, dist: 0, eye: 0 });
+      cam.w = rw;
+      cam.h = rh;
+      cam.px = rh / box.h;
+      cam.dist = Math.max(1, foot.d / TILE);
+      cam.eye = LIVE_EYE;
+      M.draw(t.g, key.type, st, cam);
+      const wpx = rw / q;
+      ctx.save();
+      // the camera's upright lines lean; the figure leans half as much (as the plants and the old sprites did)
+      ctx.transform(1, 0, (-(head.x - foot.x) / hpx) * 0.5, 1, foot.x, foot.y);
+      ctx.drawImage(t.c, 0, 0, rw, rh, -wpx / 2, -hpx, wpx, hpx);
       ctx.restore();
     },
     /** The van as one closed box: walls in the yard van's own faces (cab and body down each side, the doors at the
@@ -799,7 +918,8 @@
         this.drawWorldGround(g, ctx, theme);
         this.pace(performance.now() - t0);
       }
-      for (const f of g.fallen) this.flat(ctx, f.x, f.y, 1, () => ZSR.Draw.prop(ctx, f));
+      // without the 3D figures a downed walker is the road's own top-down body, lying flat
+      if (!ZSR.Walker3D) for (const f of g.fallen) this.flat(ctx, f.x, f.y, 1, () => ZSR.Draw.zombieDown(ctx, f));
       for (const p of g.particles) this.flat(ctx, p.x, p.y, 4, () => ZSR.Draw.particle(ctx, p));
       // the overgrowth along this drive's roads, made once per drive
       if (this.vegFor !== g.drive) {
@@ -828,6 +948,7 @@
       const mid = G.half + G.shoulder + G.lotGap + 168 + (G.lotDepth - 186) / 2;
       for (const l of g.drive.lots) add(l, "lot", l.qx - l.uy * l.side * mid, l.qy + l.ux * l.side * mid, 0, 260);
       for (const z of g.zombies) add(z, "walker", z.x, z.y);
+      if (ZSR.Walker3D) for (const f of g.fallen) add(f, "downed", f.x, f.y);
       if (g.gameOverAt == null || g.gameOverAt > 0.9) add(g.van, "van", g.van.x, g.van.y);
       list.sort((a, b) => b._Y - a._Y);
       ctx.imageSmoothingQuality = "medium";
@@ -842,6 +963,7 @@
         else if (o._t === "crate") this.crate(ctx, o);
         else if (o._t === "lot") this.building(ctx, o);
         else if (o._t === "walker") this.walker(g, ctx, o);
+        else if (o._t === "downed") this.downed(g, ctx, o);
         else this.van(g, ctx);
       }
       ctx.globalAlpha = 1;

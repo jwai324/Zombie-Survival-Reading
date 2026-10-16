@@ -1,5 +1,6 @@
 /* Reading level 1: places, part 2 (police, school, firehouse, hospital, watertower, lumberyard, mall, library).
-   Facts: js/world.js and js/story.js. See docs/TEXT_GUIDE.md. */
+   Facts: js/world.js and js/story.js. See docs/TEXT_GUIDE.md.
+   SCALE: new places go in a new part file (level1-places3.js ...) with its own script tag, not in this one. */
 (function (root) {
   root.ZSR = root.ZSR || {};
   root.ZSR.TEXT = root.ZSR.TEXT || {};
@@ -70,7 +71,7 @@
         },
         "school-dead2": {
           title: "A Kid's Note",
-          text: "This note is on lined paper. The letters are big, like a kid wrote them.\n\nIt says: The closet key is in the {decoyPick} of Ms. Adler's desk. Go get it!\n\nThat sounds easy. But look at the name at the bottom. It says Mia. Mia wrote this before she and Max rigged the desk drawers. They tied air horns to them after that. So this note is out of date. A wrong drawer sets off a horn.\n\nMs. Adler left her own note on the desk. It says which drawer is safe. Read that one first.",
+          text: "This note is on lined paper. The letters are big, like a kid wrote them.\n\nIt says: Ms. Adler's desk has the closet key. It is in the {decoyPick}. Go get it!\n\nThat sounds easy. But look at the name at the bottom. It says Mia. Mia wrote this before she and Max rigged the desk drawers. They tied air horns to them after that. So this note is out of date. A wrong drawer sets off a horn.\n\nMs. Adler left her own note on the desk. It says which drawer is safe. Read that one first.",
         },
       },
       signs: {
@@ -305,7 +306,7 @@
         "library-sign1": { title: "QUIET, PLEASE", text: "A sign says: QUIET, PLEASE. Under it, in pencil: It works on walkers too." },
         "library-sign2": { title: "Tiny red paint", text: "Ruby painted a red R and an 8 here. She made them very small. She seems sorry to paint a library wall." },
         "library-sign3": { title: "LIBRARY HOURS", text: "A sign says: LIBRARY HOURS, DAWN UNTIL DARK. Below it: No candles near the books." },
-        "library-sign4": { title: "Chalk by the door", text: "Chalk by the archive door says: Read Mrs. Greer's note before you open a book." },
+        "library-sign4": { title: "Chalk by the door", text: "This chalk is by the archive door. It says: Read Mrs. Greer's note first. Then open a book." },
       },
       key: { name: "Tiny gold key, velvet pouch", tag: "A tiny gold key sits in a small velvet pouch. Its tag says: Not for show." },
     },

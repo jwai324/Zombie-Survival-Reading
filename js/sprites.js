@@ -255,15 +255,6 @@
       ctx.textBaseline = "middle";
       ctx.fillText("SUPPLY", 0, -3);
       ctx.fillText("SCRAP", 0, 6);
-    } else if (kind === "fallen") {
-      // a walker that has been put down: a dark prone shape that fades
-      ctx.globalAlpha = Math.max(0, Math.min(1, p.life / 1.2)) * 0.85;
-      ctx.rotate(p.rot || 0);
-      ctx.beginPath();
-      ctx.ellipse(0, 0, p.size * 1.4, p.size * 0.8, 0, 0, TAU);
-      fillStroke(ctx, "#4a5248", 2.5);
-      circle(ctx, p.size * 1.35, -p.size * 0.1, p.size * 0.6, "#6f7a6a", 2.5);
-      ctx.globalAlpha = 1;
     }
     ctx.restore();
   }
@@ -605,186 +596,923 @@
     ctx.restore();
   }
 
-  /* ---------- Walkers ---------- */
-
+  /* ---------- Walkers (the road, seen from above) ----------
+     One look per WORLD.WALKER_TYPES id, drawn facing "up" (z.angle points at the van; the sprite turns to it),
+     leaning in: the back of the shoulders and the head, the face tipped up at the van, boots stepping out behind.
+     skin, shirt and hair (each variant's too) are the 3D look's (js/walker3d-looks.js), so a kind reads the same on
+     the road and on foot: tests/validate-art.js holds the two tables to that. The seed picks a variant the way
+     Walker3D does (seed % variants). A new kind is one row here; an unknown kind draws as a walker.
+     Row fields: skin, shirt, hair, pants, boot (and sleeveCol, cuff, under, pads, helmetCol, visor, band, band2 for
+     gear); top "tee" | "hoodie" | "tank" | "gown" | "coat" | "vest" | "turnout" and hem (where it ends behind, x r);
+     sleeve "short" | "long" | "none"; hairStyle "messy" | "long" | "bald" | "none" (strands; hairWide and hairLen:
+     long hair's half width at its ends and its length, x the head); hood; helmet "riot" | "fire"; shoulders (half
+     width, x r); hip (half spacing, x r); stride (boot step, x r); drag (one boot drags); arms "reach" (one leads,
+     reachSide) | "pump" (both straight ahead) | "hang" (low and swinging, one reaching) | "dangle" (long, elbowed,
+     swinging wide) | "stiff" | "bent"; reach (hands in front, x r); armW (arm thickness x); head (radius x r),
+     headFwd (x r), headLong (a long head); bob (arm swing speed); lurch (rad); sway (a slow side sway, rad); jerk (a
+     twitchy, uneven tempo); mouthW (mouth width x); rip [x, along the back 0..1, size] and chestRip (the same on the
+     chest, seen on a downed body); ribs (gore: ribs in the rips); fall "crumple" | "tree" | "fold" | "kneel" |
+     "tumble" (as the 3D look). */
   const ZOMBIE_LOOK = {
-    walker: { skin: "#9aa38c", shirt: "#5d6670", hair: "#2e2a25", hood: false, eye: "#e6e3c4" },
-    runner: { skin: "#a7ab99", shirt: "#3a3f4d", hair: "#1f2226", hood: true, eye: "#f0e7a0" },
-    brute: { skin: "#808b74", shirt: "#6b6250", hair: "#24211d", hood: false, eye: "#dcdcc0" },
+    walker: {
+      skin: "#9ca880", shirt: "#68748e", hair: "#5a3f2a", pants: "#4e5a80", boot: "#644a32",
+      top: "tee", hem: 0.78, sleeve: "short", hairStyle: "messy", strands: 9,
+      shoulders: 1.15, hip: 0.3, stride: 0.26, drag: 1, arms: "reach", reachSide: -1, reach: 1.6, armW: 1,
+      head: 0.68, headFwd: 0.05, bob: 7, lurch: 0.08, mouthW: 1,
+      rip: [0.42, 0.35, 0.42], chestRip: [0.3, 0.38, 0.5], ribs: true, fall: "crumple",
+    },
+    runner: {
+      skin: "#9eaa82", shirt: "#3e3662", cuff: "#322c52", hair: "#24201e", pants: "#282c46", boot: "#5c4c3c",
+      top: "hoodie", hem: 0.8, sleeve: "long", hood: true, hairStyle: "none",
+      shoulders: 1, hip: 0.26, stride: 0.42, arms: "pump", reach: 1.8, armW: 0.9,
+      head: 0.66, headFwd: 0.2, bob: 13, lurch: 0.04, mouthW: 1,
+      rip: [-0.45, 0.5, 0.36], chestRip: [-0.2, 0.42, 0.42], ribs: true, fall: "tumble",
+    },
+    brute: {
+      skin: "#96a576", shirt: "#bc8e56", hair: "#28241e", pants: "#624c38", boot: "#564230",
+      top: "tank", hem: 0.8, sleeve: "none", hairStyle: "bald",
+      shoulders: 1.45, hip: 0.42, stride: 0.2, arms: "hang", reachSide: -1, reach: 1.4, armW: 1.5,
+      head: 0.54, headFwd: -0.02, bob: 5, lurch: 0.12, mouthW: 1.1,
+      rip: [0.35, 0.45, 0.5], chestRip: [0.15, 0.4, 0.62], ribs: true, fall: "tree",
+    },
+    lanky: {
+      skin: "#a6aa96", hair: "#2a2622", pants: "#5c6068", boot: "#463e38", hairStyle: "long",
+      shoulders: 0.85, hip: 0.24, stride: 0.34, arms: "dangle", reach: 2.4, armW: 0.7,
+      head: 0.56, headLong: 1.25, headFwd: 0.12, hairWide: 0.9, hairLen: 1.7, bob: 6, lurch: 0.1, sway: 0.12, mouthW: 0.9,
+      ribs: true, fall: "fold",
+      variants: [
+        { shirt: "#afc0ba", top: "gown", hem: 1.2, sleeve: "short", rip: [0.3, 0.45, 0.36], chestRip: [0.28, 0.42, 0.44] },
+        { shirt: "#6b5e4a", sleeveCol: "#625644", under: "#3a3a36", pants: "#3c3834", top: "coat", hem: 1.3, sleeve: "long", rip: [-0.3, 0.5, 0.34], chestRip: [-0.25, 0.45, 0.4] },
+      ],
+    },
+    armored: {
+      skin: "#929e7c", hair: "#2c2620", hairStyle: "none", sleeve: "long",
+      shoulders: 1.3, hip: 0.32, stride: 0.2, arms: "stiff", reach: 1.5, armW: 1.2,
+      head: 0.62, headFwd: 0.04, bob: 4.5, lurch: 0.05, mouthW: 1, fall: "kneel",
+      variants: [
+        { top: "vest", hem: 0.75, shirt: "#2d3a52", sleeveCol: "#2c303a", pants: "#26282e", boot: "#1e1e22", pads: "#3e4450", helmet: "riot", helmetCol: "#2b2f36", visor: "#8fa3b5" },
+        { top: "turnout", hem: 1.05, shirt: "#a8915f", sleeveCol: "#a08a5a", cuff: "#463e30", pants: "#968054", boot: "#22201e", helmet: "fire", helmetCol: "#202023", band: "#d9d36a", band2: "#cfd3d6", rip: [0.4, 0.62, 0.3], chestRip: [0.35, 0.3, 0.36], ribs: false },
+      ],
+    },
+    screamer: {
+      skin: "#b4b8a4", shirt: "#702a38", hair: "#1d1a17", pants: "#342e34", boot: "#3a322e",
+      top: "tee", hem: 0.75, sleeve: "short", hairStyle: "long",
+      shoulders: 1, hip: 0.26, stride: 0.26, arms: "bent", reach: 1.25, armW: 0.82,
+      head: 0.62, headFwd: 0.08, hairWide: 1.25, hairLen: 1.3, bob: 9, lurch: 0.1, jerk: true, mouthW: 1.5,
+      rip: [-0.35, 0.4, 0.36], chestRip: [0.25, 0.4, 0.46], ribs: true, fall: "crumple",
+    },
   };
+  const BLOOD = "#76120e"; // the 3D look's blood (118, 18, 14), flesh and bone
+  const BLOOD_DARK = "#4c0b08";
+  const FLESH = "#541618";
+  const BONE = "#e2d6b8";
+  const SMEAR = "rgba(118,18,14,0.82)";
+  const GRIME = "rgba(62,54,40,0.5)";
+  const MOUTH = "#220c10";
+  const TEETH = "#d6c896";
+  const EYES = { socket: "#121314", glow: "rgba(255,214,70,0.42)", core: "#ffee96" }; // the 3D look's glowing yellow
+  const EYES_FRENZY = { socket: "#160a08", glow: "rgba(255,90,60,0.55)", core: "#ffb49a" }; // a scream's frenzy
+  const EYES_DEAD = { socket: "#121314", glow: null, core: "#6f6440" };
+  /** Walker gore (blood, ribs, the pool) is on unless the one switch turns it off: WORLD.SETTINGS.walkerGore. */
+  const walkerGore = () => !(ZSR.WORLD && ZSR.WORLD.SETTINGS && ZSR.WORLD.SETTINGS.walkerGore === false);
+  /** A fixed number 0..1 from a walker's seed and a slot (smear spots, flung arms): the same every frame. */
+  function hash01(seed, k) {
+    const v = Math.sin((seed || 0) * 12.9898 + k * 78.233) * 43758.5453;
+    return v - Math.floor(v);
+  }
+  // every row with its variants merged, and the shades the drawing needs, worked out once
+  const LOOKS = {};
+  Object.keys(ZOMBIE_LOOK).forEach((id) => {
+    const row = ZOMBIE_LOOK[id];
+    LOOKS[id] = (row.variants && row.variants.length ? row.variants : [{}]).map((v) => {
+      const L = Object.assign({}, row, v);
+      delete L.variants;
+      L.id = id;
+      L.sleeveCol = L.sleeveCol || L.shirt;
+      L.skinD = shade(L.skin, -30);
+      L.skinL = shade(L.skin, 18);
+      L.skinRip = shade(L.skin, -58);
+      L.shirtD = shade(L.shirt, -30);
+      L.shirtL = shade(L.shirt, 20);
+      L.hairD = shade(L.hair, -14);
+      L.hairL = shade(L.hair, 26);
+      if (L.helmetCol) L.helmetL = shade(L.helmetCol, 34);
+      if (L.pads) L.padsL = shade(L.pads, 26);
+      return L;
+    });
+  });
+  /** The look a walker of `type` with `seed` wears (its variant), every colour already worked out. */
+  function zombieLook(type, seed) {
+    const ls = LOOKS[type] || LOOKS.walker;
+    return ls[(Number(seed) >>> 0) % ls.length];
+  }
+  const yellSecs = () => (ZSR.WORLD && ZSR.WORLD.SCREAM && ZSR.WORLD.SCREAM.yell) || 1.2;
 
-  /* Seen from above: hunched shoulders, bony arms out front, a mottled scalp and
-     milky eyes glaring up at the van. Grimy, not gory. */
-  function zombie(ctx, z, t) {
-    const look = ZOMBIE_LOOK[z.type] || ZOMBIE_LOOK.walker;
-    const r = z.r;
-    const speed = z.type === "runner" ? 13 : z.type === "brute" ? 5 : 7;
-    const bobL = Math.sin(t * speed + z.phase) * r * 0.22;
-    const bobR = Math.sin(t * speed + z.phase + 2.6) * r * 0.22;
-    const lurch = Math.sin(t * speed * 0.5 + z.phase) * 0.08;
-    ctx.save();
-    ctx.translate(z.x, z.y);
-    ctx.rotate(z.angle + Math.PI / 2 + lurch); // sprite faces "up"; z.angle points at the van
-    // shadow
-    ctx.fillStyle = "rgba(0,0,0,0.32)";
+  /** An inked limb: shoulder (or hip) to hand (or foot), through an elbow (or knee) when xm is given. */
+  function limb(ctx, x0, y0, xm, ym, x1, y1, w, col) {
     ctx.beginPath();
-    ctx.ellipse(5, 7, r * 1.15, r * 0.95, 0, 0, TAU);
-    ctx.fill();
-    // arms reaching forward, out of phase: thin, knuckly, long-nailed
-    [[-1, bobL], [1, bobR]].forEach(([side, bob]) => {
-      const ax = side * r * 0.82;
-      const reach = r * 1.6 + bob;
-      const hx = ax - side * r * 0.08;
-      ctx.lineCap = "round";
-      ctx.strokeStyle = INK;
-      ctx.lineWidth = r * 0.36 + 2.5;
-      ctx.beginPath();
-      ctx.moveTo(ax, r * 0.1);
-      ctx.lineTo(hx, -reach);
-      ctx.stroke();
-      ctx.strokeStyle = shade(look.skin, -12);
-      ctx.lineWidth = r * 0.36;
-      ctx.stroke();
-      ctx.strokeStyle = "rgba(255,255,255,0.12)";
-      ctx.lineWidth = r * 0.1;
-      ctx.beginPath();
-      ctx.moveTo(ax - side * r * 0.06, 0);
-      ctx.lineTo(hx - side * r * 0.06, -reach);
-      ctx.stroke();
-      // claw: splayed fingers with dark nails
-      for (let f = -1.5; f <= 1.5; f += 1) {
-        const fx = hx + f * r * 0.13;
-        const fy = -reach - r * 0.12;
-        const tx = hx + f * r * 0.22;
-        const ty = -reach - r * 0.5 + Math.abs(f) * r * 0.08;
-        ctx.strokeStyle = INK;
-        ctx.lineWidth = 3;
-        ctx.beginPath();
-        ctx.moveTo(fx, fy);
-        ctx.lineTo(tx, ty);
-        ctx.stroke();
-        ctx.strokeStyle = look.skin;
-        ctx.lineWidth = 1.4;
-        ctx.stroke();
-        circle(ctx, tx, ty, 1, "#2b2a22", 0.01);
-      }
-      circle(ctx, hx, -reach, r * 0.2, look.skin, 2);
-    });
-    // shoulders / torso, hunched forward, lit from the top left
-    rr(ctx, -r * 1.15, -r * 0.25, r * 2.3, r * 1.35, r * 0.45);
-    const tg = ctx.createLinearGradient(-r, -r * 0.3, r, r);
-    tg.addColorStop(0, shade(look.shirt, 18));
-    tg.addColorStop(1, shade(look.shirt, -35));
-    fillStroke(ctx, tg);
-    ctx.save();
-    rr(ctx, -r * 1.15, -r * 0.25, r * 2.3, r * 1.35, r * 0.45);
-    ctx.clip();
-    // grime and a torn patch over the shoulder blade
-    ctx.fillStyle = "rgba(40,34,26,0.35)";
-    [[-0.6, 0.6, 0.35], [0.5, 0.2, 0.28], [0.1, 0.9, 0.3]].forEach(([x, y, rad]) => {
-      ctx.beginPath();
-      ctx.ellipse(x * r, y * r, rad * r, rad * r * 0.7, x, 0, TAU);
-      ctx.fill();
-    });
-    ctx.fillStyle = shade(look.skin, -20);
+    ctx.moveTo(x0, y0);
+    if (xm != null) ctx.lineTo(xm, ym);
+    ctx.lineTo(x1, y1);
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = w + 2.6;
+    ctx.stroke();
+    ctx.strokeStyle = col;
+    ctx.lineWidth = w;
+    ctx.stroke();
+  }
+  /** A clawed hand at x, y, its fingers pointing along `ang`; s: the palm's radius. */
+  function claw(ctx, x, y, ang, s, skin) {
+    const ca = Math.cos(ang);
+    const sa = Math.sin(ang);
     ctx.beginPath();
-    ctx.moveTo(r * 0.35, r * 0.25);
-    ctx.lineTo(r * 0.8, r * 0.1);
-    ctx.lineTo(r * 0.9, r * 0.55);
-    ctx.lineTo(r * 0.55, r * 0.7);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-    // torn edge on the shirt
-    ctx.fillStyle = "rgba(0,0,0,0.3)";
-    ctx.beginPath();
-    ctx.moveTo(-r * 0.9, r * 1.05);
-    ctx.lineTo(-r * 0.6, r * 0.8);
-    ctx.lineTo(-r * 0.3, r * 1.08);
-    ctx.lineTo(0, r * 0.85);
-    ctx.lineTo(r * 0.4, r * 1.1);
-    ctx.lineTo(r * 0.9, r * 0.9);
-    ctx.lineTo(r * 0.9, r * 1.1);
-    ctx.lineTo(-r * 0.9, r * 1.1);
-    ctx.closePath();
-    ctx.fill();
-    // head: mottled skin, shaded away from the light
-    const hg = ctx.createRadialGradient(-r * 0.25, -r * 0.3, r * 0.1, 0, 0, r * 0.9);
-    hg.addColorStop(0, shade(look.skin, 20));
-    hg.addColorStop(1, shade(look.skin, -38));
-    circle(ctx, 0, 0, r * 0.82, z.hit > 0 ? "#ffffff" : hg);
-    ctx.fillStyle = "rgba(80,70,95,0.22)";
-    ctx.beginPath();
-    ctx.ellipse(r * 0.3, r * 0.25, r * 0.22, r * 0.15, 0.5, 0, TAU);
-    ctx.ellipse(-r * 0.35, -r * 0.1, r * 0.15, r * 0.12, 0, 0, TAU);
-    ctx.fill();
-    if (look.hood) {
-      ctx.beginPath();
-      ctx.arc(0, 0, r * 0.95, Math.PI * 0.9, Math.PI * 2.1);
-      ctx.lineTo(r * 0.5, r * 0.55);
-      ctx.lineTo(-r * 0.5, r * 0.55);
-      ctx.closePath();
-      fillStroke(ctx, look.shirt, 3);
+    for (let f = -1.5; f <= 1.5; f += 1) {
+      ctx.moveTo(x + ca * s * 0.6 - sa * f * s * 0.5, y + sa * s * 0.6 + ca * f * s * 0.5);
+      ctx.lineTo(x + ca * s * (1.9 - Math.abs(f) * 0.25) - sa * f * s * 0.95, y + sa * s * (1.9 - Math.abs(f) * 0.25) + ca * f * s * 0.95);
+    }
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = s * 0.5 + 2;
+    ctx.stroke();
+    ctx.strokeStyle = skin;
+    ctx.lineWidth = s * 0.5;
+    ctx.stroke();
+    circle(ctx, x, y, s, skin, 2);
+  }
+  /** An arm from the shoulder (sx, sy) through the elbow (ex, ey) to the hand (hx, hy), in its sleeve. */
+  function arm(ctx, L, r, sx, sy, ex, ey, hx, hy) {
+    const w = r * 0.3 * L.armW;
+    const ang = Math.atan2(hy - ey, hx - ex);
+    if (L.sleeve === "long") {
+      limb(ctx, sx, sy, ex, ey, hx, hy, w, L.sleeveCol);
+      if (L.cuff) limb(ctx, ex + (hx - ex) * 0.72, ey + (hy - ey) * 0.72, null, 0, ex + (hx - ex) * 0.86, ey + (hy - ey) * 0.86, w * 1.05, L.cuff);
     } else {
-      // thin, matted strands over the scalp
-      ctx.strokeStyle = look.hair;
-      ctx.lineCap = "round";
-      for (let i = 0; i < (z.type === "brute" ? 4 : 9); i++) {
-        const a = Math.PI * (1.05 + i * 0.1);
-        ctx.lineWidth = 1.6;
+      limb(ctx, sx, sy, ex, ey, hx, hy, w, L.skin);
+      // the light side of a bare arm
+      ctx.beginPath();
+      ctx.moveTo(sx - w * 0.2, sy);
+      ctx.lineTo(ex - w * 0.2, ey);
+      ctx.lineTo(hx - w * 0.2, hy);
+      ctx.strokeStyle = L.skinL;
+      ctx.lineWidth = w * 0.3;
+      ctx.stroke();
+      if (L.sleeve === "short") limb(ctx, sx, sy, null, 0, sx + (ex - sx) * 0.42, sy + (ey - sy) * 0.42, w * 1.3, L.shirt);
+    }
+    claw(ctx, hx, hy, ang, r * 0.19 * Math.sqrt(L.armW), L.skin);
+  }
+  /** Both arms. walk: the swing (two phases); yw 0..1 blends to arms thrown up beside the head (a scream). */
+  function arms(ctx, L, r, S, s1, s2, yw) {
+    for (const side of [-1, 1]) {
+      const sw = (side < 0 ? s1 : s2) * r * 0.22;
+      const sx = side * S * 0.78;
+      const sy = 0.05 * r;
+      let hx;
+      let hy;
+      let ex = null;
+      let ey = null;
+      const reach = L.reach * r;
+      if (L.arms === "pump") {
+        hx = side * r * 0.42;
+        hy = -reach + sw * 1.3;
+      } else if (L.arms === "hang") {
+        if (side === L.reachSide) {
+          hx = side * S * 0.66;
+          hy = -reach + sw;
+        } else {
+          hx = side * (S + 0.12 * r);
+          hy = -0.3 * r + sw * 1.4;
+        }
+      } else if (L.arms === "dangle") {
+        const out = sw * side * 0.9;
+        ex = side * (S + 0.3 * r) + out;
+        ey = -reach * 0.42 + sw * 0.5;
+        hx = side * S * 0.8 + out * 1.6;
+        hy = -reach + sw;
+      } else if (L.arms === "stiff") {
+        hx = side * S * 0.66;
+        hy = -reach + sw * 0.35;
+      } else if (L.arms === "bent") {
+        ex = side * (S + 0.22 * r);
+        ey = -0.4 * r + sw * 0.3;
+        hx = side * S * 0.42 + sw * 0.4;
+        hy = -reach + sw * 0.6;
+      } else {
+        // reach: one arm leads, the other a little behind it
+        const lead = side === (L.reachSide || -1);
+        hx = side * S * (lead ? 0.74 : 0.6);
+        hy = -reach * (lead ? 1 : 0.82) + sw;
+      }
+      if (ex == null) {
+        ex = (sx + hx) / 2 + side * r * 0.06;
+        ey = (sy + hy) / 2;
+      }
+      if (yw > 0) {
+        // thrown up beside the head: seen from above, short and out to the sides
+        ex += (side * (S + 0.32 * r) - ex) * yw;
+        ey += (0.05 * r - ey) * yw;
+        hx += (side * 0.92 * r - hx) * yw;
+        hy += (-0.3 * r - hy) * yw;
+      }
+      arm(ctx, L, r, sx, sy, ex, ey, hx, hy);
+    }
+  }
+  /** Legs and boots from the hips at hipY to the feet at footY; step: -1..1 (the boots take turns). */
+  function legs(ctx, L, r, hipY, footY, step, splay) {
+    const hx = (L.hip || 0.3) * r;
+    const st = (L.stride || 0.26) * r;
+    for (const side of [-1, 1]) {
+      const k = side < 0 ? step : -step;
+      const drag = L.drag && side === L.drag ? 0.45 : 1;
+      const fx = side * (hx * 1.12 + (splay || 0) * r);
+      const fy = footY - k * st * drag;
+      limb(ctx, side * hx, hipY, null, 0, fx, fy, r * 0.34, L.pants);
+      ctx.beginPath();
+      ctx.ellipse(fx, fy + 0.1 * r, 0.17 * r, 0.24 * r, 0, 0, TAU);
+      fillStroke(ctx, L.boot, 2);
+    }
+  }
+  /** A ragged tear: its jagged edge, skin (or flesh with gore) inside, ribs across it when the look has them. */
+  function rip(ctx, L, x, y, size, gore, seed) {
+    ctx.beginPath();
+    for (let i = 0; i < 7; i++) {
+      const a = (i / 7) * TAU + 0.3;
+      const rad = size * (i % 2 ? 0.55 : 1) * (0.75 + hash01(seed, i + 11) * 0.4);
+      const px = x + Math.cos(a) * rad * 0.8;
+      const py = y + Math.sin(a) * rad;
+      if (i) ctx.lineTo(px, py);
+      else ctx.moveTo(px, py);
+    }
+    ctx.closePath();
+    fillStroke(ctx, gore ? FLESH : L.skinRip, 1.6);
+    if (!gore || !L.ribs) return;
+    ctx.beginPath();
+    for (let i = -1; i <= 1; i++) {
+      const ry = y + i * size * 0.38;
+      ctx.moveTo(x - size * 0.45, ry + size * 0.08);
+      ctx.quadraticCurveTo(x, ry - size * 0.12, x + size * 0.45, ry + size * 0.08);
+    }
+    ctx.strokeStyle = BONE;
+    ctx.lineWidth = Math.max(1.2, size * 0.16);
+    ctx.stroke();
+  }
+  /** The shirt (or gown, coat, vest...) from the shoulders at yT to its hem at yH (yT < yH), half width S at the
+      shoulders. view "back" (leaning in, or face down) or "front" (lying on its back). */
+  function torso(ctx, L, r, S, yT, yH, view, gore, seed) {
+    const len = yH - yT;
+    const tank = L.top === "tank";
+    const top = tank ? S * 0.66 : S;
+    const W2 = top * (L.top === "gown" || L.top === "coat" || L.top === "turnout" ? 0.86 : 0.8);
+    if (tank) {
+      // bare, heavy shoulders under the straps
+      ctx.beginPath();
+      ctx.ellipse(0, yT + len * 0.2, S, Math.max(0.3 * r, len * 0.28), 0, 0, TAU);
+      fillStroke(ctx, L.skin, 2.2);
+    }
+    const shape = () => {
+      ctx.beginPath();
+      ctx.moveTo(-top * 0.5, yT);
+      ctx.quadraticCurveTo(-top, yT, -top, yT + len * 0.3);
+      ctx.lineTo(-W2, yH);
+      for (let i = 1; i < 6; i++) ctx.lineTo(-W2 + (2 * W2 * i) / 6, yH + (i % 2 ? 0.12 : -0.03) * r);
+      ctx.lineTo(W2, yH);
+      ctx.lineTo(top, yT + len * 0.3);
+      ctx.quadraticCurveTo(top, yT, top * 0.5, yT);
+      ctx.closePath();
+    };
+    shape();
+    fillStroke(ctx, L.shirt, 2.2);
+    // the shade side (the light comes from the top left)
+    ctx.beginPath();
+    ctx.moveTo(top * 0.3, yT + len * 0.04);
+    ctx.quadraticCurveTo(top * 0.92, yT + len * 0.04, top * 0.94, yT + len * 0.3);
+    ctx.lineTo(W2 * 0.93, yH - 0.04 * r);
+    ctx.lineTo(W2 * 0.28, yH - 0.04 * r);
+    ctx.closePath();
+    ctx.fillStyle = L.shirtD;
+    ctx.fill();
+    const at = (f) => yT + len * f; // a share of the way down the garment
+    const half = (f) => top + (W2 - top) * Math.max(0, (f - 0.3) / 0.7); // its half width there
+    ctx.lineWidth = 1.6;
+    ctx.strokeStyle = INK;
+    if (L.top === "turnout") {
+      // reflective bands, yellow with a silver stripe
+      for (const f of [0.38, 0.74]) {
+        const hw = half(f) * 0.97;
+        limb(ctx, -hw, at(f), null, 0, hw, at(f), 0.17 * r, L.band);
         ctx.beginPath();
-        ctx.moveTo(Math.cos(a) * r * 0.2, -r * 0.55);
-        ctx.quadraticCurveTo(Math.cos(a) * r * 0.75, Math.sin(a) * r * 0.6, Math.cos(a) * r * 0.82, Math.sin(a) * r * 0.25 + r * 0.25);
+        ctx.moveTo(-hw, at(f));
+        ctx.lineTo(hw, at(f));
+        ctx.strokeStyle = L.band2;
+        ctx.lineWidth = 0.06 * r;
         ctx.stroke();
+      }
+      if (view === "front") {
+        ctx.beginPath();
+        ctx.moveTo(0, at(0.08));
+        ctx.lineTo(0, yH);
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1.6;
+        ctx.stroke();
+      }
+    } else if (L.top === "vest") {
+      ctx.beginPath();
+      ctx.moveTo(0, at(0.1));
+      ctx.lineTo(0, at(0.9));
+      ctx.moveTo(-half(0.55) * 0.9, at(0.55));
+      ctx.lineTo(half(0.55) * 0.9, at(0.55));
+      ctx.stroke();
+    } else if (L.top === "gown" && view === "back") {
+      // a hospital gown, open at the back: skin down the gap, two ties across it
+      ctx.beginPath();
+      ctx.moveTo(-0.05 * r, at(0.12));
+      ctx.lineTo(0.05 * r, at(0.12));
+      ctx.lineTo(0.16 * r, yH);
+      ctx.lineTo(-0.16 * r, yH);
+      ctx.closePath();
+      fillStroke(ctx, L.skinD, 1.4);
+      ctx.beginPath();
+      for (const f of [0.3, 0.6]) {
+        ctx.moveTo(-0.16 * r, at(f));
+        ctx.lineTo(0.16 * r, at(f));
+      }
+      ctx.strokeStyle = L.shirtL;
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+    } else if (L.top === "coat") {
+      ctx.beginPath();
+      if (view === "back") {
+        ctx.moveTo(0, at(0.62));
+        ctx.lineTo(0, yH + 0.1 * r);
+        ctx.stroke();
+      } else {
+        // open down the front over a dark shirt
+        ctx.moveTo(-top * 0.38, yT);
+        ctx.lineTo(0, at(0.55));
+        ctx.lineTo(top * 0.38, yT);
+        ctx.closePath();
+        fillStroke(ctx, L.under || "#3a3a36", 1.6);
+      }
+    } else if (L.top === "hoodie" && view === "front") {
+      // the pocket
+      rr(ctx, -top * 0.42, at(0.58), top * 0.84, len * 0.26, 3);
+      ctx.fillStyle = L.shirtD;
+      ctx.fill();
+      ctx.lineWidth = 1.3;
+      ctx.stroke();
+    }
+    if (L.top === "hoodie") {
+      // the ribbed band at the hem
+      ctx.beginPath();
+      ctx.moveTo(-W2 * 0.96, yH - 0.06 * r);
+      ctx.lineTo(W2 * 0.96, yH - 0.06 * r);
+      ctx.strokeStyle = L.cuff || L.shirtD;
+      ctx.lineWidth = 0.12 * r;
+      ctx.stroke();
+    }
+    // a tear (on the chest, seen on a downed body), then smears: blood, or grime with gore off
+    const tear = view === "front" ? L.chestRip : L.rip;
+    if (tear && len > 0.35 * r) rip(ctx, L, tear[0] * r, at(tear[1]), tear[2] * r * Math.min(1, len / r), gore, seed);
+    ctx.fillStyle = gore ? SMEAR : GRIME;
+    ctx.beginPath();
+    const n = L.top === "vest" ? 3 : 2;
+    for (let i = 0; i < n; i++) {
+      const f = 0.2 + hash01(seed, i * 3) * 0.6;
+      const sx = (hash01(seed, i * 3 + 1) - 0.5) * 1.3 * half(f);
+      const ry = 0.09 * r + hash01(seed, i * 3 + 2) * 0.1 * r;
+      const rot = hash01(seed, i + 40) * 2 - 1;
+      ctx.moveTo(sx + ry * 2.2 * Math.cos(rot), at(f) + ry * 2.2 * Math.sin(rot));
+      ctx.ellipse(sx, at(f), ry * 2.2, ry, rot, 0, TAU);
+    }
+    ctx.fill();
+    if (tank) {
+      // the deltoids over the straps
+      for (const side of [-1, 1]) {
+        circle(ctx, side * S * 0.8, yT + Math.max(0.12 * r, len * 0.2), 0.36 * r, L.skin, 2);
+        ctx.beginPath();
+        ctx.ellipse(side * S * 0.8 - 0.1 * r, yT + Math.max(0.12 * r, len * 0.2) - 0.1 * r, 0.14 * r, 0.1 * r, 0, 0, TAU);
+        ctx.fillStyle = L.skinL;
+        ctx.fill();
+      }
+    } else if (L.pads) {
+      for (const side of [-1, 1]) {
+        ctx.beginPath();
+        ctx.ellipse(side * S * 0.84, yT + Math.max(0.1 * r, len * 0.16), 0.36 * r, 0.3 * r, 0, 0, TAU);
+        fillStroke(ctx, L.pads, 2);
+        ctx.beginPath();
+        ctx.ellipse(side * S * 0.84 - 0.1 * r, yT + Math.max(0.1 * r, len * 0.16) - 0.08 * r, 0.14 * r, 0.09 * r, 0, 0, TAU);
+        ctx.fillStyle = L.padsL;
+        ctx.fill();
       }
     }
-    // sunken sockets, milky glaring eyes, heavy brow
-    const ex = r * 0.3;
-    const ey = r * 0.05;
-    ctx.fillStyle = "#121314";
+    if (view === "front" && (L.top === "tee" || L.top === "tank" || L.top === "gown")) {
+      // the neckline
+      ctx.beginPath();
+      ctx.arc(0, yT, (L.top === "tank" ? 0.36 : 0.26) * r, 0, Math.PI);
+      fillStroke(ctx, L.skinD, 1.4);
+    }
+  }
+  /** Eyes in their sockets at (x +- dx, y); e: EYES, EYES_FRENZY or EYES_DEAD; s: size. */
+  function eyes(ctx, x, y, dx, s, e) {
+    ctx.fillStyle = e.socket;
     ctx.beginPath();
-    ctx.ellipse(-ex, ey, r * 0.21, r * 0.16, 0.2, 0, TAU);
-    ctx.ellipse(ex, ey, r * 0.21, r * 0.16, -0.2, 0, TAU);
+    ctx.ellipse(x - dx, y, s * 1.3, s, 0.2, 0, TAU);
+    ctx.ellipse(x + dx, y, s * 1.3, s, -0.2, 0, TAU);
     ctx.fill();
+    if (e.glow) {
+      ctx.fillStyle = e.glow;
+      ctx.beginPath();
+      ctx.ellipse(x - dx, y, s * 1.15, s * 0.9, 0, 0, TAU);
+      ctx.ellipse(x + dx, y, s * 1.15, s * 0.9, 0, 0, TAU);
+      ctx.fill();
+    }
+    ctx.fillStyle = e.core;
+    ctx.beginPath();
+    ctx.ellipse(x - dx, y, s * 0.55, s * 0.42, 0, 0, TAU);
+    ctx.ellipse(x + dx, y, s * 0.55, s * 0.42, 0, 0, TAU);
+    ctx.fill();
+  }
+  /** The head at (x, y), radius hr. fwd: -1 the face tips up toward -y (leaning in), +1 face up with the chin toward
+      +y (lying on its back), 0 face down (only the back of the head). e: the eyes; mw: the mouth's size (1 normal). */
+  function head(ctx, L, r, x, y, hr, fwd, e, mw, hit, gore, seed) {
+    const hl = hr * (L.headLong || 1);
+    const back = fwd === 0;
+    const face = back ? 0 : fwd; // the way the face looks along y
+    const crown = back ? 0 : -fwd; // the crown's side
+    const capA = crown > 0 ? Math.PI / 2 : -Math.PI / 2; // the angle the crown points at
+    // long hair under the head: a mass falling back over the shoulders, its ends ragged (hairWide: its half width
+    // at the ends, x hr; hairLen: its length, x the head's)
+    if (L.hairStyle === "long") {
+      const dir = back ? 1 : crown;
+      const wide = L.hairWide || 1.15;
+      const len = (L.hairLen || 1.8) * hl;
+      ctx.beginPath();
+      ctx.moveTo(x - hr * 0.95, y);
+      ctx.quadraticCurveTo(x - hr * (wide + 0.12), y + dir * len * 0.35, x - hr * wide, y + dir * len * 0.8);
+      const n = 7;
+      for (let i = 0; i <= n; i++) {
+        const ln = (i % 2 ? 0.8 : 1) + hash01(seed, i + 60) * 0.14;
+        ctx.lineTo(x - hr * wide + (2 * hr * wide * i) / n, y + dir * len * ln);
+      }
+      ctx.quadraticCurveTo(x + hr * (wide + 0.12), y + dir * len * 0.35, x + hr * 0.95, y);
+      ctx.closePath();
+      fillStroke(ctx, L.hair, 1.8);
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const sx = (i / 3 - 0.5) * hr * wide * 1.3;
+        ctx.moveTo(x + sx * 0.6, y + dir * hl * 0.7);
+        ctx.quadraticCurveTo(x + sx * 1.1 + (hash01(seed, i + 70) - 0.5) * hr * 0.5, y + dir * len * 0.55, x + sx, y + dir * len * 0.85);
+      }
+      ctx.strokeStyle = L.hairL;
+      ctx.lineWidth = 1.1;
+      ctx.stroke();
+    }
+    if (L.helmet === "fire") {
+      // the brim, long at the back
+      ctx.beginPath();
+      ctx.ellipse(x, y + (back ? 0 : crown * hr * 0.25), hr * 1.32, hr * 1.5, 0, 0, TAU);
+      fillStroke(ctx, L.helmetCol, 2.2);
+    }
+    // the skull (under a fire helmet's dome the face sits forward, out from under it)
+    const fy = L.helmet === "fire" && !back ? y + face * hl * 0.35 : y;
+    ctx.beginPath();
+    ctx.ellipse(x, fy, hr, hl, 0, 0, TAU);
+    fillStroke(ctx, hit ? "#ffffff" : L.skin, 2);
+    if (!hit) {
+      ctx.fillStyle = L.skinL;
+      ctx.beginPath();
+      ctx.ellipse(x - hr * 0.32, fy - hl * 0.12, hr * 0.32, hl * 0.26, -0.4, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = L.skinD;
+      ctx.beginPath();
+      ctx.ellipse(x + hr * 0.42, fy + hl * 0.3, hr * 0.2, hl * 0.14, 0.5, 0, TAU);
+      ctx.fill();
+    }
+    // the face: eyes, then the mouth toward the chin
+    const ey = y + face * hl * (fwd < 0 ? 0.3 : 0.08);
+    const my = y + face * hl * (fwd < 0 ? 0.66 : 0.5);
+    const drawFace = (eyY, moY, sc) => {
+      eyes(ctx, x, eyY, hr * 0.38 * sc, hr * 0.17 * sc, e);
+      // brows over the eyes, toward the crown
+      ctx.beginPath();
+      ctx.moveTo(x - hr * 0.62 * sc, eyY - face * hl * 0.2);
+      ctx.lineTo(x - hr * 0.1, eyY - face * hl * 0.07);
+      ctx.moveTo(x + hr * 0.62 * sc, eyY - face * hl * 0.2);
+      ctx.lineTo(x + hr * 0.1, eyY - face * hl * 0.07);
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 1.8;
+      ctx.stroke();
+      const mwid = hr * 0.27 * mw * sc;
+      const mh = hr * 0.15 * (0.8 + mw * 0.3) * sc;
+      ctx.fillStyle = MOUTH;
+      ctx.beginPath();
+      ctx.ellipse(x, moY, mwid, mh, 0, 0, TAU);
+      ctx.fill();
+      // the top teeth, under the upper lip (on the eyes' side)
+      ctx.fillStyle = TEETH;
+      ctx.fillRect(x - mwid * 0.7, face > 0 ? moY - mh * 0.75 : moY + mh * 0.35, mwid * 1.4, mh * 0.4);
+      if (gore) {
+        ctx.fillStyle = BLOOD;
+        ctx.fillRect(x + mwid * 0.2, face > 0 ? moY + mh * 0.6 : moY - mh * 1.9, mwid * 0.28, mh * 1.3);
+      }
+    };
+    if (L.hood) {
+      // the hood up: the face in its shadow
+      const oy = y + (back ? 0 : face * hl * (fwd < 0 ? 0.42 : 0.12));
+      ctx.beginPath();
+      ctx.ellipse(x, y + crown * hl * 0.12, hr * 1.22, hl * 1.24, 0, 0, TAU);
+      fillStroke(ctx, L.shirt, 2.2);
+      ctx.fillStyle = L.shirtD;
+      ctx.beginPath();
+      ctx.ellipse(x + hr * 0.35, y + crown * hl * 0.3, hr * 0.7, hl * 0.75, 0.3, 0, TAU);
+      ctx.fill();
+      if (back) {
+        ctx.beginPath();
+        ctx.moveTo(x, y - hl * 1.0);
+        ctx.lineTo(x, y + hl * 1.2);
+        ctx.strokeStyle = INK;
+        ctx.lineWidth = 1.4;
+        ctx.stroke();
+        return;
+      }
+      ctx.beginPath();
+      ctx.ellipse(x, oy, hr * 0.74, hl * 0.6, 0, 0, TAU);
+      fillStroke(ctx, "#17141d", 1.8);
+      ctx.beginPath();
+      ctx.ellipse(x, oy + face * hl * 0.06, hr * 0.58, hl * 0.48, 0, 0, TAU);
+      ctx.fillStyle = hit ? "#ffffff" : L.skinD;
+      ctx.fill();
+      drawFace(oy - face * hl * 0.05, oy + face * hl * 0.3, 0.72);
+      // drawstrings
+      ctx.beginPath();
+      ctx.moveTo(x - hr * 0.5, oy + face * hl * 0.45);
+      ctx.lineTo(x - hr * 0.42, oy + face * hl * 0.95);
+      ctx.moveTo(x + hr * 0.5, oy + face * hl * 0.45);
+      ctx.lineTo(x + hr * 0.46, oy + face * hl * 0.9);
+      ctx.strokeStyle = "#d8d2c0";
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      return;
+    }
+    if (L.helmet === "riot") {
+      ctx.beginPath();
+      ctx.ellipse(x, y, hr * 1.12, hl * 1.12, 0, 0, TAU);
+      fillStroke(ctx, L.helmetCol, 2.2);
+      ctx.beginPath();
+      ctx.ellipse(x - hr * 0.35, y + crown * hl * 0.2 - (back ? hl * 0.2 : 0), hr * 0.38, hl * 0.22, -0.5, 0, TAU);
+      ctx.fillStyle = L.helmetL;
+      ctx.fill();
+      if (back) return;
+      // the visor across the face: dark, the eyes glowing through it, cracked
+      const vy = y + face * hl * (fwd < 0 ? 0.48 : 0.12);
+      ctx.beginPath();
+      ctx.ellipse(x, vy, hr * 0.92, hl * 0.52, 0, 0, TAU);
+      fillStroke(ctx, "#1d2229", 1.8);
+      eyes(ctx, x, vy - face * hl * 0.06, hr * 0.36, hr * 0.15, e);
+      ctx.beginPath();
+      ctx.ellipse(x, vy, hr * 0.86, hl * 0.46, 0, 0, TAU);
+      ctx.fillStyle = "rgba(143,163,181,0.32)";
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(x + hr * 0.5, vy - hl * 0.42);
+      ctx.lineTo(x + hr * 0.25, vy - hl * 0.05);
+      ctx.lineTo(x + hr * 0.42, vy + hl * 0.12);
+      ctx.lineTo(x + hr * 0.18, vy + hl * 0.4);
+      ctx.strokeStyle = L.visor;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+      return;
+    }
+    if (L.helmet === "fire") {
+      if (!back) drawFace(y + face * hl * 0.92, y + face * hl * 1.16, 0.78);
+      // the dome over the brow, a comb along it
+      const dy = back ? 0 : crown * hl * 0.18;
+      ctx.beginPath();
+      ctx.ellipse(x, y + dy, hr * 0.9, hl * 0.9, 0, 0, TAU);
+      fillStroke(ctx, L.helmetCol, 2.2);
+      ctx.beginPath();
+      ctx.moveTo(x, y + dy - hl * 0.8);
+      ctx.lineTo(x, y + dy + hl * 0.8);
+      ctx.strokeStyle = L.helmetL;
+      ctx.lineWidth = 0.14 * hr + 1;
+      ctx.stroke();
+      return;
+    }
+    if (L.hairStyle === "bald") {
+      // a scalp with a stitched scar over the back
+      ctx.beginPath();
+      const sx0 = x - hr * 0.5;
+      const sy0 = y + (back ? -0.2 : crown * 0.4) * hl;
+      const sx1 = x + hr * 0.38;
+      const sy1 = y + (back ? 0.35 : crown * 0.7) * hl;
+      ctx.moveTo(sx0, sy0);
+      ctx.lineTo(sx1, sy1);
+      for (let i = 1; i < 4; i++) {
+        const px = sx0 + ((sx1 - sx0) * i) / 4;
+        const py = sy0 + ((sy1 - sy0) * i) / 4;
+        ctx.moveTo(px - hr * 0.08, py + hr * 0.12);
+        ctx.lineTo(px + hr * 0.08, py - hr * 0.12);
+      }
+      ctx.strokeStyle = INK;
+      ctx.lineWidth = 1.3;
+      ctx.stroke();
+    } else if (L.hairStyle === "messy" || L.hairStyle === "long") {
+      // the hair over the crown: tufts round its back, a ragged fringe behind the brows (all of it seen from behind)
+      ctx.beginPath();
+      if (back) {
+        for (let i = 0; i < 14; i++) {
+          const a = (i / 14) * TAU;
+          const rad = i % 2 ? 1.12 : 0.98;
+          if (i) ctx.lineTo(x + Math.cos(a) * hr * rad, y + Math.sin(a) * hl * rad);
+          else ctx.moveTo(x + Math.cos(a) * hr * rad, y + Math.sin(a) * hl * rad);
+        }
+      } else {
+        const span = Math.PI * (fwd < 0 ? 0.5 : 0.4);
+        const n = 10;
+        for (let i = 0; i <= n; i++) {
+          const a = capA - span + (2 * span * i) / n;
+          const rad = i % 2 ? 1.14 : 1.01;
+          if (i) ctx.lineTo(x + Math.cos(a) * hr * rad, y + Math.sin(a) * hl * rad);
+          else ctx.moveTo(x + Math.cos(a) * hr * rad, y + Math.sin(a) * hl * rad);
+        }
+        // the fringe back across, its points toward the face
+        const ex0 = Math.cos(capA + span) * hr;
+        const ey0 = y + Math.sin(capA + span) * hl;
+        for (let i = 1; i < 7; i++) ctx.lineTo(x + ex0 * (1 - (2 * i) / 7), ey0 + (i % 2 ? face * hl * 0.17 : 0));
+      }
+      ctx.closePath();
+      fillStroke(ctx, L.hair, 1.8);
+      // matted strands
+      const cs = back ? 1 : crown;
+      ctx.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const sx = (i / 3 - 0.5) * hr * 1.1 + (hash01(seed, i + 80) - 0.5) * hr * 0.2;
+        ctx.moveTo(x + sx * 0.7, y + cs * hl * (back ? -0.5 : 0.18));
+        ctx.quadraticCurveTo(x + sx * 1.15, y + cs * hl * 0.45, x + sx * 0.9 + hr * 0.1, y + cs * hl * 0.85);
+      }
+      ctx.strokeStyle = L.hairL;
+      ctx.lineWidth = 1.2;
+      ctx.stroke();
+    }
+    if (!back) drawFace(ey, my, 1);
+  }
+
+  /** A screamer's scream pose, 0..1, eased in and out (z.yell counts down from SCREAM.yell). */
+  function yellPose(z) {
+    const Y = yellSecs();
+    const yl = Math.min(Y, z.yell || 0);
+    return yl > 0 ? Math.max(0, Math.min(1, (Y - yl) / 0.15, yl / 0.25)) : 0;
+  }
+  /** Where a road walker is in its step at time t (a frenzy hurries it; a twitchy one's tempo stutters). */
+  function stepPhase(L, z, t, frenzy) {
+    const ph0 = z.phase || 0;
+    const sp = L.bob * (frenzy ? 1.5 : 1);
+    const ph = t * sp + ph0;
+    return L.jerk ? ph + Math.sin(t * sp * 0.43 + ph0 * 2) * 0.9 : ph;
+  }
+  /** The way a road walker's body is turned: at the van, swaying with its lurch (still while it screams). */
+  function bodyTurn(L, z, t, ph, yw) {
+    const lurch = Math.sin(ph * 0.5) * L.lurch + (L.sway ? Math.sin(t * 1.3 + (z.phase || 0)) * L.sway : 0);
+    return z.angle + Math.PI / 2 + lurch * (1 - yw);
+  }
+  /** The ground under a road walker turned by a, its centre at x, y: a shadow, which a frenzy reddens (amber with
+      gore off, so it never reads as a pool of blood). */
+  function shadowAt(ctx, L, r, frenzy, a, x, y) {
+    const S = L.shoulders * r;
+    const k = frenzy ? 1.15 : 1;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    const ox = r * 0.22;
+    const oy = r * 0.45;
+    ctx.fillStyle = frenzy ? (walkerGore() ? "rgba(170,24,12,0.42)" : "rgba(214,120,30,0.4)") : "rgba(0,0,0,0.3)";
+    ctx.beginPath();
+    ctx.ellipse(x + ox * c - oy * s, y + ox * s + oy * c, S * 1.05 * k, r * 1.2 * k, a, 0, TAU);
+    ctx.fill();
+  }
+  /** Just a road walker's shadow (or its frenzy's glow): the road draws every walker's first, then the walkers
+      with noShadow, so no shadow or glow lies over a body. */
+  function zombieShadow(ctx, z, t) {
+    const L = zombieLook(z.type, z.seed);
+    const frenzy = z.frenzyT > 0;
+    shadowAt(ctx, L, z.r, frenzy, bodyTurn(L, z, t, stepPhase(L, z, t, frenzy), yellPose(z)), z.x, z.y);
+  }
+
+  /* A walker on the road: its look, a stepping walk, arms clawing at the van. z: { type, seed, x, y, r, angle,
+     phase, hit, hp, maxHp, yell (a screamer's scream, counting down), frenzyT (sped up by a scream) }. With gore on
+     (WORLD.SETTINGS.walkerGore) its smears are blood and its rips show ribs; off, grime and bare skin. noShadow:
+     the caller drew its shadow already (zombieShadow) or wants none. viewTurn: the angle the caller's view turns
+     the world by (the road's camera), so a hurt walker's health bar is drawn level on the screen. */
+  function zombie(ctx, z, t, noShadow, viewTurn) {
+    const L = zombieLook(z.type, z.seed);
+    const r = z.r;
+    const gore = walkerGore();
+    const frenzy = z.frenzyT > 0;
+    const yw = yellPose(z);
+    const ph0 = z.phase || 0;
+    const ph = stepPhase(L, z, t, frenzy);
+    const s1 = Math.sin(ph);
+    const s2 = Math.sin(ph + 2.6);
+    const S = L.shoulders * r;
+    const hr = L.head * r;
+    const seed = Number(z.seed) || 0;
     ctx.save();
-    ctx.shadowColor = look.eye;
-    ctx.shadowBlur = r * 0.35;
-    ctx.fillStyle = look.eye;
-    ctx.beginPath();
-    ctx.ellipse(-ex + r * 0.03, ey + r * 0.02, r * 0.09, r * 0.06, 0.2, 0, TAU);
-    ctx.ellipse(ex - r * 0.03, ey + r * 0.02, r * 0.09, r * 0.06, -0.2, 0, TAU);
-    ctx.fill();
-    ctx.restore();
-    ctx.strokeStyle = INK;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(-ex - r * 0.2, ey - r * 0.2);
-    ctx.lineTo(-r * 0.06, ey - r * 0.04);
-    ctx.moveTo(ex + r * 0.2, ey - r * 0.2);
-    ctx.lineTo(r * 0.06, ey - r * 0.04);
-    ctx.stroke();
-    // open mouth with a hint of teeth
-    ctx.fillStyle = "#0b0a0c";
-    ctx.beginPath();
-    ctx.ellipse(0, r * 0.45, r * 0.22, r * 0.13, 0, 0, TAU);
-    ctx.fill();
-    ctx.fillStyle = "#cfc59a";
-    ctx.fillRect(-r * 0.14, r * 0.34, r * 0.28, r * 0.05);
+    ctx.translate(z.x, z.y);
+    ctx.rotate(bodyTurn(L, z, t, ph, yw));
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    if (!noShadow) shadowAt(ctx, L, r, frenzy, 0, 0, 0);
+    // a frenzy: speed lines trailing behind
+    if (frenzy) {
+      ctx.beginPath();
+      for (let i = -1; i <= 1; i++) {
+        const y0 = r * (1.5 + Math.abs(i) * 0.15);
+        ctx.moveTo(i * S * 0.5, y0);
+        ctx.lineTo(i * S * 0.5, y0 + r * (0.6 + 0.4 * Math.abs(Math.sin(t * 17 + i * 2 + ph0))));
+      }
+      ctx.strokeStyle = "rgba(15,16,18,0.75)";
+      ctx.lineWidth = 3;
+      ctx.stroke();
+    }
+    const hemY = L.hem * r;
+    legs(ctx, L, r, hemY - 0.25 * r, Math.max(hemY + 0.2 * r, 1.05 * r), yw > 0 ? 0 : s1, 0);
+    if (yw < 0.5) arms(ctx, L, r, S, s1, s2, yw);
+    torso(ctx, L, r, S, -0.32 * r, hemY, "back", gore, seed);
+    // the head: tipped up at the van; a scream throws it back
+    const hy = (-L.headFwd + yw * 0.3) * r;
+    const hs = hr * (1 + yw * 0.08);
+    const e = frenzy ? EYES_FRENZY : EYES;
+    head(ctx, L, r, 0, hy, hs, -1, e, (L.mouthW || 1) * (1 + yw * 0.5), z.hit > 0, gore, seed);
+    if (yw >= 0.5) arms(ctx, L, r, S, s1, s2, yw);
+    if (yw > 0) {
+      // the scream: ink arcs of sound in front
+      const k0 = (t * 2.4) % 1;
+      ctx.lineWidth = 2.6;
+      ctx.strokeStyle = INK;
+      for (let i = 0; i < 3; i++) {
+        const R = hs * 1.25 + (i + k0) * r * 0.42;
+        ctx.globalAlpha = yw * Math.max(0, 1 - (i + k0) / 3);
+        ctx.beginPath();
+        ctx.arc(0, hy, R, -Math.PI / 2 - 0.7, -Math.PI / 2 + 0.7);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
     // hit flash
     if (z.hit > 0) {
-      ctx.globalAlpha = Math.min(0.8, z.hit * 3);
-      circle(ctx, 0, 0, r * 0.9, "#fff", 2);
+      ctx.globalAlpha = Math.min(0.75, z.hit * 3);
+      ctx.fillStyle = "#ffffff";
+      ctx.beginPath();
+      ctx.ellipse(0, r * 0.2, S, r * 0.75, 0, 0, TAU);
+      ctx.fill();
       ctx.globalAlpha = 1;
     }
     ctx.restore();
-    // health bar for anything that has taken damage
+    // health bar for anything that has taken damage: level over its head on the screen however the road turns
+    // (viewTurn: the turn the road view draws the world with; the bar turns back by it)
     if (z.hp < z.maxHp) {
       const bw = r * 2;
+      ctx.save();
+      ctx.translate(z.x, z.y);
+      if (viewTurn) ctx.rotate(-viewTurn);
       ctx.fillStyle = INK;
-      ctx.fillRect(z.x - bw / 2 - 1, z.y - r * 1.9 - 1, bw + 2, 6);
+      ctx.fillRect(-bw / 2 - 1, -r * 1.9 - 1, bw + 2, 6);
       ctx.fillStyle = "#b3261e";
-      ctx.fillRect(z.x - bw / 2, z.y - r * 1.9, bw * Math.max(0, z.hp / z.maxHp), 4);
+      ctx.fillRect(-bw / 2, -r * 1.9, bw * Math.max(0, Math.min(1, z.hp / z.maxHp)), 4);
+      ctx.restore();
     }
+  }
+
+  /* A downed walker on the road: f { type, seed, x, y, size (its r), rot (the way it falls, world angle), life
+     (counting down from max), max (Walker3D.FALL_SECS) }. It goes over its kind's way in the first TIP of its time
+     (a brute topples stiff like a tree, a lanky folds over forward, an armored one drops to its knees then pitches
+     forward, a runner tumbles, a walker or a screamer crumples back), lies still, and fades out over the last FADE.
+     With gore on a pool of blood spreads under it. part: "ground" draws only what lies on the road (the pool, the
+     shadow while it goes over), "body" only the rest; anything else both. The road draws every downed walker's
+     ground before any body, so no pool lies over another body. */
+  const DOWN = { tip: 0.25, fade: 0.35 };
+  function zombieDown(ctx, f, part) {
+    const L = zombieLook(f.type, f.seed);
+    const r = f.size || 18;
+    const max = f.max > 0 ? f.max : 2;
+    const age = Math.max(0, Math.min(1, 1 - (Number(f.life) || 0) / max));
+    const alpha = Math.max(0, Math.min(1, (Number(f.life) || 0) / (max * DOWN.fade)));
+    if (alpha <= 0) return;
+    const p = Math.min(1, age / DOWN.tip);
+    const style = L.fall || "crumple";
+    const gore = walkerGore();
+    const seed = Number(f.seed) || 0;
+    const sideK = hash01(seed, 7) < 0.5 ? -1 : 1;
+    // forward fallers (fold, kneel) pitch toward the van and show their backs; the rest go over backward, face up
+    const faceDown = style === "fold" || style === "kneel";
+    let k; // how far over, 0..1
+    let drop = 0; // a kneeler's first drop
+    let spin = 0;
+    let slide = 0;
+    if (style === "tree") k = p * p;
+    else if (style === "kneel") {
+      drop = Math.min(1, p / 0.45);
+      k = p < 0.45 ? 0 : Math.pow((p - 0.45) / 0.55, 1.5);
+    } else if (style === "tumble") {
+      k = 1 - (1 - p) * (1 - p);
+      spin = sideK * 0.9 * k;
+      slide = r * 0.7 * k;
+    } else k = 1 - (1 - p) * (1 - p);
+    const S = L.shoulders * r;
+    const hr = L.head * r;
+    const fold = style === "fold" ? 0.72 : 1;
+    const lerp = (a, b) => a + (b - a) * k;
+    // along the body (the head toward -y): from upright (everything over the spot) to lying full length
+    const yHead = lerp(0, -1.7 * r * fold) - slide;
+    const yT = lerp(-0.22 * r, -1.22 * r * fold) - slide;
+    const yH = lerp(0.16 * r, (style === "fold" ? -0.2 : -0.22) * r) - slide;
+    const yFoot = lerp(0.3 * r, (style === "fold" ? 0.1 : 0.48) * r) + drop * (1 - k) * 0.45 * r - slide * 0.5;
+    const shrink = 1 - drop * (1 - k) * 0.08; // a kneeler sinks before it pitches over
+    ctx.save();
+    ctx.translate(f.x, f.y);
+    ctx.rotate((Number(f.rot) || 0) + (faceDown ? -Math.PI / 2 : Math.PI / 2) + spin);
+    if (shrink !== 1) ctx.scale(shrink, shrink);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.globalAlpha = alpha;
+    const ground = part !== "body";
+    // the pool, spreading once it is down
+    if (ground && gore && age > DOWN.tip * 0.8) {
+      const g = Math.min(1, (age - DOWN.tip * 0.8) / 0.3);
+      const gs = g * (2 - g);
+      const cy = (yT + yH) / 2 - 0.3 * r;
+      ctx.fillStyle = BLOOD;
+      ctx.beginPath();
+      ctx.ellipse(0.1 * r, cy, S * 1.4 * gs + 1, r * 1.7 * gs + 1, 0.15, 0, TAU);
+      ctx.fill();
+      ctx.fillStyle = BLOOD_DARK;
+      ctx.beginPath();
+      ctx.ellipse(0, cy + 0.1 * r, S * 0.85 * gs + 0.5, r * 1.05 * gs + 0.5, 0.15, 0, TAU);
+      ctx.fill();
+    }
+    // a shadow while it goes over
+    if (ground && k < 1) {
+      ctx.fillStyle = "rgba(0,0,0," + (0.3 * (1 - k)).toFixed(3) + ")";
+      ctx.beginPath();
+      ctx.ellipse(0.2 * r, (yHead + yFoot) / 2 + 0.3 * r, S * 1.05, Math.abs(yFoot - yHead) / 2 + r * 0.6, 0, 0, TAU);
+      ctx.fill();
+    }
+    if (part === "ground") {
+      ctx.restore();
+      return;
+    }
+    // the legs: straight out, knees bent for a crumple, folded under for a fold
+    const hx = (L.hip || 0.3) * r;
+    for (const side of [-1, 1]) {
+      const footX = side * (hx + (style === "tumble" ? 0.35 : style === "tree" ? 0.08 : 0.2) * r * k);
+      let kx = null;
+      let ky = 0;
+      if (style === "crumple") {
+        kx = side * (hx + 0.32 * r * k);
+        ky = (yH + yFoot) / 2;
+      } else if (style === "fold") {
+        kx = side * (hx + 0.55 * r * k);
+        ky = yFoot + 0.35 * r * k;
+      }
+      limb(ctx, side * hx, yH - 0.08 * r, kx, ky, footX, yFoot, r * 0.34, L.pants);
+      ctx.beginPath();
+      ctx.ellipse(footX, yFoot + 0.12 * r, 0.17 * r, 0.22 * r, 0, 0, TAU);
+      fillStroke(ctx, L.boot, 2);
+    }
+    // the arms: from reaching, flung out (a toppling brute keeps them in)
+    const reachL = L.reach * r * 0.72;
+    for (const side of [-1, 1]) {
+      const sx = side * S * 0.8;
+      const sy = yT + 0.18 * r;
+      const out = style === "tree" ? 0.25 + 0.35 * hash01(seed, side + 3) : 0.55 + 1.1 * hash01(seed, side + 3);
+      const a = side * out * k * (faceDown ? 0.6 : 1); // from reaching at the van round to the sides
+      const hx1 = sx + Math.sin(a) * reachL * (0.6 + 0.4 * k);
+      const hy1 = faceDown ? sy - Math.cos(a) * reachL * 0.85 : sy + Math.cos(a) * reachL * (1 - 1.6 * k) * 0.8;
+      const fa = Math.atan2(hy1 - sy, hx1 - sx);
+      const ex = (sx + hx1) / 2 + Math.cos(fa + side * 1.2) * r * (L.arms === "dangle" || L.arms === "bent" ? 0.35 : 0.12);
+      const ey = (sy + hy1) / 2 + Math.sin(fa + side * 1.2) * r * (L.arms === "dangle" || L.arms === "bent" ? 0.35 : 0.12);
+      arm(ctx, L, r, sx, sy, ex, ey, hx1, hy1);
+    }
+    torso(ctx, L, r, S, yT, yH, faceDown ? "back" : "front", gore, seed);
+    head(ctx, L, r, 0, yHead, hr, faceDown ? 0 : 1, EYES_DEAD, (L.mouthW || 1) * 0.9, false, gore, seed);
+    // a toppled brute lands with a puff of dust
+    if (style === "tree" && age > DOWN.tip && age < DOWN.tip + 0.12) {
+      const q = (age - DOWN.tip) / 0.12;
+      ctx.globalAlpha = alpha * (1 - q) * 0.8;
+      ctx.fillStyle = "#6b675c";
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * TAU + 0.4;
+        const px = Math.cos(a) * (S + q * r * 0.8);
+        const py = (yHead + yFoot) / 2 + Math.sin(a) * (Math.abs(yFoot - yHead) / 2 + q * r * 0.8);
+        ctx.moveTo(px + r * (0.22 + q * 0.2), py);
+        ctx.arc(px, py, r * (0.22 + q * 0.2), 0, TAU);
+      }
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  /** How far a walker's art reaches from its centre (its arms), px: for the sign's redraw of walkers under it. */
+  function zombieExtent(z) {
+    const L = zombieLook(z.type, z.seed);
+    return z.r * Math.max(L.reach + 0.5, L.shoulders + 0.4, 1.9);
   }
 
   /* ---------- Rounds, particles, bursts ---------- */
@@ -811,9 +1539,17 @@
   }
 
   function particle(ctx, p) {
-    const life = p.life / p.maxLife;
-    ctx.globalAlpha = Math.max(0, life);
-    circle(ctx, p.x, p.y, p.size * (p.grow ? 1 + (1 - life) * 1.5 : life), p.color, 2);
+    const life = Math.max(0, Math.min(1, p.life / p.maxLife));
+    ctx.globalAlpha = life;
+    if (p.blood) {
+      // a drop of blood flying (stretched along its way), or a splat on the road: no ink, it is wet
+      const sp = Math.hypot(p.vx, p.vy);
+      const s = p.size * (p.splat ? 1 : 0.5 + life * 0.5);
+      ctx.fillStyle = p.color;
+      ctx.beginPath();
+      ctx.ellipse(p.x, p.y, s * (p.splat ? 1.5 : 1 + Math.min(2, sp / 90)), s * (p.splat ? 0.9 : 0.8), p.splat ? p.rot || 0 : Math.atan2(p.vy, p.vx), 0, TAU);
+      ctx.fill();
+    } else circle(ctx, p.x, p.y, p.size * (p.grow ? 1 + (1 - life) * 1.5 : life), p.color, 2);
     ctx.globalAlpha = 1;
   }
 
@@ -974,7 +1710,7 @@
   /** The river on the west of town, in world space: the same curve the city map draws (map units x scale). */
   function riverBand(ctx, world, view) {
     const k = world.scale || 1;
-    if (view.x - view.r > 140 * k) return; // all of it lies west of x = 140 map units
+    if (view.x - view.r > 140 * k) return; // all of it lies west of x = 140 map units (SCALE: tied to js/map.js's river)
     const path = () => {
       ctx.beginPath();
       ctx.moveTo(40 * k, 120 * k);
@@ -1609,5 +2345,5 @@
     ctx.restore();
   }
 
-  ZSR.Draw = { road, prop, van, zombie, bullet, particle, burst, vignette, fog, night, rr, circle, star, fillStroke, INK, ROOF, ground, cityRoads, laneZone, laneArrow, lot, signArrow, layoutSign, roadSign, signNote, nameBoard, card, wrapText };
+  ZSR.Draw = { road, prop, van, zombie, zombieShadow, zombieDown, zombieLook, zombieExtent, ZOMBIE_LOOK, ZOMBIE_DOWN: DOWN, walkerGore, bullet, particle, burst, vignette, fog, night, rr, circle, star, fillStroke, INK, ROOF, ground, cityRoads, laneZone, laneArrow, lot, signArrow, layoutSign, roadSign, signNote, nameBoard, card, wrapText };
 })(typeof globalThis !== "undefined" ? globalThis : this);

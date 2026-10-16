@@ -77,7 +77,8 @@ function glides(tr, d) {
   }
   return true;
 }
-const MIN_ARC = 95; // the van's own arc through any turn, at least (px)
+const MIN_ARC = 95; // the van's own arc through any turn, at least (px). SCALE: the tightest turn today is 99
+// This file drives every ordered pair of places at two speeds: O(N^2) drives. On a much bigger city, sample pairs.
 
 /* ---------- street names ---------- */
 const roadKeys = W.ROADS.map(([a, b]) => a + "|" + b);
@@ -124,7 +125,7 @@ S.SIDE_STREETS.forEach((s, i) => {
   if (S.SIDE_STREETS.findIndex((o) => o.name === s.name) !== i) err(c, "name used twice");
   const st = S.sideStub(s);
   if (!finite(st.x0, st.y0, st.x1, st.y1)) return err(c, "geometry is not finite");
-  if (st.x1 < 20 || st.x1 > 980 || st.y1 < 20 || st.y1 > 680) err(c, "runs off the map");
+  if (st.x1 < 20 || st.x1 > 980 || st.y1 < 20 || st.y1 > 680) err(c, "runs off the map"); // SCALE: js/map.js MW x MH
   W.ROADS.forEach(([a, b]) => {
     if (a + "|" + b === s.road) return;
     const d = segDist(st, { x0: pos[a].x, y0: pos[a].y, x1: pos[b].x, y1: pos[b].y });
@@ -242,6 +243,7 @@ for (const a of ids) {
       maxTime = Math.max(maxTime, time);
       minTime = Math.min(minTime, time);
       // River Landing at the far west edge makes the longest drives (the mall to the river and back, about 140 s)
+      // SCALE: the city is near this ceiling; a bigger map means raising it on purpose (a design call) or shorter roads
       if (!(time >= 15 && time <= 150)) err(cs, `drive takes ${time.toFixed(0)} s (15..150)`);
       // the decisions expected along this route: a place with two roads or more is a corner with its drive
       // off it, so the first turn out of it, every place passed and the last turn into it are all junctions

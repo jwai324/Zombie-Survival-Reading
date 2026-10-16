@@ -16,6 +16,14 @@
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
   const paragraphs = (text) => String(text).split(/\n\s*\n/).map((p) => "<p>" + esc(p.trim()).replace(/\n/g, "<br>") + "</p>").join("");
   const wordCount = (t) => String(t).trim().split(/\s+/).filter(Boolean).length;
+  const STAR_PATH = "M12 2.2l2.9 6.4 7 .7-5.3 4.7 1.6 6.9L12 17.3l-6.2 3.6 1.6-6.9L2.1 9.3l7-.7z";
+  /** A crew text at the reading level with its {placeholders} filled ("" when the crew files are missing). */
+  const crewWords = (kind, id, sub, vars) => (ZSR.crewText ? ZSR.crewFill(ZSR.crewText(kind, id, sub), vars) : "");
+  const placeName = (id) => {
+    const l = W().LOCATIONS.find((x) => x.id === id);
+    return l ? l.name : String(id);
+  };
+  const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
 
   const Backpack = {
     onClose: null,
@@ -31,6 +39,7 @@
         keysBox.innerHTML = "";
         keysBox.appendChild(this.keysBlock(() => this.open(onClose)));
       }
+      this.renderCrew(onClose);
       this.renderDays(onClose);
       this.renderTags();
       const body = document.getElementById("backpack-body");
@@ -96,7 +105,164 @@
       return wrap;
     },
 
-    /** The backpack open at June's journal and the radio (the radio shelf in the cabin's living room). */
+    /** Trust stars: one filled star for each earned, of as many as CREW_RULES.stars has. Shared with the crew card. */
+    crewStars(id) {
+      const S = State();
+      const total = ((W().CREW_RULES || {}).stars || []).length;
+      const n = S.stars ? Math.min(total, S.stars(id)) : 0;
+      const wrap = el("span", "crew-stars");
+      wrap.setAttribute("role", "img");
+      wrap.setAttribute("aria-label", "Trust: " + n + " of " + total + " stars");
+      wrap.title = "Trust: " + n + " of " + total + " stars";
+      for (let i = 0; i < total; i++) wrap.insertAdjacentHTML("beforeend", '<svg class="crew-star' + (i < n ? " on" : "") + '" viewBox="0 0 24 24" aria-hidden="true"><path d="' + STAR_PATH + '"/></svg>');
+      return wrap;
+    },
+
+    /** Any text in the note reader (a crew request read again, a thank-you). o: { caption, title, found, text,
+        primary, onClose }. Words are counted by the caller (State.seeCrewTalk). */
+    showText(o) {
+      const screen = document.getElementById("screen-note");
+      document.getElementById("note-caption").textContent = o.caption || "";
+      document.getElementById("note-title").textContent = o.title || "";
+      document.getElementById("note-found").textContent = o.found || "";
+      document.getElementById("note-text").innerHTML = paragraphs(o.text || "");
+      const primary = document.getElementById("btn-note-primary");
+      document.getElementById("btn-note-secondary").classList.add("hidden");
+      primary.textContent = o.primary || "Close";
+      primary.onclick = () => {
+        ZSR.Audio.play("click");
+        screen.classList.add("hidden");
+        if (o.onClose) o.onClose();
+      };
+      screen.classList.remove("hidden");
+      screen.querySelector(".panel").scrollTop = 0;
+    },
+
+    /** The crew: each one's trust stars, their open requests (read again, give up), the dog's name, and the story
+        quests already handed in (read the thank-you again). Data-driven: every CREW id, every request. */
+    renderCrew(onClose) {
+      const box = document.getElementById("backpack-crew");
+      if (!box) return;
+      box.innerHTML = "";
+      const S = State();
+      const ids = S.crewIds ? S.crewIds() : [];
+      if (!ids.length || !ZSR.crewName) return;
+      const reopen = () => this.open(onClose);
+      const I = ZSR.Interior;
+      const ctx = {
+        reopen,
+        atHome: !S.trip,
+        inWave: !!(I && I.mode === "yard" && I.phase && I.phase.kind === "wave"),
+      };
+      const dogQuest = (W().QUESTS || []).find((q) => q && q.kind === "dog");
+      const wrap = el("div", "bp-crew");
+      const open = ids.reduce((n, id) => n + S.requests(id).length, 0);
+      wrap.appendChild(el("h3", null, "The crew" + (open ? " (" + open + " request" + (open > 1 ? "s" : "") + " open)" : "")));
+      ids.forEach((id) => {
+        const c = W().CREW[id] || {};
+        const name = ZSR.crewName(id);
+        const card = el("div", "bp-crew-card");
+        if (c.color) card.style.setProperty("--crew", c.color);
+        const head = el("div", "bp-crew-head");
+        head.appendChild(el("span", "bp-crew-name", esc(name)));
+        head.appendChild(this.crewStars(id));
+        card.appendChild(head);
+        const reqs = S.requests(id);
+        if (!reqs.length) card.appendChild(el("p", "small muted", "Nothing open with " + esc(name) + " right now. Talk to " + esc(name) + " at the cabin."));
+        reqs.forEach((r) => card.appendChild(this.crewRequest(id, r, ctx)));
+        // the dog, on the card of the crew member whose quest brought it home
+        if (dogQuest && dogQuest.giver === id && S.dogHome && S.dogHome()) {
+          const dn = S.dogName();
+          card.appendChild(el("p", "small bp-crew-dog", dn ? "<strong>The dog:</strong> " + esc(dn) + "." : "<strong>The dog</strong> is home. " + esc(name) + " wants you to give it a name."));
+        }
+        const done = S.crewQuests(id).filter((q) => q.st && q.st.state === "done");
+        if (done.length) {
+          const det = el("details", "bp-crew-done");
+          det.appendChild(el("summary", null, "Done for " + esc(name) + " (" + done.length + ")"));
+          done.forEach(({ def, st }) => {
+            const title = crewWords("quest", def.id, "title");
+            const b = el("button", "note-card");
+            b.appendChild(el("span", "note-title", esc(title)));
+            b.appendChild(el("span", "note-found", "From " + esc(placeName(def.at)) + (st.doneDay ? " · handed over on day " + st.doneDay : "")));
+            b.addEventListener("click", () => {
+              const text = crewWords("quest", def.id, "done", S.requestVars({ kind: "quest", def }));
+              if (S.seeCrewTalk) S.seeCrewTalk("quest:" + def.id + ":done", wordCount(text));
+              document.getElementById("screen-backpack").classList.add("hidden");
+              this.showText({ caption: name + " · done", title, found: "You brought it home from " + placeName(def.at) + ".", text, primary: "Back", onClose: reopen });
+            });
+            det.appendChild(b);
+          });
+          card.appendChild(det);
+        }
+        wrap.appendChild(card);
+      });
+      box.appendChild(wrap);
+    },
+
+    /** One open request in the Crew section: its title, where it is (or the errand's count and days left), and
+        buttons to read it again and to give it up (at home, between waves; never a story object already home). */
+    crewRequest(id, r, ctx) {
+      const S = State();
+      const name = ZSR.crewName(id);
+      const isQuest = r.kind === "quest";
+      const did = r.def.id;
+      const vars = S.requestVars(r);
+      const title = crewWords(r.kind, did, "title", vars);
+      const row = el("div", "bp-crew-req");
+      row.appendChild(el("div", "note-title", esc(title)));
+      const lines = [];
+      if (isQuest) {
+        const dog = r.def.kind === "dog";
+        const place = placeName(r.def.at);
+        if (r.st.state === "found") lines.push(dog ? "The dog is home. Talk to " + name + "." : "It is home. Talk to " + name + " to hand it over.");
+        else if (S.questHeld(did)) lines.push(dog ? "The dog is with you this trip. Get it home." : "You have it this trip. Get it home to keep it.");
+        else lines.push(dog ? "Where: " + place + ". Hold out " + name + "'s treats (E), and the dog will follow you." : "Where: " + place + ".");
+      } else {
+        const st = r.st;
+        const have = Math.min(st.have || 0, st.count);
+        lines.push("Bring " + vars.count + " of these: " + vars.item + ". Brought home: " + have + " of " + st.count + ".");
+        if (S.requestReady(r)) lines.push("Ready. Talk to " + name + " to hand them over.");
+        else if (have >= st.count) lines.push("Keep " + st.count + " in storage to hand them over.");
+        else lines.push(plural(vars.days, "day") + " left.");
+      }
+      if (vars.reward) lines.push("Reward: " + vars.reward + ".");
+      row.appendChild(el("p", "small", lines.map(esc).join(" ")));
+      const btns = el("div", "bp-crew-btns");
+      const again = el("button", "btn alt small-btn", "Read it again");
+      again.addEventListener("click", () => {
+        const text = crewWords(r.kind, did, "brief", vars);
+        if (S.seeCrewTalk) S.seeCrewTalk(r.kind + ":" + did + ":brief", wordCount(text));
+        document.getElementById("screen-backpack").classList.add("hidden");
+        this.showText({ caption: name + "'s request", title, found: r.st && r.st.day ? "You said yes on day " + r.st.day + "." : "", text, primary: "Back", onClose: ctx.reopen });
+      });
+      btns.appendChild(again);
+      // a story object already home is handed over, never given up (State.giveUp refuses it too)
+      if (!(isQuest && r.st.state === "found")) {
+        const can = ctx.atHome && !ctx.inWave;
+        const give = el("button", "btn small-btn bp-crew-give", "Give it up");
+        give.disabled = !can;
+        give.title = !ctx.atHome ? "Only at home, at the cabin." : ctx.inWave ? "Not in a wave." : name + " will trust you a little less.";
+        give.addEventListener("click", () => {
+          if (!can) return;
+          const yes = () => {
+            if (!S.giveUp(id, did)) return;
+            const Main = ZSR.Main;
+            const I = ZSR.Interior;
+            if (Main && Main.syncYard && I && I.mode === "yard") Main.syncYard(); // saved at the base, never mid-wave
+            else S.commit();
+            ctx.reopen();
+          };
+          const ask = 'Give up "' + title + '"? ' + name + " will trust you a little less." + (isQuest ? " " + name + " can ask you again later." : "");
+          if (ZSR.Main && ZSR.Main.confirm) ZSR.Main.confirm(ask, yes, { caption: "Give it up?", yes: "Give it up", no: "Keep it" });
+          else if (root.confirm(ask)) yes();
+        });
+        btns.appendChild(give);
+      }
+      row.appendChild(btns);
+      return row;
+    },
+
+    /** The backpack open at June's journal and the radio (the radio shelf in the cabin's dining room). */
     openDays(onClose) {
       this.open(onClose);
       const det = document.querySelector("#backpack-days details");
@@ -120,7 +286,8 @@
         const card = el("button", "note-card");
         const jt = j && j.title ? j.title : "";
         card.appendChild(el("span", "note-title", /^day\s*\d/i.test(jt) ? esc(jt) : "Day " + entry.day + (jt ? ": " + esc(jt) : "")));
-        card.appendChild(el("span", "note-found", entry.radio != null ? "Journal and a radio broadcast" : "Journal"));
+        const waiting = entry.radio != null && State().radioWaiting() === entry;
+        card.appendChild(el("span", "note-found", waiting ? "Journal (news waiting on the radio)" : entry.radio != null ? "Journal and a radio broadcast" : "Journal"));
         card.addEventListener("click", () => {
           document.getElementById("screen-backpack").classList.add("hidden");
           this.showDay(entry, { primary: "Back", onClose: () => this.open(onClose) });
@@ -161,25 +328,49 @@
     },
 
     /** One day: a recap of the trip, June's journal entry, and the radio if the Radio room is built.
-        opts: { primary, onClose }. The first reading counts toward words read. */
+        Today's broadcast waits at the radio in the dining room (State.radioWaiting) until the player tunes
+        in there (opts.tune: the broadcast alone, see tuneIn); until then the page says where the news is.
+        opts: { primary, onClose, tune }. The first reading counts toward words read (the broadcast on its own). */
     showDay(entry, opts) {
       const o = opts || {};
       const S = State();
       const screen = document.getElementById("screen-note");
       const j = entry.journal != null ? ZSR.dayText("journal", entry.journal) : { title: "", text: "" };
       const r = entry.radio != null ? ZSR.dayText("radio", entry.radio) : null;
+      const waiting = !!r && !o.tune && S.radioWaiting() === entry;
+      const showR = !!r && !waiting;
       const recap = ZSR.recapText(entry.recap);
-      document.getElementById("note-caption").textContent = "Day " + entry.day + " · home";
-      document.getElementById("note-title").textContent = j.title || "June's journal";
-      document.getElementById("note-found").textContent = "From June's green ledger" + (r ? ", and the radio" : "");
       let html = "";
-      if (recap) html += '<p class="recap">' + esc(recap) + "</p>";
-      html += paragraphs(j.text);
-      if (r) html += '<h4 class="radio-head">On the radio' + (r.title ? ": " + esc(r.title) : "") + "</h4>" + paragraphs(r.text);
+      if (o.tune) {
+        document.getElementById("note-caption").textContent = "Day " + entry.day + " · the radio in the dining room";
+        document.getElementById("note-title").textContent = "On the radio" + (r && r.title ? ": " + r.title : "");
+        document.getElementById("note-found").textContent = "Pip turns the dial, and a voice comes through";
+        if (r) html += paragraphs(r.text);
+      } else {
+        document.getElementById("note-caption").textContent = "Day " + entry.day + " · home";
+        document.getElementById("note-title").textContent = j.title || "June's journal";
+        document.getElementById("note-found").textContent = "From June's green ledger" + (showR ? ", and the radio" : "");
+        if (recap) html += '<p class="recap">' + esc(recap) + "</p>";
+        html += paragraphs(j.text);
+        // June's ledger line for each story quest handed in since the day before (docs/CREW.md), counted once
+        (entry.quests || []).forEach((qid) => {
+          const line = crewWords("quest", qid, "journal");
+          if (!line.trim()) return;
+          html += '<div class="ledger-quest">' + paragraphs(line) + "</div>";
+          if (S.seeCrewTalk) S.seeCrewTalk("quest:" + qid + ":journal", wordCount(line));
+        });
+        if (showR) html += '<h4 class="radio-head">On the radio' + (r.title ? ": " + esc(r.title) : "") + "</h4>" + paragraphs(r.text);
+        else if (waiting) html += '<p class="radio-wait">News on the radio today. Tune in at the radio in the dining room.</p>';
+      }
       document.getElementById("note-text").innerHTML = html;
-      if (!entry.read) {
+      if (!o.tune && !entry.read) {
         entry.read = true;
-        S.save.stats.wordsRead += wordCount(recap + " " + j.text + " " + (r ? r.text : ""));
+        // a day from before the radio waited to be tuned in (no `tuned` field) counts its broadcast here, as it did
+        S.save.stats.wordsRead += wordCount(recap + " " + j.text + " " + (showR && entry.tuned == null ? r.text : ""));
+      }
+      if (showR && entry.tuned === false) {
+        entry.tuned = true;
+        S.save.stats.wordsRead += wordCount(r.text);
       }
       const primary = document.getElementById("btn-note-primary");
       document.getElementById("btn-note-secondary").classList.add("hidden");
@@ -191,6 +382,11 @@
       };
       screen.classList.remove("hidden");
       screen.querySelector(".panel").scrollTop = 0;
+    },
+
+    /** The radio in the dining room: today's broadcast on its own, heard now (State.radioWaiting). */
+    tuneIn(entry, onClose) {
+      this.showDay(entry, { tune: true, primary: "Close", onClose });
     },
 
     /** Medical kits: packed in the backpack, in storage at the cabin, or in the van's cargo. One kit heals to full. */
@@ -214,6 +410,13 @@
       const tip = (node, html) => {
         node.setAttribute("data-tip", html);
         return node;
+      };
+      // packing or unpacking a kit at the cabin is saved the way the yard saves: never in the middle of a wave (a
+      // death in it reloads the save from before it began, so nothing that wave did may be written mid-wave)
+      const saveAtHome = () => {
+        const Main = ZSR.Main;
+        if (Main && Main.syncYard && I && I.mode === "yard") Main.syncYard();
+        else S.commit();
       };
       const heal = (from) => {
         if (!hurt) return;
@@ -245,6 +448,7 @@
         tip(pack, "<strong>Pack a kit</strong><span class='t-line'>Moves one Medical kit from storage into the backpack (up to " + max + "). Rooms that need kits cannot use packed ones.</span>");
         pack.addEventListener("click", () => {
           if (S.packKit()) {
+            saveAtHome();
             ZSR.Audio.play("pickup");
             this.renderKits();
           }
@@ -255,6 +459,7 @@
         tip(unpack, "<strong>Put one back</strong><span class='t-line'>Returns a packed kit to storage for building the Medbay or the Lab.</span>");
         unpack.addEventListener("click", () => {
           if (S.unpackKit()) {
+            saveAtHome();
             ZSR.Audio.play("click");
             this.renderKits();
           }

@@ -1,4 +1,5 @@
-/* Reading level 2: places, part 2 (police, school, firehouse, hospital, watertower, lumberyard, mall, library). Facts: js/world.js and js/story.js. See docs/TEXT_GUIDE.md. */
+/* Reading level 2: places, part 2 (police, school, firehouse, hospital, watertower, lumberyard, mall, library). Facts: js/world.js and js/story.js. See docs/TEXT_GUIDE.md.
+   SCALE: new places go in a new part file (level2-places3.js ...) with its own script tag, not in this one. */
 (function (root) {
   root.ZSR = root.ZSR || {};
   root.ZSR.TEXT = root.ZSR.TEXT || {};
@@ -296,7 +297,7 @@
         "library-sign1": { title: "QUIET, PLEASE", text: "QUIET, PLEASE. Thank you for respecting other readers. Under it, in pencil: It works on walkers too. Seriously." },
         "library-sign2": { title: "Very Small Spray Paint", text: "Ruby's red R, with an 8 under it. Both are painted very small. Like she felt bad writing on a library wall." },
         "library-sign3": { title: "Library Hours", text: "LIBRARY HOURS: Dawn until dark. Below it: No candles near the books. Fire is worse than walkers." },
-        "library-sign4": { title: "Chalk by the Archive", text: "Chalk by the archive room door, in curly letters: Ask Mrs. Greer's note before you open a book. A small smiley face sits next to it." },
+        "library-sign4": { title: "Chalk by the Archive", text: "This chalk is by the archive room door. It says: Ask Mrs. Greer's note first. Then open a book. A smiley face sits next to it." },
       },
       key: { name: "Tiny gold key, velvet pouch", tag: "A tiny gold key in a small velvet pouch. A paper tag is tied to the pouch. It says: Not for show." },
     },

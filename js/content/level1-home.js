@@ -58,13 +58,13 @@
         ],
       },
       radio: {
-        title: "Radio mast",
+        title: "Radio tower",
         empty:
-          "Pip painted this sign: RADIO, Pip's job. A tall post stands in the yard. A ladder leans on it. A radio mast could go up here. It would pick up voices from town. The voices would tell where places are. Then the places show up on your map.",
+          "Pip painted this sign: RADIO, Pip's job. A ladder leans on a tall post here. A radio tower could go up here. It would pick up voices from town. They would play on the dining room radio. The voices would put new places on your map.",
         built: [
-          "The sign says RADIO. A short mast holds up an antenna and a receiver. Static hisses out, and then voices come. Pip writes down every voice. The radio finds three new places on the map.",
-          "The sign says RADIO. The mast is taller now, so it reaches all over town. Every voice comes in clear. Pip's list gets so long that Pip needs more paper. The radio finds every place on the map.",
-          "The sign says RADIO. The tall mast still stands. A shelf of books sits under it now. Pip uses the books to keep the log of voices. The radio finds every place. It also shows which places still have items.",
+          "The sign says RADIO. A wood tower stands here, tied with rope. A whip antenna sits on top. A wire runs from it to the dining room. Pip sits at the radio there. Pip writes down every voice. The radio finds three new places on the map.",
+          "The sign says RADIO. Now a steel tower stands here. Long wires hold it steady. A dish sits halfway up. A red light blinks on top. It reaches all over town. Pip's list gets very long. The radio finds every place on the map.",
+          "The sign says RADIO. A tall red and white tower has two dishes. Two lights blink. A small hut has sun panels. In the dining room, Pip's books log the voices. A town map hangs by them. It finds every place. It shows where items are left.",
         ],
       },
       lab: {
@@ -262,7 +262,7 @@
     },
     {
       title: "Theo at the Tower",
-      text: "This is Theo at the Water Tower. I take care of the pumps here. Dev and Mr. Ortiz are staying with me, because we have clean water. Dev has a message for his sister. Ruby, I am safe with Theo, so come west. That is all. Theo out.",
+      text: "This is Theo at the Water Tower. I take care of the pumps here. Dev and Mr. Ortiz are staying with me. They stay because we have clean water. Dev has a message for his sister. Ruby, I am safe with Theo, so come west. That is all. Theo out.",
     },
     {
       title: "Ruby Heads West",
@@ -453,7 +453,7 @@
       },
       living: {
         title: "Lines on the Door Frame",
-        text: "Lines on the door frame show how tall the kids grew. Gus has the top line. Lucy's lowest line says age 3. Pip comes up between Finn and Gus. The radio and June's green ledger sit by the couch. Anyone can read past days there again.",
+        text: "Pencil lines show how tall the kids grew. Gus has the top line. Lucy's lowest line says age 3. Pip comes up between Finn and Gus. The radio shelf stood by the couch once. Pip carried it to the dining room. The crew eats there.",
       },
       gusRoom: {
         title: "Keep Out",

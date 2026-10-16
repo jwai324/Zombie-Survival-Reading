@@ -16,8 +16,12 @@
      1 2 3 4  landmark anchors (floor + landmark prop): 1 back left, 2 back right,
               3 front left, 4 front right
      i item   c cache item   k stash item   y this building's stash key
-     n note spot 1 (the main note)   z walker spawn   $ scrap pile
-   Item, cache and stash spots are filled in reading order (top-left to bottom-right).
+     n note spot 1 (the main note)   $ scrap pile
+     z walker anchor: a tile a note names (NOTES[id].walkers); other walkers spawn at random
+   Item, cache and stash spots are filled in reading order (top-left to bottom-right), and so are the
+   z anchors a walker rule names by index (z: [0] is the first z in reading order): keep every z tile,
+   and moving one can move what a rule points at (tests/validate-world.js checks each anchor still sits
+   in its zone, by the landmark its note names).
 
    Authoring shorthand, expanded at the bottom of this file into the contract shape:
      floorRects: [[x0, y0, x1, y1, ch], ...]  painted over palette.floorKind into `floors`
@@ -27,7 +31,10 @@
      scatter:    { every, keys: [[tex, text?], ...] }  generic wall decor spread over bare walls
    Story fields (js/story.js holds what they say):
      spots:      { 2: [x, y], ... 7: [x, y] }  note spots 2 to 7, plain floor (a story note names its spot)
-     signs:      [[x, y, face], ...]  wall signs and graffiti read up close, one per story sign, in order */
+     signs:      [[x, y, face], ...]  wall signs and graffiti read up close, one per story sign, in order
+     walkerZones: { name: [[x0, y0, x1, y1], ...] }  named areas (inclusive rects, more than one for a
+                 zone in several rooms) where a note's walker rule keeps its walkers: "two in the truck
+                 bay" (js/world.js NOTES[id].walkers, js/building.js planWalkers) */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -212,6 +219,7 @@
       scatter: { every: 6, keys: [["crack"], ["vent"], ["poster", "ICE COLD"], ["pipes"], ["graffiti", "NO GAS"]] },
       spots: { 2: [8, 13], 3: [7, 19], 4: [9, 7], 5: [14, 18], 6: [18, 18], 7: [4, 1] },
       signs: [[4, 8, "s"], [11, 21, "n"], [9, 5, "s"], [18, 5, "s"]],
+      walkerZones: { liftEnd: [[20, 1, 28, 8]] },
       landmarks: {
         1: { name: "the ice machine", art: "iceMachine", solid: true, size: 0.7, label: "ICE" },
         2: { name: "the car lift", art: "carLift", solid: true, size: 0.98, foot: [3, 3], color: "#3f6fb0" },
@@ -261,6 +269,7 @@
       scatter: { every: 4, keys: [["crack"], ["vent"], ["poster", "2 FOR 1"], ["pipes"], ["coolerDoors"]] },
       spots: { 2: [25, 2], 3: [13, 9], 4: [22, 17], 5: [1, 10], 6: [17, 20], 7: [28, 11] },
       signs: [[0, 16, "e"], [24, 7, "s"], [31, 19, "w"], [12, 4, "s"]],
+      walkerZones: { dock: [[24, 1, 30, 6]] },
       landmarks: {
         1: { name: "the fish tank", art: "fishTank", solid: true, size: 0.85 },
         2: { name: "the forklift", art: "forklift", solid: true, size: 0.98, foot: [3, 1], color: "#e3b21b" },
@@ -316,6 +325,7 @@
       scatter: { every: 4, keys: [["crack"], ["vent"], ["pipes"], ["poster", "REYES SINCE 1962"], ["boarded"]] },
       spots: { 2: [34, 20], 3: [2, 6], 4: [12, 6], 5: [24, 12], 6: [16, 23], 7: [6, 4] },
       signs: [[7, 9, "s"], [20, 25, "n"], [35, 16, "w"], [22, 5, "s"]],
+      walkerZones: { middleAisles: [[3, 11, 22, 17]] },
       landmarks: {
         1: { name: "the paint mixer", art: "paintMixer", solid: true, size: 0.8 },
         2: { name: "the riding mower", art: "ridingMower", solid: true, size: 0.7, color: "#3f8f3a" },
@@ -367,6 +377,7 @@
       scatter: { every: 5, keys: [["crack"], ["vent"], ["poster", "GET WELL"], ["pipes"]] },
       spots: { 2: [28, 9], 3: [8, 13], 4: [18, 19], 5: [1, 10], 6: [14, 20], 7: [14, 8] },
       signs: [[14, 7, "s"], [13, 21, "n"], [0, 15, "e"], [27, 4, "s"]],
+      walkerZones: { back: [[1, 1, 28, 6]] },
       landmarks: {
         1: { name: "the giant toothbrush", art: "toothbrush", solid: true, size: 0.98, color: "#7fd1b0" },
         2: { name: "the wheelchairs", art: "wheelchairs", solid: true, size: 0.75 },
@@ -419,6 +430,7 @@
       scatter: { every: 5, keys: [["crack"], ["vent"], ["pipes"], ["boarded"]] },
       spots: { 2: [8, 4], 3: [29, 3], 4: [4, 22], 5: [8, 16], 6: [15, 13], 7: [7, 2] },
       signs: [[10, 6, "e"], [7, 23, "n"], [23, 17, "w"], [18, 12, "s"]],
+      walkerZones: { partsRoom: [[1, 1, 9, 8]] },
       landmarks: {
         1: { name: "the engine crane", art: "engineHoist", solid: true, size: 0.98 },
         2: { name: "the red tool chest", art: "toolChest", solid: true, size: 0.9, color: "#c0392b" },
@@ -468,6 +480,7 @@
       scatter: { every: 4, keys: [["crack"], ["vent"], ["poster", "CABLES"], ["tvScreen"], ["pipes"]] },
       spots: { 2: [28, 16], 3: [12, 17], 4: [14, 12], 5: [1, 10], 6: [10, 20], 7: [24, 8] },
       signs: [[9, 21, "n"], [0, 16, "e"], [29, 9, "w"], [25, 6, "s"]],
+      walkerZones: { robot: [[19, 7, 28, 10]] },
       landmarks: {
         1: { name: "the TV wall", art: "tvWall", solid: true, size: 0.98, foot: [3, 1] },
         2: { name: "the robot", art: "robotMascot", solid: true, size: 0.95, label: "SIG" },
@@ -518,6 +531,7 @@
       scatter: { every: 3, keys: [["trellis"], ["crack"], ["toolWall"], ["poster", "HOME GROWN"]] },
       spots: { 2: [30, 1], 3: [2, 12], 4: [23, 13], 5: [4, 22], 6: [21, 9], 7: [2, 5] },
       signs: [[12, 19, "e"], [0, 19, "e"], [9, 19, "n"], [24, 14, "w"]],
+      walkerZones: { bigGreenhouseBack: [[1, 1, 15, 6]] },
       landmarks: {
         1: { name: "the scarecrow", art: "scarecrow", solid: true, size: 1.6 },
         2: { name: "the palm tree", art: "palmTree", solid: true, size: 2.4 },
@@ -576,6 +590,7 @@
       scatter: { every: 5, keys: [["crack"], ["vent"], ["pipes"], ["poster", "STAY SAFE"]] },
       spots: { 2: [5, 3], 3: [35, 10], 4: [19, 19], 5: [25, 22], 6: [18, 16], 7: [36, 24] },
       signs: [[16, 27, "n"], [0, 23, "e"], [0, 13, "e"], [24, 7, "s"]],
+      walkerZones: { garage: [[27, 1, 36, 26]] },
       landmarks: {
         1: { name: "the dog kennel", art: "kennel", solid: true, size: 0.75, label: "K9" },
         2: { name: "the police bike", art: "motorcycle", solid: true, size: 0.75 },
@@ -639,6 +654,7 @@
       scatter: { every: 6, keys: [["crack"], ["poster", "BE KIND"], ["vent"], ["poster", "CLUB SIGNUP"]] },
       spots: { 2: [37, 2], 3: [1, 13], 4: [38, 14], 5: [7, 17], 6: [10, 28], 7: [28, 22] },
       signs: [[11, 9, "e"], [14, 28, "w"], [0, 13, "e"], [27, 5, "s"]],
+      walkerZones: { mainHallway: [[1, 13, 38, 14]] },
       landmarks: {
         1: { name: "the big brain", art: "brainModel", solid: true, size: 0.9 },
         2: { name: "the drum set", art: "drumSet", solid: true, size: 0.75 },
@@ -697,6 +713,7 @@
       scatter: { every: 5, keys: [["crack"], ["hoseRack"], ["vent"], ["poster", "TRAIN HARD"]] },
       spots: { 2: [5, 3], 3: [32, 13], 4: [4, 23], 5: [17, 14], 6: [5, 16], 7: [31, 22] },
       signs: [[18, 23, "e"], [18, 4, "e"], [7, 25, "n"], [30, 6, "s"]],
+      walkerZones: { truckBay: [[19, 1, 32, 24]] },
       rod: [32, 4], // Chief Dunn's fishing pole, in the back corner of the equipment bay (WORLD.RIVER.rod)
       landmarks: {
         1: { name: "the brass pole", art: "firePole", solid: true, size: 0.98 },
@@ -762,6 +779,12 @@
       scatter: { every: 5, keys: [["crack"], ["vent"], ["firstAid"], ["poster", "VISIT HOURS"], ["pipes"]] },
       spots: { 2: [6, 2], 3: [1, 10], 4: [40, 10], 5: [32, 16], 6: [20, 17], 7: [16, 29] },
       signs: [[5, 19, "s"], [26, 28, "w"], [16, 8, "s"], [22, 16, "w"]],
+      // the dark rooms, every one off the halls: x-ray, 101, 102, 103, the chapel, ward A, ward B, the utility room,
+      // room 110, the gift shop and emergency
+      walkerZones: {
+        darkRooms: [[1, 1, 9, 7], [11, 1, 15, 7], [17, 1, 21, 7], [23, 1, 27, 7], [33, 1, 40, 7], [1, 12, 6, 18], [8, 12, 13, 18],
+          [30, 12, 35, 18], [37, 12, 40, 18], [1, 23, 8, 30], [27, 23, 40, 30]],
+      },
       landmarks: {
         1: { name: "the x-ray machine", art: "xray", solid: true, size: 0.98 },
         2: { name: "the angel statue", art: "angelStatue", solid: true, size: 0.98 },
@@ -870,6 +893,7 @@
       scatter: { every: 5, keys: [["crack"], ["sawBlade"], ["toolWall"], ["poster", "SAFETY FIRST"], ["boarded"]] },
       spots: { 2: [31, 21], 3: [2, 1], 4: [31, 2], 5: [27, 14], 6: [11, 27], 7: [16, 8] },
       signs: [[9, 29, "n"], [29, 16, "w"], [12, 4, "w"], [19, 7, "s"]],
+      walkerZones: { yard: [[24, 1, 38, 9]], dock: [[30, 11, 38, 28]] },
       landmarks: {
         1: { name: "the band saw", art: "bandSaw", solid: true, size: 0.98 },
         2: { name: "the log pile", art: "logPile", solid: true, size: 0.9, foot: [3, 1] },
@@ -936,6 +960,7 @@
       scatter: { every: 6, keys: [["crack"], ["poster", "BIG SALE"], ["vent"], ["poster", "OPEN LATE"]] },
       spots: { 2: [12, 14], 3: [35, 30], 4: [21, 10], 5: [13, 11], 6: [17, 23], 7: [23, 29] },
       signs: [[0, 14, "e"], [16, 29, "e"], [41, 14, "w"], [33, 3, "n"]],
+      walkerZones: { mainHall: [[1, 13, 40, 17]] },
       landmarks: {
         1: { name: "the rocking horse", art: "rockingHorse", solid: true, size: 0.9, foot: [3, 1] },
         2: { name: "the green dino", art: "playDino", solid: true, size: 0.98, foot: [3, 3] },
@@ -996,6 +1021,7 @@
       scatter: { every: 4, keys: [["bookWall"], ["bookWall"], ["crack"], ["poster", "READ MORE"]] },
       spots: { 2: [31, 4], 3: [14, 13], 4: [23, 14], 5: [11, 27], 6: [21, 28], 7: [29, 8] },
       signs: [[13, 14, "e"], [13, 26, "e"], [24, 26, "w"], [19, 5, "s"]],
+      walkerZones: { mainHall: [[14, 6, 23, 28]] },
       landmarks: {
         1: { name: "the giant globe", art: "globe", solid: true, size: 0.98 },
         2: { name: "the tall clock", art: "grandClock", solid: true, size: 0.98 },

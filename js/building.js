@@ -2,8 +2,9 @@
    from its layout (legend v2), the trip snapshot for a return visit, pickups, notes,
    the locked cache room, the stash (its key is hidden in another building) and this building's
    own stash key, wall signs read up close, decor and landmarks, a gun lying on the floor (when
-   this save hid one here), the building's HUD goal, and the M map (only what you have seen;
-   kept in the trip and, once home, in the save).
+   this save hid one here), a crew member's story object waiting for an accepted quest and the
+   stray dog that follows you once you hold out Pip's treats (docs/CREW.md), the building's HUD
+   goal, and the M map (only what you have seen; kept in the trip and, once home, in the save).
 
    Legend v2 (see js/layouts.js):
      #  wall              W  wall with a window      .  floor
@@ -13,9 +14,10 @@
      C  counter  K  table / desk  R  bed / bench (low: solid, see-through, shoot over)
      1 2 3 4  landmark anchors (floor + landmark prop)
      i item  c cache item  k stash item  y this building's stash key
-     n note spot 1 (the main note)  z walker spawn  $ scrap pile
-   Any other character is floor. The layout's `spots` place note spots 2 to 7 and its `signs`
-   the wall signs (js/layouts.js). */
+     n note spot 1 (the main note)  $ scrap pile
+     z walker anchor: a tile a note names (NOTES[id].walkers); other walkers spawn at random (planWalkers)
+   Any other character is floor. The layout's `spots` place note spots 2 to 7, its `signs`
+   the wall signs and its `walkerZones` the areas a note's walkers keep to (js/layouts.js). */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -57,6 +59,33 @@
     alarm: "That set off the alarm!",
     jam: "It sticks fast. The lock is jammed now. A crowbar from the workbench will pry it open.",
   };
+  /* The dog in a building (the dog quest, docs/CREW.md). Tiles, tiles a second, seconds, radians. It follows you
+     along the way you went and settles `gap` behind you, by your own walking rules (moveCircle, solidForPlayer). */
+  const DOG = {
+    gap: 1.2, // it stops this far from you (along its way to you)
+    start: 1.6, // and gets up again once you are this far
+    r: 0.2, // its body, against walls and closed doors
+    walk: 3.3, // a little faster than you walk...
+    run: 4.8, // ...and faster than you sprint, once it is more than `runFrom` behind
+    runFrom: 3,
+    far: 6, // farther than this from you, or `stuck` seconds unable to move, and it catches up at once:
+    stuck: 2, // it turns up just behind you,
+    hide: 1.05, // this far off where you look when it can (out of sight)
+    spacing: 0.25, // a point of your way every this far, while it cannot see you
+    stepT: 0.16, // seconds a walk frame shows
+    idleT: 0.8, // seconds a sitting (breathing) frame shows
+    aim: 0.4, // half its width (tiles) that counts as right under the crosshair (E prefers it there)
+  };
+  // SCALE: points of your way the dog remembers while it cannot see you (spacing 0.25: 40 tiles of corridor);
+  // a building with longer ways out of its sight just has it catch up at once past this
+  const TRAIL_MAX = 160;
+  const normAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  /** A crew sprite's prop scale (tiles tall) from the art (ZSR.CREW_ART.scale), else the contract's. */
+  const artScale = (kind) => (ZSR.CREW_ART && ZSR.CREW_ART.scale && ZSR.CREW_ART.scale[kind]) || { crewDog: 0.36, qObj: 0.3 }[kind] || 1;
+  /** A story object's name: "Bag of sunflower seeds". */
+  const objName = (def) => (def && def.object && def.object.name) || "something";
+  /** The name in running text: "the bag of sunflower seeds", but "Rosa's jar of beans" as it is. */
+  const inText = (name) => (/^\S+'s\b/.test(name) ? name : "the " + name.charAt(0).toLowerCase() + name.slice(1));
 
   Object.assign(ZSR.Interior, {
     /** The layout of a place: its own in ZSR.LAYOUTS (by id), else WORLD.TEMPLATES by its template. */
@@ -171,25 +200,17 @@
       this.makePlayer(start[0], start[1], start[2]);
       if (this.fx.fullHealOnEntry) this.player.hp = this.player.maxHp;
 
+      // what lies on the floor goes down first, so no walker starts on it (planWalkers)
+      this.placeGun(loc, start);
+      this.placeRod(loc, tpl);
+      this.placeQuestObjects(loc);
       if (snap) {
         this.restore(snap);
       } else {
         const day = S.save.day;
-        const n = W().SETTINGS.walkersPerLocation(loc.danger, day);
-        // extra walkers go on floor tiles the player can actually reach (through the doors they can open,
-        // not into the locked cache room), at least 6 steps from the door
-        const reach = this.reachable(Math.floor(start[0]), Math.floor(start[1]), true);
-        const far = this.floors.filter(([x, y]) => (reach.get(Math.floor(x) + "," + Math.floor(y)) || 0) >= 6);
-        const spots = this.spawns.slice();
-        while (spots.length < n && far.length) spots.push(far.splice(Math.floor(Math.random() * far.length), 1)[0]);
-        const hpMult = 1 + 0.1 * (day - 1);
-        spots.slice(0, n).forEach(([x, y], i) => {
-          const type = loc.danger >= 4 && i === 0 ? "brute" : loc.danger >= 2 && i % 3 === 1 ? "runner" : loc.danger >= 3 && i % 4 === 3 ? "brute" : "walker";
-          this.walkers.push(this.makeWalker(type, x, y, hpMult));
-        });
+        const hpMult = W().walkerHpMult("building", day);
+        this.planWalkers(loc, tpl, start, W().SETTINGS.walkersPerLocation(loc.danger, day), day).forEach((w) => this.walkers.push(this.makeWalker(w.type, w.x, w.y, hpMult)));
       }
-      this.placeGun(loc, start);
-      this.placeRod(loc, tpl);
       S.tripLoc(loc.id).visits += 1;
       if (!S.trip.visited.includes(loc.id)) S.trip.visited.push(loc.id);
       this.hud.place.textContent = loc.name;
@@ -198,6 +219,156 @@
       this.syncMapBtn();
       const tips = snap ? ["Back inside. It is just as you left it. M is the map.", "Back inside. M is the map."] : ["Walkers inside. E reads notes and opens doors. B is the backpack. M is the map.", "Walkers inside. M is the map."];
       this.toastFit(tips.concat("M is the map."), 4.5);
+    },
+
+    /** Where a building's `n` walkers start on a visit with no snapshot, and their kinds, on `day` (the save's
+        day when left out): [{ x, y, type, rule }] (tile centres; rule: the index of the NOTES[id].walkers rule
+        that placed it, -1 for the others). rng: the dice (Math.random). Called once the gun, the pole and the
+        quest objects lie where they lie. Each walker starts on its own tile of floor the player can walk to
+        (through the doors they can open, never in a locked room), at least walkerSpawn.minSteps from the start,
+        never on a busy tile (spawnBusy), and out of earshot of the start where there is room (farther than
+        Interior.HEAR in a straight line: minSteps along a diagonal is nearer than that, and a walker that close
+        would wake as you come in; a rule's tiles with no such tile left still get its walker, nearer). First the
+        note's rules, in order (WORLD.NOTES says what each field means): a rule's tiles are its z anchors' rings
+        (r steps, doors shut) inside its zone, or its whole zone; a rule that names a landmark (`near`) rings the
+        landmark's footprint itself, so "one by the robot" starts within r steps of the robot. They are closed
+        to the other walkers (an exact rule closes its whole zone), so "one by the robot" stays one. Then the
+        rest, over what is left (only inside an `all` rule's zone). Spacing: `gap` tiles apart where there is
+        room (a rule's group by its anchors: `groupGap`), then closer, never two on a tile. Kinds: a rule's
+        `type`, else the place's mix (placeMix). tests/validate-world.js (R6) checks every rule always has room,
+        so the fallbacks never break a rule with today's layouts. */
+    planWalkers(loc, tpl, start, n, day, rng) {
+      const rnd = rng || Math.random;
+      const today = day || State().save.day;
+      const WS = W().SETTINGS.walkerSpawn;
+      const rules = (W().NOTES[loc.id] || {}).walkers || [];
+      const zones = tpl.walkerZones || {};
+      const key = (x, y) => x + "," + y;
+      const inRects = (rects, x, y) => rects.some(([x0, y0, x1, y1]) => x >= x0 && x <= x1 && y >= y0 && y <= y1);
+      const reach = this.reachable(Math.floor(start[0]), Math.floor(start[1]), true);
+      const busy = this.spawnBusy(loc, tpl);
+      const pool = []; // [tx, ty]: where a walker may start
+      this.floors.forEach(([fx, fy]) => {
+        const x = Math.floor(fx);
+        const y = Math.floor(fy);
+        if ((reach.get(key(x, y)) || 0) >= WS.minSteps && !busy.has(key(x, y))) pool.push([x, y]);
+      });
+      const inPool = new Set(pool.map(([x, y]) => key(x, y)));
+      const hear = this.HEAR + 0.5; // (the half: a walker's middle, not its tile's edge)
+      const quiet = ([x, y]) => Math.hypot(x + 0.5 - start[0], y + 0.5 - start[1]) >= hear;
+      const anchors = []; // the z tiles, in reading order
+      tpl.grid.forEach((row, y) => {
+        for (let x = 0; x < row.length; x++) if (row[x] === "z") anchors.push([x, y]);
+      });
+      const placed = [];
+      const used = new Set();
+      const closed = new Set(); // tiles the other walkers may not start on
+      const spaced = (x, y, gap) => placed.every((p) => (p.x - x) * (p.x - x) + (p.y - y) * (p.y - y) >= gap * gap);
+      const pick = (cands, gaps) => {
+        // out of earshot first (every spacing), then anywhere
+        const calm = cands.filter(quiet);
+        for (const list of calm.length < cands.length ? [calm, cands] : [cands]) {
+          for (const gap of gaps) {
+            const ok = list.filter(([x, y]) => !used.has(key(x, y)) && spaced(x, y, gap));
+            if (ok.length) return ok[Math.floor(rnd() * ok.length)];
+          }
+        }
+        return null;
+      };
+      const put = ([x, y], type, rule) => {
+        used.add(key(x, y));
+        placed.push({ x, y, type, rule });
+      };
+      let allZone = null;
+      rules.forEach((r, ri) => {
+        const Z = (r.zone && zones[r.zone]) || null;
+        if (r.all) {
+          if (Z) allZone = Z;
+          return;
+        }
+        const own = (list) => list.filter(([x, y]) => inPool.has(key(x, y)) && (!Z || inRects(Z, x, y)));
+        // its tiles: one ring per anchor, or the whole zone; one that names a landmark: one ring round its footprint
+        const mark = r.near != null ? this.landmarkRect(r.near) : null;
+        const rings = mark ? [own(this.ringFrom(mark[0], mark[1], r.r || WS.ring, mark[2], mark[3]))] : (Array.isArray(r.z) ? r.z : []).map((zi) => (anchors[zi] ? own(this.ringFrom(anchors[zi][0], anchors[zi][1], r.r || WS.ring)) : []));
+        const area = rings.length ? [].concat(...rings) : Z ? own(pool) : [];
+        area.forEach(([x, y]) => closed.add(key(x, y)));
+        if (r.exact && Z) own(pool).forEach(([x, y]) => closed.add(key(x, y)));
+        const want = Math.min(n - placed.length, this.ruleCount(r, n));
+        for (let k = 0; k < want; k++) {
+          const t = rings.length ? pick(rings[k % rings.length], [WS.groupGap, 1]) || pick(area, [WS.groupGap, 1]) : pick(area, [WS.gap, WS.groupGap, 1]);
+          if (t) put(t, r.type || null, ri); // no room (never with today's layouts: R6): the rest below keeps the count
+        }
+      });
+      const rest = pool.filter(([x, y]) => !closed.has(key(x, y)) && (!allZone || inRects(allZone, x, y)));
+      while (placed.length < n) {
+        const t = pick(rest, [WS.gap, WS.groupGap, 1]) || pick(pool, [1]);
+        if (!t) break;
+        put(t, null, -1);
+      }
+      const mix = this.placeMix("building", loc, today);
+      return placed.map((p) => ({ x: p.x + 0.5, y: p.y + 0.5, type: p.type || W().pickWalkerType(mix, rnd), rule: p.rule }));
+    },
+    /** How many walkers a note's rule places when the building holds `total`: max(n, ceil(share x total)). */
+    ruleCount(r, total) {
+      return r.all ? 0 : Math.max(r.n || 0, r.share ? Math.ceil(r.share * total) : 0);
+    },
+    /** Tiles no walker starts on ("x,y"): every item, cache and stash spot and the key and scrap piles (taken or
+        not), every note spot (at any reading level), the landmarks, every story quest's spot here (in any state),
+        and the gun and the fishing pole lying here. */
+    spawnBusy(loc, tpl) {
+      const busy = new Set();
+      tpl.grid.forEach((row, y) => {
+        for (let x = 0; x < row.length; x++) if ("ickny$1234".includes(row[x])) busy.add(x + "," + y);
+      });
+      Object.values(tpl.spots || {}).forEach(([x, y]) => busy.add(x + "," + y));
+      (W().QUESTS || []).forEach((q) => q && q.at === loc.id && Array.isArray(q.spot) && busy.add(q.spot[0] + "," + q.spot[1]));
+      [this.gunPickup, this.rodPickup].forEach((o) => o && busy.add(Math.floor(o.x) + "," + Math.floor(o.y)));
+      return busy;
+    },
+    /** Tiles within r steps of (ax, ay) walking with every door shut, so inside that tile's room: [[x, y], ...].
+        With (bx, by): of any tile of the rect from (ax, ay) to (bx, by) (a landmark's footprint, solid or not). */
+    ringFrom(ax, ay, r, bx, by) {
+      const m = this.solidMask();
+      const gw = this.gw;
+      const seen = new Set();
+      const out = [];
+      for (let y = ay; y <= (by == null ? ay : by); y++) {
+        for (let x = ax; x <= (bx == null ? ax : bx); x++) {
+          seen.add(x + "," + y);
+          out.push([x, y]);
+        }
+      }
+      let edge = out.slice();
+      for (let d = 0; d < r; d++) {
+        const next = [];
+        edge.forEach(([x, y]) => {
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const nx = x + dx;
+            const ny = y + dy;
+            const k = nx + "," + ny;
+            if (nx < 0 || ny < 0 || nx >= gw || ny >= this.gh || seen.has(k) || m[ny * gw + nx] || this.grid[ny][nx] === "D") continue;
+            seen.add(k);
+            next.push([nx, ny]);
+          }
+        });
+        out.push(...next);
+        edge = next;
+      }
+      return out;
+    },
+    /** The footprint of the landmark called `name` here (its def's foot round its tile): [x0, y0, x1, y1], or null. */
+    landmarkRect(name) {
+      const lm = (this.landmarks || []).find((m) => m.def && m.def.name === name);
+      if (!lm) return null;
+      const [fw, fh] = lm.def.foot || [1, 1];
+      return [lm.x - (fw >> 1), lm.y - (fh >> 1), lm.x + (fw >> 1), lm.y + (fh >> 1)];
+    },
+    /** The walker kinds of this place, "building" or "alarm" (WORLD.walkerWeights by danger, day and theme), less
+        any kind a note's rule keeps to its own walkers (`only`: "One of them is big"). */
+    placeMix(where, loc, day) {
+      const mix = W().walkerWeights(where, { danger: loc.danger || 0, day, place: loc.id });
+      ((W().NOTES[loc.id] || {}).walkers || []).forEach((r) => r.only && r.type && delete mix[r.type]);
+      return mix;
     },
     /** A toast with the longest of `texts` that fits on the screen: Huge text on a small screen gets a short one. */
     toastFit(texts, secs, pickup) {
@@ -340,19 +511,24 @@
     /** Pause for the lock prompt (js/locks.js); `then(result)` runs once it closes and the game is back. */
     lockPrompt(opts, then) {
       this.pause();
-      Locks().prompt(
-        Object.assign({}, opts, {
-          onDone: (r) => {
-            if (!this.running) return;
-            this.resume();
-            if (r && r.god) {
-              this.toast("God mode. It opens.", 2.5);
-              Audio().play("haven");
-            }
-            then(r || { cancel: true });
-          },
-        })
-      );
+      const open = () =>
+        Locks().prompt(
+          Object.assign({}, opts, {
+            onDone: (r) => {
+              if (!this.running) return;
+              this.resume();
+              if (r && r.god) {
+                this.toast("God mode. It opens.", 2.5);
+                Audio().play("haven");
+              }
+              then(r || { cancel: true });
+            },
+          })
+        );
+      // the first lock: June's hint card first (owner decision 11: read the note, do just what it says; never the
+      // answer). Not the crowbar prompt: it is no puzzle, and a jammed lock in an old save could be the first prompt met
+      if (ZSR.Tutorial && opts.kind !== "crowbar") ZSR.Tutorial.first("lock", open);
+      else open();
     },
     openCache(god) {
       const S = State();
@@ -404,15 +580,22 @@
     },
     /** Down at once (a booby trap): no Medbay kit gets you up from this. */
     dieBy(reason) {
+      if (State().cheat("noDie")) {
+        this.toast("God mode: " + reason, 4);
+        return;
+      }
       this.deathReason = reason;
       Audio().play("poof");
       this.stop();
       if (this.hooks.onDeath) this.hooks.onDeath();
     },
-    /** The alarm rings: walkers pour in, from deep inside and through the way out, until you go down. */
+    /** The alarm rings: walkers pour in, from deep inside and through the way out, until you go down (WORLD.ALARM).
+        Their kinds: the place's alarm mix, less a kind a note keeps to one walker (placeMix). */
     startAlarm() {
       if (this.alarm) return;
-      this.alarm = { t: 0, next: 0.4, siren: 0 };
+      const loc = this.loc || {};
+      const mix = this.placeMix("alarm", loc, State().save.day);
+      this.alarm = { t: 0, next: W().ALARM.first, siren: 0, mix };
       this.toast("ALARM! Walkers are pouring in, even through the way out.", 4);
       this.updateHud();
     },
@@ -427,23 +610,94 @@
         Audio().play("alarm");
       }
       if (A.next > 0) return;
-      A.next = Math.max(1.1, 3 - A.t * 0.04); // faster and faster
-      if (this.walkers.length >= 40) return;
-      const hpMult = 1 + 0.1 * (State().save.day - 1);
+      const AL = W().ALARM;
+      A.next = Math.max(AL.minGap, AL.gap - A.t * AL.speedup); // faster and faster
+      if (this.walkers.length >= AL.cap) return;
+      const hpMult = W().walkerHpMult("alarm", State().save.day);
       const p = this.player;
       const add = (x, y) => {
-        const z = this.makeWalker(Math.random() < 0.3 ? "runner" : "walker", x, y, hpMult);
+        if (this.walkers.length >= AL.cap) return; // two a tick never overshoot the cap
+        const z = this.makeWalker(W().pickWalkerType(A.mix || { walker: 1 }), x, y, hpMult);
         z.awake = true;
         this.walkers.push(z);
       };
       // one through the way out, so there is no leaving
       add(this.startPos[0] + rand(-0.15, 0.15), this.startPos[1] + rand(-0.15, 0.15));
-      // and one from somewhere deeper in the building
-      const far = this.floors.filter(([x, y]) => Math.hypot(x - p.x, y - p.y) > 7);
-      if (far.length) {
-        const [x, y] = far[Math.floor(Math.random() * far.length)];
+      // and one from somewhere deeper in the building, farther than farFrom from you, on a tile no walker stands on
+      // when there is one: floor it can walk to you from with the doors as they stand (walkers cannot open doors);
+      // when you are shut in with no such floor, floor walkable from the way in through the doors (never a locked
+      // room), where it waits for you behind a door
+      if (this.walkers.length >= AL.cap) return;
+      const area = this.alarmAreas(A);
+      const gw = this.gw;
+      const taken = new Set();
+      this.walkers.forEach((z) => taken.add(Math.floor(z.y) * gw + Math.floor(z.x)));
+      const ins = [Math.floor(p.y) * gw + Math.floor(p.x), Math.floor(this.startPos[1]) * gw + Math.floor(this.startPos[0])];
+      const floors = this.floors;
+      const px = p.x;
+      const py = p.y;
+      const r2 = AL.farFrom * AL.farFrom;
+      const far = [];
+      const free = [];
+      for (let k = 0; k < 2; k++) {
+        const lab = k ? area.through : area.here;
+        const id = lab[ins[k]];
+        if (id < 0) continue;
+        for (let i = 0; i < floors.length; i++) {
+          const f = floors[i]; // a tile centre
+          const t = Math.floor(f[1]) * gw + Math.floor(f[0]);
+          if (lab[t] !== id || (f[0] - px) * (f[0] - px) + (f[1] - py) * (f[1] - py) <= r2) continue;
+          far.push(f);
+          if (!taken.has(t)) free.push(f);
+        }
+        if (!far.length) continue;
+        const from = free.length ? free : far;
+        const [x, y] = from[Math.floor(Math.random() * from.length)];
         add(x, y);
+        return;
       }
+    },
+    /** The building's walkable areas for the alarm's deeper walkers: `here` numbers each tile's area with the doors
+        as they stand, `through` with every closed door open (locked doors stay walls), as reachable() walks them;
+        -1 is solid. Kept on the alarm until a door opens or shuts, so a spawn tick does no search of the grid. */
+    alarmAreas(A) {
+      const sig = this.doors.map((d) => this.grid[d.y][d.x]).join("");
+      if (A.areas && A.areas.sig === sig && A.areas.here.length === this.gw * this.gh) return A.areas;
+      A.areas = { sig, here: this.areaLabels(false), through: this.areaLabels(true) };
+      return A.areas;
+    },
+    /** Each tile's walkable area (Int32Array, -1 solid): 4-way connected floor of the movement mask, with closed
+        doors passable when throughDoors. */
+    areaLabels(throughDoors) {
+      const m = this.solidMask();
+      const gw = this.gw;
+      const n = gw * this.gh;
+      const lab = new Int32Array(n).fill(-1);
+      const q = new Int32Array(n);
+      const open = (i) => !m[i] || (throughDoors && this.grid[(i / gw) | 0][i % gw] === "O");
+      let id = 0;
+      let tail = 0;
+      const push = (j) => {
+        if (lab[j] >= 0 || !open(j)) return;
+        lab[j] = id;
+        q[tail++] = j;
+      };
+      for (let s = 0; s < n; s++) {
+        if (lab[s] >= 0 || !open(s)) continue;
+        let head = 0;
+        tail = 0;
+        push(s);
+        while (head < tail) {
+          const i = q[head++];
+          const x = i % gw;
+          if (x > 0) push(i - 1);
+          if (x < gw - 1) push(i + 1);
+          if (i >= gw) push(i - gw);
+          if (i + gw < n) push(i + gw);
+        }
+        id++;
+      }
+      return lab;
     },
     /** The cache door: whatever its lock asks for (WORLD.LOCKS). */
     cacheInteract() {
@@ -575,7 +829,8 @@
     /** What this building looks like right now, so a return visit on the same trip finds it unchanged. */
     snapshot() {
       return {
-        walkers: this.walkers.map((z) => ({ type: z.type, x: z.x, y: z.y, hp: z.hp, maxHp: z.maxHp })),
+        // (a walker's look and the way it faces come back too; a screamer that screamed does not scream again at once)
+        walkers: this.walkers.map((z) => ({ type: z.type, x: z.x, y: z.y, hp: z.hp, maxHp: z.maxHp, seed: z.seed, heading: z.heading, screamed: !!z.screamed })),
         piles: this.piles.map((pl) => pl.taken),
         doors: this.doors.map((d) => ({ x: d.x, y: d.y, open: d.open })), // by position: the cache door joins the list late
         seen: State().packSeen(this.seen, this.gw, this.gh),
@@ -588,6 +843,12 @@
         z.hp = w.hp;
         z.maxHp = w.maxHp;
         z.cool = 1;
+        if (w.seed != null) z.seed = w.seed;
+        if (w.heading != null) z.heading = w.heading;
+        if (w.screamed) {
+          z.screamed = true;
+          z.screamT = W().SCREAM.cooldown;
+        }
         this.walkers.push(z);
       });
       snap.piles.forEach((taken, i) => {
@@ -604,8 +865,8 @@
 
     /** A gun still lying in this building goes on a floor tile well inside: the same tile on every visit
         of this save (seeded), on open floor you can walk to with every door open, never in the cache room,
-        never on a landmark's tiles, an item, a note or a scrap pile. Distances count every door as open,
-        so where doors stand never moves it. Never behind the stash door either. */
+        never on a landmark's tiles, an item, a note, a scrap pile or a story quest's spot. Distances count every
+        door as open, so where doors stand never moves it. Never behind the stash door either. */
     placeGun(loc, start) {
       const S = State();
       const id = S.weaponAt(loc.id);
@@ -639,11 +900,19 @@
         const k = Math.floor(x) + "," + Math.floor(y);
         return (reach.get(k) || 0) >= min && !busy.has(k);
       });
-      const spots = [10, 5, 2].map(ok).find((list) => list.length);
+      // every story quest's spot in this building (where its object or the dog waits) is busy too, whatever that
+      // quest's state, so the gun's tile never moves as quests open and close. A gun the seed puts on a quest spot
+      // takes the next tile of the same list instead (the list itself is left as it was, so every other gun stays
+      // where it always lay): this moved a few guns' tiles once, the day the crew's quests came in.
+      const quest = new Set((W().QUESTS || []).filter((q) => q && q.at === loc.id && Array.isArray(q.spot)).map((q) => q.spot[0] + "," + q.spot[1]));
+      const free = ([x, y]) => !quest.has(Math.floor(x) + "," + Math.floor(y));
+      const spots = [10, 5, 2].map(ok).find((list) => list.some(free));
       if (!spots) return;
       let h = S.save.weapons.seed || 1;
       for (const ch of loc.id) h = (h * 31 + ch.charCodeAt(0)) % 2147483647;
-      const [x, y] = spots[h % spots.length];
+      let i = h % spots.length;
+      while (!free(spots[i])) i = (i + 1) % spots.length;
+      const [x, y] = spots[i];
       this.gunPickup = { x, y, id, taken: false };
     },
 
@@ -655,6 +924,261 @@
       const [x, y] = tpl.rod;
       this.rodPickup = { x: x + 0.5, y: y + 0.5, taken: false };
       this.rodPickup.prop = this.addProp({ x: x + 0.5, y: y + 0.5, art: "rodItem", scale: 0.2, lift: 0 });
+    },
+
+    /* ---------- The crew's story quests (docs/CREW.md) ---------- */
+    /** What waits here for an accepted story quest (State.questsAt: never one you already hold this trip, so a
+        return visit rebuilds it from State): each story object lies on its spot (a qObj prop; walk over it), and
+        the dog sits on its spot until you hold out the treats (E). The dog already following you this trip
+        (trip.dog) comes in with you, beside you at the entrance; while it does, no other dog waits (one per trip). */
+    placeQuestObjects(loc) {
+      const S = State();
+      this.questPickups = [];
+      this.tripDog = null;
+      const following = !!(S.trip && S.trip.dog);
+      (S.questsAt ? S.questsAt(loc.id) : []).forEach((def) => {
+        if (!def || !Array.isArray(def.spot)) return;
+        const x = def.spot[0] + 0.5;
+        const y = def.spot[1] + 0.5;
+        if (def.kind === "dog") {
+          if (!following && !this.tripDog) this.makeTripDog(x, y, def, false);
+          return;
+        }
+        const prop = this.addProp({ x, y, art: "qObj", opts: { kind: def.object && def.object.art }, scale: artScale("qObj"), lift: 0 });
+        this.questPickups.push({ id: def.id, def, x, y, taken: false, prop });
+      });
+      if (following) {
+        const [x, y] = this.dogSpot();
+        this.makeTripDog(x, y, null, true);
+      }
+    },
+    /** The dog's state in this building: waiting on its quest's spot (def), or following you. Its prop is not solid. */
+    makeTripDog(x, y, def, follow) {
+      const p = this.player;
+      const d = { x, y, def, follow, pose: null, f: 0, ft: Math.random() * DOG.idleT, left: false, moving: false, spd: 0, stuck: 0, trail: [], seen: p ? [p.x, p.y] : null, prop: null };
+      d.prop = this.addProp({ x, y, img: null, scale: artScale("crewDog"), lift: 0 });
+      this.tripDog = d;
+      this.dogLook(d, "sit", 0, false);
+      return d;
+    },
+    /** Its picture: pose and frame (f exactly 0 or 1, and `left` only when true: Draw3 keeps one canvas per opts set). */
+    dogLook(d, pose, f, left) {
+      const ff = f ? 1 : 0;
+      if (d.prop.img && d.pose === pose && d.f === ff && d.left === !!left) return;
+      d.pose = pose;
+      d.f = ff;
+      d.left = !!left;
+      d.prop.img = D3().sprite("crewDog", left ? { pose, f: ff, left: true } : { pose, f: ff });
+    },
+    /** The dog's body at (x, y) would touch something solid for you (a wall, a closed door, a counter). */
+    dogBlocked(x, y) {
+      const r = DOG.r;
+      return this.solidForPlayer(x - r, y - r) || this.solidForPlayer(x + r, y - r) || this.solidForPlayer(x - r, y + r) || this.solidForPlayer(x + r, y + r);
+    },
+    /** The dog can walk straight from (x0, y0) to (x1, y1): its whole body clears every wall on the way. */
+    dogClear(x0, y0, x1, y1) {
+      const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 0.2);
+      for (let i = 1; i <= n; i++) if (this.dogBlocked(x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n)) return false;
+      return true;
+    },
+    /** Where the dog turns up beside you: about DOG.gap behind you, on floor it can stand on and walk straight to
+        you from, out of your view when such a spot exists (else the best one in it). [x, y] */
+    dogSpot() {
+      const p = this.player;
+      let best = null;
+      const consider = (x, y, extra) => {
+        if (this.dogBlocked(x, y) || !this.dogClear(p.x, p.y, x, y)) return;
+        const off = Math.abs(normAngle(Math.atan2(y - p.y, x - p.x) - p.a));
+        const score = (off >= DOG.hide ? 0 : 10) + Math.abs(Math.hypot(x - p.x, y - p.y) - DOG.gap) + extra;
+        if (!best || score < best.score) best = { x, y, score };
+      };
+      // straight behind you, then a little to either side
+      [0, 0.5, -0.5, 1, -1].forEach((da) => [DOG.gap, 0.8].forEach((r) => consider(p.x - Math.cos(p.a + da) * r, p.y - Math.sin(p.a + da) * r, 0)));
+      // else the middle of a tile around you (in a narrow spot behind you is a wall)
+      const px = Math.floor(p.x);
+      const py = Math.floor(p.y);
+      for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (dx || dy) consider(px + dx + 0.5, py + dy + 0.5, 0.2);
+      return best ? [best.x, best.y] : [p.x, p.y];
+    },
+    /** E at the waiting dog: you hold out the treats and it follows you (State.takeDog: this trip only). */
+    dogTreat(d) {
+      const S = State();
+      if (!d || d.follow) return;
+      const giver = d.def ? ZSR.crewName(d.def.giver) : "";
+      if (!S.takeDog || !S.takeDog(d.def && d.def.id)) {
+        this.toast("The dog backs away from you.", 2.5);
+        Audio().play("wrong");
+        return;
+      }
+      const p = this.player;
+      d.follow = true;
+      d.moving = false;
+      d.stuck = 0;
+      d.trail.length = 0;
+      d.seen = [p.x, p.y];
+      // the last, shortest one is for Huge text on a small screen (toastFit keeps the longest that fits)
+      const msgs = ["The dog eats " + (giver ? giver + "'s" : "the") + " treat and wags its tail. It will follow you to the van and home.", "The dog eats the treat. It will follow you now.", "The dog follows you."];
+      this.toastFit(msgs, this.readSecs(msgs[0], 4.5), true);
+      Audio().play("buy");
+      this.updateHud();
+    },
+    /** The dog each frame: waiting, it sits and breathes; following, it comes after you along the way you went
+        (straight to you when it can walk there, else to the newest point of your way it can walk straight to),
+        settles DOG.gap from you and sits, and turns up just behind you when it falls far back or gets stuck (a
+        door shut between you). Walkers never look at it and shots pass it by: it is only a prop. */
+    updateTripDog(dt) {
+      const d = this.tripDog;
+      if (!d) return;
+      const S = State();
+      d.ft += dt;
+      if (!d.follow) {
+        if (d.def && S.questState && S.questState(d.def.id) !== "active") return this.dropTripDog(); // given up from the backpack
+        if (d.ft >= DOG.idleT) {
+          d.ft = 0;
+          this.dogLook(d, "sit", d.f ? 0 : 1, d.left);
+        }
+        return;
+      }
+      if (!S.trip || !S.trip.dog) return this.dropTripDog(); // given up from the backpack: it trots off
+      const p = this.player;
+      const x0 = d.x;
+      const y0 = d.y;
+      let goal;
+      let path;
+      let lost = false;
+      if (this.dogClear(d.x, d.y, p.x, p.y)) {
+        d.trail.length = 0;
+        // where it last could walk straight to you: kept in one array (no allocation a frame); the trail copies it
+        if (d.seen) {
+          d.seen[0] = p.x;
+          d.seen[1] = p.y;
+        } else d.seen = [p.x, p.y];
+        goal = d.seen;
+        path = Math.hypot(p.x - d.x, p.y - d.y);
+      } else {
+        // out of a straight line: your way since it last could walk straight to you
+        const tr = d.trail;
+        if (!tr.length) tr.push(d.seen ? [d.seen[0], d.seen[1]] : [p.x, p.y]);
+        const last = tr[tr.length - 1];
+        if (Math.hypot(p.x - last[0], p.y - last[1]) >= DOG.spacing) tr.push([p.x, p.y]);
+        for (let j = tr.length - 1; j > 0; j--) {
+          if (Math.hypot(tr[j][0] - d.x, tr[j][1] - d.y) <= DOG.far && this.dogClear(d.x, d.y, tr[j][0], tr[j][1])) {
+            // a shortcut: the newest point it can walk straight to (dropped in place: no array a frame)
+            tr.copyWithin(0, j);
+            tr.length -= j;
+            break;
+          }
+        }
+        // still longer than it can remember after every shortcut: it has lost your way and catches up at once
+        // (below), however well it is walking (a stuck timer would restart each frame it moves)
+        lost = tr.length > TRAIL_MAX;
+        goal = tr[0];
+        path = Math.hypot(goal[0] - d.x, goal[1] - d.y) + Math.hypot(p.x - tr[tr.length - 1][0], p.y - tr[tr.length - 1][1]);
+        for (let i = 1; i < tr.length; i++) path += Math.hypot(tr[i][0] - tr[i - 1][0], tr[i][1] - tr[i - 1][1]);
+      }
+      if (!d.moving && path > DOG.start) d.moving = true;
+      else if (d.moving && path <= DOG.gap + 0.02) d.moving = false; // there (give or take a rounding)
+      let want = 0;
+      if (d.moving) {
+        want = Math.min((path > DOG.runFrom ? DOG.run : DOG.walk) * dt, path - DOG.gap);
+        const gx = goal[0] - d.x;
+        const gy = goal[1] - d.y;
+        const gd = Math.hypot(gx, gy);
+        if (want > 0 && gd > 1e-4) {
+          const step = Math.min(want, gd); // never past a point of your way
+          this.moveCircle(d, (gx / gd) * step, (gy / gd) * step, DOG.r, true);
+          if (d.trail.length && Math.hypot(goal[0] - d.x, goal[1] - d.y) < 0.05) d.trail.shift();
+        }
+      }
+      const moved = Math.hypot(d.x - x0, d.y - y0);
+      if (d.moving && want > 1e-4 && moved < want * 0.3) d.stuck += dt;
+      else d.stuck = 0;
+      let jumped = false;
+      if (lost || Math.hypot(p.x - d.x, p.y - d.y) > DOG.far || d.stuck >= DOG.stuck) {
+        [d.x, d.y] = this.dogSpot();
+        d.trail.length = 0;
+        d.seen = [p.x, p.y];
+        d.stuck = 0;
+        d.moving = false;
+        jumped = true;
+      }
+      // the picture: walking, waiting at a shut door (stand), or sitting once it has caught up; it faces left when
+      // it goes left across your view (against the view's right-hand direction, -sin a, cos a)
+      const sp = jumped ? 0 : moved / Math.max(dt, 1e-3);
+      d.spd = jumped ? 0 : d.spd * 0.75 + sp * 0.25;
+      let left = d.left;
+      if (!jumped && moved > 1e-4) {
+        const across = ((d.x - x0) * -Math.sin(p.a) + (d.y - y0) * Math.cos(p.a)) / Math.max(dt, 1e-3);
+        if (across < -0.4) left = true;
+        else if (across > 0.4) left = false;
+      }
+      const pose = d.spd > 0.5 ? "walk" : d.moving ? "stand" : "sit";
+      let f = d.f;
+      if (pose !== d.pose) {
+        d.ft = 0;
+        f = 0;
+      } else if (d.ft >= (pose === "walk" ? DOG.stepT : DOG.idleT)) {
+        d.ft = 0;
+        f = f ? 0 : 1;
+      }
+      this.dogLook(d, pose, f, left);
+      d.prop.x = d.x;
+      d.prop.y = d.y;
+    },
+    /** The dog leaves the scene (its quest was given up): its picture goes. */
+    dropTripDog() {
+      const d = this.tripDog;
+      if (d && d.prop) d.prop.hidden = true;
+      this.tripDog = null;
+      this.updateHud();
+    },
+    /** The following dog's body is in this open door's doorway (shutting it would shut on the dog). */
+    dogInDoorway(door) {
+      const d = this.tripDog;
+      if (!door || !door.open || !d || !d.follow) return false;
+      return Math.abs(d.x - door.x - 0.5) < 0.5 + DOG.r && Math.abs(d.y - door.y - 0.5) < 0.5 + DOG.r;
+    },
+    /** E at an open door the following dog stands in. It trails you, so right after you walk through a door and
+        turn round it sits in that doorway: a refusal would mean you could never shut a door behind you while it
+        follows. So it never shuts on the dog: the dog trots through to your side first (the nearest spot there to
+        where it stands, else beside you), and the core shuts the door. Returns true only to refuse (no spot). */
+    buildingDoor(door) {
+      if (!this.dogInDoorway(door)) return false;
+      const p = this.player;
+      if ((Math.floor(p.x) === door.x && Math.floor(p.y) === door.y) || this.walkerOnTile(door.x, door.y)) return false; // the core refuses
+      const d = this.tripDog;
+      // where it can stand on your side: worked out as if the door were shut already (a shut door is solid)
+      this.grid[door.y][door.x] = "O";
+      this.maskDirty = true;
+      const ok = (x, y) => !this.dogBlocked(x, y) && this.dogClear(p.x, p.y, x, y);
+      let best = null;
+      const cx = door.x + 0.5;
+      const cy = door.y + 0.5;
+      const dl = Math.hypot(p.x - cx, p.y - cy) || 1;
+      for (const t of [0.75, 0.9, 1.1, 1.3]) {
+        for (const s of [0, 0.3, -0.3]) {
+          // from the door toward you, a little to either side
+          const x = cx + ((p.x - cx) / dl) * t - ((p.y - cy) / dl) * s;
+          const y = cy + ((p.y - cy) / dl) * t + ((p.x - cx) / dl) * s;
+          const dd = Math.hypot(x - d.x, y - d.y);
+          if ((!best || dd < best.dd) && ok(x, y)) best = { x, y, dd };
+        }
+      }
+      const spot = best ? [best.x, best.y] : this.dogSpot();
+      this.grid[door.y][door.x] = "D";
+      this.maskDirty = true;
+      d.x = spot[0];
+      d.y = spot[1];
+      d.prop.x = d.x;
+      d.prop.y = d.y;
+      d.trail.length = 0;
+      d.seen = [p.x, p.y];
+      d.moving = false;
+      d.stuck = 0;
+      if (!this.dogInDoorway(door)) return false;
+      this.toast("The dog is in the doorway.", 2); // nowhere on your side for it (never seen in the layouts)
+      Audio().play("wrong");
+      return true;
     },
 
     noteWasRead(noteObj) {
@@ -741,6 +1265,32 @@
         this.toastFit(msgs, this.readSecs(msgs[0], 4.5), true);
         Audio().play("buy");
       }
+      (this.questPickups || []).forEach((q) => {
+        if (q.taken) return;
+        if (S.questState && S.questState(q.id) !== "active") {
+          // given up from the backpack while you are in here: it is not wanted any more
+          q.taken = true;
+          q.prop.hidden = true;
+          this.updateHud();
+          return;
+        }
+        if (Math.hypot(q.x - p.x, q.y - p.y) >= 0.6 || !S.takeQuestObject(q.id)) return;
+        // a trip item like the gun: yours once it is home, lost if you go down; the giver gets it by talking
+        q.taken = true;
+        q.prop.hidden = true;
+        const name = objName(q.def);
+        const giver = ZSR.crewName(q.def.giver);
+        const msgs = ["Found: " + name + ". Bring it home to " + giver + ".", "Found: " + name + ".", "Found it!"]; // the last: Huge text, small screen
+        this.toastFit(msgs, this.readSecs(msgs[0], 4.5), true);
+        // the words at the reading level, any placeholder filled (a tag may name the reward)
+        const tag = ZSR.crewFill(ZSR.crewText("quest", q.id, "tag"), S.requestVars ? S.requestVars({ kind: "quest", def: q.def }) : {}).trim();
+        if (tag) {
+          S.seeCrewTalk("quest:" + q.id + ":tag", ZSR.wordCount(tag)); // its words count once, toward this trip
+          this.tagPanel = { key: "quest:" + q.id + ":" + this.time, kind: "tag", title: name, status: "For " + giver, text: tag, until: this.time + this.readSecs(tag, 8) };
+        }
+        Audio().play("buy");
+        this.updateHud();
+      });
       this.piles.forEach((pl) => {
         if (pl.taken) return;
         if (Math.hypot(pl.x - p.x, pl.y - p.y) < 0.6) {
@@ -757,9 +1307,18 @@
     buildingUpdate(dt) {
       this.updatePickups();
       this.updateAlarm(dt || 0);
+      this.updateTripDog(dt || 0);
     },
     buildingFacing(cand) {
       this.notes.forEach((n) => this.noteVisible(n) && cand.push({ kind: "note", obj: n, x: n.x, y: n.y }));
+      // the waiting dog, in sight (REACH.dog); right under the crosshair it wins over a door beside it
+      const dg = this.tripDog;
+      const p = this.player;
+      const dd = dg ? Math.hypot(dg.x - p.x, dg.y - p.y) : Infinity;
+      if (dg && !dg.follow && dd <= ((this.REACH && this.REACH.dog) || 2.2) && this.lineClear(p.x, p.y, dg.x, dg.y)) {
+        const aimed = Math.abs(normAngle(Math.atan2(dg.y - p.y, dg.x - p.x) - p.a)) <= Math.atan2(DOG.aim, dd);
+        cand.push({ kind: "dog", obj: dg, x: dg.x, y: dg.y, aim: aimed ? 0.6 : 0 });
+      }
       if (this.cacheDoor && !this.cacheDoor.open) cand.push({ kind: "cache", obj: this.cacheDoor, x: this.cacheDoor.x + 0.5, y: this.cacheDoor.y + 0.5 });
       if (this.stashDoor && !this.stashDoor.open) cand.push({ kind: "stash", obj: this.stashDoor, x: this.stashDoor.x + 0.5, y: this.stashDoor.y + 0.5 });
       if (this.lockFix) cand.push({ kind: "fixture", obj: this.lockFix, x: this.lockFix.x, y: this.lockFix.y });
@@ -782,6 +1341,8 @@
         this.searchInteract();
       } else if (f.kind === "panel") {
         this.panelInteract();
+      } else if (f.kind === "dog") {
+        this.dogTreat(f.obj);
       } else if (f.kind === "exit") {
         if (this.alarm) {
           this.toast("Walkers pack the way out. There is no getting out now.", 3);
@@ -807,6 +1368,7 @@
       if (f.kind === "stash") return st.stashJammed ? cap(this.loc.stashName) + " is jammed: press E to pry it open" : "Press E to try a key in " + this.loc.stashName;
       if (f.kind === "fixture") return st.cacheKey ? "You already searched " + (FIXTURES[f.obj.fixture] || FIXTURES.drawers).name : "Press E to search " + (FIXTURES[f.obj.fixture] || FIXTURES.drawers).name;
       if (f.kind === "panel") return f.obj.off ? "The alarm panel: off" : "Press E to use the alarm panel";
+      if (f.kind === "dog") return f.obj.def ? "Press E to hold out " + ZSR.crewName(f.obj.def.giver) + "'s treats" : "";
       if (f.kind === "exit") return this.alarm ? "Walkers pack the way out" : "Press E to leave for the van";
       return "";
     },
@@ -817,7 +1379,11 @@
       const cacheState = this.cacheDoor ? (this.cacheDoor.open ? "open" : st.cacheJammed ? "jammed" : "locked") : "none";
       const sd = this.stashDoor;
       const stashState = !sd ? "" : sd.open ? "open" : st.stashJammed ? "jammed" : "locked";
-      return (this.alarm ? "ALARM! · " : "") + (left ? left + " item" + (left > 1 ? "s" : "") + " on the floor" : "Floor cleared") + " · " + this.loc.cacheName + ": " + cacheState + (cacheLeft && cacheState === "open" ? ", " + cacheLeft + " left" : "") + (sd ? " · " + this.loc.stashName + ": " + stashState : "");
+      // a story object (or the dog) still waiting here for a crew member's request (the M map never shows it)
+      const finds = (this.questPickups || []).filter((q) => !q.taken).map((q) => "Find " + inText(objName(q.def)) + " for " + ZSR.crewName(q.def.giver));
+      const dg = this.tripDog;
+      if (dg && !dg.follow && dg.def) finds.push("Find the dog for " + ZSR.crewName(dg.def.giver)); // a stray until it is home
+      return (this.alarm ? "ALARM! · " : "") + (left ? left + " item" + (left > 1 ? "s" : "") + " on the floor" : "Floor cleared") + " · " + this.loc.cacheName + ": " + cacheState + (cacheLeft && cacheState === "open" ? ", " + cacheLeft + " left" : "") + (sd ? " · " + this.loc.stashName + ": " + stashState : "") + finds.map((t) => " · " + t).join("");
     },
     buildingLeave() {
       const S = State();

@@ -186,7 +186,7 @@
         },
         "pharmacy-dead1": {
           title: "A Bag for June",
-          text: "A white paper bag from the pickup shelf. Nobody came for it. A printed label is stapled to the top. The staple has gone rusty.\n\nName: June.\nFor: sore knees. Take one with food.\n\nThe pills are inside. The bottle is still sealed.\n\nOn the side of the bag, Mr. Okafor wrote in pen: She always forgets these. Call her on Tuesday.\n\nUnder that, in newer ink: Could not call. The phones are down. I kept it here anyway, in case she comes.\n\nThere are lots of people named June. But one June is a gardener. Gardeners kneel in the dirt all day.",
+          text: "A white paper bag from the pickup shelf. Nobody came for it. A printed label is stapled to the top. The staple has gone rusty.\n\nName: June.\nFor: sore knees. Take one with food.\n\nThe pills are inside. The bottle is still sealed.\n\nMr. Okafor wrote on the bag in pen. It says: She always forgets these. Call her on Tuesday.\n\nUnder that, in newer ink: Could not call. The phones are down. I kept it here anyway, in case she comes.\n\nThere are lots of people named June. But one June is a gardener. Gardeners kneel in the dirt all day.",
         },
         "pharmacy-dead2": {
           title: "Yellow Sticky Note",

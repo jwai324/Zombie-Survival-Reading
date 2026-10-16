@@ -1,0 +1,214 @@
+/* The crew at home base: the talk bubble (the read panel's "talk" kind). docs/CREW.md
+   (The crew card, the backpack's crew section and the trust stars are styled in css/style.css.)
+
+   The bubble is the read panel (#int-read, js/interior.js updatePanel) with the class "talk" and the
+   speaker's ("crew-june", "crew-dog" ...). js/crew.js sets --crew (the speaker's color, CREW[id].color)
+   on it and data-tail ("left" | "mid" | "right": where the speaker stands in your view).
+   On a wide screen the bubble stands beside the speaker (who is at the crosshair when it opens), so it
+   never hides them: to their right with its tail pointing left at them, or to their left once they are
+   right of the middle. On a narrow screen, and at Huge text, it sits low across the screen like the other
+   panels with its tail pointing up. Sizes are in rem like every panel (the Text size setting scales
+   them), with px caps where a rem would grow past sense at Huge (1 rem = 1 inch). */
+
+/* from the middle of the view to the bubble: clear of the speaker (on the HUD, so the toast can keep clear too) */
+#int-hud { --talk-gap: min(10rem, 13vw); }
+.read-panel.talk {
+  --crew: #4b5057;
+  --ink-w: min(.3rem, 5px);
+  --stripe: min(.6rem, 10px);
+  --gap: var(--talk-gap, min(10rem, 13vw));
+  --tw: min(1.7rem, 28px); /* the tail: how far it reaches */
+  --th: min(2.1rem, 34px); /* ... and how wide it is where it meets the bubble */
+  left: calc(50% + var(--gap));
+  right: auto;
+  top: 8rem; /* under the HUD's top rows; beside the speaker it may run down to the bottom edge (the hint and
+                the goal line are in the middle) */
+  bottom: auto;
+  width: min(30rem, calc(48% - var(--gap)));
+  max-height: calc(100vh - 9rem);
+  display: flex; /* name, words, question: only the words scroll if the screen is short */
+  flex-direction: column;
+  transform: rotate(-.4deg);
+  animation-name: popc;
+  background: #fff;
+  border: var(--ink-w) solid var(--ink);
+  border-radius: min(1.3rem, 22px);
+  /* the speaker's color as a stripe down the left edge, inside the ink */
+  box-shadow: var(--shadow), inset var(--stripe) 0 0 var(--crew);
+  padding: .5rem .95rem .6rem calc(var(--stripe) + .75rem);
+  overflow: visible; /* the tail sits outside the box; the text scrolls instead */
+}
+/* the speaker is right of the middle: the bubble moves to their left */
+.read-panel.talk[data-tail="right"] {
+  left: auto;
+  right: calc(50% + var(--gap));
+  transform: rotate(.4deg);
+}
+
+/* the tail: an ink wedge, then a white one inside it that covers the border where they join */
+.read-panel.talk::before,
+.read-panel.talk::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+.read-panel.talk::before {
+  width: var(--tw);
+  height: var(--th);
+  top: 4.2rem;
+  left: calc(-1 * var(--tw) - var(--ink-w) + 1px);
+  background: var(--ink);
+  clip-path: polygon(100% 0, 100% 100%, 0 18%);
+}
+.read-panel.talk::after {
+  width: calc(var(--tw) - 1.4 * var(--ink-w));
+  height: calc(var(--th) - 2.6 * var(--ink-w));
+  top: calc(4.2rem + 1.2 * var(--ink-w));
+  left: calc(-1 * var(--tw) + 1.6 * var(--ink-w));
+  background: #fff;
+  clip-path: polygon(100% 0, 100% 100%, 0 14%);
+}
+.read-panel.talk[data-tail="right"]::before {
+  left: auto;
+  right: calc(-1 * var(--tw) - var(--ink-w) + 1px);
+  clip-path: polygon(0 0, 0 100%, 100% 18%);
+}
+.read-panel.talk[data-tail="right"]::after {
+  left: auto;
+  right: calc(-1 * var(--tw) + 1.6 * var(--ink-w));
+  clip-path: polygon(0 0, 0 100%, 100% 14%);
+}
+/* a toast while the bubble stands beside its speaker (a wide screen) moves over to the other side of the view, so
+   it never covers the words (Pip's lookout call, "You said yes", the home toast). #int-toast follows #int-read */
+@media (min-width: 52.01rem) {
+  :root:not([data-size="huge"]) #int-read.talk:not(.hidden) ~ #int-toast {
+    left: auto;
+    right: calc(50% - var(--talk-gap) + 1rem);
+    max-width: min(36rem, calc(50% + var(--talk-gap) - 2rem));
+    transform: none;
+    animation-name: popc;
+  }
+  :root:not([data-size="huge"]) #int-read.talk[data-tail="right"]:not(.hidden) ~ #int-toast {
+    left: calc(50% - var(--talk-gap) + 1rem);
+    right: auto;
+  }
+}
+
+/* the name, comic lettering in the speaker's color; the trust stars beside it */
+.read-panel.talk .rp-head { align-items: center; margin-bottom: .15rem; }
+.read-panel.talk .rp-title {
+  font-family: var(--font-comic);
+  font-weight: 400;
+  font-size: 1.55rem;
+  line-height: 1;
+  letter-spacing: .06em;
+  color: var(--crew);
+  -webkit-text-stroke: 1px var(--ink);
+  paint-order: stroke fill;
+  text-shadow: .1rem .1rem 0 rgba(15, 16, 18, .25);
+}
+.read-panel.talk .rp-status {
+  font-size: 1.15rem;
+  letter-spacing: .12em;
+  color: #c48a10; /* trust: a filled star for each one earned, an outline for each to go */
+}
+.read-panel.talk .rp-text {
+  font-size: 1.05rem;
+  line-height: 1.45;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+/* more words below the edge (a short window): the last line fades, and the hint says "Press E to read on"
+   (js/crew.js crewBubblePage: the panel never takes the mouse, so E pages through it). At Huge the whole
+   bubble scrolls instead, and only the hint says so. */
+:root:not([data-size="huge"]) .read-panel.talk.more .rp-text {
+  -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
+  mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent);
+}
+.read-panel.talk .rp-text p { margin: .25rem 0; }
+.read-panel.talk .rp-text p + p { padding-top: .25rem; border-top: .1rem dotted rgba(15, 16, 18, .25); }
+/* what they want: "Press E again: Pip has a favor to ask" */
+.read-panel.talk .rp-meta {
+  margin: .45rem 0 0;
+  padding: .35rem 0 0;
+  border-top: .15rem dashed var(--crew);
+  font-family: var(--font-head);
+  font-size: 1rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+.read-panel.talk .rp-meta strong {
+  background: var(--amber);
+  border: .12rem solid var(--ink);
+  padding: 0 .3rem;
+  margin-right: .15rem;
+}
+.read-panel.talk.crew-dog { --crew: #c8a060; }
+/* the dog is small and low: its bubble sits low beside it */
+.read-panel.talk.crew-dog { top: auto; bottom: 7rem; max-height: calc(100vh - 16rem); }
+
+/* Narrow screens, and Huge text: low across the screen like the other panels, the tail pointing up at the
+   speaker (and toward their side of the view) */
+@media (max-width: 52rem) {
+  .read-panel.talk,
+  .read-panel.talk[data-tail="right"] {
+    left: 50%;
+    right: auto;
+    top: auto;
+    bottom: 6.6rem;
+    width: min(92vw, 34rem);
+    max-height: 60vh;
+    transform: translateX(-50%);
+    animation-name: pop;
+  }
+}
+:root[data-size="huge"] .read-panel.talk,
+:root[data-size="huge"] .read-panel.talk[data-tail="right"] {
+  left: 50%;
+  right: auto;
+  top: auto;
+  bottom: 2.6rem;
+  width: 96vw;
+  max-height: 62vh; /* as every panel at this size: it scrolls rather than run off the screen (no tail then) */
+  overflow: auto;
+  transform: translateX(-50%);
+  animation-name: pop;
+  padding: .2rem .4rem .25rem calc(var(--stripe) + .3rem);
+  border-radius: 14px;
+}
+@media (max-width: 52rem) {
+  .read-panel.talk::before,
+  .read-panel.talk::after,
+  .read-panel.talk[data-tail="right"]::before,
+  .read-panel.talk[data-tail="right"]::after {
+    right: auto;
+    left: var(--tail-x, 50%);
+    transform: translateX(-50%);
+  }
+  .read-panel.talk::before,
+  .read-panel.talk[data-tail="right"]::before {
+    width: var(--th);
+    height: var(--tw);
+    top: calc(-1 * var(--tw) - var(--ink-w) + 1px);
+    clip-path: polygon(0 100%, 100% 100%, var(--tail-tip, 50%) 0);
+  }
+  .read-panel.talk::after,
+  .read-panel.talk[data-tail="right"]::after {
+    width: calc(var(--th) - 2.6 * var(--ink-w));
+    height: calc(var(--tw) - 1.4 * var(--ink-w));
+    top: calc(-1 * var(--tw) + 1.6 * var(--ink-w));
+    clip-path: polygon(0 100%, 100% 100%, var(--tail-tip, 50%) 0);
+  }
+  .read-panel.talk[data-tail="left"] { --tail-x: 24%; --tail-tip: 0%; }
+  .read-panel.talk[data-tail="right"] { --tail-x: 76%; --tail-tip: 100%; }
+}
+:root[data-size="huge"] .read-panel.talk::before,
+:root[data-size="huge"] .read-panel.talk::after { display: none; }
+:root[data-size="huge"] .read-panel.talk .rp-title,
+:root[data-size="huge"] .read-panel.talk .rp-status,
+:root[data-size="huge"] .read-panel.talk .rp-text,
+:root[data-size="huge"] .read-panel.talk .rp-meta { font-size: 1rem; }
+:root[data-size="huge"] .read-panel.talk { display: block; }
+:root[data-size="huge"] .read-panel.talk .rp-text { overflow: visible; }
+:root[data-size="huge"] .read-panel.talk .rp-meta strong { border-width: 2px; }

@@ -5,26 +5,29 @@
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
 
-  /* ---------- Items (currency is scrap; everything else is cargo) ---------- */
+  /* ---------- Items (currency is scrap; everything else is cargo) ----------
+     name: the item's label (lists, tags, the pantry, "2 of these: Box of nails"). one / many: the item counted in
+     running text, "1 box of nails", "2 boxes of nails" (ZSR.itemCount: rewards, what a build still needs, the
+     crew's hand-in line). Each keeps the last word of the name (less a plural s), as the quest briefs promise it. */
   const ITEMS = {
-    fuel: { name: "Fuel can", code: "FUEL", color: "#b3261e" },
-    food: { name: "Food crate", code: "FOOD", color: "#7a9a3c" },
-    lumber: { name: "Lumber", code: "WOOD", color: "#8a5a2e" },
-    nails: { name: "Box of nails", code: "NAIL", color: "#6e7278" },
-    tools: { name: "Tool kit", code: "TOOL", color: "#d9a21b" },
-    parts: { name: "Engine parts", code: "PART", color: "#4b5057" },
-    wire: { name: "Spool of wire", code: "WIRE", color: "#c08f1a" },
-    radioParts: { name: "Radio parts", code: "RDIO", color: "#3f5a8a" },
-    seeds: { name: "Seed packets", code: "SEED", color: "#5b6b3a" },
-    soil: { name: "Bag of soil", code: "SOIL", color: "#5a4535" },
-    meds: { name: "Medical kit", code: "MEDS", color: "#e6dfcc" },
-    waterFilter: { name: "Water filter", code: "FLTR", color: "#3aa0c0" },
-    waterTank: { name: "Water tank", code: "TANK", color: "#2b7a8a" },
-    generator: { name: "Generator", code: "GENR", color: "#2f3136" },
-    gunParts: { name: "Gun parts", code: "GUNP", color: "#1f2023" },
-    armorPlate: { name: "Armor plate", code: "ARMR", color: "#9ea3aa" },
-    books: { name: "Box of books", code: "BOOK", color: "#6b3f8a" },
-    maps: { name: "City maps", code: "MAPS", color: "#c9b78a" },
+    fuel: { name: "Fuel can", one: "fuel can", many: "fuel cans", code: "FUEL", color: "#b3261e" },
+    food: { name: "Food crate", one: "food crate", many: "food crates", code: "FOOD", color: "#7a9a3c" },
+    lumber: { name: "Lumber", one: "piece of lumber", many: "pieces of lumber", code: "WOOD", color: "#8a5a2e" },
+    nails: { name: "Box of nails", one: "box of nails", many: "boxes of nails", code: "NAIL", color: "#6e7278" },
+    tools: { name: "Tool kit", one: "tool kit", many: "tool kits", code: "TOOL", color: "#d9a21b" },
+    parts: { name: "Engine parts", one: "box of engine parts", many: "boxes of engine parts", code: "PART", color: "#4b5057" },
+    wire: { name: "Spool of wire", one: "spool of wire", many: "spools of wire", code: "WIRE", color: "#c08f1a" },
+    radioParts: { name: "Radio parts", one: "box of radio parts", many: "boxes of radio parts", code: "RDIO", color: "#3f5a8a" },
+    seeds: { name: "Seed packets", one: "seed packet", many: "seed packets", code: "SEED", color: "#5b6b3a" },
+    soil: { name: "Bag of soil", one: "bag of soil", many: "bags of soil", code: "SOIL", color: "#5a4535" },
+    meds: { name: "Medical kit", one: "medical kit", many: "medical kits", code: "MEDS", color: "#e6dfcc" },
+    waterFilter: { name: "Water filter", one: "water filter", many: "water filters", code: "FLTR", color: "#3aa0c0" },
+    waterTank: { name: "Water tank", one: "water tank", many: "water tanks", code: "TANK", color: "#2b7a8a" },
+    generator: { name: "Generator", one: "generator", many: "generators", code: "GENR", color: "#2f3136" },
+    gunParts: { name: "Gun parts", one: "box of gun parts", many: "boxes of gun parts", code: "GUNP", color: "#1f2023" },
+    armorPlate: { name: "Armor plate", one: "armor plate", many: "armor plates", code: "ARMR", color: "#9ea3aa" },
+    books: { name: "Box of books", one: "box of books", many: "boxes of books", code: "BOOK", color: "#6b3f8a" },
+    maps: { name: "City maps", one: "folder of city maps", many: "folders of city maps", code: "MAPS", color: "#c9b78a" },
   };
 
   /* ---------- Home base rooms: 3 levels each, with what they do ---------- */
@@ -262,12 +265,12 @@
       { id: "coatCloset", room: "coatCloset", wall: [18, 20], face: "s" },
     ],
     // E inside the house: the office computer (the build menu), the pantry shelves (food and stock),
-    // the radio and June's ledger by the couch (the old days), the play room's typewriter desk
+    // the radio and June's ledger in the dining room (today's news, and the old days), the play room's typewriter desk
     // (typing practice), the big bed (rest), and the dinner bell on the porch (it calls the next wave)
     spots: {
       computer: [2, 1],
       pantry: [18, 6],
-      radio: [18, 17],
+      radio: [15, 1],
       typewriter: [15, 21],
       bed: [2, 14],
       bell: [10, 0],
@@ -355,11 +358,25 @@
   };
 
   const DEFENSE = {
-    fenceHp: [150, 240, 360, 520], // by Walls level 0..3
-    fenceDps: { walker: 6, runner: 4, brute: 14 }, // damage per second to a fence segment
+    fenceHp: [150, 240, 360, 520], // by Walls level 0..3 (what a walker claws off a second: WALKER_TYPES[type].fenceDps)
     calmSeconds: [240, 400], // quiet time between waves (long enough to work inside the cabin)
     firstCalmSeconds: 180, // after arriving home
-    raidShare: 0.25, // this share of a wave's walkers make for the cabin, not for you: they break in and wait inside
+    // a wave's walkers, one roll each: 25% raiders (raidShare), 25% wreckers (wreckShare), the other 50% come for you.
+    // raidShare: they make for the cabin, not for you: they break in and wait inside
+    raidShare: 0.25,
+    // wreckShare: inside the fence they go for the van and the room builds, until wreckSeconds after getting in,
+    // or shot, or the player within wreckProvoke tiles; then they come for you like the rest
+    wreckShare: 0.25,
+    wreckSeconds: 30,
+    wreckProvoke: 5, // tiles
+    wreckDps: 1, // x their fenceDps, to a build or the van
+    // SCALE: a room build's strength, one entry per room level (index 0: not built). A wrecked build (0) gives no
+    // room bonus until it is fixed (SETTINGS.buildRepairScrap)
+    buildHp: [0, 120, 180, 260],
+    vanWreckFloor: 0.3, // wreckers leave the van at this share of its max (a trip never starts wrecked)
+    // SCALE: a fence hole draws only the walkers within this many tiles of it, walking outside the fence;
+    // everyone else keeps clawing their own segment. Tuned for today's 55 x 68 yard
+    breachRange: 8,
     innerDoorHp: 60, // a shut door inside the cabin: walkers force it open after this much (it is not broken)
     noiseCut: 0.15, // in the calm, every shot takes noise x this many seconds off the clock (the bow is silent)
     bellSeconds: 4, // the dinner bell: the next wave comes this many seconds after it rings
@@ -375,7 +392,126 @@
     waveSides: { some: 2, many: 4 },
   };
 
-  /* ---------- Locations on the city map (1000 x 700 units) ---------- */
+  /* ---------- Walkers: the kinds there are ----------
+     SCALE: every mix, menu, look and test reads Object.keys(WALKER_TYPES). The ids are permanent (a building's
+     snapshot, save.met and every look key on them): add a kind, never rename or remove one. An unknown id is
+     a plain walker everywhere (never a throw).
+     On foot (js/interior.js): name, hp, speed (tiles a second), r (body and hit radius, tiles), bite (damage, before
+     the Medbay's footDamage), reach (bite reach, tiles), fenceDps (claw damage a second to the fence, the cabin's
+     doors and windows, room builds and the van), scrap (paid for a kill), knock (road knockback multiplier),
+     scream (it screams: SCREAM).
+     mix: its weight in a building (danger, day) and a yard wave (day, heavy) before the place's theme
+     (WALKER_THEMES); the river reads RIVER.walkerMix, an alarm ALARM.mix, the road `road.w`. walkerWeights adds
+     them up. road (js/game.js, the van's top-down view): speed px/s, r px, dmg to the van, scrap, reach px past
+     its radius, w [base, perN]: its road weight is base + perN * n (n: the trip's danger and day), armor (optional,
+     0..1): the share of its non-fatal hits that also glance off its gear in grey sparks, with less blood. */
+  const WALKER_TYPES = {
+    walker: {
+      name: "Walker", hp: 30, speed: 1.25, r: 0.32, bite: 12, reach: 0.85, fenceDps: 6, scrap: 2, knock: 1, scream: false,
+      mix: { building: () => 1, yard: () => 1 },
+      road: { speed: 55, r: 18, dmg: 5, scrap: 1, reach: 0, w: [1, 0] },
+    },
+    runner: {
+      name: "Runner", hp: 18, speed: 2.4, r: 0.28, bite: 9, reach: 0.85, fenceDps: 4, scrap: 3, knock: 1.2, scream: false,
+      mix: { building: (danger, day) => (danger >= 2 ? 0.45 : day >= 6 ? 0.15 : 0), yard: (day) => (day >= 2 ? 0.5 : 0) },
+      road: { speed: 125, r: 15, dmg: 4, scrap: 2, reach: 0, w: [0.12, 0.05] },
+    },
+    brute: {
+      name: "Brute", hp: 90, speed: 0.95, r: 0.4, bite: 22, reach: 0.9, fenceDps: 14, scrap: 5, knock: 0.45, scream: false,
+      mix: { building: (danger, day) => (danger >= 3 ? 0.22 : danger === 2 && day >= 10 ? 0.08 : 0), yard: (day, heavy) => (heavy ? 0.25 : day >= 6 ? 0.08 : 0) },
+      road: { speed: 40, r: 26, dmg: 12, scrap: 4, reach: 0, w: [0.05, 0.04] },
+    },
+    // tall and thin, arms past its knees: it bites from farther off
+    lanky: {
+      name: "Lanky", hp: 40, speed: 1.5, r: 0.3, bite: 14, reach: 1.25, fenceDps: 7, scrap: 3, knock: 0.9, scream: false,
+      mix: { building: (danger, day) => (danger >= 2 && day >= 3 ? Math.min(0.3, 0.12 + 0.01 * day) : 0), yard: (day) => (day >= 3 ? 0.2 : 0) },
+      road: { speed: 66, r: 17, dmg: 6, scrap: 2, reach: 12, w: [0.04, 0.03] },
+    },
+    // riot gear or a firefighter's coat: slow, hard to put down, hardly knocked back
+    armored: {
+      name: "Armored", hp: 60, speed: 1.0, r: 0.36, bite: 14, reach: 0.85, fenceDps: 10, scrap: 4, knock: 0.35, scream: false,
+      mix: { building: (danger, day) => (danger >= 3 && day >= 5 ? 0.12 : 0), yard: (day, heavy) => (day >= 5 ? (heavy ? 0.22 : 0.15) : 0) },
+      road: { speed: 44, r: 21, dmg: 6, scrap: 3, reach: 0, w: [0.02, 0.03], armor: 0.5 },
+    },
+    // weak, but it screams when it spots you: every walker near it speeds up (SCREAM)
+    screamer: {
+      name: "Screamer", hp: 22, speed: 1.35, r: 0.29, bite: 8, reach: 0.85, fenceDps: 4, scrap: 3, knock: 1.1, scream: true,
+      mix: { building: (danger, day) => (danger >= 2 && day >= 4 ? 0.12 : 0), yard: (day) => (day >= 4 ? 0.15 : 0) },
+      road: { speed: 60, r: 16, dmg: 3, scrap: 2, reach: 0, w: [0.03, 0.02] },
+    },
+  };
+  /* The screamer's scream, in tiles and seconds (the road multiplies tiles by its px per tile): an awake screamer
+     that sees you within `spot` screams, and every AWAKE walker within `radius` of it (itself too) moves `mult`
+     times faster for `secs`. It wakes nobody. Again after `cooldown`; `yell` is how long it stands, arms up. */
+  const SCREAM = { spot: 8, radius: 10, mult: 1.3, secs: 5, cooldown: 12, yell: 1.2 };
+  /* A building's alarm (js/building.js): the first walkers come `first` s after it rings, then every `gap` s, the gap
+     shrinking by `speedup` for each second it has rung, down to `minGap`; one through the way out and one from
+     farther than `farFrom` tiles. mix: times the building's own weights (walkerWeights "building", so a police
+     alarm brings armored walkers); a kind missing here keeps its building weight. No screamers: the siren is
+     loud enough. SCALE: cap is the most walkers a building holds while its alarm rings; every one is a live 3D
+     model, so this is also the frame-time knob (validate-world: at least the most walkersPerLocation + 6). */
+  const ALARM = { first: 0.4, gap: 3, minGap: 1.1, speedup: 0.04, farFrom: 7, cap: 40, mix: { walker: 1, runner: 2, brute: 0.3, lanky: 1, armored: 0.5, screamer: 0 } };
+  /* Places with a kind of their own (owner, 2026-10-15): there a kind's building weight (at least
+     WALKER_THEME_FLOOR, so a kind still gated off by the day comes anyway) is multiplied by this.
+     validate-world: on day 5 the themed kind is the likeliest after the plain walker. */
+  const WALKER_THEMES = {
+    police: { armored: 3.5 },
+    firehouse: { armored: 3.5 },
+    hospital: { lanky: 3 },
+    library: { lanky: 3 },
+    school: { screamer: 3.5 },
+    mall: { screamer: 3.5 },
+    lumberyard: { brute: 2.25 },
+  };
+  const WALKER_THEME_FLOOR = 0.15;
+  /** How much tougher walkers get each day, by where they are: health x (1 + step * (day - 1)). The road has its own (js/game.js). */
+  const WALKER_HP_STEP = { building: 0.1, alarm: 0.1, yard: 0.08, river: 0.08 };
+  /** Each walker kind's weight where walkers come from, only kinds above 0: where is "road" ({ n }), "river" ({ day }),
+      "building" or "alarm" ({ danger, day, place }), "yard" ({ day, size: "some" | "many" }). Feed it to pickWalkerType. */
+  function walkerWeights(where, o) {
+    const opt = o || {};
+    const day = Math.max(1, opt.day || 1);
+    const out = {};
+    Object.keys(WALKER_TYPES).forEach((id) => {
+      const T = WALKER_TYPES[id];
+      const mix = T.mix || {};
+      let w = 0;
+      if (where === "road") w = T.road.w[0] + T.road.w[1] * (opt.n || 0);
+      else if (where === "river") {
+        const m = (RIVER.walkerMix || {})[id];
+        w = m && day >= m[1] ? m[0] : 0;
+      } else if (where === "yard") w = mix.yard ? mix.yard(day, opt.size === "many") : 0;
+      else {
+        // a building (anything else counts as one), and its alarm
+        w = mix.building ? mix.building(opt.danger || 0, day) : 0;
+        const theme = (WALKER_THEMES[opt.place] || {})[id];
+        if (theme) w = Math.max(w, WALKER_THEME_FLOOR) * theme;
+        if (where === "alarm" && ALARM.mix[id] != null) w *= ALARM.mix[id];
+      }
+      if (w > 0 && Number.isFinite(w)) out[id] = w;
+    });
+    return out;
+  }
+  /** One kind from walkerWeights' weights (one call of rnd); the first kind when nothing has a weight. */
+  function pickWalkerType(weights, rnd) {
+    const r0 = (rnd || Math.random)();
+    const ids = Object.keys(weights || {}).filter((id) => WALKER_TYPES[id] && weights[id] > 0);
+    let r = r0 * ids.reduce((a, id) => a + weights[id], 0);
+    for (const id of ids) {
+      if (r < weights[id]) return id;
+      r -= weights[id];
+    }
+    return ids.length ? ids[ids.length - 1] : Object.keys(WALKER_TYPES)[0];
+  }
+  /** The health multiplier for walkers out of `where` on `day`. */
+  function walkerHpMult(where, day) {
+    return 1 + (WALKER_HP_STEP[where] || 0) * (Math.max(1, day || 1) - 1);
+  }
+
+  /* ---------- Locations on the city map (1000 x 700 units) ----------
+     SCALE: the city will grow well past these 15 buildings. Never rename or remove an id (saves key on it),
+     never reorder a place's items / cache / stash (saves record them by index), and keep x/y inside the
+     board (js/map.js MW, MH). Adding a place touches about a dozen tables: docs/SCALING.md has the checklist. */
   const LOCATIONS = [
     { id: "base", name: "Home Base", type: "base", x: 500, y: 610, danger: 0, known: true },
     { id: "gasngo", name: "Gas-N-Go", type: "gas", x: 380, y: 545, danger: 1, known: true, template: "gasngo",
@@ -430,6 +566,8 @@
     castMax: 6,
     walkerEvery: [45, 90], // seconds between walkers out of the trees
     pairChance: 0.25, // sometimes two at once
+    // what comes out of the trees: kind -> [weight, from day] (WALKER_TYPES ids; a kind not here never comes, no armored)
+    walkerMix: { walker: [1, 1], runner: [0.33, 2], lanky: [0.15, 3], screamer: [0.1, 4], brute: [0.05, 6] },
     bellReach: 2.0, // E takes the propped rod back from this close
     rod: { at: "firehouse", reveals: ["river"] }, // where the pole lies (on its layout's rod spot), and what its tag reveals
     /* The bank, north up, as the city map has it: the river on the west, Frog Lane coming in from the east
@@ -482,7 +620,9 @@
      Every building hides one key (on its y spot, shown once its key note has been read) and
      has one stash room (Q door, k spots) that only another building's key opens. The keys
      run in a ring, so each one points the player onward. Stash items never come back.
-     KEYS[where the key is found] = the location whose stash it opens. */
+     KEYS[where the key is found] = the location whose stash it opens.
+     SCALE: a new building goes into the ring by re-pointing one key, which changes two key notes and what that
+     key already opens in old saves (docs/SCALING.md). The texts say "fifteen keys": reword them as the ring grows. */
   const KEYS = {
     gasngo: "grocery", grocery: "pharmacy", pharmacy: "hardware", hardware: "garden", garden: "autoshop",
     autoshop: "firehouse", firehouse: "radioshack", radioshack: "watertower", watertower: "school", school: "police",
@@ -500,70 +640,104 @@
      layout (the validator checks door notes name two of them and inside notes one).
      Keep facts short: every one must fit a level 1 note (door notes about 30 words). A door
      note gives one walker spot, one landmark per item and where the inside note is; the
-     inside note adds one short route from the note to the locked door. */
+     inside note adds one short route from the note to the locked door.
+     `walkers`: what the texts say about where walkers stand, kept true on every visit (js/building.js
+     planWalkers; every other walker starts at random). A note, sign or graffiti that puts walkers somewhere
+     ("one by the robot", "two in the truck bay", "most near the back") needs a rule here naming it in `says`
+     (tests/validate-world.js). Each rule, in order:
+       says    the door, note and sign ids it keeps true
+       z       anchors: indices of the layout's z tiles in reading order; the rule's walker k starts within
+               r steps (SETTINGS.walkerSpawn.ring when left out) of z[k % z.length], walking with the doors
+               shut, so in that tile's room
+       zone    a name from the layout's walkerZones: its walkers start inside it (with no z, anywhere in it)
+       n       at least this many walkers; share: max(n, ceil(share x all the walkers there))
+       exact   no other walker starts in the zone (no zone: in the rule's rings)
+       type    their kind (WALKER_TYPES); only: no other walker of that kind in the building, its alarm too
+       all     every walker starts in the zone (and the rule places none of its own)
+       near    the landmark the rule's walkers stand by: they start within r steps (walkerSpawn.ring) of the
+               landmark's footprint itself, doors shut, in place of the anchor's ring, so "one by the robot" is by
+               the robot; the anchor must still stand within walkerSpawn.near of it, in its zone (validator R4).
+               With exact, the zone must also cover the floor round that landmark, so "one by the robot" never
+               has a second one beside it
+     A rule's own tiles are closed to the other walkers, so "one by the robot" stays one. Door-note
+     counts ("at least eight") never change: SETTINGS.walkersPerLocation keeps them. */
   const NOTES = {
     gasngo: {
       door: { id: "gasngo-door", found: "taped to the front door", facts: ["Written by Ruby.", "At least three walkers inside, one in the garage by the car lift; more come as the days pass.", "One fuel can is by the slushie machine; the other is in the garage, by the tire tower.", "The storeroom is locked; the clerk's note is on the counter by the front door."] },
+      walkers: [{ says: ["gasngo-door", "gasngo-counter"], z: [1], n: 1, zone: "liftEnd", exact: true, near: "the car lift" }],
       notes: [
         { id: "gasngo-counter", found: "on the counter right of the front door", unlocks: "gasngo", reveals: ["autoshop", "garden"], facts: ["Written by the clerk, Dev.", "The storeroom key is in the {pick} of the counter, right under this note; it opens the storeroom door.", "Open no other drawer: Ruby rigged the other two with a bomb trap for looters, and it kills whoever opens one.", "There is more fuel and a spool of wire in the storeroom.", "The storeroom is at the far end of the back hall from the ice machine, the last door before the garage.", "Dev went to Ortiz Auto on the east side of town; the shop is still standing.", "Rosa at Greenhouse Row, west past the gas station, has seeds and soil."] },
       ],
     },
     grocery: {
       door: { id: "grocery-door", found: "written on the glass in marker", facts: ["Written by Doc Lin.", "The shelves are picked over; food is on the floor by the fish tank and by the freezers on the right.", "Walkers get in through the loading door at the back, by the forklift; count on at least three.", "The cooler is locked; the manager's note is in the office, back left."] },
+      walkers: [{ says: ["grocery-door"], z: [0], n: 1, zone: "dock", near: "the forklift" }],
       notes: [
         { id: "grocery-counter", found: "on the desk in the manager's office", unlocks: "grocery", reveals: ["pharmacy"], facts: ["Written by the store manager, Hana.", "The cooler latch sticks; to open it, {moves}, in that order.", "Work it any other way and the latch jams tight; after that only a crowbar opens the cooler.", "Inside the cooler there is food and one medical kit.", "Out of the office, the cooler is the next door down the back hall, toward the forklift.", "The pharmacy at Mile 9, west of here, had medicine on its shelves last week."] },
       ],
     },
     hardware: {
       door: { id: "hardware-door", found: "on a sheet nailed to the door", facts: ["Written by Mr. Reyes, the owner.", "At least five walkers are inside, two in the middle aisles.", "Nails are by the toilet display, tools are in the middle aisle, and lumber is in the lumber racks at the back.", "The back room is locked; the owner's note is by the paint mixer, back left."] },
+      walkers: [{ says: ["hardware-door", "hardware-sign2"], z: [2, 3], n: 2, zone: "middleAisles", exact: true }],
       notes: [
         { id: "hardware-paint", found: "tucked into the paint shelf by the paint mixer", unlocks: "hardware", reveals: ["lumberyard", "watertower"], facts: ["Written by Mr. Reyes.", "The back room door sticks in its frame; to open it, push it {move1}, then {move2}.", "Push it any other way and it jams for good; after that only a crowbar opens it.", "The back room holds a water filter, a second tool kit, and lumber.", "Take the side door by the paint mixer; the back room door is past the lumber racks.", "Ridge Lumber on the east ridge has stacks of lumber; the Water Tower on the west side has more filters in its pump house."] },
       ],
     },
     pharmacy: {
       door: { id: "pharmacy-door", found: "on the door under a strip of tape", facts: ["Written by the pharmacist, Mr. Okafor.", "One medical kit is by the giant toothbrush; the other is in the middle, where the aisles cross.", "At least five walkers inside, most near the back.", "The cabinet room is locked; its code is on a note behind the counter, reached at the right end, by the wheelchairs."] },
+      walkers: [{ says: ["pharmacy-door", "pharmacy-sign2"], n: 3, share: 0.55, zone: "back" }],
       notes: [
         { id: "pharmacy-counter", found: "behind the pharmacy counter", unlocks: "pharmacy", reveals: ["hospital"], facts: ["Written by Mr. Okafor.", "The cabinet room keypad code is {code}: {codeSpoken}.", "Use that code and no other: one wrong code sets off the alarm, and walkers pour in, even through the front door, until they get you.", "Inside are two more medical kits and a water filter.", "The cabinet room door is behind the counter, in the corner on the same side as the wheelchairs.", "St. Anne Annex, the hospital in the north hills, still has medicine and a generator, but it is the most dangerous place in town."] },
       ],
     },
     autoshop: {
       door: { id: "autoshop-door", found: "chalked on the garage door", facts: ["Written by Dev from the Gas-N-Go.", "Engine parts are on the workbenches: back right by the red tool chest, and in the left bay.", "At least five walkers inside; one wanders the parts room by the engine crane.", "The service pit is under a locked hatch; Mr. Ortiz left a note in the office behind the waiting room."] },
+      walkers: [{ says: ["autoshop-door", "autoshop-sign2"], z: [0], n: 1, zone: "partsRoom", exact: true, near: "the engine crane" }],
       notes: [
         { id: "autoshop-office", found: "pinned to the office window", unlocks: "autoshop", reveals: ["radioshack"], facts: ["Written by Mr. Ortiz.", "The hatch bolt is tricky; to open it, {moves}, in that order.", "Any other way bends the bolt and jams the hatch; after that only a crowbar opens it.", "The generator is down in the pit, with spare parts and a fuel can.", "The pit room stands in the middle of the shop; its hatch is on the front side, toward the oil drums.", "Signal Electronics downtown still has wire and radio parts, but it is near the walker crowds."] },
       ],
     },
     radioshack: {
       door: { id: "radioshack-door", found: "on a cardboard sign in the window", facts: ["Written by Jo.", "Spools of wire are between the two long middle shelves: one on the TV wall side, one on the robot side.", "At least six walkers inside; one near the right end of the counter, by the robot.", "The manager's office is locked; the manager left a note on the counter at the back."] },
+      walkers: [{ says: ["radioshack-door", "radioshack-sign2"], z: [2], n: 1, zone: "robot", exact: true, near: "the robot" }],
       notes: [
         { id: "radioshack-counter", found: "under the register on the back counter", unlocks: "radioshack", reveals: ["police", "school"], facts: ["Written by the manager, Priya.", "First turn off the alarm: its panel is on the right wall, by the big dish; press the {button} button.", "Then the office keypad code is {code}: {codeSpoken}.", "A wrong button, a wrong code, or opening the office with the alarm still on sets off the alarm, and walkers pour in, even through the front door, until they get you.", "The office has two boxes of radio parts and more wire.", "The office door is in the back wall near the robot, beside the MANAGER sign.", "The 4th Precinct police station and Lincoln Middle School are both north of downtown; the school has books and the station has gun parts."] },
       ],
     },
     garden: {
       door: { id: "garden-door", found: "painted on the gate", facts: ["Written by Rosa, who ran the greenhouse.", "Soil is in the big greenhouse with the scarecrow; seeds are in the shop by the gate, near the big gnome.", "At least five walkers inside, one at the back of the big greenhouse.", "The potting shed is locked; Rosa's note is on the potting bench by the palm tree, back right."] },
+      walkers: [{ says: ["garden-door", "garden-sign2"], z: [0], n: 1, zone: "bigGreenhouseBack", exact: true }],
       notes: [
         { id: "garden-bench", found: "on the potting bench by the palm tree", unlocks: "garden", reveals: ["firehouse"], facts: ["Written by Rosa.", "The shed padlock key is in the {pick}, one of the three watering cans by this bench.", "The other two cans are Rosa's walker alarm, full of bells and tin cans: tip one over and the noise brings walkers, more and more, even through the gate, until they get you.", "The shed has more seeds and a water tank.", "The shed door is on the path from the palm tree house down to the beehives.", "Station 12, the fire station north of here, has tools and water tanks in its equipment bay."] },
       ],
     },
     police: {
       door: { id: "police-door", found: "on a notice board by the door", facts: ["Written by Sergeant Vega.", "Gun parts are in the squad room, left of the long hall; an armor plate is in the garage on the right, by the riot shields.", "At least eight walkers inside, and a big one by the police bike in the garage.", "The armory is locked; the sergeant left the combination on a note at the front desk."] },
+      walkers: [
+        // "a big one by the police bike", and "One of them is big": the only brute in the building
+        { says: ["police-door", "police-sign1", "police-desk", "police-dead2"], z: [0], n: 1, zone: "garage", type: "brute", only: true, near: "the police bike" },
+      ],
       notes: [
         { id: "police-desk", found: "on the front desk", unlocks: "police", reveals: ["library"], facts: ["Written by Sergeant Vega.", "First turn off the alarm: its panel is on the left wall, by the coffee machine; press the {button} button.", "Then the armory combination is {code}.", "A wrong button, a wrong number, or opening the armory with the alarm still on sets off the station alarm, and walkers pour in, even through the front door, until they get you.", "The armory has gun parts and an armor plate.", "The armory is near the end of the back hall toward the police bike: the last door before the garage.", "The Public Library north of downtown has books in its archive room; the librarian stayed."] },
       ],
     },
     school: {
       door: { id: "school-door", found: "on the office door", facts: ["Written by Max and Mia.", "Boxes of books: one is in the music room with the drum set, the other in the front office, behind the lion statue.", "At least six walkers inside, one in the main hallway.", "The library closet is locked; the key is in the teacher's note in the science room, back left, by the big brain."] },
+      walkers: [{ says: ["school-door", "school-sign2"], z: [2], n: 1, zone: "mainHallway", exact: true }],
       notes: [
         { id: "school-classroom", found: "on the teacher's desk in the science room", unlocks: "school", reveals: ["mall"], facts: ["Written by Ms. Adler, a teacher.", "The library closet key is in the {pick} of this desk, right under this note.", "Open no other drawer: Max and Mia tied air horns to the other two, and the noise brings every walker in the school, even through the front door, until they get you.", "The closet has books and a folder of city maps.", "Follow the main hallway toward the drum set room; the library is the room next to it, and its closet is in the back corner on the drum set side.", "Northgate Mall in the north has food, medicine, and wire, but the crowds there are the worst in town."] },
       ],
     },
     firehouse: {
       door: { id: "firehouse-door", found: "on the bay door", facts: ["Written by Chief Dunn.", "A tool kit is in the office behind the watch desk; a water tank is on the right wall of the truck bay, past the gear racks.", "At least six walkers inside, two in the truck bay.", "The equipment bay is locked; the chief's note is on the watch desk, by the spotted dog."] },
+      walkers: [{ says: ["firehouse-door", "firehouse-sign3"], z: [1, 3], n: 2, zone: "truckBay", exact: true }],
       notes: [
         { id: "firehouse-desk", found: "on the watch desk", unlocks: "firehouse", reveals: ["watertower"], facts: ["Written by Chief Dunn.", "The equipment bay opens with the {pick} on the key board by this desk.", "Take no other key: the others are for old locks, and a wrong one jams the bay lock; after that only a crowbar opens it.", "The bay has a water tank, lumber, and tools.", "The equipment bay is at the back of the truck bay, beside the fire truck on the gear racks side.", "The Water Tower on the west side has filters in its pump house."] },
       ],
     },
     hospital: {
       door: { id: "hospital-door", found: "on the ambulance doors", facts: ["Written by Doc Lin.", "One medical kit is in the patient room next to the x-ray machine, one is by the giant teddy bear in the gift shop; the generator is in the utility room, on the right.", "At least nine walkers inside; they stand in the dark rooms.", "The pharmacy stock room is locked; the nurse's note is at the nurses' station in the middle."] },
+      walkers: [{ says: ["hospital-door", "hospital-sign2"], zone: "darkRooms", all: true }],
       notes: [
         { id: "hospital-hall", found: "on the nurses' station", unlocks: "hospital", facts: ["Written by Nurse Ada, who stayed.", "The stock room badge, white on a blue clip, is in the {pick} of this station, right under this note; hold it to the reader by the stock room door.", "Open no other drawer: they are wired to the crash cart alarm, and it brings walkers, more and more, even through the front doors, until they get you.", "The stock room has three medical kits.", "The stock room door is in the nurses' station room itself, across its walkway from the desk, on the angel statue side.", "Stay quiet; the walkers here follow sound more than light."] },
       ],
@@ -576,25 +750,35 @@
     },
     lumberyard: {
       door: { id: "lumberyard-door", found: "spray-painted on the gate", facts: ["Written by Ruby.", "Lumber is in the long racks in the middle, and one more stack is out back by the log pile.", "At least eight walkers inside; a crowd gathers by the loading dock and the flatbed truck, and a big one stands by the log pile.", "The kiln shed is locked; the yard boss left a note on a clipboard by the band saw."] },
+      walkers: [
+        // the big one by the log pile, and the dock crowd: most of them ("Most of them gather by the loading dock")
+        { says: ["lumberyard-door", "lumberyard-trail1", "lumberyard-trail2"], z: [0], n: 1, zone: "yard", type: "brute", near: "the log pile" },
+        { says: ["lumberyard-door", "lumberyard-sign2", "lumberyard-rack", "lumberyard-dead1", "lumberyard-dead4", "lumberyard-trail1"], n: 3, share: 0.55, zone: "dock" },
+      ],
       notes: [
         { id: "lumberyard-rack", found: "on the clipboard by the band saw", unlocks: "lumberyard", facts: ["Written by the yard boss, Carla.", "The kiln shed padlock opens with the code {code}: {codeSpoken}.", "A wrong code locks the old padlock up for good; after that only a crowbar opens it.", "The shed has dry lumber and nails.", "The kiln shed door is in the back wall of the rack hall; from the band saw shop door, follow that wall toward the log pile.", "Do not run the saws; the noise brings the whole dock crowd."] },
       ],
     },
     mall: {
       door: { id: "mall-door", found: "on the mall doors", facts: ["Written by Jo.", "Food is in the food court at the back, medicine is in the pharmacy on the left, and wire is in the gadget store on the right, next door to the orange tent.", "At least nine walkers inside; many of them stand along the main hall.", "The security office is locked; the guard's note is in the play area by the green dino."] },
+      walkers: [{ says: ["mall-door"], n: 4, share: 0.4, zone: "mainHall" }],
       notes: [
         { id: "mall-guard", found: "on a clipboard in the play area", unlocks: "mall", facts: ["Written by a mall security guard named Luis.", "First turn off the alarm: its panel is on the left wall, by the rocking horse; press the {button} button.", "Then the office code is {code}: {codeSpoken}.", "A wrong button, a wrong code, or opening the office with the alarm still on sets off the mall alarm, and walkers pour in, even through the front doors, until they get you.", "The office has gun parts, radio parts, and a tool kit.", "Take the kitchen door at the back of the food court and turn right; the office is behind the green dino.", "The walkers here come running at anyone who runs; walk, and most of them stay put."] },
       ],
     },
     library: {
       door: { id: "library-door", found: "on the book drop", facts: ["Written by the librarian, Mrs. Greer.", "Books are in the stacks on both sides of the main hall, and in the children's room by the toy castle.", "At least eight walkers inside; two in the main hall.", "The archive room is locked; the librarian's note is on the reference desk by the giant globe, back left."] },
+      walkers: [{ says: ["library-door"], z: [1, 3], n: 2, zone: "mainHall", exact: true }],
       notes: [
         { id: "library-desk", found: "on the reference desk", unlocks: "library", facts: ["Written by Mrs. Greer.", "The archive key is inside the {pick}, one of the three big books on this desk.", "Open neither of the other two books: Mrs. Greer hid a blast trap in each one for book thieves, and it kills.", "The archive has books and a folder of city maps.", "The archive door is at the back end of the main hall, between the rooms with the giant globe and the tall clock.", "Reading saved this building; the walls are stacked with the books nobody wanted."] },
       ],
     },
   };
 
-  /* ---------- Map streets (pairs of location ids the road follows) ---------- */
+  /* ---------- Map streets (pairs of location ids the road follows) ----------
+     SCALE: at most 4 roads at a building, 5 at a bare junction (lanes: Streets.ourLeft). Each new road needs a
+     STREET_NAMES entry and can change shortest routes, which notes naming streets depend on. The drive-time,
+     lane-window and turn-arc limits in tests/validate-streets.js are already nearly reached. */
   const ROADS = [
     ["base", "gasngo"], ["base", "grocery"], ["gasngo", "pharmacy"], ["gasngo", "garden"], ["grocery", "hardware"],
     ["hardware", "autoshop"], ["hardware", "radioshack"], ["radioshack", "police"], ["radioshack", "school"],
@@ -610,9 +794,17 @@
     hungryVanPenalty: 0.7, // van max HP multiplier for a trip with no food
     footHp: 100,
     yardRegen: 1 / 15, // health per second at home before the Water room: 1 every 15 seconds (the Water room and the Well replace it)
-    footDamageWalker: 12,
-    footDamageRunner: 9,
-    footDamageBrute: 22,
+    // (a walker's bite: WALKER_TYPES[type].bite)
+    // THE gore switch for walker art (owner, 2026-10-15): blood smears and exposed ribs on the models, a short spray
+    // on a hit, a pool under a downed walker. false: grime instead of blood, no ribs, no spray, no pool. Reading
+    // text never has gore either way.
+    walkerGore: true,
+    // SCALE: where a building's walkers start, in steps (tiles), tuned for 30-42 wide interiors: at least minSteps
+    // from the door (and out of earshot, Interior.HEAR in a straight line, where there is room), `gap` apart
+    // (groupGap inside a note's group), a named walker within `ring` steps of the spot its note names (the
+    // landmark itself when the rule names one), the rule's anchor within `near` tiles of that landmark
+    // (js/building.js planWalkers)
+    walkerSpawn: { minSteps: 6, gap: 3, groupGap: 1.5, ring: 3, near: 5 },
     scrapPileValue: [10, 20],
     tripSecondsPerUnit: 0.15, // map distance -> road seconds
     tripMinSeconds: 28,
@@ -621,16 +813,18 @@
     startScrap: 30,
     fenceRepairScrap: 1, // scrap to rebuild one hole (or brace one cracked segment) of the fence; holes never close on their own
     houseRepairScrap: 2, // scrap to fix one broken or cracked door or window of the cabin
+    buildRepairScrap: 3, // scrap to fix one wrecked or damaged room build (DEFENSE.buildHp)
     repairScrapPerHp: 3, // van repair: 1 scrap for every 3 health missing, back to full
     repairMinScrap: 5,
     kitsMax: 3, // medical kits the backpack can carry; one kit heals you to full
     saveSlots: 4, // labeled saves, one per player
     // day 1: danger 1 -> 3, 2 -> 5, 3 -> 6, 4 -> 8, 5 -> 9; one more every three days, at most 14.
     // The interiors are big, so this is about the old density. Door notes promise "at least" the day-1 count.
+    // SCALE: danger runs 1..5 (map pips, gun bands, this formula); door notes at six levels quote the day-1 count.
     walkersPerLocation(danger, day) {
       return Math.min(14, 2 + danger + Math.floor(danger / 2) + Math.floor(day / 3));
     },
   };
 
-  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TOOLS, LOCKS, TEMPLATES, HOUSE, HOUSE_UPGRADES, YARD, DEFENSE, LOCATIONS, JUNCTIONS, place, isJunction, RIVER, KEYS, NOTES, ROADS, SETTINGS };
+  ZSR.WORLD = { ITEMS, BASE_ROOMS, TRAPS, TOOLS, LOCKS, TEMPLATES, HOUSE, HOUSE_UPGRADES, YARD, DEFENSE, WALKER_TYPES, SCREAM, ALARM, WALKER_THEMES, WALKER_HP_STEP, walkerWeights, pickWalkerType, walkerHpMult, LOCATIONS, JUNCTIONS, place, isJunction, RIVER, KEYS, NOTES, ROADS, SETTINGS };
 })(typeof globalThis !== "undefined" ? globalThis : this);

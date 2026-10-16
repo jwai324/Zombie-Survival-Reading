@@ -10,6 +10,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Bangers&family=Oswald:wght@500;700&family=Inter:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
   <link rel="stylesheet" href="css/bench.css">
+  <link rel="stylesheet" href="css/god.css">
+  <link rel="stylesheet" href="css/crew.css">
+  <link rel="stylesheet" href="css/tutorial.css">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect x='6' y='18' width='52' height='30' rx='4' fill='%235b6b3a' stroke='%230f1012' stroke-width='5'/%3E%3Crect x='12' y='24' width='16' height='10' fill='%232b3540' stroke='%230f1012' stroke-width='4'/%3E%3Ccircle cx='18' cy='50' r='7' fill='%231f2023' stroke='%230f1012' stroke-width='4'/%3E%3Ccircle cx='46' cy='50' r='7' fill='%231f2023' stroke='%230f1012' stroke-width='4'/%3E%3C/svg%3E">
 </head>
 <body>
@@ -43,7 +46,6 @@
       <div class="hud-box hp-box" title="Your health"><span class="hud-label">YOU</span><div class="bar"><div id="int-hp-fill" class="bar-fill"></div></div><span id="int-hp-text" class="hud-value">100</span></div>
       <div class="hud-box" id="int-box-scrap" title="Scrap"><span class="hud-label">SCRAP</span><span id="int-scrap" class="hud-value">0</span></div>
       <div class="hud-box" title="Cargo in the van"><span class="hud-label">CARGO</span><span id="int-cargo" class="hud-value">0</span></div>
-      <div class="hud-box" id="int-box-walkers" title="Walkers near you"><span class="hud-label">WALKERS</span><span id="int-walkers" class="hud-value">0</span></div>
       <div class="hud-actions">
         <button id="int-btn-backpack" class="hud-btn wide" title="Backpack (B)">B<span>ackpack</span></button>
         <button id="int-btn-map" class="hud-btn wide hidden" title="Map (M)">M<span>ap</span></button>
@@ -175,11 +177,12 @@
       <div class="caption">Backpack</div>
       <div id="backpack-kits"></div>
       <div id="backpack-keys"></div>
+      <div id="backpack-crew"></div>
       <h2>Notes you've read</h2>
       <div id="backpack-body"></div>
       <div id="backpack-days"></div>
       <div id="backpack-tags"></div>
-      <div class="btn-row"><button id="btn-backpack-close" class="btn big">Close</button></div>
+      <div class="btn-row"><button id="btn-backpack-close" class="btn big" title="Close (B)">Close</button></div>
     </div>
   </section>
 
@@ -206,6 +209,7 @@
         <button id="btn-resume" class="btn big">Keep going</button>
         <button id="btn-pause-backpack" class="btn">Backpack</button>
         <button id="btn-pause-howto" class="btn">Controls &amp; how it works</button>
+        <button id="btn-pause-tutorial" class="btn">Show tutorial again</button>
         <button id="btn-pause-settings" class="btn">Settings</button>
         <button id="btn-quit" class="btn alt">Quit to title</button>
       </div>
@@ -254,6 +258,37 @@
     </div>
   </section>
 
+  <!-- CREW CARD: a crew member asks you a favor, thanks you for one, or Pip names the dog. Pauses the yard;
+       Enter is the main button, Esc is "Not now" (js/main.js, the crew card) -->
+  <section id="screen-crew" class="screen hidden overlay">
+    <div id="crew-panel" class="panel crew-panel" role="dialog" aria-modal="true" aria-labelledby="crew-title">
+      <div id="crew-caption" class="caption">The crew</div>
+      <div class="cc-head">
+        <div id="crew-face" class="cc-face" aria-hidden="true"></div>
+        <div class="cc-who">
+          <div class="cc-name-row"><span id="crew-name" class="cc-name"></span><span id="crew-stars"></span></div>
+          <h2 id="crew-title" class="reading-title cc-title"></h2>
+        </div>
+      </div>
+      <div id="crew-text" class="paper reading cc-text"></div>
+      <div id="crew-names" class="cc-names hidden">
+        <div id="crew-dog" class="cc-dog" aria-hidden="true"></div>
+        <div id="crew-ideas" class="cc-ideas"></div>
+        <div class="cc-own">
+          <label for="crew-dogname" class="small">Or your own name</label>
+          <div class="cc-own-row">
+            <!-- maxlength: js/crewstate.js DOG_NAME_MAX (nameDog trims to it anyway) -->
+            <input type="text" id="crew-dogname" maxlength="14" autocomplete="off" spellcheck="false" placeholder="A name">
+            <button id="btn-crew-name" class="btn go">Name it</button>
+          </div>
+        </div>
+      </div>
+      <p id="crew-reward" class="cc-reward hidden"></p>
+      <p id="crew-hint" class="small cc-hint hidden" role="alert"></p>
+      <div id="crew-buttons" class="btn-row"></div>
+    </div>
+  </section>
+
   <!-- CONFIRM -->
   <section id="screen-confirm" class="screen hidden overlay">
     <div class="panel confirm-panel">
@@ -266,6 +301,28 @@
     </div>
   </section>
 
+  <!-- THE TUTORIAL (js/tutorial.js + js/tutorial-ui.js): June's card, her "Now you try" panel, the arrow -->
+  <div id="tut-try" class="tut-try hidden" aria-live="polite">
+    <div class="tut-try-head"><span id="tut-try-face" class="tut-try-face" aria-hidden="true"></span><strong id="tut-try-now"></strong></div>
+    <p id="tut-try-line" class="tut-try-line"></p>
+    <ul id="tut-try-list" class="tut-list"></ul>
+  </div>
+  <div id="tut-arrow" class="tut-arrow hidden" aria-hidden="true"><span class="tut-arrow-head"></span><span id="tut-arrow-label" class="tut-arrow-label"></span></div>
+  <section id="screen-tutorial" class="screen overlay tut-screen hidden">
+    <div id="tut-hole" class="tut-hole hidden" aria-hidden="true"></div>
+    <div id="tut-ring" class="tut-ring hidden" aria-hidden="true"></div>
+    <div id="tut-panel" class="panel crew-panel tut-panel" role="dialog" aria-modal="true" aria-labelledby="tut-title" tabindex="-1">
+      <div id="tut-caption" class="caption"></div>
+      <div class="cc-head">
+        <div id="tut-face" class="cc-face tut-face" aria-hidden="true"></div>
+        <div class="cc-who"><span id="tut-name" class="cc-name"></span><h2 id="tut-title" class="reading-title cc-title"></h2></div>
+      </div>
+      <div id="tut-pics" class="tut-pics" aria-hidden="true"></div>
+      <div id="tut-text" class="paper reading tut-text"></div>
+      <div class="btn-row"><button id="btn-tut-go" class="btn big go">Got it</button><span class="small muted tut-enter">or <kbd>Enter</kbd></span></div>
+    </div>
+  </section>
+
 </div>
 <button id="btn-fullscreen" class="hud-btn hidden" title="Full screen" aria-label="Full screen"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 9V3h6M15 3h6v6M21 15v6h-6M9 21H3v-6" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="square"/></svg></button>
 <div id="tip" class="tip hidden" role="tooltip"></div>
@@ -274,41 +331,69 @@
 <script src="js/world.js"></script>
 <script src="js/story.js"></script>
 <script src="js/story-home.js"></script>
+<script src="js/story-crew.js"></script>
+<script src="js/story-quests.js"></script>
+<!-- SCALE: each levelN.js assigns ZSR.TEXT[N] and must come before its part files. More places go in new
+     part files (levelN-places3.js ...), each with its own tag here; tests/validate-text.js finds them. -->
 <script src="js/content/level1.js"></script>
 <script src="js/content/level1-places1.js"></script>
 <script src="js/content/level1-places2.js"></script>
 <script src="js/content/level1-home.js"></script>
+<script src="js/content/level1-crew.js"></script>
+<script src="js/content/level1-crew2.js"></script>
+<script src="js/content/level1-quests.js"></script>
+<!-- June's first-run tutorial: level 1 only, read at every reading level (js/tutorial.js) -->
+<script src="js/content/level1-tutorial.js"></script>
 <script src="js/content/level2.js"></script>
 <script src="js/content/level2-places1.js"></script>
 <script src="js/content/level2-places2.js"></script>
 <script src="js/content/level2-home.js"></script>
+<script src="js/content/level2-crew.js"></script>
+<script src="js/content/level2-crew2.js"></script>
+<script src="js/content/level2-quests.js"></script>
 <script src="js/content/level3.js"></script>
 <script src="js/content/level3-places1.js"></script>
 <script src="js/content/level3-places2.js"></script>
 <script src="js/content/level3-home.js"></script>
+<script src="js/content/level3-crew.js"></script>
+<script src="js/content/level3-crew2.js"></script>
+<script src="js/content/level3-quests.js"></script>
 <script src="js/content/level4.js"></script>
 <script src="js/content/level4-places1.js"></script>
 <script src="js/content/level4-places2.js"></script>
 <script src="js/content/level4-home.js"></script>
+<script src="js/content/level4-crew.js"></script>
+<script src="js/content/level4-crew2.js"></script>
+<script src="js/content/level4-quests.js"></script>
 <script src="js/content/level5.js"></script>
 <script src="js/content/level5-places1.js"></script>
 <script src="js/content/level5-places2.js"></script>
 <script src="js/content/level5-home.js"></script>
+<script src="js/content/level5-crew.js"></script>
+<script src="js/content/level5-crew2.js"></script>
+<script src="js/content/level5-quests.js"></script>
 <script src="js/content/level6.js"></script>
 <script src="js/content/level6-places1.js"></script>
 <script src="js/content/level6-places2.js"></script>
 <script src="js/content/level6-home.js"></script>
+<script src="js/content/level6-crew.js"></script>
+<script src="js/content/level6-crew2.js"></script>
+<script src="js/content/level6-quests.js"></script>
 <script src="js/upgrades.js"></script>
 <script src="js/weapons.js"></script>
 <script src="js/state.js"></script>
+<script src="js/crewstate.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/sprites3d.js"></script>
+<script src="js/walker3d.js"></script>
+<script src="js/walker3d-looks.js"></script>
 <script src="js/landmarks1.js"></script>
 <script src="js/landmarks2.js"></script>
 <script src="js/yardart.js"></script>
 <script src="js/houseart.js"></script>
 <script src="js/riverart.js"></script>
+<script src="js/crewart.js"></script>
 <script src="js/decor.js"></script>
 <script src="js/locks.js"></script>
 <script src="js/streets.js"></script>
@@ -320,12 +405,17 @@
 <script src="js/building.js"></script>
 <script src="js/yard.js"></script>
 <script src="js/house.js"></script>
+<script src="js/yardwreck.js"></script>
+<script src="js/crew.js"></script>
 <script src="js/river.js"></script>
 <script src="js/map.js"></script>
 <script src="js/backpack.js"></script>
 <script src="js/base.js"></script>
 <script src="js/bench.js"></script>
 <script src="js/typing.js"></script>
+<script src="js/tutorial.js"></script>
+<script src="js/tutorial-ui.js"></script>
 <script src="js/main.js"></script>
+<script src="js/god.js"></script>
 </body>
 </html>
