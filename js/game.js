@@ -272,7 +272,7 @@
       this.fallen = [];
       this.odo = 0; // how far the van has driven this try, along its own path
       this.stopOdo = -1e9; // ... at the last stop line it crossed
-      this.corner = null; // the angled camera's braking for a turn: { x0, xa, xb, xc } along odo
+      this.corner = null; // the angled camera's braking for a turn: { x0, xa, xb, xc } along odo, from the share f0
       this.lastTurn = null;
       this.spawnTimer = 2.2;
       this.shake = 0;
@@ -890,7 +890,9 @@
       }
       const xa = Math.max(a, PERSP.brakeIn);
       const xb = Math.max(b, xa);
-      this.corner = { x0: this.stopOdo, xa, xb, xc: xb + PERSP.brakeOut };
+      // from the speed it has now (still easing back up from a turn just before, the share it is at)
+      const f0 = this.brakeAt();
+      this.corner = { x0: this.stopOdo, xa, xb, xc: xb + PERSP.brakeOut, f0 };
     },
     /** The share of its speed the van drives at for its corner now (1 with none). */
     brakeAt() {
@@ -902,7 +904,7 @@
         this.corner = null;
         return 1;
       }
-      if (x < c.xa) return 1 - (1 - B) * smoother(clamp(x / c.xa, 0, 1));
+      if (x < c.xa) return c.f0 - (c.f0 - B) * smoother(clamp(x / c.xa, 0, 1));
       if (x < c.xb) return B;
       return B + (1 - B) * smoother((x - c.xb) / (c.xc - c.xb));
     },
