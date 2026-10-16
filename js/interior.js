@@ -2939,6 +2939,7 @@
     LIVE_STEP,
     LIVE_SPARE,
     LIVE_IDLE,
+    LIVE_SHRINK,
     LOD_PX,
     LIVE_NEAR,
     FAR_LOD,

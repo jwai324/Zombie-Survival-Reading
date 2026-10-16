@@ -978,9 +978,16 @@ else {
   // of its own, the pool still there
   const roadCam = (type, falling, eye, dist, px) => {
     const b = W3.box(type, falling);
-    const reach = b.w / 2;
-    const above = Math.max(b.h, eye - (eye - b.h) * (dist / (dist + reach)));
-    const below = eye * (dist / Math.max(0.3, dist - reach) - 1);
+    const env = !falling && W3.TYPES[type].env;
+    const reach = env ? env.rh : b.w / 2;
+    let above = 0;
+    if (env) {
+      for (let i = 0; i < env.n; i++) {
+        const y = env.top[i] - eye;
+        above = Math.max(above, eye + y * (y < 0 ? dist / (dist + env.rho[i]) : dist / Math.max(0.3, dist - env.rho[i])));
+      }
+    } else above = Math.max(b.h, eye - (eye - b.h) * (dist / (dist + reach)));
+    const below = eye * (dist / Math.max(0.3, dist - reach) - 1) + 0.04;
     const pad = 2 + Math.max(0.7, Math.min(3.2, px * 0.0105));
     const up = Math.ceil(above * px + pad);
     let fl = Math.ceil(below * px + pad);
@@ -1001,6 +1008,8 @@ else {
             roadCams++;
             if (!r) return;
             if (r.ops.some((op) => op.k === "fill" && op.fillStyle === "rgba(0,0,0,0.32)")) err(`${what}: drew its own contact shadow with cam.shadow false`);
+            // the road's region holds every pose at full size: nothing shrinks it (no pulsing as it swings)
+            if (W3.probe && W3.probe().fit < 0.999) err(`${what}: drawn at ${(W3.probe().fit * 100).toFixed(1)}% size in the road's region (it must have room for every pose)`);
           });
           // standing still in profile (its right toward the camera): each ankle where a camera eye tiles up sees it
           // over the floor line, the near one lower and the far one higher than its middle, at full size

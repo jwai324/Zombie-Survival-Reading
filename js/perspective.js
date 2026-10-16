@@ -54,7 +54,7 @@
   const NIGHT_FOG = 0.85;
   const NIGHT_EDGE = 0.12;
   // without js/interior.js (a test that leaves it out): no governor, every walker every frame at full detail
-  const NO_GOVERNOR = { LIVE_LEVELS: [{ near: Infinity, farLod: 0, far: 1, max: Infinity, maxPx: Infinity, scale: 1, lodPx: [0, 0] }], LIVE_START: 0, LIVE_STEP: 1, LIVE_SPARE: 0, LIVE_IDLE: 0, NEAR_STICK: 1 };
+  const NO_GOVERNOR = { LIVE_LEVELS: [{ near: Infinity, farLod: 0, far: 1, max: Infinity, maxPx: Infinity, scale: 1, lodPx: [0, 0] }], LIVE_START: 0, LIVE_STEP: 1, LIVE_SPARE: 0, LIVE_IDLE: 0, LIVE_SHRINK: Infinity, NEAR_STICK: 1 };
   const normA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   /** How long ago a downed walker (game.js fallen: life counts down from max) went down, in seconds. */
   const fallAge = (f) => {
@@ -852,19 +852,27 @@
       const rpx = Math.max(1, Math.min(upx * dpr * row.scale, row.maxPx / bh));
       const devH = hpx * dpr;
       const lod = devH >= row.lodPx[0] ? 0 : devH >= row.lodPx[1] ? 1 : 2;
-      // room for the figure seen from above: a part reach tiles nearer shows lower than its feet, one farther higher
-      // than it stands (the margin Walker3D keeps inside its region on every side, and a spare px)
-      const reach = bw / 2;
-      const kNear = dist / Math.max(0.3, dist - reach);
-      const kFar = dist / (dist + reach);
-      const above = Math.max(bh, eye - (eye - bh) * kFar);
-      const below = eye * (kNear - 1);
+      // room for the figure seen from above: a part `reach` tiles nearer shows lower than its feet, one farther higher
+      // than it stands (standing: as far and as high as any of its poses reaches, its look's envelope; going over: its
+      // falling box), with the margin Walker3D keeps inside its region on every side and a spare px
+      const T3 = M.TYPES && (M.TYPES[o.type] || M.TYPES.walker);
+      const env = !falling && T3 && T3.env && T3.env.n > 0 ? T3.env : null;
+      const reach = env ? env.rh : bw / 2;
+      let above = 0;
+      if (env) {
+        // how high its envelope's points show from up here (as Walker3D's own fit reads them: the far side highest)
+        for (let i = 0; i < env.n; i++) {
+          const y = env.top[i] - eye;
+          above = Math.max(above, eye + y * (y < 0 ? dist / (dist + env.rho[i]) : dist / Math.max(0.3, dist - env.rho[i])));
+        }
+      } else above = Math.max(bh, eye - (eye - bh) * (dist / (dist + reach)));
+      const below = eye * (dist / Math.max(0.3, dist - reach) - 1) + 0.04;
       const pad = 2 + clamp(rpx * 0.0105, 0.7, 3.2);
       const rw = Math.ceil(bw * rpx + 2 * pad);
       let fl = Math.ceil(below * rpx + pad);
       const up = Math.ceil(above * rpx + pad);
       fl = Math.min(fl, Math.floor(up * 1.5)); // (Walker3D keeps the floor under 0.6 of the region)
-      const r = this.liveTarget(o);
+      const r = this.liveTarget(o, rw, up + fl);
       r.o = o;
       r.falling = falling;
       r.frame = no;
@@ -947,10 +955,21 @@
       const st = this.liveState(g, r, r.lod);
       const step = T.LIVE_STEP;
       const c = r.c;
+      const bw = Math.ceil(r.rw / step) * step;
+      const bh = Math.ceil(r.rh / step) * step;
       if (c.width < r.rw || c.height < r.rh) {
-        c.width = Math.max(c.width, Math.ceil(r.rw / step) * step);
-        c.height = Math.max(c.height, Math.ceil(r.rh / step) * step);
-      } else r.g.clearRect(0, 0, Math.max(r.lw, r.rw), Math.max(r.lh, r.rh));
+        c.width = Math.max(c.width, bw);
+        c.height = Math.max(c.height, bh);
+        r.small = 0;
+      } else {
+        // drawn this small for a while (LIVE_SHRINK renders at under half its canvas): a smaller canvas, as indoors
+        r.small = c.height >= 2 * bh || c.width >= 2 * bw ? (r.small || 0) + 1 : 0;
+        if (r.small >= T.LIVE_SHRINK) {
+          c.width = bw;
+          c.height = bh;
+          r.small = 0;
+        } else r.g.clearRect(0, 0, Math.max(r.lw, r.rw), Math.max(r.lh, r.rh));
+      }
       const cam = this.liveCam || (this.liveCam = { w: 0, h: 0, px: 0, dist: 1, eye: 0.5, floor: 0, shadow: false });
       cam.w = r.rw;
       cam.h = r.rh;
@@ -973,19 +992,29 @@
       else r.sLod = st.lod;
       r.sHit = st.hit;
     },
-    /** A walker's pool record: its canvas (its own, else a spare one, else a new one) and its picture's signature. */
-    liveTarget(o) {
+    /** A walker's pool record: its canvas (its own, else a spare one, else a new one, rw x rh in LIVE_STEP steps) and
+        its picture's signature. A spare far bigger than this walker needs is made smaller first (a whole canvas goes
+        up to the screen each time it changes, so a small far walker in a big canvas would cost as much as a near one). */
+    liveTarget(o, rw, rh) {
       const pool = this.livePool || (this.livePool = new Map());
       let r = pool.get(o);
       if (!r) {
+        const T = this.liveTune();
+        const step = T.LIVE_STEP;
+        const w = Math.ceil(rw / step) * step;
+        const h = Math.ceil(rh / step) * step;
         const spare = this.liveSpare || (this.liveSpare = []);
         r = spare.pop();
         if (!r) {
           const c = document.createElement("canvas");
-          c.width = c.height = 32;
+          c.width = w;
+          c.height = h;
           r = { c, g: c.getContext("2d") };
+        } else if (r.c.width * r.c.height > 2 * w * h) {
+          r.c.width = w;
+          r.c.height = h;
         }
-        Object.assign(r, { lw: 0, lh: 0, lfl: 0, lrpx: 1, shAt: 0, swAt: 0, used: 0, drawnAt: 0, nearAt: -1, frame: 0, sLod: -1, sHit: -1, sView: null, sDepth: null, alpha: 0 });
+        Object.assign(r, { lw: 0, lh: 0, lfl: 0, lrpx: 1, shAt: 0, swAt: 0, used: 0, drawnAt: 0, nearAt: -1, frame: 0, sLod: -1, sHit: -1, sView: null, sDepth: null, alpha: 0, small: 0 });
         pool.set(o, r);
       }
       return r;
