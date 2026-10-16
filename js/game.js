@@ -575,20 +575,29 @@
         walker gore on, a short spray of blood out the far side, every hit (owner, 2026-10-15). A walker with armor
         (its road row's share) has that share of its non-fatal hits also glance off a helmet or a vest: grey sparks
         (gore on or off) and a smaller spray. Skipped past ROAD_PARTICLE_CAP. */
-    blood(z, x, y, vx, vy, kill) {
+    blood(z, x, y, vx, vy, kill, h) {
       const glance = !kill && z.armor > 0 && Math.random() < z.armor;
-      if (glance) this.sparks(x, y, SPARK_ARMOR);
+      if (glance) this.sparks(x, y, SPARK_ARMOR, h);
       if (World().SETTINGS.walkerGore === false || this.particles.length > ROAD_PARTICLE_CAP) return;
       const a0 = Math.atan2(vy, vx);
       const n = kill ? 9 : glance ? 3 : 5;
-      // the drops fly on with the walker (it keeps up with the van); what lands stays on the road
+      // the drops fly on with the walker (it keeps up with the van; on the angled camera only once near it, as it
+      // does); what lands stays on the road
       const v = this.van;
-      const cx = v ? Math.cos(v.heading) * (this.curSpeed || 0) * DIFF.chase : 0;
-      const cy = v ? Math.sin(v.heading) * (this.curSpeed || 0) * DIFF.chase : 0;
+      const keep = this.persp && v ? clamp((PERSP.keepUp - Math.hypot(v.x - z.x, v.y - z.y)) / 400, 0, 1) : 1;
+      const cx = v ? Math.cos(v.heading) * (this.curSpeed || 0) * DIFF.chase * keep : 0;
+      const cy = v ? Math.sin(v.heading) * (this.curSpeed || 0) * DIFF.chase * keep : 0;
+      // the angled camera sees the spray in the air, as on foot (js/interior.js bleed): from the hit's height, and one
+      // drop in three splashes back out to the sides toward the shot (the camera is behind the van: the rest fly out
+      // behind the body, which hides them); it falls and lands (updateParticles)
+      const P = this.persp ? ZSR.Persp : null;
       for (let i = 0; i < n; i++) {
-        const a = a0 + rand(-0.5, 0.5) * (kill ? 1.6 : 1);
-        const s = rand(60, 160) * (kill ? 1.2 : 1);
-        this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, cx, cy, life: 0.4, maxLife: 0.4, size: rand(3, 4.8), color: BLOOD[i % 2], blood: true, leaves: i % 2 === 0 });
+        const back = P && i % 3 === 2;
+        const a = back ? a0 + Math.PI + (i % 2 ? 1 : -1) * rand(0.8, 1.3) : a0 + rand(-0.5, 0.5) * (kill ? 1.6 : 1);
+        const s = rand(60, 160) * (kill ? 1.2 : 1) * (back ? 0.6 : 1);
+        const p = { x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, cx, cy, life: 0.4, maxLife: 0.4, size: rand(3, 4.8), color: BLOOD[i % 2], blood: true, leaves: i % 2 === 0 };
+        if (P) P.dropAt(p, z, h);
+        this.particles.push(p);
       }
     },
 
@@ -604,12 +613,15 @@
         this.particles.push({ x: x + Math.cos(a) * r * 0.8, y: y + Math.sin(a) * r * 0.8, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.4, maxLife: 0.4, size: r * rand(0.14, 0.24), color: i % 2 === 0 ? "#6b675c" : "#4a473f", grow: true });
       }
     },
-    sparks(x, y, color) {
+    /** Sparks flying out from x, y; h: their height, on the angled camera (a shot's, where it hit). */
+    sparks(x, y, color, h) {
       if (this.particles.length > ROAD_PARTICLE_CAP) return;
       for (let i = 0; i < 4; i++) {
         const a = Math.random() * 6.28;
         const s = rand(80, 200);
-        this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.25, maxLife: 0.25, size: 3.5, color: color || "#ffe9a6" });
+        const p = { x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.25, maxLife: 0.25, size: 3.5, color: color || "#ffe9a6" };
+        if (h > 0) p.z = h;
+        this.particles.push(p);
       }
     },
 
@@ -873,8 +885,13 @@
             z.hit = 0.12;
             z.kx += b.vx * 0.08 * z.knock;
             z.ky += b.vy * 0.08 * z.knock;
-            this.sparks(b.x, b.y);
-            this.blood(z, b.x, b.y, b.vx, b.vy, z.hp <= 0);
+            // where it hit: on the angled camera the nearest point of the shot's step (b is at the step's end, up to a
+            // walker's width past it), at the shot's height; flat, where the shot is
+            const hx = this.persp ? z.x - dx : b.x;
+            const hy = this.persp ? z.y - dy : b.y;
+            const hz = this.persp && b.z != null ? b.z : undefined;
+            this.sparks(hx, hy, undefined, hz);
+            this.blood(z, hx, hy, b.vx, b.vy, z.hp <= 0, hz);
             this.meet(z);
             Audio().play("hit");
             if (z.hp <= 0) this.killZombie(j, Math.atan2(b.vy, b.vx));
@@ -894,6 +911,8 @@
       const SC = World().SCREAM;
       for (let i = this.zombies.length - 1; i >= 0; i--) {
         const z = this.zombies[i];
+        const x0 = z.x; // where it stood (the angled camera's legs go by the ground it covers)
+        const y0 = z.y;
         z.frenzyT = Math.max(0, z.frenzyT - dt);
         z.yell = Math.max(0, z.yell - dt);
         z.screamT = Math.max(0, z.screamT - dt);
@@ -969,6 +988,8 @@
           this.hurtVan(z.dmg, z.x, z.y);
           if (this.gameOverAt != null) return;
         }
+        // the angled camera's 3D figure: its heading, legs and pose, as on foot (js/perspective.js animate)
+        if (this.persp) ZSR.Persp.animate(this, z, dt, x0, y0, touching);
         const zs = this.toScreen(z.x, z.y);
         z.vis = zs.x >= 0 && zs.x <= this.W && zs.y >= 0 && zs.y <= this.H;
         if (z.vis) this.meet(z);
@@ -997,6 +1018,7 @@
       for (let i = this.fallen.length - 1; i >= 0; i--) {
         const f = this.fallen[i];
         f.life -= dt;
+        if (f.hit > 0) f.hit = Math.max(0, f.hit - dt); // (the angled camera's body flashes on from the killing hit)
         if (f.life <= 0) this.fallen.splice(i, 1);
       }
       this.updateParticles(dt);
@@ -1044,7 +1066,10 @@
       this.dust(z.x, z.y, z.r);
       const max = fallSecs();
       const rot = (dir == null ? z.angle + Math.PI : dir) + rand(-0.3, 0.3);
-      this.fallen.push({ kind: "fallen", type: z.type, seed: z.seed, x: z.x, y: z.y, size: z.r, rot, life: max, max });
+      const f = { kind: "fallen", type: z.type, seed: z.seed, x: z.x, y: z.y, size: z.r, rot, life: max, max };
+      // the angled camera's 3D body falls from its last step: its heading, legs, pose and the hit's flash
+      if (this.persp) ZSR.Persp.fallFrom(z, f);
+      this.fallen.push(f);
       if (this.fallen.length > ROAD_FALLEN_MAX) this.fallen.shift();
       t.walkers += 1;
       t.scrap += z.scrap;
@@ -1089,6 +1114,12 @@
         p.vx *= 0.96;
         p.vy *= 0.96;
         p.life -= dt;
+        if (p.vz != null) {
+          // a drop in the air (the angled camera): it falls and lands where it comes down (as on foot)
+          p.vz -= ZSR.Persp.BLOOD_FALL * ZSR.Persp.TILE * dt;
+          p.z += p.vz * dt;
+          if (p.z <= 0) p.life = 0;
+        }
         if (p.life <= 0) {
           this.particles.splice(i, 1);
           // a drop of blood that lands leaves a splat on the road for a moment

@@ -2951,6 +2951,10 @@
     GOV_WAIT,
     GOV_WAIT_UP,
     GOV_BACKOFF,
+    GOV_FAST,
+    // the live pictures' "has it changed" signature (pure: the angled road camera keeps its walkers' with them)
+    sameSig,
+    saveSig,
     SOLID,
     OPAQUE,
   };

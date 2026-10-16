@@ -970,6 +970,85 @@ else {
     if (colours.size > WALKER_COLOURS) err(`walkers: ${colours.size} different colour strings in 3000 random draws (over ${WALKER_COLOURS}): the colour table cannot hold them, so every draw would make new strings`);
     if (late > colours.size * 0.05) err(`walkers: the last 1000 of 3000 random draws still made ${late} new colours (of ${colours.size}): light or fog is not stepped`);
   }
+  // R: seen from above, as the angled road camera sees them (js/perspective.js liveGeo): eyes 5 to 9 tiles up, 2 to
+  // 70 tiles off, room under the feet (cam.floor) and no contact shadow (cam.shadow false), in the region the road
+  // gives (the box, the margin and how far a part can show over and under the feet from there). Every kind standing,
+  // walking, clawing, screaming, hit and going over, at every detail, gore on and off: inside the region, finite,
+  // within the call ceilings (drawOne); standing, its feet on the floor line, at full size (no shrink); no shadow
+  // of its own, the pool still there
+  const roadCam = (type, falling, eye, dist, px) => {
+    const b = W3.box(type, falling);
+    const reach = b.w / 2;
+    const above = Math.max(b.h, eye - (eye - b.h) * (dist / (dist + reach)));
+    const below = eye * (dist / Math.max(0.3, dist - reach) - 1);
+    const pad = 2 + Math.max(0.7, Math.min(3.2, px * 0.0105));
+    const up = Math.ceil(above * px + pad);
+    let fl = Math.ceil(below * px + pad);
+    fl = Math.min(fl, Math.floor(up * 1.5)); // (the engine keeps the floor under 0.6 of the region)
+    return { w: Math.ceil(b.w * px + 2 * pad), h: up + fl, px, dist, eye, floor: fl, shadow: false };
+  };
+  let roadCams = 0;
+  types.forEach((type) => {
+    [5, 7, 9].forEach((eye) => {
+      [[2, 90], [5, 70], [12, 40], [30, 18], [70, 8]].forEach(([dist, px]) => {
+        [0, 1.2, -2.3, PI].forEach((yaw, yi) => {
+          const lod = yi % 3;
+          const gore = yi % 2 === 0;
+          ["walk", "claw", "scream", "idle"].forEach((pose) => {
+            const cam = roadCam(type, false, eye, dist, px);
+            const what = `walker ${type} from above (eye ${eye}, ${dist} tiles, ${px} px a tile) ${pose} yaw ${yaw.toFixed(2)} lod ${lod}`;
+            const r = drawOne(type, { pose, yaw, lod, gore, gait: 0.35, move: pose === "walk" ? 1 : 0.4, poseT: 0.5, claw: 0.4, hit: pose === "idle" ? 1 : 0 }, cam, what);
+            roadCams++;
+            if (!r) return;
+            if (r.ops.some((op) => op.k === "fill" && op.fillStyle === "rgba(0,0,0,0.32)")) err(`${what}: drew its own contact shadow with cam.shadow false`);
+          });
+          // standing still in profile (its right toward the camera): each ankle where a camera eye tiles up sees it
+          // over the floor line, the near one lower and the far one higher than its middle, at full size
+          const cam = roadCam(type, false, eye, dist, px);
+          const what = `walker ${type} from above (eye ${eye}, ${dist} tiles) standing in profile`;
+          const r = drawOne(type, { pose: "idle", yaw: PI / 2, lod, move: 0 }, cam, what);
+          if (r && W3.probe) {
+            const P = W3.probe();
+            [12, 16].forEach((j) => {
+              const k = Math.max(0.6, Math.min(1.6, dist / (dist + P.j[j * 3]))); // its depth is its x, seen from its right
+              const want = cam.h - cam.floor - (eye - (eye - P.j[j * 3 + 1]) * k) * px * P.fit;
+              if (Math.abs(P.s[j * 3 + 1] - want) > 1) err(`${what}: an ankle is at ${P.s[j * 3 + 1].toFixed(1)}, not ${want.toFixed(1)} (floor line ${cam.h - cam.floor}, region ${cam.w} x ${cam.h})`);
+            });
+            if (P.fit < 0.999) err(`${what}: drawn at ${(P.fit * 100).toFixed(1)}% size in the road's region (it must have room: no shrink)`);
+          }
+          [0.3, 0.7, 1].forEach((fall) => {
+            [0, PI / 2, PI, -2].forEach((fallDir) => {
+              const camF = roadCam(type, true, eye, dist, px);
+              const whatF = `walker ${type} from above (eye ${eye}, ${dist} tiles) falling ${fall} dir ${fallDir.toFixed(2)} yaw ${yaw.toFixed(2)}`;
+              const rf = drawOne(type, { pose: "walk", yaw, lod, gore, fall, fallDir, move: 1, gait: 0.6 }, camF, whatF);
+              roadCams++;
+              if (rf && fall === 1 && gore && lod < 2 && !rf.ops.some((op) => op.k === "fill" && parse(op.fillStyle) && parse(op.fillStyle)[0] > 2 * parse(op.fillStyle)[1] && parse(op.fillStyle)[0] > 60)) err(`${whatF}: no blood pool with gore on (cam.shadow false drops only the contact shadow)`);
+            });
+          });
+        });
+      });
+    });
+  });
+  // S: the two options left off draw exactly as without them (the interiors' cameras): floor 0 and shadow true
+  // make the same calls as no option at all, across kinds, poses, falls, details and cameras
+  let same = 0;
+  types.forEach((type) => {
+    [[0.5, 0.85, 300], [0.5, 3, 120], [0.587, 2.2, 160], [0.5, 25, 16], [6, 7, 60]].forEach(([eye, dist, h], ci) => {
+      [{ pose: "walk", gait: 0.4, move: 1 }, { pose: "claw", claw: 0.3, move: 0.2 }, { pose: "scream", poseT: 0.4 }, { fall: 0.6, fallDir: 1 }, { fall: 1, fallDir: PI, gore: true }].forEach((o, i) => {
+        const falling = o.fall > 0;
+        const b = W3.box(type, falling);
+        const cam = { w: Math.ceil((b.w * h) / b.h), h, px: h / b.h, dist, eye };
+        const st = Object.assign({ yaw: 0.7 - ci, lod: (i + ci) % 3, seed: i, fog: ci * 0.2, hit: i === 1 ? 1 : 0 }, o);
+        const plain = drawOne(type, st, cam, `walker ${type} (no options)`);
+        [{ floor: 0 }, { shadow: true }, { floor: 0, shadow: true }].forEach((opt) => {
+          const r = drawOne(type, st, Object.assign({}, cam, opt), `walker ${type} with ${JSON.stringify(opt)}`);
+          if (plain && r && sig(r.ops) !== sig(plain.ops)) err(`walker ${type} ${JSON.stringify(o)} at eye ${eye}, ${dist} tiles: cam ${JSON.stringify(opt)} draws differently from no option (an option left off must change nothing)`);
+          same++;
+        });
+      });
+    });
+  });
+  console.log(`walkers from above: ${roadCams} road-camera draws checked; ${same} draws with the options off match the plain ones`);
   // the health bar's width uses the engine's field of view: the same number in both files
   const fovM = /const FOV = ([\d.]+)/.exec(fs.readFileSync(path.join(ROOT, "js", "interior.js"), "utf8"));
   if (!fovM) warn("could not find js/interior.js's FOV to check Walker3D.FOV against");
