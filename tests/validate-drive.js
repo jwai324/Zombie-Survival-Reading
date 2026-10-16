@@ -10,7 +10,10 @@
    - the angled camera's test drive (js/perspective.js): only Home Base to Corner Grocery, screen and world
      map back onto each other, and there too a shot flies straight at the pointer; a walker clicked anywhere on
      its picture is hit, walking or not, ahead or aside; walkers stay outside the van and hit it; the van parks
-     short of the grocery's wall.
+     short of the grocery's wall;
+   - the angled camera's whole frame drawn on a recording 2D context (no WebGL: the 2D ground): every kind of
+     walker live (Walker3D), a scream and its frenzy, clawing, hurt (health bars), shot, downed, gore on and off:
+     no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow.
    Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -39,7 +42,11 @@ Object.assign(globalThis, {
   requestAnimationFrame: () => 0,
   cancelAnimationFrame: noop,
 });
-for (const f of ["js/layouts.js", "js/world.js", "js/upgrades.js", "js/streets.js", "js/walker3d.js", "js/walker3d-looks.js", "js/game.js", "js/perspective.js"]) {
+// in the page's order: the art (the angled camera's draw test below draws through it), the walkers (after Draw3: they
+// register their blood sprites with it), the road, the angled camera, then the interiors (whose governor rows and
+// picture signature the angled camera's walkers use)
+// SCALE: a new walker looks file (js/walker3d-looks2.js) goes in this list too (docs/SCALING.md "Add a walker kind")
+for (const f of ["js/layouts.js", "js/world.js", "js/upgrades.js", "js/streets.js", "js/sprites.js", "js/sprites3d.js", "js/walker3d.js", "js/walker3d-looks.js", "js/game.js", "js/perspective.js", "js/perspective-art.js", "js/perspective-gl.js", "js/interior.js"]) {
   const file = path.join(ROOT, f);
   if (fs.existsSync(file)) vm.runInThisContext(fs.readFileSync(file, "utf8"), { filename: f });
 }
@@ -892,6 +899,165 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     yaw.frames = `uneven frames within ${(worst * D).toFixed(3)} deg`;
   }
   console.log(`turns: van hop at a turn's start or end ${worstHop.toFixed(2)} units, van up/down the screen ${worstBob.toFixed(1)} px; angled: braked to ${minSpd.toFixed(3)}, view ${yaw[0]} (engine 5: ${yaw[5]}), ${yaw.frames}`);
+}
+
+/* ---------- the angled camera draws: every kind of walker, live, with gore on and off ----------
+   The whole frame (game.js draw: the 2D ground, as without WebGL, the walkers, the van, the sign, the HUD) on a 2D
+   context that records and checks every call (the same checks as tests/validate-art.js's): every kind walking, a
+   scream and the frenzy it starts, walkers clawing at the van, hurt ones (health bars), shots that hit and kill
+   (blood in the air, downed bodies going over), with walker gore on and off. No exceptions, no NaN or infinite
+   coordinates, every kind and pose drawn by Walker3D, the frenzy's glow and the health bars there, blood only with
+   gore on, and nothing drawn anew over the sign. */
+{
+  const drawErr = (m) => err("persp draw", m);
+  const finite = (v) => typeof v === "number" && Number.isFinite(v);
+  const NUMS = { fillRect: 4, strokeRect: 4, clearRect: 4, rect: 4, moveTo: 2, lineTo: 2, arc: 5, ellipse: 7, quadraticCurveTo: 4, bezierCurveTo: 6, arcTo: 5, translate: 2, scale: 2, rotate: 1, roundRect: 4, setTransform: 6, transform: 6, createLinearGradient: 4, createRadialGradient: 6, fillText: 3, strokeText: 3 };
+  let where = "(setup)";
+  const log = []; // what every context did this frame: [canvas tag, call, args, fillStyle]
+  const bad = new Set();
+  function context2d(canvas, tag) {
+    const state = { fillStyle: "#000000", strokeStyle: "#000000", globalAlpha: 1, lineWidth: 1, font: "10px sans-serif", lineCap: "butt", lineJoin: "miter", imageSmoothingEnabled: true, imageSmoothingQuality: "low", textAlign: "start", textBaseline: "alphabetic", globalCompositeOperation: "source-over" };
+    const stack = [];
+    const calls = {
+      save: () => stack.push(Object.assign({}, state)),
+      restore: () => stack.length && Object.assign(state, stack.pop()),
+      measureText: (t) => ({ width: String(t).length * 6 }),
+      createLinearGradient: () => ({ addColorStop: noop }),
+      createRadialGradient: () => ({ addColorStop: noop }),
+      createPattern: () => ({}),
+      getImageData: (x, y, w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) }),
+      createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) }),
+      getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+      isPointInPath: () => false,
+    };
+    return new Proxy(
+      {},
+      {
+        get(o, k) {
+          if (k === "canvas") return canvas;
+          if (k in state) return state[k];
+          if (k in o) return o[k];
+          if (typeof k !== "string") return undefined;
+          return (...args) => {
+            const n = k === "fillText" || k === "strokeText" ? 0 : NUMS[k] || 0;
+            const from = k === "fillText" || k === "strokeText" ? 1 : 0;
+            for (let i = from; i < from + (n || (k === "fillText" || k === "strokeText" ? 2 : 0)) && i < args.length; i++) {
+              if (!finite(args[i])) bad.add(`${where}: ${tag} ${k}() argument ${i + 1} is ${args[i]}`);
+            }
+            if (k === "drawImage") {
+              const img = args[0];
+              if (!img || !(img.width > 0) || !(img.height > 0)) bad.add(`${where}: ${tag} drawImage() of something with no size`);
+              for (let i = 1; i < args.length; i++) if (!finite(args[i])) bad.add(`${where}: ${tag} drawImage() argument ${i + 1} is ${args[i]}`);
+            }
+            if ((k === "ellipse" && (args[2] < 0 || args[3] < 0)) || (k === "arc" && args[2] < 0)) bad.add(`${where}: ${tag} ${k}() with a negative radius`);
+            log.push([tag, k, args, state.fillStyle]);
+            return calls[k] ? calls[k](...args) : undefined;
+          };
+        },
+        set(o, k, v) {
+          if (k === "globalAlpha" && !(finite(v) && v >= 0 && v <= 1)) bad.add(`${where}: ${tag} globalAlpha ${v}`);
+          if (k === "lineWidth" && !(finite(v) && v >= 0)) bad.add(`${where}: ${tag} lineWidth ${v}`);
+          if (k in state) state[k] = v;
+          else o[k] = v;
+          return true;
+        },
+      }
+    );
+  }
+  const canvasEl = (tag) => {
+    const c = Object.assign(el(), { width: 300, height: 150, tagName: "CANVAS" });
+    c.getContext = (kind) => (kind === "2d" ? c.ctx || (c.ctx = context2d(c, tag)) : null); // no WebGL: the 2D ground
+    return c;
+  };
+  const realDoc = globalThis.document;
+  globalThis.document = Object.assign({}, realDoc, { createElement: (t) => (String(t).toLowerCase() === "canvas" ? canvasEl("pooled") : el()) });
+  const screen = canvasEl("screen");
+  screen.width = 1280;
+  screen.height = 720;
+  const M = ZSR.Walker3D;
+  const seen = { kinds: new Set(), poses: new Set(), falls: 0, renders: 0 };
+  const d0 = M.draw;
+  M.draw = (c, type, st, cam) => {
+    seen.kinds.add(type);
+    seen.poses.add(st.pose);
+    if (st.fall > 0) seen.falls++;
+    seen.renders++;
+    if (!(cam.floor > 0) || cam.shadow !== false) drawErr(`Walker3D drew a road walker without its room under the feet or with its own shadow (cam ${JSON.stringify(cam)})`);
+    return d0(c, type, st, cam);
+  };
+  const kinds = Object.keys(W.WALKER_TYPES);
+  const frames = (n, label) => {
+    for (let i = 0; i < n; i++) {
+      G.update(1 / 60);
+      where = `${label} frame ${i}`;
+      log.length = 0;
+      try {
+        G.draw();
+      } catch (e) {
+        drawErr(`${label}: G.draw threw ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+        return false;
+      }
+    }
+    return true;
+  };
+  const fillsOf = (style) => log.filter((c) => c[1] === "fill" || c[1] === "fillRect").filter((c) => c[3] === style).length;
+  for (const gore of [true, false]) {
+    W.SETTINGS.walkerGore = gore;
+    const label = `gore ${gore ? "on" : "off"}`;
+    start("base", "grocery");
+    G.ctx = screen.getContext("2d");
+    G.mods.night = !gore; // and the night's fog on the second pass
+    for (let i = 0; i < 90; i++) G.update(1 / 60);
+    const v = G.van;
+    const fx = Math.cos(v.heading);
+    const fy = Math.sin(v.heading);
+    const put = (type, ahead, side) => G.addZombie(type, v.x + fx * ahead - fy * side, v.y + fy * ahead + fx * side);
+    G.zombies.length = 0;
+    // every kind ahead and aside, some hurt; one of each pressed on the van's sides; a screamer close enough to scream
+    const crowd = kinds.map((k, i) => Object.assign(put(k, 380 + i * 90, (i % 2 ? 1 : -1) * (60 + i * 30)), { hp: 1e4, maxHp: 1e4 }));
+    crowd.forEach((z, i) => i % 2 && (z.hp = 4000));
+    kinds.forEach((k, i) => Object.assign(put(k, -40 + (i % 3) * 40, (i % 2 ? 1 : -1) * 40), { hp: 1e4, maxHp: 1e4, dmg: 0 }));
+    const sc = Object.assign(put(kinds.find((k) => W.WALKER_TYPES[k].scream) || kinds[0], 300, 0), { hp: 1e4, maxHp: 1e4 });
+    if (!frames(20, label)) continue;
+    G.scream(sc);
+    if (!frames(10, label)) continue;
+    const glow = fillsOf(gore ? "rgba(170,24,12,0.42)" : "rgba(214,120,30,0.4)");
+    if (!glow) drawErr(`${label}: no frenzy glow on the ground after a scream`);
+    if (!fillsOf("#b3261e")) drawErr(`${label}: no health bar over a hurt walker`);
+    // shots that hit (blood in the air with gore on) and kill (downed bodies going over, each kind its own way)
+    for (const z of crowd) {
+      const j = G.zombies.indexOf(z);
+      if (j < 0) continue;
+      G.blood(z, z.x, z.y, z.x - v.x, z.y - v.y, false, 30);
+      z.hp = 0;
+      G.killZombie(j, Math.atan2(z.y - v.y, z.x - v.x));
+    }
+    const drops = G.particles.filter((p) => p.blood && p.z > 0).length;
+    if (gore && !drops) drawErr(`${label}: a hit sprays no blood into the air`);
+    if (!gore && G.particles.some((p) => p.blood)) drawErr(`${label}: blood with walker gore off`);
+    for (let n = 0; n < 4; n++) if (!frames(15, label)) break;
+    if (!G.fallen.length) drawErr(`${label}: no downed walkers drawn`);
+    const S = ZSR.Persp.walkerStats;
+    if (!(S.drawn > 0)) drawErr(`${label}: walkerStats says no walker was drawn (${JSON.stringify(S)})`);
+    ["drawn", "renders", "ms", "level"].forEach((k) => finite(S[k]) || drawErr(`${label}: walkerStats.${k} is ${S[k]}`));
+    // over the sign: this frame's pictures again (no new renders), never a ground layer
+    const before = seen.renders;
+    log.length = 0;
+    where = `${label} over the sign`;
+    ZSR.Persp.drawOverSign(G, G.ctx, [{ x: 0, y: 0, w: 1280, h: 720 }]);
+    if (seen.renders !== before) drawErr(`${label}: drawing walkers over the sign drew them anew`);
+    if (fillsOf("rgba(0,0,0,0.32)") || fillsOf("rgba(170,24,12,0.42)") || fillsOf("rgba(214,120,30,0.4)")) drawErr(`${label}: a shadow or a frenzy's glow drawn over the sign`);
+    if (!log.some((c) => c[1] === "drawImage")) drawErr(`${label}: no walker drawn over a sign covering the screen`);
+    G.stop();
+  }
+  W.SETTINGS.walkerGore = true;
+  M.draw = d0;
+  globalThis.document = realDoc;
+  kinds.forEach((k) => seen.kinds.has(k) || drawErr(`the angled camera never drew a ${k}`));
+  ["walk", "claw", "scream"].forEach((p) => seen.poses.has(p) || drawErr(`the angled camera never drew a walker's "${p}" pose`));
+  if (!seen.falls) drawErr("the angled camera never drew a walker going over");
+  [...bad].slice(0, 12).forEach(drawErr);
+  console.log(`persp draw: ${seen.renders} Walker3D renders (${[...seen.kinds].length} kinds, poses ${[...seen.poses].join("/")}, ${seen.falls} falling), gore on and off, ${bad.size} bad calls`);
 }
 console.log(`drive: ${routes} routes driven (${turns} turns), largest step back ${maxBack.toFixed(2)} px; left alone the first wrong way is ${Object.entries(failedAt).map(([k, n]) => k + " " + n).join(", ")}`);
 errors.slice(0, 40).forEach((e) => console.log("ERROR " + e));

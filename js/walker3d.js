@@ -28,8 +28,17 @@
    A missing or non-numeric field draws as its default (never NaN coordinates).
    cam: w, h (px of the region drawn from 0,0), px (px per tile), dist (tiles to the camera plane),
         eye (tiles above the feet: the camera's height)
+        Two options for a camera looking down from above (the angled road camera, js/perspective.js); left out,
+        nothing changes (tests/validate-art.js compares the calls with and without them):
+        floor   px of room in the region under the feet line (at most 0.6 h): the feet stand on y = h - floor, a
+                part nearer the camera than the feet goes down to the floor under itself (seen from above, a foot
+                stepping toward you is lower on the screen), a lying body keeps its full perspective (DIST over 3
+                tiles), the size envelope reads an eye over the head from the far side (the highest on screen),
+                and the region's margin (1 px + the outline) comes out of the room the caller left around the box,
+                not out of the figure. The caller sizes the region: box w and h plus that margin, plus floor.
+        shadow  false: no contact shadow under the feet (the caller lays its own on its ground; a pool still shows)
 
-   Contract (tests/validate-art.js checks it): everything inside [0,w] x [0,h], the feet on y = h and the figure
+   Contract (tests/validate-art.js checks it): everything inside [0,w] x [0,h], the feet on y = h (h - floor) and the figure
    centred on x = w/2; no translate, scale, rotate, transform or drawImage; no new canvases; no Path2D,
    OffscreenCanvas, DOMMatrix, shadowBlur or filter; context state is never read back; the same inputs make the same
    calls (seeded random only); no objects, arrays, closures or strings are made per draw (preallocated joint
@@ -108,6 +117,9 @@
   let V = null; // its look (the variant this seed picked)
   let FACE = false;
   let INKS = "rgb(13,14,16)";
+  let SHADOW = true; // cam.shadow !== false: the contact shadow
+  // cam.floor: [the feet line's y, px of room under it]; with no room the feet line is the region's bottom (h - 0)
+  const FLR = new Float64Array(2);
   const RESULT = { face: false, parts: 0 };
 
   /* ---------- Numbers passed between the drawing functions ----------
@@ -771,9 +783,9 @@
     const X = -(x * RG[CYAW] + z * RG[SYAW]);
     const k = kAt(x * RG[SYAW] - z * RG[CYAW]);
     RG[QX] = RG[W2] + X * RG[PXS] * k * RG[FIT];
-    RG[QY] = RG[CH] - (RG[EYE] - (RG[EYE] - y) * k) * RG[PXS] * RG[FIT];
-    // nothing under the floor line: a part nearer than the feet sits on it
-    const low = RG[CH] - rb * RG[PXS] * k * RG[FIT];
+    RG[QY] = FLR[0] - (RG[EYE] - (RG[EYE] - y) * k) * RG[PXS] * RG[FIT];
+    // nothing under the floor line: a part nearer than the feet sits on it (with cam.floor: on the floor under itself)
+    const low = (FLR[1] > 0 ? FLR[0] - RG[EYE] * (1 - k) * RG[PXS] * RG[FIT] : RG[CH]) - rb * RG[PXS] * k * RG[FIT];
     if (RG[QY] > low) RG[QY] = low;
     RG[QK] = k * RG[FIT];
   }
@@ -802,19 +814,20 @@
     for (let i = 0; i < env.n; i++) {
       const rho = env.rho[i];
       const y = env.top[i] - RG[EYE];
-      const v = RG[EYE] + y * Math.max(kAt(-rho), kAt(rho));
+      // (cam.floor, an eye over this point: its far side shows highest)
+      const v = RG[EYE] + y * (y < 0 && FLR[1] > 0 ? Math.min(kAt(-rho), kAt(rho)) : Math.max(kAt(-rho), kAt(rho)));
       if (v > top) top = v;
     }
     let f = 1;
     if (hx > 0) f = Math.min(f, (wlim - pad) / (hx * RG[PXS]));
-    if (top > 0) f = Math.min(f, (RG[CH] - pad) / (top * RG[PXS]));
+    if (top > 0) f = Math.min(f, (FLR[0] - pad) / (top * RG[PXS]));
     return f > 0.05 ? f : 0.05;
   }
   function fit() {
     const pad = 1 + RG[OUT];
     // the envelope: the region's half-width, but never more than the standing box's (a falling body's wider region
-    // must not make it grow as it starts to fall)
-    RG[FIT_ENV] = envFit(T.env, Math.min(RG[W2], (T.w * RG[PXS]) / 2), pad);
+    // must not make it grow as it starts to fall); with cam.floor the margin is the caller's room around the box
+    RG[FIT_ENV] = envFit(T.env, Math.min(RG[W2], FLR[1] > 0 ? (T.w * RG[PXS]) / 2 + pad : (T.w * RG[PXS]) / 2), pad);
     // the pose itself, as a safety net
     RG[FIT] = 1;
     let hx = 0;
@@ -827,7 +840,7 @@
     }
     let f = RG[FIT_ENV];
     if (hx > RG[W2]) f = Math.min(f, RG[W2] / hx);
-    if (top < 0) f = Math.min(f, RG[CH] / (RG[CH] - top));
+    if (top < 0) f = Math.min(f, FLR[0] / (FLR[0] - top));
     RG[FIT] = f;
     for (let j = 0; j < NJ; j++) {
       projJ(j);
@@ -970,7 +983,7 @@
   function projG(x, z) {
     const k = kAt(x * RG[SYAW] - z * RG[CYAW]);
     RG[GX] = RG[W2] - (x * RG[CYAW] + z * RG[SYAW]) * RG[PXS] * k * RG[FIT];
-    RG[GY] = RG[CH] - RG[EYE] * (1 - k) * RG[PXS] * RG[FIT];
+    RG[GY] = FLR[0] - RG[EYE] * (1 - k) * RG[PXS] * RG[FIT];
   }
   function groundEll(cx, cz, ux, uz, ra, rb) {
     projG(cx, cz);
@@ -1003,7 +1016,7 @@
     RG[EY] = Math.min(y0, RG[CH] - ext - 1);
   }
   function drawGround() {
-    if (LOD < 2) {
+    if (LOD < 2 && SHADOW) {
       // soft contact shadow under the feet (or the body)
       const cx = ((J[AN[0] * 3] + J[AN[1] * 3]) / 2) * (1 - RG[LYING]) + ((J[PEL * 3] + J[CHE * 3]) / 2) * RG[LYING];
       const cz = ((J[AN[0] * 3 + 2] + J[AN[1] * 3 + 2]) / 2) * (1 - RG[LYING]) + ((J[PEL * 3 + 2] + J[CHE * 3 + 2]) / 2) * RG[LYING];
@@ -3301,7 +3314,10 @@
     RG[CW] = Math.max(1, +cam.w || 1);
     RG[CH] = Math.max(1, +cam.h || 1);
     RG[W2] = RG[CW] / 2;
-    RG[PXS] = +cam.px > 0 ? +cam.px : RG[CH] / t.h;
+    FLR[1] = +cam.floor > 0 ? Math.min(+cam.floor, RG[CH] * 0.6) : 0;
+    FLR[0] = RG[CH] - FLR[1];
+    SHADOW = cam.shadow !== false;
+    RG[PXS] = +cam.px > 0 ? +cam.px : FLR[0] / t.h;
     RG[DIST] = +cam.dist > 0.05 ? +cam.dist : 0.05;
     RG[EYE] = cam.eye == null || !Number.isFinite(+cam.eye) ? 0.5 : Math.max(0.05, +cam.eye);
     const yaw = +st.yaw || 0;
@@ -3318,7 +3334,8 @@
     INKS = col(INK, 1, 1);
     FACE = false;
     solve(t, st);
-    RG[PSC] = 1 - 0.5 * RG[LYING];
+    // (seen from above, cam.floor, the perspective is what lays a lying body along the floor: all of it)
+    RG[PSC] = FLR[1] > 0 && RG[DIST] > 3 ? 1 : 1 - 0.5 * RG[LYING];
     RG[OUT] = Math.max(0.7, Math.min(3.2, RG[PXS] * 0.0105));
     fit();
     RG[OUT] = Math.max(0.7, Math.min(3.2, RG[PXS] * RG[FIT] * 0.0105));
