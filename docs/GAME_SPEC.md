@@ -554,7 +554,10 @@ frame-time governor (`LIVE_LEVELS`) steps to fewer redraws, a 0.7 resolution and
 frames stay slow, and up to the first design's settings (24 redraws, 400 px pictures, full detail
 for every walker) when they stay fast. Blood drops and splats are cached sprites, drawn only with
 gore on. On the road walkers stay top-down drawings (`js/sprites.js`), one look per kind in the 3D
-looks' colours.
+looks' colours, except on the angled test drive (Home Base to Corner Grocery, `PERSP_ROUTES` in
+`js/game.js`): there they are these live figures seen from above, at on-foot size against the van, with
+the road's behaviour (scream and frenzy, clawing at the van, each kind's fall, blood with gore on, health
+bars), drawn under the interiors' governor rows on the walkers' own time (`js/perspective.js`).
 
 ## First person (desktop)
 

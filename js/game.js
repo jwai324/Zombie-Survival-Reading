@@ -62,10 +62,13 @@
   const fallSecs = () => (ZSR.Walker3D && ZSR.Walker3D.FALL_SECS > 0 ? ZSR.Walker3D.FALL_SECS : 2);
   const HIT_WORDS = ["BLAM!", "KRAK!", "THUD!"];
   // a test of the angled camera (js/perspective.js): only these drives use it; every other drive stays flat
+  // SCALE: route ids ("from>to", place ids); each one listed builds its plants and ground squares as it starts
   const PERSP_ROUTES = ["base>grocery"];
   // ... and on them: the van a little faster, its shots much faster (far down the road they look slow), walkers
   // coming a little more often (they are seen from further off, so take longer to arrive)
   // ...; the van parks parkShort short of the door (seen in 3D its nose would be in the wall)
+  // SCALE: range (how far a shot flies) and keepUp (how near a walker must be to keep up with the van) are tied to
+  // how far the angled view sees (Persp.cfg.far); spawns sets how many walkers a drive brings
   const PERSP = { pace: 1.25, shot: 1.6, spawns: 1.4, range: 2600, keepUp: 900, parkShort: 45 };
   // ... and its corners. The van brakes lightly into each turn it takes: from the stop line (never before: braking must
   // not tell which way is right) it eases down to brake x its speed by the time its path bends (over brakeIn at
@@ -75,9 +78,12 @@
   // it on a critically damped spring of camW per second; the spring's clock runs with the van's speed to the camPace
   // power (0: by time, 1: by distance), so a faster van turns the view a little faster and the bend never runs out of
   // the view. The van's nose eases into and out of a bend over nose units either side of it.
+  // SCALE: brakeIn, brakeOut, look and nose are road units tuned for today's turns (arcs of radius 99 to 400, stop
+  // lines at least a lane window apart); much tighter turns or closer stop lines need them checked (validate-drive)
   Object.assign(PERSP, { brake: 0.75, brakeIn: 150, brakeOut: 300, look: 300, lookRamp: 2, camW: 2.2, camPace: 0.5, nose: 50 });
   // the drive (the van along its track, its turns, lane slides and the camera) runs in steps no longer than this,
   // whatever the frame rate: a slow or uneven frame moves it just as several quick ones would
+  // SCALE: a frame runs ceil(dt / DRIVE_STEP) drive steps (4 at 60 fps), so the drive's own cost grows with them
   const DRIVE_STEP = 1 / 240;
   // how fast the van's heading and the flat camera ease toward the road, per second: at 60 fps the same share a
   // frame as before they were frame-rate independent (the van 0.2 of the way, the camera's heading 1/12, its slide 0.05)

@@ -30,10 +30,15 @@
   const VAN_Z = 50; // the van's roof
   const GUN_Z = VAN_Z + 9; // the roof gun's barrels
   const AIM_Z = 26; // what a shot drops to where the pointer is: a walker's chest
-  const FADE_IN = 0.5; // seconds a new walker takes to come out of the weeds
+  // SCALE: seconds a new walker takes to come out of the weeds (walkers spawn at the edge of the view, cfg.far)
+  const FADE_IN = 0.5;
   const TEX_RES = 3; // the van's faces, drawn sharper than the yard's
-  const NEAR_PX = 6; // px a world unit: nearer the camera than this, nothing is drawn (the van is about 2)
-  const VEG_CELL = 512; // the overgrowth is filed in squares this big, so a frame looks only at those under the view
+  // SCALE: px a world unit: nearer the camera than this, nothing is drawn (the van is about 2); a lower camera or a
+  // bigger cfg.scale brings things nearer to it
+  const NEAR_PX = 6;
+  // SCALE: the overgrowth is filed in squares this big, so a frame looks only at those under the view (a longer drive
+  // has more squares, not more plants a frame)
+  const VEG_CELL = 512;
   // The walkers are the interiors' live 3D figures (js/walker3d.js), drawn the way js/interior.js draws them: each into
   // its own pooled canvas when it looks different, under the interiors' governor rows (ZSR.Interior.LIVE_LEVELS).
   // SCALE: road units a Walker3D tile. On-foot proportions against the van: on foot a walker stands 0.92 tiles to the
@@ -65,6 +70,9 @@
   };
 
   const Persp = {
+    // SCALE: far is how far ahead the view sees (world units): the ground squares (js/perspective-gl.js GRIDS, KEEP),
+    // the plants, props and walkers drawn a frame, where walkers come from and PERSP.range / keepUp in js/game.js
+    // all grow with it
     cfg: { pitch: 30, fov: 60, vanAt: 0.8, scale: 1.55, far: 3600 },
     GUN_Z,
     AIM_Z,
@@ -75,8 +83,9 @@
     res: 1, // ground layer resolution: eased down while frames run slow, back up when they don't
     canvases: [],
     // this frame's cost, for a test page to show: the whole road draw (ms, set by game.js draw), the ground in it (on
-    // the card or warped), the world standing on it, and the ground squares drawn (on the card)
-    frameStats: { ms: 0, groundMs: 0, worldMs: 0, squaresMade: 0 },
+    // the card or warped), the world standing on it, the walkers' share of that (their renders and pictures, as
+    // walkerStats.ms) and the ground squares drawn (on the card)
+    frameStats: { ms: 0, groundMs: 0, worldMs: 0, walkersMs: 0, squaresMade: 0 },
 
     /** The camera for this frame: where it sits, behind the road camera's spot, and how it projects. */
     setup(g) {
@@ -1475,6 +1484,7 @@
       const fs = this.frameStats;
       fs.groundMs = t1 - t0;
       fs.worldMs = performance.now() - t1;
+      fs.walkersMs = this.walkerStats.ms;
       fs.squaresMade = GL && GL.on && GL.stats ? GL.stats.made + GL.stats.ahead : 0;
     },
     /** Slow frames (a computer without a graphics card) get softer ground layers; a check every 30 frames. */

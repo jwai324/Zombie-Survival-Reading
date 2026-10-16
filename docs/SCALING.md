@@ -124,6 +124,33 @@ looks different. A near full-detail figure costs 2-4 ms on a software canvas (ab
   and fog step (about 4,000 to 7,000). More kinds and variants need more; validate-art's
   `WALKER_COLOURS` (6000) fails first.
 
+### The angled road camera (a test on one drive)
+
+Only the drives in `PERSP_ROUTES` (`js/game.js`, today `base>grocery`) use it. Its limits all grow with how far
+the view sees (`Persp.cfg.far`, 3600 units) and with how many walkers a drive brings (`PERSP.spawns`). Measured
+headless on software WebGL (pessimistic; compare, do not read as a real PC's times), 1280 x 800, Engine Tune 0,
+draw ms median / 95th percentile (2026-10-16): with the drive's own walkers a straight draws in 15.3 / 23.7 and the
+junction turn in 13.1 / 21.6; with 10 walkers kept ahead of the van, 16.1 / 27.2 and 18.6 / 30.0 (the walkers
+catch up with the braking van, so their pictures are bigger; the ground costs the same). A turn wants about twice
+a straight's new ground squares. With 25 walkers on screen the walkers alone take about 6 ms a frame at dpr 1 and
+11 ms at dpr 2, so on a software renderer their governor steps down a row. `ZSR.Persp.frameStats` (`ms`, `groundMs`, `worldMs`,
+`walkersMs`, `squaresMade`) and `ZSR.Persp.walkerStats` show a frame's cost on a real machine.
+
+| Spot | Now | Where | What it limits |
+|------|-----|-------|----------------|
+| `PERSP_ROUTES` | 1 route | `js/game.js` | The drives with the angled camera; each builds its plants and ground squares as it starts |
+| `PERSP` (`range`, `keepUp`, `spawns`) | 2600, 900 units, 1.4 x | `js/game.js` | How far shots fly and how near a walker keeps up with the van (both tied to `cfg.far`); walkers a drive brings |
+| `PERSP` corners (`brakeIn`, `brakeOut`, `look`, `nose`) | 150, 300, 300, 50 units | `js/game.js` | Tuned for today's turn arcs (radius 99 to 400); much tighter turns or closer stop lines need validate-drive's turn checks re-read |
+| `planBrake` | one 4-unit walk of a turn path a turn | `js/game.js` | Runs once when a turn is committed to; grows with a turn path's length |
+| `DRIVE_STEP` | 1/240 s | `js/game.js` | The drive's steps a frame (4 at 60 fps, both cameras) |
+| `cfg.far` | 3600 units | `js/perspective.js` | How far the view sees: ground squares, plants, props and walkers a frame, where walkers come from |
+| `NEAR_PX`, `FADE_IN` | 6 px a unit, 0.5 s | `js/perspective.js` | Nothing nearer the camera is drawn; a new walker's fade-in at the edge of the view |
+| `VEG_CELL` | 512 units | `js/perspective.js` | The plants' filing squares (a longer drive has more squares, not more plants a frame) |
+| `TILE`, `LIVE_BUDGET_MS` | 62.5, 4 ms | `js/perspective.js` | See "Walkers" below |
+| `BUDGET` | 7 ms | `js/perspective-gl.js` | Ground squares drawn a frame, by what each size has been costing |
+| `KEEP` | 360 squares | `js/perspective-gl.js` | Squares kept on the card (a view needs under 200, plus a few dozen drawn ahead); a bigger `cfg.far` or wider screens need more |
+| `AHEAD_BUDGET`, `AHEAD_SECS`, `FRESH` | 4 ms; 0.35, 0.7, 1.1 s; 30 frames | `js/perspective-gl.js` | Squares drawn ahead with time left in `BUDGET`, and never pushing off one used this recently; about 7% more squares over a drive |
+
 ### Fixed counts in code
 
 | Count | Where | What to do when it grows |
@@ -276,10 +303,13 @@ reads `Object.keys(WALKER_TYPES)`, so nothing in the code says "six". The design
 | `K_MIN`, `K_MAX` | 0.6, 1.6 | `js/walker3d.js` | Perspective inside one figure |
 | `CC_N` | 16384 | `js/walker3d.js` | Colour strings kept; keep it a few times what a busy scene uses |
 | `ENV_MAX` | 24 | `js/walker3d.js` | Fit-envelope points kept per kind |
-| `ROAD_PARTICLE_CAP`, `ROAD_FALLEN_MAX` | 400, 24 | `js/game.js` | Road dust, sparks and blood; downed road walkers |
+| `ROAD_PARTICLE_CAP`, `ROAD_FALLEN_MAX` | 400, 24 | `js/game.js` | Road dust, sparks and blood; downed road walkers (on the angled drive each downed walker also keeps a pooled picture) |
+| `TILE` | 62.5 road units | `js/perspective.js` | A Walker3D tile on the angled drive (on-foot size against the van, whose roof is `VAN_Z` 50); hit circles stay the road's `r` |
+| `LIVE_BUDGET_MS` | 4 ms | `js/perspective.js` | The angled drive's walker renders and pictures a frame (smoothed) before its walker governor steps a row down the interiors' `LIVE_LEVELS` |
 | `breachChanged` | one search out to `breachRange` round each hole | `js/yard.js` | Runs on every hole change (about 0.5 ms); its arrays (two Int32Arrays that swap, so nothing is made per change) are one entry per yard tile; it resets `pathT` only for the walkers the change touches (below) |
 | `pickWreckTarget` | one yard search a pick | `js/yardwreck.js` | A wrecker picks once inside and again only when its target falls, never every frame |
 | `WALKER_FILES` | `walker3d.js`, `walker3d-looks.js` | `tests/validate-art.js` | Add `walker3d-looks2.js` and on here |
+| the script list | the angled drive's draw files, page order | `tests/validate-drive.js` (top) | Add `walker3d-looks2.js` and on here too, after `walker3d-looks.js` |
 | `WALKER_OPS` | 600, 350, 160 | `tests/validate-art.js` | Canvas calls one figure may make at lod 0 / 1 / 2 (563 / 304 / 116 today) |
 | `WALKER_H_MAX` | 1.3 tiles | `tests/validate-art.js` | The tallest box (capped at 0.98 under a ceiling) |
 | `WALKER_COLOURS` | 6000 | `tests/validate-art.js` | Colours 3,000 random draws may use (`CC_N` holds 16384) |
@@ -324,8 +354,9 @@ searches and when matters more than how fast one search is.
    so a new kind that weighs a lot at danger 3+ may need a theme's multiplier raised.
 3. Its 3D look: `Walker3D.addType(id, def)` in `js/walker3d-looks.js`, or a new `js/walker3d-looks2.js`
    once that file is big (a `<script>` tag after `walker3d-looks.js` and before `interior.js`, and an
-   entry in `WALKER_FILES` in `tests/validate-art.js`, `WANT` in `tests/validate-engine.js` and
-   `ENGINE` in `tests/validate-crew.js`). It needs a box (height at most `WALKER_H_MAX`, width matching
+   entry in `WALKER_FILES` in `tests/validate-art.js`, `WANT` in `tests/validate-engine.js`,
+   `ENGINE` in `tests/validate-crew.js` and the script list at the top of `tests/validate-drive.js`, after
+   `js/walker3d-looks.js`: without it the angled drive's draw test draws the new kind as a plain walker). It needs a box (height at most `WALKER_H_MAX`, width matching
    `r`), a gait (stride, `turnRate`, `clawRate`), a fall style (`crumple`, `tree`, `fold`, `kneel` or
    `tumble`), its lod 0 / 1 / 2 parts within `WALKER_OPS`, a look with gore off, and variants by seed if
    any. validate-art fails for a kind with no look; until then it draws as a walker.

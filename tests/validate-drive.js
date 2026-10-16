@@ -1040,6 +1040,10 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     const S = ZSR.Persp.walkerStats;
     if (!(S.drawn > 0)) drawErr(`${label}: walkerStats says no walker was drawn (${JSON.stringify(S)})`);
     ["drawn", "renders", "ms", "level"].forEach((k) => finite(S[k]) || drawErr(`${label}: walkerStats.${k} is ${S[k]}`));
+    // the frame's own cost, as a test page shows it: every part there, the walkers' share inside the world's
+    const F = ZSR.Persp.frameStats;
+    ["ms", "groundMs", "worldMs", "walkersMs", "squaresMade"].forEach((k) => (finite(F[k]) && F[k] >= 0) || drawErr(`${label}: frameStats.${k} is ${F[k]}`));
+    if (F.walkersMs > F.worldMs + 0.5) drawErr(`${label}: frameStats puts ${F.walkersMs.toFixed(1)} ms in the walkers, more than the ${F.worldMs.toFixed(1)} ms of the world they stand in`);
     // over the sign: this frame's pictures again (no new renders), never a ground layer
     const before = seen.renders;
     log.length = 0;

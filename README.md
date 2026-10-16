@@ -223,11 +223,15 @@ js/landmarks1.js        landmark art: gas station, grocery, hardware, pharmacy, 
 js/landmarks2.js        landmark art: precinct, school, fire station, hospital, water tower, lumber, mall, library
 js/yardart.js           yard art: every plot at every level, fence by Walls level
 js/game.js              the road: world-space drive, lanes, signs, turns, wrong-way restarts, minimap
-js/perspective.js       a test of an angled road camera (Home Base to Corner Grocery only): the camera, the ground
-                        warped on the 2D canvas when there is no WebGL, everything standing (plants, wrecked cars,
-                        barriers, barrels, signs, crates, buildings, walkers, the van and its roof gun), the aim,
-                        where walkers come from
-js/perspective-gl.js    the angled camera's ground on the graphics card: squares of the road's art drawn once, kept
+js/perspective.js       a test of an angled road camera (Home Base to Corner Grocery only): the camera (it follows
+                        lazily through a turn while the van brakes to 75%; game.js drives both), the ground warped
+                        on the 2D canvas when there is no WebGL, everything standing (plants, wrecked cars, barriers,
+                        barrels, signs, crates, buildings, the van and its roof gun), the walkers as the buildings'
+                        live 3D figures seen from above (on-foot size, sprinting to keep up, screams, claws, falls,
+                        blood with gore on, health bars, under the buildings' governor rows), the aim, where walkers
+                        come from, frameStats and walkerStats (a frame's cost)
+js/perspective-gl.js    the angled camera's ground on the graphics card: squares of the road's art drawn once, kept,
+                        within a frame budget, the ones a turn will need drawn ahead
 js/perspective-art.js   the angled camera's pictures: trees, bushes, tall grass, barrels, sign boards, barrier
                         stripes; the overgrowth on the ground; the plants scattered over the land
 js/map.js               the city map, street names, side streets, "The way there"
@@ -305,7 +309,10 @@ tests/                  world, weapons, text, streets, drive, engine, crew and a
   how far a hole draws walkers, the bell, gunfire, rest, wave mix, counts,
   how many sides a wave comes from).
 - Road difficulty: `DIFF` in `js/game.js` and each kind's `road` row in `WORLD.WALKER_TYPES`; lane and junction geometry:
-  `GEOM` in `js/streets.js`.
+  `GEOM` in `js/streets.js`. The angled test drive: `PERSP` in `js/game.js` (its pace, shots and spawns; the corner
+  braking `brake`, `brakeIn`, `brakeOut`; the lazy camera `look`, `lookRamp`, `camW`, `camPace`; the van's nose
+  `nose`), `Persp.cfg` in `js/perspective.js` (pitch, view, how far it sees) and the walkers' `TILE` and
+  `LIVE_BUDGET_MS` there.
 - Base rooms, recipes, and effects: `BASE_ROOMS` in `js/world.js`; what each level looks like
   in the yard: `BUILDS` in `js/yard.js`.
 - Van and van-gun upgrades: `js/upgrades.js`.

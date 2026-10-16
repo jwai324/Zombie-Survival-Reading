@@ -18,14 +18,18 @@
     { T: 1024, pad: 32, from: 1700, to: Infinity, lods: [{ px: 256, upTo: 2700 }, { px: 128, upTo: Infinity }] },
     { T: 256, pad: 8, from: -Infinity, to: 1900, lods: [{ px: 512, upTo: 900 }, { px: 256, upTo: Infinity }] },
   ];
-  const BUDGET = 7; // ms of square drawing per frame (the first frames of a drive get more)
+  // SCALE: ms of square drawing per frame (the first frames of a drive get more); a turn wants about twice a
+  // straight's new squares, and a bigger cfg.far or a wider screen more
+  const BUDGET = 7;
   // SCALE: squares kept on the card at most (a view needs under 200; the view ahead's, drawn early, a few dozen more)
   const KEEP = 360;
-  // ... and what is left of it for the squares the view will need soon: the van's own path this many seconds on, the
-  // view facing the way the path does there, and halfway between that and the way it faces now
+  // what is left of the frame's BUDGET (up to AHEAD_BUDGET ms) for the squares the view will need soon: the views
+  // AHEAD_SECS seconds on along the van's own path, as the camera's spring will turn them (Game.viewsAhead); a square
+  // used in the last FRESH frames is never pushed off the card for one drawn ahead
+  // SCALE: KEEP must hold a view's squares plus those drawn ahead; more or later AHEAD_SECS views need more of both
   const AHEAD_BUDGET = 4;
   const AHEAD_SECS = [0.35, 0.7, 1.1];
-  const FRESH = 30; // frames: a square used this recently is never pushed off the card for one drawn ahead
+  const FRESH = 30;
   const COST0 = { 512: 3, 256: 1.2, 128: 0.5 }; // ms a square of each size is guessed to cost before one has been timed
   const normA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
