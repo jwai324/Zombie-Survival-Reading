@@ -31,6 +31,9 @@
   // things (pumps, railings, props, ladders: PROP_PX)
   const DETAIL_PX = 70;
   const PROP_PX = 170;
+  // ... and the small things fade in over this many px more (R.fine), as the road's props do (Persp LOD_BAND): they
+  // come in some 4 s before the van parks, mid-screen and clear of the haze, where a pop shows
+  const FINE_PX = 50;
   // SCALE: units round a building's parts within which a walker, a plant or a prop is sorted against them part by part
   // (a bigger building or a wider walker crowd needs no change: it is measured from the parts)
   const NEAR = 420;
@@ -835,7 +838,7 @@
 
   /* ---------- drawing ---------- */
   // the frame of the building being drawn this call, and how it is seen (reused)
-  const R = { ctx: null, P: null, k: null, f: null, cX: 0, cV: 0, cZ: 0, lw: 2, lod: 2, mixQ: 0, to: [0, 0, 0], toKey: "", dy: 0, s: 1, sil: false, time: 0, rec: null, lightA: 1 };
+  const R = { ctx: null, P: null, k: null, f: null, cX: 0, cV: 0, cZ: 0, lw: 2, lod: 2, fine: 1, mixQ: 0, to: [0, 0, 0], toKey: "", dy: 0, s: 1, sil: false, time: 0, rec: null, lightA: 1 };
   const tmp = [{}, {}, {}, {}, {}, {}, {}, {}];
   /** A lot point (X, V, Z) on the screen, into out ({ x, y, s, d }); false behind the camera. */
   function prj(X, V, Z, out) {
@@ -942,210 +945,216 @@
       of the wall's width as seen from outside, t(z) its height into a share. */
   function decals(ctx, list, h, s, t, w, hgt) {
     for (const d of list) {
-      if ((d.lod == null ? 1 : d.lod) > R.lod) continue;
-      if (d.k === "polys") {
-        for (const pts of d.polys) {
-          ctx.beginPath();
-          pts.forEach(([a, z], i) => {
-            const u = s(a);
-            const v = t(z);
-            if (i) ctx.lineTo(hx(h, u, v), hy(h, u, v));
-            else ctx.moveTo(hx(h, u, v), hy(h, u, v));
-          });
-          ctx.closePath();
-          fillPath(ctx, col(R, d.fill, 0), 0);
-        }
-        continue;
-      }
-      if (d.k === "poly") {
+      const lv = d.lod == null ? 1 : d.lod;
+      if (lv > R.lod) continue;
+      if (lv >= 2) fine(ctx, () => decal(ctx, d, h, s, t, w, hgt));
+      else decal(ctx, d, h, s, t, w, hgt);
+    }
+  }
+  /** One decal (decals). */
+  function decal(ctx, d, h, s, t, w, hgt) {
+    if (d.k === "polys") {
+      for (const pts of d.polys) {
         ctx.beginPath();
-        d.pts.forEach(([a, z], i) => {
-          const u = d.share ? a : s(a);
-          const v = d.share ? z : t(z);
+        pts.forEach(([a, z], i) => {
+          const u = s(a);
+          const v = t(z);
           if (i) ctx.lineTo(hx(h, u, v), hy(h, u, v));
           else ctx.moveTo(hx(h, u, v), hy(h, u, v));
         });
         ctx.closePath();
-        fillPath(ctx, col(R, d.fill, 0), d.ink == null ? 0.7 : d.ink);
-        continue;
+        fillPath(ctx, col(R, d.fill, 0), 0);
       }
-      if (d.k === "disc") {
-        ctx.beginPath();
-        for (let i = 0; i < 14; i++) {
-          const an = (i / 14) * TAU;
-          const u = s(d.a + Math.cos(an) * d.r);
-          const v = t(d.z + Math.sin(an) * d.r);
-          if (i) ctx.lineTo(hx(h, u, v), hy(h, u, v));
-          else ctx.moveTo(hx(h, u, v), hy(h, u, v));
-        }
-        ctx.closePath();
-        fillPath(ctx, col(R, d.fill, 0), 0.7);
-        if (d.fill === "#f3eee0") {
-          // a clock's hands
-          ctx.beginPath();
-          ctx.moveTo(hx(h, s(d.a), t(d.z)), hy(h, s(d.a), t(d.z)));
-          ctx.lineTo(hx(h, s(d.a), t(d.z + d.r * 0.7)), hy(h, s(d.a), t(d.z + d.r * 0.7)));
-          ctx.moveTo(hx(h, s(d.a), t(d.z)), hy(h, s(d.a), t(d.z)));
-          ctx.lineTo(hx(h, s(d.a + d.r * 0.5), t(d.z)), hy(h, s(d.a + d.r * 0.5), t(d.z)));
-          ctx.strokeStyle = col(R, INK, 0);
-          ctx.lineWidth = R.lw * 0.6;
-          ctx.stroke();
-        }
-        continue;
+      return;
+    }
+    if (d.k === "poly") {
+      ctx.beginPath();
+      d.pts.forEach(([a, z], i) => {
+        const u = d.share ? a : s(a);
+        const v = d.share ? z : t(z);
+        if (i) ctx.lineTo(hx(h, u, v), hy(h, u, v));
+        else ctx.moveTo(hx(h, u, v), hy(h, u, v));
+      });
+      ctx.closePath();
+      fillPath(ctx, col(R, d.fill, 0), d.ink == null ? 0.7 : d.ink);
+      return;
+    }
+    if (d.k === "disc") {
+      ctx.beginPath();
+      for (let i = 0; i < 14; i++) {
+        const an = (i / 14) * TAU;
+        const u = s(d.a + Math.cos(an) * d.r);
+        const v = t(d.z + Math.sin(an) * d.r);
+        if (i) ctx.lineTo(hx(h, u, v), hy(h, u, v));
+        else ctx.moveTo(hx(h, u, v), hy(h, u, v));
       }
-      let u0 = d.share ? d.a0 : s(d.a0);
-      let u1 = d.share ? d.a1 : s(d.a1);
-      if (u0 > u1) [u0, u1] = [u1, u0];
-      const v0 = d.share ? d.z0 : t(d.z0);
-      const v1 = d.share ? d.z1 : t(d.z1);
-      const corner = (u, v) => [hx(h, u, v), hy(h, u, v)];
-      const box = (a0, a1, b0, b1) => {
-        const p = [corner(a0, b0), corner(a1, b0), corner(a1, b1), corner(a0, b1)];
+      ctx.closePath();
+      fillPath(ctx, col(R, d.fill, 0), 0.7);
+      if (d.fill === "#f3eee0") {
+        // a clock's hands
         ctx.beginPath();
-        ctx.moveTo(p[0][0], p[0][1]);
-        ctx.lineTo(p[1][0], p[1][1]);
-        ctx.lineTo(p[2][0], p[2][1]);
-        ctx.lineTo(p[3][0], p[3][1]);
-        ctx.closePath();
-      };
-      if (d.k === "rect") {
-        box(u0, u1, v0, v1);
-        fillPath(ctx, col(R, d.fill, 0), d.ink == null ? 0.6 : d.ink);
-      } else if (d.k === "lines") {
-        ctx.strokeStyle = col(R, d.color, 0);
-        ctx.lineWidth = Math.max(0.6, R.lw * 0.45);
-        ctx.beginPath();
-        if (d.vertical) {
-          for (let a = d.a0 + d.step; a < d.a1; a += d.step) {
-            const u = s(a);
-            const p = corner(u, v0);
-            const q = corner(u, v1);
-            ctx.moveTo(p[0], p[1]);
-            ctx.lineTo(q[0], q[1]);
-          }
-        } else {
-          for (let z = d.z0 + d.step; z < d.z1; z += d.step) {
-            const v = t(z);
-            // (around the windows and doors listed in skipA)
-            const spans = [[d.a0, d.a1]];
-            if (d.skipA) for (const [k0, k1] of d.skipA) for (let i = spans.length - 1; i >= 0; i--) {
-              const [p0, p1] = spans[i];
-              if (k1 <= p0 || k0 >= p1) continue;
-              spans.splice(i, 1, ...[[p0, k0], [k1, p1]].filter(([x0, x1]) => x1 > x0));
-            }
-            for (const [p0, p1] of spans) {
-              const p = corner(s(p0), v);
-              const q = corner(s(p1), v);
-              ctx.moveTo(p[0], p[1]);
-              ctx.lineTo(q[0], q[1]);
-            }
-          }
-        }
+        ctx.moveTo(hx(h, s(d.a), t(d.z)), hy(h, s(d.a), t(d.z)));
+        ctx.lineTo(hx(h, s(d.a), t(d.z + d.r * 0.7)), hy(h, s(d.a), t(d.z + d.r * 0.7)));
+        ctx.moveTo(hx(h, s(d.a), t(d.z)), hy(h, s(d.a), t(d.z)));
+        ctx.lineTo(hx(h, s(d.a + d.r * 0.5), t(d.z)), hy(h, s(d.a + d.r * 0.5), t(d.z)));
+        ctx.strokeStyle = col(R, INK, 0);
+        ctx.lineWidth = R.lw * 0.6;
         ctx.stroke();
-      } else if (d.k === "win" || d.k === "door") {
-        const fw = d.frame ? Math.min(3 / (w || 1), (u1 - u0) * 0.2) : 0;
-        const fh = d.frame ? Math.min(3 / (hgt || 1), (v1 - v0) * 0.15) : 0;
-        if (d.arch) {
-          archPath(ctx, h, u0, u1, v0, v1);
-          fillPath(ctx, col(R, d.frame || d.fill || d.glass, 0), 0.6);
-          archPath(ctx, h, u0 + fw, u1 - fw, v0 + fh, v1 - fh);
-          fillPath(ctx, col(R, d.k === "door" ? d.fill : d.glass, 0), 0);
-        } else {
-          box(u0, u1, v0, v1);
-          fillPath(ctx, col(R, d.frame || d.fill, 0), 0.6);
-          if (d.frame) {
-            box(u0 + fw, u1 - fw, v0 + fh, v1 - fh);
-            fillPath(ctx, col(R, d.k === "door" ? d.fill : d.glass, 0), 0);
-          }
-        }
-        if (R.lod >= 2) {
-          const glassy = d.k === "win" || d.glassDoor;
-          if (glassy) {
-            // posters in the glass, a shine across it, the bars
-            if (d.posters) d.posters.forEach((c, i) => {
-              const n = d.posters.length;
-              const pu = u0 + (u1 - u0) * ((i + 0.6) / (n + 0.6));
-              const pw = Math.min((u1 - u0) * 0.14, (v1 - v0) * 0.5 * ((hgt || 1) / (w || 1)));
-              box(pu - pw / 2, pu + pw / 2, v0 + (v1 - v0) * 0.38, v0 + (v1 - v0) * 0.82);
-              fillPath(ctx, col(R, c, 0), 0.4);
-            });
-            ctx.beginPath();
-            const sh = [corner(u0 + (u1 - u0) * 0.15, v0 + fh), corner(u0 + (u1 - u0) * 0.32, v0 + fh), corner(u0 + (u1 - u0) * 0.55, v1 - fh), corner(u0 + (u1 - u0) * 0.38, v1 - fh)];
-            ctx.moveTo(sh[0][0], sh[0][1]);
-            sh.slice(1).forEach((p) => ctx.lineTo(p[0], p[1]));
-            ctx.closePath();
-            ctx.fillStyle = col(R, "rgba(200,220,232,0.22)", 0);
-            ctx.fill();
-          }
-          if (d.bars) {
-            ctx.beginPath();
-            for (let i = 1; i <= d.bars; i++) {
-              const u = u0 + ((u1 - u0) * i) / (d.bars + 1);
-              const p = corner(u, v0 + fh);
-              const q = corner(u, v1 - fh);
-              ctx.moveTo(p[0], p[1]);
-              ctx.lineTo(q[0], q[1]);
-            }
-            ctx.strokeStyle = col(R, d.frame || INK, 0);
-            ctx.lineWidth = Math.max(0.8, R.lw * 0.6);
-            ctx.stroke();
-          }
-          if (d.knob) {
-            const p = corner(u0 + (u1 - u0) * 0.8, v0 + (v1 - v0) * 0.45);
-            ctx.beginPath();
-            ctx.arc(p[0], p[1], Math.max(1, R.lw * 0.7), 0, TAU);
-            ctx.fillStyle = col(R, "#d9a21b", 0);
-            ctx.fill();
-          }
-          if (d.board) {
-            // a plank nailed across
-            const a = [corner(u0 - (u1 - u0) * 0.05, v0 + (v1 - v0) * 0.3), corner(u1 + (u1 - u0) * 0.05, v0 + (v1 - v0) * 0.62), corner(u1 + (u1 - u0) * 0.05, v0 + (v1 - v0) * 0.8), corner(u0 - (u1 - u0) * 0.05, v0 + (v1 - v0) * 0.48)];
-            ctx.beginPath();
-            ctx.moveTo(a[0][0], a[0][1]);
-            a.slice(1).forEach((p) => ctx.lineTo(p[0], p[1]));
-            ctx.closePath();
-            fillPath(ctx, col(R, "#8a6a46", 0), 0.5);
-          }
-        }
-      } else if (d.k === "roll") {
-        box(u0, u1, v0, v1);
-        fillPath(ctx, col(R, d.fill, 0), 0.6);
-        ctx.beginPath();
-        const n = Math.max(3, Math.round(((v1 - v0) * hgt) / 7));
-        for (let i = 1; i < n; i++) {
-          const v = v0 + ((v1 - v0) * i) / n;
-          const p = corner(u0, v);
-          const q = corner(u1, v);
+      }
+      return;
+    }
+    let u0 = d.share ? d.a0 : s(d.a0);
+    let u1 = d.share ? d.a1 : s(d.a1);
+    if (u0 > u1) [u0, u1] = [u1, u0];
+    const v0 = d.share ? d.z0 : t(d.z0);
+    const v1 = d.share ? d.z1 : t(d.z1);
+    const corner = (u, v) => [hx(h, u, v), hy(h, u, v)];
+    const box = (a0, a1, b0, b1) => {
+      const p = [corner(a0, b0), corner(a1, b0), corner(a1, b1), corner(a0, b1)];
+      ctx.beginPath();
+      ctx.moveTo(p[0][0], p[0][1]);
+      ctx.lineTo(p[1][0], p[1][1]);
+      ctx.lineTo(p[2][0], p[2][1]);
+      ctx.lineTo(p[3][0], p[3][1]);
+      ctx.closePath();
+    };
+    if (d.k === "rect") {
+      box(u0, u1, v0, v1);
+      fillPath(ctx, col(R, d.fill, 0), d.ink == null ? 0.6 : d.ink);
+    } else if (d.k === "lines") {
+      ctx.strokeStyle = col(R, d.color, 0);
+      ctx.lineWidth = Math.max(0.6, R.lw * 0.45);
+      ctx.beginPath();
+      if (d.vertical) {
+        for (let a = d.a0 + d.step; a < d.a1; a += d.step) {
+          const u = s(a);
+          const p = corner(u, v0);
+          const q = corner(u, v1);
           ctx.moveTo(p[0], p[1]);
           ctx.lineTo(q[0], q[1]);
         }
-        ctx.strokeStyle = col(R, "rgba(30,32,36,0.45)", 0);
-        ctx.lineWidth = Math.max(0.5, R.lw * 0.35);
-        ctx.stroke();
-        if (d.panes && R.lod >= 2) {
-          for (let i = 0; i < 4; i++) {
-            box(u0 + ((u1 - u0) * (i + 0.15)) / 4, u0 + ((u1 - u0) * (i + 0.85)) / 4, v0 + (v1 - v0) * 0.6, v0 + (v1 - v0) * 0.78);
-            fillPath(ctx, col(R, GLASS, 0), 0.4);
+      } else {
+        for (let z = d.z0 + d.step; z < d.z1; z += d.step) {
+          const v = t(z);
+          // (around the windows and doors listed in skipA)
+          const spans = [[d.a0, d.a1]];
+          if (d.skipA) for (const [k0, k1] of d.skipA) for (let i = spans.length - 1; i >= 0; i--) {
+            const [p0, p1] = spans[i];
+            if (k1 <= p0 || k0 >= p1) continue;
+            spans.splice(i, 1, ...[[p0, k0], [k1, p1]].filter(([x0, x1]) => x1 > x0));
+          }
+          for (const [p0, p1] of spans) {
+            const p = corner(s(p0), v);
+            const q = corner(s(p1), v);
+            ctx.moveTo(p[0], p[1]);
+            ctx.lineTo(q[0], q[1]);
           }
         }
-      } else if (d.k === "sign" || d.k === "img") {
-        const tex = d.k === "sign" ? signTex(d, w * (u1 - u0), hgt * (v1 - v0)) : spriteTex(d);
-        if (d.name && tex) d.textShare = tex.textShare; // (how tall its words are, for the name board)
-        if (!tex) continue;
-        if (d.k === "sign" && d.bg) {
-          box(u0, u1, v0, v1);
-          fillPath(ctx, col(R, d.bg, 0), 0);
+      }
+      ctx.stroke();
+    } else if (d.k === "win" || d.k === "door") {
+      const fw = d.frame ? Math.min(3 / (w || 1), (u1 - u0) * 0.2) : 0;
+      const fh = d.frame ? Math.min(3 / (hgt || 1), (v1 - v0) * 0.15) : 0;
+      if (d.arch) {
+        archPath(ctx, h, u0, u1, v0, v1);
+        fillPath(ctx, col(R, d.frame || d.fill || d.glass, 0), 0.6);
+        archPath(ctx, h, u0 + fw, u1 - fw, v0 + fh, v1 - fh);
+        fillPath(ctx, col(R, d.k === "door" ? d.fill : d.glass, 0), 0);
+      } else {
+        box(u0, u1, v0, v1);
+        fillPath(ctx, col(R, d.frame || d.fill, 0), 0.6);
+        if (d.frame) {
+          box(u0 + fw, u1 - fw, v0 + fh, v1 - fh);
+          fillPath(ctx, col(R, d.k === "door" ? d.fill : d.glass, 0), 0);
         }
-        if (R.mixQ < 12) {
-          ctx.save();
-          ctx.globalAlpha *= 1 - R.mixQ / 12;
-          texQuad(ctx, h, tex, u0, u1, v0, v1);
-          ctx.restore();
+      }
+      if (R.lod >= 2) fine(ctx, () => {
+        const glassy = d.k === "win" || d.glassDoor;
+        if (glassy) {
+          // posters in the glass, a shine across it, the bars
+          if (d.posters) d.posters.forEach((c, i) => {
+            const n = d.posters.length;
+            const pu = u0 + (u1 - u0) * ((i + 0.6) / (n + 0.6));
+            const pw = Math.min((u1 - u0) * 0.14, (v1 - v0) * 0.5 * ((hgt || 1) / (w || 1)));
+            box(pu - pw / 2, pu + pw / 2, v0 + (v1 - v0) * 0.38, v0 + (v1 - v0) * 0.82);
+            fillPath(ctx, col(R, c, 0), 0.4);
+          });
+          ctx.beginPath();
+          const sh = [corner(u0 + (u1 - u0) * 0.15, v0 + fh), corner(u0 + (u1 - u0) * 0.32, v0 + fh), corner(u0 + (u1 - u0) * 0.55, v1 - fh), corner(u0 + (u1 - u0) * 0.38, v1 - fh)];
+          ctx.moveTo(sh[0][0], sh[0][1]);
+          sh.slice(1).forEach((p) => ctx.lineTo(p[0], p[1]));
+          ctx.closePath();
+          ctx.fillStyle = col(R, "rgba(200,220,232,0.22)", 0);
+          ctx.fill();
         }
-        if (d.k === "sign" && (d.bg || d.edge)) {
-          box(u0, u1, v0, v1);
-          fillPath(ctx, null, d.edge ? 0.8 : 0.6);
+        if (d.bars) {
+          ctx.beginPath();
+          for (let i = 1; i <= d.bars; i++) {
+            const u = u0 + ((u1 - u0) * i) / (d.bars + 1);
+            const p = corner(u, v0 + fh);
+            const q = corner(u, v1 - fh);
+            ctx.moveTo(p[0], p[1]);
+            ctx.lineTo(q[0], q[1]);
+          }
+          ctx.strokeStyle = col(R, d.frame || INK, 0);
+          ctx.lineWidth = Math.max(0.8, R.lw * 0.6);
+          ctx.stroke();
         }
+        if (d.knob) {
+          const p = corner(u0 + (u1 - u0) * 0.8, v0 + (v1 - v0) * 0.45);
+          ctx.beginPath();
+          ctx.arc(p[0], p[1], Math.max(1, R.lw * 0.7), 0, TAU);
+          ctx.fillStyle = col(R, "#d9a21b", 0);
+          ctx.fill();
+        }
+        if (d.board) {
+          // a plank nailed across
+          const a = [corner(u0 - (u1 - u0) * 0.05, v0 + (v1 - v0) * 0.3), corner(u1 + (u1 - u0) * 0.05, v0 + (v1 - v0) * 0.62), corner(u1 + (u1 - u0) * 0.05, v0 + (v1 - v0) * 0.8), corner(u0 - (u1 - u0) * 0.05, v0 + (v1 - v0) * 0.48)];
+          ctx.beginPath();
+          ctx.moveTo(a[0][0], a[0][1]);
+          a.slice(1).forEach((p) => ctx.lineTo(p[0], p[1]));
+          ctx.closePath();
+          fillPath(ctx, col(R, "#8a6a46", 0), 0.5);
+        }
+      });
+    } else if (d.k === "roll") {
+      box(u0, u1, v0, v1);
+      fillPath(ctx, col(R, d.fill, 0), 0.6);
+      ctx.beginPath();
+      const n = Math.max(3, Math.round(((v1 - v0) * hgt) / 7));
+      for (let i = 1; i < n; i++) {
+        const v = v0 + ((v1 - v0) * i) / n;
+        const p = corner(u0, v);
+        const q = corner(u1, v);
+        ctx.moveTo(p[0], p[1]);
+        ctx.lineTo(q[0], q[1]);
+      }
+      ctx.strokeStyle = col(R, "rgba(30,32,36,0.45)", 0);
+      ctx.lineWidth = Math.max(0.5, R.lw * 0.35);
+      ctx.stroke();
+      if (d.panes && R.lod >= 2) fine(ctx, () => {
+        for (let i = 0; i < 4; i++) {
+          box(u0 + ((u1 - u0) * (i + 0.15)) / 4, u0 + ((u1 - u0) * (i + 0.85)) / 4, v0 + (v1 - v0) * 0.6, v0 + (v1 - v0) * 0.78);
+          fillPath(ctx, col(R, GLASS, 0), 0.4);
+        }
+      });
+    } else if (d.k === "sign" || d.k === "img") {
+      const tex = d.k === "sign" ? signTex(d, w * (u1 - u0), hgt * (v1 - v0)) : spriteTex(d);
+      if (d.name && tex) d.textShare = tex.textShare; // (how tall its words are, for the name board)
+      if (!tex) return;
+      if (d.k === "sign" && d.bg) {
+        box(u0, u1, v0, v1);
+        fillPath(ctx, col(R, d.bg, 0), 0);
+      }
+      if (R.mixQ < 12) {
+        ctx.save();
+        ctx.globalAlpha *= 1 - R.mixQ / 12;
+        texQuad(ctx, h, tex, u0, u1, v0, v1);
+        ctx.restore();
+      }
+      if (d.k === "sign" && (d.bg || d.edge)) {
+        box(u0, u1, v0, v1);
+        fillPath(ctx, null, d.edge ? 0.8 : 0.6);
       }
     }
   }
@@ -1293,7 +1302,7 @@
     if (p.top && R.cZ > z1) {
       quadPath(ctx, q8[4], q8[5], q8[6], q8[7]);
       fillPath(ctx, col(R, p.top, 6), p.ink);
-      if (p.dots && R.lod >= 2) {
+      if (p.dots && R.lod >= 2) fine(ctx, () => {
         // fruit heaped on a stand: rows of round dots
         homog([q8[4], q8[5], q8[6], q8[7]], H);
         const rad = Math.max(1, (q8[5].x - q8[4].x) * 0.045);
@@ -1306,7 +1315,7 @@
             fillPath(ctx, col(R, p.dots[(i + j) % p.dots.length], 0), 0.35);
           }
         }
-      }
+      });
       if (p.deck && R.lod >= 1) {
         // planks across a deck
         ctx.beginPath();
@@ -1357,7 +1366,7 @@
         if (!prj(x0 - o, ev, ez, P4[0]) || !prj(x1 + o, ev, ez, P4[1]) || !prj(x1 + o, vm, zr, P4[2]) || !prj(x0 - o, vm, zr, P4[3])) return;
         quadPath(ctx, P4[0], P4[1], P4[2], P4[3]);
         fillPath(ctx, col(R, p.roof, lit(0, sgn) + 4), 1);
-        if (R.lod >= 2) {
+        if (R.lod >= 2) fine(ctx, () => {
           // shingle rows
           ctx.beginPath();
           for (let i = 1; i < 5; i++) {
@@ -1372,7 +1381,7 @@
           ctx.strokeStyle = col(R, "rgba(0,0,0,0.25)", 0);
           ctx.lineWidth = Math.max(0.5, R.lw * 0.4);
           ctx.stroke();
-        }
+        });
       };
       // the far slope first
       if (R.cV > vm) {
@@ -1813,7 +1822,7 @@
     for (const [bx0, bx1, bv0, bv1, bz, bc] of beds) {
       const bp = { t: "box", b: [bx0, bx1, bv0, bv1, 0, bz], wall: "#6b4a2e", top: bc, faces: {}, ink: 0.6 };
       drawBox(ctx, bp);
-      if (R.lod >= 2) {
+      if (R.lod >= 2) fine(ctx, () => {
         // leaves over the bed
         const o = {};
         for (let i = 0; i < 6; i++) {
@@ -1824,7 +1833,7 @@
           ctx.ellipse(o.x, o.y, 9 * o.s, 6 * o.s, 0, 0, TAU);
           fillPath(ctx, col(R, i % 3 ? "#4f8a3a" : "#6faa4a", 0), 0.5);
         }
-      }
+      });
     }
     for (const f of faces) if (f.out && !f.roof) pane(f);
     for (const f of faces) if (f.out && f.roof) pane(f);
@@ -1932,7 +1941,20 @@
       }
     }
   }
+  /** Draw a building's finest details (lod 2: small parts, panes, posters, shingles, fruit) faded in by R.fine as
+      the building grows past PROP_PX on the screen, so they never pop in all at once. */
+  function fine(ctx, draw) {
+    if (R.fine >= 1) return draw();
+    ctx.save();
+    ctx.globalAlpha *= R.fine;
+    draw();
+    ctx.restore();
+  }
   function drawPart(ctx, p) {
+    if (p.lod >= 2 && R.fine < 1) return fine(ctx, () => drawPart1(ctx, p));
+    return drawPart1(ctx, p);
+  }
+  function drawPart1(ctx, p) {
     switch (p.t) {
       case "box":
         return drawBox(ctx, p);
@@ -2211,6 +2233,7 @@
       R.s = s;
       const wpx = s * Math.max(b[1] - b[0], b[3] - b[2]);
       R.lod = wpx >= PROP_PX ? 2 : wpx >= DETAIL_PX ? 1 : 0;
+      R.fine = clamp((wpx - PROP_PX) / FINE_PX, 0, 1);
       R.lw = clamp(0.6 + s * 1.7, 0.7, 3.2);
       const haze = P.haze(g);
       R.night = !!(g.mods && g.mods.night);
