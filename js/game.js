@@ -70,17 +70,20 @@
   // SCALE: range (how far a shot flies) and keepUp (how near a walker must be to keep up with the van) are tied to
   // how far the angled view sees (Persp.cfg.far); spawns sets how many walkers a drive brings
   const PERSP = { pace: 1.25, shot: 1.6, spawns: 1.4, range: 2600, keepUp: 900, parkShort: 45 };
-  // ... and its corners. The van brakes lightly into each turn it takes: from the stop line (never before: braking must
-  // not tell which way is right) it eases down to brake x its speed by the time its path bends (over brakeIn at
-  // least, for a bend that starts at its stop line: brakeIn at the slowest van, longer for a faster one, so the ease
-  // always takes about the same time), holds that round the bend, then eases back up over brakeOut.
+  // ... and its corners. The van brakes into each turn it takes: from the stop line (never before: braking must not
+  // tell which way is right) it eases down by the time its path bends, holds that round the bend, then eases back up.
+  // How far: brake x its speed into a gentle turn, less for a sharper one (js/streets.js brakeFor: by the turn's angle,
+  // down to 0.4 at 135 deg, and further where a road was too short for the corner's comfortable shape). The ease takes
+  // brakeIn at least (at the slowest van; longer for a faster one or a deeper brake, so no frame changes the speed more
+  // than the light brake's do) and starts no sooner than it must (St.brakeSpan); back up over brakeOut (longer for a
+  // deeper brake). The corners themselves are shaped for this camera (js/streets.js cornerSpin mirrors these numbers).
   // The camera follows lazily: it faces a point look ahead along the van's own path, never past a stop line the van
   // has not crossed (from one it looks further ahead again lookRamp times as fast as the van drives), and turns toward
   // it on a critically damped spring of camW per second; the spring's clock runs with the van's speed to the camPace
   // power (0: by time, 1: by distance), so a faster van turns the view a little faster and the bend never runs out of
   // the view. The van's nose eases into and out of a bend over nose units either side of it.
-  // SCALE: brakeIn, brakeOut, look and nose are road units tuned for today's turns (arcs of radius 99 to 400, stop
-  // lines at least a lane window apart); much tighter turns or closer stop lines need them checked (validate-drive)
+  // SCALE: brake, brakeIn, look, lookRamp, camW and camPace are mirrored in js/streets.js CAM (validate-drive checks
+  // them), which shapes every corner for them: change both together. Nose is road units tuned for today's turns.
   Object.assign(PERSP, { brake: 0.75, brakeIn: 150, brakeOut: 300, look: 300, lookRamp: 2, camW: 2.2, camPace: 0.5, nose: 50 });
   // the drive (the van along its track, its turns, lane slides and the camera) runs in steps no longer than this,
   // whatever the frame rate: a slow or uneven frame moves it just as several quick ones would
@@ -821,7 +824,7 @@
       let slide = null;
       const vd = this.van.vd || 0;
       if (Math.abs(vd) > 1) {
-        const room = vd > 0 ? St.GEOM.half - 33 - this.van.d : this.van.d - (St.ourLeft(dec.n) + 33);
+        const room = vd > 0 ? St.GEOM.half - St.GEOM.vanHalf - this.van.d : this.van.d - (St.ourLeft(dec.n) + St.GEOM.vanHalf);
         const A = Math.max(SLIDE_STOP, (vd * vd) / (2 * Math.max(1, room)));
         dPlan = this.van.d + (Math.sign(vd) * vd * vd) / (2 * A);
         slide = { e: this.van.d - dPlan, v: vd, A };
@@ -902,9 +905,10 @@
       f.t = 0;
     },
 
-    /** The angled camera's corner braking for the turn path just committed to (from its stop line, this.stopOdo):
-        where the van has slowed to PERSP.brake (where the path starts to bend, brakeIn at least, by the van's
-        speed), where the bend ends, and where it is back up to speed. */
+    /** The angled camera's corner braking for the turn path just committed to (from its stop line, this.stopOdo): the
+        share it brakes to (by the turn's sharpness and shape: St.brakeFor), where it starts to ease down and where it
+        has (by where the path starts to bend, brakeIn at least, by the van's speed: St.brakeSpan), where the bend
+        ends, and where it is back up to speed. */
     planBrake(track) {
       if (!this.persp) return;
       const St = Streets();

@@ -1,5 +1,7 @@
 /* Streets: the names of the roads, the side streets between junctions, the road text keys,
-   and the drive geometry for a route (lanes, decision points, turn arcs, wrong branches).
+   and the drive geometry for a route (lanes, decision points, turn arcs, wrong branches). Every corner is shaped so
+   the angled road camera turns through it comfortably (cornerSpin, cornerBack); the river's course (RIVER) keeps
+   places' drives out of the water.
    Pure data and math, no DOM, so tests/validate-streets.js can run it in node.
    Map units are the city map's 1000 x 700; world pixels are map units x scale.
    Angles and normals use screen axes (y down): a positive turn is a right turn. */
@@ -105,10 +107,10 @@
     sideLen: 26, // side street length, map units
     turnR: 200, // radius of the route's corner at a junction (the road's center; it sets where lanes stop)
     smallR: 150, // ... and into the destination's lot
-    turnWide: 140, // the van's own arc through a junction is at least this wide when the road leaves room
+    turnWide: 140, // the van's own arc through a junction is at least this wide when the road leaves room (wider for a turn too sharp for it: cornerBack)
     boxR: 250, // the paved square where roads meet
-    stopMin: 300, // stop line before a junction, at least
-    turnBack: 170, // stop line before a side street or a driveway
+    stopMin: 300, // stop line before a junction, at least (further where its turns want room: cornerBack)
+    turnBack: 170, // stop line before a side street, at least (further for a comfortable turn into it: sidePlan)
     gap: 100, // clear road after a turn before the next lanes begin
     lotClear: 190, // clear road after a driveway before the next lanes begin
     startAt: 320, // the van starts this far out of its parking spot
@@ -139,15 +141,18 @@
      angle a (an arc of radius r after p of straight from its stop line) the way the camera wants to face swings across
      the stretch from where the look first reaches the bend to where the van leaves it; the spring smooths that (a ramp
      through it peaks at the ramp's rate times rampPeak), at the van's speed there (it brakes into the turn from the stop
-     line: cornerBrake, eased in over brakeEase). cornerSpin is that peak, times fit: the model against the real camera
-     on every turn of the city as it was (0.96 to 1.10 of it at Engine Tune 0 and 5), so it errs on the safe side.
-     CAM mirrors PERSP (tests/validate-drive.js checks they match); change both together. */
+     line: cornerBrake, eased in over brakeEase). cornerSpin is that peak, times fit: the real camera turns at 0.91 to
+     1.13 of the bare model's peak on the city's turns (those over 20 deg/s, at Engine Tune 0 and 5), so with fit and
+     the shapes' own margin (COMFORT.design) it errs on the safe side; gainK and gainMax are fitted to those turns too.
+     CAM mirrors PERSP and the fastest van (tests/validate-drive.js checks they match); change both together. */
   const CAM = { camW: 2.2, camPace: 0.5, paceSpeed: 300, look: 300, lookRamp: 2, brake: 0.75, brakeIn: 150, topSpeed: 510, easeMax: 2, gainK: 0.5, gainMax: 150, fit: 1.1 };
-  /* Braking by sharpness: brake (the light brake into any turn) up to a right angle, then down to sharp at sharpTo
-     (degrees; the city's sharpest turn is 133): a turn that doubles back is taken slowly. A turn with less room than it
-     wants (a short road) brakes further, as far as minBrake (brakeFor). The most the camera may spin through a turn: spin
-     (deg/s) for the slowest van (paceSpeed), times (speed / paceSpeed)^spinPow for a faster one (43 and 64 at Engine
-     Tune 0 and 5; the drive test holds every turn to 45 and 65). */
+  /* Braking by sharpness: brake (the light brake into any turn) up to a right angle (sharpFrom), then down to sharp at
+     sharpTo (degrees): a turn that doubles back is taken slowly. A turn with less room than its corner wants (a short
+     road) brakes further, as far as minBrake (brakeFor). SCALE: sharpTo is just past the city's sharpest turn (133); a
+     sharper one brakes as for sharpTo, and further if its corner cannot be made comfortable.
+     The most the camera may spin through a turn: spin (deg/s) for the slowest van (paceSpeed), times
+     (speed / paceSpeed)^spinPow for a faster one (43 and 64 at Engine Tune 0 and 5; the drive test holds every turn to
+     45 and 65); corners are shaped for design times that. */
   const COMFORT = { sharp: 0.4, sharpFrom: 90, sharpTo: 135, minBrake: 0.3, spin: 43, spinPow: 0.75, design: 0.98 };
   const smoother = (x) => x * x * x * (x * (6 * x - 15) + 10); // js/game.js's ease
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -264,18 +269,22 @@
      far its muddy bank reaches past the water on the road (px). More water on a bigger map: more curves here. */
   const RIVER = { curves: [[[40, 120], [90, 330], [60, 520]], [[60, 520], [50, 620], [120, 690]]], half: 13, bank: 45 };
   let riverLine = null;
-  /** How far (map units) a point is from the middle of the river. */
-  function riverDist(x, y) {
+  let riverBox = null;
+  /** How far (map units) a point is from the middle of the river; past `near` (optional) only that it is further. */
+  function riverDist(x, y, near) {
     if (!riverLine) {
       riverLine = [];
       RIVER.curves.forEach(([p0, p1, p2]) => {
-        for (let i = riverLine.length ? 1 : 0; i <= 48; i++) {
-          const t = i / 48;
+        for (let i = riverLine.length ? 1 : 0; i <= 24; i++) {
+          const t = i / 24;
           const m = 1 - t;
           riverLine.push([m * m * p0[0] + 2 * m * t * p1[0] + t * t * p2[0], m * m * p0[1] + 2 * m * t * p1[1] + t * t * p2[1]]);
         }
       });
+      riverBox = [Math.min(...riverLine.map((q) => q[0])), Math.min(...riverLine.map((q) => q[1])), Math.max(...riverLine.map((q) => q[0])), Math.max(...riverLine.map((q) => q[1]))];
     }
+    const off = Math.max(riverBox[0] - x, x - riverBox[2], riverBox[1] - y, y - riverBox[3]);
+    if (near != null && off > near) return off;
     let best = Infinity;
     for (let i = 1; i < riverLine.length; i++) best = Math.min(best, distSeg(x, y, riverLine[i - 1][0], riverLine[i - 1][1], riverLine[i][0], riverLine[i][1]));
     return best;
@@ -567,11 +576,14 @@
     const n = Math.max(8, Math.ceil((Math.abs(a) * (r + hw)) / STEP));
     const need = STEP / 2;
     const ok = (px, py, tx, ty) => paveMargin(els, px - ty * hw, py + tx * hw) >= need && paveMargin(els, px + ty * hw, py - tx * hw) >= need;
-    for (let i = 0; i <= n; i++) {
+    const at = (i) => {
       const f = a0 + (a * i) / n;
       const h = Math.atan2(uy, ux) + (a * i) / n;
-      if (!ok(cx + Math.cos(f) * r, cy + Math.sin(f) * r, Math.cos(h), Math.sin(h))) return false;
-    }
+      return ok(cx + Math.cos(f) * r, cy + Math.sin(f) * r, Math.cos(h), Math.sin(h));
+    };
+    // its middle first: where a wide arc cuts the corner most
+    if (!at(n >> 1)) return false;
+    for (let i = 0; i <= n; i++) if (!at(i)) return false;
     // and a little of the straight either side
     for (const k of [40, 80]) {
       if (!ok(Ax - ux * k, Ay - uy * k, ux, uy)) return false;
@@ -585,7 +597,7 @@
     let hi = 4000;
     if (!arcOnPaving(els, ux, uy, vx, vy, a, d, x, lo)) return 0;
     if (arcOnPaving(els, ux, uy, vx, vy, a, d, x, hi)) return hi;
-    for (let i = 0; i < 14; i++) {
+    for (let i = 0; i < 10; i++) {
       const m = Math.sqrt(lo * hi);
       if (arcOnPaving(els, ux, uy, vx, vy, a, d, x, m)) lo = m;
       else hi = m;
@@ -631,12 +643,17 @@
     return Object.assign(shapeIn(w.a, t, hi), { want: hi });
   }
   /** How far back of the corner its stop line wants to be (at least back0, at most backMax) so every way out is
-      comfortable from its lane's middle; ways: from cornerWays. Sets each way's capW and keep (today's shapes). */
+      comfortable from its lane's middle; ways: from cornerWays. Sets on each way keepW (comfortable as a wrong way as it
+      was: it keeps its arc), capW (its arc as a wrong way, at most) and keep (comfortable as the right way on turnWide). */
   function cornerBack(ways, v, back0) {
     const turns = ways.filter((w) => !w.straight);
     turns.forEach((w) => {
       const t0 = back0 + w.x;
-      w.capW = Math.max(shapeIn(w.a, t0, Infinity).r, w.rPave);
+      const r0 = shapeIn(w.a, t0, Infinity).r;
+      // a turn comfortable as it was keeps its arc (a stop line further back only adds straight before it); one that
+      // was not gets as wide an arc as the paving holds
+      w.keepW = comfortable(w.a, shapeIn(w.a, t0, r0), v);
+      w.capW = w.keepW ? r0 : Math.max(r0, w.rPave);
       w.keep = !w.road || comfortable(w.a, shapeIn(w.a, t0, GEOM.turnWide), v);
     });
     // the worst of its turns at a stop line b back: its camera spin over the most it may (1: just comfortable)
@@ -670,13 +687,13 @@
     return c;
   }
   /** A side street's turn (on the right of the way in: from the right lane of two; on the left: from the bay, lane 0 of
-      three) as a corner plan: its paving is the road and the narrow side street, stubLen long. Every side street is the
-      same shape, so one plan per side, speed and length. back0: turnBack. */
-  function sidePlan(side, ux, uy, v, scale) {
+      three) as a corner plan: its paving is the road and the narrow side street (as short as it ever is: at the
+      smallest scale). Every side street is the same shape, so one plan per side and speed. back0: turnBack. */
+  function sidePlan(side, ux, uy, v) {
     const G = GEOM;
     const sgn = side === "right" ? 1 : -1;
-    const stubLen = G.sideLen * scale;
-    const key = "side|" + sgn + "|" + v + "|" + stubLen;
+    const stubLen = G.sideLen * G.minScale;
+    const key = "side|" + sgn + "|" + v;
     let c = cornerMemo.get(key);
     if (!c) {
       const sx = -uy * sgn;
@@ -708,6 +725,7 @@
       const w = o.kind === "through" ? null : wayOf(c, o);
       if (!w || w.straight) return;
       o.rPave = w.rPave;
+      if (w.keepW) o.keepArc = true;
       if (o.rejoin != null && !w.keep) o.rWant = rightShape(w, back + w.x, v).want;
     });
   }
@@ -753,13 +771,11 @@
         // a drive (and the lot at its end) that would run into the river turns off it: the way out with the most room
         // to its roads that keeps out of the water (the Water Tower, by the river, faces up the bank)
         if (!dryWay(p, mid)) {
-          let pick = null;
+          const ways = [];
           gaps.forEach(([a, b]) => {
-            for (let th = a + 0.01; th < b; th += 0.01) {
-              const room = Math.min(th - a, b - th);
-              if ((!pick || room > pick.room) && dryWay(p, th)) pick = { room, th };
-            }
+            for (let th = a + 0.01; th < b; th += 0.01) ways.push({ room: Math.min(th - a, b - th), th });
           });
+          const pick = ways.sort((x, y) => y.room - x.room).find((w) => dryWay(p, w.th));
           if (pick) mid = pick.th;
         }
       }
@@ -776,7 +792,8 @@
     const k = G.minScale; // px per map unit at its smallest
     const len = (G.startAt + (G.firstSign + G.lead + G.winFirst) * G.baseSpeed + G.backMax + G.half + G.shoulder + G.lotGap + G.lotDepth) / k;
     const need = RIVER.half + (RIVER.bank + G.riverClear + Math.max(G.lotHalf, G.half + G.shoulder)) / k;
-    for (let s = 0; s <= len; s += 1) if (riverDist(p.x + Math.cos(th) * s, p.y + Math.sin(th) * s) < need) return false;
+    // (points 2 apart: a point's distance changes no faster than it moves, so 1 more is enough at each)
+    for (let s = 0; s <= len + 2; s += 2) if (riverDist(p.x + Math.cos(th) * s, p.y + Math.sin(th) * s, need + 1) < need + 1) return false;
     return true;
   }
   /** The way out of a place to its building (unit, map axes): down its own drive (against startDir), or on along
@@ -968,7 +985,7 @@
       const room = (p, back0) => Math.max(back0, p - free - G.winMin * v - 1);
       sideStreetsOn(sg.a, sg.b).forEach((ss) => {
         const p = ss.t * sg.L;
-        const sp = sidePlan(ss.side, sg.ux, sg.uy, v, scale);
+        const sp = sidePlan(ss.side, sg.ux, sg.uy, v);
         const keep = Math.min(p - sp.back0 - free, G.winFirst * v);
         const back = Math.min(sp.back, Math.max(sp.back0, p - free - keep));
         const stop = p - back;
@@ -1112,10 +1129,10 @@
     const d1 = opt.endD == null ? d : opt.endD;
     const to = (a, rMax) => lanePath(x0, y0, dec.ux, dec.uy, a.x - a.vy * d1, a.y + a.vx * d1, a.vx, a.vy, rMax);
     if (opt.rejoin == null) {
-      // a wrong way (or a drive): as wide an arc as its room gives, but no wider than the paving holds unless its stop
-      // line where it was (back0) already gave it that much (so no turn is tighter than it was)
+      // a wrong way (or a drive): the arc its stop line where it was (back0) gave it, if that was comfortable; else as
+      // wide as the paving holds (never tighter than it was)
       let cap = 0;
-      if (opt.rPave != null && dec.back0 != null && Math.abs(opt.rel) >= 0.02) cap = Math.max(shapeIn(opt.rel, dec.back0 + turnLines(opt.rel, d, d1).x, Infinity).r, opt.rPave);
+      if (opt.rPave != null && dec.back0 != null && Math.abs(opt.rel) >= 0.02) cap = Math.max(shapeIn(opt.rel, dec.back0 + turnLines(opt.rel, d, d1).x, Infinity).r, opt.keepArc ? 0 : opt.rPave);
       const tr = to(opt.aim, cap);
       return { track: tr, d1, rejoin: null, r: tr.r };
     }

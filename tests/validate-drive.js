@@ -13,7 +13,10 @@
      short of the grocery's wall;
    - the angled camera's whole frame drawn on a recording 2D context (no WebGL: the 2D ground): every kind of
      walker live (Walker3D), a scream and its frenzy, clawing, hurt (health bars), shot, downed, gore on and off:
-     no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow.
+     no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow;
+   - every drive on the angled camera: every turn in the city comfortable (the view's spin, its jolt and its lag, the
+     road after the bend on the screen at 1280 x 800 and 960 x 1040), no hops, braking smooth and never before a stop
+     line, Home Base to Corner Grocery as built, a sample of wrong ways; the corner shapes' camera is the camera.
    Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -1335,6 +1338,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   most.engine = ZSR.Upgrades.DEFS.engine.max;
   const top = ZSR.Upgrades.stats(most).speed * G.DIFF.roadScroll * PE.pace;
   if (Math.abs(CAM.topSpeed - top) > 1e-6) cErr(`Streets.CAM.topSpeed ${CAM.topSpeed} is not the fastest van (${top})`);
+  if (S.GEOM.vanHalf * 2 !== G.van.w) cErr(`Streets.GEOM.vanHalf ${S.GEOM.vanHalf} is not half the van's width (${G.van.w}): corners keep the wrong width on the paving`);
   // every drive angled: js/game.js once more, its gate opened
   const src = fs.readFileSync(path.join(ROOT, "js/game.js"), "utf8").replace('PERSP_ROUTES.includes(path.join(">"))', "true");
   vm.runInThisContext(src, { filename: "js/game.js" });
@@ -1528,7 +1532,8 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     if (!(Math.abs(bg[e] - want) < 0.1)) cErr(`Home Base to Corner Grocery turned the view at ${bg[e] && bg[e].toFixed(1)} deg/s at engine ${e} (as built: ${want})`);
   });
   GA.stop();
-  console.log(`comfort: ${nTurns} right-way turns on ${check.length} routes a van, angled: view at most ${worst.w[0].toFixed(1)} / ${worst.w[5].toFixed(1)} deg/s (engine 0 / 5), ${worst.acc[0].toFixed(0)} / ${worst.acc[5].toFixed(0)} deg/s2, lag ${worst.lag[0].toFixed(1)} / ${worst.lag[5].toFixed(1)} deg; road after the bend ${VIEWS.map((v) => v.name + " " + worst.marg[v.name].toFixed(0) + " px in").join(", ")}; hop ${worst.hop.toFixed(2)}, speed at most ${(worst.dv * 100).toFixed(2)}% a frame; Home Base to Corner Grocery ${bg[0] && bg[0].toFixed(1)} / ${bg[5] && bg[5].toFixed(1)}; ${nWrong} wrong ways: ${worst.ww[0].toFixed(1)} / ${worst.ww[5].toFixed(1)} deg/s, ${worst.wacc[0].toFixed(0)} / ${worst.wacc[5].toFixed(0)} deg/s2, lag ${worst.wlag[0].toFixed(1)} / ${worst.wlag[5].toFixed(1)} deg (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
+  ZSR.Game = G; // the road as it was loaded, for anything after this
+  console.log(`comfort: ${nTurns} right-way turns on ${check.length} routes at each engine, angled: view at most ${worst.w[0].toFixed(1)} / ${worst.w[5].toFixed(1)} deg/s (engine 0 / 5), ${worst.acc[0].toFixed(0)} / ${worst.acc[5].toFixed(0)} deg/s2, lag ${worst.lag[0].toFixed(1)} / ${worst.lag[5].toFixed(1)} deg; road after the bend ${VIEWS.map((v) => v.name + " " + worst.marg[v.name].toFixed(0) + " px in").join(", ")}; hop ${worst.hop.toFixed(2)}, speed at most ${(worst.dv * 100).toFixed(2)}% a frame; Home Base to Corner Grocery ${bg[0] && bg[0].toFixed(1)} / ${bg[5] && bg[5].toFixed(1)}; ${nWrong} wrong ways: ${worst.ww[0].toFixed(1)} / ${worst.ww[5].toFixed(1)} deg/s, ${worst.wacc[0].toFixed(0)} / ${worst.wacc[5].toFixed(0)} deg/s2, lag ${worst.wlag[0].toFixed(1)} / ${worst.wlag[5].toFixed(1)} deg (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 }
 console.log(`drive: ${routes} routes driven (${turns} turns), largest step back ${maxBack.toFixed(2)} px; left alone the first wrong way is ${Object.entries(failedAt).map(([k, n]) => k + " " + n).join(", ")}`);
 errors.slice(0, 40).forEach((e) => console.log("ERROR " + e));

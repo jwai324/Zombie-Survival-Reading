@@ -7,7 +7,9 @@
    the destination's drive at its corner; at every place passed, its drive is one more lane; lanes,
    one right way per decision, the left lane always goes straight on past side streets, the van's own path through every turn from every lane is a smooth arc that
    leads somewhere (and back onto the route the right way), signs name something, the
-   written directions name every road, geometry is finite, and the drive time is in range.
+   written directions name every road, geometry is finite, and the drive time is in range; nothing but River
+   Landing's own road runs into the river; at the angled camera's speeds every right-way turn is comfortable by its
+   shape or by braking more (Streets.cornerSpin, brakeFor), and still is with every road 30% shorter.
    Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -77,7 +79,29 @@ function glides(tr, d) {
   }
   return true;
 }
-const MIN_ARC = 95; // the van's own arc through any turn, at least (px). SCALE: the tightest turn today is 99
+const MIN_ARC = 95; // the van's own arc through any turn, at least (px). SCALE: the tightest turn today is 108 (99 before corners were shaped for the angled camera)
+const ANGLED = [1.25, 2.125]; // the angled camera's vans (js/game.js PERSP.pace), slowest and fastest
+let angledTurns = 0;
+let fallbacks = 0;
+let minBrake = 1;
+/** A way's turn from its lane's middle, as the angled camera sees it: its angle (deg), arc, straight before the bend,
+    the brake it gets and its spin against the most it may (1: just comfortable). null for no turn. */
+function comfort(d, x, o, v) {
+  if (!o || o.kind === "through") return null;
+  const tr = S.turnPath(d, x, o, S.laneCenter(o.lanes[0], x.n)).track;
+  const a0 = S.at(tr, 0);
+  const a1 = S.at(tr, tr.len);
+  const h0 = Math.atan2(a0.uy, a0.ux);
+  const a = Math.atan2(Math.sin(Math.atan2(a1.uy, a1.ux) - h0), Math.cos(Math.atan2(a1.uy, a1.ux) - h0));
+  let pre = 0;
+  for (let q = 0; q <= tr.len; q += 4) {
+    const t = S.at(tr, q);
+    if (Math.abs(Math.atan2(Math.sin(Math.atan2(t.uy, t.ux) - h0), Math.cos(Math.atan2(t.uy, t.ux) - h0))) > 0.003) break;
+    pre = q;
+  }
+  const B = S.brakeFor(a, tr.r, pre, v);
+  return { ang: Math.abs(a) * (180 / Math.PI), r: tr.r, pre, B, fallback: B < S.cornerBrake(a) - 1e-3, over: S.cornerSpin(a, tr.r, pre, v, B) / S.comfortSpin(v) };
+}
 /** How far (world px, at `scale`) a point is from the edge of the river's muddy bank (Streets.RIVER): negative in it.
     Far off the river's box it does not measure exactly (a quadratic curve keeps within its three points). */
 const RV = S.RIVER;
@@ -368,6 +392,17 @@ for (const a of ids) {
           if (ok && ok.to !== want) err(cd, "the right lane does not follow the route");
         }
         if (x.kind === "dest" && !x.options.some((o) => o.correct && o.kind === "drive")) err(cd, "the destination's right lane must turn onto its drive");
+        // on the angled camera's speeds: the right way is comfortable (Streets.cornerSpin), by its shape or, where its
+        // road was too short for that, by braking more (brakeFor, never under minBrake)
+        if (ANGLED.includes(sp)) {
+          const c = comfort(d, x, x.options.find((o) => o.correct), v);
+          if (c) {
+            angledTurns++;
+            if (c.fallback) fallbacks++;
+            minBrake = Math.min(minBrake, c.B);
+            if (c.over > 1 + 1e-9) err(cd, `the right way (${c.ang.toFixed(0)} deg, radius ${c.r.toFixed(0)}, ${c.pre.toFixed(0)} px straight first) spins the angled camera ${((c.over - 1) * 100).toFixed(0)}% past comfort even braked to ${c.B.toFixed(2)}`);
+          }
+        }
         if (x.kind === "side" && !x.options.some((o) => o.correct && o.kind === "through")) err(cd, "going straight on must be the right lane");
       });
       // every place's own drive keeps clear of every road but its place's own, every side street, every other
@@ -442,7 +477,40 @@ for (const a of ids) {
   }
 }
 
+/* ---------- a denser city: every route with its roads 30% shorter (as a bigger map may squeeze them) ----------
+   On the angled camera's speeds the drives still build and every right way is still comfortable: where a corner has
+   less room than its turn wants, its stop line takes what there is and the van brakes more (never under minBrake).
+   SCALE: 0.7 is about as dense as the corners hold today (at half the length the sharpest turn off Frog Lane goes 7%
+   past comfort braked to 0.35) */
+let denseTurns = 0;
+let denseFall = 0;
+for (const a of ids) {
+  for (const b of ids) {
+    if (a === b) continue;
+    const r = S.route(a, b);
+    for (const sp of ANGLED) {
+      const v = G.baseSpeed * sp;
+      const secs = Math.min(W.SETTINGS.tripMaxSeconds, Math.max(W.SETTINGS.tripMinSeconds, r.dist * W.SETTINGS.tripSecondsPerUnit));
+      let d;
+      try {
+        d = S.buildDrive(r.path, { scale: S.scaleFor(r.dist, secs, v) * 0.7, speed: v });
+      } catch (e) {
+        err(`${a} > ${b} (speed x${sp}, roads 30% shorter)`, "buildDrive threw: " + e.message);
+        continue;
+      }
+      d.decisions.forEach((x, k) => {
+        const c = comfort(d, x, x.options.find((o) => o.correct), v);
+        if (!c) return;
+        denseTurns++;
+        if (c.fallback) denseFall++;
+        if (c.over > 1 + 1e-9) err(`${a} > ${b} (speed x${sp}, roads 30% shorter) decision ${k}`, `the right way spins the angled camera ${((c.over - 1) * 100).toFixed(0)}% past comfort even braked to ${c.B.toFixed(2)}`);
+      });
+    }
+  }
+}
+
 console.log(`streets: ${roadKeys.length} roads named, ${S.SIDE_STREETS.length} side streets, ${drives} drives checked`);
+console.log(`         angled: ${angledTurns} right-way turns comfortable, ${fallbacks} of them braked past their angle's share (short room; least ${minBrake.toFixed(2)}); roads 30% shorter: ${denseTurns}, ${denseFall} braked past it`);
 console.log(`         shortest lane window ${minWin.toFixed(2)} s, drive time ${minTime.toFixed(0)}..${maxTime.toFixed(0)} s, closest lot ${minLot.toFixed(0)} px from another road, tightest turn ${minArc.toFixed(0)} px, places' drives ${minDrive.toFixed(0)} px clear, ${minRiver.toFixed(0)} px off the river`);
 warnings.forEach((w) => console.log("warn  " + w));
 errors.slice(0, 60).forEach((e) => console.log("ERROR " + e));
