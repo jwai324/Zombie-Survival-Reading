@@ -74,11 +74,18 @@ knock; Leo's Mission Two list ends "10. ?".
 
 Not in v1: found items, new notes in buildings, a new place.
 
-## Fortitude: Earth, centuries after Book 4
+## Fortitude: Earth, hundreds of years after Book 4
 
-**Setting.** The river town is on **Earth**, hundreds of years after Book 4. Books 2 to 4 happened,
-but the game names **only Book 1 events**. Never mention the Marrow, the Waiting, Wren, VESTA, Ilo,
-300-year lifespans, Valen's fate or anything else from Books 2 to 4.
+**Setting.** The river town is on **Earth**, hundreds of years after Book 4 (owner, 2026-10-17).
+Books 2 to 4 happened, but the game names **only Book 1 events**. Never mention the Marrow, the
+Waiting, Wren, VESTA, Ilo, 300-year lifespans, Valen's fate or anything else from Books 2 to 4.
+
+**Book 1 is ancient history.** Book 1 alone spans about 300 years, and the game sits hundreds of
+years after Book 4, so everything in Book 1 is many centuries old. Texts treat it the way we treat
+the distant past: school lessons, statues, museum copies, worn plaques. A Book 1 object found in
+town (an Abyss Explorer pin, an Accord page) is an old replica or keepsake, never an original
+carried by its owner. Nobody in town knew a Book 1 character. The shipyard ring is old; cryosleep
+is old, proven technology, which is why a public Waiting Vault could exist at all.
 
 **Book 1 characters are legends only:** Dr. Camila Reyes, Kennedy, Zoe, Ava, Patriya Nguyen,
 Annabelle, Valen, Dr. Marcus Webb, Dr. Harper, President Osei. Named in lessons, plaques and old
