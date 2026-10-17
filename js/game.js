@@ -58,6 +58,9 @@
   const BLOOD = ["#a3201a", "#7d1610"]; // a little brighter than the 3D figures' (118, 18, 14): it must show on the asphalt
   const SHOWCASE_SECS = 4; // the title screen's walkers change kind this often
   const MINI_HAZE = 0.25; // a place gone further into the haze than this is not in view for the minimap's fade
+  const SIGN_GAP = 14; // px between the road's edge on the screen and the sign or the lane hint beside it
+  // the road's edges are found on the screen this often along it (road units: Game.roadEdges)
+  const EDGE_STEP = 120;
   const SPARK_ARMOR = "#c9cdd2"; // a bullet off a helmet or a vest
   /** How long a downed walker lasts: the 3D figures' fall (js/walker3d.js), or 2 s without them. */
   const fallSecs = () => (ZSR.Walker3D && ZSR.Walker3D.FALL_SECS > 0 ? ZSR.Walker3D.FALL_SECS : 2);
@@ -1500,14 +1503,8 @@
       const top = rects.row + 10;
       // how far down something from x to x + w may reach: the screen's edge, or the trip bar or touch buttons under it
       const floor = (x, w) => rects.low.reduce((f, b) => (x < b.right && x + w > b.left ? Math.min(f, b.top - 8) : f), this.H - 8);
-      const left = this.W / 2 + (G.half + G.shoulder + 14 - this.cam.d) * this.zoom;
-      let maxW = this.W - left - 12;
-      let x0 = left;
-      if (maxW < 160) {
-        // a narrow screen: across the top, under the minimap
-        x0 = 8;
-        maxW = this.W - 16;
-      }
+      // the road's edges on the screen: the sign hangs right of where its right edge is beside it
+      const E = this.roadEdges();
       const mb = rects.mini && rects.mini.width ? rects.mini : null;
       const overMini = (x, w, y, h) => mb && x < mb.right + 6 && x + w > mb.left - 6 && y < mb.bottom + 6 && y + h > mb.top - 6;
       // as big as the text size asks, a size smaller while it would run off the bottom or a word past its edge
@@ -1515,11 +1512,27 @@
       let lay;
       let x;
       let y;
-      for (let sk = k0; ; sk -= 0.1) {
-        lay = D.layoutSign(ctx, sign, sk, maxW);
-        x = Math.min(x0, this.W - lay.w - 12);
-        y = overMini(x, lay.w, top, lay.h) ? mb.bottom + 10 : top;
-        if ((lay.fits && y + lay.h + 6 * lay.k <= floor(x, lay.w)) || sk <= Math.max(0.75, k0 * 0.6)) break;
+      let maxW;
+      let band = 150 * k0; // the rows the sign covers, from the top (the road widens down the screen): as laid out
+      for (let pass = 0; pass < 3; pass++) {
+        const re = E.side(1, top, top + band);
+        const left = (re == null ? this.W / 2 : re) + SIGN_GAP;
+        maxW = this.W - left - 12;
+        let x0 = left;
+        if (maxW < 160) {
+          // a narrow screen: across the top, under the minimap
+          x0 = 8;
+          maxW = this.W - 16;
+        }
+        for (let sk = k0; ; sk -= 0.1) {
+          lay = D.layoutSign(ctx, sign, sk, maxW);
+          x = Math.min(x0, this.W - lay.w - 12);
+          y = overMini(x, lay.w, top, lay.h) ? mb.bottom + 10 : top;
+          if ((lay.fits && y + lay.h + 6 * lay.k <= floor(x, lay.w)) || sk <= Math.max(0.75, k0 * 0.6)) break;
+        }
+        const need = y + lay.h + 6 * lay.k - top;
+        if (need <= band + 1) break;
+        band = need;
       }
       y = Math.max(8, Math.min(y, this.H - 8 - lay.h - 6 * lay.k)); // never off the screen, even on one that has no room
       // slide in from above as it comes into view, slide down and fade once passed
@@ -1538,18 +1551,24 @@
         const spots = [];
         const nw = Math.max(lay.w, Math.min(maxW, 300 * lay.k));
         const ux = Math.min(x, this.W - nw - 12);
-        spots.push({ x: ux, y: y + lay.h + 8 * lay.k + 4, w: nw, to: floor(ux, nw) });
-        const lw = this.W / 2 - (G.half + G.shoulder + 14 + this.cam.d) * this.zoom - 20;
+        // (under the sign, down to where the road's right edge comes out past its left end)
+        spots.push({ x: ux, y: y + lay.h + 8 * lay.k + 4, w: nw, to: Math.min(floor(ux, nw), E.row(1, ux - SIGN_GAP) - 4) });
+        // on the grass left of the road: out to where its left edge is (oncoming lanes and all) beside the note
+        const le = E.side(-1, top, top + 150 * nk0);
+        const lw = (le == null ? this.W / 2 : le) - SIGN_GAP - 10;
         if (lw >= 160) {
           const besideMini = mb && mb.left < 10 + lw + 6 && mb.right > 4;
-          if (!besideMini) spots.push({ x: 10, y: top, w: lw, to: floor(10, lw) });
+          const to = (y0) => Math.min(y0, E.row(-1, 10 + lw + SIGN_GAP) - 4);
+          if (!besideMini) spots.push({ x: 10, y: top, w: lw, to: to(floor(10, lw)) });
           else {
-            spots.push({ x: 10, y: mb.bottom + 10, w: lw, to: floor(10, lw) });
-            spots.push({ x: 10, y: top, w: lw, to: mb.top - 10 });
+            spots.push({ x: 10, y: mb.bottom + 10, w: lw, to: to(floor(10, lw)) });
+            spots.push({ x: 10, y: top, w: lw, to: to(mb.top - 10) });
           }
         }
         // last, a small screen: along the bottom behind the van (left of the sign when the sign reaches down there)
-        const behind = this.toScreen(this.van.x, this.van.y).y + 75 * this.zoom;
+        const vf = [Math.cos(this.van.heading), Math.sin(this.van.heading)];
+        const rear = ZSR.Persp.project(this.van.x - (vf[0] * this.van.h) / 2, this.van.y - (vf[1] * this.van.h) / 2, 0);
+        const behind = (rear ? rear.y : this.toScreen(this.van.x, this.van.y).y) + 12;
         const bw = y + lay.h + 6 * lay.k > behind ? x - 20 : Math.min(this.W - 20, 760);
         spots.push({ x: 10, y: behind, w: bw, to: floor(10, bw), up: true });
         let fit = null;
@@ -1570,6 +1589,67 @@
         }
       }
       return boxes;
+    },
+    /** The road's outer edges on the screen (the sign and the lane hint keep off it), as the camera sees them: the
+        van's road (the route's track, or the wrong road it took) from just behind the van out to the haze, shoulders
+        and oncoming lanes included, each edge a line of screen points every EDGE_STEP. Past a stop line the van has
+        not crossed it runs on straight (where the sign stands must not tell which way is right). side(+1 right | -1 left, ya,
+        yb): how far out that edge comes across rows ya..yb (null when it is not on them); row(side, x): the highest row
+        from which, down the screen, that edge is past x (out to the right of it for +1, to the left for -1; the
+        screen's height when never). */
+    roadEdges() {
+      const St = Streets();
+      const G = St.GEOM;
+      const P = ZSR.Persp;
+      const k = P.setup(this);
+      const off = G.half + G.shoulder;
+      const L = { 1: [], "-1": [] };
+      const s1 = this.van.s + k.far;
+      const dec = this.upcoming();
+      const stop = dec ? dec.stop : this.track.len;
+      const a0 = St.at(this.track, Math.min(stop, this.track.len));
+      for (let s = Math.max(0, this.van.s - 200); s <= s1 + EDGE_STEP - 1e-6; s += EDGE_STEP) {
+        const q = Math.min(s, s1);
+        let a = a0;
+        if (q < stop) a = St.at(this.track, q);
+        else if (!dec) break;
+        else a = { x: a0.x + a0.ux * (q - stop), y: a0.y + a0.uy * (q - stop), ux: a0.ux, uy: a0.uy };
+        for (const sd of [1, -1]) {
+          const p = P.project(a.x - a.uy * off * sd, a.y + a.ux * off * sd, 0);
+          if (p) L[sd].push(p);
+        }
+      }
+      const H = this.H;
+      return {
+        side(sd, ya, yb) {
+          let best = null;
+          const pts = L[sd];
+          const take = (x) => (best = best == null ? x : sd > 0 ? Math.max(best, x) : Math.min(best, x));
+          for (let i = 0; i + 1 < pts.length; i++) {
+            const a = pts[i];
+            const b = pts[i + 1];
+            const lo = Math.max(ya, Math.min(a.y, b.y));
+            const hi = Math.min(yb, Math.max(a.y, b.y));
+            if (lo > hi) continue;
+            const xAt = (y) => (b.y === a.y ? a.x : a.x + ((b.x - a.x) * (y - a.y)) / (b.y - a.y));
+            take(xAt(lo));
+            take(xAt(hi));
+          }
+          return best;
+        },
+        row(sd, x) {
+          let y = H;
+          const pts = L[sd];
+          const past = (p) => (sd > 0 ? p.x >= x : p.x <= x);
+          for (let i = 0; i < pts.length; i++) {
+            const a = pts[i];
+            if (past(a)) y = Math.min(y, a.y);
+            const b = pts[i + 1];
+            if (b && past(a) !== past(b)) y = Math.min(y, a.y + ((b.y - a.y) * (x - a.x)) / (b.x - a.x || 1e-9));
+          }
+          return y;
+        },
+      };
     },
     /** Where the HUD's top row and the minimap sit; measured again only when the screen or the text size changes.
         row: the bottom of the row's boxes (the signs and the minimap go under it); low: the boxes along the bottom. */

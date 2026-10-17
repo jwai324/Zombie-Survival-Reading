@@ -14,7 +14,7 @@
      walker live (Walker3D), a scream and its frenzy, clawing, hurt (health bars), shot, downed, gore on and off:
      no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow; night's dark
      drawn again only when what it shows moves, its beam down the van's own heading; fog's view short and its haze
-     thick near; the minimap's arrow up and its fade
+     thick near; the sign and the lane hint off the road's edges on the screen; the minimap's arrow up and its fade
      only for a place in view; the title screen and the garage's preview a still angled scene, drawn on change;
    - every turn in the city comfortable (the view's spin, its jolt and its lag, the road after the bend on the screen
      at 1280 x 800 and 960 x 1040), no hops, braking smooth and never before a stop line, Home Base to Corner Grocery as
@@ -1079,6 +1079,8 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
      still come from where they do on a clear day; no landmark silhouette shows past the fog;
    - the minimap's arrow points up (the map turns with the van, the camera lags it); the map fades for a place in
      view under it, not for an empty corner of the sky nor for a place gone into the haze;
+   - the sign and the lane hint stay off the road (its edges between the van and the stop line, on the screen) at 1280
+     x 800, 1920 x 1080 and 960 x 1040;
    - the title screen and the garage's preview: a still angled scene (the van, Walker3D figures of every kind in turn,
      the first two in the still one), drawn again only when what it shows changes, with no exceptions or NaN; */
 {
@@ -1305,6 +1307,68 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     G.stop();
   }
 
+  // the sign and the lane hint: off the road, at three window sizes
+  {
+    const sizes = [[1280, 800], [1920, 1080], [960, 1040]];
+    const W0 = globalThis.innerWidth;
+    const H0 = globalThis.innerHeight;
+    let signs = 0;
+    let hints = 0;
+    for (const [w, h] of sizes) {
+      globalThis.innerWidth = w;
+      globalThis.innerHeight = h;
+      G.resize();
+      G.hudRects = hudFor(w, h);
+      for (const [a, b] of [["base", "hospital"], ["river", "mall"]]) {
+        start(a, b);
+        const ctx = screen.getContext("2d");
+        G.ctx = ctx;
+        drive(right, 1.0, () => {
+          if (Math.floor(G.time * 60) % 20 || !G.onMain || G.turn) return G.arrive && G.arrive.parked;
+          const dec = G.upcoming();
+          // (a sign all the way in: not still coming down from the top, nor the last one sliding away)
+          if (!dec || G.van.s - dec.signAt < Math.min(dec.zoneStart - dec.signAt || 1, 0.5 * G.speed) + 1) return false;
+          if (G.next > 0 && G.van.s - G.drive.decisions[G.next - 1].stop < 260) return false;
+          where = `${a} > ${b} at ${w}x${h}, sign`;
+          const rects = G.drawSign(ctx, 1);
+          if (!rects) return false;
+          // the road between the van and the stop line, its outer edges, on the screen
+          P.setup(G);
+          const off = S.GEOM.half + S.GEOM.shoulder;
+          const rows = [];
+          for (let s = G.van.s; s <= dec.stop; s += 60) {
+            const q = S.at(G.track, s);
+            const L = P.project(q.x + q.uy * off, q.y - q.ux * off, 0);
+            const R = P.project(q.x - q.uy * off, q.y + q.ux * off, 0);
+            if (L && R) rows.push([L, R]);
+          }
+          const covers = (r) => rows.some(([L, R]) => {
+            for (let i = 0; i <= 4; i++) {
+              const y = L.y + ((R.y - L.y) * i) / 4;
+              const x = L.x + ((R.x - L.x) * i) / 4;
+              if (y > r.y + 2 && y < r.y + r.h - 2 && x > r.x + 2 && x < r.x + r.w - 2) return true;
+            }
+            return false;
+          });
+          signs++;
+          const narrow = rects[0].x <= 10;
+          if (!narrow && covers(rects[0])) fErr(`${a} > ${b} at ${w}x${h}: the sign (${rects[0].x.toFixed(0)}, ${rects[0].y.toFixed(0)}, ${rects[0].w.toFixed(0)} x ${rects[0].h.toFixed(0)}) covers the road before the stop line`);
+          if (rects[1]) {
+            hints++;
+            if (covers(rects[1])) fErr(`${a} > ${b} at ${w}x${h}: the lane hint (${rects[1].x.toFixed(0)}, ${rects[1].y.toFixed(0)}, ${rects[1].w.toFixed(0)} x ${rects[1].h.toFixed(0)}) covers the road before the stop line`);
+          }
+          return false;
+        });
+        G.stop();
+      }
+    }
+    globalThis.innerWidth = W0;
+    globalThis.innerHeight = H0;
+    G.resize();
+    G.hudRects = hudFor(1280, 720);
+    if (signs < 30 || hints < 5) fErr(`only ${signs} signs and ${hints} lane hints checked`);
+  }
+
   // the title screen and the garage's preview: a still angled scene
   {
     const M = ZSR.Walker3D;
@@ -1361,7 +1425,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   G.hudRects = hud0;
   globalThis.document = realDoc;
   [...bad].slice(0, 12).forEach(fErr);
-  console.log(`flat out: night drawn on change and down the van's heading (beam ${P.NIGHT_BEAM.reach}), fog ${P.FOG.near}..${P.FOG.far}, minimap arrow up and its fade for places in view, title screen and garage still scenes, ${bad.size} bad calls`);
+  console.log(`flat out: night drawn on change and down the van's heading (beam ${P.NIGHT_BEAM.reach}), fog ${P.FOG.near}..${P.FOG.far}, minimap arrow up and its fade for places in view, signs and hints off the road at 3 sizes, title screen and garage still scenes, ${bad.size} bad calls`);
 }
 /* ---------- each place's own building on the angled camera (js/perspective-buildings.js) ----------
    Every place has a building row and every row is a place; every side street kind stands up. Every destination is
