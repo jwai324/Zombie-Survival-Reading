@@ -34,6 +34,8 @@
   const DIFF = {
     baseInterval: 2.2, // seconds between walkers on the road at danger 0, day 1
     intervalStep: 0.07,
+    // SCALE: the shortest gap between walkers on average, after every multiplier (night, ROAD_DANGER spawns): a
+    // longer, more dangerous drive late in the game brings no more walkers than this
     minInterval: 0.6,
     hpStep: 0.1,
     speedStep: 0.025,
@@ -44,12 +46,12 @@
     sideSpawnChance: 0.45,
     crateScrap: 15,
     fogChanceAfterDay: 5,
-    chase: 0.65, // walkers keep up with this share of the van's speed (as the old scrolling road did)
     wrongDrive: 1.25, // seconds driven down a wrong road before the fade
     fadeOut: 0.6,
     fadeIn: 0.6,
     parkWait: 1.6, // seconds parked before the place opens
-    quietAtDoor: 900, // px from the parking spot where walkers stop coming
+    quietAtDoor: 3, // seconds at the van's own speed from the parking spot where walkers stop coming (900 units at Engine 0)
+    nightSpawns: 0.85, // at night walkers come this much more often (the gap between them times this)
   };
   // SCALE: the most particles (dust, sparks, blood) the road keeps; past it a hit's blood is skipped
   const ROAD_PARTICLE_CAP = 400;
@@ -67,20 +69,48 @@
   const fallSecs = () => (ZSR.Walker3D && ZSR.Walker3D.FALL_SECS > 0 ? ZSR.Walker3D.FALL_SECS : 2);
   const HIT_WORDS = ["BLAM!", "KRAK!", "THUD!"];
   // the angled camera (js/perspective.js), every drive: the van a little faster than the old top-down road's, its
-  // shots much faster (far down the road they look slow), walkers coming a little more often (they are seen from
-  // further off, so take longer to arrive); the van parks parkShort short of the door (seen in 3D its nose would be
-  // in the wall)
+  // shots much faster (far down the road they look slow); the van parks parkShort short of the door (seen in 3D its
+  // nose would be in the wall). How many walkers come and how is ROAD_DANGER's
   // SCALE: range (how far a shot flies) and keepUp (how near a walker must be to keep up with the van) are tied to
-  // how far the angled view sees (Persp.cfg.far); spawns sets how many walkers a drive brings
-  const PERSP = { pace: 1.25, shot: 1.6, spawns: 1.4, range: 2600, keepUp: 900, parkShort: 45 };
+  // how far the angled view sees (Persp.cfg.far)
+  const PERSP = { pace: 1.25, shot: 1.6, range: 2600, keepUp: 900, parkShort: 45 };
+  // the road's walkers by the trip's danger (the destination's, WORLD.LOCATIONS; 0 is the drive home), tuned so that
+  // a drive at each danger and day is as hard as it was on the old top-down road (DESIGN.md "Balance"; tests/balance):
+  //   spawns  walkers come this many times as often as DIFF's interval says (night and DIFF.minInterval after it)
+  //   chase   the share of the van's speed a walker beside or behind it keeps up at (KEEP)
+  //   group   how many come together on average (spawnGroup), each group as far apart as so many walkers
+  //   far     the share that come from far down the road (Persp.spawn), the rest out of the roadside
+  //   farY    ... how far ahead those far off come from, as shares of how far the view sees (Persp.cfg.far)
+  //   farX    ... and how far past the road's edge, at most (units)
+  //   sideY   the roadside's: how far ahead of the camera (units, from and to)
+  //   sideX   ... and how far past the road's edge (units, from and to; never past the edge of the view)
+  // A row's numbers are for day ROAD_LATE_DAY on; `early` gives the ones that differ on day 1, and the days between go
+  // over from one to the other in even steps (roadRow): on the first days the van's gun is weak and the walkers come
+  // nearer, closer together and keep up harder, as the old road's did in effect. ROAD_LATE is every row's unless the
+  // row says otherwise: walkers 1.4 times as often as the old road's (they are seen from further off), from far down
+  // the road itself (farX: on it, as the old road's came down from the top of the screen), keeping up at 0.72 of the
+  // van's speed beside it (the van passes them as fast as the old road's 0.65 did at its pace, 1 against 1.25)
+  // SCALE: one row a danger; a danger past the last row takes the last
+  const ROAD_LATE = { spawns: 1.4, chase: 0.72, group: 1, far: 0.55, farY: [0.5, 0.8], farX: 30, sideY: [700, 2200], sideX: [600, 1400] };
+  const ROAD_DANGER = [
+    {}, // the drive home
+    {},
+    { chase: 0.7, early: { spawns: 1.0, chase: 0.84, group: 2.5, farY: [0.35, 0.5] } },
+    { early: { spawns: 1.2, chase: 0.8, group: 2.5, farY: [0.425, 0.575] } },
+    { early: { spawns: 1.0, chase: 0.8, group: 4.5, farY: [0.35, 0.5] } },
+    { chase: 0.73, group: 1.25, early: { spawns: 0.85, chase: 0.88, group: 5, farY: [0.2, 0.35] } },
+  ].map((r) => Object.assign({}, ROAD_LATE, { farY: ROAD_LATE.farY.slice(), sideY: ROAD_LATE.sideY.slice(), sideX: ROAD_LATE.sideX.slice(), early: {} }, r));
+  const ROAD_LATE_DAY = 10;
+  // SCALE: the walkers of a group come within this many units of its first
+  const GROUP_SPREAD = 160;
   // the keep-up carry, by where a walker is from the van (owner, 2026-10-17): ahead of the nose there is none, so a
   // walker there walks at the van on its own feet and the van closes on it at its whole speed; beside and behind it the
-  // walker sprints to keep up (DIFF.chase of the van's speed, within PERSP.keepUp of it, fading out over `fade` further
-  // off). Over `band` seconds of the van's drive ahead of the nose (at least bandMin units) one goes over to the
-  // other, so nobody jumps from walking to sprinting; one in the van's path keeps walking; and a walker ahead of the
-  // van's middle is never carried away from the van faster than it walks at it, so its feet never slide back. A walker
-  // pressed onto the nose is shoved off to its nearer side, at `shove` of the van's speed (at least `shoveMin` units a
-  // second), so none rides the bumper: from there it keeps up beside the van.
+  // walker sprints to keep up (the `chase` share of the van's speed of its ROAD_DANGER row, within PERSP.keepUp of
+  // it, fading out over `fade` further off). Over `band` seconds of the van's drive ahead of the nose (at least
+  // bandMin units) one goes over to the other, so nobody jumps from walking to sprinting; one in the van's path keeps
+  // walking; and a walker ahead of the van's middle is never carried away from the van faster than it walks at it,
+  // so its feet never slide back. A walker pressed onto the nose is shoved off to its nearer side, at `shove` of the
+  // van's speed (at least `shoveMin` units a second), so none rides the bumper: from there it keeps up beside the van.
   // SCALE: fade, bandMin and shoveMin are road units, tied to the van's size and speed
   const KEEP = { fade: 400, band: 0.8, bandMin: 60, shove: 0.8, shoveMin: 60 };
   // buildings and the river block walkers (owner, 2026-10-17): one put out of a building's solid part or the river's
@@ -267,9 +297,11 @@
       this.opts = opts;
       const day = S.save.day;
       this.mods = { fog: !fx.headlights && day >= DIFF.fogChanceAfterDay && Math.random() < 0.25, night: !fx.headlights && day >= 4 && day % 3 === 0, crates: fx.crates };
-      const interval = Math.max(DIFF.minInterval, DIFF.baseInterval - DIFF.intervalStep * n) * (this.mods.night ? 0.85 : 1);
-      // every kind's road weight: road.w[0] + road.w[1] * n (WORLD.WALKER_TYPES)
-      this.diff = { interval, hpMult: 1 + DIFF.hpStep * n, speedMult: Math.min(DIFF.maxSpeedMult, 1 + DIFF.speedStep * n), weights: World().walkerWeights("road", { n }) };
+      // seconds between walkers before ROAD_DANGER's row and the night (spawnGap); every kind's road weight:
+      // road.w[0] + road.w[1] * n (WORLD.WALKER_TYPES)
+      const interval = DIFF.baseInterval - DIFF.intervalStep * n;
+      const row = roadRow(opts.danger, day);
+      this.diff = { interval, row, hpMult: 1 + DIFF.hpStep * n, speedMult: Math.min(DIFF.maxSpeedMult, 1 + DIFF.speedStep * n), weights: World().walkerWeights("road", { n }) };
       // the route: the path the map planned, or the shortest one from where the van is
       const r = opts.path && opts.path.length > 1 ? { path: opts.path } : St.route((t && t.at) || "base", opts.to);
       const path = r.path;
@@ -731,8 +763,40 @@
     pickType() {
       return World().pickWalkerType(this.diff.weights);
     },
-    /** One walker from far down the road or out of the weeds at a side (js/perspective.js spawn: the camera sees far,
-        so they come from far off and fade in); its kind from the road's mix unless `type` is given. */
+    /** The next walkers: a group of ROAD_DANGER's `group` on average (a share past a whole number is the chance of
+        one more), the first where Persp.spawn says (spawnZombie), the rest round it within GROUP_SPREAD. Returns how
+        many came (at least 1, so the gap to the next group grows with it). */
+    spawnGroup() {
+      const g = Math.max(1, this.diff.row.group || 1);
+      let n = Math.floor(g);
+      if (g > n && Math.random() < g - n) n++;
+      const z0 = this.spawnZombie();
+      if (!z0) return 1;
+      for (let i = 1; i < n; i++) {
+        const kind = this.pickType();
+        const r = World().WALKER_TYPES[kind].road.r;
+        for (let k = 0; k < SPAWN_TRIES; k++) {
+          const a = Math.random() * Math.PI * 2;
+          const d = GROUP_SPREAD * (0.4 + 0.6 * Math.random());
+          const x = z0.x + Math.cos(a) * d;
+          const y = z0.y + Math.sin(a) * d;
+          if (this.clearSpot(x, y, r, false)) {
+            this.addZombie(kind, x, y);
+            break;
+          }
+        }
+      }
+      return n;
+    },
+    /** Seconds to the next walker: the trip's interval (DIFF), ROAD_DANGER's spawns times as often, more often at
+        night, and on average never under DIFF.minInterval; each one +-30%. */
+    spawnGap() {
+      const mean = Math.max(DIFF.minInterval, (this.diff.interval * (this.mods.night ? DIFF.nightSpawns : 1)) / this.diff.row.spawns);
+      return mean * rand(0.7, 1.3);
+    },
+    /** One walker from far down the road or out of the weeds at a side (js/perspective.js spawn, where the trip's
+        ROAD_DANGER row says: the camera sees far, so they come from far off and fade in); its kind from the road's mix
+        unless `type` is given. */
     spawnZombie(type) {
       const kind = type || this.pickType();
       const T = World().WALKER_TYPES[kind];
@@ -740,7 +804,7 @@
       // never in a building or the river, and best with neither in its way to the van (clearSpot)
       let w = null;
       for (let i = 0; i < SPAWN_TRIES; i++) {
-        const p = ZSR.Persp.spawn(this);
+        const p = ZSR.Persp.spawn(this, this.diff.row);
         if (this.clearSpot(p.x, p.y, r, true)) {
           w = p;
           break;
@@ -813,10 +877,10 @@
       return null;
     },
     /** How fast the keep-up carries walker z along the van's heading (world units a second; KEEP): none ahead of the
-        van's nose or in its path, DIFF.chase of the van's speed beside and behind it within PERSP.keepUp, over
-        KEEP.band (seconds of the van's drive) between; and while it is ahead of the van's middle never faster than
-        own (its own pace at the van now) brings it back, so it never moves away from the van with its feet going
-        toward it. */
+        van's nose or in its path, the trip's `chase` share (ROAD_DANGER) of the van's speed beside and behind it
+        within PERSP.keepUp, over KEEP.band (seconds of the van's drive) between; and while it is ahead of the van's
+        middle never faster than own (its own pace at the van now) brings it back, so it never moves away from the van
+        with its feet going toward it. */
     carry(z, own) {
       const v = this.van;
       if (!v) return 0;
@@ -832,7 +896,7 @@
       // ahead of the van's middle only a walker that will pass beside it keeps up: one in its path walks on into the
       // nose (and is shoved off it), from out past the van's side to where it would press on that side
       const lat = ly > 0 ? smooth(clamp((Math.abs(ox * -fy + oy * fx) - v.w / 2) / Math.max(1, z.r * 0.85), 0, 1)) : 1;
-      const c = (this.curSpeed || 0) * DIFF.chase * near * beside * lat;
+      const c = (this.curSpeed || 0) * (this.diff ? this.diff.row.chase : ROAD_LATE.chase) * near * beside * lat;
       return ly > 0 ? Math.min(c, (Math.max(0, own) * dist) / ly) : c;
     },
     /** The drive's buildings as walkers meet them: each lot's solid parts (js/perspective-buildings.js solids: what
@@ -1368,12 +1432,9 @@
       van.aimSpread = gun.spread;
 
       // walkers keep coming down the destination's drive, until the van is nearly at the door
-      if (!this.arrive || this.track.len - van.s > DIFF.quietAtDoor) {
+      if (!this.arrive || this.track.len - van.s > DIFF.quietAtDoor * this.speed) {
         this.spawnTimer -= dt;
-        if (this.spawnTimer <= 0) {
-          this.spawnZombie();
-          this.spawnTimer = (this.diff.interval * rand(0.7, 1.3)) / PERSP.spawns;
-        }
+        if (this.spawnTimer <= 0) this.spawnTimer = this.spawnGap() * this.spawnGroup();
       }
       for (let i = this.bullets.length - 1; i >= 0; i--) {
         const b = this.bullets[i];
@@ -2220,6 +2281,9 @@
     DIFF,
     PERSP,
     KEEP,
+    ROAD_DANGER,
+    ROAD_LATE_DAY,
+    roadRow,
     DRIVE_STEP,
     ROAD_PARTICLE_CAP,
     ROAD_FALLEN_MAX,
@@ -2270,6 +2334,20 @@
       if (apart(c.y - a.y, a.x - c.x)) return false;
     }
     return true;
+  }
+  /** The road's walkers for a trip at this danger on this day: its ROAD_DANGER row, its `early` numbers on day 1 going
+      over to its own by ROAD_LATE_DAY. */
+  function roadRow(danger, day) {
+    const row = ROAD_DANGER[clamp(Math.round(danger) || 0, 0, ROAD_DANGER.length - 1)];
+    const w = clamp((ROAD_LATE_DAY - (day || 1)) / (ROAD_LATE_DAY - 1), 0, 1);
+    const out = {};
+    for (const k of Object.keys(row)) {
+      if (k === "early") continue;
+      const a = row[k];
+      const e = row.early && row.early[k] != null ? row.early[k] : a;
+      out[k] = Array.isArray(a) ? a.map((x, i) => x + (e[i] - x) * w) : a + (e - a) * w;
+    }
+    return out;
   }
   /** Does the segment from (x0, y0) to (x1, y1) pass within pad of box b (Game.solidLots: middle, unit axes, half
       sizes)? In the box's own frame, the slab test against the box grown by pad. */

@@ -36,6 +36,8 @@
   const AIM_Z = 26; // what a shot drops to where the pointer is: a walker's chest
   // aimed at a walker, Spread Shot's outer barrels cross it this share of its radius off its middle (aim)
   const SPREAD_HIT = 0.6;
+  // where walkers come from when the road gives no row (js/game.js ROAD_DANGER has the drive's): see spawn
+  const SPAWN = { far: 0.55, farY: [0.5, 0.8], farX: 700, sideY: [700, 2200], sideX: [600, 1400] };
   // SCALE: seconds a new walker takes to come out of the weeds (walkers spawn at the edge of the view, cfg.far)
   const FADE_IN = 0.5;
   const TEX_RES = 3; // the van's faces, drawn sharper than the yard's
@@ -321,21 +323,23 @@
       const dy = y - k.oy;
       return { X: dx * k.Rx + dy * k.Ry, Y: dx * k.Fx + dy * k.Fy };
     },
-    /** Where a new walker comes from: far down the road (in the haze, across the road and its verges), or out of
-        the overgrowth at the edges of the view further in; small at first, they walk in. */
-    spawn(g) {
+    /** Where a new walker comes from (o: the trip's js/game.js ROAD_DANGER row): far down the road (in the haze,
+        across the road and its verges), or out of the overgrowth at the edges of the view further in; small at
+        first, they walk in. */
+    spawn(g, o) {
       const k = this.setup(g);
       const G = ZSR.Streets.GEOM;
+      const r = o || SPAWN;
       let X;
       let Y;
       // (from as far in fog as on a clear day: in fog they are only seen later)
-      if (Math.random() < 0.55) {
-        Y = this.cfg.far * (0.5 + Math.random() * 0.3);
-        X = (Math.random() * 2 - 1) * (G.half + 700);
+      if (Math.random() < r.far) {
+        Y = this.cfg.far * (r.farY[0] + Math.random() * (r.farY[1] - r.farY[0]));
+        X = (Math.random() * 2 - 1) * (G.half + r.farX);
       } else {
-        Y = 700 + Math.random() * 1500;
+        Y = r.sideY[0] + Math.random() * (r.sideY[1] - r.sideY[0]);
         const hw = ((k.W / 2) * this.depthAt(Y)) / k.f;
-        X = (Math.random() < 0.5 ? -1 : 1) * Math.min(hw * 0.92, G.half + 600 + Math.random() * 800);
+        X = (Math.random() < 0.5 ? -1 : 1) * Math.min(hw * 0.92, G.half + r.sideX[0] + Math.random() * (r.sideX[1] - r.sideX[0]));
       }
       return { x: k.ox + k.Rx * X + k.Fx * Y, y: k.oy + k.Ry * X + k.Fy * Y };
     },
