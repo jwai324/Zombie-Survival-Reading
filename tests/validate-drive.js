@@ -14,7 +14,8 @@
      walker live (Walker3D), a scream and its frenzy, clawing, hurt (health bars), shot, downed, gore on and off:
      no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow; night's dark
      drawn again only when what it shows moves, its beam down the van's own heading; fog's view short and its haze
-     thick near; the title screen and the garage's preview a still angled scene, drawn on change;
+     thick near; the minimap's arrow up and its fade
+     only for a place in view; the title screen and the garage's preview a still angled scene, drawn on change;
    - every turn in the city comfortable (the view's spin, its jolt and its lag, the road after the bend on the screen
      at 1280 x 800 and 960 x 1040), no hops, braking smooth and never before a stop line, Home Base to Corner Grocery as
      built, a sample of wrong ways; the corner shapes' camera is the camera.
@@ -1076,6 +1077,8 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
      van's own heading on the screen (not up the screen) and reaches about halfway from the old road's 520 to the haze;
    - fog: the view sees FOG.far, its haze starts FOG.near ahead; a walker past it is not drawn, one near is; walkers
      still come from where they do on a clear day; no landmark silhouette shows past the fog;
+   - the minimap's arrow points up (the map turns with the van, the camera lags it); the map fades for a place in
+     view under it, not for an empty corner of the sky nor for a place gone into the haze;
    - the title screen and the garage's preview: a still angled scene (the van, Walker3D figures of every kind in turn,
      the first two in the still one), drawn again only when what it shows changes, with no exceptions or NaN; */
 {
@@ -1244,6 +1247,64 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     }
   }
 
+  // the minimap: its arrow up; its fade for a place in view under it only
+  {
+    start("base", "hospital");
+    G.ctx = screen.getContext("2d");
+    const mini = canvasEl("mini");
+    const hm0 = G.hud.mini;
+    const m0 = G.mini;
+    G.hud.mini = mini;
+    G.mini = mini.getContext("2d");
+    // into a turn, where the camera lags the van
+    drive(right, 1.0, () => !!G.turn && Math.abs(Math.atan2(Math.sin(G.van.heading - G.cam.th), Math.cos(G.van.heading - G.cam.th))) > 0.2);
+    where = "minimap";
+    log.length = 0;
+    G.drawMinimap(1);
+    const calls = log.filter((c) => c[0] === "mini");
+    const at = calls.findIndex((c, i) => c[1] === "moveTo" && c[2][0] === 0 && c[2][1] === -9 && calls[i + 1] && calls[i + 1][1] === "lineTo" && calls[i + 1][2][0] === 7);
+    const tr = calls.slice(0, Math.max(0, at)).map((c) => c[1]).lastIndexOf("translate");
+    if (at < 0 || tr < 0) fErr("minimap: no van arrow drawn");
+    else if (calls.slice(tr, at).some((c) => c[1] === "rotate")) fErr("minimap: the van's arrow is turned (the map turns with the van: it points up)");
+    G.hud.mini = hm0;
+    G.mini = m0;
+    // the fade: what it wants, fresh
+    const want = (box) => {
+      G.hudRects = () => Object.assign(hudFor(1280, 720)(), { mini: Object.assign({ width: box.right - box.left, height: box.bottom - box.top }, box) });
+      G.miniA = null;
+      const a = G.miniAlpha();
+      G.hudRects = hudFor(1280, 720);
+      return a;
+    };
+    let nearSeen = 0;
+    let farSeen = 0;
+    drive(right, 1.0, () => {
+      if (Math.floor(G.time * 60) % 15) return false;
+      const k = P.setup(G);
+      for (const l of G.drive.lots) {
+        const rec = B ? B.rec(l) : null;
+        const x = rec ? rec.cx : l.qx;
+        const y = rec ? rec.cy : l.qy;
+        const Y = (x - k.ox) * k.Fx + (y - k.oy) * k.Fy;
+        const p = P.project(x, y, 0);
+        if (!p || p.x < 30 || p.x > 1250 || p.y < 30 || p.y > 690) continue;
+        const box = { left: p.x - 4, right: p.x + 4, top: p.y - 4, bottom: p.y + 4 };
+        if (Y < k.far && P.fadeAt(Y) < 0.15) {
+          farSeen++;
+          if (want(box) !== 1) fErr(`minimap: it faded for ${l.node} ${Math.round(Y)} ahead, gone into the haze`);
+        } else if (P.fadeAt(Y) > 0.6) {
+          nearSeen++;
+          if (want(box) !== 0.15) fErr(`minimap: it did not fade for ${l.node} ${Math.round(Y)} ahead, under it`);
+        }
+      }
+      return G.arrive && G.arrive.parked;
+    });
+    if (!nearSeen || !farSeen) fErr(`minimap: the drive gave ${nearSeen} places in view and ${farSeen} in the haze to check`);
+    // parked: the sky over the building is not the building
+    if (want({ left: 2, right: 40, top: 2, bottom: 24 }) !== 1) fErr("minimap: parked, it faded for an empty corner of the sky");
+    G.stop();
+  }
+
   // the title screen and the garage's preview: a still angled scene
   {
     const M = ZSR.Walker3D;
@@ -1300,7 +1361,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   G.hudRects = hud0;
   globalThis.document = realDoc;
   [...bad].slice(0, 12).forEach(fErr);
-  console.log(`flat out: night drawn on change and down the van's heading (beam ${P.NIGHT_BEAM.reach}), fog ${P.FOG.near}..${P.FOG.far}, title screen and garage still scenes, ${bad.size} bad calls`);
+  console.log(`flat out: night drawn on change and down the van's heading (beam ${P.NIGHT_BEAM.reach}), fog ${P.FOG.near}..${P.FOG.far}, minimap arrow up and its fade for places in view, title screen and garage still scenes, ${bad.size} bad calls`);
 }
 /* ---------- each place's own building on the angled camera (js/perspective-buildings.js) ----------
    Every place has a building row and every row is a place; every side street kind stands up. Every destination is

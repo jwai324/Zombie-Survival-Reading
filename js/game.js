@@ -57,6 +57,7 @@
   const ROAD_FALLEN_MAX = 24;
   const BLOOD = ["#a3201a", "#7d1610"]; // a little brighter than the 3D figures' (118, 18, 14): it must show on the asphalt
   const SHOWCASE_SECS = 4; // the title screen's walkers change kind this often
+  const MINI_HAZE = 0.25; // a place gone further into the haze than this is not in view for the minimap's fade
   const SPARK_ARMOR = "#c9cdd2"; // a bullet off a helmet or a vest
   /** How long a downed walker lasts: the 3D figures' fall (js/walker3d.js), or 2 s without them. */
   const fallSecs = () => (ZSR.Walker3D && ZSR.Walker3D.FALL_SECS > 0 ? ZSR.Walker3D.FALL_SECS : 2);
@@ -1432,25 +1433,34 @@
         el.style.visibility = a < 0.02 ? "hidden" : "";
       }
     },
-    /** The minimap gives way (fades) while a parking lot by the road is under it, so the place it names can be seen. */
+    /** The minimap gives way (fades) while a place by the road that is really in view is under it, so the place it
+        names can be seen: its lot and building in front of the camera, short of the haze (MINI_HAZE), their box on the
+        screen over the map's. */
     miniAlpha() {
       const mb = this.hudRects().mini;
       let want = 1;
       if (mb && mb.width && this.onMain) {
+        const P = ZSR.Persp;
+        const B = ZSR.PerspBuild;
+        const k = P.setup(this);
         for (const l of this.drive.lots) {
-          // the lot, its building and its name board, as a box on the screen
-          let x0 = Infinity;
-          let y0 = Infinity;
-          let x1 = -Infinity;
-          let y1 = -Infinity;
-          for (const [cx, cy] of l.corners) {
-            const p = this.toScreen(cx, cy);
-            x0 = Math.min(x0, p.x);
-            y0 = Math.min(y0, p.y);
-            x1 = Math.max(x1, p.x);
-            y1 = Math.max(y1, p.y);
+          const rec = B && B.rec ? B.rec(l) : null;
+          // its middle (its building's, if it has one) in view and short of the haze
+          const mx = rec ? rec.cx : l.qx;
+          const my = rec ? rec.cy : l.qy;
+          const Y = (mx - k.ox) * k.Fx + (my - k.oy) * k.Fy;
+          if (Y < 0 || P.fadeAt(Y) < MINI_HAZE) continue;
+          // the lot on the ground, and its building's box (as tall as it stands), each as its outline on the screen
+          // (corners behind the camera left out): one over the map fades it
+          const lot = [];
+          for (const [x, y] of l.corners) lot.push(P.project(x, y, 0));
+          const box = [];
+          if (rec) {
+            const b = rec.bounds;
+            const f = rec.f;
+            for (const X of [b[0], b[1]]) for (const V of [b[2], b[3]]) for (const z of [0, b[5]]) box.push(P.project(f.ox + f.Rx * X + f.Nx * V, f.oy + f.Ry * X + f.Ny * V, z));
           }
-          if (x1 > mb.left && x0 < mb.right && y1 > mb.top && y0 < mb.bottom) {
+          if (hullHitsBox(lot, mb) || hullHitsBox(box, mb)) {
             want = 0.15;
             break;
           }
@@ -1763,10 +1773,10 @@
         }
         this.flag(ctx, q.x, off ? q.y : q.y - 12 * ik, k, off ? Math.atan2(p.y - q.y, p.x - q.x) : null);
       });
-      // the van: an arrow at the true place, pointing the way it faces
+      // the van: an arrow at the true place, pointing the way it faces (up: the map turns with the van, not with the
+      // camera, which lags it through a turn)
       ctx.save();
       ctx.translate(cx, cy);
-      ctx.rotate(this.van.heading - this.cam.th);
       ctx.beginPath();
       ctx.moveTo(0, -9 * k);
       ctx.lineTo(7 * k, 7 * k);
@@ -1855,6 +1865,51 @@
     SPARK_ARMOR,
     fallSecs,
   };
+  /** Does the outline round these screen points (their convex hull; null points left out) overlap box { left, top,
+      right, bottom }? Separating axes: the box's two and each hull edge's normal. */
+  function hullHitsBox(pts, b) {
+    const P = pts.filter(Boolean).sort((p, q) => p.x - q.x || p.y - q.y);
+    if (!P.length) return false;
+    const cross = (o, a, c) => (a.x - o.x) * (c.y - o.y) - (a.y - o.y) * (c.x - o.x);
+    const lo = [];
+    const hi = [];
+    for (const p of P) {
+      while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop();
+      lo.push(p);
+    }
+    for (let i = P.length - 1; i >= 0; i--) {
+      const p = P[i];
+      while (hi.length >= 2 && cross(hi[hi.length - 2], hi[hi.length - 1], p) <= 0) hi.pop();
+      hi.push(p);
+    }
+    const hull = lo.slice(0, -1).concat(hi.slice(0, -1));
+    const H = hull.length ? hull : P;
+    const corners = [[b.left, b.top], [b.right, b.top], [b.right, b.bottom], [b.left, b.bottom]];
+    const apart = (nx, ny) => {
+      let a0 = Infinity;
+      let a1 = -Infinity;
+      for (const p of H) {
+        const d = p.x * nx + p.y * ny;
+        a0 = Math.min(a0, d);
+        a1 = Math.max(a1, d);
+      }
+      let b0 = Infinity;
+      let b1 = -Infinity;
+      for (const [x, y] of corners) {
+        const d = x * nx + y * ny;
+        b0 = Math.min(b0, d);
+        b1 = Math.max(b1, d);
+      }
+      return a1 < b0 || b1 < a0;
+    };
+    if (apart(1, 0) || apart(0, 1)) return false;
+    for (let i = 0; i < H.length && H.length > 1; i++) {
+      const a = H[i];
+      const c = H[(i + 1) % H.length];
+      if (apart(c.y - a.y, a.x - c.x)) return false;
+    }
+    return true;
+  }
   function distSeg(px, py, x0, y0, x1, y1) {
     const dx = x1 - x0;
     const dy = y1 - y0;
