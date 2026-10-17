@@ -20,6 +20,7 @@ works). With the option off, the game is exactly today's game.
 | Switching | Allowed any time. Each universe keeps its own crossover progress, so switching away and back loses nothing. Switching does not touch base progress. |
 | Audience | The same teen players and rules as the base game (no gore in text, no on-page deaths, no profanity, never quizzed). |
 | Ending | Both storylines stay open, like the River Convoy that never leaves. |
+| Radio pace | The Leo knock and the Fortitude bursts come about every 3 days, beside (never instead of) the day's base broadcast. |
 
 ## What the crossover must respect (base facts)
 
@@ -70,7 +71,15 @@ knock; Leo's Mission Two list ends "10. ?".
 | Radio | Some days, before the day's broadcast, a three-note knock comes through. Now and then a Miran voice (Sool) speaks a few short words. Never replaces a base broadcast. |
 | Journal | June adds lines about the "second moon", the knock, Founders' Day. Never assumes a build or a find. |
 | Crew talk | New topics: Pip was named after PIP, the ship's helper on Skip-One; June keeps a cloud-tree seed in a jar; Tomas on Koen, the builder; history the whole town learned in school. |
-| Quest chain | **Tomas rebuilds a broken Bolt-model robot dog.** Its own track beside the base quests. The real dog from Pip's fifth quest stays as it is. |
+| Quest chain | **Tomas rebuilds a broken Bolt-model robot dog**, five quests long. Its own track beside the base quests. The real dog from Pip's fifth quest stays as it is. |
+
+**The robot dog in play** (owner, 2026-10-17). Once the fifth quest is handed in, the robot dog
+follows you in the yard and inside buildings, and rides along in the van (it does nothing on the
+road). It is a **weak helper**: small zaps that slow or stagger walkers, not kill them fast, so you
+still do most of the fighting. Walkers can bite it; too many bites and it **shuts down** (a robot,
+so no gore: it sparks, sits and goes dark). A shut-down dog stays down for the rest of that run or
+wave, and Tomas repairs it at the cabin for scrap. Bolt's book traits to keep: beeps (two for yes,
+two for a laugh), a metal tail that wags, a nose that is really a chemistry tester.
 
 Not in v1: found items, new notes in buildings, a new place.
 
@@ -110,10 +119,10 @@ super-algae spores; the Abyss Explorer pins; "If you stop failing, you stop lear
 | Channel | What it carries |
 |---------|-----------------|
 | Sky | **Judgment call:** a thin silver arc across the night sky, the old Indestructium shipyard ring in low orbit (Book 1), with Mars as a bright point. Art only. |
-| Radio | Some days, short Fortitude-style bursts of numbers come through on the radio. Who sends them stays open. Never replaces a base broadcast. |
+| Radio | Some days, short Fortitude-style bursts of numbers come through on the radio. Decoded, they are **old Accord records**: an automatic archive from Book 1 days, still broadcasting the Fortitude Accord, Valen's first "hello" and other Book 1 history. Who keeps it running stays open. Never replaces a base broadcast. |
 | Journal | June adds lines about the vault, the bursts, the shipyard ring. |
-| Crew talk | New topics: Book 1 legends the town learned in school, the vault, the Accord. |
-| Quest chain | **Pip decodes the bursts** the way Ava did: count them, find the pictures, listen to the background waves. Its own track beside the base quests. |
+| Crew talk | New topics: Book 1 legends the town learned in school, the vault, the Accord. Mr. Reyes of Reyes Hardware claims his family descends from Dr. Camila Reyes; after so many centuries nobody can check, and the texts never confirm it. |
+| Quest chain | **Pip decodes the bursts** the way Ava did: count them, find the pictures, listen to the background waves. Five quests long, its own track beside the base quests. |
 | Found items | An Abyss Explorer pin, a page from the Fortitude Accord, a tag from a Waiting Vault pod. Item tags at six levels. |
 
 ## How the words are built (when it is built)
@@ -124,7 +133,8 @@ super-algae spores; the Abyss Explorer pins; "If you stop failing, you stop lear
 - Crossover radio and journal entries live in their own arrays, keyed by day, and are appended to
   (never inserted into), like the base ones.
 - Each crossover text exists at all six levels and follows `docs/TEXT_GUIDE.md`.
-- Size, roughly: 3,000 to 5,000 words a level per universe, 20,000 to 30,000 across six levels;
+- Size, roughly: 4,000 to 6,000 words a level per universe (five-quest chains), 25,000 to 35,000
+  across six levels;
   about a tenth of the base game.
 - **The ongoing cost:** every later base story beat has to be checked against both universes.
 
@@ -139,14 +149,13 @@ super-algae spores; the Abyss Explorer pins; "If you stop failing, you stop lear
 5. A crossover quest track per universe, at most one crossover quest open at a time, beside the base
    story quest and errand.
 6. Found items (Fortitude): extra stash or cache loot appended without reordering any spot.
-7. Tests: every crossover text at six levels; Off shows no crossover text; base texts unchanged.
+7. The robot dog (Leo): a companion that follows the player in the yard and in buildings, rides
+   in the van, zaps walkers, can be shut down by bites and is repaired for scrap. Walkers must be able
+   to target it; add it to `docs/SCALING.md` when built.
+8. Tests: every crossover text at six levels; Off shows no crossover text; base texts unchanged.
 
 ## Open questions
 
-- Leo: how many quests in the Bolt chain, and what does the rebuilt robot dog do in play
-  (company only, or a small job like the real dog)?
-- Fortitude: how many quests in Pip's chain, and what do the decoded bursts say? (Book 1 only, and
-  the sender stays open.)
-- Fortitude: Mr. Reyes of Reyes Hardware shares a name with Dr. Camila Reyes. Leave it alone, or
-  have him claim her as a great-great-grandmother?
-- Both: how often the knock or the bursts come (every few days, or tied to the radio room's level).
+- Leo: the robot dog's numbers (zap rate, slow or stagger strength, bites to shut down, repair
+  price) are tuned when it is built.
+- Fortitude: who keeps the Accord archive broadcasting (left open on purpose for now).

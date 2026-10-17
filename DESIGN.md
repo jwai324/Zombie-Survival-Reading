@@ -1093,6 +1093,11 @@ Design only; nothing is built yet. The full canon and the build plan are in `doc
 | Fortitude: the book's characters? | Legends only, never heard or met. |
 | Fortitude v1 | Sky, radio (Fortitude-style bursts), journal lines, crew talk, found Book 1 items, and a Pip quest chain decoding the bursts the way Ava did. |
 | Endings | Both storylines stay open, like the River Convoy. |
+| Quest chains (2026-10-17, later) | Five quests each: Tomas's robot dog (Leo), Pip's decoding (Fortitude). |
+| The robot dog (Leo) | Follows you in the yard and in buildings and rides in the van. A weak helper: zaps slow or stagger walkers. Too many bites shut it down until Tomas repairs it at the cabin for scrap. |
+| The bursts (Fortitude) | Decoded, they are old Accord records: an automatic Book 1-era archive still broadcasting. Who keeps it running stays open. |
+| Mr. Reyes (Fortitude) | Claims descent from Dr. Camila Reyes; unproven and never confirmed. |
+| Radio pace | The knock and the bursts come about every 3 days, beside the day's base broadcast. |
 
 Judgment calls (cheap to change):
 
