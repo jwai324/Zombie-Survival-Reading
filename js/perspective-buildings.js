@@ -204,6 +204,19 @@
     }
     return out;
   }
+  /** Rooftop clutter on a flat roof at height z over x0..x1, v0..v1 (the back two thirds): two air units and a vent
+      pipe, placed by a seed; drawn after the roof they stand on. */
+  function roofJunk(b, x0, x1, v0, v1, z, seed, on) {
+    const r = (k) => ((Math.sin(seed * 12.9898 + k * 78.233) * 43758.5453) % 1 + 1) % 1;
+    const vb = v0 + (v1 - v0) * 0.4;
+    for (let i = 0; i < 2; i++) {
+      const w = 26 + r(i) * 16;
+      const x = x0 + 20 + r(i + 4) * (x1 - x0 - 40 - w);
+      const v = vb + r(i + 8) * (v1 - vb - 40);
+      b.box(x, x + w, v, v + 26, z, z + 16, { wall: "#8a8f96", top: "#a3a8ae", lod: 2, after: [on], faces: { front: [lines(x, x + w, z + 3, z + 13, 4, "rgba(30,32,36,0.45)")] } });
+    }
+    b.cyl(x0 + 30 + r(12) * (x1 - x0 - 60), vb + 10 + r(13) * (v1 - vb - 30), 5, z, z + 22, "#6f767c", { n: 6, lod: 2, after: [on] });
+  }
   /** Boards across some windows (an abandoned town), picked by a seed so it is always the same ones. */
   function boarded(list, seed) {
     list.forEach((d, i) => {
@@ -309,6 +322,7 @@
             right: [lines(F, F + 150, 4, 92, 6, "rgba(40,20,14,0.25)", { lod: 2 }), roll(F + 70, F + 130, 0, 60, "#7d8288")],
           },
         });
+        roofJunk(b, -190, 190, F + 12, F + 150, 96, 3, body);
         // the parapet carrying the name
         b.box(-206, 206, F, F + 10, 96, 124, { wall: "#a1553e", top: "#c9bfa9", after: [body], faces: { front: [sign(-150, 150, 98, 122, { name: true, bg: "#f3eee0", fg: "#2f5a2a", edge: "#2f5a2a" })], back: [] } });
         // the striped awning, out over the windows
@@ -345,6 +359,7 @@
           },
         });
         b.box(-170, 170, F + 4, F + 12, 112, 148, { wall: "#f3eee0", top: "#b3261e", after: [body], faces: { front: [sign(-168, 168, 114, 146, { name: true, bg: "#f3eee0", fg: "#b3261e", edge: "#b3261e" })] } });
+        roofJunk(b, -190, 190, F, F + 154, 112, 5, body);
         // lumber stacked by the front corner: bundles of boards on spacers
         for (const [z0, z1, c] of [[0, 4, "#5a4026"], [4, 16, "#c8a26a"], [16, 19, "#5a4026"], [19, 31, "#d2b07a"]]) {
           b.box(-212, -146, F - 64, F - 14, z0, z1, { wall: c, top: shadeHex(c, 14), lod: 1, faces: z1 - z0 > 6 ? { front: [lines(-212, -146, z0, z1, 3, "rgba(80,50,20,0.55)", { vertical: true })], right: [lines(F - 64, F - 14, z0, z1, 4, "rgba(80,50,20,0.45)")] } : {} });
@@ -374,7 +389,7 @@
             right: [rect(F, F + 144, 66, 92, "#2f7a5a"), win(F + 30, F + 60, 24, 56, { frame: "#cfcabd", glass: GLASS }), door(F + 90, F + 118, 2, 52, "#6b7075")],
           },
         });
-        void body;
+        roofJunk(b, -180, 180, F, F + 144, 92, 7, body);
         // the green cross on its pole by the road
         b.beams([[[168, L.V0 + 40, 0], [168, L.V0 + 40, 128]]], 4, "#5b6066");
         b.box(140, 196, L.V0 + 37, L.V0 + 43, 120, 176, { wall: null, top: null, solid: false, faces: { front: [cross(140, 196, 120, 176, "#2f9a5a")], back: [cross(140, 196, 120, 176, "#2f9a5a")] }, ink: 0 });
@@ -407,6 +422,7 @@
           },
         });
         b.box(-150, 150, F + 2, F + 8, 98, 128, { wall: "#e0b33a", top: "#3a3d42", after: [body], faces: { front: [sign(-148, 148, 99, 127, { name: true, bg: "#e0b33a", fg: INK, edge: INK })] } });
+        roofJunk(b, -190, 190, F, F + 150, 98, 11, body);
         b.sprite("tireStack", -222, F + 40, 54, { aspect: 0.62, opts: { label: "TIRES" } });
         b.sprite("drums", 222, F + 60, 46, { aspect: 1.1, opts: { color: "#3f6a8a", label: "OIL" } });
       },
@@ -519,7 +535,7 @@
             right: windowsV(F + 34, F + 146, 24, 66, 36, 26).concat([rect(F + 18, F + 154, 78, 86, TRIM)]),
           },
         });
-        void body;
+        roofJunk(b, -190, 190, F + 18, F + 154, 86, 13, body);
         const ent = b.box(-66, 66, F, F + 22, 0, 112, {
           wall: "#e7e1d2",
           top: "#4f5157",
@@ -555,7 +571,7 @@
             right: windowsV(F + 30, F + 140, 30, 66, 40, 26),
           },
         });
-        void body;
+        roofJunk(b, -195, 100, F, F + 150, 112, 23, body);
         // the hose tower
         const tw = b.box(128, 196, F + 40, F + 100, 0, 236, { wall: "#a5402f", top: "#4f5157", faces: { front: [win(150, 174, 150, 196, { frame: TRIM, glass: "#2c3a48" }), win(150, 174, 70, 116, { frame: TRIM, glass: "#2c3a48" }), rect(128, 196, 226, 236, TRIM)], left: [rect(F + 40, F + 100, 226, 236, TRIM)], right: [rect(F + 40, F + 100, 226, 236, TRIM)] } });
         b.cone(162, F + 70, 46, 236, 264, "#4f5157", { n: 4, rot: Math.PI / 4, after: [tw] });
@@ -580,6 +596,7 @@
             right: windowsV(F + 36, F + 146, 16, 50, 34, 24).concat(windowsV(F + 36, F + 146, 74, 108, 34, 24), windowsV(F + 36, F + 146, 150, 184, 34, 24)),
           },
         });
+        roofJunk(b, -190, 110, F + 22, F + 154, 192, 17, body);
         const lobby = b.box(-78, 78, F, F + 22, 0, 84, { wall: "#cfd6cf", top: "#7aa58a", faces: { front: [win(-70, 70, 4, 62, { frame: "#9ea3aa", glass: "#3c5566", bars: 4 }), door(-24, 24, 2, 62, "#3c5566", { frame: "#9ea3aa", glassDoor: true })] } });
         void lobby;
         b.beams([[[-80, F - 22, 0], [-80, F - 22, 72]], [[80, F - 22, 0], [80, F - 22, 72]]], 4, "#cfd6cf", { lod: 1 });
@@ -696,6 +713,7 @@
             right: [rect(F, F + 160, 100, 122, "#6b3f8a")],
           },
         });
+        roofJunk(b, -200, 200, F, F + 160, 122, 19, body);
         const atrium = b.box(-86, 86, F - 16, F, 0, 128, { wall: "#cdbfa5", top: "#6b3f8a", after: [body], faces: { front: [win(-80, 80, 4, 98, { frame: "#e6dfcc", glass: "#2f4a5a", bars: 5 }), door(-28, 28, 2, 60, "#2f4a5a", { frame: "#e6dfcc", glassDoor: true })] } });
         b.box(-120, 120, F - 18, F - 12, 128, 160, { wall: "#6b3f8a", top: "#4a2a62", after: [atrium], faces: { front: [sign(-118, 118, 130, 158, { name: true, bg: "#6b3f8a", fg: "#f3eee0" })] } });
         b.sprite("cartPile", 168, L.V0 + 70, 52, { aspect: 1.15 });
