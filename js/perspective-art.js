@@ -5,12 +5,34 @@
    - signBoard(text, color), signBack(), barrier(): faces laid on standing signs and barriers;
    - cover(): weeds, grass and moss over the ground and up through the road's cracks, seeded by place, so ground
      squares drawn apart still meet;
-   - scatter(): the bushes, tall grass and trees standing along a drive's roads, so the town looks overgrown. */
+   - vegLayout(): the bushes, tall grass and trees standing all over the land, so the town looks overgrown: made a
+     square at a time as the view first reaches it, seeded by place;
+   - buckets(): things filed by the squares they reach, to find the ones near a spot without looking at them all.
+   Nothing grows in the river (js/sprites.js Draw.inRiver). */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
   const INK = "#0f1012";
   const TAU = Math.PI * 2;
+  // SCALE: the plants' candidate spots lie on a grid this fine over the whole world (world units): one try a cell,
+  // seeded by the cell, so a spot always grows the same plant and squares of plants made apart meet without a seam
+  const VEG_STEP = 120;
+  // SCALE: the roads, side streets, corners and lots are filed in buckets this big (world units) for the plants: a
+  // square of plants looks only at what is filed in its bucket, so its cost stays the same however big the city is
+  const VEG_BUCKET = 2048;
+  // past this far from the nearest asphalt's edge (world units) the land is at its sparsest: no road changes a plant
+  const VEG_REACH = 700;
+  // a plant's foot keeps this far (world px) off the river's muddy bank; the ground's overgrowth, its marks' reach
+  const RIVER_CLEAR = 10;
+  const COVER_CLEAR = 40;
+  /** One 32-bit number mixed well from another (murmur3's last steps): seeds for spots side by side look unrelated. */
+  const mix = (h) => {
+    h = Math.imul(h ^ (h >>> 16), 0x85ebca6b);
+    h = Math.imul(h ^ (h >>> 13), 0xc2b2ae35);
+    return (h ^ (h >>> 16)) >>> 0;
+  };
+  // a bucket's or square's key: SCALE: up to 32768 of them each way from the origin
+  const keyOf = (bx, by) => (bx + 0x8000) * 0x10000 + (by + 0x8000);
   const cache = new Map();
   function canvas(key, w, h, draw) {
     let c = cache.get(key);
@@ -111,6 +133,210 @@
     ["#59592e", "#7b7b40", "#3d3e20"],
   ];
 
+  /** Things filed in buckets B world units square, each by the box it reaches (add), or only where `near` says a
+      bucket (its middle, its half-diagonal) is close enough; find(box, fn) calls fn once for each thing filed in any
+      bucket the box touches. `filed` counts the entries made, `looked` the things handed to fn. */
+  function buckets(B) {
+    const m = new Map();
+    const all = [];
+    let seen = new Uint32Array(256);
+    let stamp = 0;
+    const R = B * 0.7072;
+    return {
+      B,
+      filed: 0,
+      looked: 0,
+      get size() {
+        return all.length;
+      },
+      add(o, x0, y0, x1, y1, near) {
+        const id = all.length;
+        all.push(o);
+        if (id >= seen.length) {
+          const s = new Uint32Array(seen.length * 2);
+          s.set(seen);
+          seen = s;
+        }
+        const bx1 = Math.floor(x1 / B);
+        const by1 = Math.floor(y1 / B);
+        for (let bx = Math.floor(x0 / B); bx <= bx1; bx++) {
+          for (let by = Math.floor(y0 / B); by <= by1; by++) {
+            if (near && !near((bx + 0.5) * B, (by + 0.5) * B, R)) continue;
+            const key = keyOf(bx, by);
+            let l = m.get(key);
+            if (!l) m.set(key, (l = []));
+            l.push(id);
+            this.filed++;
+          }
+        }
+      },
+      /** fn for each thing filed in bucket (bx, by) itself (a thing filed in several buckets comes once from each). */
+      each(bx, by, fn) {
+        const l = m.get(keyOf(bx, by));
+        if (!l) return;
+        this.looked += l.length;
+        for (const i of l) fn(all[i]);
+      },
+      find(x0, y0, x1, y1, fn) {
+        stamp = (stamp + 1) >>> 0 || 1;
+        const bx1 = Math.floor(x1 / B);
+        const by1 = Math.floor(y1 / B);
+        for (let bx = Math.floor(x0 / B); bx <= bx1; bx++) {
+          for (let by = Math.floor(y0 / B); by <= by1; by++) {
+            const l = m.get(keyOf(bx, by));
+            if (!l) continue;
+            for (const i of l) {
+              if (seen[i] === stamp) continue;
+              seen[i] = stamp;
+              this.looked++;
+              fn(all[i]);
+            }
+          }
+        }
+      },
+    };
+  }
+
+  /** The plants standing over one drive's land (its roads, side streets, corners and lots), in squares `cell` world
+      units across, each made the first time it is asked for (get) and let go once unused for a while (sweep). A
+      square's plants come from the VEG_STEP grid's spots inside it, each seeded by its own spot, so the same spot always
+      grows the same plant and a square made again is the same; the land is a thicket at the verges, thinner further
+      back, never bare; nothing on a road, a lot, a corner's square or in the river. Counts in `stats` (squares made,
+      plants made, spots tried, the roads and such each square looked at), for tests: none of it grows with the city. */
+  function Layout(drive, cell) {
+    const St = ZSR.Streets;
+    const G = St.GEOM;
+    const Dr = ZSR.Draw;
+    this.drive = drive;
+    this.cell = cell;
+    this.cells = new Map();
+    this.stats = { made: 0, items: 0, tries: 0, near: 0, dropped: 0 };
+    const half = cell * 0.7072;
+    // how far from a square's middle a road, a side street, a corner or a lot can change a plant in it
+    const reach = { road: VEG_REACH + G.half + half + 1, side: VEG_REACH + G.sideHalf + half + 1, node: VEG_REACH + G.boxR + half + 1 };
+    const lotA = G.lotHalf + 40;
+    const lotV = G.half + G.shoulder + G.lotGap + G.lotDepth + 50;
+    reach.lot = Math.hypot(lotA, lotV) + half + 1;
+    this.reach = reach;
+    const idx = (this.index = buckets(VEG_BUCKET));
+    const seg = (type, s, R) => {
+      const o = { type, s };
+      idx.add(o, Math.min(s.x0, s.x1) - R, Math.min(s.y0, s.y1) - R, Math.max(s.x0, s.x1) + R, Math.max(s.y0, s.y1) + R, (x, y, r) => distSeg(x, y, s.x0, s.y0, s.x1, s.y1) < R + r);
+    };
+    for (const s of drive.roads) seg("road", s, reach.road);
+    for (const s of drive.sides) seg("side", s, reach.side);
+    for (const n of drive.nodes) idx.add({ type: "node", s: n }, n.x - reach.node, n.y - reach.node, n.x + reach.node, n.y + reach.node);
+    for (const l of drive.lots) idx.add({ type: "lot", s: l }, l.qx - reach.lot, l.qy - reach.lot, l.qx + reach.lot, l.qy + reach.lot);
+    this.wetAt = (x, y, m) => !!(Dr && Dr.inRiver && Dr.inRiver(x, y, m, drive.scale));
+    this.dryFar = (x, y, r) => !(Dr && Dr.riverEdge) || Dr.riverEdge(x, y, drive.scale) > r;
+    this.G = G;
+    this.lotA = lotA;
+    this.lotV = lotV;
+  }
+  Layout.prototype = {
+    /** The plants of square (cx, cy), made now if not kept; `stamp` marks it in use (sweep lets go of the others). */
+    get(cx, cy, stamp) {
+      const key = keyOf(cx, cy);
+      let c = this.cells.get(key);
+      if (!c) {
+        c = { plants: this.make(cx, cy), used: stamp };
+        this.cells.set(key, c);
+      }
+      c.used = stamp;
+      return c.plants;
+    },
+    /** Let go of every square not used since `before` (the view has left it: far behind the van, or off to a side). */
+    sweep(before) {
+      for (const [key, c] of this.cells) {
+        if (c.used < before) {
+          this.cells.delete(key);
+          this.stats.dropped++;
+        }
+      }
+    },
+    make(cx, cy) {
+      const G = this.G;
+      const C = this.cell;
+      const S = VEG_STEP;
+      const x0 = cx * C;
+      const y0 = cy * C;
+      const x1 = x0 + C;
+      const y1 = y0 + C;
+      const mx = x0 + C / 2;
+      const my = y0 + C / 2;
+      // what is near enough to matter here (VEG_REACH): a road further off changes no plant in this square
+      const roads = [];
+      const sides = [];
+      const nodes = [];
+      const lots = [];
+      const R = this.reach;
+      this.index.find(mx, my, mx, my, (o) => {
+        const s = o.s;
+        if (o.type === "road") {
+          if (distSeg(mx, my, s.x0, s.y0, s.x1, s.y1) < R.road) roads.push(s);
+        } else if (o.type === "side") {
+          if (distSeg(mx, my, s.x0, s.y0, s.x1, s.y1) < R.side) sides.push(s);
+        } else if (o.type === "node") {
+          if (Math.hypot(s.x - mx, s.y - my) < R.node) nodes.push(s);
+        } else if (Math.hypot(s.qx - mx, s.qy - my) < R.lot) lots.push(s);
+      });
+      this.stats.near += roads.length + sides.length + nodes.length + lots.length;
+      // how far in from the nearest asphalt's edge (Infinity: further than VEG_REACH), and whether on a lot
+      const edge = (x, y) => {
+        let e = Infinity;
+        for (const s of roads) e = Math.min(e, distSeg(x, y, s.x0, s.y0, s.x1, s.y1) - G.half);
+        for (const s of sides) e = Math.min(e, distSeg(x, y, s.x0, s.y0, s.x1, s.y1) - G.sideHalf);
+        for (const n of nodes) e = Math.min(e, Math.hypot(n.x - x, n.y - y) - G.boxR);
+        return e;
+      };
+      const onLot = (x, y) =>
+        lots.some((l) => {
+          const dx = x - l.qx;
+          const dy = y - l.qy;
+          const a = dx * l.ux + dy * l.uy;
+          const v = (dx * -l.uy + dy * l.ux) * l.side;
+          return Math.abs(a) < this.lotA && v > -20 && v < this.lotV;
+        });
+      // near the river every spot is checked against it (RIVER_CLEAR), else none
+      const wet = !this.dryFar(mx, my, C * 0.7072 + VEG_STEP + RIVER_CLEAR);
+      const out = [];
+      for (let i = Math.floor(x0 / S); i * S < x1; i++) {
+        for (let j = Math.floor(y0 / S); j * S < y1; j++) {
+          const r = seeded(mix(hash2(i, j) + 991));
+          const x = (i + r()) * S;
+          const y = (j + r()) * S;
+          // a spot of a grid cell that straddles the square's edge belongs to the square it falls in
+          if (x < x0 || x >= x1 || y < y0 || y >= y1) continue;
+          this.stats.tries++;
+          const roll = r();
+          const rv = r();
+          const e = edge(x, y);
+          if (e < G.shoulder - 4 || onLot(x, y)) continue;
+          if (wet && this.wetAt(x, y, RIVER_CLEAR)) continue;
+          // the verge is a thicket; further back it thins, but never to bare
+          const verge = e < G.shoulder + 140;
+          if (rv > (verge ? 0.95 : e < VEG_REACH ? 0.7 : 0.5)) continue;
+          let kind;
+          if (verge) kind = roll < 0.5 ? "grass" : roll < 0.88 ? "bush" : "tree";
+          else kind = roll < 0.22 ? "grass" : roll < 0.48 ? "bush" : "tree";
+          if (kind === "tree" && e < G.shoulder + 50) kind = "bush";
+          if (kind === "tree" && r() < 0.22) kind = "dead";
+          const h = kind === "tree" ? 150 + r() * 90 : kind === "dead" ? 130 + r() * 70 : kind === "bush" ? 40 + r() * 34 : 24 + r() * 22;
+          // q: the plant's own share in 0..1, for thinning the far ones by a stable hash (js/perspective.js governor)
+          out.push({ kind, x, y, h, v: Math.floor(r() * 4), flip: r() < 0.5, q: r() });
+          // a second clump of grass in the verge
+          if (verge && r() < 0.5) {
+            const g = { kind: "grass", x: x + (r() - 0.5) * S * 0.6, y: y + (r() - 0.5) * S * 0.6, h: 22 + r() * 20, v: Math.floor(r() * 4), flip: r() < 0.5, q: r() };
+            if (!wet || !this.wetAt(g.x, g.y, RIVER_CLEAR)) out.push(g);
+          }
+        }
+      }
+      this.stats.made++;
+      this.stats.items += out.length;
+      return out;
+    },
+  };
+
   const Art = {
     /** A standing thing's picture, by kind and variant; { img, aspect } (width over height). */
     sprite(kind, v) {
@@ -199,9 +425,13 @@
       const x1 = Math.floor((view.x + R) / C);
       const y0 = Math.floor((view.y - R) / C);
       const y1 = Math.floor((view.y + R) / C);
+      // none on the river: near it, a cell whose marks could reach the water (COVER_CLEAR off its bank) is left bare
+      const Dr = ZSR.Draw;
+      const wet = !!(Dr && Dr.riverEdge) && Dr.riverEdge(view.x, view.y, drive.scale) < R * 1.42 + C + COVER_CLEAR;
       ctx.lineCap = "round";
       for (let cx = x0; cx <= x1; cx++) {
         for (let cy = y0; cy <= y1; cy++) {
+          if (wet && Dr.inRiver(cx * C + C / 2, cy * C + C / 2, COVER_CLEAR, drive.scale)) continue;
           const r = seeded(hash2(cx, cy) + 17);
           const px = cx * C + r() * C;
           const py = cy * C + r() * C;
@@ -226,72 +456,14 @@
       }
     },
 
-    /** The bushes, tall grass and trees standing all over the land the route can see: thickest at the verges, never
-        on a road, a lot or a corner's square. Seeded by the route, so a drive driven again looks the same. */
-    scatter(g) {
-      const St = ZSR.Streets;
-      const G = St.GEOM;
-      const D = g.drive;
-      const r = seeded(St.hash(D.path.join(">")) + 991);
-      // the land in view from the route: its track, and 2600 units round it
-      let x0 = Infinity;
-      let y0 = Infinity;
-      let x1 = -Infinity;
-      let y1 = -Infinity;
-      const track = [];
-      for (let s = 0; s <= D.track.len; s += 400) {
-        const p = St.at(D.track, s);
-        track.push(p);
-        x0 = Math.min(x0, p.x);
-        y0 = Math.min(y0, p.y);
-        x1 = Math.max(x1, p.x);
-        y1 = Math.max(y1, p.y);
-      }
-      const M = 2600;
-      const inView = (x, y) => track.some((p) => Math.abs(p.x - x) < M && Math.abs(p.y - y) < M);
-      // how far in from the nearest asphalt's edge, and whether on a lot or a corner's square
-      const edge = (x, y) => {
-        let e = Infinity;
-        for (const s of D.roads) e = Math.min(e, distSeg(x, y, s.x0, s.y0, s.x1, s.y1) - G.half);
-        for (const s of D.sides) e = Math.min(e, distSeg(x, y, s.x0, s.y0, s.x1, s.y1) - G.sideHalf);
-        for (const n of D.nodes) e = Math.min(e, Math.hypot(n.x - x, n.y - y) - G.boxR);
-        return e;
-      };
-      const onLot = (x, y) =>
-        D.lots.some((l) => {
-          const dx = x - l.qx;
-          const dy = y - l.qy;
-          const a = dx * l.ux + dy * l.uy;
-          const v = (dx * -l.uy + dy * l.ux) * l.side;
-          return Math.abs(a) < G.lotHalf + 40 && v > -20 && v < G.half + G.shoulder + G.lotGap + G.lotDepth + 50;
-        });
-      const C = 120;
-      const out = [];
-      for (let cx = Math.floor((x0 - M) / C); cx <= Math.floor((x1 + M) / C); cx++) {
-        for (let cy = Math.floor((y0 - M) / C); cy <= Math.floor((y1 + M) / C); cy++) {
-          const x = (cx + r()) * C;
-          const y = (cy + r()) * C;
-          const roll = r();
-          const rv = r();
-          if (!inView(x, y)) continue;
-          const e = edge(x, y);
-          if (e < G.shoulder - 4 || onLot(x, y)) continue;
-          // the verge is a thicket; further back it thins, but never to bare
-          const verge = e < G.shoulder + 140;
-          if (rv > (verge ? 0.95 : e < 700 ? 0.7 : 0.5)) continue;
-          let kind;
-          if (verge) kind = roll < 0.5 ? "grass" : roll < 0.88 ? "bush" : "tree";
-          else kind = roll < 0.22 ? "grass" : roll < 0.48 ? "bush" : "tree";
-          if (kind === "tree" && e < G.shoulder + 50) kind = "bush";
-          if (kind === "tree" && r() < 0.22) kind = "dead";
-          const h = kind === "tree" ? 150 + r() * 90 : kind === "dead" ? 130 + r() * 70 : kind === "bush" ? 40 + r() * 34 : 24 + r() * 22;
-          out.push({ kind, x, y, h, v: Math.floor(r() * 4), flip: r() < 0.5 });
-          // a second clump of grass in the verge
-          if (verge && r() < 0.5) out.push({ kind: "grass", x: x + (r() - 0.5) * C * 0.6, y: y + (r() - 0.5) * C * 0.6, h: 22 + r() * 20, v: Math.floor(r() * 4), flip: r() < 0.5 });
-        }
-      }
-      return out;
+    /** The bushes, tall grass and trees standing all over a drive's land, made a square (`cell` world units) at a
+        time as the view first reaches it (Layout above): its first view costs a few dozen squares, a drive's whole
+        length a few thousand, however big the city. Seeded by place, so a spot looks the same on every drive at that
+        drive's scale (a drive at another scale stretches the city under the same grid of spots). */
+    vegLayout(drive, cell) {
+      return new Layout(drive, cell);
     },
+    buckets,
   };
 
   // ---------- the pictures (feet at the bottom middle) ----------

@@ -82,6 +82,13 @@
   // SCALE: brakeIn, brakeOut, look and nose are road units tuned for today's turns (arcs of radius 99 to 400, stop
   // lines at least a lane window apart); much tighter turns or closer stop lines need them checked (validate-drive)
   Object.assign(PERSP, { brake: 0.75, brakeIn: 150, brakeOut: 300, look: 300, lookRamp: 2, camW: 2.2, camPace: 0.5, nose: 50 });
+  // the road's canvas is drawn at no more device px a CSS px than this, as the angled view's ground on the card
+  // (js/perspective-gl.js): only 175% and 200% screen scaling go past it, where a canvas drawn by the CPU costs 2.5
+  // times dpr 1's (1.5 costs about 1.6 times) for words and pictures barely sharper
+  const ROAD_DPR_MAX = 1.5;
+  // a drive's first view (ground squares on the card, plants) is made before the van pulls out (Game.prepStep), for
+  // at most this many seconds; a slow computer then drives off with the rest still coming in
+  const PREP_SECS = 1;
   // the drive (the van along its track, its turns, lane slides and the camera) runs in steps no longer than this,
   // whatever the frame rate: a slow or uneven frame moves it just as several quick ones would
   // SCALE: a frame runs ceil(dt / DRIVE_STEP) drive steps (4 at 60 fps), so the drive's own cost grows with them
@@ -130,7 +137,7 @@
     },
 
     resize() {
-      const dpr = Math.min(2, root.devicePixelRatio || 1);
+      const dpr = Math.min(ROAD_DPR_MAX, root.devicePixelRatio || 1);
       this.dpr = dpr;
       this.W = root.innerWidth;
       this.H = root.innerHeight;
@@ -414,8 +421,12 @@
     stop() {
       this.running = false;
       this.paused = false;
+      this.prep = this.prepping = false;
       cancelAnimationFrame(this.raf);
       this.hud.root.classList.add("hidden");
+      // a drive really ended (at the door, dead, off to the map or the title; a wrong turn's retry is not a stop): the
+      // angled view lets go of its ground squares, plants and walker canvases until the next drive
+      if (ZSR.Persp && ZSR.Persp.release) ZSR.Persp.release();
     },
 
     banner(text, ms) {
@@ -787,13 +798,37 @@
     frame(ts) {
       if (!this.running) return;
       this.raf = requestAnimationFrame((t) => this.frame(t));
+      // the time since the last frame as the page shows them (the angled view's scenery governor reads it: the whole
+      // frame's cost, the canvas's raster and the compositor's included), and which frame this is
+      this.rafMs = this.last ? ts - this.last : 0;
+      this.rafN = (this.rafN || 0) + 1;
       if (!this.last) this.last = ts;
       const dt = Math.min(0.05, (ts - this.last) / 1000);
       this.last = ts;
       // Huge text needs room beside the road for its signs: pull the camera back a little
       this.zoom = this.zoomBase * (textSize() >= 2 ? 0.85 : 1);
-      if (!this.paused) this.update(dt);
+      // a drive's first view is made while the van waits at its door (a retry's behind the dark), so it never pulls
+      // out on a stall: it goes once the ground under the view and just ahead of it is drawn (Persp.ready), or after
+      // PREP_SECS whatever is left
+      this.prep = this.prepStep();
+      if (this.prep) this.updateHud();
+      else if (!this.paused) this.update(dt);
       this.draw();
+    },
+    /** Whether the van still waits at its door this frame (frame): from a drive's start, and a retry's, on the angled
+        camera, until its first view is ready or PREP_SECS of the page's time have gone. */
+    prepStep() {
+      if (!this.persp || !ZSR.Persp || !ZSR.Persp.ready) return false;
+      if (this.prepFor !== this.drive || this.prepTry !== this.attempt) {
+        this.prepFor = this.drive;
+        this.prepTry = this.attempt;
+        this.prepT = 0;
+        this.prepping = true;
+      }
+      if (!this.prepping) return false;
+      this.prepT += Math.min(0.25, (this.rafMs || 0) / 1000);
+      if (this.prepT >= PREP_SECS || ZSR.Persp.ready(this)) this.prepping = false;
+      return this.prepping;
     },
 
     /* ---------- Decisions ---------- */

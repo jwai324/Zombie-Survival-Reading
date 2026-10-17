@@ -1707,27 +1707,74 @@
    * ink, gravel shoulder, asphalt, then paint. world: { roads, sides, nodes } from ZSR.Streets;
    * G: Streets.GEOM; view: { x, y, r } in world px.
    */
+  /* ---------- The river on the west of town ----------
+     SCALE: its course in map units, quadratic curves (start, control, end; each starts where the last ends), the same
+     curve js/map.js draws on the city map (change both together); half: half the water's width (map units); bank: how
+     far its muddy bank reaches past the water on the road (world px). riverBand paints it on the road, inRiver keeps
+     what grows and stands by the road out of it. More water on a bigger map: more curves here. */
+  const RIVER = { curves: [[[40, 120], [90, 330], [60, 520]], [[60, 520], [50, 620], [120, 690]]], half: 13, bank: 45 };
+  let riverLine = null;
+  /** The river's middle as a line of short straight pieces (map units, 24 a curve) and the box it lies in. */
+  function riverPts() {
+    if (!riverLine) {
+      const pts = [];
+      RIVER.curves.forEach(([p0, p1, p2]) => {
+        for (let i = pts.length ? 1 : 0; i <= 24; i++) {
+          const t = i / 24;
+          const m = 1 - t;
+          pts.push([m * m * p0[0] + 2 * m * t * p1[0] + t * t * p2[0], m * m * p0[1] + 2 * m * t * p1[1] + t * t * p2[1]]);
+        }
+      });
+      // (a quadratic curve keeps inside its three points, so their box holds it)
+      const all = [].concat(...RIVER.curves);
+      riverLine = { pts, x0: Math.min(...all.map((p) => p[0])), y0: Math.min(...all.map((p) => p[1])), x1: Math.max(...all.map((p) => p[0])), y1: Math.max(...all.map((p) => p[1])) };
+    }
+    return riverLine;
+  }
+  /** How far (world px) a point of the road's world is from the outer edge of the river's muddy bank: negative on the
+      bank or in the water; more than 2000 px off the river's box, only that it is at least that far. scale: the road's
+      px per map unit (the drive's own when left out). */
+  function riverEdge(x, y, scale) {
+    const k = scale || (ZSR.Game && ZSR.Game.drive && ZSR.Game.drive.scale) || 1;
+    const R = riverPts();
+    const reach = RIVER.half * k + RIVER.bank;
+    const out = Math.max(R.x0 * k - x, x - R.x1 * k, R.y0 * k - y, y - R.y1 * k) - reach;
+    if (out > 2000) return out;
+    const mx = x / k;
+    const my = y / k;
+    let best = Infinity;
+    for (let i = 1; i < R.pts.length; i++) best = Math.min(best, distSeg(mx, my, R.pts[i - 1][0], R.pts[i - 1][1], R.pts[i][0], R.pts[i][1]));
+    return best * k - reach;
+  }
+  /** Is a point of the road's world (px) in the river or on its muddy bank, or within margin px of it? */
+  function inRiver(x, y, margin, scale) {
+    return riverEdge(x, y, scale) < (margin || 0);
+  }
   /** The river on the west of town, in world space: the same curve the city map draws (map units x scale). */
   function riverBand(ctx, world, view) {
     const k = world.scale || 1;
-    if (view.x - view.r > 140 * k) return; // all of it lies west of x = 140 map units (SCALE: tied to js/map.js's river)
+    const R = riverPts();
+    // (the current lines below are drawn up to 0.28 of the water's width off its middle)
+    if (view.x - view.r > R.x1 * k + RIVER.half * k + RIVER.bank) return;
     const path = () => {
       ctx.beginPath();
-      ctx.moveTo(40 * k, 120 * k);
-      ctx.quadraticCurveTo(90 * k, 330 * k, 60 * k, 520 * k);
-      ctx.quadraticCurveTo(50 * k, 620 * k, 120 * k, 690 * k);
+      RIVER.curves.forEach(([p0, p1, p2], i) => {
+        if (!i) ctx.moveTo(p0[0] * k, p0[1] * k);
+        ctx.quadraticCurveTo(p1[0] * k, p1[1] * k, p2[0] * k, p2[1] * k);
+      });
     };
+    const wide = 2 * RIVER.half * k; // the water
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     path();
     ctx.strokeStyle = "#6b5a46"; // the muddy bank
-    ctx.lineWidth = 26 * k + 90;
+    ctx.lineWidth = wide + 2 * RIVER.bank;
     ctx.stroke();
     ctx.strokeStyle = INK;
-    ctx.lineWidth = 26 * k + 8;
+    ctx.lineWidth = wide + 8;
     ctx.stroke();
     ctx.strokeStyle = "#4f7f99";
-    ctx.lineWidth = 26 * k;
+    ctx.lineWidth = wide;
     ctx.stroke();
     // current lines, pinned to the water
     ctx.strokeStyle = "rgba(220,235,240,0.35)";
@@ -1735,7 +1782,7 @@
     ctx.setLineDash([60, 140]);
     [-0.22, 0.05, 0.28].forEach((f) => {
       ctx.save();
-      ctx.translate(f * 26 * k, 0);
+      ctx.translate(f * wide, 0);
       path();
       ctx.stroke();
       ctx.restore();
@@ -2346,4 +2393,6 @@
   }
 
   ZSR.Draw = { road, prop, van, zombie, zombieShadow, zombieDown, zombieLook, zombieExtent, ZOMBIE_LOOK, ZOMBIE_DOWN: DOWN, walkerGore, bullet, particle, burst, vignette, fog, night, rr, circle, star, fillStroke, INK, ROOF, ground, cityRoads, laneZone, laneArrow, lot, signArrow, layoutSign, roadSign, signNote, nameBoard, card, wrapText };
+  // the river's reach on the road (RIVER above): what stands or grows by the road keeps out of it
+  Object.assign(ZSR.Draw, { inRiver, riverEdge });
 })(typeof globalThis !== "undefined" ? globalThis : this);
