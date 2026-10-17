@@ -1409,11 +1409,12 @@ uses the angled camera ("The flat camera taken out" below).
 - fog that thickens with distance;
 - the FPS toggle.
 
-**Still to come:**
-- the walkers ahead of the van;
-- the spawn rebalance;
-- buildings blocking walkers;
-- the door's spawn rule in seconds.
+**Built last** ("Walkers and balance" below):
+- the walkers ahead of the van, and none riding its nose;
+- buildings and the river blocking walkers;
+- the spawn rebalance, by danger and day;
+- the door's spawn rule in seconds;
+- the road in 1/60 s steps, so a slow machine plays at full speed down to 10 frames a second.
 
 ### Judgment calls: the corners (js/streets.js, js/game.js)
 
@@ -1797,7 +1798,7 @@ draws when no building row stands there (a test that loads no buildings).
   - the view sees 760 ahead in fog, clear to 60 ahead of the camera's spot and thickening between;
   - buildings fade into it by colour, and the far silhouettes (the tower past the haze) are off in fog;
   - walkers still come from as far off as on a clear day (`spawn` reads `cfg.far`), so in fog they are only seen
-    later. The spawn rebalance is still to come;
+    later. The rebalance ("Walkers and balance" below) did not look at fog days;
   - the old flat road's fog was a clear circle about 300 round the van.
 - **The title screen and the garage:**
   - both draw a 200 px tall picture (`SHOW`) with the van 0.76 of the way up it and two walkers at set spots, and the
@@ -1845,8 +1846,8 @@ draws when no building row stands there (a test that loads no buildings).
   - **Seeds:** each road's roadside is seeded by the route and that road, so it does not depend on the rest of the
     city. Today's drives have a different but just as thick roadside, and no save holds it.
 - **validate-streets** now drives only the angled speeds (1.25 and 2.125): 8.6 s became 4.4 s.
-- **Balance:** the angled pace, shot speed and spawns (`PERSP`: 1.25, 1.6, 1.4) now apply to every drive. The rebalance
-  by danger level is still to come, so no drive's difficulty has been compared with the top-down game's yet.
+- **Balance:** the angled pace, shot speed and spawns (`PERSP`: 1.25, 1.6, 1.4) now applied to every drive; the
+  rebalance by danger level came next ("Walkers and balance" below).
 
 **Measured:**
 - **A drive's start** (`buildScenery`, node, all 272 routes):
@@ -1877,7 +1878,8 @@ draws when no building row stands there (a test that loads no buildings).
   - Spread Shot at a walker clicked.
 
 **Still open:**
-- the walkers ahead of the van, the spawn rebalance, buildings blocking walkers and the door's rule in seconds;
+- (the walkers ahead of the van, the spawn rebalance, buildings blocking walkers and the door's rule in seconds came
+  next: "Walkers and balance" below);
 - `Draw.cityRoads` still filters every road for each ground square, a cost that grows with the whole city;
 - at 1280 x 800 the HUD's top row still covers the far horizon;
 - fog days and night drives were not balanced.
@@ -1903,3 +1905,213 @@ draws when no building row stands there (a test that loads no buildings).
   goes off with god mode.
 - **`tests/validate-engine.js`:** the van's gun is checked on the 3D roof gun.
 - **`tests/validate-art.js`:** keeps the road's particles only.
+
+### Walkers and balance (2026-10-17, later)
+
+The owner's answers above, built: walkers ahead of the van walk at it, beside and behind it they still sprint to keep
+up; buildings (and the river) block walkers; the angled drive keeps its feel (pace 1.25, shots 1.6 times as fast,
+the longer range, the click-pick auto-lead, none of them touched) and its walkers are rebalanced so each danger's
+drives are as hard as on the old top-down road; the door's "no new walkers" rule is counted in seconds. Also the
+road now runs in 1/60 s steps, so a slow machine no longer plays in slow motion.
+
+**Walkers ahead of the van** (`Game.carry`, `KEEP` in `js/game.js`):
+- **No keep-up pull in front.** The carry that keeps a walker up with the van depends on where it is: none ahead of
+  the nose, the danger row's `chase` share of the van's speed beside and behind it (within `PERSP.keepUp`, fading out
+  over `KEEP.fade` further off), and in between over `KEEP.band`.
+- **The band is time, not distance:** 0.8 s of the van's drive ahead of the nose (at least 60 units). A walker
+  turns from walking at the van to sprinting with it while the van covers the band, so a fixed 150 units gave the
+  Engine Tune 5 van a quicker, slipperier turn (p90 slip 86 units/s against 46 now).
+- **A walker in the van's path keeps walking** (no carry within the van's half width plus its own radius): it walks
+  into the nose instead of standing still in front of it.
+- **No moonwalk:** a walker ahead of the van's middle is never carried away from the van faster than it walks at it,
+  so its legs never walk toward the van while its body slides away.
+- **Nose riders are shoved off to their nearer side** (`KEEP.shove`: 0.8 of the van's speed, at least 60 units a
+  second) as soon as the nose pushes on them. The other choice, knocking one down after a hit or two, was not taken:
+  it would make the nose a free kill and take the threat out of every walker that reaches the van. Shoved off, a
+  walker grabs on beside the van and claws at it, as the old road's did. The hit as the nose meets it stays.
+- **Facing:** a walker faces where it goes (walking at the van ahead of it, running with the van beside it), and
+  faces the van only while it claws or something throws it back.
+
+**Buildings and the river block walkers** (`Game.blockWalker`, `walkRound`, `clearSpot`, `solidLots`):
+- **Buildings:** each lot's solid parts (`PerspBuild.solids`: boxes standing on the ground and at least 30 tall; a
+  part with `solid: false` lets walkers through) are boxes a walker is put out of at once, as the van's box does.
+  It goes out the nearest side that does not lead into a neighbouring part, in up to `BLOCK_PASSES` (3) passes, so
+  a walker never ping-pongs between parts that touch (Greenhouse Row's three glasshouses).
+- **The river:** the edge of its muddy bank (`Draw.riverEdge` 0, as plants keep out of) is a wall too. A walker in it
+  is put out along the way the bank's distance grows fastest (felt over `RIVER_PROBE`, 4 units). The van itself never
+  comes within 168 units of the bank on any route.
+- **The van wins:** its own push-out runs last, so a walker squeezed between the parked van's nose and a wall (45
+  apart) can be up to about 2 units into the wall for a moment, never into the van.
+- **Going round:** a walker put out of a wall walks along it (`WALK_ROUND`, 0.4 s, renewed while it presses). It
+  goes toward the end the van is past, or, when the van is straight through the wall, toward its own nearer end. It
+  keeps that way for `WALK_MEMORY` (2 s) after leaving the wall, so at a corner it does not turn back along the same
+  wall toward the van, and it turns round if it makes less than `WALK_HEADWAY` (25%) of its pace along the wall in
+  `WALK_STUCK` (1 s), for example when another walker is coming the other way. As first built (the way the van is
+  along the wall), 16 of 120 walkers behind the grocery paced its back wall for good.
+- **Where they come from:** a new walker comes from a spot at least `SPAWN_CLEAR` (30) plus its radius clear of both,
+  and best with neither between it and the van. Up to `SPAWN_TRIES` (6) spots are tried; if every clear one had a
+  building or the river in its way, the first clear one is used, and with no clear spot none comes (11 of 18,109 at
+  day 10 over every route). Each walker of a group checks its own spot.
+
+**The rebalance** (`ROAD_DANGER`, `ROAD_LATE`, `ROAD_LATE_DAY`, `roadRow`, `spawnGroup`, `spawnGap`):
+- **How it was judged.** `tests/balance` drives the real road code with a lane-keeping driver and a human-like aiming
+  bot (it targets a walker only once its figure is 30 px tall and faded in half way, tracks it 0.2 s late with 6 px
+  of jitter, clicks 6 times a second) on 3 routes a danger (0, the drive home, to 5), days 1, 5, 10 and 20, with the
+  van the economy plausibly has that day, 48 seeds a route: 3,456 trips. Each cell is held to the old top-down
+  road's numbers, measured the same way at 36403cd before that camera went (`tests/balance/targets.json`, frozen),
+  within damage +-20% (at least 5 HP), wrecked +-10 points, walkers met +-15% and scrap +-15%. Days 1 to 10 carry
+  the difficulty; on day 20 both cameras take almost no damage, so those cells are judged on met and scrap.
+- **What made the old road hard.** Most of its damage came from walkers that started at the top of the screen
+  (about 560 units ahead, inside the road's width): half of them reached the van. There they were never pushed out
+  of it, so a walker homing on the van's middle stayed on it and hit 2.8 to 4.4 times on day 1 at danger 3 to 5.
+  The angled drive before this drop brought 55% of its walkers 1,800 to 2,900 units ahead and up to 920 to either
+  side (the rest 700 to 2,200 ahead, out of the roadside), and the auto-lead hits about 90% of shots, so the bot shot
+  almost every walker long before it arrived: each walker met did 4.6 to 28 times less damage than on the old road,
+  and no spawn rate fixed that without far too many walkers met.
+- **Every danger's later days** (`ROAD_LATE`, the row for day 10 on, which every danger keeps unless its row says
+  otherwise): walkers 1.4 times as often as the old road's (they are seen from further off); 55% of them from far
+  down the road and on it (`farX` 30: within the road's half width plus 30, as the old road's came down the top of
+  the screen); and keeping up beside the van at 0.72 of its speed. That 0.72 is the old road's 0.65 in effect: the
+  van passes a walker beside it as fast as before, at the angled pace (1 - 0.35 / 1.25 = 0.72). This row alone
+  brought every day 10 and day 20 cell within the bands at 16 seeds a route; at 48, danger 2's day 10 came out 27%
+  high, so its row keeps up at 0.70.
+- **The first days need more.** Every setting tried that does not depend on the day left day 10's damage ratio
+  (angled against old) 1.4 to 2.5 times day 1's. Nearer, denser, harder-keeping walkers raised days 1 and 10
+  together; none of 16 settings at danger 3 passed both on damage. So each danger has `early` numbers for day 1,
+  and its day's numbers go over to its row in even steps by `ROAD_LATE_DAY` (10). On the first days, at the more
+  dangerous places, walkers come nearer, in groups (`group`, within `GROUP_SPREAD` 160 units of each other), and keep
+  up harder beside the van: a weak gun is overwhelmed, as it was on the old road. Each group comes as far apart in
+  time as that many walkers would, so `spawns` is still walkers per second. The early numbers were fitted per danger
+  on days 1 and 5 (16 seeds a route), then the whole matrix checked at 48 seeds and dangers 2, 4 and 5 nudged:
+
+  | danger | spawns (day 1 / 10 on) | chase | group | far down the road, share of the view's reach |
+  | --- | --- | --- | --- | --- |
+  | 0 (home), 1 | 1.4 / 1.4 | 0.72 / 0.72 | 1 / 1 | 0.5-0.8 / 0.5-0.8 |
+  | 2 | 1.0 / 1.4 | 0.84 / 0.70 | 2.5 / 1 | 0.35-0.5 / 0.5-0.8 |
+  | 3 | 1.2 / 1.4 | 0.80 / 0.72 | 2.5 / 1 | 0.425-0.575 / 0.5-0.8 |
+  | 4 | 1.0 / 1.4 | 0.80 / 0.72 | 4.5 / 1 | 0.35-0.5 / 0.5-0.8 |
+  | 5 | 0.85 / 1.4 | 0.88 / 0.73 | 5 / 1.25 | 0.2-0.35 / 0.5-0.8 |
+
+  Every row keeps the roadside's spots (`sideY` 700-2200 ahead, `sideX` 600-1400 past the road's edge) and 45% of
+  walkers coming from there. A danger past the last row takes the last.
+- **What did not help:** letting a walker pressed on the van's side spend its own pace running along with it (a
+  "cling", the old road's homing on the van's middle). It changed nothing: on day 1 at danger 3, 207 of 253 walkers
+  that touched the van were downed (shot or rammed) after about a second in contact on average, cling or not. It was
+  taken out again.
+- **The gap between walkers** (`spawnGap`): the trip's interval (`DIFF`, by danger and day as before), divided by
+  the row's `spawns`, times 0.85 at night (`DIFF.nightSpawns`), and only then floored at `DIFF.minInterval` (0.6 s).
+  The floor used to apply before the multipliers (a known bug: 0.43 s in effect). It does not bind on any matrix
+  cell; it is a `SCALE:` limit for longer, later, more dangerous drives.
+- **No new walkers near the door, in seconds:** `DIFF.quietAtDoor` is 3 s at the van's own speed from the parking
+  spot: 900 units at Engine Tune 0 (as before), 1,530 at Engine Tune 5 (was 900), so a faster van gets the same
+  quiet arrival.
+- **Results, 48 seeds a route** (`npm run balance`; "before" is the angled drive as of b7b8202, the flat camera just
+  removed; "!" is outside the band): 23 of 24 cells pass, from 6.
+
+| cell | dmg: flat / before / after | wrecked: flat / before / after | met: flat / before / after | scrap: flat / before / after | before | after |
+| --- | --- | --- | --- | --- | --- | --- |
+| d0/day1 | 15.7 / 1.1! / 17.9 | 1% / 0% / 1% | 22.0 / 22.1 / 23.2 | 27.9 / 28.4 / 29.6 | FAIL | pass |
+| d1/day1 | 33.8 / 4.0! / 31.4 | 6% / 0% / 4% | 18.2 / 15.4! / 16.7 | 25.1 / 21.9 / 22.0 | FAIL | pass |
+| d2/day1 | 102.8 / 12.5! / 113.8 | 46% / 0%! / 49% | 22.0 / 19.6 / 20.1 | 29.8 / 29.7 / 30.4 | FAIL | pass |
+| d3/day1 | 176.0 / 32.6! / 201.8 | 81% / 6%! / 82% | 24.0 / 20.2! / 24.3 | 30.7 / 29.2 / 33.4 | FAIL | pass |
+| d4/day1 | 374.6 / 64.3! / 382.7 | 100% / 20%! / 98% | 31.5 / 29.0 / 28.4 | 36.8 / 40.5 / 39.3 | FAIL | pass |
+| d5/day1 | 546.5 / 100.3! / 876.7! | 99% / 39%! / 100% | 35.8 / 31.4 / 30.3! | 37.7 / 42.9 / 54.7! | FAIL | FAIL |
+| d0/day5 | 8.2 / 0.6! / 9.1 | 0% / 0% / 0% | 23.2 / 24.2 / 24.5 | 36.5 / 38.0 / 39.0 | FAIL | pass |
+| d1/day5 | 14.8 / 0.9! / 15.0 | 0% / 0% / 0% | 18.9 / 18.0 / 18.9 | 30.2 / 29.7 / 31.5 | FAIL | pass |
+| d2/day5 | 36.6 / 2.7! / 39.9 | 0% / 0% / 0% | 23.4 / 22.9 / 23.3 | 40.5 / 39.8 / 39.5 | FAIL | pass |
+| d3/day5 | 64.4 / 4.8! / 69.1 | 8% / 0% / 8% | 24.6 / 24.9 / 25.8 | 41.9 / 44.6 / 43.6 | FAIL | pass |
+| d4/day5 | 171.6 / 14.6! / 153.1 | 47% / 0%! / 44% | 32.7 / 32.4 / 33.3 | 53.2 / 59.4 / 51.5 | FAIL | pass |
+| d5/day5 | 314.3 / 31.0! / 284.1 | 84% / 1%! / 79% | 37.8 / 34.7 / 37.7 | 54.9 / 61.4 / 60.9 | FAIL | pass |
+| d0/day10 | 10.0 / 0.4! / 9.6 | 0% / 0% / 0% | 25.6 / 26.7 / 27.4 | 60.1 / 61.8 / 63.7 | FAIL | pass |
+| d1/day10 | 10.9 / 1.1! / 11.5 | 0% / 0% / 0% | 20.8 / 19.4 / 20.5 | 52.5 / 50.5 / 52.2 | FAIL | pass |
+| d2/day10 | 23.5 / 2.3! / 25.4 | 0% / 0% / 0% | 25.4 / 24.0 / 25.6 | 56.7 / 60.3 / 62.4 | FAIL | pass |
+| d3/day10 | 34.8 / 3.3! / 41.0 | 0% / 0% / 0% | 27.1 / 26.8 / 29.1 | 65.9 / 65.7 / 68.5 | FAIL | pass |
+| d4/day10 | 79.0 / 9.9! / 75.8 | 1% / 0% / 1% | 36.1 / 36.3 / 40.5 | 83.2 / 84.1 / 87.2 | FAIL | pass |
+| d5/day10 | 119.3 / 18.0! / 127.6 | 8% / 0% / 15% | 40.5 / 38.6 / 43.9 | 89.2 / 88.7 / 90.0 | FAIL | pass |
+| d0/day20 | 0.2 / 0.3 / 0.3 | 0% / 0% / 0% | 37.9 / 36.5 / 37.3 | 106.6 / 104.0 / 106.3 | pass | pass |
+| d1/day20 | 0.2 / 0.3 / 0.2 | 0% / 0% / 0% | 31.5 / 29.4 / 29.7 | 89.8 / 91.0 / 91.6 | pass | pass |
+| d2/day20 | 0.3 / 0.5 / 0.3 | 0% / 0% / 0% | 39.1 / 38.0 / 38.5 | 110.9 / 108.9 / 110.9 | pass | pass |
+| d3/day20 | 0.9 / 0.4 / 1.3 | 0% / 0% / 0% | 41.6 / 38.7 / 39.8 | 117.3 / 112.8 / 114.9 | pass | pass |
+| d4/day20 | 2.0 / 0.6 / 2.3 | 0% / 0% / 0% | 56.0 / 54.1 / 56.6 | 144.7 / 146.6 / 152.8 | pass | pass |
+| d5/day20 | 3.3 / 0.6 / 5.8 | 0% / 0% / 0% | 63.3 / 60.1 / 62.9 | 166.0 / 160.3 / 166.1 | pass | pass |
+
+- **Danger 5 on day 1 does not pass.** Its van is wrecked on 100% of trips against 99% on the old road, but the
+  damage (as if the van survived) is 60% high, walkers met 15% low (just past the band) and scrap 45% high: the
+  angled bot downs 95% of the walkers it meets there, the old road's 63%. With the day blended evenly between its
+  `early` row and its later one, no early row passes both danger 5 cells: the ones that pass day 5 overshoot day 1's
+  damage (by 46%), and the 6 of 24 tried that bring day 1's damage within 20% all leave day 5 short (damage 34-48%
+  low, wrecked 13-38 points low). What would close it: a separate `early` anchor at day 5 (or a per-row day the
+  early numbers last to), not a different spawn rate; day 1's scrap would stay high with any spawn lever, since
+  fewer walkers (less scrap) also means fewer met. On the economy's own schedule nobody drives to a danger 5 place
+  on day 1.
+
+**The road in steps** (`ROAD_STEP`, `MAX_FRAME_DT`):
+- `update` now runs the road (the drive, the gun, new walkers, shots, walkers and their touch on the van, crates,
+  bodies and dust) in steps of at most 1/60 s (`roadStep`), and a frame counts up to 0.1 s instead of 0.05. Below
+  20 frames a second the game used to run in slow motion; now it plays at full speed down to 10.
+- A walker's knock and the dust's drag die away by time (they did by frame).
+- A frame of 0.1 s is exactly six of 1/60 s, and one of 1/30 s two: on drives with walkers coming, the gun firing
+  and the lanes changing, the van, every walker's place and health, the shots, kills, scrap and the van's health
+  match bit for bit. At 60 frames a second nothing changed (one step a frame; the balance run's trips are the same
+  to the last number).
+- A step costs about 0.2 ms with a crowd round the van (Node), so six of them add about 1 ms to a 100 ms frame.
+- The interiors still clamp at 0.05 s (`js/interior.js`); they were not part of this.
+
+**Heavy drives** (Home Base to the hospital, danger 5, the first 60 s, the van that day plausibly has, a shooter
+clicking at the nearest walker on the screen; headless Chromium on SwiftShader at 1280 x 800, so the times compare
+before with after and are not a real PC's; "before" is b7b8202):
+
+| day | walkers alive (median / p95 / most) | walkers' time, ms (median / p95) | the whole draw, ms (median / p95) |
+| --- | --- | --- | --- |
+| 1 | 8 / 10 / 11 before, 4 / 7 / 8 after | 1.2 / 2.5 before, 1.1 / 2.5 after | 9.6 / 16.7, 9.3 / 16.8 |
+| 10 | 5 / 8 / 9, 6 / 9 / 10 | 0.7 / 1.6, 0.9 / 2.0 | 9.8 / 16.0, 9.8 / 16.3 |
+| 20 | 5 / 8 / 9, 5 / 6 / 8 | 0.8 / 1.9, 0.7 / 1.7 | 10.6 / 17.1, 11.1 / 17.5 |
+| 20, nobody shooting | 10 / 13 / 14, 11 / 15 / 17 | 1.5 / 3.0, 1.6 / 3.2 | 11.5 / 18.3, 11.5 / 18.2 |
+
+- The walkers stay under their own budget (`LIVE_BUDGET_MS`, 4 ms, p95 at most 3.2). Their governor spent most of
+  each drive on its richest row, before and after, except on day 1 after, where it spent most of it one row down:
+  the packs come right up to the camera, where pictures are biggest. On the first days at danger 5 fewer walkers are
+  about at once (they come in packs, further apart), on day 10 one more.
+- Over every route with nobody shooting, the most walkers alive at once rose from 26 to 33 (day 10, Engine Tune 0):
+  they now come on the road and keep up harder, so fewer pass out of the view's sides. `ROAD_WALKERS_MAX` (40) caps
+  it: no new walker comes while 40 are on the road. It never binds on today's drives (the balance bot's trips have at
+  most 18).
+
+**Measured:**
+- **Feet** (validate-drive's "persp feet" walkers, Engine Tune 0 / 5, units a second, 90th percentile):
+  - ahead of the van, before: slide 277 / 547, 59% / 81% of frames moving backward against the way it faces (the
+    moonwalk); after: 3 / 4 past the band, 42-46 while turning in the band, none backward;
+  - beside and behind: 6-11 / 13-17.
+- **In the van's path**, before: walkers moved away from the van at 0.7 to 5.5 times their own pace and rode the nose
+  0.5 to 4.2 s; after: they come at it at their own pace, are on the nose 0.08 to 0.25 s, and press a side 0.6 to
+  3.5 s.
+- **Walkers in buildings and the river** (every route, walkers coming, nobody shooting; 816 drives over day 1 and 10
+  at Engine Tune 0 and day 20 at 5; about 43 million walker frames): before, at day 10, 19,777 walker frames inside a
+  building (deepest 97 units), 23,184 in the river (deepest 672) and 98 walkers spawned inside; after, none.
+- **Going round:** three walkers of different kinds behind the parked van's grocery, 40 seeds: all 120 come round
+  (median 11 s, slowest 20 s).
+
+**Tests added:**
+- **`tests/validate-drive.js`:**
+  - "persp feet" also checks walkers ahead (planted past the band, under 60 while turning, never backward) and every
+    kind in the van's path (its own pace, off the nose within 0.35 s, then pressing a side);
+  - "walkers blocked" (new): a walker of every kind in every building part and all along the river is put out;
+    walkers behind the grocery come round to the parked van (6 seeds); and over a sample of drives with walkers
+    coming none spawns in or ever stands in a building or the river (`--all-walkers` drives every route);
+  - "road steps" (new): frames of 0.1 s and 1/30 s against 1/60 s, bit for bit;
+  - "walker cap" (new): no walker comes while `ROAD_WALKERS_MAX` are on the road, and they come again under it.
+- **`tests/validate-balance.js`** (new, in `npm test`, about 6 s): six cells, 6 seeds a route, against wide bands
+  (damage +-50%, wrecked +-30 points, met and scrap +-30%), and a trip driven twice (here and on a worker) is the
+  same. It fails on the road before the rebalance (damage 84-94% low).
+- **`npm run balance`** (`tests/balance/compare.js`, about 1.5 min on 4 cores): the whole matrix against the target.
+  `--danger 3 --day 1,5 --seeds 16` narrows it, `--set "ROAD_DANGER.3.early.group=3"` tries a number without
+  editing anything, `--by route` judges each route, `--out trips.jsonl` keeps the trips.
+
+**Still open:**
+- danger 5 on day 1 (above);
+- fog days and night drives are still not balanced: the bot sees through fog and none of the matrix's days is a
+  night; walkers still come from as far off in fog as on a clear day;
+- the balance is this bot's difficulty, not a person's: it never misses a turn, never dodges and does not tire;
+- the walk-in interiors still clamp a frame at 0.05 s;
+- the packs on the first days at dangerous places were judged by numbers; they were looked at in only a few
+  screenshots.

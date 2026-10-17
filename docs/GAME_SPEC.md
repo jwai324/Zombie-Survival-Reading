@@ -211,12 +211,21 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   stand up too. The overgrowth by the road is seeded by place and made as the view reaches it;
   nothing grows in the river. A slow machine thins the scenery (the scenery governor), never
   the camera.
+- Walkers come from far down the road and out of the overgrowth at its sides; more of them, faster and tougher with
+  the destination's danger and the day, every kind among them. On the first days at the dangerous places they come
+  nearer, in packs, and keep up harder. A drive at each danger and day is as hard as it was on the old top-down road
+  (`ROAD_DANGER` in `js/game.js`; `npm run balance` checks it against that road's numbers). A walker ahead of the van
+  walks at it on its own feet; beside and behind it, it runs to keep up and claws at the van; one the van's nose
+  meets is hit and shoved off to the side. Buildings and the river block walkers: they go round a building and along
+  the bank, and never come out of either. No new walkers come in the last 3 seconds' drive to the door.
+- On a slow machine the road runs at full speed down to 10 frames a second (it runs in 1/60 s steps).
 - At night (before Power's headlights) everything is dark but what the van lights: a glow round
   it, its headlights' beam laid on the road down its own heading (so it turns with the van, not
   the screen), reaching about 2,000 units ahead (between the old top-down road's 520 and the
   angled drive's first, to the haze; owner: "in between"), and the gun's lamp along its aim. In
   fog the haze comes in close and thick: the view sees about 760 units ahead, walkers further out
-  are hidden and buildings fade into it; walkers still come from as far off as on a clear day.
+  are hidden and buildings fade into it; walkers still come from as far off as on a clear day (fog and night were not
+  part of the rebalance).
 - The sign hangs right of the road's edge as the camera sees it, under the HUD's top row; until a
   way is taken right, the line on how lanes work sits under it (or on the grass left of the road).
   A sign just passed slides off to the right as it fades.

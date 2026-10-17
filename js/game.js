@@ -123,7 +123,7 @@
   // buildings and the river block walkers (owner, 2026-10-17): one put out of a building's solid part or the river's
   // bank walks along it for WALK_ROUND s (walkRound: toward the end the van is past, or its own nearer end), so it goes
   // round instead of pressing on it. A new walker comes from a spot SPAWN_CLEAR clear of both with neither between it
-  // and the van, trying up to SPAWN_TRIES spots (the last clear one if every one had something in the way). The
+  // and the van, trying up to SPAWN_TRIES spots (the first clear one if every one had something in the way). The
   // river's slope is felt over RIVER_PROBE units and a line to the van checked for water every RIVER_STEP
   // SCALE: SPAWN_TRIES spots a spawn (each checks every building on the drive's list: solidLots)
   const WALK_ROUND = 0.4;

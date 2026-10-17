@@ -110,6 +110,10 @@ scaling all assume it. `tests/validate-streets.js` also requires side streets in
   corners' comfort; validate-drive drives every route on the angled camera and draws it in its night, fog, sign,
   minimap and title screen checks; validate-drive's comfort section drives 63 routes that cover every turn, a set that grows with the corners,
   not the routes: `COMFORT_ALL=1` drives all of them). `tests/validate-scenery.js` takes about 45 s.
+- validate-drive's "walkers blocked" drives a fixed sample of routes (one in 17) with walkers coming
+  (`--all-walkers` drives every route, about 2 min); `tests/validate-balance.js` drives 6 balance cells at 6 seeds
+  (about 6 s, `CELLS` and `SEEDS`), and `npm run balance` the whole matrix (3,456 trips, about 1.5 min on 4 cores:
+  3 routes a danger, so it grows with the dangers, not the places).
 - Doubling the places makes them about 4 to 16 times slower.
 - When `npm test` gets slow, sample the pairs (all pairs touching changed places, plus a fixed
   random set) behind a flag, and keep the full sweep for CI.
@@ -147,7 +151,7 @@ looks different. A near full-detail figure costs 2-4 ms on a software canvas (ab
 ### The road camera (angled, every drive)
 
 Every drive uses it (the flat, top-down road camera went on 2026-10-17: `DESIGN.md`, "every drive on the angled
-camera"). Its limits all grow with how far the view sees (`Persp.cfg.far`, 3600 units) and with how many walkers a drive brings (`PERSP.spawns`). Measured
+camera"). Its limits all grow with how far the view sees (`Persp.cfg.far`, 3600 units) and with how many walkers a drive brings (`ROAD_DANGER`). Measured
 headless on software WebGL (pessimistic; compare, do not read as a real PC's times), 1280 x 800, Engine Tune 0,
 draw ms median / 95th percentile (2026-10-16): with the drive's own walkers a straight draws in 15.3 / 23.7 and the
 junction turn in 13.1 / 21.6; with 10 walkers kept ahead of the van, 16.1 / 27.2 and 18.6 / 30.0 (the walkers
@@ -169,7 +173,14 @@ buildings and parts.
 | `FOG` | near 60, far 760 units | `js/perspective.js` | In fog the view sees `far` (ground squares, plants, props and walkers drawn only that far: fog days draw less) and things fade into it from `near`; walkers still come from `cfg.far` |
 | `NIGHT_BEAM` | reach 2050 units | `js/perspective.js` | The headlights' beam laid on the ground (about halfway from the old road's 520 to the haze); the dark is one screen-sized layer, drawn again only when what it shows moves |
 | `EDGE_STEP`, `SIGN_GAP` | 120 units, 14 px | `js/game.js` | The road's edges are found on the screen this often along it (out to the haze) to keep the sign and the lane hint off it |
-| `PERSP` (`range`, `keepUp`, `spawns`) | 2600, 900 units, 1.4 x | `js/game.js` | How far shots fly and how near a walker keeps up with the van (both tied to `cfg.far`); walkers a drive brings |
+| `PERSP` (`range`, `keepUp`) | 2600, 900 units | `js/game.js` | How far shots fly and how near a walker keeps up with the van (both tied to `cfg.far`) |
+| `ROAD_DANGER`, `ROAD_LATE`, `ROAD_LATE_DAY` | 6 rows (danger 0 to 5); day 10 | `js/game.js` | The road's walkers by danger: how often (`spawns`, 1.4 x `DIFF`'s later on), in how big groups, how far ahead and how near the road, how hard they keep up beside the van; each row's `early` numbers on day 1, its own from `ROAD_LATE_DAY`. A danger past the last row takes the last: a new danger 6 needs a row, and `npm run balance` has no target for it (the flat target is frozen at dangers 0 to 5) |
+| `DIFF.minInterval` | 0.6 s | `js/game.js` | The shortest average gap between walkers, after night and the row's `spawns` (0.77 s at danger 5 on day 20 today, so it does not bind yet) |
+| `GROUP_SPREAD` | 160 units | `js/game.js` | A group's walkers come within this of its first |
+| `KEEP` (`fade`, `band`, `bandMin`, `shove`, `shoveMin`) | 400 units, 0.8 s, 60 units, 0.8, 60 units/s | `js/game.js` | The keep-up carry by where a walker is (none ahead of the nose, over 0.8 s of the van's drive to beside it) and the shove off the nose; tied to the van's size and speed |
+| `SPAWN_TRIES`, `SPAWN_CLEAR` | 6 spots, 30 units | `js/game.js` | A new walker's spot is checked against every building part on the drive (`solidLots`: 37 today) and the river, and its line to the van against them; the most spots tried a spawn |
+| `BLOCK_PASSES`, `WALK_ROUND`, `WALK_MEMORY`, `WALK_STUCK` | 3; 0.4, 2, 1 s | `js/game.js` | Walkers are put out of building parts (each lot's circle checked first, so a bigger city costs a walker one check a lot) and the river every step, then walk along the wall; more parts that touch may need more passes |
+| `ROAD_STEP`, `MAX_FRAME_DT` | 1/60 s, 0.1 s | `js/game.js` | The road runs `ceil(dt / ROAD_STEP)` steps a frame (1 at 60 fps, 6 at 10), each over every walker and shot; below 10 fps a frame still counts only 0.1 s (slow motion) |
 | `PERSP` corners (`brake`, `brakeIn`, `brakeOut`, `look`, `nose`) | 0.75, 150, 300, 300, 50 units | `js/game.js` | `brake`, `brakeIn`, `look`, `lookRamp`, `camW` and `camPace` are mirrored in `Streets.CAM`, which shapes every corner for them: change both together (validate-drive checks they match) |
 | `GEOM.backMax`, `COMFORT` (`sharpTo`, `minBrake`, `spin`) | 1100 units; 135 deg, 0.3, 43 deg/s | `js/streets.js` | How far a stop line moves back for comfort, where braking by sharpness bottoms out (just past today's sharpest turn, 133), the comfort target the corners are shaped for |
 | `Persp.minAspect`, `Persp.maxFov` | 1.25, 90 deg | `js/perspective.js` | A window narrower than 1.25 to 1 sees as wide as a 1.25 window; the tallest view (portrait phones) |
@@ -318,18 +329,25 @@ missing. Growth rules:
     without a row, then drives to it on the angled camera and checks it parked. A new landmark picture it reuses goes
     in a `js/landmarksN.js` file, which also joins those script lists. The place's drive points down the widest gap
     between its roads and turns away from the river by itself (`Streets.RIVER`, `GEOM.riverClear`); validate-streets
-    fails if a drive or lot lies in the water, or if a turn at its corner cannot be made comfortable.
-13. An outdoor place (like River Landing) follows `RIVER` in `js/world.js`, `js/river.js` and the
+    fails if a drive or lot lies in the water, or if a turn at its corner cannot be made comfortable. The building's
+    parts standing on the ground and at least 30 tall block walkers (`PerspBuild.solids`); give a part
+    `solid: false` if walkers should pass under or through it (an awning). validate-drive "walkers blocked" puts a
+    walker in every part and checks it comes out.
+13. Its walkers on the road come by its `danger` (`ROAD_DANGER` row in `js/game.js`). A new place at an existing
+    danger needs nothing more; if the drives to it are much longer or shorter than that danger's others, run
+    `npm run balance -- --by route` and look at its routes. A new danger needs its own row (a danger past the last
+    row takes the last).
+14. An outdoor place (like River Landing) follows `RIVER` in `js/world.js`, `js/river.js` and the
     river special cases in `js/streets.js`, `js/map.js` and `js/state.js`. If there will be more
     than one, generalise those `type === "river"` checks into an `outdoor` handler first.
-14. Check:
+15. Check:
     - the gun danger bands
     - door-note walker counts against `walkersPerLocation`, and where the texts put walkers against
       the place's rules
     - the radio key-ring tips (`js/story-home.js`, checked by hand)
     - the counts in `README.md` and `docs/GAME_SPEC.md`
-15. Decide the old-save migration (see above).
-16. `npm test`.
+16. Decide the old-save migration (see above).
+17. `npm test` (and `npm run balance` if the place changes how dangerous drives are).
 
 ## Walkers
 

@@ -265,8 +265,8 @@ docs/STORY.md           the people, the story threads and the key ring
 docs/CREW.md            the crew at home base: the design and the contract between its files
 docs/SCALING.md         growing the game: limits the city is near, add-a-place checklist, save compatibility
 CLAUDE.md               standing notes for future builds (the game will grow; read docs/SCALING.md first)
-tests/                  world, weapons, text, streets, drive, scenery, engine, crew and art validators, script syntax check,
-                        word counter
+tests/                  world, weapons, text, streets, drive, scenery, engine, crew, art and balance validators, script
+                        syntax check, word counter; tests/balance: the road's balance run (npm run balance)
 ```
 
 ## Editing content
@@ -319,9 +319,11 @@ tests/                  world, weapons, text, streets, drive, scenery, engine, c
 - Waves at the base: `DEFENSE` in `js/world.js` (fence strength, calm length, raiders, wreckers, the builds' strength,
   how far a hole draws walkers, the bell, gunfire, rest, wave mix, counts,
   how many sides a wave comes from).
-- Road difficulty: `DIFF` in `js/game.js` and each kind's `road` row in `WORLD.WALKER_TYPES`; lane and junction geometry:
+- Road difficulty: `DIFF` in `js/game.js` and each kind's `road` row in `WORLD.WALKER_TYPES`; how often walkers come
+  by danger and day, in what groups, from where and how hard they keep up: `ROAD_DANGER` there (and `KEEP`), checked
+  with `npm run balance` against the old top-down road's numbers (`tests/balance`); lane and junction geometry:
   `GEOM` in `js/streets.js`; how the corners are shaped for the angled camera and how hard it brakes by sharpness:
-  `CAM`, `COMFORT` and `GEOM.backMax` there (`CAM` mirrors `PERSP`). The road camera: `PERSP` in `js/game.js` (its pace, shots and spawns; the corner
+  `CAM`, `COMFORT` and `GEOM.backMax` there (`CAM` mirrors `PERSP`). The road camera: `PERSP` in `js/game.js` (its pace and shots; the corner
   braking `brake`, `brakeIn`, `brakeOut`; the lazy camera `look`, `lookRamp`, `camW`, `camPace`; the van's nose
   `nose`), `Persp.cfg` in `js/perspective.js` (pitch, view, how far it sees, `minAspect` for narrow windows), the
   walkers' `TILE` and `LIVE_BUDGET_MS` there, the scenery governor's `SCENERY_BUDGET_MS` and `SCENERY_LEVELS`,
