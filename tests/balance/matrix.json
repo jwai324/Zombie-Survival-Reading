@@ -1,0 +1,43 @@
+{
+ "_doc": "The balance matrix: per danger (the destination's LOCATIONS danger; 0 is the drive home), 3 routes of different lengths; the days (the save's day); seeds per route and day; loadout 'auto' takes each day's van from loadouts.json. The flat target (targets.json) was measured on exactly this matrix.",
+ "routes": {
+  "0": [
+   "grocery>base",
+   "police>base",
+   "hospital>base"
+  ],
+  "1": [
+   "base>grocery",
+   "base>gasngo",
+   "base>river"
+  ],
+  "2": [
+   "base>hardware",
+   "base>garden",
+   "base>autoshop"
+  ],
+  "3": [
+   "base>radioshack",
+   "base>school",
+   "base>firehouse"
+  ],
+  "4": [
+   "base>police",
+   "base>lumberyard",
+   "base>library"
+  ],
+  "5": [
+   "base>hospital",
+   "base>mall",
+   "police>hospital"
+  ]
+ },
+ "days": [
+  1,
+  5,
+  10,
+  20
+ ],
+ "seeds": 48,
+ "loadout": "auto"
+}
