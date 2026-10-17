@@ -13,7 +13,14 @@
      short of the grocery's wall;
    - the angled camera's whole frame drawn on a recording 2D context (no WebGL: the 2D ground): every kind of
      walker live (Walker3D), a scream and its frenzy, clawing, hurt (health bars), shot, downed, gore on and off:
-     no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow.
+     no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow;
+   - each place's own building on the angled camera (js/perspective-buildings.js), driven to and parked at on every
+     destination: every place has a row (and every row a place), every side street kind its standing end; drawn from
+     the approach and parked cameras with no exceptions or NaN, all of it in front of the camera once parked, nothing
+     standing where the van parks and nothing drawn over the parked van; walkers stood all round a building drawn in
+     front of or behind each of its parts as the parts' walls say; the angled ground leaves out the flat pieces that
+     stand (side streets' ends, the gas canopy, River Landing's dock) and keys its squares on it; name boards fade
+     with their building and keep out of the HUD's top row; the Water Tower stands past the haze as a silhouette.
    Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -45,8 +52,9 @@ Object.assign(globalThis, {
 // in the page's order: the art (the angled camera's draw test below draws through it), the walkers (after Draw3: they
 // register their blood sprites with it), the road, the angled camera, then the interiors (whose governor rows and
 // picture signature the angled camera's walkers use)
-// SCALE: a new walker looks file (js/walker3d-looks2.js) goes in this list too (docs/SCALING.md "Add a walker kind")
-for (const f of ["js/layouts.js", "js/world.js", "js/upgrades.js", "js/streets.js", "js/sprites.js", "js/sprites3d.js", "js/walker3d.js", "js/walker3d-looks.js", "js/game.js", "js/perspective.js", "js/perspective-art.js", "js/perspective-gl.js", "js/interior.js"]) {
+// SCALE: a new walker looks file (js/walker3d-looks2.js) goes in this list too (docs/SCALING.md "Add a walker kind"),
+// and so does a new landmarks file (js/landmarks3.js: the places' buildings stand some of their pictures outside)
+for (const f of ["js/layouts.js", "js/world.js", "js/upgrades.js", "js/streets.js", "js/sprites.js", "js/sprites3d.js", "js/walker3d.js", "js/walker3d-looks.js", "js/landmarks1.js", "js/landmarks2.js", "js/game.js", "js/perspective.js", "js/perspective-buildings.js", "js/perspective-art.js", "js/perspective-gl.js", "js/interior.js"]) {
   const file = path.join(ROOT, f);
   if (fs.existsSync(file)) vm.runInThisContext(fs.readFileSync(file, "utf8"), { filename: f });
 }
@@ -1131,6 +1139,307 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   if (!seen.falls) drawErr("the angled camera never drew a walker going over");
   [...bad].slice(0, 12).forEach(drawErr);
   console.log(`persp draw: ${seen.renders} Walker3D renders (${[...seen.kinds].length} kinds, poses ${[...seen.poses].join("/")}, ${seen.falls} falling), gore on and off, ${bad.size} bad calls`);
+}
+/* ---------- each place's own building on the angled camera (js/perspective-buildings.js) ----------
+   Every place has a building row and every row is a place; every side street kind stands up. Every destination is
+   driven to on the angled camera (its drive put on it here, as every drive will be) and drawn on a 2D context that
+   records and checks every call, 1300 units out and parked: no exceptions, no NaN. Parked, every part of the building
+   is in front of the camera, nothing low stands where the van parks (anywhere across the road at a place with one
+   road), and the van is drawn after every part it overlaps on the screen. Walkers stood all round each building (not
+   in it) are drawn before a part whose walls show it nearer the camera and after one that shows it farther, wherever
+   the two overlap on the screen. The angled ground leaves out the flat pieces that stand, the card's squares key on
+   that, name boards go with their building into the haze and keep out of the HUD's top row, and the Water Tower is
+   drawn past the haze as a silhouette on the way to it. */
+{
+  const B = ZSR.PerspBuild;
+  const P = ZSR.Persp;
+  const D = ZSR.Draw;
+  const bErr = (m) => err("places", m);
+  const finite = (v) => typeof v === "number" && Number.isFinite(v);
+  let where = "(setup)";
+  const bad = new Set();
+  const log = []; // [call, args, fillStyle]
+  function context2d(canvas, tag) {
+    const state = { fillStyle: "#000000", strokeStyle: "#000000", globalAlpha: 1, lineWidth: 1, font: "10px sans-serif", lineCap: "butt", lineJoin: "miter", imageSmoothingEnabled: true, imageSmoothingQuality: "low", textAlign: "start", textBaseline: "alphabetic", globalCompositeOperation: "source-over" };
+    const stack = [];
+    const calls = {
+      save: () => stack.push(Object.assign({}, state)),
+      restore: () => stack.length && Object.assign(state, stack.pop()),
+      measureText: (t) => ({ width: String(t).length * 7 }),
+      createLinearGradient: () => ({ addColorStop: noop }),
+      createRadialGradient: () => ({ addColorStop: noop }),
+      createPattern: () => ({}),
+      getImageData: (x, y, w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) }),
+      createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) }),
+      getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+      isPointInPath: () => false,
+      toDataURL: () => "",
+    };
+    return new Proxy(
+      {},
+      {
+        get(o, k) {
+          if (k === "canvas") return canvas;
+          if (k in state) return state[k];
+          if (typeof k !== "string") return undefined;
+          return (...args) => {
+            for (const a of args) if (typeof a === "number" && !finite(a)) bad.add(`${where}: ${tag} ${k}(${args.map((x) => (typeof x === "number" ? x : typeof x)).join(", ")})`);
+            if (k === "drawImage" && !(args[0] && args[0].width > 0 && args[0].height > 0)) bad.add(`${where}: ${tag} drawImage() of something with no size`);
+            if (tag === "screen") log.push([k, args, state.fillStyle]);
+            return calls[k] ? calls[k](...args) : undefined;
+          };
+        },
+        set(o, k, v) {
+          if (k === "globalAlpha" && !(finite(v) && v >= 0 && v <= 1)) bad.add(`${where}: ${tag} globalAlpha ${v}`);
+          if (k === "lineWidth" && !(finite(v) && v >= 0)) bad.add(`${where}: ${tag} lineWidth ${v}`);
+          if (k in state) state[k] = v;
+          else o[k] = v;
+          return true;
+        },
+      }
+    );
+  }
+  const canvasEl = (tag) => {
+    const c = Object.assign(el(), { width: 300, height: 150, tagName: "CANVAS" });
+    c.getContext = (kind) => (kind === "2d" ? c.ctx || (c.ctx = context2d(c, tag)) : null);
+    return c;
+  };
+  if (!B) bErr("js/perspective-buildings.js did not load");
+  else {
+    const realDoc = globalThis.document;
+    globalThis.document = Object.assign({}, realDoc, { createElement: (t) => (String(t).toLowerCase() === "canvas" ? canvasEl("pooled") : el()) });
+    const screen = canvasEl("screen");
+    screen.width = 1280;
+    screen.height = 720;
+    const R = B._R;
+    // every place a row, every row a place, every side street kind its standing end
+    W.LOCATIONS.forEach((l) => B.row(l.id) || bErr(`${l.id} (${l.name}) has no building row`));
+    Object.keys(B.ROWS).forEach((id) => (W.LOCATIONS.some((l) => l.id === id) ? null : bErr(`building row "${id}" is no place`)));
+    S.SIDE_STREETS.forEach((s) => B.ENDS[s.kind] || bErr(`side street kind "${s.kind}" (${s.name}) has no standing end`));
+    if (P.groundKey() !== B.GROUND_KEY) bErr("the angled ground's squares are not keyed on what it leaves out (Persp.groundKey)");
+    // the drawing order the frame drew in: items (Persp.drawItem) and buildings' parts (PerspBuild.onPart)
+    const events = [];
+    const item0 = P.drawItem;
+    P.drawItem = function (g2, c2, o, fade) {
+      events.push(o);
+      return item0.call(this, g2, c2, o, fade);
+    };
+    B.onPart = (p) => events.push(p);
+    const frame = (label) => {
+      where = label;
+      log.length = 0;
+      events.length = 0;
+      try {
+        G.draw();
+        return true;
+      } catch (e) {
+        bErr(`${label}: G.draw threw ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+        return false;
+      }
+    };
+    // a lot's frame: its X right as the van drives in, V into the lot
+    const toLot = (rec, x, y) => {
+      const f = rec.f;
+      return [(x - f.ox) * f.Rx + (y - f.oy) * f.Ry, (x - f.ox) * f.Nx + (y - f.oy) * f.Ny];
+    };
+    const atLot = (rec, X, V) => ({ x: rec.f.ox + rec.f.Rx * X + rec.f.Nx * V, y: rec.f.oy + rec.f.Ry * X + rec.f.Ny * V });
+    const G0 = S.GEOM;
+    const F = G0.half + G0.shoulder + G0.lotGap + B.LOT_FRONT;
+    let drawn = 0;
+    let orderPairs = 0;
+    let orderBad = 0;
+    let vanOver = 0;
+    const orderMsgs = [];
+    const towerSeen = { sky: 0 };
+    for (const L of W.LOCATIONS) {
+      const to = L.id;
+      start(to === "base" ? "grocery" : "base", to);
+      G.persp = true; // (every drive on the angled camera)
+      G.resetDrive();
+      G.ctx = screen.getContext("2d");
+      const lot = G.drive.lots.find((l) => l.node === to);
+      const rec = B.rec(lot);
+      if (!rec || !rec.parts.length) {
+        bErr(`${to}: no parts in its building`);
+        continue;
+      }
+      for (const p of rec.parts) if (!p.b.every(finite)) bErr(`${to}: a ${p.t} with a box ${p.b}`);
+      let shot = false;
+      drive(right, 1.0, () => {
+        if (to === "watertower" && G.running) {
+          // the tower past the haze: a silhouette (a frame every so often, while it is out there)
+          const k = P.k;
+          if (k && Math.floor(G.time * 60) % 30 === 0) {
+            const Y = (rec.cx - k.ox) * k.Fx + (rec.cy - k.oy) * k.Fy;
+            const X = (rec.cx - k.ox) * k.Rx + (rec.cy - k.oy) * k.Ry;
+            if (Y > k.far && Y < k.far * B.LANDMARK_SEEN * 0.9 && Math.abs(X) < Y * 0.4) {
+              frame(`${to} far off`);
+              if (B.stats.skyline) towerSeen.sky++;
+              else bErr(`the Water Tower ${Math.round(Y)} ahead (the haze at ${k.far}) was not drawn past the haze`);
+            }
+          }
+        }
+        if (!shot && G.van.s > G.track.len - 1300) {
+          shot = true;
+          if (frame(`${to} approach`)) drawn++;
+        }
+        return G.arrive && G.arrive.parked;
+      });
+      if (!(G.arrive && G.arrive.parked)) {
+        bErr(`${to}: the angled drive did not park`);
+        continue;
+      }
+      if (!frame(`${to} parked`)) continue;
+      drawn++;
+      if (!events.includes(lot)) bErr(`${to}: its building was not drawn when parked`);
+      // all of it in front of the camera
+      B.look(G, P, rec, 1);
+      const sb = [0, 0, 0, 0];
+      for (const p of rec.parts) {
+        B._screenBox(p.b, sb);
+        if (sb[0] === -1e9) bErr(`${to}: a ${p.t} of its building is behind the camera once parked`);
+      }
+      // the van after every part it overlaps on the screen
+      const vb = B.itemSize(P, Object.assign({ _t: "van" }, G.van));
+      const xs = vb.box.map(([x, y]) => toLot(rec, x, y));
+      const vbox = [Math.min(...xs.map((q) => q[0])), Math.max(...xs.map((q) => q[0])), Math.min(...xs.map((q) => q[1])), Math.max(...xs.map((q) => q[1])), 0, 60];
+      const vsb = B._screenBox(vbox, [0, 0, 0, 0]);
+      const vanAt = events.indexOf(G.van);
+      // nothing low stands where the van parks: its own box, a little round it (anywhere across the road at a place
+      // with one road: the van parks in either of its lanes)
+      const zone = S.startDir(to) ? [vbox[0] - 8, vbox[1] + 8] : [-G0.half, G0.half];
+      for (const p of rec.parts) {
+        const [x0, x1, v0, v1, z0] = p.b;
+        if (z0 < 70 && v0 < vbox[3] + 4 && v1 > vbox[2] && x1 > zone[0] && x0 < zone[1]) bErr(`${to}: a ${p.t} stands where the van parks (X ${x0}..${x1}, V ${Math.round(v0 - F)}..${Math.round(v1 - F)} from the wall)`);
+      }
+      for (const p of rec.parts) {
+        if (p.lod > R.lod) continue;
+        const q = B._screenBox(p.b, [0, 0, 0, 0]);
+        if (q[2] < vsb[0] || q[0] > vsb[2] || q[3] < vsb[1] || q[1] > vsb[3]) continue;
+        const c = B._cmp(p.b, vbox);
+        const at = events.indexOf(p);
+        if (c === 1 || c === 2 || (at > vanAt && vanAt >= 0)) {
+          vanOver++;
+          bErr(`${to}: a ${p.t} of its building (box ${p.b.map(Math.round)}) is drawn over the parked van`);
+        }
+      }
+      // walkers all round it (never in it, nor where the van stands): each drawn on the right side of each part
+      const bd = rec.bounds;
+      const inside = (X, V) => rec.parts.some((p) => X > p.b[0] - 24 && X < p.b[1] + 24 && V > p.b[2] - 24 && V < p.b[3] + 24) || (X > vbox[0] - 30 && X < vbox[1] + 30 && V > vbox[2] - 30 && V < vbox[3] + 30);
+      G.zombies.length = 0;
+      for (let X = bd[0] - 90; X <= bd[1] + 90; X += 45) {
+        for (let V = bd[2] - 90; V <= bd[3] + 90; V += 45) {
+          if (inside(X, V)) continue;
+          const w = atLot(rec, X, V);
+          const z = G.addZombie("walker", w.x, w.y);
+          if (z) z.born = -1e9;
+        }
+      }
+      if (!frame(`${to} parked, walkers round it`)) continue;
+      B.look(G, P, rec, 1);
+      const order = events.filter((e) => rec.parts.includes(e)); // (its parts as drawn)
+      if (!order.length) bErr(`${to}: none of its building's parts were drawn once parked`);
+      for (const p of order) p._sbT = B._screenBox(p.b, [0, 0, 0, 0]);
+      for (const z of G.zombies) {
+        const zi = events.indexOf(z);
+        if (zi < 0) continue; // (off the screen)
+        const [X, V] = toLot(rec, z.x, z.y);
+        const r = z.r || 18;
+        const zb = [X - r, X + r, V - r, V + r, 0, P.walkerH(z)];
+        const zs = B._screenBox([X - r * 1.5, X + r * 1.5, V - r * 1.5, V + r * 1.5, 0, P.walkerH(z)], [0, 0, 0, 0]);
+        for (const p of order) {
+          const q = p._sbT;
+          if (q[2] < zs[0] || q[0] > zs[2] || q[3] < zs[1] || q[1] > zs[3]) continue;
+          const c = B._cmp(p.b, zb);
+          if (c !== -1 && c !== 1) continue;
+          orderPairs++;
+          const pi = events.indexOf(p);
+          if (pi < 0) continue;
+          if ((c === -1 && pi > zi) || (c === 1 && pi < zi)) {
+            orderBad++;
+            if (orderMsgs.length < 6) orderMsgs.push(`${to}: a walker at X ${Math.round(X)}, V ${Math.round(V - F)} from the wall drawn ${c === -1 ? "under" : "over"} a ${p.t} (box ${p.b.map(Math.round)})`);
+          }
+        }
+      }
+      G.zombies.length = 0;
+      G.stop();
+    }
+    // (a walker that stands between two parts the other way round from how they are drawn has no right place: it goes
+    // where the least of it is drawn wrong; at most one pair in a hundred)
+    if (orderBad > orderPairs * 0.01) {
+      orderMsgs.forEach(bErr);
+      bErr(`${orderBad} of ${orderPairs} walker-and-part pairs drawn the wrong way round`);
+    }
+    if (!towerSeen.sky) bErr("the Water Tower was never seen past the haze on the way to it");
+    // name boards: none for a building gone into the haze, and none in the HUD's top row (a box over the whole top)
+    {
+      start("base", "hospital");
+      G.persp = true;
+      G.resetDrive();
+      G.ctx = screen.getContext("2d");
+      const boards = [];
+      const nb0 = D.nameBoard;
+      D.nameBoard = function (c2, x, y, text, k, hot) {
+        boards.push({ x, y, text, alpha: c2.globalAlpha });
+        return nb0.call(this, c2, x, y, text, k, hot);
+      };
+      const hud0 = G.hudRects;
+      const ROW = 210;
+      G.hudRects = () => ({ top: null, row: ROW, low: [], boxes: [{ left: -1e4, right: 1e4, top: 0, bottom: ROW }], mini: null });
+      let checked = 0;
+      drive(right, 1.0, () => {
+        if (Math.floor(G.time * 60) % 20) return G.arrive && G.arrive.parked;
+        boards.length = 0;
+        frame("name boards");
+        const k = P.k;
+        for (const bd of boards) {
+          checked++;
+          if (bd.y < ROW) bErr(`a name board ("${bd.text}") drawn at y ${Math.round(bd.y)}, in the HUD's top row (to ${ROW})`);
+          const l = G.drive.lots.find((q) => G.placeName(q.node).toUpperCase() === bd.text);
+          const rec = l && B.rec(l);
+          if (!rec) continue;
+          const Y = (rec.cx - k.ox) * k.Fx + (rec.cy - k.oy) * k.Fy;
+          if (P.fadeAt(Y) < 0.15) bErr(`a name board ("${bd.text}") drawn over a building gone into the haze (${Math.round(Y)} ahead)`);
+          if (!(bd.alpha <= P.fadeAt(Y) + 1e-6)) bErr(`a name board ("${bd.text}") stronger than its building (${bd.alpha.toFixed(2)} over ${P.fadeAt(Y).toFixed(2)})`);
+        }
+        return G.arrive && G.arrive.parked;
+      });
+      if (!checked) bErr("no name board was drawn on the way to St. Anne Annex");
+      D.nameBoard = nb0;
+      G.hudRects = hud0;
+      G.stop();
+    }
+    // the angled ground leaves out what stands, the flat camera's keeps it
+    {
+      start("base", "grocery");
+      G.persp = true;
+      G.resetDrive();
+      const fills = (fn, style) => {
+        log.length = 0;
+        fn(screen.getContext("2d"));
+        return log.filter((c) => (c[0] === "fill" || c[0] === "fillRect") && c[2] === style).length;
+      };
+      const closed = G.drive.sides.find((s) => s.kind === "closed");
+      if (!closed) bErr("no closed side street on Home Base to Corner Grocery to test");
+      else {
+        const view = { x: closed.x1, y: closed.y1, r: 400 };
+        if (fills((c) => P.drawGround(G, c, Object.assign({}, view)), "#d4621e")) bErr("the angled ground still paints a closed side street's barricade flat");
+        if (!fills((c) => D.cityRoads(c, G.drive, G0, null, view), "#d4621e")) bErr("the flat camera's ground lost its closed side street's barricade");
+      }
+      for (const [id, style, what] of [["gasngo", "#b3261e", "gas canopy"], ["river", "#6b4a2e", "log stops"]]) {
+        const lot = Object.assign({}, G.drive.lots[0], { node: id });
+        const look = W.place(id);
+        if (fills((c) => D.lot(c, lot, G0, look, B.lotGround(lot)), style)) bErr(`the angled ground still paints the ${what} flat`);
+        if (!fills((c) => D.lot(c, lot, G0, look), style)) bErr(`the flat camera's ground lost the ${what}`);
+      }
+      G.stop();
+    }
+    P.drawItem = item0;
+    B.onPart = null;
+    globalThis.document = realDoc;
+    [...bad].slice(0, 12).forEach(bErr);
+    console.log(`places: ${W.LOCATIONS.length} buildings drawn (${drawn} approach and parked frames), ${orderPairs} walker-and-part pairs (${orderBad} the wrong way round), the van under none, the tower past the haze ${towerSeen.sky} times, ${bad.size} bad calls`);
+  }
 }
 /* ---------- the angled camera's walkers keeping up with the van: their feet go with them ----------
    Beside and behind the van (out of its reach) every kind faces the way it goes, so its feet do not slide sideways

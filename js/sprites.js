@@ -1862,7 +1862,8 @@
       line(ctx, s.x0 + ux * (G.half + 30), s.y0 + uy * (G.half + 30), s.x1 - ux * 60, s.y1 - uy * 60);
       ctx.setLineDash([]);
     });
-    sides.forEach((s) => sideEnd(ctx, s, G));
+    // (the angled camera stands the ends up itself, js/perspective-buildings.js: its ground leaves them out)
+    if (!(view && view.standing)) sides.forEach((s) => sideEnd(ctx, s, G));
   }
 
   /** What blocks the end of a side street: a dead end's rail, a closed road's barricade, a gate. */
@@ -2034,8 +2035,13 @@
 
   /** A place's building at the end of its own drive (or its road), facing down it: its lot and the building
       beyond. lot: { qx, qy, ux, uy, side } (streets.js endLot: x along the lot's front, y away from the drive's
-      end, which is at y = G.half); look: { type }. River Landing has no building: a dock out over the water. */
-  function lot(ctx, L, G, look) {
+      end, which is at y = G.half); look: { type }. River Landing has no building: a dock out over the water.
+      opts (the angled camera's ground: js/perspective-buildings.js lotGround): standing leaves out what stands there
+      (the building from above, the gas canopy, the door, River Landing's logs, dock and sign post); surface is the
+      lot's own ground colour, stripes false leaves out the parking lines, extra a little more of its ground ("oil"
+      stains, the "canopyPad" under the gas canopy). */
+  function lot(ctx, L, G, look, opts) {
+    const o = opts || {};
     const nx = -L.uy * L.side;
     const ny = L.ux * L.side;
     const v0 = G.half + G.shoulder + G.lotGap;
@@ -2043,7 +2049,7 @@
     ctx.save();
     ctx.transform(L.ux, L.uy, nx, ny, L.qx, L.qy);
     if (look && look.type === "river") {
-      riverDock(ctx, G);
+      if (!o.standing) riverDock(ctx, G);
       ctx.restore();
       return;
     }
@@ -2056,12 +2062,31 @@
     line(ctx, 84, G.half + 4, 84, v0);
     // the lot
     rr(ctx, -G.lotHalf, v0, G.lotHalf * 2, G.lotDepth, 10);
-    fillStroke(ctx, "#68665f", 4);
+    fillStroke(ctx, o.surface || "#68665f", 4);
     ctx.strokeStyle = "rgba(236,230,212,0.7)";
     ctx.lineWidth = 4;
-    for (let x = -G.lotHalf + 30; x <= G.lotHalf - 30; x += 52) {
-      if (Math.abs(x) < 80) continue;
-      line(ctx, x, v0 + 24, x, v0 + 120);
+    if (o.stripes !== false) {
+      for (let x = -G.lotHalf + 30; x <= G.lotHalf - 30; x += 52) {
+        if (Math.abs(x) < 80) continue;
+        line(ctx, x, v0 + 24, x, v0 + 120);
+      }
+    }
+    if (o.extra === "oil") {
+      ctx.fillStyle = "rgba(20,20,24,0.35)";
+      [[-120, v0 + 150, 34, 18], [40, v0 + 130, 26, 14], [150, v0 + 160, 40, 20], [-30, v0 + 60, 22, 12]].forEach(([x, y, rx, ry]) => {
+        ctx.beginPath();
+        ctx.ellipse(x, y, rx, ry, 0.3, 0, TAU);
+        ctx.fill();
+      });
+    } else if (o.extra === "canopyPad") {
+      // the pale concrete under the gas canopy (to the right as the van drives in: lot x -G.lotHalf + 2 ..)
+      rr(ctx, -G.lotHalf + 2, v0 + 8, 156, 146, 6);
+      fillStroke(ctx, "#8d8a84", 3);
+    }
+    if (o.standing) {
+      // the building, its canopy and its door stand (js/perspective-buildings.js)
+      ctx.restore();
+      return;
     }
     // the building, seen from above
     const bx = -G.lotHalf + 22;

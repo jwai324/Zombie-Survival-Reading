@@ -1692,12 +1692,16 @@
         this.rectKey = key;
         const top = this.hud.top ? this.hud.top.getBoundingClientRect() : null;
         let row = 60;
+        const boxes = []; // the top row's own boxes (the angled camera keeps its name boards out of them)
         if (top) {
           // the minimap hangs on the left just under the HUD's top row, off our lanes
           row = top.top;
           for (const el of this.hud.top.children) {
             const r = el.getBoundingClientRect();
-            if (r.height) row = Math.max(row, r.bottom);
+            if (r.height) {
+              row = Math.max(row, r.bottom);
+              boxes.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+            }
           }
           this.hud.root.style.setProperty("--mini-top", Math.round(row + 10) + "px");
         }
@@ -1708,7 +1712,7 @@
           const r = el.getBoundingClientRect();
           if (r.height) low.push({ left: r.left, right: r.right, top: r.top });
         }
-        this.rects = { top, row, low, mini: this.hud.mini ? this.hud.mini.getBoundingClientRect() : null };
+        this.rects = { top, row, low, boxes, mini: this.hud.mini ? this.hud.mini.getBoundingClientRect() : null };
       }
       return this.rects;
     },

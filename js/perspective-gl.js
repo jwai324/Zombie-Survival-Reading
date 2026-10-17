@@ -137,8 +137,9 @@
       const gl = this.gl;
       const k = P.k;
       this.show(g);
-      // a new drive (or a new kind of day) draws its squares again
-      const key = theme ? (theme.asphalt ? "night" : "fog") : "day";
+      // a new drive (or a new kind of day, or other flat pieces left off the ground: Persp.groundKey) draws its
+      // squares again
+      const key = (theme ? (theme.asphalt ? "night" : "fog") : "day") + "|" + (P.groundKey ? P.groundKey() : "");
       if (this.drive !== g.drive || this.key !== key) {
         this.clear();
         this.drive = g.drive;
