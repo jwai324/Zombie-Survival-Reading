@@ -62,7 +62,8 @@
   const fallSecs = () => (ZSR.Walker3D && ZSR.Walker3D.FALL_SECS > 0 ? ZSR.Walker3D.FALL_SECS : 2);
   const HIT_WORDS = ["BLAM!", "KRAK!", "THUD!"];
   // a test of the angled camera (js/perspective.js): only these drives use it; every other drive stays flat
-  // SCALE: route ids ("from>to", place ids); each one listed builds its plants and ground squares as it starts
+  // SCALE: route ids ("from>to", place ids); each one listed makes its plants and ground squares as its view first
+  // reaches them (js/perspective-art.js vegLayout, js/perspective-gl.js), so a longer list costs nothing up front
   const PERSP_ROUTES = ["base>grocery"];
   // ... and on them: the van a little faster, its shots much faster (far down the road they look slow), walkers
   // coming a little more often (they are seen from further off, so take longer to arrive)
@@ -1483,6 +1484,8 @@
       const vs = this.toScreen(van.x, van.y);
       if (this.mods.fog) D.fog(ctx, W, H, this.dpr, vs.x, vs.y, 300 * this.zoom);
       if (this.mods.night) D.night(ctx, W, H, this.dpr, vs.x, vs.y, van.drawAim == null ? van.aim : van.drawAim);
+      // a light that shines through the dark (the Water Tower's antenna light, js/perspective-buildings.js)
+      if (this.mods.night && this.persp && ZSR.PerspBuild && ZSR.PerspBuild.drawLights) ZSR.PerspBuild.drawLights(ctx);
       ctx.restore();
       D.vignette(ctx, W, H);
       const signRects = this.drawSign(ctx, k);

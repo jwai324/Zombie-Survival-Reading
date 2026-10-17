@@ -179,8 +179,10 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
 ## Driving: lanes, signs, side streets
 
 - Every place sits at the end of its own short drive off the corner where its roads meet (a
-  place with one road, at the end of that road). A drive starts in the first place's parking
-  spot and ends in the destination's.
+  place with one road, at the end of that road). The drive points down the widest gap between
+  its roads, turned away from the river where it would reach the water (the Water Tower's drive
+  heads up the bank). A drive starts in the first place's parking spot and ends in the
+  destination's.
 - The van drives in the left of its two lanes; past side streets that lane goes straight. A
   turn into a side street on the right uses the right lane; on the left, a turn lane that
   opens on the far left. At a junction there is one lane per road out, left to right in
@@ -196,6 +198,19 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   right lane, then the van parks at the door. A place with one road has no last decision: the
   road runs on to it. Signs name a place only when the player knows it; otherwise the street
   (a drive of an unknown place: Parking lot).
+- Corners are shaped for the angled road camera (`js/streets.js` `cornerSpin`): where a turn would
+  spin the view faster than about 43 deg/s (64 at Engine Tune 5), its stop line sits further
+  back and the van takes the widest arc the paving holds; a corner already comfortable keeps its
+  shape (Home Base to Corner Grocery among them). On the angled camera the van brakes into every
+  turn it takes from the stop line, never before: to 0.75 of its speed up to a right angle,
+  down to 0.4 at 135 deg (and a little more where a road is too short for its corner).
+- On the angled camera each place stands as its own 3D building at the end of its drive (the
+  cabin at Home Base, the Water Tower the tallest thing around and seen far off as a silhouette,
+  the gas canopy over its pumps, River Landing's dock over the water), with its name painted on
+  its sign once the place is known; the side streets' ends (barricades, guard rails, gate rails)
+  stand up too. The overgrowth by the road is seeded by place and made as the view reaches it;
+  nothing grows in the river. A slow machine thins the scenery (the scenery governor), never
+  the camera.
 - At Huge text the road's top row keeps to one line (van health and pause, plus scrap from
   1000 px wide), and signs shrink to fit under it.
 - The lane the van is in when it crosses the white stop line decides. A wrong lane drives a

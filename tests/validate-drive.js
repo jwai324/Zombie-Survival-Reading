@@ -23,7 +23,8 @@
      standing where the van parks and nothing drawn over the parked van; walkers stood all round a building drawn in
      front of or behind each of its parts as the parts' walls say; the angled ground leaves out the flat pieces that
      stand (side streets' ends, the gas canopy, River Landing's dock) and keys its squares on it; name boards fade
-     with their building and keep out of the HUD's top row; the Water Tower stands past the haze as a silhouette.
+     with their building and keep out of the HUD's top row; the Water Tower stands past the haze as a silhouette and
+     its antenna light shows over the night's dark.
    Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -1295,6 +1296,24 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
       if (!frame(`${to} parked`)) continue;
       drawn++;
       if (!events.includes(lot)) bErr(`${to}: its building was not drawn when parked`);
+      if (to === "watertower") {
+        // at night its antenna light shines through the dark: drawn after the night's overlay (PerspBuild.drawLights)
+        const night0 = D.night;
+        D.night = function (...a) {
+          log.push(["(night)", a, null]);
+          return night0.apply(this, a);
+        };
+        const t0 = G.time;
+        G.mods.night = true;
+        G.time = 0; // (the blink's on phase)
+        frame(`${to} parked at night`);
+        G.mods.night = false;
+        G.time = t0;
+        D.night = night0;
+        const dark = log.findIndex((c) => c[0] === "(night)");
+        const lit = log.findIndex((c, i) => i > dark && c[0] === "fill" && c[2] === "#ff4a3a");
+        if (dark < 0 || lit < 0) bErr(`the Water Tower's antenna light is not drawn over the night's dark (lights ${B.lights.length})`);
+      }
       // all of it in front of the camera
       B.look(G, P, rec, 1);
       const sb = [0, 0, 0, 0];

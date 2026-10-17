@@ -1130,7 +1130,7 @@ plants, `frameStats`), `js/perspective-gl.js` (ground squares) and two additive 
 
 | Question | Owner's answer |
 |----------|----------------|
-| Corner speed? | Brake lightly (about 75%): on the angled drive the van slows to 0.75 of its speed into each turn it takes and speeds back up after (`PERSP.brake`). |
+| Corner speed? | Brake lightly (about 75%): on the angled drive the van slows to 0.75 of its speed into each turn it takes and speeds back up after (`PERSP.brake`). (Since 2026-10-17 that holds up to a right angle; sharper turns brake further, to 0.4 at 135 deg: see "every drive on the angled camera".) |
 | Camera in a turn? | Lazy follow: the angled camera turns about half as fast as the van, so the van visibly swings on the screen, and the view catches up gently on the straight after. Target: a peak spin of about 35 deg/s (it was 112 at the junction); built: 37 (53 at Engine Tune 5). |
 | Walkers keeping up with the van? | They sprint: their legs go by the ground they really cover, the keep-up carry included, so near the van every kind runs. The hit rate is unchanged. |
 | Walker size on the angled drive? | On-foot size: as tall against the van as on foot (the yard van is 0.8 tiles, a walker 0.92), so 62.5 road units a tile (`Persp` `TILE`): a walker 57.5 units, its head 52, the van's roof 50. |
@@ -1182,7 +1182,8 @@ plants, `frameStats`), `js/perspective-gl.js` (ground squares) and two additive 
 - **Lighter turn frames** (`js/perspective-gl.js`). A turn wants about twice a straight's new ground squares, and
   they came in bursts that overran the budget by a square. The budget is now cost-aware (a running mean of each
   size's cost decides whether the next fits; the frame's first square and one haze hole near the van always go).
-  With time to spare (up to `AHEAD_BUDGET` 4 ms) the squares the view will need 0.35, 0.7 and 1.1 s on are drawn
+  (Since 2026-10-17 the views ahead share the frame's one work list and `KEEP` is a floor under `keepFor`: see the
+  scenery's judgment calls below.) With time to spare (up to `AHEAD_BUDGET` 4 ms) the squares the view will need 0.35, 0.7 and 1.1 s on are drawn
   ahead: `Game.viewsAhead` runs the camera's spring forward along the committed path (never past a stop line the van
   has not crossed); only squares with no copy at all, and never pushing off one used in the last 30 frames. A square
   the views ahead need that is on the card already is kept fresh (as of the frame before, so on a tie the squares on
@@ -1196,7 +1197,8 @@ plants, `frameStats`), `js/perspective-gl.js` (ground squares) and two additive 
   graphics process), the ground falls back to the 2D warp as before; when the browser gives it back, the card's
   program is set up again and every square drawn anew, as at a drive's start (it used to stay on the slower 2D
   ground until a reload: draw 23 ms against 13 on software WebGL).
-- **Plants** are filed in 512-unit squares (`VEG_CELL`) and only those under the view are visited; they are culled
+- **Plants** (since 2026-10-17 made a square at a time as the view reaches it: see the scenery below) are filed in
+  512-unit squares (`VEG_CELL`) and only those under the view are visited; they are culled
   at 40 px past the screen plus their own height (it was 300 px) and dropped when wholly in the haze: a quarter fewer
   listed a frame, none on the screen lost. Props, walkers and the van keep the 300 px margin.
 - **`ZSR.Persp.frameStats`** = `{ ms, groundMs, worldMs, walkersMs, squaresMade }` every angled frame: the whole
@@ -1370,3 +1372,367 @@ the same load. Draw ms, median / 95th percentile:
 - Seen in passing, left for the owner: a downed walker the van leaves behind comes toward the camera and its
   picture grows (up to about 300 x 900 px) until it is too near to draw (`NEAR_PX`), and costs about 1 to 2 ms a
   frame (software canvas) while it lasts.
+
+## Owner decisions: every drive on the angled camera (2026-10-17)
+
+After the one-drive test the owner said: "This should be the way all driving happens." The questions below were put
+to the owner on 2026-10-16 and 2026-10-17. This drop builds the corners, each place's own building and scenery that
+holds up on every route. Every check below ran with every route put on the angled camera in memory. In this build
+the camera itself still runs only on Home Base to Corner Grocery (`PERSP_ROUTES`), until the top-down road camera
+is taken out.
+
+| Question | Owner's answer |
+|----------|----------------|
+| Which drives use the angled camera? | All of them. The top-down road camera goes entirely: no setting and no fallback. A machine without WebGL uses the angled view's own 2D ground. A slow machine gets a scenery governor (thinner scenery), never the flat camera. |
+| Walkers ahead of the van? | No keep-up pull in front: they walk at the van with their feet planted. Beside and behind the van they still sprint to keep up. Spawns go up so encounters stay about the same. |
+| The test's feel on every route? | Yes: pace 1.25, bullets 1.6 times as fast, the longer range and the click-pick auto-lead. Spawns are rebalanced per danger level, so each route's difficulty (walkers met, hits taken, deaths, scrap) matches today's top-down game. |
+| Sharp corners? | Reshape the corners (stop line further back, wider arcs) and brake by sharpness, down to about 40% at the sharpest turn (133 deg). The owner was promised: the worst corner spins the camera about 43 deg/s (64 at Engine Tune 5), the road ahead stays on the screen, and trips are about 1.5% longer. Home Base to Corner Grocery stays exactly as tested (37 / 53 deg/s). |
+| Places on the road? | Each place gets its own 3D building: the cabin for Home Base, and a water tower that is the tallest thing around and seen from far off (the story calls it "the tallest thing for miles", with Jo's antenna on top). Also a gas canopy on posts with pumps, the school, hospital, police station, firehouse and mall, stores with their own fronts and signs, and River Landing's dock standing up. |
+| Night? | Between the old look and today's. The headlight beam turns with the van and reaches about halfway between the old view's reach (about 520 units ahead) and today's (to the haze). |
+| Click-pick auto-lead? | It stays. |
+| Stated defaults, not objected to | The Water Tower's drive and lot moved out of the river (a geometry bug, also on main). Buildings block walkers. The title screen and the garage preview use the angled look. Side-street ends (barricades, dead-end rails, gate rails) stand up. Name boards fade with the haze and keep clear of the HUD. The minimap fades only for lots actually in view. Fog thickens with distance. Half-screen and narrow windows get a wider view. The rule "no new walkers near the door" is counted in seconds. The drive starts seamlessly, with no visible stall. God mode gets an FPS toggle. |
+
+**Built in this drop:**
+- the corners;
+- each place's building, with the side-street ends, the dock and the name boards standing up;
+- the Water Tower moved out of the river;
+- the wider view on narrow windows;
+- the scenery governor;
+- the seamless start;
+- scenery that scales to every route.
+
+**Still to come:**
+- removing the top-down camera (and with it `PERSP_ROUTES`);
+- the walkers ahead of the van;
+- the spawn rebalance;
+- the night beam;
+- buildings blocking walkers;
+- the angled title screen and garage preview;
+- the minimap's fade;
+- fog that thickens with distance;
+- the door's spawn rule in seconds;
+- the FPS toggle.
+
+### Judgment calls: the corners (js/streets.js, js/game.js)
+
+- **The rule comes from the turn, not from a threshold.** `Streets.cornerSpin` is a small model of the angled camera
+  (its look-ahead, its spring and the brake). It predicts the view's peak spin from a turn's angle, its arc, the
+  straight before the bend and the van's speed. On the city's turns the real camera turns at 0.91 to 1.13 times the
+  model's peak, so the model carries a safety factor (`CAM.fit` 1.1). A corner whose turns all stay under the comfort
+  target (`COMFORT.spin` 43 deg/s at Engine Tune 0, 64 at 5, times `COMFORT.design` 0.98) keeps today's shape exactly.
+  Home Base to Corner Grocery is left alone because its turns are already comfortable (37.4 / 52.9 deg/s), not
+  because of a special case. `Streets.CAM` mirrors `PERSP` and the fastest van, and validate-drive checks that they
+  match.
+- **An uncomfortable corner's stop line moves back** as far as its turns need, up to `GEOM.backMax` (1100) or the
+  road's room. The van then takes the widest arc that keeps its whole width (`GEOM.vanHalf` 33) on the paving, with
+  the rest as straight road before the bend. No arc is ever tighter than it was. **This differs from the work item as
+  written:** a turn that was already comfortable keeps today's arc exactly, and a stop line further back only adds
+  straight road before it. Filling the extra room instead turned gentle drive turns into 6.6-second drifts that
+  started 800 units early (police to Gas-N-Go, a 52 deg turn on an arc of radius 1699).
+- **Right-way turns too sharp for the old 140-unit arc** rejoin the next road on the smallest comfortable arc, up to
+  the widest the paving holds. The next road's lanes begin a little later to make room, but never shorter than their
+  time (`winMin` for a junction; side streets as below).
+- **Braking by sharpness** (angled only): 0.75 of the van's speed into any turn up to a right angle, then down to 0.4
+  at 135 deg (0.416 at the city's sharpest, 132.9). Where a road is too short for its corner's comfortable shape the
+  van brakes further (`Streets.brakeFor`, never under `minBrake` 0.3). Braking still starts at the stop line, never
+  before. On a long straight to a sharp bend the van keeps its speed past the line and brakes over at most twice its
+  ease (`brakeSpan`). A deeper brake eases in and out over more road, so no frame changes the speed by more than the
+  old light brake did (1.46% a frame at most, limit 2%). Braking is set by the angle alone on all but 9 right-way
+  turns (6 at Engine Tune 5). Those brake a little more because their road is short (the Frog Lane corner out of
+  River Landing).
+- **Side streets (the wrong turns into them):** their stop lines move back too (up to 310 units at Engine Tune 0, 356
+  at 5), but only within the lane time each street already had, never under `winFirst` (3.5 s) and never under what
+  it had. Braking (0.33 to 0.58) does the rest. The narrow paving (`sideHalf` 100 plus the shoulder) caps the arc at
+  radius 141. Result: 42.5 / 58 deg/s (it was 60.3 / 80.7), lag 26 deg (it was 52 / 59).
+- **The Water Tower faces up the bank.** Its drive and lot lay in the river on every route, on both cameras. A
+  place's drive still points down the middle of the widest gap between its roads, unless that drive would come within
+  `GEOM.riverClear` (60 px) of the river's bank. "That drive" means the drive at its longest: slowest van, smallest
+  scale, furthest stop line, plus its lot. In that case the drive takes the direction with the most room to its roads
+  that stays dry. Only the Water Tower changes: its drive now heads -105 deg (north by north-west, up the bank)
+  instead of 192 deg (west, into the river). Its lot keeps at least 300 px from the bank on every route at every
+  speed. The city map draws the new drive too.
+- **One river.** Its course is `Streets.RIVER`, the only copy. The road (`Draw.riverBand`) and the city map
+  (`js/map.js`) both draw it. Drives and lots keep out of it. `Draw.inRiver(x, y, margin, scale)` and
+  `Draw.riverEdge(x, y, scale)` (js/sprites.js) tell what grows or stands by the road where the water is.
+- **Narrow windows see wider** (`Persp.minAspect` 1.25, `Persp.maxFov` 90): a window narrower than 1.25 to 1 gets
+  the view that a 1.25 window would have across. A 960 x 1040 window now sees 76 deg tall (it was 60). 1280 x 800,
+  1280 x 720 and 1920 x 1080 are unchanged to the bit. Portrait phones stop at 90 deg tall; nobody has decided about
+  phones yet.
+- **A late lane change:** a lane slide still going when the van crosses a stop line into a turn now slows smoothly
+  onto the turn's path (`SLIDE_STOP` 3000 px/s2, harder only at the road's edge), and the camera keeps to the path,
+  not to the slide. The step change at the line went from 5.01 to 0.34 units.
+- **A slight turn from a lane's edge** (under 30 deg, `EASE_MAX`) uses the lane path's easing curve where that is
+  gentler than the tight arc that fits there.
+- **Measured** (every route angled, a careful driver centred in its lane, 60 fps, before and after; Engine Tune 0 |
+  5). Across all 1048 right-way turns:
+
+  | | before (e0) | after (e0) | before (e5) | after (e5) |
+  |---|---|---|---|---|
+  | peak spin, deg/s (max / p95 / median) | 85.1 / 66.4 / 26.1 | 42 / 41.1 / 23.8 | 115.7 / 92.5 / 37 | 59.6 / 58.9 / 35.1 |
+  | spin acceleration, deg/s2 (max) | 176 | 83 | 418 | 165 |
+  | lag behind the van, deg (max) | 62.1 | 25.1 | 75.1 | 31 |
+  | turns over 45 / 65 deg/s | 270 | 0 | 245 | 0 |
+
+  - **The road on the screen after the bend:** before, the road 300-1500 units ahead left the screen at 25 turns
+    (115 at Engine Tune 5) at 1280 x 800 and at 140 (352) at 960 x 1040. Now it never does.
+  - **Time in a bend:** the sharpest bends (120 deg and up) now take up to 3.7 s at Engine Tune 0 at 42% speed (they
+    took 2.2 s). The van starts its bend up to about 1.1 s earlier.
+  - **Trip time:** trips are 1.66% longer over all 544 drives (the owner was told about 1.5%). Most of it is six
+    places whose first turn out is sharp (Gas-N-Go, Reyes Hardware, Mile 9 Pharmacy, Signal Electronics, 4th Precinct,
+    Station 12): their own drives are 242-463 px longer, and the van drives the same drive in.
+  - **Paving:** a van centred in its lane keeps at least 4 units on the paving through every turn. The tightest arc
+    anywhere is now 108 (it was 99).
+  - **Signs:** the shortest time a sign is up rose from 4.26 to 4.76 s.
+- **Open:**
+  - **Trips are 1.66% longer**, against the 1.5% the owner was told.
+  - **The sharpest corners take 3-3.7 s at Engine Tune 0** (worth showing the owner).
+  - **The first long drive of a fresh session builds up to about 60 ms longer.** A corner's shape is worked out once
+    per corner, way in and van speed, then reused. Later new routes add 5-15 ms. Warming the drives from the map
+    screen would hide it.
+  - **Side-street wrong turns stay comfortable mostly by braking.** A wider arc would need a paved flare where the side
+    street meets the road.
+
+### Judgment calls: each place's building (js/perspective-buildings.js)
+
+- **A building is a row of parts in its lot's own frame** (`ZSR.PerspBuild.ROWS`, keyed by place id: X runs right as
+  the van drives in, V into the lot, Z up). The parts are:
+  - boxes, with windows, doors and signs laid on their walls (a perspective-correct map per wall);
+  - gable and sloped roofs, posts and beams;
+  - round tanks, a dome, logs and glass houses;
+  - the interiors' landmark pictures (js/landmarks1.js, landmarks2.js) standing about as props.
+
+  The style is comic ink like the van and the wrecks: flat faces lit from the upper left, inked edges, line width set
+  by distance. A place without a row falls back to the old plain box.
+- **The front wall stays where it was** (lot v0 + 168), so parking still stops 42-47 units short of it (`parkShort`
+  45). Nothing low stands where the van parks. At Ortiz Auto and River Landing, the places with one road, nothing
+  stands across the road in front of the wall. Everything stays inside its lot, except River Landing's dock (out over
+  the water) and its sign post by the road, as in the flat art.
+- **Far off, a building loses detail:** under `DETAIL_PX` (70 px across) only its masses are drawn, and under
+  `PROP_PX` (170 px) its props, railings, ladders and shingle lines go. **It fades into the haze by colour, not by
+  see-through faces.** Its colours mix toward the haze's in 20 cached steps as the world's fade drops, so parts never
+  show through each other.
+- **A landmark becomes a silhouette, never nothing** (`landmark: true`: the Water Tower). Past the haze's far edge it
+  is drawn as a silhouette standing on that edge, sized for its true distance and paling into the haze out to
+  `LANDMARK_SEEN` (2.4) times `Persp.cfg.far`. Its antenna light blinks red at night.
+- **The tower's height is limited by the camera.** The angled view's top edge is level, so nothing higher than the
+  camera can ever be seen. The camera stands 0.447 x window height / zoom: 357 units at 1280 x 800, about 340 on small
+  windows, 483 at 1920 x 1080. The antenna tip stands at `TOWER_TOP` (352): the tank at 190-274, its roof to 304,
+  trees at 150-240 and every other building under 265. So the tower is clearly the tallest thing and shows whole.
+- **The places' names are painted on their buildings' signs.** Each sign is a texture cached by its words and size.
+  A sign shows the place's name only once the place is known; before that it is blank and the "?" board shows. While
+  the painted words are smaller on the screen than the road's name board would be, the flat name board stands on the
+  sign's spot instead, and gives way quickly as the words grow. Boards fade with their building and are left out once
+  it has faded under `NAME_FADE` (0.2). A board that would overlap a box in the HUD's top row (`Game.hudRects().boxes`)
+  moves down just under it.
+- **The draw order with buildings.** Each frame, each building in view orders its parts for the camera: a
+  topological order from the wall planes between parts that overlap on the screen, then explicit `after` (a roof on
+  its walls), then farthest first. Anything within `NEAR` (420 units) of a building's parts is then placed against the
+  parts it overlaps on the screen: before all of them, after all of them, or between two (a walker under the gas
+  canopy, or between the tower's legs). This covers walkers, the downed, plants, props, crates, sparks, the van and
+  the side-street ends. A thing in front of one part and behind another goes where the least overlap is drawn wrong.
+  A walker inside a footprint is drawn hidden behind the walls (walkers are not yet kept out of buildings;
+  `PerspBuild.solids(lot)` gives the solid parts' corners for that).
+- **The angled ground leaves out what stands up.** `Draw.cityRoads(..., view)` skips the side streets' flat ends when
+  `view.standing` is set. `Draw.lot(ctx, lot, G, look, opts)` with `opts.standing` skips the building seen from above,
+  the gas canopy, the door and River Landing's flat dock. `surface`, `stripes` and `extra` give each lot its own
+  ground: the cabin's dirt yard, gravel at Greenhouse Row and the Water Tower, dirt at Ridge Lumber, oil stains at
+  Ortiz Auto, a pale pad under the gas canopy. The flat camera's art is unchanged. The card's squares key on this
+  (`Persp.groundKey()` = `PerspBuild.GROUND_KEY`): change the key when the ground's pieces change.
+- **Side streets' ends stand up**, built from the drive's own side streets:
+  - **closed road:** two striped barricades on A-frame legs, just past the end of the paving, with a cone at each
+    side;
+  - **dead end:** a striped guard rail on posts;
+  - **no through road:** a gate rail between two posts.
+- **Signs on walls are drawn in the picture's own pixels** through each strip's map. Drawn into a unit square
+  instead, as `Persp.texWall` still does for the van's walls and the road sign boards, Chromium blurred and clipped
+  them at small sizes ("EMERGENCY" read "[MERGENC]").
+- **Each place's building** (and the art it reuses):
+
+  | Place | Building | Art reused |
+  |-------|----------|------------|
+  | Home Base | The Hollis cabin: cream lap siding, white trim, sage shutters, the red door under a little porch, a slate gable roof with an attic window, a stone chimney, firewood, a rain barrel, a dirt yard, and June's hand-painted HOME BASE sign on two posts | houseart.js colours |
+  | Gas-N-Go | A shop with a red band (ICE · SNACKS) and Ruby's red R by the door; a canopy on four posts over two pump islands; the tall GAS price sign on its pole; a pale pad under the canopy | iceMachine, vending |
+  | Corner Grocery | A brick store with its name on the parapet, a green-and-white scalloped awning, posters in the windows, fruit stands | cartPile |
+  | Reyes Hardware | A tan big-box with an orange band (TOOLS · PAINT · LUMBER · GARDEN), a roof sign, a loading door, lumber bundles | toiletStack, ladder |
+  | Mile 9 Pharmacy | A white store with a green band and a green cross on a pole by the road | toothbrush, pillBottle |
+  | Ortiz Auto | A corrugated steel garage, one bay open on the car lift, roll doors, a yellow sign, oil stains | carLift, tireStack, drums |
+  | Signal Electronics | A dark store with a blue band, its name and a lightning bolt, box TVs behind the glass, a lattice mast and a dish on the roof | tvWall, satDish, robotMascot |
+  | Greenhouse Row | Three glass greenhouses with beds seen inside, and the name on a gate over the way in | scarecrow, palmTree, gnome |
+  | 4th Precinct | Two storeys of pale stone, a columned porch up two steps with the name on its beam, blue lamps, a flag | motorcycle |
+  | Lincoln Middle School | A long brick school, a white entrance with a gable, a clock and the name, a flag | lionStatue |
+  | Station 12 | Red brick, a STATION 12 band, one bay open on the fire truck, a hose tower | fireTruck, dalmatian |
+  | St. Anne Annex | Three storeys with the name across the front, a glass lobby under the EMERGENCY canopy, a red cross on the roof | wheelchairs |
+  | Water Tower | A pump building with the name over its door, four leaning braced legs, a ladder, a round tank with a blue band and a pointed roof, a catwalk and rail, and Jo's antenna with three guy wires and a red light | (all built) |
+  | Ridge Lumber | An office with a green roof, an open pole shed over lumber stacks with RIDGE LUMBER along it, a log pile, a dirt yard | forklift |
+  | Northgate Mall | A lot-wide beige and purple building, a glass atrium, a raised name sign, SHOES and TOYS anchor fronts | cartPile |
+  | Public Library | Stone, arched windows, four columns up the steps, the name under a pediment, a copper-green dome with a lantern | (none) |
+  | River Landing | Log stops across the road, the dock on pilings over the water, a sign post with RIVER LANDING | (none) |
+
+- **Measured** (headless, SwiftShader, 1280 x 800: compare these, do not read them as a real PC's times):
+  - **One building, JS side:** 0.03-1.1 ms approaching, 0.6-1.8 ms parked (Greenhouse Row costs the most). The plain
+    box cost 0.01-0.02 ms.
+  - **Whole frame against the plain box:** +0.2 to +0.3 ms parked. Approaching, it is within the noise.
+  - **Sorting:** about 0.1 ms a frame.
+  - **Parts:** 4 to 18 per building.
+
+### Judgment calls: the scenery (js/perspective-art.js, js/perspective.js, js/perspective-gl.js)
+
+- **Plants are seeded by place, not by route** (`vegLayout`). Every 120 x 120 world cell (`VEG_STEP`) has one
+  candidate spot, seeded by the cell itself. A 512 square (`VEG_CELL`) takes the spots that fall inside it, so
+  squares made apart meet without a seam, density is exactly as before, and a square made again is identical.
+  **Caveat:** a drive's world is the map times that drive's own scale, which differs by route. So "the same on every
+  drive" holds only at the same scale.
+- **A square of plants is made the first time the view reaches it**, and let go after `VEG_IDLE` (240) frames
+  unused. Roads, side streets, corners and lots are filed in 2048-unit buckets (`VEG_BUCKET`), so a square looks at
+  about 2 roads whatever the city's size. The old 2600-unit limit is gone: plants fill out to `cfg.far`. **Side
+  effect:** the far haze to the sides and past a route's end now has plants where it was bare (+4 to +12% plants
+  listed a frame; the same near the van).
+- **Nothing grows in the river.** No plant stands within 10 px of the bank, no overgrowth mark goes over the water,
+  and no prop stands in it (`Draw.inRiver`).
+- **Props are filed by square** (`PROP_CELL` 512), both for the world and for each ground square.
+  - **A far prop gets simpler, never popped:** from `LOD_AT` (0.35) of the way into the haze band its detail fades
+    out over `LOD_BAND` (300 units). A wreck loses its wheels, rust, windows and shadow; a barrier's stripes turn
+    flat; a sign's board turns to its flat colour.
+  - **The same for props among a building's parts:** a prop a building draws among its parts gets the same level of
+    detail (`Persp.drawItem`).
+- **The scenery governor** (`Persp.sceneryRow`) reads the real frame interval (`g.rafMs`, the browser's own time
+  between frames, smoothed over about half a second). Its one budget is `SCENERY_BUDGET_MS` = 25 (40 fps).
+  - **Stepping:** a row down after 2 s over the budget. A row up after 8 s under 18.75 ms; that wait doubles (up to 8
+    times) for a row it had to leave.
+  - **Not counted:** gaps over 250 ms, pauses, the wrong-turn fade, the van waiting at its door, and a drive's first
+    1.5 s.
+  - **It never fights the walkers' governor:** after any row change of either governor it holds 2 s, and it never
+    sets the walkers' rows.
+  - **Rows** (`SCENERY_LEVELS`), each eased in over a second or two:
+    0. today's look;
+    1. 'low' image smoothing, and plants under 12 px fade out;
+    2. plants under 16 px fade, far props simple, no plant shadows;
+    3. half the far grass and bushes fade (by each plant's stable hash);
+    4. plants under 22 px fade, and three quarters of the far grass and bushes.
+  - **On a CPU-drawn canvas** it steps from row 0 to row 4 in about 7 s and cuts the frame by 29-31%. On the
+    accelerated proxy it stays at row 0.
+  - **Known side effect:** a browser capped at 30 fps (Chrome's Energy Saver) reads as slow and thins its scenery.
+  - **Stats:** its row and the smoothed interval are `Persp.frameStats.scenery` and `.gapMs`.
+- **The ground's squares are freed when a drive really ends.** `Game.stop()` calls `Persp.release()`, which lets go
+  of:
+  - every texture;
+  - the card's canvases;
+  - the plants' squares and the props' index;
+  - the walkers' canvas pool;
+  - the 2D layers.
+
+  A wrong turn's retry is not a stop and keeps them. After a stop, GL textures went from 360 to 0, an estimated 204
+  to 423 MB.
+- **A seamless start: the van waits at its door until its first view is ready** (`Game.prepStep`, `Persp.ready`), at
+  most `PREP_SECS` (1 s). Meanwhile the ground under the view and the views just ahead are drawn: `PREP_BUDGET` 24 ms
+  of squares a frame, holes up to `PREP_HOLES` 60 ms. The same happens behind the dark after a retry. The trip clock
+  does not run meanwhile.
+- **The road canvas's dpr is capped at 1.5** (`ROAD_DPR_MAX`); only 175% and 200% screen scaling go past it. A
+  dpr that changed with the governor was rejected: resizing a canvas mid-drive is itself a hitch.
+- **Ground squares at sharp corners: one work list a frame, most visible first:**
+  1. holes near the van;
+  2. squares near the van;
+  3. missing far squares;
+  4. the soonest view ahead;
+  5. sharpening;
+  6. the later views ahead.
+
+  Squares the views ahead need are kept on the card every frame. `AHEAD_BUDGET` is gone. **`keepFor`:** the card
+  keeps `KEEP_VIEWS` (1.9) times the most squares a view of this window needs, never under `KEEP` (360). That is 365,
+  415 and 529 squares at 1280 x 800, 1920 x 1080 and 2560 x 1080, against 280, 328 and 418 needed for the view plus
+  the views ahead. **A texture leak was fixed:** a square needed both now and just ahead was drawn twice.
+- **Measured** (interleaved A/B in headless Chromium, every route angled, frame ms median / p95):
+  - **river to mall at night, software canvas:** 51.9 / 75.0 before, 37.0 / 52.7 after (-29%). With the governor
+    held at row 0, 52.9 / 74.8: the new code at full scenery costs the same as before.
+  - **First frames, software:** a 297 ms first frame with the van already moving became a 202 ms frame while it waits.
+    After it moves, no frame is over 100 ms and there are no holes.
+  - **Plant layout:** the old scatter took 81 ms at a drive's start (165 in the browser). The lazy layout takes
+    1.7-7.5 ms for the first view and 11-28 ms over a whole drive. On cities 1x / 2x / 3x as wide, the old scatter
+    took 81 / 245 / 510 ms and the new layout 27 / 28 / 26.
+  - **Card memory:** the squares kept peak at 228 MB at 1280 x 800 (the same as before), 262-271 MB at 1920 x 1080
+    (+12%) and 334-348 MB at 2560 x 1080 (+35%).
+- **Open:**
+  - **`keepFor` raises GPU memory on wide windows.** `KEEP_VIEWS` 1.4 would save about 25% at 2560 x 1080, at the cost
+    of more squares drawn again.
+  - **The governor was tuned on SwiftShader only;** the owner's PC is unmeasured.
+  - **Below 20 fps the drive runs in slow motion:** the game's 0.05 s time-step clamp is unchanged.
+  - **The night overlay costs about 7 ms of JS a frame** on a CPU-drawn canvas.
+  - **Fog days were never measured.**
+  - **Two costs still grow with the whole city:** `buildScenery` walks every road at a drive's start, and
+    `Draw.cityRoads` filters every road for each ground square. Both are cheap today and about 9 times as costly at
+    3 times the city.
+
+### Merged and checked together (2026-10-17)
+
+The three were built side by side from the same start and merged in this order: corners, places, scenery.
+- **One river.** Both the corners and the scenery added `Draw.inRiver` and `Draw.riverEdge`, with the same names
+  and signature. The merge keeps the corners' version, which reads `Streets.RIVER` and `Streets.riverDist`.
+  `riverBand` keeps the corners' whole-box cull.
+- **Everything standing is drawn through `Persp.drawItem`** (from the places). The scenery's per-frame settings now
+  live there too: the governor's smoothing, the props' level of detail and the counts of plants and props drawn. So
+  what a building draws among its parts gets them as well.
+- **The Water Tower's night light shines through the dark.** It was drawn under the night's overlay and so never
+  showed. `PerspBuild` now collects the lights it would draw at night, and game.js draws them right after the
+  overlay (`PerspBuild.drawLights`).
+- `tests/validate-scenery.js` loads the landmarks and js/perspective-buildings.js in page order, so its checks run
+  with the buildings in.
+- **Checked with every route angled in memory** (headless, Node):
+  - **Every ordered pair of places** (272 routes) was driven at Engine Tune 0 and 5 alternately, with walkers
+    spawning as in play. Every 20th frame, and once parked, it was drawn on a checking 2D context: 68,789 frames.
+  - **Results:** every route arrived and parked with no wrong turn. There were no exceptions, NaN or bad canvas
+    calls. The place's building was drawn once parked on every route.
+  - **Plants and the river:** none of the plants seen stood inside a building's solid parts or in the river, and no
+    prop stood in the river.
+  - **Corner comfort** (`COMFORT_ALL=1 node tests/validate-drive.js`): all 2096 right-way turns on all 272 routes, at
+    each engine, peak at 42.0 / 59.6 deg/s, with spin acceleration up to 83 / 165 deg/s2 and lag up to 25.1 / 31.0
+    deg. The road after the bend stays 254 px inside the screen at 1280 x 800 and 109 px inside at 960 x 1040.
+    Home Base to Corner Grocery is at 37.4 / 52.9. The 546 wrong ways peak at 42.5 / 58.4 deg/s.
+- **Looked at in headless Chromium** (SwiftShader, 1280 x 800):
+  - **Destinations,** approaching and parked: the Water Tower (also far off, and at night), Gas-N-Go, Home Base, St.
+    Anne Annex, Northgate Mall, River Landing and the Public Library.
+  - **Corners and roads:** the 133 deg corner mid-turn at Engine Tune 5 (and at 960 x 1040 at Engine Tune 0), a
+    closed side street's end and Frog Lane with Corn Lane's dead end.
+  - **Results:** the tower's lot is dry and up the bank, and the far tower stands over the haze. Walkers by the gas
+    station are drawn against its parts. The road after the 133 deg bend stays on the screen.
+  - **Still to fix:** at 1280 x 800 the HUD's top row covers the far horizon, so the far tower shows between its boxes
+    or below them. At night the old headlight cone still hides the far buildings (the night beam is still to come).
+
+### Tests added (2026-10-17)
+
+- **`tests/validate-streets.js`**:
+  - **Speeds:** every route at van speeds 1, 1.7, 1.25 and 2.125 (both cameras' slowest and fastest).
+  - **The river:** no road, drive, side street or lot lies in it. With the old drive direction it reports 2110 errors.
+  - **Comfort:** every right-way turn is comfortable at the angled speeds by the camera model, and again with every
+    road 30% shorter (the denser-city check).
+  - **Runtime:** 3.5 s became 8.6 s.
+- **`tests/validate-drive.js` "comfort"** reloads game.js with the `PERSP_ROUTES` gate opened (or as is once the gate
+  is gone). It drives 63 routes that take every turn in the city (`COMFORT_ALL=1`: every route) at both engines, and
+  114 sampled wrong ways. It checks:
+  - spin at most 45 / 65 deg/s, spin acceleration at most 300 deg/s2, lag at most 35 / 38 deg;
+  - the road 300-900 units ahead on the screen at 1280 x 800 and 960 x 1040;
+  - no hops;
+  - braking at most 2% a frame and never before a stop line;
+  - Home Base to Corner Grocery unchanged;
+  - the camera numbers in streets.js matching the game's.
+- **`tests/validate-drive.js` "places"** drives to all 17 places on the angled camera and draws each, 1300 units out
+  and parked, on a checking 2D context. It checks:
+  - every place has a row and every row a place;
+  - once parked, every part is in front of the camera, nothing low stands in the van's box, and no part is drawn over
+    the van;
+  - walkers stood all round each building are drawn the right way round against its parts (1% allowed; 3 of 1594 are
+    not);
+  - the angled ground leaves out the standing pieces;
+  - name boards never sit in a HUD box, never over a faded building, and are never more opaque than their building;
+  - the tower is seen past the haze on the way to it;
+  - at night the tower's antenna light is drawn over the night's dark (added at the merge; it fails without
+    `drawLights`).
+
+  Its script list gains landmarks1.js, landmarks2.js and perspective-buildings.js.
+- **`tests/validate-scenery.js`** (new, in `npm test` after validate-drive, about 45 s, counts only) checks:
+  - the plant layout on synthetic cities 1x / 2x / 3x as wide;
+  - the same seeds and even density across squares' edges;
+  - nothing in the river on 5 drives along it;
+  - props found by square equal a full scan, and far props are simpler;
+  - the governor's steps, its fade-in and hold, and the walkers' rows left untouched;
+  - release at a stop, and nothing released on a retry;
+  - squares kept against the view plus the views ahead.

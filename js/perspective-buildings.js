@@ -835,7 +835,7 @@
 
   /* ---------- drawing ---------- */
   // the frame of the building being drawn this call, and how it is seen (reused)
-  const R = { ctx: null, P: null, k: null, f: null, cX: 0, cV: 0, cZ: 0, lw: 2, lod: 2, mixQ: 0, to: [0, 0, 0], toKey: "", dy: 0, s: 1, sil: false, time: 0, rec: null };
+  const R = { ctx: null, P: null, k: null, f: null, cX: 0, cV: 0, cZ: 0, lw: 2, lod: 2, mixQ: 0, to: [0, 0, 0], toKey: "", dy: 0, s: 1, sil: false, time: 0, rec: null, lightA: 1 };
   const tmp = [{}, {}, {}, {}, {}, {}, {}, {}];
   /** A lot point (X, V, Z) on the screen, into out ({ x, y, s, d }); false behind the camera. */
   function prj(X, V, Z, out) {
@@ -1921,17 +1921,14 @@
       }
       // the light: steady by day, blinking at night (and seen far off)
       const on = !R.night || Math.floor(R.time * 1.2) % 2 === 0;
-      if (on) {
+      if (on && R.night) {
+        // at night it shines through the dark: drawn after the night's overlay (game.js draw: drawLights)
+        PB.lights.push({ x: B.x, y: B.y, s: B.s, a: R.lightA });
+      } else if (on) {
         ctx.beginPath();
         ctx.arc(B.x, B.y, Math.max(1.6, 5 * B.s), 0, TAU);
-        ctx.fillStyle = R.night ? "#ff4a3a" : col(R, "#d0302a", 0);
+        ctx.fillStyle = col(R, "#d0302a", 0);
         ctx.fill();
-        if (R.night) {
-          ctx.beginPath();
-          ctx.arc(B.x, B.y, Math.max(4, 14 * B.s), 0, TAU);
-          ctx.fillStyle = "rgba(255,74,58,0.25)";
-          ctx.fill();
-        }
       }
     }
   }
@@ -2115,6 +2112,8 @@
     ROWS,
     ENDS,
     kit: { win, door, rect, lines, sign, img, roll, shape, disc, windows, windowsV, boarded, cross, flag, stripesAlong, scallops, shadeHex, colors: { SIDING, TRIM, SAGE, GLASS, INK } },
+    // this frame's lights that shine at night (the Water Tower's antenna light), in screen px: drawLights
+    lights: [],
     // this frame's cost (tests, perf probes): buildings and ends drawn, parts drawn, ms, items sorted into one
     stats: { buildings: 0, ends: 0, parts: 0, ms: 0, slotted: 0, skyline: 0 },
 
@@ -2166,6 +2165,7 @@
       const gone = fog0 + 0.98 * (k.far - fog0);
       this.sky = this.sky || [];
       this.sky.length = 0;
+      this.lights.length = 0;
       const st = this.stats;
       st.buildings = st.ends = st.parts = st.slotted = st.skyline = 0;
       st.ms = 0;
@@ -2464,6 +2464,22 @@
       }
     },
 
+    /** The lights that shine at night (the Water Tower's red antenna light, blinking), over the night's dark: game.js
+        draws them right after its night overlay, in the same transform as drawWorld. */
+    drawLights(ctx) {
+      for (const L of this.lights) {
+        ctx.globalAlpha = L.a;
+        ctx.beginPath();
+        ctx.arc(L.x, L.y, Math.max(4, 14 * L.s), 0, TAU);
+        ctx.fillStyle = "rgba(255,74,58,0.25)";
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(L.x, L.y, Math.max(1.6, 5 * L.s), 0, TAU);
+        ctx.fillStyle = "#ff4a3a";
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    },
     /** The landmarks past the haze (collect kept them): each a silhouette standing on the haze's far edge, scaled for
         how far it really is, paling into the haze toward LANDMARK_SEEN. Drawn before anything standing. */
     skyline(g, P, ctx) {
@@ -2489,11 +2505,14 @@
         R.lw = Math.max(0.6, R.lw * 0.8);
         // stood on the far edge of the ground: shifted down as far as its foot is above it
         R.dy = Math.max(0, farPt.y - base.y);
+        // (its light at night pales with it)
+        R.lightA = a;
         ctx.save();
         ctx.globalAlpha = 1;
         for (const p of this.partOrder(rec)) drawPart(ctx, p);
         ctx.restore();
         R.dy = 0;
+        R.lightA = 1;
         this.stats.skyline++;
         this.stats.ms += performance.now() - t0;
       }

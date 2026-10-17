@@ -183,7 +183,8 @@ js/story.js             story facts inside buildings: trail and dead-end notes, 
 js/story-home.js        story facts at home: June's journal, the radio, item tags, the yard plot signs
 js/story-crew.js        the crew's facts: who they are, their spots, rules, talk, tips, reports, errands
 js/story-quests.js      the crew's story quests (one object, one building each) and the dog
-js/streets.js           street names, side streets, lanes and decisions for a route, road text fallback
+js/streets.js           street names, side streets, lanes and decisions for a route, road text fallback; corners shaped
+                        for the angled camera (cornerSpin), braking by sharpness, the river's one course (RIVER)
 js/content/levelN*.js   THE WORDS at reading level N (1..6): levelN.js (how it works, controls, road, rooms,
                         typing), levelN-places1.js and -places2.js (every building), levelN-home.js (journal,
                         radio, tags, plot signs), levelN-crew.js (the crew's talk, tips, reports, the dog),
@@ -224,16 +225,23 @@ js/landmarks2.js        landmark art: precinct, school, fire station, hospital, 
 js/yardart.js           yard art: every plot at every level, fence by Walls level
 js/game.js              the road: world-space drive, lanes, signs, turns, wrong-way restarts, minimap
 js/perspective.js       a test of an angled road camera (Home Base to Corner Grocery only): the camera (it follows
-                        lazily through a turn while the van brakes to 75%; game.js drives both), the ground warped
+                        lazily through a turn while the van brakes by the turn's sharpness; game.js drives both; a
+                        narrow window sees wider), the ground warped
                         on the 2D canvas when there is no WebGL, everything standing (plants, wrecked cars, barriers,
                         barrels, signs, crates, buildings, the van and its roof gun), the walkers as the buildings'
                         live 3D figures seen from above (on-foot size, sprinting to keep up, screams, claws, falls,
                         blood with gore on, health bars, under the buildings' governor rows), the aim, where walkers
-                        come from, frameStats and walkerStats (a frame's cost)
-js/perspective-gl.js    the angled camera's ground on the graphics card: squares of the road's art drawn once, kept,
-                        within a frame budget, the ones a turn will need drawn ahead
+                        come from, the scenery governor (thinner scenery on a slow machine), the wait at the door for
+                        the first view, freeing it all at a stop, frameStats and walkerStats (a frame's cost)
+js/perspective-buildings.js  each place's own 3D building on the angled road (a row of parts per place id: the cabin,
+                        the Water Tower seen far off, the gas canopy, River Landing's dock ...), the side streets'
+                        standing ends, the names painted on the signs and the name boards
+js/perspective-gl.js    the angled camera's ground on the graphics card: squares of the road's art drawn once, kept
+                        (as many as the window needs), within a frame budget, most visible first, the ones a turn
+                        will need drawn ahead
 js/perspective-art.js   the angled camera's pictures: trees, bushes, tall grass, barrels, sign boards, barrier
-                        stripes; the overgrowth on the ground; the plants scattered over the land
+                        stripes; the overgrowth on the ground; the plants over the land, made a square at a time
+                        as the view reaches it, seeded by place, none in the river
 js/map.js               the city map, street names, side streets, "The way there"
 js/base.js              the build menu at the cabin's computer (rooms, garage, weapons, traps, house, stock, repairs, hover tips)
 js/typing.js            the workbench typing game (finger lesson, stages, countdown, timer, retry, practice)
@@ -254,7 +262,7 @@ docs/STORY.md           the people, the story threads and the key ring
 docs/CREW.md            the crew at home base: the design and the contract between its files
 docs/SCALING.md         growing the game: limits the city is near, add-a-place checklist, save compatibility
 CLAUDE.md               standing notes for future builds (the game will grow; read docs/SCALING.md first)
-tests/                  world, weapons, text, streets, drive, engine, crew and art validators, script syntax check,
+tests/                  world, weapons, text, streets, drive, scenery, engine, crew and art validators, script syntax check,
                         word counter
 ```
 
@@ -309,10 +317,12 @@ tests/                  world, weapons, text, streets, drive, engine, crew and a
   how far a hole draws walkers, the bell, gunfire, rest, wave mix, counts,
   how many sides a wave comes from).
 - Road difficulty: `DIFF` in `js/game.js` and each kind's `road` row in `WORLD.WALKER_TYPES`; lane and junction geometry:
-  `GEOM` in `js/streets.js`. The angled test drive: `PERSP` in `js/game.js` (its pace, shots and spawns; the corner
+  `GEOM` in `js/streets.js`; how the corners are shaped for the angled camera and how hard it brakes by sharpness:
+  `CAM`, `COMFORT` and `GEOM.backMax` there (`CAM` mirrors `PERSP`). The angled test drive: `PERSP` in `js/game.js` (its pace, shots and spawns; the corner
   braking `brake`, `brakeIn`, `brakeOut`; the lazy camera `look`, `lookRamp`, `camW`, `camPace`; the van's nose
-  `nose`), `Persp.cfg` in `js/perspective.js` (pitch, view, how far it sees) and the walkers' `TILE` and
-  `LIVE_BUDGET_MS` there.
+  `nose`), `Persp.cfg` in `js/perspective.js` (pitch, view, how far it sees, `minAspect` for narrow windows), the
+  walkers' `TILE` and `LIVE_BUDGET_MS` there, and the scenery governor's `SCENERY_BUDGET_MS` and `SCENERY_LEVELS`.
+  Each place's building on the angled road: its row in `ROWS` in `js/perspective-buildings.js`.
 - Base rooms, recipes, and effects: `BASE_ROOMS` in `js/world.js`; what each level looks like
   in the yard: `BUILDS` in `js/yard.js`.
 - Van and van-gun upgrades: `js/upgrades.js`.
