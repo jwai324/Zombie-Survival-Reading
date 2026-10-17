@@ -4,8 +4,9 @@
    WebGL it is laid down by the graphics card in squares drawn once (js/perspective-gl.js); without, it is drawn
    into a few layers each frame and warped onto the 2D canvas strip by strip (Mode-7 style). Everything standing
    (trees, bushes and tall grass, wrecked cars, barriers, barrels, signs, crates, buildings, walkers, the van) is
-   drawn on the 2D canvas over it, far to near, at its projected spot (js/perspective-art.js has their pictures).
-   The road sign, the names over the buildings, the HUD and the minimap stay flat.
+   drawn on the 2D canvas over it, far to near, at its projected spot (js/perspective-art.js has their pictures;
+   js/perspective-buildings.js each place's own building, River Landing's dock and the side streets' ends, which
+   the ground then leaves out). The road sign, the name boards, the HUD and the minimap stay flat.
    The camera is pitched down cfg.pitch degrees; the van sits at cfg.vanAt of the screen's height, drawn
    cfg.scale times the road's zoom; ground past cfg.far fades into haze.
    Walkers are the interiors' live 3D figures (js/walker3d.js Walker3D.draw), seen from the camera's own height, each
@@ -329,8 +330,11 @@
       const D = ZSR.Draw;
       const St = ZSR.Streets;
       const G = St.GEOM;
+      // what js/perspective-buildings.js stands up (the side streets' ends, the gas canopy, River Landing's dock, the
+      // buildings from above) is left off the ground (groundKey keeps the card's squares in step)
+      const B = ZSR.PerspBuild;
       D.ground(ctx, view, theme);
-      D.cityRoads(ctx, g.drive, G, theme, view);
+      D.cityRoads(ctx, g.drive, G, theme, B ? Object.assign({ standing: true }, view) : view);
       if (ZSR.PerspArt && !view.bare) ZSR.PerspArt.cover(ctx, view, g.drive, G);
       const dirtTheme = Object.assign({}, theme || {}, { asphalt: "#7a5c3e" });
       g.drive.decisions.forEach((d) => {
@@ -342,7 +346,7 @@
         ctx.restore();
       });
       g.drive.lots.forEach((l) => {
-        if (Math.hypot(l.qx - view.x, l.qy - view.y) < view.r + 800) D.lot(ctx, l, G, ZSR.WORLD.place(l.node));
+        if (Math.hypot(l.qx - view.x, l.qy - view.y) < view.r + 800) D.lot(ctx, l, G, ZSR.WORLD.place(l.node), B ? B.lotGround(l) : undefined);
       });
       for (const p of g.props) {
         if ((p.kind !== "tire" && p.kind !== "rubble") || Math.abs(p.x - view.x) > view.r + 60 || Math.abs(p.y - view.y) > view.r + 60) continue;
@@ -352,6 +356,17 @@
         D.prop(ctx, Object.assign({}, p, { x: 0, y: 0 }));
         ctx.restore();
       }
+    },
+    /** What the ground leaves out, as part of the card's squares' key (js/perspective-gl.js): a square drawn with other
+        flat pieces is never kept. */
+    groundKey() {
+      return ZSR.PerspBuild ? ZSR.PerspBuild.GROUND_KEY : "flat";
+    },
+    /** How far into the haze something Y ahead has gone (1: clear, 0: gone), as drawWorld fades everything standing. */
+    fadeAt(Y) {
+      const k = this.k;
+      const fog0 = k.far * 0.55;
+      return Y > fog0 ? 1 - clamp((Y - fog0) / (k.far - fog0), 0, 1) : 1;
     },
     /** The sky over the far edge of the ground, fading into the haze there. */
     sky(ctx, haze, night) {
@@ -1422,6 +1437,8 @@
     drawWorld(g, ctx, theme) {
       const t0 = performance.now();
       const k = this.setup(g);
+      this.frameNo = (this.frameNo || 0) + 1;
+      const B = ZSR.PerspBuild;
       const haze = this.haze(g);
       const GL = ZSR.PerspGL;
       if (GL && GL.draw(g, this, theme, haze)) {
@@ -1497,10 +1514,14 @@
       }
       for (const p of g.props) if (p.kind !== "tire" && p.kind !== "rubble") add(p, "prop", p.x, p.y);
       for (const c of g.crates) add(c, "crate", c.x, c.y);
-      // a building by its own middle (its lot's front can be behind the camera while the building is in view)
-      const G = ZSR.Streets.GEOM;
-      const mid = G.half + G.shoulder + G.lotGap + 168 + (G.lotDepth - 186) / 2;
-      for (const l of g.drive.lots) add(l, "lot", l.qx - l.uy * l.side * mid, l.qy + l.ux * l.side * mid, 0, 260);
+      // a building by its own middle (its lot's front can be behind the camera while the building is in view); each
+      // place's own (js/perspective-buildings.js) by its parts' middle, with the side streets' ends standing
+      if (B) B.collect(g, this, add);
+      else {
+        const G = ZSR.Streets.GEOM;
+        const mid = G.half + G.shoulder + G.lotGap + 168 + (G.lotDepth - 186) / 2;
+        for (const l of g.drive.lots) add(l, "lot", l.qx - l.uy * l.side * mid, l.qy + l.ux * l.side * mid, 0, 260);
+      }
       for (const z of g.zombies) add(z, "walker", z.x, z.y);
       if (ZSR.Walker3D) {
         // a body is sorted by its feet, the van by its middle: one the van has driven onto (its feet or the far end of
@@ -1534,21 +1555,19 @@
       // what flies (blood, sparks, kill dust) at its own depth: a body in front of it covers it, it covers one behind
       for (const p of g.particles) if (!p.splat) add(p, "flying", p.x, p.y);
       if (g.gameOverAt == null || g.gameOverAt > 0.9) add(g.van, "van", g.van.x, g.van.y);
+      // what stands by a building goes before it, after it, or between its parts (drawn there: _skip)
+      for (const o of list) o._skip = null;
+      if (B) B.order(g, this, list);
       list.sort((a, b) => b._Y - a._Y);
       ctx.imageSmoothingQuality = "medium";
+      // a landmark past the haze, as a silhouette on its far edge, behind everything standing
+      if (B) B.skyline(g, this, ctx);
       for (const o of list) {
+        if (o._skip) continue;
         // far things go into the haze with the ground
         const fade = o._Y > fog0 ? 1 - clamp((o._Y - fog0) / (k.far - fog0), 0, 1) : 1;
         if (fade <= 0.02) continue;
-        ctx.globalAlpha = fade;
-        if (o._t === "plant") this.plant(ctx, o);
-        else if (o._t === "prop") this.prop(ctx, o);
-        else if (o._t === "crate") this.crate(ctx, o);
-        else if (o._t === "lot") this.building(ctx, o);
-        else if (o._t === "walker") this.walker(g, ctx, o, fade);
-        else if (o._t === "downed") this.downed(g, ctx, o, fade);
-        else if (o._t === "flying") this.flying(g, ctx, o);
-        else this.van(g, ctx);
+        this.drawItem(g, ctx, o, fade);
       }
       ctx.globalAlpha = 1;
       this.liveGovern();
@@ -1559,6 +1578,20 @@
       fs.walkersMs = this.walkerStats.ms;
       fs.squaresMade = GL && GL.on && GL.stats ? GL.stats.made + GL.stats.ahead : 0;
     },
+    /** One thing from drawWorld's far-to-near list (or from among a building's parts), faded into the haze by fade. */
+    drawItem(g, ctx, o, fade) {
+      ctx.globalAlpha = fade;
+      if (o._t === "plant") this.plant(ctx, o);
+      else if (o._t === "prop") this.prop(ctx, o);
+      else if (o._t === "crate") this.crate(ctx, o);
+      else if (o._t === "lot") {
+        if (!ZSR.PerspBuild || !ZSR.PerspBuild.draw(g, ctx, this, o, fade)) this.building(ctx, o);
+      } else if (o._t === "end") ZSR.PerspBuild.drawEnd(g, ctx, this, o, fade);
+      else if (o._t === "walker") this.walker(g, ctx, o, fade);
+      else if (o._t === "downed") this.downed(g, ctx, o, fade);
+      else if (o._t === "flying") this.flying(g, ctx, o);
+      else this.van(g, ctx);
+    },
     /** Slow frames (a computer without a graphics card) get softer ground layers; a check every 30 frames. */
     pace(ms) {
       this.ms = this.ms == null ? ms : this.ms * 0.9 + ms * 0.1;
@@ -1567,8 +1600,10 @@
       if (this.ms > 18 && this.res > 0.6) this.res = Math.max(0.6, this.res - 0.1);
       else if (this.ms < 9 && this.res < 1) this.res = Math.min(1, this.res + 0.1);
     },
-    /** The names over the buildings, upright: smaller far off, never too small to read. */
+    /** The names over the buildings, upright: smaller far off, never too small to read (each place's own building
+        carries its name on its sign: js/perspective-buildings.js names). */
     drawNames(g, ctx, k) {
+      if (ZSR.PerspBuild) return ZSR.PerspBuild.names(g, this, ctx, k);
       const G = ZSR.Streets.GEOM;
       g.drive.lots.forEach((l) => {
         const v0 = G.half + G.shoulder + G.lotGap + 168;
