@@ -29,19 +29,21 @@ const BANDS = {
 };
 const ORDER = ["dmg", "died", "met", "scrap"];
 
-/** One metric: target t and result a (stats objects). */
+const pc = (x, sign) => (sign && x >= 0 ? "+" : "") + (x * 100).toFixed(0) + "%";
+/** One metric: target t and result a (stats objects); its text shows the difference, its band and the difference's
+    combined standard error (so a miss by noise reads as one). */
 function judge(metric, t, a, bands) {
   const b = (bands || BANDS)[metric];
   if (metric === "died") {
     const diff = a.rate - t.rate;
     const se = Math.sqrt(t.se * t.se + a.se * a.se);
-    return { metric, target: t.rate, result: a.rate, diff, band: b.pts, pass: Math.abs(diff) <= b.pts + 1e-9, z: se > 0 ? diff / se : 0, text: (t.rate * 100).toFixed(0) + "% -> " + (a.rate * 100).toFixed(0) + "% (" + (diff >= 0 ? "+" : "") + (diff * 100).toFixed(0) + " pts)" };
+    return { metric, target: t.rate, result: a.rate, diff, band: b.pts, se, pass: Math.abs(diff) <= b.pts + 1e-9, z: se > 0 ? diff / se : 0, text: (t.rate * 100).toFixed(0) + "% -> " + (a.rate * 100).toFixed(0) + "% (" + (diff >= 0 ? "+" : "") + (diff * 100).toFixed(0) + " of +-" + (b.pts * 100).toFixed(0) + " pts, se " + (se * 100).toFixed(0) + ")" };
   }
   const tol = Math.max(b.rel * Math.abs(t.mean), b.abs);
   const diff = a.mean - t.mean;
   const se = Math.sqrt(t.se * t.se + a.se * a.se);
   const rel = t.mean ? diff / t.mean : null;
-  return { metric, target: t.mean, result: a.mean, diff, rel, band: tol, pass: Math.abs(diff) <= tol + 1e-9, z: se > 0 ? diff / se : 0, text: t.mean.toFixed(1) + " -> " + a.mean.toFixed(1) + " (" + (rel == null ? "n/a" : (rel >= 0 ? "+" : "") + (rel * 100).toFixed(0) + "%") + ")" };
+  return { metric, target: t.mean, result: a.mean, diff, rel, band: tol, se, pass: Math.abs(diff) <= tol + 1e-9, z: se > 0 ? diff / se : 0, text: t.mean.toFixed(1) + " -> " + a.mean.toFixed(1) + " (" + (t.mean ? pc(rel, true) + " of +-" + pc(tol / Math.abs(t.mean)) + ", se " + pc(se / Math.abs(t.mean)) : (diff >= 0 ? "+" : "") + diff.toFixed(1) + " of +-" + tol.toFixed(1) + ", se " + se.toFixed(1)) + ")" };
 }
 /** Per cell: { key, verdicts: [...], pass }, for every key present in both. */
 function compare(targetCells, resultCells, bands) {
@@ -60,11 +62,11 @@ function compare(targetCells, resultCells, bands) {
 }
 function format(rows, label) {
   const L = [];
-  L.push((label || "result") + " vs the flat target (36403cd). Bands: dmg +-20% (>=5 HP), died +-10 pts, met +-15% (>=1.5), scrap +-15% (>=3). '!' = outside the band; z = diff / combined standard error.");
+  L.push((label || "result") + " vs the flat target (36403cd). Bands: dmg +-20% (>=5 HP), died +-10 pts, met +-15% (>=1.5), scrap +-15% (>=3). Each: target -> result (the difference +- its band, se: the difference's combined standard error); '!' = outside the band.");
   const w = Math.max(13, ...rows.map((r) => r.key.length + 2));
-  L.push("cell".padEnd(w) + ORDER.map((m) => m.padEnd(31)).join("") + "hits         dmg/met      spawned      verdict");
+  L.push("cell".padEnd(w) + ORDER.map((m) => m.padEnd(42)).join("") + "hits         dmg/met      spawned      verdict");
   for (const r of rows) {
-    const cols = r.verdicts.map((v) => ((v.pass ? " " : "!") + v.text + " z" + v.z.toFixed(1)).padEnd(31)).join("");
+    const cols = r.verdicts.map((v) => ((v.pass ? " " : "!") + v.text).padEnd(42)).join("");
     const f = (p, d) => (p[0].toFixed(d) + "->" + p[1].toFixed(d)).padEnd(13);
     L.push(r.key.padEnd(w) + cols + f(r.info.hits, 1) + f(r.info.dmgPerMet, 2) + f(r.info.spawned, 0) + (r.pass ? "PASS" : "FAIL"));
   }

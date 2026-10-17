@@ -36,8 +36,12 @@
   const AIM_Z = 26; // what a shot drops to where the pointer is: a walker's chest
   // aimed at a walker, Spread Shot's outer barrels cross it this share of its radius off its middle (aim)
   const SPREAD_HIT = 0.6;
-  // where walkers come from when the road gives no row (js/game.js ROAD_DANGER has the drive's): see spawn
-  const SPAWN = { far: 0.55, farY: [0.5, 0.8], farX: 700, sideY: [700, 2200], sideX: [600, 1400] };
+  // a walker from down the road that comes nearer than this share of cfg.far (where a plain walker is about 13 px tall
+  // on a 720 px window, just short of the haze) would fade in on the open road in plain view: it steps out of the
+  // thicket on the road's verge there instead, VERGE units past the shoulder (js/perspective-art.js grows the verge
+  // thicket out to 140 past it)
+  const ROAD_OPEN = 0.5;
+  const VERGE = [40, 140];
   // SCALE: seconds a new walker takes to come out of the weeds (walkers spawn at the edge of the view, cfg.far)
   const FADE_IN = 0.5;
   const TEX_RES = 3; // the van's faces, drawn sharper than the yard's
@@ -323,18 +327,26 @@
       const dy = y - k.oy;
       return { X: dx * k.Rx + dy * k.Ry, Y: dx * k.Fx + dy * k.Fy };
     },
-    /** Where a new walker comes from (o: the trip's js/game.js ROAD_DANGER row): far down the road (in the haze,
-        across the road and its verges), or out of the overgrowth at the edges of the view further in; small at
-        first, they walk in. */
+    /** Where a new walker comes from (o: the trip's js/game.js ROAD_DANGER row, roadRow's for its day): far down the
+        road (in the haze, across the road and its verges; nearer than ROAD_OPEN, out of the verge's thicket), or out
+        of the overgrowth at the edges of the view further in; small at first, they walk in. */
     spawn(g, o) {
       const k = this.setup(g);
       const G = ZSR.Streets.GEOM;
-      const r = o || SPAWN;
+      const r = o;
       let X;
       let Y;
       // (from as far in fog as on a clear day: in fog they are only seen later)
       if (Math.random() < r.far) {
         Y = this.cfg.far * (r.farY[0] + Math.random() * (r.farY[1] - r.farY[0]));
+        if (Y < this.cfg.far * ROAD_OPEN && g.track && g.van) {
+          // (out of the verge's thicket beside the van's own road that far ahead, round its bends)
+          const a = ZSR.Streets.at(g.track, g.van.s + Y - this.local(g.van.x, g.van.y).Y);
+          const side = Math.random() < 0.5 ? -1 : 1;
+          const off = side * (G.half + G.shoulder + VERGE[0] + Math.random() * (VERGE[1] - VERGE[0]));
+          // (out: the way from the road into the verge there, for the rest of its group)
+          return { x: a.x - a.uy * off, y: a.y + a.ux * off, out: { x: -a.uy * side, y: a.ux * side } };
+        }
         X = (Math.random() * 2 - 1) * (G.half + r.farX);
       } else {
         Y = r.sideY[0] + Math.random() * (r.sideY[1] - r.sideY[0]);
@@ -936,7 +948,7 @@
       const claw = touching || z.cool > CLAW_HOLD;
       const a = z.angle || 0;
       let want = a;
-      if (!claw && !(z.yell > 0) && sp > 0.15 * TILE && (z.wall || z.svx * Math.cos(a) + z.svy * Math.sin(a) >= 0)) want = Math.atan2(z.svy, z.svx);
+      if (!claw && !(z.yell > 0) && sp > 0.15 * TILE && (z.wall || z.step || z.svx * Math.cos(a) + z.svy * Math.sin(a) >= 0)) want = Math.atan2(z.svy, z.svx);
       const I = ZSR.Interior;
       const m = (gt.turnRate > 0 ? gt.turnRate : I ? I.TURN_RATE : 7) * dt;
       z.heading = normA(z.heading + clamp(normA(want - z.heading), -m, m));

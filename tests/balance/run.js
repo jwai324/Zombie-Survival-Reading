@@ -9,7 +9,8 @@
                [--night on|off] [--fog on|off] [--vw 1280 --vh 720] [--jobs 3] [--out trips.jsonl] [--summary cells.json]
 
    --repo     the game to load (default: this checkout). Never edited.
-   --matrix   every cell of matrix.json (its dangers, days, routes and seeds); --danger / --day filter it.
+   --matrix   every cell of matrix.json (its dangers, days, routes and seeds; its `clear` days with night and fog
+              off); --danger / --day filter it.
    --danger   matrix.json's routes for those dangers. --routes: any routes instead.
    --loadout  auto (default): the plausible van for that day from loadouts.json; stock: nothing bought; or explicit
               levels (upgrade keys of js/upgrades.js DEFS, room keys of WORLD.BASE_ROOMS, perkVanHp). --override on top.
@@ -108,12 +109,16 @@ function jobsFor(o) {
     for (const d of dangers) for (const r of M.routes[d] || []) routes.push([d, r]);
   }
   const keys = upgradeKeys(path.resolve(o.repo || DEFAULT_REPO));
+  // the matrix's clear days drive with night and fog off (unless --night / --fog say otherwise)
+  const clear = new Set(M.clear || []);
   const jobs = [];
   for (const day of days) {
     const lo = resolveLoadout(o.loadout || M.loadout, day, o.override, keys, o.loadoutsFile);
+    const night = o.night != null ? o.night : clear.has(day) ? false : null;
+    const fog = o.fog != null ? o.fog : clear.has(day) ? false : null;
     for (const [, route] of routes) {
       const [from, to] = route.split(">");
-      for (let s = seed0; s < seed0 + seeds; s++) jobs.push({ i: jobs.length, from, to, day, seed: s, upgrades: lo.upgrades, rooms: lo.rooms, perkVanHp: lo.perkVanHp, loadoutName: lo.name, bot: o.bot, aimAssist: o.aimAssist, night: o.night, fog: o.fog });
+      for (let s = seed0; s < seed0 + seeds; s++) jobs.push({ i: jobs.length, from, to, day, seed: s, upgrades: lo.upgrades, rooms: lo.rooms, perkVanHp: lo.perkVanHp, loadoutName: lo.name, bot: o.bot, aimAssist: o.aimAssist, night, fog });
     }
   }
   return jobs;

@@ -1213,7 +1213,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     if (P.fadeAt(P.FOG.near) !== 1 || P.fadeAt(P.FOG.far) !== 0 || !(P.fadeAt((P.FOG.near + P.FOG.far) / 2) < 0.6)) fErr("fog: things do not fade into it from FOG.near to FOG.far");
     let past = 0;
     for (let i = 0; i < 400; i++) {
-      const w = P.spawn(G);
+      const w = P.spawn(G, G.diff.row);
       if (P.local(w.x, w.y).Y > P.FOG.far + 150) past++;
     }
     if (past < 100) fErr(`fog: only ${past} of 400 walkers came from past the fog (they come from where they do on a clear day)`);

@@ -98,10 +98,10 @@
   const ROAD_DANGER = [
     {}, // the drive home
     {},
-    { chase: 0.7, early: { spawns: 1.0, chase: 0.84, group: 2.5, farY: [0.35, 0.5] } },
-    { early: { spawns: 1.2, chase: 0.8, group: 2.5, farY: [0.425, 0.575] } },
-    { early: { spawns: 1.0, chase: 0.8, group: 4.5, farY: [0.35, 0.5] } },
-    { chase: 0.73, group: 1.25, early: { spawns: 0.85, chase: 0.88, group: 5, farY: [0.2, 0.35] } },
+    { chase: 0.78, group: 1.5, spawns: 1.3, early: { spawns: 1.0, chase: 0.84, group: 2.5, farY: [0.35, 0.5] } },
+    { chase: 0.74, early: { spawns: 1.2, chase: 0.8, group: 2.5, farY: [0.425, 0.575] } },
+    { chase: 0.75, early: { spawns: 1.0, chase: 0.8, group: 4.5, farY: [0.35, 0.5] } },
+    { chase: 0.78, group: 1.25, early: { spawns: 0.85, chase: 0.88, group: 5, farY: [0.2, 0.35] } },
   ].map((r) => Object.assign({}, ROAD_LATE, { farY: ROAD_LATE.farY.slice(), sideY: ROAD_LATE.sideY.slice(), sideX: ROAD_LATE.sideX.slice(), early: {} }, r));
   const ROAD_LATE_DAY = 10;
   // SCALE: the walkers of a group come within this many units of its first
@@ -789,21 +789,47 @@
       if (g > n && Math.random() < g - n) n++;
       const z0 = this.spawnZombie();
       if (!z0) return 1;
+      // (the first came out of the verge's thicket, Persp.spawn: the rest come out of it beside it, along the road and
+      // deeper in, never onto the open road)
+      const out = this.spawnOut;
       for (let i = 1; i < n; i++) {
         const kind = this.pickType();
         const r = World().WALKER_TYPES[kind].road.r;
         for (let k = 0; k < SPAWN_TRIES; k++) {
-          const a = Math.random() * Math.PI * 2;
-          const d = GROUP_SPREAD * (0.4 + 0.6 * Math.random());
-          const x = z0.x + Math.cos(a) * d;
-          const y = z0.y + Math.sin(a) * d;
+          let x;
+          let y;
+          if (out) {
+            const along = (Math.random() * 2 - 1) * GROUP_SPREAD;
+            const deep = Math.random() * GROUP_SPREAD * 0.5;
+            x = z0.x + out.y * along + out.x * deep;
+            y = z0.y - out.x * along + out.y * deep;
+          } else {
+            const a = Math.random() * Math.PI * 2;
+            const d = GROUP_SPREAD * (0.4 + 0.6 * Math.random());
+            x = z0.x + Math.cos(a) * d;
+            y = z0.y + Math.sin(a) * d;
+          }
           if (this.clearSpot(x, y, r, false)) {
-            this.addZombie(kind, x, y);
+            const z = this.addZombie(kind, x, y);
+            if (out) this.stepOut(z, out);
             break;
           }
         }
       }
       return n;
+    },
+    /** A walker out of the verge's thicket (Persp.spawn) steps out onto the road, straight across it (against `out`,
+        the way from the road into the verge), to a place across its own half of the road at random, before it turns
+        for the van: it comes out where the old road's walkers stood, in the van's way (DESIGN.md "Walkers and
+        balance"), without fading in on the open road. */
+    stepOut(z, out) {
+      const St = Streets();
+      const P = ZSR.Persp;
+      P.setup(this);
+      const q = St.at(this.track, this.van.s + P.local(z.x, z.y).Y - P.local(this.van.x, this.van.y).Y);
+      const across = Math.abs((z.x - q.x) * -q.uy + (z.y - q.y) * q.ux);
+      const to = Math.random() * St.GEOM.half;
+      if (across > to && z.speed > 0) z.step = { x: -out.x, y: -out.y, t: (across - to) / z.speed };
     },
     /** Seconds to the next walker: the trip's interval (DIFF), ROAD_DANGER's spawns times as often, more often at
         night, and on average never under DIFF.minInterval; each one +-30%. */
@@ -828,7 +854,10 @@
         }
         if (!w && this.clearSpot(p.x, p.y, r, false)) w = p;
       }
-      return w ? this.addZombie(kind, w.x, w.y) : null;
+      this.spawnOut = (w && w.out) || null; // (out of the verge: spawnGroup keeps the rest of the group in it)
+      const z = w ? this.addZombie(kind, w.x, w.y) : null;
+      if (z && w.out) this.stepOut(z, w.out);
+      return z;
     },
     /** A walker of `type` (a WORLD.WALKER_TYPES id; an unknown one is the first kind, a plain walker) at world x, y.
         Its road stats are the kind's `road` row; health is its on-foot health, tougher with the trip's danger and day. */
@@ -1557,10 +1586,12 @@
         // walkers far off and ahead of the van just walk in; beside and behind it they keep up with it
         const own = z.yell > 0 ? 0 : z.speed * (z.frenzyT > 0 ? SC.mult : 1);
         z.carry = this.carry(z, own);
-        // (going round a building or along the river's bank: along it)
+        // (going round a building or along the river's bank: along it; out of the verge: onto the road, stepOut)
         if (z.wall && (z.wall.t -= dt) <= 0) z.wall = null;
-        const wx = z.wall ? z.wall.x : dx / dist;
-        const wy = z.wall ? z.wall.y : dy / dist;
+        if (z.step && (z.step.t -= dt) <= 0) z.step = null;
+        const go = z.wall || z.step;
+        const wx = go ? go.x : dx / dist;
+        const wy = go ? go.y : dy / dist;
         let vx = wx * own + fx * z.carry + z.kx;
         let vy = wy * own + fy * z.carry + z.ky;
         for (let j = 0; j < this.zombies.length; j++) {

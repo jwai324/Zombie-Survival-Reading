@@ -1,5 +1,5 @@
 {
- "_doc": "The balance matrix: per danger (the destination's LOCATIONS danger; 0 is the drive home), 3 routes of different lengths; the days (the save's day); seeds per route and day; loadout 'auto' takes each day's van from loadouts.json. The flat target (targets.json) was measured on exactly this matrix.",
+ "_doc": "The balance matrix: per danger (the destination's LOCATIONS danger; 0 is the drive home), 3 routes of different lengths; the days (the save's day); `clear`: days driven with night and fog forced off (day 7: the Ram Plow's first days, which the economy buys on day 6, with nothing else changing the drive); seeds per route and day; loadout 'auto' takes each day's van from loadouts.json. The flat target (targets.json) was measured on exactly this matrix.",
  "routes": {
   "0": [
    "grocery>base",
@@ -34,9 +34,14 @@
  },
  "days": [
   1,
+  3,
   5,
+  7,
   10,
   20
+ ],
+ "clear": [
+  7
  ],
  "seeds": 48,
  "loadout": "auto"
