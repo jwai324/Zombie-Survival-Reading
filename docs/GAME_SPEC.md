@@ -43,8 +43,8 @@ useful.
 2. **Map.** A fixed, hand-drawn city of 15 locations plus the base, with named streets and
    side streets. Only some are known at first; notes and the Radio room reveal the rest.
    Pick a known destination; the route is drawn and listed in words ("The way there").
-3. **Road.** Top-down driving in world space, the camera turned so the van always heads up.
-   Length is set by map distance, walker density by the destination's danger and the day
+3. **Road.** Driving through the city seen from behind and above the van (the angled road
+   camera, every drive: the old top-down road camera is gone, owner 2026-10-17). Length is set by map distance, walker density by the destination's danger and the day
    count; every walker kind comes, the rarer ones more often as danger and days grow. The road
    never shows the route: the player navigates by lanes and signs (see Driving below).
 4. **Location.** A door note is shown first (added to the backpack). Then free-roam
@@ -201,16 +201,25 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
 - Corners are shaped for the angled road camera (`js/streets.js` `cornerSpin`): where a turn would
   spin the view faster than about 43 deg/s (64 at Engine Tune 5), its stop line sits further
   back and the van takes the widest arc the paving holds; a corner already comfortable keeps its
-  shape (Home Base to Corner Grocery among them). On the angled camera the van brakes into every
+  shape (Home Base to Corner Grocery among them). The van brakes into every
   turn it takes from the stop line, never before: to 0.75 of its speed up to a right angle,
   down to 0.4 at 135 deg (and a little more where a road is too short for its corner).
-- On the angled camera each place stands as its own 3D building at the end of its drive (the
+- Each place stands as its own 3D building at the end of its drive (the
   cabin at Home Base, the Water Tower the tallest thing around and seen far off as a silhouette,
   the gas canopy over its pumps, River Landing's dock over the water), with its name painted on
   its sign once the place is known; the side streets' ends (barricades, guard rails, gate rails)
   stand up too. The overgrowth by the road is seeded by place and made as the view reaches it;
   nothing grows in the river. A slow machine thins the scenery (the scenery governor), never
   the camera.
+- At night (before Power's headlights) everything is dark but what the van lights: a glow round
+  it, its headlights' beam laid on the road down its own heading (so it turns with the van, not
+  the screen), reaching about 2,000 units ahead (between the old top-down road's 520 and the
+  angled drive's first, to the haze; owner: "in between"), and the gun's lamp along its aim. In
+  fog the haze comes in close and thick: the view sees about 760 units ahead, walkers further out
+  are hidden and buildings fade into it; walkers still come from as far off as on a clear day.
+- The sign hangs right of the road's edge as the camera sees it, under the HUD's top row; until a
+  way is taken right, the line on how lanes work sits under it (or on the grass left of the road).
+  A sign just passed slides off to the right as it fades.
 - At Huge text the road's top row keeps to one line (van health and pause, plus scrap from
   1000 px wide), and signs shrink to fit under it.
 - The lane the van is in when it crosses the white stop line decides. A wrong lane drives a
@@ -219,12 +228,18 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   set out; damage, scrap, kills and miles stay), the town map (pick any drive from where the van
   set out), or go back to where the van set out (a building: straight back in as you left it;
   the cabin: back out of the trip, as the map's yard button, and no day passes).
-- The roof gun fires at the pointer; shots carry the van's own speed, so on screen they fly
-  straight at it. Aim assist (Settings) bends a shot only onto a walker right under the pointer;
-  with no pointer yet it takes the walker closest to straight ahead.
-- The minimap (top left, under the HUD's top row) turns with the van, shows known roads, side
-  streets and places (each one's building, as on the city map, at the end of its own short drive), and flags
-  the destination. It never draws the route.
+- The roof gun fires at the pointer. Clicking a walker's picture (anywhere on it) aims at it and
+  leads it: the shot goes where it meets the walker walking on, carrying the van's speed. Anywhere
+  else a shot flies straight at the pointer on the screen and drops to chest height there. Spread
+  Shot's barrels close in on a walker clicked, so far down the road every barrel's shot still hits
+  it; aimed at the ground they fan out as before. Aim assist (Settings) also takes a walker a little
+  off the pointer; with no pointer yet it takes the walker closest to straight ahead.
+- The minimap (top left, under the HUD's top row) turns with the van (its arrow always points up),
+  shows known roads, side streets and places (each one's building, as on the city map, at the end
+  of its own short drive), and flags the destination. It never draws the route. It fades while a
+  place really in view (in front of the camera, short of the haze) lies under it.
+- The title screen and the garage's preview show the van on the angled road in its paint and every
+  van and gun upgrade, with two walkers coming (on the title, every kind in turn).
 
 ## Buildings: floor plans, landmarks, the map
 
@@ -292,7 +307,8 @@ every kind.
   and frenzied walkers show red eyes, a glow on the ground and speed lines. A walker killed does
   nothing more that frame, so a sleeping screamer killed by the shot that wakes it never screams.
 - **The lanky** bites from 1.25 tiles, but never round a wall's corner.
-- **On the road** each kind has its own top-down look in the same colours, its own speed, size,
+- **On the road** each kind is the same live 3D figure as on foot, seen from the road camera's
+  height (the old top-down looks went with the flat camera, 2026-10-17), with its own speed, size,
   damage to the van and knockback (the brute and the armored hardly move when hit); the lanky reaches
   the van from farther off, and half of an armored walker's hits glance off its gear in grey sparks.
   A ram by the van is a hit like a shot: the walker flashes and bleeds the way the van pushes it.
@@ -568,9 +584,8 @@ picture never drawn yet, a hit's flash and a near walker's out-of-date picture d
 frame-time governor (`LIVE_LEVELS`) steps to fewer redraws, a 0.7 resolution and less detail when
 frames stay slow, and up to the first design's settings (24 redraws, 400 px pictures, full detail
 for every walker) when they stay fast. Blood drops and splats are cached sprites, drawn only with
-gore on. On the road walkers stay top-down drawings (`js/sprites.js`), one look per kind in the 3D
-looks' colours, except on the angled test drive (Home Base to Corner Grocery, `PERSP_ROUTES` in
-`js/game.js`): there they are these live figures seen from above, at on-foot size against the van, with
+gore on. On the road, every drive, walkers are these live figures seen from above, at on-foot size
+against the van (the top-down drawings went with the flat road camera, 2026-10-17), with
 the road's behaviour (scream and frenzy, clawing at the van, each kind's fall, blood with gore on, health
 bars), drawn under the interiors' governor rows on the walkers' own time (`js/perspective.js`).
 

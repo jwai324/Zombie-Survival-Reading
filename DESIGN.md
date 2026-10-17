@@ -1377,9 +1377,9 @@ the same load. Draw ms, median / 95th percentile:
 
 After the one-drive test the owner said: "This should be the way all driving happens." The questions below were put
 to the owner on 2026-10-16 and 2026-10-17. This drop builds the corners, each place's own building and scenery that
-holds up on every route. Every check below ran with every route put on the angled camera in memory. In this build
-the camera itself still runs only on Home Base to Corner Grocery (`PERSP_ROUTES`), until the top-down road camera
-is taken out.
+holds up on every route. Every check in the first three parts ran with every route put on the angled camera in
+memory; a later drop the same day took the top-down road camera out (`PERSP_ROUTES` with it), so every drive now
+uses the angled camera ("The flat camera taken out" below).
 
 | Question | Owner's answer |
 |----------|----------------|
@@ -1401,17 +1401,19 @@ is taken out.
 - the seamless start;
 - scenery that scales to every route.
 
-**Still to come:**
-- removing the top-down camera (and with it `PERSP_ROUTES`);
-- the walkers ahead of the van;
-- the spawn rebalance;
+**Built later the same day** ("The flat camera taken out" below):
+- the top-down camera removed, and with it `PERSP_ROUTES`;
 - the night beam;
-- buildings blocking walkers;
 - the angled title screen and garage preview;
 - the minimap's fade;
 - fog that thickens with distance;
-- the door's spawn rule in seconds;
 - the FPS toggle.
+
+**Still to come:**
+- the walkers ahead of the van;
+- the spawn rebalance;
+- buildings blocking walkers;
+- the door's spawn rule in seconds.
 
 ### Judgment calls: the corners (js/streets.js, js/game.js)
 
@@ -1736,3 +1738,168 @@ The three were built side by side from the same start and merged in this order: 
   - the governor's steps, its fade-in and hold, and the walkers' rows left untouched;
   - release at a stop, and nothing released on a retry;
   - squares kept against the view plus the views ahead.
+
+### The flat camera taken out (2026-10-17, later)
+
+Every drive now uses the angled camera, with no setting and no fallback (the owner's answer above). A machine
+without WebGL gets the angled view's own 2D ground; a slow one gets the scenery governor.
+
+**What went:**
+- **js/game.js:** the `PERSP_ROUTES` gate and the `persp` flag, `drawFlat`, `flatToScreen` / `flatToWorld`, the flat
+  aim and its assist, the flat spawn, cull and touch test, `drawCrowd`, `viewTurn`, the flat `drawOverSign`, `anchorY`
+  and `EASE.camTurn`. That first commit took 334 lines out and put 116 in.
+- **js/sprites.js** (2409 lines to 1201):
+  - the top-down road walkers: `Draw.zombie` with its six looks (`ZOMBIE_LOOK`), `zombieShadow` and `zombieDown`,
+    about 920 lines;
+  - the scrolling road (`Draw.road`). It went too, because only the old title screen still called it;
+  - the flat standing props (dead trees, barrels, barriers, signs and wrecked cars). `Draw.prop` keeps the junk that
+    lies flat: tires, rubble and crates;
+  - the top-down van's turret;
+  - the screen-space fog and night overlays.
+- **Tests:**
+  - validate-art's road-walker section went. It keeps only the road's particles;
+  - validate-drive's flat-only checks went: the flat routes, "no brake on the flat camera" and the flat crowd's draw
+    order.
+- **docs/SCALING.md:** the walker-kind step 4 (a road look for each kind) went. A new kind has one look, on foot and
+  on the road.
+
+**What stayed**, because the angled view still draws it: `Draw.ground`, `cityRoads`, `laneZone`, `laneArrow`, `lot`,
+the signs and the name boards, `Draw.van` (the roof seen from above, laid on the 3D van's roof), particles, bursts,
+`inRiver` and `riverEdge`. `cityRoads` keeps its flat side-street ends and the gas canopy, which the angled ground
+draws when no building row stands there (a test that loads no buildings).
+
+**What took its place:**
+- **Night** (`Persp.night`):
+  - a dark layer, with a glow round the van, the headlights' beam laid on the road down the van's own heading (so it
+    turns with the van) and the gun's lamp along its aim;
+  - the layer is drawn again only when it moves;
+  - the Water Tower's light (`PerspBuild.drawLights`) is still drawn over it.
+- **Fog:** the haze comes in thick and near, and walkers past it are hidden. It works with night: both go on at once.
+- **The title screen and the garage's preview** (`Persp.showcase`): a still angled scene with the 3D van in its paint
+  and every van and gun upgrade, and two Walker3D figures. It is drawn only when it changes.
+- **The roof gun:** the 3D gun on the van shows every gun upgrade, as the old top-down turret did.
+- **The aim:** every drive aims through the angled camera (`Persp.aim`).
+
+**Judgment calls:**
+- **Night's reach is 2050** (`NIGHT_BEAM`). That is about halfway between the old top-down road's 520 and the haze at
+  3600, which is what "in between" asked for.
+  - **The beam:** it starts 40 units ahead of the van's middle, 26 wide each side there, and opens 0.34 a unit. It is
+    full bright for the first 30% of its reach and gone at its end.
+  - **The other lights:** the glow round the van reaches 170. The gun's lamp reaches 360, 0.22 rad each side of the aim.
+- **Night is fully dark outside the lights** (`NIGHT_DARK`, opaque). The old overlay filled its layer at 0.88 every
+  frame without clearing it, so within a few frames it built up to black outside the lights. The new layer is cleared
+  and redrawn only when it moves, so at 0.88 the world would show through at 12%. Opaque, beyond the beam and the
+  glow, matches the old flat and angled drives pixel for pixel (6-8, 8, 16 against 6, 8, 16). Inside the lights it is
+  within 3% of the old steady state.
+- **When the dark is drawn again:** the layer is redrawn only when one of its points on the screen moves a whole px,
+  or the aim turns about 1 deg. On a straight with a steady aim, 65% of frames reuse it.
+- **Fog** (`FOG`):
+  - the view sees 760 ahead in fog, clear to 60 ahead of the camera's spot and thickening between;
+  - buildings fade into it by colour, and the far silhouettes (the tower past the haze) are off in fog;
+  - walkers still come from as far off as on a clear day (`spawn` reads `cfg.far`), so in fog they are only seen
+    later. The spawn rebalance is still to come;
+  - the old flat road's fog was a clear circle about 300 round the van.
+- **The title screen and the garage:**
+  - both draw a 200 px tall picture (`SHOW`) with the van 0.76 of the way up it and two walkers at set spots, and the
+    gun aims at the nearer walker;
+  - on the title screen the walkers' kinds take turns through `WALKER_TYPES`, changing every `SHOWCASE_SECS` (4 s);
+  - each drawing is keyed by size, upgrades, kinds and turn, so nothing is drawn while none of them changes.
+- **The gun's upgrades in 3D:**
+  - Spread Shot adds barrels at the fan's own angle;
+  - Heavier Rounds lengthen them, with a muzzle brake from 3;
+  - Rate of Fire adds a jacket (1; copper at 5), a drum by the breech (2; bigger with a brass ring at 4) and cooling
+    fins (3);
+  - the jacket stops short of the tips, so the barrels' length still shows.
+- **The minimap:**
+  - its arrow always points up. The map already turns with the van, and the camera's lag through a turn (up to 25-31
+    deg) tilted it for nothing;
+  - it fades only when a place's lot or its building's box is in front of the camera and short of the haze
+    (`MINI_HAZE`, 0.25), and that outline on the screen overlaps the map.
+- **The sign and the lane hint** (`Game.roadEdges`):
+  - **The road's edges:** the outer edges (shoulders and oncoming lanes included) are projected every `EDGE_STEP`
+    (120) from just behind the van out to the haze. Past a stop line the van has not crossed, they run on straight,
+    so where the sign stands never tells the way;
+  - **The sign** hangs `SIGN_GAP` (14 px) right of the edge beside the rows it covers;
+  - **The lane hint** sits under the sign, as far right as the road's edge beside it needs, or on the grass left of
+    the road down to where the edge comes past it;
+  - **A sign just passed** slides right (`SIGN_AWAY`, 1.2 px a unit) as it fades. On the flat road it slid down the
+    screen, which here would cross the road ahead.
+- **Spread Shot closes in on a walker clicked.** With the click-pick the fan was centred on the walker, so with two
+  barrels both shots passed either side of it: 0 of 2 hit at 500 to 1100 units.
+  - **Clicked on a walker:** `Persp.aim` now narrows the fan, never wider than `Upgrades.SPREAD`, so every barrel's
+    line crosses the walker within `SPREAD_HIT` (0.6) of its radius where the shots meet it;
+  - **Aimed at the ground:** the fan is as before.
+- **Pictures in their own pixels.** `Persp.texWall` and the van's roof drew each strip into a unit square, which
+  Chromium blurred and clipped at small sizes. They now draw it at its own size, through a matching scale, as
+  `texQuad` does.
+- **The FPS meter** (god mode, Cheats, off by default):
+  - **How it runs:** it has its own `requestAnimationFrame` loop, only while it is on. It shows the rate and the worst
+    frame over the last second (`FPS_WINDOW_MS`), changing its words every 250 ms. A gap over 1 s (a tab in the
+    background) is not counted as a frame;
+  - **On the road** it adds the scenery governor's `gapMs` (or "paused"), the draw's own time, and both governors'
+    rows;
+  - **Saving:** it goes off with god mode and is never saved.
+- **The roadside is built only where the drive can see** (`buildScenery`):
+  - **Where:** the city is checked against the drive's track every `SCENERY_STEP` (400). Only roads within
+    `SCENERY_REACH` (the camera's `cfg.far` + 600) get a roadside, and only along their stretch in that reach;
+  - **Seeds:** each road's roadside is seeded by the route and that road, so it does not depend on the rest of the
+    city. Today's drives have a different but just as thick roadside, and no save holds it.
+- **validate-streets** now drives only the angled speeds (1.25 and 2.125): 8.6 s became 4.4 s.
+- **Balance:** the angled pace, shot speed and spawns (`PERSP`: 1.25, 1.6, 1.4) now apply to every drive. The rebalance
+  by danger level is still to come, so no drive's difficulty has been compared with the top-down game's yet.
+
+**Measured:**
+- **A drive's start** (`buildScenery`, node, all 272 routes):
+  - today's city: 2.4 ms mean and 3.5 ms p95 before, 1.0 and 2.3 after;
+  - a city padded to 3 times the roads: 16.8 and 23.5 before, 1.0 and 2.1 after;
+  - props a drive: 935 before, 433 after. What went lay out of the camera's sight.
+- **Night** (headless Chromium, SwiftShader, 1280 x 800, River Landing to Northgate Mall):
+  - the old overlay: 4.5 ms median, 7.3 p95, every frame;
+  - the new one: 2.1 and 3.2 when it is drawn again, and 0.0 and 0.1 when it is reused;
+  - the whole frame is about 46 ms either way on the software raster, so the gain shows only where the GPU does the
+    rest.
+
+**Checked with every drive angled** (node, a checking 2D context):
+- **Every route:** all 272 routes at Engine Tune 0 and 5, 544 drives. They were split by weather (clear, night, fog,
+  fog and night) and Spread Shot level, with a bot aiming and firing. The minimap's fade and the sign were drawn every
+  frame checked.
+- **Results:** every drive arrived and parked with no wrong turn, and the place's building was drawn once parked.
+  There were no exceptions, NaN or bad canvas calls in 137,477 frames. No plant stood in a building or in the river,
+  and no prop in the river.
+- **Looked at** in headless Chromium:
+  - the title screen and the garage preview (plain, mid and every upgrade);
+  - night on a straight, in a turn and parked, against the old flat road (36403cd) and the angled drive before this
+    drop;
+  - fog, and fog with night;
+  - the minimap in the 133 deg corner;
+  - the sign and the hint at 1280 x 800, 1920 x 1080 and 960 x 1040;
+  - the FPS meter;
+  - Spread Shot at a walker clicked.
+
+**Still open:**
+- the walkers ahead of the van, the spawn rebalance, buildings blocking walkers and the door's rule in seconds;
+- `Draw.cityRoads` still filters every road for each ground square, a cost that grows with the whole city;
+- at 1280 x 800 the HUD's top row still covers the far horizon;
+- fog days and night drives were not balanced.
+
+**Tests added or changed:**
+- **`tests/validate-drive.js`** "flat out" (a checking 2D context, no WebGL) checks:
+  - **night:** the dark is drawn again only when it moves; its beam lies down the van's heading; its reach is about
+    halfway from 520 to the haze;
+  - **fog:** the view sees `FOG.far`; a walker past it is not drawn; walkers come from where they do on a clear day;
+    no silhouette shows past it;
+  - **the minimap:** its arrow points up, and it fades for a place in view under it, not for the sky or a place in the
+    haze;
+  - **the sign and the hint:** off the road at three window sizes;
+  - **Spread Shot 1 and 3:** at a walker clicked 1100, 800 and 500 ahead, every barrel's shot hits it;
+  - **the title screen and the garage:** drawn again only on a change, every kind in turn;
+  - **`texWall`:** drawn in its own pixels.
+
+  The gun check runs on the angled camera at both engines, a check fails if game.js or sprites.js keeps any of the
+  flat camera's members, and "comfort" drives the road as loaded.
+- **`tests/validate-scenery.js`** "roadside": on cities 1x, 2x and 3x, three drives get the same props from the same
+  roads, and none past the camera's reach.
+- **`tests/validate-god.js`:** the FPS meter is off by default, and checks what it says off and on the road and that it
+  goes off with god mode.
+- **`tests/validate-engine.js`:** the van's gun is checked on the 3D roof gun.
+- **`tests/validate-art.js`:** keeps the road's particles only.
