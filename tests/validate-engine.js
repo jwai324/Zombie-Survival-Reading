@@ -93,7 +93,7 @@ const PAGE = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m)
 // the fact files: js/layouts.js, js/world.js and every js/story*.js the page loads (a split fact file, story-quests2.js,
 // is run too; tests/validate-world.js reads the same list), then the engine
 const FACT_FILES = ["layouts.js", "world.js"].concat(PAGE.filter((f) => /^story[\w-]*\.js$/.test(f)));
-const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
+const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "perspective.js", "interior.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
 const scripts = PAGE.filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -1750,13 +1750,17 @@ try {
     D.gun(element("canvas").getContext("2d"), 480, 270, { weapon: id, mods: { damage: 3, range: 3, rate: 3, aim: 3 }, bob: 1 });
     D.gun(element("canvas").getContext("2d"), 480, 270, { weapon: id, mods: { damage: 3, range: 3, rate: 3, aim: 3 }, bob: 1, flash: 0.08, flashL: 0.08, draw: 0.6, raise: 0.5 });
   });
-  // the van's own gun on the road: every Garage gun upgrade step shows on the turret
+  // the van's own gun on the road (the roof gun standing on the 3D van, js/perspective.js gun): every Garage gun
+  // upgrade step shows, seen close from the road's camera behind the van
   const vanGunAt = (u) => {
     const c = sb.document.createElement("canvas");
-    c.width = 160;
-    c.height = 200;
+    c.width = 400;
+    c.height = 400;
     const g = c.getContext("2d");
-    ZSR.Draw.van(g, 80, 100, { upgrades: Object.assign({ armor: 0, engine: 0, bumper: 0, paint: 0, damage: 0, fireRate: 0, spread: 0 }, u), aim: 0, t: 0 });
+    const th = -Math.PI / 2;
+    const scene = { W: 400, H: 400, zoom: 1.5, vanAt: 0.7, cam: { x: 0, y: 0, th }, mods: {}, upgrades: Object.assign({ armor: 0, engine: 0, bumper: 0, paint: 0, damage: 0, fireRate: 0, spread: 0 }, u), van: { x: 0, y: 0, heading: th, w: 66, h: 118, aimW: th + 0.5, aimDz: -0.02, flash: 0 } };
+    ZSR.Persp.setup(scene);
+    ZSR.Persp.gun(scene, g);
     return g.px;
   };
   for (const k of ["damage", "fireRate", "spread"]) for (const o of [0, 2]) {

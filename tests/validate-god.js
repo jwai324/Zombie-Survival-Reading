@@ -117,6 +117,31 @@ try {
   A.setCheat("noDie", true);
   ok(S.cheat("noDie"), "setCheat");
 
+  // the FPS meter: off by default; on, it says the rate and the worst frame of the last second, and on the road both
+  // governors' rows (no page here: its box is not made, what it would say is)
+  const FM = ZSR.God.meter;
+  ok(FM && !S.cheat("fps") && !FM.on, "the FPS meter is off by default");
+  A.setCheat("fps", true);
+  ok(S.cheat("fps") && FM.on, "the FPS meter's toggle turns it on");
+  for (let i = 0; i < 60; i++) FM.sample(i === 30 ? 50 : 1000 / 60, 10000 + i * (1000 / 60));
+  FM.sample(5000, 11100); // (a tab in the background: not a frame)
+  let said0 = FM.lines();
+  ok(said0.length === 1 && /^(5[0-9]|60) fps .* worst 50 ms$/.test(said0[0]), `the FPS meter off the road says ${JSON.stringify(said0)}`);
+  for (let i = 0; i < 70; i++) FM.sample(20, 11200 + i * 20);
+  said0 = FM.lines();
+  ok(/^50 fps .* worst 20 ms$/.test(said0[0]), `the FPS meter forgets frames over a second old (${said0[0]})`);
+  ZSR.Game = { running: true };
+  ZSR.Persp = { frameStats: { scenery: 2, gapMs: 21.5, ms: 9.2 }, walkerStats: { level: 3 }, SCENERY_ROWS: 5 };
+  ZSR.Interior = { LIVE_LEVELS: [0, 1, 2, 3, 4, 5, 6, 7] };
+  said0 = FM.lines();
+  ok(said0.length === 3 && /21\.5 ms/.test(said0[1]) && /scenery row 2 of 4/.test(said0[2]) && /walkers row 3 of 7/.test(said0[2]), `the FPS meter on the road says ${JSON.stringify(said0)}`);
+  delete ZSR.Game;
+  delete ZSR.Persp;
+  delete ZSR.Interior;
+  A.setCheat("fps", false);
+  ok(!FM.on, "the FPS meter's toggle turns it off");
+  A.setCheat("fps", true);
+
   // a walker of any kind in front of you: the kinds are the facts' (WALKER_TYPES); with no scene under the menu it says
   // where it works, an unknown kind is refused, and against a scene it says what happened (no engine is loaded here,
   // so the yard and the road are stand-ins; tests/validate-engine.js spawns every kind in the real scenes)
@@ -168,6 +193,8 @@ try {
   S.godEnd();
   ok(!S.god && S.save.day === 5 && S.save.scrap === 40 && S.settings.level !== 6, "godEnd: the real save and settings come back");
   ok(!S.cheat("noDie"), "cheats end with god mode");
+  ZSR.God.sync();
+  ok(!S.cheat("fps") && !ZSR.God.meter.on, "the FPS meter goes off with god mode");
   S.save.day = 6;
   S.commit();
   ok(writes() > before, "saving works again after god mode");

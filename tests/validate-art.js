@@ -15,7 +15,10 @@
      facts has a look; every type draws cleanly in every pose, from every side, at every level of detail, falling and
      hit, in tiny to large regions, near and far, with no transforms, images, gradients, read-backs or new canvases,
      inside its region with its feet on the bottom, within its canvas-call ceiling, the same way twice; no strong red
-     with gore off; fog darkens all but the eyes; its boxes, strides and blood sprites are sane;
+     with gore off; fog darkens all but the eyes; its boxes, strides and blood sprites are sane; seen from above as
+     the angled road camera sees them (cam.floor, cam.shadow: eyes 5 to 9 tiles, 2 to 70 tiles off) the same
+     promises hold, every pose at full size, the ankles where that camera puts them, no shadow of its own; and the
+     two options left off draw exactly as without them;
    - the crew's art (js/crewart.js, loaded by the page after sprites3d.js): every sprite ZSR.CREW_ART
      lists is registered and draws cleanly, at its size, with every opts set listed for it; the list
      covers every crew member in every pose and frame, the poses and quest object kinds docs/CREW.md
@@ -807,16 +810,17 @@ else {
   else {
     const PB = W3.probe();
     const stQ = (o) => Object.assign({}, base, o);
-    // G: smooth walk cycles: through 200 gait steps, no boot, toe or hand jumps more than 4 x its usual step (+ 1 px)
+    // G: smooth walk cycles: through 200 gait steps, no boot, toe or hand jumps more than 4 x its usual step (+ 1 px);
+    // running too (st.run, the angled road's walkers keeping up with the van)
     const LIMBS = { "left hand": 6, "right hand": 9, "left ankle": 12, "left toe": 13, "right ankle": 16, "right toe": 17 };
     types.forEach((type) => {
       [PI / 2, 0.4].forEach((yaw) => {
-        [0, 1].forEach((seed) => {
+        [[0, 0], [1, 0], [0, 1]].forEach(([seed, run]) => {
           const cam = camFor(type, false, 160);
           const steps = {};
           let prev = null;
           for (let i = 0; i <= 200; i++) {
-            W3.draw(quiet, type, stQ({ yaw, seed, gait: i / 200, move: 1 }), cam);
+            W3.draw(quiet, type, stQ({ yaw, seed, run, gait: i / 200, move: 1 }), cam);
             const now = Array.from(PB.s);
             if (prev) Object.entries(LIMBS).forEach(([n, j]) => (steps[n] = steps[n] || []).push(Math.hypot(now[j * 3] - prev[j * 3], now[j * 3 + 1] - prev[j * 3 + 1])));
             prev = now;
@@ -825,7 +829,7 @@ else {
             const sorted = a.slice().sort((x, y) => x - y);
             const med = sorted[sorted.length >> 1];
             const max = sorted[sorted.length - 1];
-            if (max > 4 * med + 1) err(`walker ${type} yaw ${yaw.toFixed(2)} seed ${seed}: its ${n} jumps ${max.toFixed(1)} px in one step of the walk cycle (its usual step is ${med.toFixed(2)} px at 160 px tall): a snap`);
+            if (max > 4 * med + 1) err(`walker ${type} yaw ${yaw.toFixed(2)} seed ${seed}${run ? " running" : ""}: its ${n} jumps ${max.toFixed(1)} px in one step of the walk cycle (its usual step is ${med.toFixed(2)} px at 160 px tall): a snap`);
           });
         });
       });
@@ -970,6 +974,101 @@ else {
     if (colours.size > WALKER_COLOURS) err(`walkers: ${colours.size} different colour strings in 3000 random draws (over ${WALKER_COLOURS}): the colour table cannot hold them, so every draw would make new strings`);
     if (late > colours.size * 0.05) err(`walkers: the last 1000 of 3000 random draws still made ${late} new colours (of ${colours.size}): light or fog is not stepped`);
   }
+  // R: seen from above, as the angled road camera sees them (js/perspective.js liveGeo): eyes 5 to 9 tiles up, 2 to
+  // 70 tiles off, room under the feet (cam.floor) and no contact shadow (cam.shadow false), in the region the road
+  // gives (the box, the margin and how far a part can show over and under the feet from there, running included:
+  // envRun). Every kind standing, walking, running (st.run), clawing as it slows from a run, screaming, hit and
+  // going over, at every detail, gore on and off: inside the region, finite,
+  // within the call ceilings (drawOne); standing, its feet on the floor line, at full size (no shrink); no shadow
+  // of its own, the pool still there
+  const roadCam = (type, falling, eye, dist, px) => {
+    const b = W3.box(type, falling);
+    const env = !falling && (W3.TYPES[type].envRun || W3.TYPES[type].env);
+    const bw = falling ? b.w : Math.max(b.w, W3.TYPES[type].wRun || 0);
+    const reach = env ? env.rh : b.w / 2;
+    let above = 0;
+    if (env) {
+      for (let i = 0; i < env.n; i++) {
+        const y = env.top[i] - eye;
+        above = Math.max(above, eye + y * (y < 0 ? dist / (dist + env.rho[i]) : dist / Math.max(0.3, dist - env.rho[i])));
+      }
+    } else above = Math.max(b.h, eye - (eye - b.h) * (dist / (dist + reach)));
+    const below = eye * (dist / Math.max(0.3, dist - reach) - 1) + 0.04;
+    const pad = 2 + Math.max(0.7, Math.min(3.2, px * 0.0105));
+    const up = Math.ceil(above * px + pad);
+    let fl = Math.ceil(below * px + pad);
+    fl = Math.min(fl, Math.floor(up * 1.5)); // (the engine keeps the floor under 0.6 of the region)
+    return { w: Math.ceil(bw * px + 2 * pad), h: up + fl, px, dist, eye, floor: fl, shadow: false };
+  };
+  let roadCams = 0;
+  types.forEach((type) => {
+    [5, 7, 9].forEach((eye) => {
+      [[2, 90], [5, 70], [12, 40], [30, 18], [70, 8]].forEach(([dist, px]) => {
+        [0, 1.2, -2.3, PI].forEach((yaw, yi) => {
+          const lod = yi % 3;
+          const gore = yi % 2 === 0;
+          ["walk", "run", "claw", "run claw", "scream", "idle"].forEach((name) => {
+            const run = name === "run" ? 1 : name === "run claw" ? 0.5 : 0;
+            const pose = name === "run" ? "walk" : name === "run claw" ? "claw" : name;
+            const cam = roadCam(type, false, eye, dist, px);
+            const what = `walker ${type} from above (eye ${eye}, ${dist} tiles, ${px} px a tile) ${name} yaw ${yaw.toFixed(2)} lod ${lod}`;
+            const r = drawOne(type, { pose, run, poseW: name === "run claw" ? 0.5 : 1, yaw, lod, gore, gait: 0.35, move: pose === "walk" ? 1 : 0.4, poseT: 0.5, claw: 0.4, hit: pose === "idle" ? 1 : 0 }, cam, what);
+            roadCams++;
+            if (!r) return;
+            if (r.ops.some((op) => op.k === "fill" && op.fillStyle === "rgba(0,0,0,0.32)")) err(`${what}: drew its own contact shadow with cam.shadow false`);
+            // the road's region holds every pose at full size: nothing shrinks it (no pulsing as it swings)
+            if (W3.probe && W3.probe().fit < 0.999) err(`${what}: drawn at ${(W3.probe().fit * 100).toFixed(1)}% size in the road's region (it must have room for every pose)`);
+          });
+          // standing still in profile (its right toward the camera): each ankle where a camera eye tiles up sees it
+          // over the floor line, the near one lower and the far one higher than its middle, at full size
+          const cam = roadCam(type, false, eye, dist, px);
+          const what = `walker ${type} from above (eye ${eye}, ${dist} tiles) standing in profile`;
+          const r = drawOne(type, { pose: "idle", yaw: PI / 2, lod, move: 0 }, cam, what);
+          if (r && W3.probe) {
+            const P = W3.probe();
+            [12, 16].forEach((j) => {
+              const k = Math.max(0.6, Math.min(1.6, dist / (dist + P.j[j * 3]))); // its depth is its x, seen from its right
+              const want = cam.h - cam.floor - (eye - (eye - P.j[j * 3 + 1]) * k) * px * P.fit;
+              if (Math.abs(P.s[j * 3 + 1] - want) > 1) err(`${what}: an ankle is at ${P.s[j * 3 + 1].toFixed(1)}, not ${want.toFixed(1)} (floor line ${cam.h - cam.floor}, region ${cam.w} x ${cam.h})`);
+            });
+            if (P.fit < 0.999) err(`${what}: drawn at ${(P.fit * 100).toFixed(1)}% size in the road's region (it must have room: no shrink)`);
+          }
+          [0.3, 0.7, 1].forEach((fall) => {
+            [0, PI / 2, PI, -2].forEach((fallDir) => {
+              const camF = roadCam(type, true, eye, dist, px);
+              const whatF = `walker ${type} from above (eye ${eye}, ${dist} tiles) falling ${fall} dir ${fallDir.toFixed(2)} yaw ${yaw.toFixed(2)}`;
+              const rf = drawOne(type, { pose: "walk", yaw, lod, gore, fall, fallDir, move: 1, gait: 0.6 }, camF, whatF);
+              roadCams++;
+              if (rf && fall === 1 && gore && lod < 2 && !rf.ops.some((op) => op.k === "fill" && parse(op.fillStyle) && parse(op.fillStyle)[0] > 2 * parse(op.fillStyle)[1] && parse(op.fillStyle)[0] > 60)) err(`${whatF}: no blood pool with gore on (cam.shadow false drops only the contact shadow)`);
+            });
+          });
+        });
+      });
+    });
+  });
+  // S: the options left off draw exactly as without them (the interiors' cameras): floor 0, shadow true and st.run 0
+  // make the same calls as no option at all, across kinds, poses, falls, details and cameras
+  let same = 0;
+  types.forEach((type) => {
+    [[0.5, 0.85, 300], [0.5, 3, 120], [0.587, 2.2, 160], [0.5, 25, 16], [6, 7, 60]].forEach(([eye, dist, h], ci) => {
+      [{ pose: "walk", gait: 0.4, move: 1 }, { pose: "claw", claw: 0.3, move: 0.2 }, { pose: "scream", poseT: 0.4 }, { fall: 0.6, fallDir: 1 }, { fall: 1, fallDir: PI, gore: true }].forEach((o, i) => {
+        const falling = o.fall > 0;
+        const b = W3.box(type, falling);
+        const cam = { w: Math.ceil((b.w * h) / b.h), h, px: h / b.h, dist, eye };
+        const st = Object.assign({ yaw: 0.7 - ci, lod: (i + ci) % 3, seed: i, fog: ci * 0.2, hit: i === 1 ? 1 : 0 }, o);
+        const plain = drawOne(type, st, cam, `walker ${type} (no options)`);
+        [{ floor: 0 }, { shadow: true }, { floor: 0, shadow: true }].forEach((opt) => {
+          const r = drawOne(type, st, Object.assign({}, cam, opt), `walker ${type} with ${JSON.stringify(opt)}`);
+          if (plain && r && sig(r.ops) !== sig(plain.ops)) err(`walker ${type} ${JSON.stringify(o)} at eye ${eye}, ${dist} tiles: cam ${JSON.stringify(opt)} draws differently from no option (an option left off must change nothing)`);
+          same++;
+        });
+        const r0 = drawOne(type, Object.assign({}, st, { run: 0 }), cam, `walker ${type} with st.run 0`);
+        if (plain && r0 && sig(r0.ops) !== sig(plain.ops)) err(`walker ${type} ${JSON.stringify(o)} at eye ${eye}, ${dist} tiles: st.run 0 draws differently from no run (an option left off must change nothing)`);
+        same++;
+      });
+    });
+  });
+  console.log(`walkers from above: ${roadCams} road-camera draws checked; ${same} draws with the options off match the plain ones`);
   // the health bar's width uses the engine's field of view: the same number in both files
   const fovM = /const FOV = ([\d.]+)/.exec(fs.readFileSync(path.join(ROOT, "js", "interior.js"), "utf8"));
   if (!fovM) warn("could not find js/interior.js's FOV to check Walker3D.FOV against");
@@ -977,54 +1076,21 @@ else {
   sb.document.createElement = realCreate;
 }
 
-/* ---------- The road's walkers (js/sprites.js): a top-down look for every kind, as its 3D look ----------
-   Every kind in the facts has a road look, its skin, shirt and hair (each variant's) the 3D look's colours; every
-   kind draws cleanly in every state (walking, hit, hurt, frenzied, screaming) with walker gore on and off, and so
-   does a downed one through its whole fall; gore off paints no blood, gore on does (and a pool under a downed
-   walker); a downed walker fades out; the title screen's walkers come from the facts and take turns through them. */
-const ROAD_OPS = 360; // SCALE: most canvas calls one road walker (or a downed one) may make (253 today); a busy road draws ~25
+/* ---------- The road's flying bits (js/sprites.js) ----------
+   The road's walkers are the 3D figures above, seen through the angled camera (tests/validate-drive.js draws them on
+   the road, and the title screen's still scene); the old top-down walkers went with the flat camera (2026-10-17).
+   What the road still draws flat from js/sprites.js: blood drops and splats, kill dust and sparks, each cleanly. */
+const ROAD_OPS = 60; // SCALE: most canvas calls one of the road's particles may make (a busy road draws hundreds)
 let roadDraws = 0;
 {
-  ["world.js", "upgrades.js", "sprites.js", "game.js"].forEach((f) => {
+  ["world.js", "upgrades.js", "sprites.js"].forEach((f) => {
     if (!pageScripts.includes(f)) err(`index.html does not load js/${f}`);
     load(f);
   });
   const Dr = ZSR.Draw;
-  const WD = ZSR.WORLD;
-  if (!Dr || !WD || typeof Dr.zombie !== "function" || typeof Dr.zombieShadow !== "function" || typeof Dr.zombieDown !== "function" || !Dr.ZOMBIE_LOOK || typeof Dr.zombieLook !== "function") err("js/sprites.js does not export Draw.zombie, zombieShadow, zombieDown, zombieLook and ZOMBIE_LOOK");
+  if (!Dr || typeof Dr.particle !== "function") err("js/sprites.js does not export Draw.particle");
   else {
-    const kinds = Object.keys(WD.WALKER_TYPES);
-    const hex = (c) => (typeof c === "string" && /^#[0-9a-f]{6}$/i.test(c) ? [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16)) : null);
-    // blood: a dark-to-mid red (the health bar is a rect, and a frenzy's bright red eyes are not blood)
-    const rgb = (c) => {
-      if (typeof c !== "string") return null;
-      const h = hex(c);
-      if (h) return h;
-      const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/.exec(c);
-      return m ? [+m[1], +m[2], +m[3]] : null;
-    };
-    const bloody = (c) => {
-      const v = rgb(c);
-      return !!v && v[0] >= 70 && v[0] <= 230 && v[1] <= 0.28 * v[0] && v[2] <= 0.28 * v[0];
-    };
-    const W3T = (W3 && W3.TYPES) || {};
-    kinds.forEach((id) => {
-      if (!Dr.ZOMBIE_LOOK[id]) return err(`walker type "${id}" has no road look (ZOMBIE_LOOK in js/sprites.js)`);
-      // the same skin, shirt and hair as its 3D look, variant by variant (the seed picks both the same way)
-      const looks3 = W3T[id] ? W3T[id].looks : null;
-      const nv = (Dr.ZOMBIE_LOOK[id].variants || [0]).length;
-      if (!looks3) return;
-      if (nv !== looks3.length) err(`road look ${id}: ${nv} variant(s), its 3D look has ${looks3.length} (a seed must pick the same one)`);
-      for (let v = 0; v < Math.min(nv, looks3.length); v++) {
-        const L = Dr.zombieLook(id, v);
-        ["skin", "shirt", "hair"].forEach((k) => {
-          const a = hex(L[k]);
-          const b = looks3[v][k];
-          if (!a || !b || a.some((x, i) => x !== b[i])) err(`road look ${id} variant ${v}: ${k} ${L[k]} is not the 3D look's rgb(${b})`);
-        });
-      }
-    });
-    Object.keys(Dr.ZOMBIE_LOOK).forEach((id) => WD.WALKER_TYPES[id] || warn(`road look "${id}" is for a kind the facts do not have`));
+    ["zombie", "zombieShadow", "zombieDown", "ZOMBIE_LOOK"].forEach((k) => k in Dr && err(`js/sprites.js still has the top-down road's Draw.${k} (the road's walkers are Walker3D figures)`));
     /** Draw on a fresh checking canvas; returns its calls (null after reporting a throw). */
     const roadDraw = (what, fn) => {
       const c = element("canvas");
@@ -1039,159 +1105,14 @@ let roadDraws = 0;
       roadDraws++;
       const ops = c.ops;
       if (ops.length > ROAD_OPS) err(`${what}: ${ops.length} canvas calls (over ${ROAD_OPS})`);
-      const saves = ops.filter((o) => o.k === "save").length;
-      if (saves !== ops.filter((o) => o.k === "restore").length) err(`${what}: save and restore do not pair up (the next thing drawn would inherit its transform)`);
-      if (ops.some((o) => o.k === "set shadowBlur" || o.k === "set filter")) err(`${what}: sets shadowBlur or filter (slow on a busy road)`);
+      if (ops.filter((o) => o.k === "save").length !== ops.filter((o) => o.k === "restore").length) err(`${what}: save and restore do not pair up`);
       return ops;
     };
-    const paints = (ops) => ops.filter((o) => o.k === "fill" || o.k === "stroke").map((o) => ({ col: o.k === "fill" ? o.fillStyle : o.strokeStyle, a: o.globalAlpha, k: o.k }));
-    let maxOps = 0;
-    const Y = (WD.SCREAM && WD.SCREAM.yell) || 1.2;
-    const STATES = [["walking", {}], ["hit", { hit: 0.1 }], ["hurt", { hp: 0.3 }], ["frenzied", { frenzyT: 3 }], ["screaming", { yell: Y * 0.5 }], ["starting a scream", { yell: Y }], ["ending a scream", { yell: 0.05 }], ["screaming in a frenzy", { yell: Y * 0.5, frenzyT: 2, hit: 0.05, hp: 0.5 }]];
-    kinds.forEach((id) => {
-      const nv = Dr.ZOMBIE_LOOK[id] ? (Dr.ZOMBIE_LOOK[id].variants || [0]).length : 1;
-      const R = WD.WALKER_TYPES[id].road;
-      for (let seed = 0; seed < nv; seed++) {
-        for (const gore of [true, false]) {
-          WD.SETTINGS.walkerGore = gore;
-          let red = 0;
-          STATES.forEach(([state, o]) => {
-            [0, 0.37, 1.9].forEach((t, ti) => {
-              const z = Object.assign({ type: id, seed, x: 40, y: 50, r: R.r, hp: 1, maxHp: 1, angle: ti * 2.1 - 1, phase: 0.4, hit: 0, frenzyT: 0, yell: 0 }, o);
-              const what = `road walker ${id} seed ${seed} ${state} t ${t} gore ${gore ? "on" : "off"}`;
-              const ops = roadDraw(what, (ctx) => Dr.zombie(ctx, z, t));
-              if (!ops) return;
-              maxOps = Math.max(maxOps, ops.length);
-              const p = paints(ops);
-              if (!gore) {
-                const b = p.find((q) => bloody(q.col));
-                if (b) err(`${what}: gore is off but it paints ${b.col}`);
-              } else red += p.filter((q) => bloody(q.col)).length;
-              // the road draws every walker's shadow (or frenzy glow) on the ground first, then the bodies without
-              // one: the two together are the walker, the shadow just where its own would be
-              const body = roadDraw(what + " (no shadow)", (ctx) => Dr.zombie(ctx, z, t, true));
-              const sh = roadDraw(what + " (shadow)", (ctx) => Dr.zombieShadow(ctx, z, t));
-              if (!body || !sh) return;
-              const fills = (o) => o.filter((q) => q.k === "fill").length;
-              if (sh.map((q) => q.k).join() !== "beginPath,ellipse,fill") err(`${what}: its shadow is ${sh.map((q) => q.k).join(", ")} (one filled ellipse expected)`);
-              else if (fills(body) !== fills(ops) - 1 || body.length !== ops.length - sh.length) err(`${what}: drawn without its shadow it still paints ${fills(body)} of ${fills(ops)} fills`);
-              else {
-                const rot = ops.find((q) => q.k === "rotate");
-                const own = ops.find((q) => q.k === "ellipse");
-                const e = sh[1].args;
-                const a = rot ? rot.args[0] : NaN;
-                const cx = z.x + own.args[0] * Math.cos(a) - own.args[1] * Math.sin(a);
-                const cy = z.y + own.args[0] * Math.sin(a) + own.args[1] * Math.cos(a);
-                const near = (u, v) => Math.abs(u - v) < 1e-6;
-                if (!(near(e[0], cx) && near(e[1], cy) && near(e[2], own.args[2]) && near(e[3], own.args[3]) && near(e[4], a + own.args[4]))) err(`${what}: its shadow on the ground (${e.slice(0, 5).map((v) => v.toFixed(2)).join(", ")}) is not where its own is (${[cx, cy, own.args[2], own.args[3], a + own.args[4]].map((v) => v.toFixed(2)).join(", ")})`);
-                if (sh[2].fillStyle !== ops[ops.indexOf(own) + 1].fillStyle) err(`${what}: its shadow is ${sh[2].fillStyle}, its own ${ops[ops.indexOf(own) + 1].fillStyle}`);
-              }
-            });
-          });
-          if (gore && !red) err(`road walker ${id} seed ${seed}: gore on, but no blood anywhere on it`);
-        }
-        // a hurt one's health bar stays level on the screen however the road view turns the world: it turns back
-        // by the view's turn round the walker, and sits over its head (screen up), as wide as the walker
-        [0.7, -1.9, Math.PI].forEach((turn) => {
-          const z = { type: id, seed, x: 40, y: 50, r: R.r, hp: 0.4, maxHp: 1, angle: 0.3, phase: 0.4, hit: 0, frenzyT: 0, yell: 0 };
-          const what = `road walker ${id} seed ${seed} hurt, view turned ${turn.toFixed(2)}`;
-          const ops = roadDraw(what, (ctx) => Dr.zombie(ctx, z, 0.37, true, turn));
-          if (!ops) return;
-          const bar = ops.map((o, i) => [o, i]).filter(([o]) => o.k === "fillRect").slice(-2); // drawn last
-          const i0 = bar.length ? bar[0][1] : -1;
-          const rot = ops.slice(0, Math.max(0, i0)).reverse().find((o) => o.k === "rotate" || o.k === "restore");
-          const tr = ops.slice(0, Math.max(0, i0)).reverse().find((o) => o.k === "translate");
-          if (bar.length !== 2 || ops.slice(i0 + 1, bar[1][1]).some((o) => o.k !== "set fillStyle" && o.k !== "fillRect")) err(`${what}: no health bar drawn last (the ink, the red)`);
-          else if (!rot || rot.k !== "rotate" || Math.abs(rot.args[0] + turn) > 1e-9) err(`${what}: its health bar is not turned back by the view's turn (${rot ? rot.k + " " + (rot.args || []).join() : "nothing"})`);
-          else if (!tr || tr.args[0] !== z.x || tr.args[1] !== z.y) err(`${what}: its health bar does not turn round the walker`);
-          else if (!(bar[0][0].args[1] < -R.r) || Math.abs(bar[0][0].args[0] + bar[0][0].args[2] / 2) > 1e-9) err(`${what}: its health bar is not centred over its head (${bar[0][0].args.join()})`);
-        });
-      }
-      WD.SETTINGS.walkerGore = true;
-      // a downed one: through its whole fall, gore on and off, falling any way
-      for (let seed = 0; seed < nv; seed++) {
-        for (const gore of [true, false]) {
-          WD.SETTINGS.walkerGore = gore;
-          [0, 0.05, 0.12, 0.2, 0.25, 0.3, 0.45, 0.6, 0.7, 0.85, 0.97, 1].forEach((age) => {
-            [-Math.PI / 2, 0.8, Math.PI].forEach((rot) => {
-              const max = 2;
-              const f = { kind: "fallen", type: id, seed, x: 60, y: 60, size: R.r, rot, life: max * (1 - age), max };
-              const what = `downed road walker ${id} seed ${seed} age ${age} rot ${rot.toFixed(2)} gore ${gore ? "on" : "off"}`;
-              const ops = roadDraw(what, (ctx) => Dr.zombieDown(ctx, f));
-              if (!ops) return;
-              maxOps = Math.max(maxOps, ops.length);
-              const p = paints(ops);
-              // the road draws every downed walker's ground (its pool, its shadow) before any body: the two parts
-              // together are the whole, the ground is only blood and shadow, and the body has no pool
-              const gr = roadDraw(what + " (ground)", (ctx) => Dr.zombieDown(ctx, f, "ground"));
-              const bd = roadDraw(what + " (body)", (ctx) => Dr.zombieDown(ctx, f, "body"));
-              if (gr && bd) {
-                const pg = paints(gr);
-                const pb = paints(bd);
-                if (pg.length + pb.length !== p.length) err(`${what}: ground ${pg.length} + body ${pb.length} paints, the whole ${p.length}`);
-                const odd = pg.find((q) => q.k !== "fill" || !(bloody(q.col) || /^rgba\(0,0,0,/.test(q.col)));
-                if (odd) err(`${what}: its ground part paints ${odd.k} ${odd.col} (only the pool and a shadow belong there)`);
-                if (bd.some((o, i) => o.k === "fill" && bloody(o.fillStyle) && i > 0 && bd[i - 1].k === "ellipse" && Math.min(bd[i - 1].args[2], bd[i - 1].args[3]) > R.r * 0.8)) err(`${what}: its body part has the pool in it`);
-              }
-              if (!gore && p.some((q) => bloody(q.col))) err(`${what}: gore is off but it paints blood`);
-              if (age >= 1 && p.some((q) => q.a > 0)) err(`${what}: still drawn at the end of its life`);
-              if (age > 0.7 && age < 1 && p.some((q) => q.a >= 0.999)) err(`${what}: not fading (something drawn at full alpha)`);
-              if (age < 0.6 && !p.length) err(`${what}: draws nothing`);
-              if (gore && age >= 0.45 && age < 1) {
-                // a pool under it: a blood-red ellipse wider than its body radius, drawn before the body
-                let ell = null;
-                let pool = false;
-                for (const o of ops) {
-                  if (o.k === "beginPath") ell = null;
-                  else if (o.k === "ellipse") ell = o.args;
-                  else if (o.k === "fill" && ell && bloody(o.fillStyle) && Math.min(ell[2], ell[3]) > R.r * 0.8) pool = true;
-                }
-                if (!pool) err(`${what}: no pool of blood under it with gore on`);
-              }
-            });
-          });
-        }
-      }
-      WD.SETTINGS.walkerGore = true;
-    });
-    // an unknown kind draws as a walker, standing and downed, and never throws
-    roadDraw("road walker of an unknown kind", (ctx) => Dr.zombie(ctx, { type: "zz-new", seed: 3, x: 0, y: 0, r: 18, hp: 1, maxHp: 1, angle: 0, phase: 0, hit: 0 }, 1));
-    roadDraw("downed road walker of an unknown kind", (ctx) => Dr.zombieDown(ctx, { type: "zz-new", seed: NaN, x: 0, y: 0, size: 18, rot: 0, life: 1, max: 2 }));
     // blood drops and splats on the road, and the other particles
     [{ blood: true, vx: 90, vy: -40 }, { blood: true, splat: true, vx: 0, vy: 0, rot: 0.4 }, { grow: true, vx: 10, vy: 0 }, { vx: 100, vy: 100 }].forEach((p, i) =>
       roadDraw(`road particle ${i}`, (ctx) => Dr.particle(ctx, Object.assign({ x: 10, y: 10, life: 0.2, maxLife: 0.4, size: 3, color: "#a3201a" }, p)))
     );
-    // the title screen (Game.showcase): its two walkers come from the facts, the first two at t 0, every kind in turn
-    const G = ZSR.Game;
-    if (!G || typeof G.showcase !== "function") err("js/game.js does not export Game.showcase");
-    else {
-      const shown = new Set();
-      const first = [];
-      const real = Dr.zombie;
-      Dr.zombie = (ctx, z, t) => {
-        shown.add(z.type);
-        if (t === 0) first.push(z.type);
-        if (!(z.r > 0)) err(`the title screen's ${z.type} has radius ${z.r}`);
-        return real(ctx, z, t);
-      };
-      const ups = { armor: 2, engine: 1, bumper: 2, paint: 3, damage: 2, fireRate: 0, spread: 1 };
-      for (let t = 0; t <= kinds.length * 4 + 1; t += 0.5) {
-        const c = element("canvas");
-        c.width = 320;
-        c.height = 200;
-        current = `title screen at ${t} s`;
-        try {
-          G.showcase(c, ups, t);
-        } catch (e) {
-          err(`${current}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
-          break;
-        }
-      }
-      Dr.zombie = real;
-      kinds.forEach((id) => shown.has(id) || err(`the title screen never shows a ${id}`));
-      if (first.join() !== kinds.slice(0, 2).join()) err(`the title screen's still picture shows ${first.join(", ")} (the facts' first two kinds expected: ${kinds.slice(0, 2).join(", ")})`);
-    }
-    console.log(`road walkers: ${kinds.length} kinds, ${roadDraws} drawn (most canvas calls ${maxOps} of ${ROAD_OPS})`);
+    console.log(`road particles: ${roadDraws} drawn`);
   }
 }
 

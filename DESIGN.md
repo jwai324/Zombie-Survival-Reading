@@ -1074,6 +1074,1233 @@ the refusals would still explain the wait.
   errs when a crew tip or report has a sentence over the level's Max sentence (other texts warn past
   Max + 3); the 14 crew2 offenders and two pip.radio texts were split, every fact kept.
 
+## Owner decisions: an angled road camera, as a test (2026-10-15)
+
+| Question | Answer |
+|----------|--------|
+| Top-down or angled? | A test first. On the drive from Home Base to Corner Grocery only, the camera looks down the road from behind and above the van (pitched 30 degrees, zoomed in a little from the first mockup); every other drive stays top-down. |
+| How is it drawn? | `js/perspective.js`. The ground keeps the road's own art: it is drawn from above into a few layers and warped onto the screen row by row. Buildings, trees, walkers and the van stand up, drawn far to near. The road sign, the names, the HUD and the minimap stay flat. |
+
+- **Walkers come from the same places.** They appear where they do on a top-down drive (just off that
+  screen), so they reach the van as soon as they did; the angled camera sees farther, so they fade in.
+  **Assumption:** half a second.
+- **A walker right behind the van is see-through,** so it never hides the van.
+- **Aim.** A shot leaves the roof gun's barrels and drops to chest height where the pointer is
+  (`Persp.AIM_Z`), so on the screen it goes straight at the pointer; hitting stays as on the flat road.
+  **Bug fixed on the way:** a new shot took a frame of the van's speed after the camera had moved, so it
+  flew a few pixels ahead of the pointer's line on every drive.
+- **Walkers and the van stand up in the art the game already has.** Walkers are the interiors' live 3D
+  figures at on-foot size, seen from above (since 2026-10-16; at first they were the interiors' standing
+  sprites, a little over life size: see "smoother corners and main's walkers" below). The van's walls are the yard van's faces (cab, body with its door and number, the back doors,
+  armor, rack and paint from the upgrades), its roof the road's top-down art, and the roof gun stands on it
+  (more barrels with Spread Shot, longer with Heavier Rounds) and turns and tips toward the aim.
+  Trees are still their top-down drawings on a trunk.
+- **Speed.** The ground is on the graphics card (`js/perspective-gl.js`): squares of the road's art,
+  each drawn once and kept, laid down through the camera with their smaller copies blended, so the far
+  road does not shimmer and turning costs nothing. Without WebGL the ground is warped on the 2D canvas
+  each frame instead, without the overgrowth's fine marks, softening itself on a slow computer.
+
+## Owner decisions: the angled drive, overgrown (2026-10-15, later)
+
+| Question | Answer |
+|----------|--------|
+| What stands up? | Everything by the road: trees (leafy and dead), bushes, tall grass, wrecked cars (wheels, body, cabin, windows, rust), barriers, barrels, road signs with their words facing the van, supply crates, buildings, walkers, the van. |
+| How overgrown? | Weeds and grass over all the ground, creeping onto the road's edges and up through cracks in the asphalt (sparse there, so lanes and arrows still read), and plants over all the land the route can see, thickest at the verges. |
+| Where do walkers come from? | Far down the road in the haze, and out of the overgrowth at the edges of the view; small at first, they walk in, and only keep up with the van once near it. |
+| Faster? | On the angled drive only: the van 25% faster, shots 60% faster (they fly up to 2600 units); walkers come 40% more often, since they are seen from further off. |
+
+- **Nothing is drawn right under the camera.** A walker that close would otherwise cast a shadow over the
+  whole screen.
+- **A click hits the walker clicked.** The shot is aimed at the walker whose picture is under the pointer, at
+  the height clicked, and led: it carries the van's speed and the walker walks on, so it is aimed where the two
+  meet. A shot is tested along its whole step each frame (fast shots skipped past an edge) and only below the
+  walker's head.
+- **Walkers stay outside the van.** One that gets inside its sides is put back out at the nearest side, where it
+  presses against the van and hits it. Only one right behind the back doors is see-through.
+- **The van parks short of the door** (45 units), so in 3D its nose is not in the wall; the building is kept
+  in view by its own middle, not its lot's front, so it stays standing once parked.
+
+## Owner decisions: smoother corners and main's walkers on the angled drive (2026-10-16)
+
+The owner: "The turning still looks a little shaky. The zombies while walking around have been changed. Utilize
+that code where possible and implement those zombie changes while driving so that they are consistent." On what is
+shaky: "Seems like the frame rate needs to be higher at corners. The turn is almost nauseating." Built in
+`js/game.js` (the drive, braking, the lazy camera, the walkers' road logic), `js/perspective.js` (the walkers' pass,
+plants, `frameStats`), `js/perspective-gl.js` (ground squares) and two additive options in `js/walker3d.js`.
+
+| Question | Owner's answer |
+|----------|----------------|
+| Corner speed? | Brake lightly (about 75%): on the angled drive the van slows to 0.75 of its speed into each turn it takes and speeds back up after (`PERSP.brake`). (Since 2026-10-17 that holds up to a right angle; sharper turns brake further, to 0.4 at 135 deg: see "every drive on the angled camera".) |
+| Camera in a turn? | Lazy follow: the angled camera turns about half as fast as the van, so the van visibly swings on the screen, and the view catches up gently on the straight after. Target: a peak spin of about 35 deg/s (it was 112 at the junction); built: 37 (53 at Engine Tune 5). |
+| Walkers keeping up with the van? | They sprint: their legs go by the ground they really cover, the keep-up carry included, so near the van every kind runs. The hit rate is unchanged. |
+| Walker size on the angled drive? | On-foot size: as tall against the van as on foot (the yard van is 0.8 tiles, a walker 0.92), so 62.5 road units a tile (`Persp` `TILE`): a walker 57.5 units, its head 52, the van's roof 50. |
+| The rest of the walkers (stated defaults, not objected to) | Main's road behaviour on the angled drive: six kinds, the scream and its frenzy (main's ground glow), blood only with walker gore on, each kind's own fall, fading over about 2 s, health bars at head height, clawing at the van. The top-down drives get main's walkers from the merge and nothing else. |
+| Hops and bob (stated defaults) | The one-frame hop where a turn starts and ends, and the van's bob up and down the screen in a turn (23 px), were real bugs on both cameras (main had them too); fixed on both. The new braking and corner camera are the angled drive's only. Everything is tuned to still feel right at Engine Tune 5 (the van 1.7 times faster). |
+| Target machine | The owner plays on a Windows PC in Chrome or Edge. The frame budgets (`BUDGET` 7 ms of ground squares, `LIVE_BUDGET_MS` 4 ms of walkers) are guesses for a real graphics card; headless checks run on software WebGL, so their times are pessimistic. `ZSR.Persp.frameStats` and `ZSR.Persp.walkerStats` are there to read on that PC. |
+
+### Judgment calls: the corners
+
+- **The drive runs in fixed short steps** (`DRIVE_STEP` 1/240 s; a frame runs `ceil(dt / DRIVE_STEP)` steps of
+  `driveStep()`): the van along its track, the commits at stop lines, turn ends, lane slides, `placeVan` and
+  `placeCam`. Walkers, shots and particles still step once a frame. The easings became exact exponentials
+  (`EASE`), with rates that keep the old share a frame at 60 fps, so the flat camera feels the same (base to
+  hospital: peak yaw 91.9 then 91.8 deg/s, lag 10.6 deg both) and no longer depends on the frame rate.
+- **No hop where a turn starts or ends, without a second update.** The part of a step past the stop line is
+  rescaled onto the turn path (`van.s = stop + (van.s - stop) / k`), and back at its end, so walkers and shots
+  never step twice. Measured at 50 ms frames, Engine Tune 5: 6.5 / 8.7 units before, 0.43 / 0.05 after (what is
+  left is the braking's own smooth slowing seen at a coarse frame).
+- **No bob.** The camera's sideways offset is laid along the view's own right (`cam = van + right(cam.th) * rel`),
+  not the road's normal at the van, so while the view lags the road the van keeps its height on the screen
+  (23.6 px of bob before, 0 after; on the flat camera 16.8 to 0). On straights nothing changes.
+- **Braking** (angled only; `PERSP.brake` 0.75, `brakeIn` 150, `brakeOut` 300). It starts at the stop line, never
+  before (braking earlier would hint which way is right and cut the reading time); it eases down on a smootherstep
+  curve to 0.75 where the van's own path starts to bend (over `brakeIn` at least, for a bend that starts at its stop
+  line, as the grocery's and every wrong way's do; `brakeIn` is for the slowest van and grows with the van's
+  speed, so the ease always takes about 0.5 s), holds round the bend, and eases back up over `brakeOut`. A
+  wrong-way turn brakes too, so a turn feels the same either way. The corner factor multiplies the parking brake at
+  the door, and a turn committed while the van is still speeding up from the last starts from the speed it has.
+  Walkers keeping up and the miles use the braked speed. (As first built `brakeIn` was a fixed 150 units, 0.33 s at
+  Engine Tune 5: the grocery's bend and every wrong way braked by up to 2.35% of the speed in a 60 fps frame, 1.47
+  times the junction's, past the 2% the test holds; now 1.38% at either engine, the junction's 0.94 to 1.38.)
+- **The lazy camera** (angled only; `PERSP.look` 300, `lookRamp` 2, `camW` 2.2/s, `camPace` 0.5). The view aims
+  at a point up to `look` ahead on the van's own committed path. Before a stop line it never looks past it and
+  shrinks to nothing at the line (it gives no hint which way is right); from the line it grows back at twice the
+  van's distance, so the target never jumps. The heading follows on a critically damped spring stepped exactly every
+  drive step. Without the look-ahead a 35 deg/s camera would trail the junction by about 55 deg at the arc's end and
+  the new road would leave the screen (the far ground's half-view is about 39 deg at 1280 x 800).
+- **The spring's clock is time x (speed / slowest speed)^0.5.** Pure time let the bend outrun the view at Engine
+  Tune 5 (43.5 deg behind the road, wider than the far half-view); pure distance spun the view 1.7 times faster at
+  Engine Tune 5. The square root sits between: there the spin is 1.4 times Engine Tune 0's and the lag 1.2 times.
+- **The van's nose eases into a bend** (`PERSP.nose` 50): its drawn heading averages its path's direction 50 units
+  behind and ahead (the part ahead closes at a stop line). With the slow view the van's instant yaw step at the arc
+  ends read as a snap (about 950 deg/s2 on the screen); now 285. The drawn nose is up to about 8 deg off its path
+  at Engine Tune 0 and 12 at Engine Tune 5: the averaging alone puts it up to about 3.5 deg off, and the van's own
+  heading easing (`EASE.van`, as on 928ad4f, which gave 8 and 14) the rest. That easing is what keeps the yaw from
+  snapping (without it on the angled camera, 285 rises to 723 deg/s2), so it stays. Hit tests, the push-out box and
+  parking read the same heading and still pass. The angled camera's sideways pan
+  through a turn uses smootherstep (no acceleration steps); the flat camera keeps smoothstep.
+- **Lighter turn frames** (`js/perspective-gl.js`). A turn wants about twice a straight's new ground squares, and
+  they came in bursts that overran the budget by a square. The budget is now cost-aware (a running mean of each
+  size's cost decides whether the next fits; the frame's first square and one haze hole near the van always go).
+  (Since 2026-10-17 the views ahead share the frame's one work list and `KEEP` is a floor under `keepFor`: see the
+  scenery's judgment calls below.) With time to spare (up to `AHEAD_BUDGET` 4 ms) the squares the view will need 0.35, 0.7 and 1.1 s on are drawn
+  ahead: `Game.viewsAhead` runs the camera's spring forward along the committed path (never past a stop line the van
+  has not crossed); only squares with no copy at all, and never pushing off one used in the last 30 frames. A square
+  the views ahead need that is on the card already is kept fresh (as of the frame before, so on a tie the squares on
+  the screen outlast it): before that, squares drawn ahead went stale, were pushed off and drawn again (squares made
+  over the grocery drive at 1280 x 800, with a graphics card's costs: 2,826 before, 2,562 after, against 2,547
+  without drawing ahead; made twice, 400 before, 136 after). `KEEP` rose from 300 to 360. A view needs about 190 to
+  250 squares on a 16:9 or 16:10 window, 320 at 21:9 and more than 360 at 32:9; a view that needs more than `KEEP`
+  keeps all its own and `SPARE` (48) more, so a 32:9 screen (5120 x 1300) no longer pushes off squares in use every
+  frame (19,738 squares made over the drive before, 7,011 after, about 300 MB on the card).
+- **A lost graphics context comes back.** If the browser loses the card (a driver reset, a crashed or switched
+  graphics process), the ground falls back to the 2D warp as before; when the browser gives it back, the card's
+  program is set up again and every square drawn anew, as at a drive's start (it used to stay on the slower 2D
+  ground until a reload: draw 23 ms against 13 on software WebGL).
+- **Plants** (since 2026-10-17 made a square at a time as the view reaches it: see the scenery below) are filed in
+  512-unit squares (`VEG_CELL`) and only those under the view are visited; they are culled
+  at 40 px past the screen plus their own height (it was 300 px) and dropped when wholly in the haze: a quarter fewer
+  listed a frame, none on the screen lost. Props, walkers and the van keep the 300 px margin.
+- **`ZSR.Persp.frameStats`** = `{ ms, groundMs, worldMs, walkersMs, squaresMade }` every angled frame: the whole
+  road draw, the ground, everything standing on it, the walkers' share of that (their renders and pictures, as
+  `walkerStats.ms`) and the ground squares drawn.
+- **Open:** the grocery's bend starts at its stop line, so no look-ahead can help there; at Engine Tune 5 points 300
+  to 600 ahead stay at least 172 px inside the screen but points 900 ahead come within about 30 px of its edge (a
+  stiffer spring for such bends would help if the owner finds it tight). The parking brake at the door
+  (`sqrt(left / 260)`, both cameras, older) still starts with a step in deceleration (up to about 500 units/s2 at
+  Engine Tune 5).
+
+### Judgment calls: the walkers on the angled drive
+
+- **The interiors' code, reused.** `Walker3D.draw`, `box`, `stride`, each look's `gait` (`turnRate`, `clawRate`),
+  its pose envelope (`env`) and `build.shadow`; `POSE_BLEND`, `COLLAPSE_SECS`, `FADE_SECS`, `FALL_SECS`,
+  `FOG_STEPS` and `gore()`; Walker3D's own `bloodDrop` and `bloodSplat` sprites; the interiors' governor rows and
+  waits (`ZSR.Interior.LIVE_LEVELS`, `LIVE_START`, `GOV_WAIT`, `GOV_WAIT_UP`, `GOV_BACKOFF`, `GOV_FAST`,
+  `QUALITY_WAIT`, `NEAR_STICK`, `LIVE_STEP`, `LIVE_SPARE`, `LIVE_IDLE`, `LIVE_SHRINK`, `LOD_PX`, `TURN_RATE`) and
+  their picture signature (`sameSig` / `saveSig`); main's road logic (`addZombie`, scream and frenzy, `blood()`'s
+  counts, `killZombie`, `fallen`, the frenzy glow's colours, the health bar's width). `js/interior.js` only gained
+  exports; its own behaviour is unchanged.
+- **Seen from above.** Walker3D's level camera is put where the road camera looks from: its eye is the road
+  camera's height over the walker for its distance, and its distance the camera's own depth along the bearing, so
+  the figure's inner perspective is the pitched camera's (`Persp.liveGeo`). Beside the van that is eye 8.4 and
+  distance 7.9 tiles (47 deg down); 600 ahead, 6.2 and 17 (20 deg). The figure faces its own way in the world (see
+  "Heading and legs") and is turned for the camera's real bearing to it, so a lagging view through a turn shows each
+  walker from where the camera really is.
+- **Three engine options, not engine changes** (`js/walker3d.js` header): `cam.floor` (room under the feet; a part
+  nearer the camera goes down to the floor under itself, a lying body keeps its perspective past 3 tiles),
+  `cam.shadow: false` (no contact shadow; the pool stays) and `st.run` (0 to 1: the gait goes over to a sprint; see
+  "Heading and legs"). Left out they change nothing: 24,192 draws (6 kinds, 168 cameras, every pose, falls, detail
+  levels, fog, hit and gore) made the same calls as before, and the old `tests/validate-art.js` passes unchanged
+  against the new engine; `st.run` 0 draws call for call as no `st.run` (validate-art section S), and a type's own
+  envelope (`env`) is unchanged, so the interiors' walkers are sized exactly as before.
+- **The picture.** One pooled canvas per walker and per downed walker, drawn again only when it looks different
+  (the interiors' signature, plus the look-down angle in 1/64 rad and the figure's own perspective in 1/16 log
+  steps, plus the interiors' size rule), at the device's pixels (up to dpr 2) under the row's scale and largest
+  picture. It goes up as wide as a tile is at its feet and as tall as the camera shows its box, leaning half the
+  camera's upright lines (`LEAN` 0.5, as the plants do). Its region comes from the look's envelope with the sprint in
+  it (`envRun`, and the box widened to `wRun`: up to 5% wider), so every pose, running or not, draws at full size
+  and nothing pulses.
+- **One shadow, one pool.** The road lays one flat shadow under each walker (Walker3D's size, 0.32 dark), or after a
+  scream main's frenzy glow (red, amber with gore off). The pool under a downed walker is the figure's own (gore
+  only); a body gets a flat shadow that follows it over and fades once, over `FADE_SECS` at the end of
+  `FALL_SECS`, as on foot.
+- **Heading and legs.** As on foot (`Interior.animWalker`), a walker faces where it is going: its ground motion,
+  the keep-up carry included, smoothed the same way (6 a second), once that is over 0.15 tiles a second; it faces
+  the van while it claws or screams at it, and (left as built until the owner decides; see Open) while the van
+  carries it away from the van, as a walker ahead is carried. It turns at its look's `turnRate`, so it never snaps
+  as the van goes by or a shot throws it back. (As first built every walker faced the van, so one beside or behind
+  it, carried forward with the van, slid its feet sideways at 200 to 250 units a second, the biggest figures on the
+  screen. On the drive's own walkers at Engine Tune 0, beside the van: 217 before, 5 after (median; 253 and 15 at
+  the 90th percentile); behind it: 68 before, 3 after (201 and 11). What is left is a walker the van overtakes
+  turning round (see Open): with ten walkers kept ahead, or at Engine Tune 5, the median beside the van is 6 to 17
+  but the 90th percentile 270 to 465.) Its legs go by the ground it covers, and it runs: from its
+  kind's own walking pace (`WORLD.WALKER_TYPES` speed) its gait goes over to a sprint (Walker3D `st.run`, all the
+  way at three times that pace: `RUN_FROM` 1, `RUN_SPAN` 2), longer strides with both feet off the ground between
+  them and a harder lean (the runner's own gait: stride 1.5, duty 0.38, lift 0.11, crouch 0.08, lean 0.55, bob
+  0.02), and its gait advances over the stride it has at that pace, so the feet stay planted. A claw or a scream
+  (feet set) eases the run out. A plain walker keeping up beside the van takes about 5.3 steps a second at Engine
+  Tune 0 and 8 at Engine Tune 5 (two steps a gait cycle). As first built the gait stayed the walk's at any pace,
+  about 8.7 steps a second and 12 to 14, a flailing walk (the "about 4 and 7" written here then counted gait
+  cycles, not steps). The runner's own gait already is the sprint, so it only goes faster. Through a corner the van
+  brakes and the keep-up carry with it, so the legs slow with it.
+- **Poses.** `scream` while it yells; `claw` (its look's `clawRate`) while it presses on the van or for 0.4 s after
+  hitting it (`CLAW_HOLD`); `walk` otherwise; eased in and out over `POSE_BLEND` as `Interior.animWalker` does. No
+  bite on the road. A killing hit's flash carries on to the body.
+- **Falls.** Each kind its own Walker3D fall over `COLLAPSE_SECS` (0.9 s, the on-foot speed; main's flat road tips
+  in 0.5 s), from its heading, legs and pose at death (`Persp.fallFrom`, stored in the fallen record on the angled
+  drive only): crumple, tree and tumble fall away from the shot; fold and kneel pitch forward.
+- **Blood in the air.** A hit's spray starts at the hit (the nearest point of the shot's swept step) at the shot's
+  height (a ram's at the chest). Main's counts, but one drop in three splashes back toward the shot, as on foot,
+  since the camera is behind the van and the body hides the rest. Drops fall at `BLOOD_FALL` (5 tiles/s2, on foot's)
+  and land as splats; they are Walker3D's sprites, depth-sorted with everything standing. Sparks fly at the shot's
+  height. The flat drives are unchanged.
+- **Health bars** level, just above the look's head top, 2 r wide, drawn with the walker in depth order.
+- **Night.** Walker3D's fog darkens a walker toward black with distance and only the last 12% fades out; by day
+  walkers fade into the haze with the ground. The 0.5 s fade-in and the see-through walker behind the van's back
+  doors stay.
+- **Over the sign** (`drawOverSign`): this frame's pictures again (no new render), bodies and health bars only.
+- **Bodies the van drives onto lie under it.** A body is sorted by its feet and the van by its middle, so one the
+  van had driven over was drawn across its roof for about 0.15 to 0.25 s. A body whose feet, or the far end of it
+  lying there (as its shadow is laid), are inside the van's box (10 units spare) is now drawn just before the van,
+  as main's flat road lays its fallen under everything standing. Rare on today's drives (1 body in 50); common with
+  a crowd kept ahead (8 of 22 at Engine Tune 0), which a game-wide angled camera would bring.
+- **Two governors that never fight.** The walkers' governor steps through the interiors' rows on the walkers' own
+  time (renders and pictures against `LIVE_BUDGET_MS` 4, smoothed); it never reads or moves `Persp.res`. The ground
+  keeps its own budget (`BUDGET` 7 ms of squares, drawing ahead only with time left in that budget), and `pace`
+  softens the 2D ground (no WebGL) on its own draw time. On a slow machine each can step down for its own cost;
+  neither makes the other slower. The near walkers (the row's `near` nearest) draw every frame they look
+  different; a turn changes every walker's bearing, so the far ones take turns (`far` frames apart), as indoors.
+  A frame that draws no picture anew (the road paused under a card, a note, the backpack or the menu, which still
+  draws every frame) is not counted, as indoors (`Interior.governLive`): it used to count as a fast frame, so a
+  long pause climbed the governor back up two rows, to step down again over about 2.4 s a row once driving.
+- **Measured** (headless Chromium, software WebGL, 1280 x 720, 60 fps stepped by hand, interleaved A/B against the
+  merge's stopgap): 25 walkers on screen, walker time 11.0 ms a frame (median) before, 5.9 after; Walker3D renders
+  a frame 28 before, 10 after; the whole draw 26.7 ms before, 20.9 after. The drive's own spawns (about 5 walkers):
+  1.9 ms before, 1.3 after. At dpr 2 the pictures have four times the pixels for about the same cost (11.7 and
+  10.9 ms).
+- **Open:** walkers ahead of the van face it while the keep-up carry moves them away from it, so their feet slide
+  (facing their ground motion instead is one condition in `Persp.animate`, if the owner prefers it). Because of
+  that, a walker the van overtakes turns round from facing the van to facing forward, over about half a second,
+  and slides its feet while it turns. Main's frenzy glow
+  is large near the camera, where several overlap into one red patch. The see-through walkers right behind the
+  van's back doors read as ghosts when several crowd there. `LIVE_BUDGET_MS` is a guess for a real graphics card:
+  check `ZSR.Persp.walkerStats` in Chrome or Edge on the owner's PC.
+
+### Tests added (2026-10-16)
+
+- **`tests/validate-drive.js` "turns"** (both cameras): no hop where a turn starts or ends (base to grocery
+  angled, base to hospital flat; Engine Tune 0 and 5; 16.7, 33 and 50 ms frames; three frame phases): each step is
+  what the mean of the speeds at the frame's two ends says, within 0.3 units (measured 0.02; the old hop 6.9), so
+  the corner braking's own slowing, or a re-tune of it, is never read as a hop (a step against its neighbours read
+  0.43 at a 0.75 brake and failed at 0.65 with no hop there); the van keeps its screen height within 2 px through
+  every turn (measured 0.0); the angled van brakes to 0.75 (within 0.02) through the junction and through a wrong
+  way (the first decision at Engine Tune 0, the last at 5), never before a stop line, never by more than 2% of its
+  speed in a 60 fps frame (measured 1.38% at either engine, wrong ways and the grocery's bend included; only the
+  older brake into a parking spot or a dead end, its last 262 units, is left out), and the flat camera never
+  brakes; the angled view's peak spin under 45 / 65 deg/s (37 / 53), spin acceleration under 300 deg/s2 (71 /
+  141), lag under 35 / 38 deg (25 / 31) at Engine Tune 0 / 5, back within 2 deg of the road 4 s after the turn;
+  uneven frames (16, 33, 16, 50 ms) put the view within 0.2 deg of steady 60 fps (0.003). Main's code fails 8 of
+  these.
+- **`tests/validate-drive.js` "persp draw"**: whole angled frames on a recording 2D context (no WebGL): all six
+  kinds, a scream and its frenzy, clawing, hurt walkers, kills and downed bodies, gore on and off (night on the
+  second pass). No exceptions or NaN, every kind and pose drawn by Walker3D, the glow and health bars there, blood
+  only with gore on, over the sign only this frame's pictures with no shadow or glow, a body under the van (its
+  feet behind the van's middle, or lying back under it) drawn before the van, 600 paused frames leaving the walkers'
+  governor's row and time as they were, and `walkerStats` and `frameStats` (with the walkers' share inside the
+  world's) filled in. Its script list loads the draw files in page order (`SCALE:`: a new looks file goes in it).
+- **`tests/validate-drive.js` "persp feet"**: every kind put beside and behind the van, out of its reach, at
+  Engine Tune 0 and 5: walking, their feet slide under 30 units a second against the way they face (90th
+  percentile; measured 8 and 11, first built 211 and 320); a plain walker keeping up beside the van runs (`st.run`
+  over 0.5) at 3 to 7 steps a second at Engine Tune 0 and 3 to 9.5 at 5 (measured 5.3 and 8.1; first built 10.3
+  and 16).
+- **`tests/validate-drive.js` "persp ground"** (`js/perspective-gl.js` on a stub WebGL context, squares made on a
+  clock charging a graphics card's 1.5, 0.8 and 0.4 ms): over the grocery drive fewer than 10% of the squares made
+  are made again (measured 7.0%; 17.7% before the draw-ahead kept its squares fresh), no square in use is pushed
+  off; a view of 1,200 squares (more than `KEEP`) keeps them all; after the context is lost and given back the
+  card is used again with every square drawn anew.
+- **`tests/validate-art.js`** section R checks 6,480 road-camera figures (eyes 5, 7 and 9 tiles, distances 2 to
+  70), running and clawing out of a run among them: inside the region, finite, within the call ceilings, every
+  pose at full size, the ankles where that camera puts them, no shadow of their own, the pool still there; section
+  S checks that 600 draws with the new options set to off (`st.run` 0 among them) match the plain draws call for
+  call; section G checks the run cycle's limbs move smoothly too.
+
+### Checked together (2026-10-16)
+
+The corners and the walkers were built side by side and merged. Driven together in headless Chromium (software
+WebGL, 1280 x 800, one fixed 1/60 s step and one draw a frame, a careful driver on the keys, seeded), the merge's
+starting point (main's walkers on the old corners, drawn by a stopgap) and the merged build run side by side under
+the same load. Draw ms, median / 95th percentile:
+
+| Drive | Phase | Before | After |
+|-------|-------|--------|-------|
+| Own spawns, Engine Tune 0 | straight | 15.4 / 30.2 | 15.3 / 23.7 |
+| | junction turn | 15.3 / 26.3 | 13.1 / 21.6 |
+| | grocery bend | 15.2 / 23.3 | 11.3 / 18.7 |
+| 10 walkers kept ahead, Engine Tune 0 | straight | 15.8 / 29.5 | 16.1 / 27.2 |
+| | junction turn | 21.0 / 35.4 | 18.6 / 30.0 |
+| | grocery bend | 16.8 / 31.5 | 13.7 / 23.1 |
+| Own spawns, Engine Tune 5 | straight | 15.2 / 25.0 | 15.7 / 25.6 |
+| | junction turn | 19.0 / 33.1 | 13.9 / 26.7 |
+
+- The junction's peak spin went from 112 to 37 deg/s (159 to 53 at Engine Tune 5), and the turn frames are no
+  heavier than the straight's with the drive's own walkers. With a crowd the turn still costs about 2.5 ms more than
+  the straight: the walkers catch up with the braking van, so more of them stand big beside it (their renders a
+  frame do not rise; their pictures going up do). On a graphics card those blits are far cheaper; `frameStats`
+  splits a frame into ground, world and walkers to check that on the owner's PC.
+- No page errors. The walkers read right while the view lags the van through a turn (each is drawn for the
+  camera's real bearing to it); clicking walkers mid-turn hits 32 of 32 at Engine Tune 0 and 5.
+- Seen in passing, left for the owner: a downed walker the van leaves behind comes toward the camera and its
+  picture grows (up to about 300 x 900 px) until it is too near to draw (`NEAR_PX`), and costs about 1 to 2 ms a
+  frame (software canvas) while it lasts.
+
+## Owner decisions: every drive on the angled camera (2026-10-17)
+
+After the one-drive test the owner said: "This should be the way all driving happens." The questions below were put
+to the owner on 2026-10-16 and 2026-10-17. This drop builds the corners, each place's own building and scenery that
+holds up on every route. Every check in the first three parts ran with every route put on the angled camera in
+memory; a later drop the same day took the top-down road camera out (`PERSP_ROUTES` with it), so every drive now
+uses the angled camera ("The flat camera taken out" below).
+
+| Question | Owner's answer |
+|----------|----------------|
+| Which drives use the angled camera? | All of them. The top-down road camera goes entirely: no setting and no fallback. A machine without WebGL uses the angled view's own 2D ground. A slow machine gets a scenery governor (thinner scenery), never the flat camera. |
+| Walkers ahead of the van? | No keep-up pull in front: they walk at the van with their feet planted. Beside and behind the van they still sprint to keep up. Spawns go up so encounters stay about the same. |
+| The test's feel on every route? | Yes: pace 1.25, bullets 1.6 times as fast, the longer range and the click-pick auto-lead. Spawns are rebalanced per danger level, so each route's difficulty (walkers met, hits taken, deaths, scrap) matches today's top-down game. |
+| Sharp corners? | Reshape the corners (stop line further back, wider arcs) and brake by sharpness, down to about 40% at the sharpest turn (133 deg). The owner was promised: the worst corner spins the camera about 43 deg/s (64 at Engine Tune 5), the road ahead stays on the screen, and trips are about 1.5% longer. Home Base to Corner Grocery stays exactly as tested (37 / 53 deg/s). |
+| Places on the road? | Each place gets its own 3D building: the cabin for Home Base, and a water tower that is the tallest thing around and seen from far off (the story calls it "the tallest thing for miles", with Jo's antenna on top). Also a gas canopy on posts with pumps, the school, hospital, police station, firehouse and mall, stores with their own fronts and signs, and River Landing's dock standing up. |
+| Night? | Between the old look and today's. The headlight beam turns with the van and reaches about halfway between the old view's reach (about 520 units ahead) and today's (to the haze). |
+| Click-pick auto-lead? | It stays. |
+| Stated defaults, not objected to | The Water Tower's drive and lot moved out of the river (a geometry bug, also on main). Buildings block walkers. The title screen and the garage preview use the angled look. Side-street ends (barricades, dead-end rails, gate rails) stand up. Name boards fade with the haze and keep clear of the HUD. The minimap fades only for lots actually in view. Fog thickens with distance. Half-screen and narrow windows get a wider view. The rule "no new walkers near the door" is counted in seconds. The drive starts seamlessly, with no visible stall. God mode gets an FPS toggle. |
+
+**Built in this drop:**
+- the corners;
+- each place's building, with the side-street ends, the dock and the name boards standing up;
+- the Water Tower moved out of the river;
+- the wider view on narrow windows;
+- the scenery governor;
+- the seamless start;
+- scenery that scales to every route.
+
+**Built later the same day** ("The flat camera taken out" below):
+- the top-down camera removed, and with it `PERSP_ROUTES`;
+- the night beam;
+- the angled title screen and garage preview;
+- the minimap's fade;
+- fog that thickens with distance;
+- the FPS toggle.
+
+**Built last** ("Walkers and balance" below):
+- the walkers ahead of the van, and none riding its nose;
+- buildings and the river blocking walkers;
+- the spawn rebalance, by danger and day;
+- the door's spawn rule in seconds;
+- the road in 1/60 s steps, so a slow machine plays at full speed down to 10 frames a second.
+
+### Judgment calls: the corners (js/streets.js, js/game.js)
+
+- **The rule comes from the turn, not from a threshold.** `Streets.cornerSpin` is a small model of the angled camera
+  (its look-ahead, its spring and the brake). It predicts the view's peak spin from a turn's angle, its arc, the
+  straight before the bend and the van's speed. On the city's turns the real camera turns at 0.91 to 1.13 times the
+  model's peak, so the model carries a safety factor (`CAM.fit` 1.1). A corner whose turns all stay under the comfort
+  target (`COMFORT.spin` 43 deg/s at Engine Tune 0, 64 at 5, times `COMFORT.design` 0.98) keeps today's shape exactly.
+  Home Base to Corner Grocery is left alone because its turns are already comfortable (37.4 / 52.9 deg/s), not
+  because of a special case. `Streets.CAM` mirrors `PERSP` and the fastest van, and validate-drive checks that they
+  match.
+- **An uncomfortable corner's stop line moves back** as far as its turns need, up to `GEOM.backMax` (1100) or the
+  road's room. The van then takes the widest arc that keeps its whole width (`GEOM.vanHalf` 33) on the paving, with
+  the rest as straight road before the bend. No arc is ever tighter than it was. **This differs from the work item as
+  written:** a turn that was already comfortable keeps today's arc exactly, and a stop line further back only adds
+  straight road before it. Filling the extra room instead turned gentle drive turns into 6.6-second drifts that
+  started 800 units early (police to Gas-N-Go, a 52 deg turn on an arc of radius 1699).
+- **Right-way turns too sharp for the old 140-unit arc** rejoin the next road on the smallest comfortable arc, up to
+  the widest the paving holds. The next road's lanes begin a little later to make room, but never shorter than their
+  time (`winMin` for a junction; side streets as below).
+- **Braking by sharpness** (angled only): 0.75 of the van's speed into any turn up to a right angle, then down to 0.4
+  at 135 deg (0.416 at the city's sharpest, 132.9). Where a road is too short for its corner's comfortable shape the
+  van brakes further (`Streets.brakeFor`, never under `minBrake` 0.3). Braking still starts at the stop line, never
+  before. On a long straight to a sharp bend the van keeps its speed past the line and brakes over at most twice its
+  ease (`brakeSpan`). A deeper brake eases in and out over more road, so no frame changes the speed by more than the
+  old light brake did (1.46% a frame at most, limit 2%). Braking is set by the angle alone on all but 9 right-way
+  turns (6 at Engine Tune 5). Those brake a little more because their road is short (the Frog Lane corner out of
+  River Landing).
+- **Side streets (the wrong turns into them):** their stop lines move back too (up to 310 units at Engine Tune 0, 356
+  at 5), but only within the lane time each street already had, never under `winFirst` (3.5 s) and never under what
+  it had. Braking (0.33 to 0.58) does the rest. The narrow paving (`sideHalf` 100 plus the shoulder) caps the arc at
+  radius 141. Result: 42.5 / 58 deg/s (it was 60.3 / 80.7), lag 26 deg (it was 52 / 59).
+- **The Water Tower faces up the bank.** Its drive and lot lay in the river on every route, on both cameras. A
+  place's drive still points down the middle of the widest gap between its roads, unless that drive would come within
+  `GEOM.riverClear` (60 px) of the river's bank. "That drive" means the drive at its longest: slowest van, smallest
+  scale, furthest stop line, plus its lot. In that case the drive takes the direction with the most room to its roads
+  that stays dry. Only the Water Tower changes: its drive now heads -105 deg (north by north-west, up the bank)
+  instead of 192 deg (west, into the river). Its lot keeps at least 300 px from the bank on every route at every
+  speed. The city map draws the new drive too.
+- **One river.** Its course is `Streets.RIVER`, the only copy. The road (`Draw.riverBand`) and the city map
+  (`js/map.js`) both draw it. Drives and lots keep out of it. `Draw.inRiver(x, y, margin, scale)` and
+  `Draw.riverEdge(x, y, scale)` (js/sprites.js) tell what grows or stands by the road where the water is.
+- **Narrow windows see wider** (`Persp.minAspect` 1.25, `Persp.maxFov` 90): a window narrower than 1.25 to 1 gets
+  the view that a 1.25 window would have across. A 960 x 1040 window now sees 76 deg tall (it was 60). 1280 x 800,
+  1280 x 720 and 1920 x 1080 are unchanged to the bit. Portrait phones stop at 90 deg tall; nobody has decided about
+  phones yet.
+- **A late lane change:** a lane slide still going when the van crosses a stop line into a turn now slows smoothly
+  onto the turn's path (`SLIDE_STOP` 3000 px/s2, harder only at the road's edge), and the camera keeps to the path,
+  not to the slide. The step change at the line went from 5.01 to 0.34 units.
+- **A slight turn from a lane's edge** (under 30 deg, `EASE_MAX`) uses the lane path's easing curve where that is
+  gentler than the tight arc that fits there.
+- **Measured** (every route angled, a careful driver centred in its lane, 60 fps, before and after; Engine Tune 0 |
+  5). Across all 1048 right-way turns:
+
+  | | before (e0) | after (e0) | before (e5) | after (e5) |
+  |---|---|---|---|---|
+  | peak spin, deg/s (max / p95 / median) | 85.1 / 66.4 / 26.1 | 42 / 41.1 / 23.8 | 115.7 / 92.5 / 37 | 59.6 / 58.9 / 35.1 |
+  | spin acceleration, deg/s2 (max) | 176 | 83 | 418 | 165 |
+  | lag behind the van, deg (max) | 62.1 | 25.1 | 75.1 | 31 |
+  | turns over 45 / 65 deg/s | 270 | 0 | 245 | 0 |
+
+  - **The road on the screen after the bend:** before, the road 300-1500 units ahead left the screen at 25 turns
+    (115 at Engine Tune 5) at 1280 x 800 and at 140 (352) at 960 x 1040. Now it never does.
+  - **Time in a bend:** the sharpest bends (120 deg and up) now take up to 3.7 s at Engine Tune 0 at 42% speed (they
+    took 2.2 s). The van starts its bend up to about 1.1 s earlier.
+  - **Trip time:** trips are 1.66% longer over all 544 drives (the owner was told about 1.5%). Most of it is six
+    places whose first turn out is sharp (Gas-N-Go, Reyes Hardware, Mile 9 Pharmacy, Signal Electronics, 4th Precinct,
+    Station 12): their own drives are 242-463 px longer, and the van drives the same drive in.
+  - **Paving:** a van centred in its lane keeps at least 4 units on the paving through every turn. The tightest arc
+    anywhere is now 108 (it was 99).
+  - **Signs:** the shortest time a sign is up rose from 4.26 to 4.76 s.
+- **Open:**
+  - **Trips are 1.66% longer**, against the 1.5% the owner was told.
+  - **The sharpest corners take 3-3.7 s at Engine Tune 0** (worth showing the owner).
+  - **The first long drive of a fresh session builds up to about 60 ms longer.** A corner's shape is worked out once
+    per corner, way in and van speed, then reused. Later new routes add 5-15 ms. Warming the drives from the map
+    screen would hide it.
+  - **Side-street wrong turns stay comfortable mostly by braking.** A wider arc would need a paved flare where the side
+    street meets the road.
+
+### Judgment calls: each place's building (js/perspective-buildings.js)
+
+- **A building is a row of parts in its lot's own frame** (`ZSR.PerspBuild.ROWS`, keyed by place id: X runs right as
+  the van drives in, V into the lot, Z up). The parts are:
+  - boxes, with windows, doors and signs laid on their walls (a perspective-correct map per wall);
+  - gable and sloped roofs, posts and beams;
+  - round tanks, a dome, logs and glass houses;
+  - the interiors' landmark pictures (js/landmarks1.js, landmarks2.js) standing about as props.
+
+  The style is comic ink like the van and the wrecks: flat faces lit from the upper left, inked edges, line width set
+  by distance. A place without a row falls back to the old plain box.
+- **The front wall stays where it was** (lot v0 + 168), so parking still stops 42-47 units short of it (`parkShort`
+  45). Nothing low stands where the van parks. At Ortiz Auto and River Landing, the places with one road, nothing
+  stands across the road in front of the wall. Everything stays inside its lot, except River Landing's dock (out over
+  the water) and its sign post by the road, as in the flat art.
+- **Far off, a building loses detail:** under `DETAIL_PX` (70 px across) only its masses are drawn, and under
+  `PROP_PX` (170 px) its props, railings, ladders and shingle lines go. **It fades into the haze by colour, not by
+  see-through faces.** Its colours mix toward the haze's in 20 cached steps as the world's fade drops, so parts never
+  show through each other.
+- **A landmark becomes a silhouette, never nothing** (`landmark: true`: the Water Tower). Past the haze's far edge it
+  is drawn as a silhouette standing on that edge, sized for its true distance and paling into the haze out to
+  `LANDMARK_SEEN` (2.4) times `Persp.cfg.far`. Its antenna light blinks red at night.
+- **The tower's height is limited by the camera.** The angled view's top edge is level, so nothing higher than the
+  camera can ever be seen. The camera stands 0.447 x window height / zoom: 357 units at 1280 x 800, about 340 on small
+  windows, 483 at 1920 x 1080. The antenna tip stands at `TOWER_TOP` (352): the tank at 190-274, its roof to 304,
+  trees at 150-240 and every other building under 265. So the tower is clearly the tallest thing and shows whole.
+- **The places' names are painted on their buildings' signs.** Each sign is a texture cached by its words and size.
+  A sign shows the place's name only once the place is known; before that it is blank and the "?" board shows. While
+  the painted words are smaller on the screen than the road's name board would be, the flat name board stands on the
+  sign's spot instead, and gives way quickly as the words grow. Boards fade with their building and are left out once
+  it has faded under `NAME_FADE` (0.2). A board that would overlap a box in the HUD's top row (`Game.hudRects().boxes`)
+  moves down just under it.
+- **The draw order with buildings.** Each frame, each building in view orders its parts for the camera: a
+  topological order from the wall planes between parts that overlap on the screen, then explicit `after` (a roof on
+  its walls), then farthest first. Anything within `NEAR` (420 units) of a building's parts is then placed against the
+  parts it overlaps on the screen: before all of them, after all of them, or between two (a walker under the gas
+  canopy, or between the tower's legs). This covers walkers, the downed, plants, props, crates, sparks, the van and
+  the side-street ends. A thing in front of one part and behind another goes where the least overlap is drawn wrong.
+  A walker inside a footprint is drawn hidden behind the walls (walkers are not yet kept out of buildings;
+  `PerspBuild.solids(lot)` gives the solid parts' corners for that).
+- **The angled ground leaves out what stands up.** `Draw.cityRoads(..., view)` skips the side streets' flat ends when
+  `view.standing` is set. `Draw.lot(ctx, lot, G, look, opts)` with `opts.standing` skips the building seen from above,
+  the gas canopy, the door and River Landing's flat dock. `surface`, `stripes` and `extra` give each lot its own
+  ground: the cabin's dirt yard, gravel at Greenhouse Row and the Water Tower, dirt at Ridge Lumber, oil stains at
+  Ortiz Auto, a pale pad under the gas canopy. The flat camera's art is unchanged. The card's squares key on this
+  (`Persp.groundKey()` = `PerspBuild.GROUND_KEY`): change the key when the ground's pieces change.
+- **Side streets' ends stand up**, built from the drive's own side streets:
+  - **closed road:** two striped barricades on A-frame legs, just past the end of the paving, with a cone at each
+    side;
+  - **dead end:** a striped guard rail on posts;
+  - **no through road:** a gate rail between two posts.
+- **Signs on walls are drawn in the picture's own pixels** through each strip's map. Drawn into a unit square
+  instead, as `Persp.texWall` still does for the van's walls and the road sign boards, Chromium blurred and clipped
+  them at small sizes ("EMERGENCY" read "[MERGENC]").
+- **Each place's building** (and the art it reuses):
+
+  | Place | Building | Art reused |
+  |-------|----------|------------|
+  | Home Base | The Hollis cabin: cream lap siding, white trim, sage shutters, the red door under a little porch, a slate gable roof with an attic window, a stone chimney, firewood, a rain barrel, a dirt yard, and June's hand-painted HOME BASE sign on two posts | houseart.js colours |
+  | Gas-N-Go | A shop with a red band (ICE · SNACKS) and Ruby's red R by the door; a canopy on four posts over two pump islands; the tall GAS price sign on its pole; a pale pad under the canopy | iceMachine, vending |
+  | Corner Grocery | A brick store with its name on the parapet, a green-and-white scalloped awning, posters in the windows, fruit stands | cartPile |
+  | Reyes Hardware | A tan big-box with an orange band (TOOLS · PAINT · LUMBER · GARDEN), a roof sign, a loading door, lumber bundles | toiletStack, ladder |
+  | Mile 9 Pharmacy | A white store with a green band and a green cross on a pole by the road | toothbrush, pillBottle |
+  | Ortiz Auto | A corrugated steel garage, one bay open on the car lift, roll doors, a yellow sign, oil stains | carLift, tireStack, drums |
+  | Signal Electronics | A dark store with a blue band, its name and a lightning bolt, box TVs behind the glass, a lattice mast and a dish on the roof | tvWall, satDish, robotMascot |
+  | Greenhouse Row | Three glass greenhouses with beds seen inside, and the name on a gate over the way in | scarecrow, palmTree, gnome |
+  | 4th Precinct | Two storeys of pale stone, a columned porch up two steps with the name on its beam, blue lamps, a flag | motorcycle |
+  | Lincoln Middle School | A long brick school, a white entrance with a gable, a clock and the name, a flag | lionStatue |
+  | Station 12 | Red brick, a STATION 12 band, one bay open on the fire truck, a hose tower | fireTruck, dalmatian |
+  | St. Anne Annex | Three storeys with the name across the front, a glass lobby under the EMERGENCY canopy, a red cross on the roof | wheelchairs |
+  | Water Tower | A pump building with the name over its door, four leaning braced legs, a ladder, a round tank with a blue band and a pointed roof, a catwalk and rail, and Jo's antenna with three guy wires and a red light | (all built) |
+  | Ridge Lumber | An office with a green roof, an open pole shed over lumber stacks with RIDGE LUMBER along it, a log pile, a dirt yard | forklift |
+  | Northgate Mall | A lot-wide beige and purple building, a glass atrium, a raised name sign, SHOES and TOYS anchor fronts | cartPile |
+  | Public Library | Stone, arched windows, four columns up the steps, the name under a pediment, a copper-green dome with a lantern | (none) |
+  | River Landing | Log stops across the road, the dock on pilings over the water, a sign post with RIVER LANDING | (none) |
+
+- **Measured** (headless, SwiftShader, 1280 x 800: compare these, do not read them as a real PC's times):
+  - **One building, JS side:** 0.03-1.1 ms approaching, 0.6-1.8 ms parked (Greenhouse Row costs the most). The plain
+    box cost 0.01-0.02 ms.
+  - **Whole frame against the plain box:** +0.2 to +0.3 ms parked. Approaching, it is within the noise.
+  - **Sorting:** about 0.1 ms a frame.
+  - **Parts:** 4 to 18 per building.
+
+### Judgment calls: the scenery (js/perspective-art.js, js/perspective.js, js/perspective-gl.js)
+
+- **Plants are seeded by place, not by route** (`vegLayout`). Every 120 x 120 world cell (`VEG_STEP`) has one
+  candidate spot, seeded by the cell itself. A 512 square (`VEG_CELL`) takes the spots that fall inside it, so
+  squares made apart meet without a seam, density is exactly as before, and a square made again is identical.
+  **Caveat:** a drive's world is the map times that drive's own scale, which differs by route. So "the same on every
+  drive" holds only at the same scale.
+- **A square of plants is made the first time the view reaches it**, and let go after `VEG_IDLE` (240) frames
+  unused. Roads, side streets, corners and lots are filed in 2048-unit buckets (`VEG_BUCKET`), so a square looks at
+  about 2 roads whatever the city's size. The old 2600-unit limit is gone: plants fill out to `cfg.far`. **Side
+  effect:** the far haze to the sides and past a route's end now has plants where it was bare (+4 to +12% plants
+  listed a frame; the same near the van).
+- **Nothing grows in the river.** No plant stands within 10 px of the bank, no overgrowth mark goes over the water,
+  and no prop stands in it (`Draw.inRiver`).
+- **Props are filed by square** (`PROP_CELL` 512), both for the world and for each ground square.
+  - **A far prop gets simpler, never popped:** from `LOD_AT` (0.35) of the way into the haze band its detail fades
+    out over `LOD_BAND` (300 units). A wreck loses its wheels, rust, windows and shadow; a barrier's stripes turn
+    flat; a sign's board turns to its flat colour.
+  - **The same for props among a building's parts:** a prop a building draws among its parts gets the same level of
+    detail (`Persp.drawItem`).
+- **The scenery governor** (`Persp.sceneryRow`) reads the real frame interval (`g.rafMs`, the browser's own time
+  between frames, smoothed over about half a second). Its one budget is `SCENERY_BUDGET_MS` = 25 (40 fps).
+  - **Stepping:** a row down after 2 s over the budget. A row up after 8 s under 18.75 ms; that wait doubles (up to 8
+    times) for a row it had to leave.
+  - **Not counted:** gaps over 250 ms, pauses, the wrong-turn fade, the van waiting at its door, and a drive's first
+    1.5 s.
+  - **It never fights the walkers' governor:** after any row change of either governor it holds 2 s, and it never
+    sets the walkers' rows.
+  - **Rows** (`SCENERY_LEVELS`), each eased in over a second or two:
+    0. today's look;
+    1. 'low' image smoothing, and plants under 12 px fade out;
+    2. plants under 16 px fade, far props simple, no plant shadows;
+    3. half the far grass and bushes fade (by each plant's stable hash);
+    4. plants under 22 px fade, and three quarters of the far grass and bushes.
+  - **On a CPU-drawn canvas** it steps from row 0 to row 4 in about 7 s and cuts the frame by 29-31%. On the
+    accelerated proxy it stays at row 0.
+  - **Known side effect:** a browser capped at 30 fps (Chrome's Energy Saver) reads as slow and thins its scenery.
+  - **Stats:** its row and the smoothed interval are `Persp.frameStats.scenery` and `.gapMs`.
+- **The ground's squares are freed when a drive really ends.** `Game.stop()` calls `Persp.release()`, which lets go
+  of:
+  - every texture;
+  - the card's canvases;
+  - the plants' squares and the props' index;
+  - the walkers' canvas pool;
+  - the 2D layers.
+
+  A wrong turn's retry is not a stop and keeps them. After a stop, GL textures went from 360 to 0, an estimated 204
+  to 423 MB.
+- **A seamless start: the van waits at its door until its first view is ready** (`Game.prepStep`, `Persp.ready`), at
+  most `PREP_SECS` (1 s). Meanwhile the ground under the view and the views just ahead are drawn: `PREP_BUDGET` 24 ms
+  of squares a frame, holes up to `PREP_HOLES` 60 ms. The same happens behind the dark after a retry. The trip clock
+  does not run meanwhile.
+- **The road canvas's dpr is capped at 1.5** (`ROAD_DPR_MAX`); only 175% and 200% screen scaling go past it. A
+  dpr that changed with the governor was rejected: resizing a canvas mid-drive is itself a hitch.
+- **Ground squares at sharp corners: one work list a frame, most visible first:**
+  1. holes near the van;
+  2. squares near the van;
+  3. missing far squares;
+  4. the soonest view ahead;
+  5. sharpening;
+  6. the later views ahead.
+
+  Squares the views ahead need are kept on the card every frame. `AHEAD_BUDGET` is gone. **`keepFor`:** the card
+  keeps `KEEP_VIEWS` (1.9) times the most squares a view of this window needs, never under `KEEP` (360). That is 365,
+  415 and 529 squares at 1280 x 800, 1920 x 1080 and 2560 x 1080, against 280, 328 and 418 needed for the view plus
+  the views ahead. **A texture leak was fixed:** a square needed both now and just ahead was drawn twice.
+- **Measured** (interleaved A/B in headless Chromium, every route angled, frame ms median / p95):
+  - **river to mall at night, software canvas:** 51.9 / 75.0 before, 37.0 / 52.7 after (-29%). With the governor
+    held at row 0, 52.9 / 74.8: the new code at full scenery costs the same as before.
+  - **First frames, software:** a 297 ms first frame with the van already moving became a 202 ms frame while it waits.
+    After it moves, no frame is over 100 ms and there are no holes.
+  - **Plant layout:** the old scatter took 81 ms at a drive's start (165 in the browser). The lazy layout takes
+    1.7-7.5 ms for the first view and 11-28 ms over a whole drive. On cities 1x / 2x / 3x as wide, the old scatter
+    took 81 / 245 / 510 ms and the new layout 27 / 28 / 26.
+  - **Card memory:** the squares kept peak at 228 MB at 1280 x 800 (the same as before), 262-271 MB at 1920 x 1080
+    (+12%) and 334-348 MB at 2560 x 1080 (+35%).
+- **Open:**
+  - **`keepFor` raises GPU memory on wide windows.** `KEEP_VIEWS` 1.4 would save about 25% at 2560 x 1080, at the cost
+    of more squares drawn again.
+  - **The governor was tuned on SwiftShader only;** the owner's PC is unmeasured.
+  - **Below 20 fps the drive runs in slow motion:** the game's 0.05 s time-step clamp is unchanged.
+  - **The night overlay costs about 7 ms of JS a frame** on a CPU-drawn canvas.
+  - **Fog days were never measured.**
+  - **Two costs still grow with the whole city:** `buildScenery` walks every road at a drive's start, and
+    `Draw.cityRoads` filters every road for each ground square. Both are cheap today and about 9 times as costly at
+    3 times the city.
+
+### Merged and checked together (2026-10-17)
+
+The three were built side by side from the same start and merged in this order: corners, places, scenery.
+- **One river.** Both the corners and the scenery added `Draw.inRiver` and `Draw.riverEdge`, with the same names
+  and signature. The merge keeps the corners' version, which reads `Streets.RIVER` and `Streets.riverDist`.
+  `riverBand` keeps the corners' whole-box cull.
+- **Everything standing is drawn through `Persp.drawItem`** (from the places). The scenery's per-frame settings now
+  live there too: the governor's smoothing, the props' level of detail and the counts of plants and props drawn. So
+  what a building draws among its parts gets them as well.
+- **The Water Tower's night light shines through the dark.** It was drawn under the night's overlay and so never
+  showed. `PerspBuild` now collects the lights it would draw at night, and game.js draws them right after the
+  overlay (`PerspBuild.drawLights`).
+- `tests/validate-scenery.js` loads the landmarks and js/perspective-buildings.js in page order, so its checks run
+  with the buildings in.
+- **Checked with every route angled in memory** (headless, Node):
+  - **Every ordered pair of places** (272 routes) was driven at Engine Tune 0 and 5 alternately, with walkers
+    spawning as in play. Every 20th frame, and once parked, it was drawn on a checking 2D context: 68,789 frames.
+  - **Results:** every route arrived and parked with no wrong turn. There were no exceptions, NaN or bad canvas
+    calls. The place's building was drawn once parked on every route.
+  - **Plants and the river:** none of the plants seen stood inside a building's solid parts or in the river, and no
+    prop stood in the river.
+  - **Corner comfort** (`COMFORT_ALL=1 node tests/validate-drive.js`): all 2096 right-way turns on all 272 routes, at
+    each engine, peak at 42.0 / 59.6 deg/s, with spin acceleration up to 83 / 165 deg/s2 and lag up to 25.1 / 31.0
+    deg. The road after the bend stays 254 px inside the screen at 1280 x 800 and 109 px inside at 960 x 1040.
+    Home Base to Corner Grocery is at 37.4 / 52.9. The 546 wrong ways peak at 42.5 / 58.4 deg/s.
+- **Looked at in headless Chromium** (SwiftShader, 1280 x 800):
+  - **Destinations,** approaching and parked: the Water Tower (also far off, and at night), Gas-N-Go, Home Base, St.
+    Anne Annex, Northgate Mall, River Landing and the Public Library.
+  - **Corners and roads:** the 133 deg corner mid-turn at Engine Tune 5 (and at 960 x 1040 at Engine Tune 0), a
+    closed side street's end and Frog Lane with Corn Lane's dead end.
+  - **Results:** the tower's lot is dry and up the bank, and the far tower stands over the haze. Walkers by the gas
+    station are drawn against its parts. The road after the 133 deg bend stays on the screen.
+  - **Still to fix:** at 1280 x 800 the HUD's top row covers the far horizon, so the far tower shows between its boxes
+    or below them. At night the old headlight cone still hides the far buildings (the night beam is still to come).
+
+### Tests added (2026-10-17)
+
+- **`tests/validate-streets.js`**:
+  - **Speeds:** every route at van speeds 1, 1.7, 1.25 and 2.125 (both cameras' slowest and fastest).
+  - **The river:** no road, drive, side street or lot lies in it. With the old drive direction it reports 2110 errors.
+  - **Comfort:** every right-way turn is comfortable at the angled speeds by the camera model, and again with every
+    road 30% shorter (the denser-city check).
+  - **Runtime:** 3.5 s became 8.6 s.
+- **`tests/validate-drive.js` "comfort"** reloads game.js with the `PERSP_ROUTES` gate opened (or as is once the gate
+  is gone). It drives 63 routes that take every turn in the city (`COMFORT_ALL=1`: every route) at both engines, and
+  114 sampled wrong ways. It checks:
+  - spin at most 45 / 65 deg/s, spin acceleration at most 300 deg/s2, lag at most 35 / 38 deg;
+  - the road 300-900 units ahead on the screen at 1280 x 800 and 960 x 1040;
+  - no hops;
+  - braking at most 2% a frame and never before a stop line;
+  - Home Base to Corner Grocery unchanged;
+  - the camera numbers in streets.js matching the game's.
+- **`tests/validate-drive.js` "places"** drives to all 17 places on the angled camera and draws each, 1300 units out
+  and parked, on a checking 2D context. It checks:
+  - every place has a row and every row a place;
+  - once parked, every part is in front of the camera, nothing low stands in the van's box, and no part is drawn over
+    the van;
+  - walkers stood all round each building are drawn the right way round against its parts (1% allowed; 3 of 1594 are
+    not);
+  - the angled ground leaves out the standing pieces;
+  - name boards never sit in a HUD box, never over a faded building, and are never more opaque than their building;
+  - the tower is seen past the haze on the way to it;
+  - at night the tower's antenna light is drawn over the night's dark (added at the merge; it fails without
+    `drawLights`).
+
+  Its script list gains landmarks1.js, landmarks2.js and perspective-buildings.js.
+- **`tests/validate-scenery.js`** (new, in `npm test` after validate-drive, about 45 s, counts only) checks:
+  - the plant layout on synthetic cities 1x / 2x / 3x as wide;
+  - the same seeds and even density across squares' edges;
+  - nothing in the river on 5 drives along it;
+  - props found by square equal a full scan, and far props are simpler;
+  - the governor's steps, its fade-in and hold, and the walkers' rows left untouched;
+  - release at a stop, and nothing released on a retry;
+  - squares kept against the view plus the views ahead.
+
+### The flat camera taken out (2026-10-17, later)
+
+Every drive now uses the angled camera, with no setting and no fallback (the owner's answer above). A machine
+without WebGL gets the angled view's own 2D ground; a slow one gets the scenery governor.
+
+**What went:**
+- **js/game.js:** the `PERSP_ROUTES` gate and the `persp` flag, `drawFlat`, `flatToScreen` / `flatToWorld`, the flat
+  aim and its assist, the flat spawn, cull and touch test, `drawCrowd`, `viewTurn`, the flat `drawOverSign`, `anchorY`
+  and `EASE.camTurn`. That first commit took 334 lines out and put 116 in.
+- **js/sprites.js** (2409 lines to 1201):
+  - the top-down road walkers: `Draw.zombie` with its six looks (`ZOMBIE_LOOK`), `zombieShadow` and `zombieDown`,
+    about 920 lines;
+  - the scrolling road (`Draw.road`). It went too, because only the old title screen still called it;
+  - the flat standing props (dead trees, barrels, barriers, signs and wrecked cars). `Draw.prop` keeps the junk that
+    lies flat: tires, rubble and crates;
+  - the top-down van's turret;
+  - the screen-space fog and night overlays.
+- **Tests:**
+  - validate-art's road-walker section went. It keeps only the road's particles;
+  - validate-drive's flat-only checks went: the flat routes, "no brake on the flat camera" and the flat crowd's draw
+    order.
+- **docs/SCALING.md:** the walker-kind step 4 (a road look for each kind) went. A new kind has one look, on foot and
+  on the road.
+
+**What stayed**, because the angled view still draws it: `Draw.ground`, `cityRoads`, `laneZone`, `laneArrow`, `lot`,
+the signs and the name boards, `Draw.van` (the roof seen from above, laid on the 3D van's roof), particles, bursts,
+`inRiver` and `riverEdge`. `cityRoads` keeps its flat side-street ends and the gas canopy, which the angled ground
+draws when no building row stands there (a test that loads no buildings).
+
+**What took its place:**
+- **Night** (`Persp.night`):
+  - a dark layer, with a glow round the van, the headlights' beam laid on the road down the van's own heading (so it
+    turns with the van) and the gun's lamp along its aim;
+  - the layer is drawn again only when it moves;
+  - the Water Tower's light (`PerspBuild.drawLights`) is still drawn over it.
+- **Fog:** the haze comes in thick and near, and walkers past it are hidden. It works with night: both go on at once.
+- **The title screen and the garage's preview** (`Persp.showcase`): a still angled scene with the 3D van in its paint
+  and every van and gun upgrade, and two Walker3D figures. It is drawn only when it changes.
+- **The roof gun:** the 3D gun on the van shows every gun upgrade, as the old top-down turret did.
+- **The aim:** every drive aims through the angled camera (`Persp.aim`).
+
+**Judgment calls:**
+- **Night's reach is 2050** (`NIGHT_BEAM`). That is about halfway between the old top-down road's 520 and the haze at
+  3600, which is what "in between" asked for.
+  - **The beam:** it starts 40 units ahead of the van's middle, 26 wide each side there, and opens 0.34 a unit. It is
+    full bright for the first 30% of its reach and gone at its end.
+  - **The other lights:** the glow round the van reaches 170. The gun's lamp reaches 360, 0.22 rad each side of the aim.
+- **Night is fully dark outside the lights** (`NIGHT_DARK`, opaque). The old overlay filled its layer at 0.88 every
+  frame without clearing it, so within a few frames it built up to black outside the lights. The new layer is cleared
+  and redrawn only when it moves, so at 0.88 the world would show through at 12%. Opaque, beyond the beam and the
+  glow, matches the old flat and angled drives pixel for pixel (6-8, 8, 16 against 6, 8, 16). Inside the lights it is
+  within 3% of the old steady state.
+- **When the dark is drawn again:** the layer is redrawn only when one of its points on the screen moves a whole px,
+  or the aim turns about 1 deg. On a straight with a steady aim, 65% of frames reuse it.
+- **Fog** (`FOG`):
+  - the view sees 760 ahead in fog, clear to 60 ahead of the camera's spot and thickening between;
+  - buildings fade into it by colour, and the far silhouettes (the tower past the haze) are off in fog;
+  - walkers still come from as far off as on a clear day (`spawn` reads `cfg.far`), so in fog they are only seen
+    later. The rebalance ("Walkers and balance" below) did not look at fog days;
+  - the old flat road's fog was a clear circle about 300 round the van.
+- **The title screen and the garage:**
+  - both draw a 200 px tall picture (`SHOW`) with the van 0.76 of the way up it and two walkers at set spots, and the
+    gun aims at the nearer walker;
+  - on the title screen the walkers' kinds take turns through `WALKER_TYPES`, changing every `SHOWCASE_SECS` (4 s);
+  - each drawing is keyed by size, upgrades, kinds and turn, so nothing is drawn while none of them changes.
+- **The gun's upgrades in 3D:**
+  - Spread Shot adds barrels at the fan's own angle;
+  - Heavier Rounds lengthen them, with a muzzle brake from 3;
+  - Rate of Fire adds a jacket (1; copper at 5), a drum by the breech (2; bigger with a brass ring at 4) and cooling
+    fins (3);
+  - the jacket stops short of the tips, so the barrels' length still shows.
+- **The minimap:**
+  - its arrow always points up. The map already turns with the van, and the camera's lag through a turn (up to 25-31
+    deg) tilted it for nothing;
+  - it fades only when a place's lot or its building's box is in front of the camera and short of the haze
+    (`MINI_HAZE`, 0.25), and that outline on the screen overlaps the map.
+- **The sign and the lane hint** (`Game.roadEdges`):
+  - **The road's edges:** the outer edges (shoulders and oncoming lanes included) are projected every `EDGE_STEP`
+    (120) from just behind the van out to the haze. Past a stop line the van has not crossed, they run on straight,
+    so where the sign stands never tells the way;
+  - **The sign** hangs `SIGN_GAP` (14 px) right of the edge beside the rows it covers;
+  - **The lane hint** sits under the sign, as far right as the road's edge beside it needs, or on the grass left of
+    the road down to where the edge comes past it;
+  - **A sign just passed** slides right (`SIGN_AWAY`, 1.2 px a unit) as it fades. On the flat road it slid down the
+    screen, which here would cross the road ahead.
+- **Spread Shot closes in on a walker clicked.** With the click-pick the fan was centred on the walker, so with two
+  barrels both shots passed either side of it: 0 of 2 hit at 500 to 1100 units.
+  - **Clicked on a walker:** `Persp.aim` now narrows the fan, never wider than `Upgrades.SPREAD`, so every barrel's
+    line crosses the walker within `SPREAD_HIT` (0.6) of its radius where the shots meet it;
+  - **Aimed at the ground:** the fan is as before.
+- **Pictures in their own pixels.** `Persp.texWall` and the van's roof drew each strip into a unit square, which
+  Chromium blurred and clipped at small sizes. They now draw it at its own size, through a matching scale, as
+  `texQuad` does.
+- **The FPS meter** (god mode, Cheats, off by default):
+  - **How it runs:** it has its own `requestAnimationFrame` loop, only while it is on. It shows the rate and the worst
+    frame over the last second (`FPS_WINDOW_MS`), changing its words every 250 ms. A gap over 1 s (a tab in the
+    background) is not counted as a frame;
+  - **On the road** it adds the scenery governor's `gapMs` (or "paused"), the draw's own time, and both governors'
+    rows;
+  - **Saving:** it goes off with god mode and is never saved.
+- **The roadside is built only where the drive can see** (`buildScenery`):
+  - **Where:** the city is checked against the drive's track every `SCENERY_STEP` (400). Only roads within
+    `SCENERY_REACH` (the camera's `cfg.far` + 600) get a roadside, and only along their stretch in that reach;
+  - **Seeds:** each road's roadside is seeded by the route and that road, so it does not depend on the rest of the
+    city. Today's drives have a different but just as thick roadside, and no save holds it.
+- **validate-streets** now drives only the angled speeds (1.25 and 2.125): 8.6 s became 4.4 s.
+- **Balance:** the angled pace, shot speed and spawns (`PERSP`: 1.25, 1.6, 1.4) now applied to every drive; the
+  rebalance by danger level came next ("Walkers and balance" below).
+
+**Measured:**
+- **A drive's start** (`buildScenery`, node, all 272 routes):
+  - today's city: 2.4 ms mean and 3.5 ms p95 before, 1.0 and 2.3 after;
+  - a city padded to 3 times the roads: 16.8 and 23.5 before, 1.0 and 2.1 after;
+  - props a drive: 935 before, 433 after. What went lay out of the camera's sight.
+- **Night** (headless Chromium, SwiftShader, 1280 x 800, River Landing to Northgate Mall):
+  - the old overlay: 4.5 ms median, 7.3 p95, every frame;
+  - the new one: 2.1 and 3.2 when it is drawn again, and 0.0 and 0.1 when it is reused;
+  - the whole frame is about 46 ms either way on the software raster, so the gain shows only where the GPU does the
+    rest.
+
+**Checked with every drive angled** (node, a checking 2D context):
+- **Every route:** all 272 routes at Engine Tune 0 and 5, 544 drives. They were split by weather (clear, night, fog,
+  fog and night) and Spread Shot level, with a bot aiming and firing. The minimap's fade and the sign were drawn every
+  frame checked.
+- **Results:** every drive arrived and parked with no wrong turn, and the place's building was drawn once parked.
+  There were no exceptions, NaN or bad canvas calls in 137,477 frames. No plant stood in a building or in the river,
+  and no prop in the river.
+- **Looked at** in headless Chromium:
+  - the title screen and the garage preview (plain, mid and every upgrade);
+  - night on a straight, in a turn and parked, against the old flat road (36403cd) and the angled drive before this
+    drop;
+  - fog, and fog with night;
+  - the minimap in the 133 deg corner;
+  - the sign and the hint at 1280 x 800, 1920 x 1080 and 960 x 1040;
+  - the FPS meter;
+  - Spread Shot at a walker clicked.
+
+**Still open:**
+- (the walkers ahead of the van, the spawn rebalance, buildings blocking walkers and the door's rule in seconds came
+  next: "Walkers and balance" below);
+- `Draw.cityRoads` still filters every road for each ground square, a cost that grows with the whole city;
+- at 1280 x 800 the HUD's top row still covers the far horizon;
+- fog days and night drives were not balanced.
+
+**Tests added or changed:**
+- **`tests/validate-drive.js`** "flat out" (a checking 2D context, no WebGL) checks:
+  - **night:** the dark is drawn again only when it moves; its beam lies down the van's heading; its reach is about
+    halfway from 520 to the haze;
+  - **fog:** the view sees `FOG.far`; a walker past it is not drawn; walkers come from where they do on a clear day;
+    no silhouette shows past it;
+  - **the minimap:** its arrow points up, and it fades for a place in view under it, not for the sky or a place in the
+    haze;
+  - **the sign and the hint:** off the road at three window sizes;
+  - **Spread Shot 1 and 3:** at a walker clicked 1100, 800 and 500 ahead, every barrel's shot hits it;
+  - **the title screen and the garage:** drawn again only on a change, every kind in turn;
+  - **`texWall`:** drawn in its own pixels.
+
+  The gun check runs on the angled camera at both engines, a check fails if game.js or sprites.js keeps any of the
+  flat camera's members, and "comfort" drives the road as loaded.
+- **`tests/validate-scenery.js`** "roadside": on cities 1x, 2x and 3x, three drives get the same props from the same
+  roads, and none past the camera's reach.
+- **`tests/validate-god.js`:** the FPS meter is off by default, and checks what it says off and on the road and that it
+  goes off with god mode.
+- **`tests/validate-engine.js`:** the van's gun is checked on the 3D roof gun.
+- **`tests/validate-art.js`:** keeps the road's particles only.
+
+### Walkers and balance (2026-10-17, later)
+
+The owner's answers above, built: walkers ahead of the van walk at it, beside and behind it they still sprint to keep
+up; buildings (and the river) block walkers; the angled drive keeps its feel (pace 1.25, shots 1.6 times as fast,
+the longer range, the click-pick auto-lead, none of them touched) and its walkers are rebalanced so each danger's
+drives are as hard as on the old top-down road; the door's "no new walkers" rule is counted in seconds. Also the
+road now runs in 1/60 s steps, so a slow machine no longer plays in slow motion.
+
+**Walkers ahead of the van** (`Game.carry`, `KEEP` in `js/game.js`):
+- **No keep-up pull in front.** The carry that keeps a walker up with the van depends on where it is: none ahead of
+  the nose, the danger row's `chase` share of the van's speed beside and behind it (within `PERSP.keepUp`, fading out
+  over `KEEP.fade` further off), and in between over `KEEP.band`.
+- **The band is time, not distance:** 0.8 s of the van's drive ahead of the nose (at least 60 units). A walker
+  turns from walking at the van to sprinting with it while the van covers the band, so a fixed 150 units gave the
+  Engine Tune 5 van a quicker, slipperier turn (p90 slip 86 units/s against 46 now).
+- **A walker in the van's path keeps walking** (no carry within the van's half width plus its own radius): it walks
+  into the nose instead of standing still in front of it.
+- **No moonwalk:** a walker ahead of the van's middle is never carried away from the van faster than it walks at it,
+  so its legs never walk toward the van while its body slides away.
+- **Nose riders are shoved off to their nearer side** (`KEEP.shove`: 0.8 of the van's speed, at least 60 units a
+  second) as soon as the nose pushes on them. The other choice, knocking one down after a hit or two, was not taken:
+  it would make the nose a free kill and take the threat out of every walker that reaches the van. Shoved off, a
+  walker grabs on beside the van and claws at it, as the old road's did. The hit as the nose meets it stays.
+- **Facing:** a walker faces where it goes (walking at the van ahead of it, running with the van beside it), and
+  faces the van only while it claws or something throws it back.
+
+**Buildings and the river block walkers** (`Game.blockWalker`, `walkRound`, `clearSpot`, `solidLots`):
+- **Buildings:** each lot's solid parts (`PerspBuild.solids`: boxes standing on the ground and at least 30 tall; a
+  part with `solid: false` lets walkers through) are boxes a walker is put out of at once, as the van's box does.
+  It goes out the nearest side that does not lead into a neighbouring part, in up to `BLOCK_PASSES` (3) passes, so
+  a walker never ping-pongs between parts that touch (Greenhouse Row's three glasshouses).
+- **The river:** the edge of its muddy bank (`Draw.riverEdge` 0, as plants keep out of) is a wall too. A walker in it
+  is put out along the way the bank's distance grows fastest (felt over `RIVER_PROBE`, 4 units). The van itself never
+  comes within 168 units of the bank on any route.
+- **The van wins:** its own push-out runs last, so a walker squeezed between the parked van's nose and a wall (45
+  apart) can be up to about 2 units into the wall for a moment, never into the van.
+- **Going round:** a walker put out of a wall walks along it (`WALK_ROUND`, 0.4 s, renewed while it presses). It
+  goes toward the end the van is past, or, when the van is straight through the wall, toward its own nearer end. It
+  keeps that way for `WALK_MEMORY` (2 s) after leaving the wall, so at a corner it does not turn back along the same
+  wall toward the van, and it turns round if it makes less than `WALK_HEADWAY` (25%) of its pace along the wall in
+  `WALK_STUCK` (1 s), for example when another walker is coming the other way. As first built (the way the van is
+  along the wall), 16 of 120 walkers behind the grocery paced its back wall for good.
+- **Where they come from:** a new walker comes from a spot at least `SPAWN_CLEAR` (30) plus its radius clear of both,
+  and best with neither between it and the van. Up to `SPAWN_TRIES` (6) spots are tried; if every clear one had a
+  building or the river in its way, the first clear one is used, and with no clear spot none comes (11 of 18,109 at
+  day 10 over every route). Each walker of a group checks its own spot.
+
+**The rebalance** (`ROAD_DANGER`, `ROAD_LATE`, `ROAD_LATE_DAY`, `roadRow`, `spawnGroup`, `spawnGap`):
+- **How it was judged.** `tests/balance` drives the real road code with a lane-keeping driver and a human-like aiming
+  bot (it targets a walker only once its figure is 30 px tall and faded in half way, tracks it 0.2 s late with 6 px
+  of jitter, clicks 6 times a second) on 3 routes a danger (0, the drive home, to 5), days 1, 5, 10 and 20, with the
+  van the economy plausibly has that day, 48 seeds a route: 3,456 trips. Each cell is held to the old top-down
+  road's numbers, measured the same way at 36403cd before that camera went (`tests/balance/targets.json`, frozen),
+  within damage +-20% (at least 5 HP), wrecked +-10 points, walkers met +-15% and scrap +-15%. Days 1 to 10 carry
+  the difficulty; on day 20 both cameras take almost no damage, so those cells are judged on met and scrap.
+- **What made the old road hard.** Most of its damage came from walkers that started at the top of the screen
+  (about 560 units ahead, inside the road's width): half of them reached the van. There they were never pushed out
+  of it, so a walker homing on the van's middle stayed on it and hit 2.8 to 4.4 times on day 1 at danger 3 to 5.
+  The angled drive before this drop brought 55% of its walkers 1,800 to 2,900 units ahead and up to 920 to either
+  side (the rest 700 to 2,200 ahead, out of the roadside), and the auto-lead hits about 90% of shots, so the bot shot
+  almost every walker long before it arrived: each walker met did 4.6 to 28 times less damage than on the old road,
+  and no spawn rate fixed that without far too many walkers met.
+- **Every danger's later days** (`ROAD_LATE`, the row for day 10 on, which every danger keeps unless its row says
+  otherwise): walkers 1.4 times as often as the old road's (they are seen from further off); 55% of them from far
+  down the road and on it (`farX` 30: within the road's half width plus 30, as the old road's came down the top of
+  the screen); and keeping up beside the van at 0.72 of its speed. That 0.72 is the old road's 0.65 in effect: the
+  van passes a walker beside it as fast as before, at the angled pace (1 - 0.35 / 1.25 = 0.72). This row alone
+  brought every day 10 and day 20 cell within the bands at 16 seeds a route; at 48, danger 2's day 10 came out 27%
+  high, so its row keeps up at 0.70.
+- **The first days need more.** Every setting tried that does not depend on the day left day 10's damage ratio
+  (angled against old) 1.4 to 2.5 times day 1's. Nearer, denser, harder-keeping walkers raised days 1 and 10
+  together; none of 16 settings at danger 3 passed both on damage. So each danger has `early` numbers for day 1,
+  and its day's numbers go over to its row in even steps by `ROAD_LATE_DAY` (10). On the first days, at the more
+  dangerous places, walkers come nearer, in groups (`group`, within `GROUP_SPREAD` 160 units of each other), and keep
+  up harder beside the van: a weak gun is overwhelmed, as it was on the old road. Each group comes as far apart in
+  time as that many walkers would, so `spawns` is still walkers per second. The early numbers were fitted per danger
+  on days 1 and 5 (16 seeds a route), then the whole matrix checked at 48 seeds and dangers 2, 4 and 5 nudged:
+
+  | danger | spawns (day 1 / 10 on) | chase | group | far down the road, share of the view's reach |
+  | --- | --- | --- | --- | --- |
+  | 0 (home), 1 | 1.4 / 1.4 | 0.72 / 0.72 | 1 / 1 | 0.5-0.8 / 0.5-0.8 |
+  | 2 | 1.0 / 1.4 | 0.84 / 0.70 | 2.5 / 1 | 0.35-0.5 / 0.5-0.8 |
+  | 3 | 1.2 / 1.4 | 0.80 / 0.72 | 2.5 / 1 | 0.425-0.575 / 0.5-0.8 |
+  | 4 | 1.0 / 1.4 | 0.80 / 0.72 | 4.5 / 1 | 0.35-0.5 / 0.5-0.8 |
+  | 5 | 0.85 / 1.4 | 0.88 / 0.73 | 5 / 1.25 | 0.2-0.35 / 0.5-0.8 |
+
+  Every row keeps the roadside's spots (`sideY` 700-2200 ahead, `sideX` 600-1400 past the road's edge) and 45% of
+  walkers coming from there. A danger past the last row takes the last.
+- **What did not help:** letting a walker pressed on the van's side spend its own pace running along with it (a
+  "cling", the old road's homing on the van's middle). It changed nothing: on day 1 at danger 3, 207 of 253 walkers
+  that touched the van were downed (shot or rammed) after about a second in contact on average, cling or not. It was
+  taken out again.
+- **The gap between walkers** (`spawnGap`): the trip's interval (`DIFF`, by danger and day as before), divided by
+  the row's `spawns`, times 0.85 at night (`DIFF.nightSpawns`), and only then floored at `DIFF.minInterval` (0.6 s).
+  The floor used to apply before the multipliers (a known bug: 0.43 s in effect). It does not bind on any matrix
+  cell; it is a `SCALE:` limit for longer, later, more dangerous drives.
+- **No new walkers near the door, in seconds:** `DIFF.quietAtDoor` is 3 s at the van's own speed from the parking
+  spot: 900 units at Engine Tune 0 (as before), 1,530 at Engine Tune 5 (was 900), so a faster van gets the same
+  quiet arrival.
+- **Results, 48 seeds a route** (`npm run balance`; "before" is the angled drive as of b7b8202, the flat camera just
+  removed; "!" is outside the band): 23 of 24 cells pass, from 6.
+
+| cell | dmg: flat / before / after | wrecked: flat / before / after | met: flat / before / after | scrap: flat / before / after | before | after |
+| --- | --- | --- | --- | --- | --- | --- |
+| d0/day1 | 15.7 / 1.1! / 17.9 | 1% / 0% / 1% | 22.0 / 22.1 / 23.2 | 27.9 / 28.4 / 29.6 | FAIL | pass |
+| d1/day1 | 33.8 / 4.0! / 31.4 | 6% / 0% / 4% | 18.2 / 15.4! / 16.7 | 25.1 / 21.9 / 22.0 | FAIL | pass |
+| d2/day1 | 102.8 / 12.5! / 113.8 | 46% / 0%! / 49% | 22.0 / 19.6 / 20.1 | 29.8 / 29.7 / 30.4 | FAIL | pass |
+| d3/day1 | 176.0 / 32.6! / 201.8 | 81% / 6%! / 82% | 24.0 / 20.2! / 24.3 | 30.7 / 29.2 / 33.4 | FAIL | pass |
+| d4/day1 | 374.6 / 64.3! / 382.7 | 100% / 20%! / 98% | 31.5 / 29.0 / 28.4 | 36.8 / 40.5 / 39.3 | FAIL | pass |
+| d5/day1 | 546.5 / 100.3! / 876.7! | 99% / 39%! / 100% | 35.8 / 31.4 / 30.3! | 37.7 / 42.9 / 54.7! | FAIL | FAIL |
+| d0/day5 | 8.2 / 0.6! / 9.1 | 0% / 0% / 0% | 23.2 / 24.2 / 24.5 | 36.5 / 38.0 / 39.0 | FAIL | pass |
+| d1/day5 | 14.8 / 0.9! / 15.0 | 0% / 0% / 0% | 18.9 / 18.0 / 18.9 | 30.2 / 29.7 / 31.5 | FAIL | pass |
+| d2/day5 | 36.6 / 2.7! / 39.9 | 0% / 0% / 0% | 23.4 / 22.9 / 23.3 | 40.5 / 39.8 / 39.5 | FAIL | pass |
+| d3/day5 | 64.4 / 4.8! / 69.1 | 8% / 0% / 8% | 24.6 / 24.9 / 25.8 | 41.9 / 44.6 / 43.6 | FAIL | pass |
+| d4/day5 | 171.6 / 14.6! / 153.1 | 47% / 0%! / 44% | 32.7 / 32.4 / 33.3 | 53.2 / 59.4 / 51.5 | FAIL | pass |
+| d5/day5 | 314.3 / 31.0! / 284.1 | 84% / 1%! / 79% | 37.8 / 34.7 / 37.7 | 54.9 / 61.4 / 60.9 | FAIL | pass |
+| d0/day10 | 10.0 / 0.4! / 9.6 | 0% / 0% / 0% | 25.6 / 26.7 / 27.4 | 60.1 / 61.8 / 63.7 | FAIL | pass |
+| d1/day10 | 10.9 / 1.1! / 11.5 | 0% / 0% / 0% | 20.8 / 19.4 / 20.5 | 52.5 / 50.5 / 52.2 | FAIL | pass |
+| d2/day10 | 23.5 / 2.3! / 25.4 | 0% / 0% / 0% | 25.4 / 24.0 / 25.6 | 56.7 / 60.3 / 62.4 | FAIL | pass |
+| d3/day10 | 34.8 / 3.3! / 41.0 | 0% / 0% / 0% | 27.1 / 26.8 / 29.1 | 65.9 / 65.7 / 68.5 | FAIL | pass |
+| d4/day10 | 79.0 / 9.9! / 75.8 | 1% / 0% / 1% | 36.1 / 36.3 / 40.5 | 83.2 / 84.1 / 87.2 | FAIL | pass |
+| d5/day10 | 119.3 / 18.0! / 127.6 | 8% / 0% / 15% | 40.5 / 38.6 / 43.9 | 89.2 / 88.7 / 90.0 | FAIL | pass |
+| d0/day20 | 0.2 / 0.3 / 0.3 | 0% / 0% / 0% | 37.9 / 36.5 / 37.3 | 106.6 / 104.0 / 106.3 | pass | pass |
+| d1/day20 | 0.2 / 0.3 / 0.2 | 0% / 0% / 0% | 31.5 / 29.4 / 29.7 | 89.8 / 91.0 / 91.6 | pass | pass |
+| d2/day20 | 0.3 / 0.5 / 0.3 | 0% / 0% / 0% | 39.1 / 38.0 / 38.5 | 110.9 / 108.9 / 110.9 | pass | pass |
+| d3/day20 | 0.9 / 0.4 / 1.3 | 0% / 0% / 0% | 41.6 / 38.7 / 39.8 | 117.3 / 112.8 / 114.9 | pass | pass |
+| d4/day20 | 2.0 / 0.6 / 2.3 | 0% / 0% / 0% | 56.0 / 54.1 / 56.6 | 144.7 / 146.6 / 152.8 | pass | pass |
+| d5/day20 | 3.3 / 0.6 / 5.8 | 0% / 0% / 0% | 63.3 / 60.1 / 62.9 | 166.0 / 160.3 / 166.1 | pass | pass |
+
+- **Danger 5 on day 1 does not pass.** Its van is wrecked on 100% of trips against 99% on the old road, but the
+  damage (as if the van survived) is 60% high, walkers met 15% low (just past the band) and scrap 45% high: the
+  angled bot downs 95% of the walkers it meets there, the old road's 63%. With the day blended evenly between its
+  `early` row and its later one, no early row passes both danger 5 cells: the ones that pass day 5 overshoot day 1's
+  damage (by 46%), and the 6 of 24 tried that bring day 1's damage within 20% all leave day 5 short (damage 34-48%
+  low, wrecked 13-38 points low). What would close it: a separate `early` anchor at day 5 (or a per-row day the
+  early numbers last to), not a different spawn rate; day 1's scrap would stay high with any spawn lever, since
+  fewer walkers (less scrap) also means fewer met. On the economy's own schedule nobody drives to a danger 5 place
+  on day 1.
+
+**The road in steps** (`ROAD_STEP`, `MAX_FRAME_DT`):
+- `update` now runs the road (the drive, the gun, new walkers, shots, walkers and their touch on the van, crates,
+  bodies and dust) in steps of at most 1/60 s (`roadStep`), and a frame counts up to 0.1 s instead of 0.05. Below
+  20 frames a second the game used to run in slow motion; now it plays at full speed down to 10.
+- A walker's knock and the dust's drag die away by time (they did by frame).
+- A frame of 0.1 s is exactly six of 1/60 s, and one of 1/30 s two: on drives with walkers coming, the gun firing
+  and the lanes changing, the van, every walker's place and health, the shots, kills, scrap and the van's health
+  match bit for bit. At 60 frames a second nothing changed (one step a frame; the balance run's trips are the same
+  to the last number).
+- A step costs about 0.2 ms with a crowd round the van (Node), so six of them add about 1 ms to a 100 ms frame.
+- The interiors still clamp at 0.05 s (`js/interior.js`); they were not part of this.
+
+**Heavy drives** (Home Base to the hospital, danger 5, the first 60 s, the van that day plausibly has, a shooter
+clicking at the nearest walker on the screen; headless Chromium on SwiftShader at 1280 x 800, so the times compare
+before with after and are not a real PC's; "before" is b7b8202):
+
+| day | walkers alive (median / p95 / most) | walkers' time, ms (median / p95) | the whole draw, ms (median / p95) |
+| --- | --- | --- | --- |
+| 1 | 8 / 10 / 11 before, 4 / 7 / 8 after | 1.2 / 2.5 before, 1.1 / 2.5 after | 9.6 / 16.7, 9.3 / 16.8 |
+| 10 | 5 / 8 / 9, 6 / 9 / 10 | 0.7 / 1.6, 0.9 / 2.0 | 9.8 / 16.0, 9.8 / 16.3 |
+| 20 | 5 / 8 / 9, 5 / 6 / 8 | 0.8 / 1.9, 0.7 / 1.7 | 10.6 / 17.1, 11.1 / 17.5 |
+| 20, nobody shooting | 10 / 13 / 14, 11 / 15 / 17 | 1.5 / 3.0, 1.6 / 3.2 | 11.5 / 18.3, 11.5 / 18.2 |
+
+- The walkers stay under their own budget (`LIVE_BUDGET_MS`, 4 ms, p95 at most 3.2). Their governor spent most of
+  each drive on its richest row, before and after, except on day 1 after, where it spent most of it one row down:
+  the packs come right up to the camera, where pictures are biggest. On the first days at danger 5 fewer walkers are
+  about at once (they come in packs, further apart), on day 10 one more.
+- Over every route with nobody shooting, the most walkers alive at once rose from 26 to 33 (day 10, Engine Tune 0):
+  they now come on the road and keep up harder, so fewer pass out of the view's sides. `ROAD_WALKERS_MAX` (40) caps
+  it: no new walker comes while 40 are on the road. It never binds on today's drives (the balance bot's trips have at
+  most 18).
+
+**Measured:**
+- **Feet** (validate-drive's "persp feet" walkers, Engine Tune 0 / 5, units a second, 90th percentile):
+  - ahead of the van, before: slide 277 / 547, 59% / 81% of frames moving backward against the way it faces (the
+    moonwalk); after: 3 / 4 past the band, 42-46 while turning in the band, none backward;
+  - beside and behind: 6-11 / 13-17.
+- **In the van's path**, before: walkers moved away from the van at 0.7 to 5.5 times their own pace and rode the nose
+  0.5 to 4.2 s; after: they come at it at their own pace, are on the nose 0.08 to 0.25 s, and press a side 0.6 to
+  3.5 s.
+- **Walkers in buildings and the river** (every route, walkers coming, nobody shooting; 816 drives over day 1 and 10
+  at Engine Tune 0 and day 20 at 5; about 43 million walker frames): before, at day 10, 19,777 walker frames inside a
+  building (deepest 97 units), 23,184 in the river (deepest 672) and 98 walkers spawned inside; after, none.
+- **Going round:** three walkers of different kinds behind the parked van's grocery, 40 seeds: all 120 come round
+  (median 11 s, slowest 20 s).
+
+**Tests added:**
+- **`tests/validate-drive.js`:**
+  - "persp feet" also checks walkers ahead (planted past the band, under 60 while turning, never backward) and every
+    kind in the van's path (its own pace, off the nose within 0.35 s, then pressing a side);
+  - "walkers blocked" (new): a walker of every kind in every building part and all along the river is put out;
+    walkers behind the grocery come round to the parked van (6 seeds); and over a sample of drives with walkers
+    coming none spawns in or ever stands in a building or the river (`--all-walkers` drives every route: 272 drives,
+    18,589 walkers, about 20 million walker frames, none in either, in about 5.5 min);
+  - "road steps" (new): frames of 0.1 s and 1/30 s against 1/60 s, bit for bit;
+  - "walker cap" (new): no walker comes while `ROAD_WALKERS_MAX` are on the road, and they come again under it.
+- **`tests/validate-balance.js`** (new, in `npm test`, about 6 s): six cells, 6 seeds a route, against wide bands
+  (damage +-50%, wrecked +-30 points, met and scrap +-30%), and a trip driven twice (here and on a worker) is the
+  same. It fails on the road before the rebalance (damage 84-94% low).
+- **`npm run balance`** (`tests/balance/compare.js`, about 1.5 min on 4 cores): the whole matrix against the target.
+  `--danger 3 --day 1,5 --seeds 16` narrows it, `--set "ROAD_DANGER.3.early.group=3"` tries a number without
+  editing anything, `--by route` judges each route, `--out trips.jsonl` keeps the trips.
+
+**Still open:**
+- danger 5 on day 1 (above);
+- fog days and night drives are still not balanced: the bot sees through fog and none of the matrix's days is a
+  night; walkers still come from as far off in fog as on a clear day;
+- the balance is this bot's difficulty, not a person's: it never misses a turn, never dodges and does not tire;
+- the walk-in interiors still clamp a frame at 0.05 s;
+- the packs on the first days at dangerous places were judged by numbers; they were looked at in only a few
+  screenshots.
+
+### Review fixes (2026-10-17, last)
+
+A review of the whole angled-camera branch (feel, look, balance and regressions) found the problems below; each was
+checked again by a second reviewer before it was fixed. Where this section and the ones above disagree, this one is
+current: the Ram Plow's damage, the late rows of dangers 2 to 5, the balance matrix's days and where near packs come
+from changed here.
+
+**The Ram Plow is worth what it was** (`js/upgrades.js` `ram`):
+- **What was wrong:** on the old road a walker that reached the van stayed on it until downed, so the plow hit it
+  every second; on the angled road a walker pressed on the van slides off its side after a touch or two (about 1.5
+  blows a walker against 2.1). Ram Plow 1 (13 damage) cut a dangerous day-5 drive's damage by only 13 to 35%, against
+  46 to 60% on the old road, so clear days 6 to 8, the plow's first days on the economy's schedule, were 24 to 64% harder
+  than the old game at dangers 2 to 5 (7 of 8 cells failed).
+- **The fix:** the plow's damage is 4 with none, then 28, 40, 52, 64 and 76 (`4 + 12 a level + 12 for having one`,
+  was `4 + 9 a level`). The plow itself is the big step: a straight `4 + 16 a level` matched Ram Plow 3 but left Ram
+  Plow 1 weak, `4 + 24 a level` the other way round. The garage shows the new number.
+- **Measured** (danger 3 / 4 / 5 on day 5, night and fog off, seeds 101 to 148, damage with the plow against without):
+  Ram Plow 1 x0.51 / 0.50 / 0.42 (old road 0.54 / 0.47 / 0.40, before the fix 0.87 / 0.80 / 0.65); Ram Plow 3 x0.20 /
+  0.23 / 0.24 (old road 0.28 / 0.24 / 0.22, before 0.50 / 0.43 / 0.40).
+- **What it moved:** the drives the plow is bought for got easier, so the late rows keep up harder beside the van:
+  danger 2 `chase` 0.70 to 0.78 with groups of 1.5 at 1.3 x `DIFF`'s rate (was 1 at 1.4), danger 3 0.72 to 0.74,
+  danger 4 0.72 to 0.75, danger 5 0.73 to 0.78.
+
+**Near packs step out of the verge** (`js/perspective.js` `spawn`, `ROAD_OPEN`, `VERGE`; `Game.stepOut`):
+- **What was wrong:** on days 1 to 5 at dangers 2, 4 and 5 the packs came 720 to 1,800 units ahead on the open road,
+  clear of the haze and 20 to 35 px tall, and faded in there: 24, 25 and 43% of all walkers on day 1 appeared in
+  plain view on the asphalt (16% on day 5 at danger 5).
+- **The fix:** a walker from down the road that would come nearer than `ROAD_OPEN` (half the view's reach, where a
+  plain walker is about 13 px tall on a 720 px window, just short of the haze) comes out of the verge's thicket
+  instead, 40 to 140 units past the shoulder beside the van's own road there (js/perspective-art.js grows that
+  thicket), and the rest of its group beside it along the verge. Each then **steps out onto the road**, straight across
+  it to a place on its own half at random, before it turns for the van.
+- **Why it steps out:** packs that only came out of the verge and homed on the van were much easier (danger 2 on day
+  1: 41 HP a trip against the old road's 103; danger 5 on day 5: 137 against 314): they met the van from the side and
+  the bot shot them while they kept up beside it. Re-fitting the early rows to that (keep-up up to 0.92 to 0.98,
+  bigger groups) brought the damage back but not the scrap: the bot downed nearly every walker it met (scrap 26 to
+  42% high). Stepped out, they stand where the old road's did, in the van's way, and the early rows fitted before
+  hold as they were (danger 2 day 1: 107, danger 4 day 5: 148 against 172).
+- **Measured** (the balance bot's trips, 8 seeds a route; on the screen, at least 20 px tall, at least half clear of
+  the haze, within the road's half width and 60 of the van's road): danger 2 / 3 / 4 / 5 on day 1 from 23.6 / 6.2 /
+  25.2 / 43.1% to 2.0 / 3.1 / 0.5 / 0.7%; danger 5 on day 5 15.5 to 1.2%; day 10 unchanged (1.1 to 1.4%: the haze).
+
+**The balance matrix and its report** (`tests/balance`):
+- **Days 3 and a clear day 7** are in the matrix (`matrix.json` `days` 1, 3, 5, 7, 10, 20; `clear`: day 7 drives with
+  night and fog off). Their flat targets were driven on 36403cd by the same stage-1 harness, which reproduces the
+  frozen cells exactly, and added to `targets.json` (`meta.added`). Day 7 guards the Ram Plow's first days; the anchor
+  days 1, 5, 10 and 20 could not see that gap. `npm run balance` is 5,184 trips, about 3 min on 4 cores.
+- **compare.js** prints each difference with its band and its combined standard error (`+7% of +-20%, se 5%`), so a
+  miss by noise reads as one.
+- **Held-out seeds:** the matrix is also judged on seeds 49 to 96 (`--seed0 49`), which none of the tuning saw.
+- **Results** (48 seeds a route): 32 of 36 cells pass on the tuning seeds, 31 of 36 on the held-out ones. The code
+  before this drop, judged on the same 36 cells: 30 and 26 (it failed danger 5 on day 1, dangers 3 and 4 on day 3 and
+  dangers 3 to 5 on the clear day 7, all but one too hard; it had passed 23 of the old 24 cells). "!" is outside the
+  band.
+
+| cell | dmg: flat / now | wrecked: flat / now | met: flat / now | scrap: flat / now | tuning seeds | held-out seeds |
+| --- | --- | --- | --- | --- | --- | --- |
+| d0/day1 | 15.7 / 17.9 | 1% / 1% | 22.0 / 23.2 | 27.9 / 29.6 | pass | pass |
+| d1/day1 | 33.8 / 31.4 | 6% / 3% | 18.2 / 16.7 | 25.1 / 22.0 | pass | FAIL (dmg) |
+| d2/day1 | 102.8 / 109.2 | 46% / 49% | 22.0 / 22.1 | 29.8 / 32.5 | pass | pass |
+| d3/day1 | 176.0 / 207.2 | 81% / 85% | 24.0 / 26.2 | 30.7 / 34.9 | pass | pass |
+| d4/day1 | 374.6 / 320.3 | 100% / 99% | 31.5 / 29.8 | 36.8 / 39.8 | pass | pass |
+| d5/day1 | 546.5 / 794.8! | 99% / 99% | 35.8 / 30.9 | 37.7 / 55.1! | FAIL | FAIL (dmg, scrap) |
+| d0/day3 | 3.1 / 3.4 | 0% / 0% | 23.4 / 25.2 | 33.7 / 37.4 | pass | pass |
+| d1/day3 | 9.1 / 6.1 | 0% / 0% | 19.6 / 19.1 | 30.7 / 30.2 | pass | pass |
+| d2/day3 | 25.2 / 24.3 | 3% / 0% | 24.0 / 22.8 | 39.4 / 39.0 | pass | pass |
+| d3/day3 | 48.1 / 57.2 | 7% / 8% | 25.0 / 27.6 | 41.9 / 47.9 | pass | pass |
+| d4/day3 | 173.5 / 150.4 | 52% / 61% | 33.4 / 33.8 | 54.3 / 55.9 | pass | FAIL (died) |
+| d5/day3 | 313.2 / 254.3 | 80% / 79% | 38.2 / 36.0 | 58.1 / 67.3! | FAIL | pass |
+| d0/day5 | 8.2 / 9.1 | 0% / 0% | 23.2 / 24.5 | 36.5 / 39.0 | pass | pass |
+| d1/day5 | 14.8 / 15.0 | 0% / 0% | 18.9 / 18.9 | 30.2 / 31.5 | pass | pass |
+| d2/day5 | 36.6 / 33.1 | 0% / 1% | 23.4 / 23.5 | 40.5 / 40.2 | pass | pass |
+| d3/day5 | 64.4 / 68.7 | 8% / 8% | 24.6 / 27.3 | 41.9 / 46.3 | pass | pass |
+| d4/day5 | 171.6 / 148.3 | 47% / 44% | 32.7 / 34.9 | 53.2 / 54.1 | pass | pass |
+| d5/day5 | 314.3 / 298.4 | 84% / 82% | 37.8 / 39.0 | 54.9 / 67.1! | FAIL | FAIL (scrap) |
+| d0/day7 | 2.8 / 2.3 | 0% / 0% | 24.7 / 27.6 | 41.4 / 45.1 | pass | pass |
+| d1/day7 | 6.0 / 2.0 | 0% / 0% | 20.3 / 20.9 | 35.8 / 36.4 | pass | pass |
+| d2/day7 | 15.5 / 10.4! | 1% / 0% | 24.4 / 24.7 | 43.8 / 44.6 | FAIL | pass |
+| d3/day7 | 22.3 / 24.1 | 0% / 0% | 26.4 / 28.8 | 48.6 / 54.0 | pass | pass |
+| d4/day7 | 50.2 / 57.1 | 0% / 2% | 34.8 / 38.6 | 64.8 / 72.7 | pass | pass |
+| d5/day7 | 85.6 / 89.2 | 12% / 13% | 39.8 / 42.9 | 73.5 / 82.5 | pass | pass |
+| d0/day10 | 10.0 / 5.0 | 0% / 0% | 25.6 / 27.6 | 60.1 / 64.6 | pass | FAIL (dmg) |
+| d1/day10 | 10.9 / 7.8 | 0% / 0% | 20.8 / 20.6 | 52.5 / 53.1 | pass | pass |
+| d2/day10 | 23.5 / 25.6 | 0% / 0% | 25.4 / 25.5 | 56.7 / 62.5 | pass | pass |
+| d3/day10 | 34.8 / 33.8 | 0% / 0% | 27.1 / 29.3 | 65.9 / 70.2 | pass | pass |
+| d4/day10 | 79.0 / 69.6 | 1% / 1% | 36.1 / 41.4 | 83.2 / 92.8 | pass | pass |
+| d5/day10 | 119.3 / 107.2 | 8% / 7% | 40.5 / 45.7 | 89.2 / 99.3 | pass | pass |
+| d0/day20 | 0.2 / 0.0 | 0% / 0% | 37.9 / 37.1 | 106.6 / 106.0 | pass | pass |
+| d1/day20 | 0.2 / 0.0 | 0% / 0% | 31.5 / 29.7 | 89.8 / 91.5 | pass | pass |
+| d2/day20 | 0.3 / 0.2 | 0% / 0% | 39.1 / 36.2 | 110.9 / 106.3 | pass | pass |
+| d3/day20 | 0.9 / 0.6 | 0% / 0% | 41.6 / 40.3 | 117.3 / 115.2 | pass | pass |
+| d4/day20 | 2.0 / 0.6 | 0% / 0% | 56.0 / 57.1 | 144.7 / 152.7 | pass | pass |
+| d5/day20 | 3.3 / 3.5 | 0% / 0% | 63.3 / 64.0 | 166.0 / 167.6 | pass | pass |
+
+- **The misses:**
+  - danger 5 on days 1, 3 and 5: its damage can be matched, its scrap cannot. The angled bot downs most of the
+    walkers it meets there and the old road's did not, and no spawn lever changes that share. The economy's schedule
+    first goes to a danger 5 place on day 17;
+  - danger 2 on day 7: 10.4 HP against 15.5, 0.1 HP past its +-5 HP floor (it passes held out);
+  - held out only: danger 1 on day 1 (-20%, on the band's edge), danger 4 on day 3 (wrecked 10.4 points high) and the
+    drive home on day 10 (4.2 HP against 10.0: the Ram Plow halves a drive this mild, and its floor is 5 HP).
+- **Clear days 6 to 9 against the old road** (seeds 101 to 148, a check the matrix does not run): days 7 to 9 pass 9
+  of 12 cells (before: 5 of 12, every miss too hard, by 24 to 64%); the misses are now too easy (danger 2 on day 9,
+  13.9 HP against 21.1; danger 4 on day 9, 57 against 77; danger 5 on day 8, scrap 15% high). Day 6 passes 2 of 3
+  (before: none; danger 5's wrecked share is 26% against 43%).
+
+**The road sign never jumps** (`Game.drawSign`, `SIGN_ROOM`, `SIGN_NARROW_W`, `SIGN_GLIDE`, `signSpot`):
+- **What was wrong:** the across-the-top place under the minimap, meant for narrow windows, also took over whenever
+  the far road's edge came within 186 px of the screen's right edge, which the lagging camera does for a moment in
+  bends. The sign then leapt about 1,100 px and back, and a passed sign followed the swinging edge as it faded.
+- **The fix:**
+  - only the window decides the across-the-top place (narrower than 700 px, or under 160 px right of its middle);
+  - anywhere else the sign stands at the right, never narrower than 160 px and never left of the window's middle (a
+    road edge left of the middle leaves the right half clear). A sign seen last frame glides after the road's edge at
+    0.8 window widths a second at most, and stays put while no edge is beside it. In a bend it may stand over the far
+    edge for a moment; walkers are drawn over it again (`drawOverSign`);
+  - a passed sign keeps where it stood as the van crossed the stop line, and slides off from there.
+- **Measured** (every route at Engine Tune 0, the sign drawn every frame; a jump is over 120 px in a frame while it is
+  at least 90% shown): 571 / 643 / 186 / 664 jumps at 1280 x 800, 1920 x 1080, 960 x 1040 and 1366 x 657 before,
+  none after (and none at 1440 x 900). It now moves at most 19 px in a frame.
+
+**60 Hz frames run one road step** (`STEP_SLACK`, `stepsIn`): a browser's clock is rounded to 0.1 ms, so its 60 Hz
+frames come 16.6 to 16.8 ms apart, and 63% of them ran two half steps (a 59.94 Hz screen every frame). Over the
+balance matrix that played 2 to 4% easier than the harness's 1/60 s frames (kills up in 21 of 24 cells, damage down
+in all six day-1 cells). A step may now run 2% longer than `ROAD_STEP` (and `DRIVE_STEP`): 16.6 to 16.8 ms frames run
+one step, as the harness does, and 1/30 s and 0.1 s frames still run exactly two and six (the balance run's trips are
+unchanged to the last number).
+
+**A capped browser keeps its scenery** (`SCENERY_OWN`, `SCENERY_GAIN`, `SCENERY_TRY_SECS`): a browser capped at 30
+frames a second (Chrome's Energy Saver on battery, a 30 Hz screen) thinned the scenery to its lowest row within 16 s
+and stayed there, though thinning cannot bring capped frames closer. Now, while the page's own draw (`frameStats.ms`)
+is under 45% of the interval, the governor's rows down are a trial: once a row has brought the interval down by 10%
+it goes on as before (the graphics card's raster can be what is slow, and the page's own draw does not count it); if
+even the thinnest row has not, it goes back to where the trial began and steps down no more on that drive while its
+own draw stays that small. Measured on the governor itself (300 s of synthetic frames): a 30 fps cap with a 6 ms draw
+spent 95% at the lowest row before, 95% at the richest after (one 20 s trial down the rows); a page whose own draw is
+most of a frame, and one whose graphics card a thinner row speeds up, settle where they did before.
+
+**The look:**
+- **A building's fine details fade in** (`FINE_PX`, `R.fine`, `fine()` in js/perspective-buildings.js): its props, lamp
+  posts, panes, posters, shingles and fruit came in all at once mid-screen about 4 to 5 s before parking. They now fade
+  in as the building grows from 170 to 220 px across (about a second's drive); `R.lod` is still an integer, for the
+  part order's cache.
+- **Night's edges are soft** (`NIGHT_FEATHER`): the beam's and the gun lamp's sides fade out over five rings laid round
+  them (each 4.5% wider and 5 units more, the lamp 0.022 rad each side more; lit 72, 50, 32, 18 and 7% of the light
+  they ring), not in one hard line across a storefront or a barrier. Three rings showed as steps. The rings are filled even-odd, so nothing is lit twice and
+  the beam's own light is as before; no blur filter (it would cost on every redraw on a CPU canvas). The glow round the
+  van was already soft.
+- **No tree stands on a wreck** (`PROP_CLEAR`, `FOOT` in js/perspective-art.js): a tree, dead tree or bush is no longer
+  grown inside a wrecked car's or a barrier's footprint (plus 10 units) of the drive's own props; grass still grows
+  round them. On four drives 97 trees and bushes stood on 509 wrecks and barriers; none now.
+- **The road box lets clicks through** (`css/style.css` `.road-box`): the "TO ... ARRIVE" box sits over the road just
+  behind the van, where walkers keep up; it has nothing to click, so presses and the aim now go through it.
+- **The map's van has its roof gun again** (`Map.drawRoofGun`): the marker lost it when the top-down turret went; it
+  now shows the mount and its barrels (as many as Spread Shot gives, as long as Heavier Rounds make them).
+
+**Smaller fixes:**
+- A drive that ends inside the page's own frame (at the door, or the wreck's last moment) is no longer drawn once more
+  after `stop()` let go of its squares, plants and pictures (`Game.frame`): that one draw made about 17 squares, 115
+  plant squares, the card's full-size canvas and the night layer again, 30 to 50 MB of the 200 to 400 the stop frees.
+- Seven limits added on this branch carry their `SCALE:` tag (`FOG`, `NIGHT_BEAM`, `EDGE_STEP`, `ROAD_LATE_DAY`,
+  `ROAD_DPR_MAX`, `PREP_SECS`, `Streets.CAM`), and docs/SCALING.md's test times are current (npm test about 3.5 min,
+  2.4 times 36403cd's 86 s).
+- Gone: `DIFF.sideSpawnChance` (read nowhere), `Draw.van`'s dead `aim`, `flash` and `gun` arguments, and Persp's
+  `SPAWN` fallback (the fog test passes the drive's own row); three comments that still spoke of the top-down road.
+
+**Tests added or changed:**
+- **`tests/validate-drive.js`:** the every-route sweep draws the sign on every frame at Engine Tune 0 (1280 x 800 with
+  the page's HUD) and fails if it moves more than 120 px in a frame while at least 90% shown; "road steps" checks that
+  16.6, 16.7, 16.8 ms and 59.94 Hz frames run one road step of four drive steps (1/30 s two, 0.1 s six). The sweep
+  takes about 6 s more.
+- **`tests/validate-scenery.js`:** "release" ends a drive at the door and in a wreck through `Game.frame` (it found
+  130 and 192 squares made again before the fix); the governor leaves a 30 fps cap at the richest row after its trial
+  and keeps the row that speeds a page up; no tree or bush on a wreck or barrier.
+- **`tests/validate-balance.js`:** a clear day-7 cell (danger 4), and the pop-in check: on days 1 and 5 at dangers 2,
+  4 and 5 at most 5% of walkers may appear in plain view on the open road (0.5% now; 24% before).
+- **`tests/balance`:** days 3 and 7 with their flat targets, `clear` days, the standard errors in the report.
+
+**Still open:**
+- danger 5 before day 7 and the other misses above;
+- clear days 8 and 9 at dangers 2 and 4 are now somewhat easier than the old road (they sit between days 5 and 10,
+  which pass, on the even blend of `roadRow`);
+- night and fog drives are still not balanced against the old road.
+
 ## Owner decisions: crossover universes (2026-10-17)
 
 Design only; nothing is built yet. The full canon and the build plan are in `docs/UNIVERSES.md`.

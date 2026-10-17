@@ -2939,6 +2939,7 @@
     LIVE_STEP,
     LIVE_SPARE,
     LIVE_IDLE,
+    LIVE_SHRINK,
     LOD_PX,
     LIVE_NEAR,
     FAR_LOD,
@@ -2951,6 +2952,10 @@
     GOV_WAIT,
     GOV_WAIT_UP,
     GOV_BACKOFF,
+    GOV_FAST,
+    // the live pictures' "has it changed" signature (pure: the angled road camera keeps its walkers' with them)
+    sameSig,
+    saveSig,
     SOLID,
     OPAQUE,
   };
