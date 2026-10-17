@@ -150,6 +150,7 @@
     AIM_Z,
     TILE,
     BLOOD_FALL,
+    SCENERY_ROWS: SCENERY_LEVELS.length, // (the god-mode FPS meter shows the row of how many)
     FOG,
     NIGHT_BEAM,
     // the walkers' last frame (tests and perf probes): figures drawn, Walker3D renders, ms the walkers took, governor row

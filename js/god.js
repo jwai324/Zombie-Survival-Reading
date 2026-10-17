@@ -5,7 +5,7 @@
    The menu: Travel (reveal every place; go to any place at its door or straight inside; drive from any place to
    any place), Guns (own, hold, mod), Items (any count; unlimited), Crew (the day, trust stars, offer or jump to
    any story quest), Cheats (can't die, hold the calm, start a wave, clear walkers, spawn a walker of any kind in
-   front of you, heal), Sandbox (start over, exit). Every list comes from the data (LOCATIONS, WEAPONS, MODS, ITEMS,
+   front of you, heal, the FPS meter), Sandbox (start over, exit). Every list comes from the data (LOCATIONS, WEAPONS, MODS, ITEMS,
    CREW, QUESTS, WALKER_TYPES), so it grows with them.
    Owner decisions: DESIGN.md, "God mode". Loaded after js/main.js; ZSR.God.act runs without a page (tests). */
 (function (root) {
@@ -147,6 +147,7 @@
     },
     setCheat(name, on) {
       S().god.cheats[name] = !!on;
+      if (name === "fps") Meter.set(on);
     },
   };
 
@@ -252,6 +253,73 @@
         }
       }
       return false;
+    },
+  };
+
+  /* ---------- The FPS meter (Cheats; off by default, owner 2026-10-17) ----------
+     A small box over the game, above the GOD MODE badge: the real frame rate (the browser's own time between frames,
+     from requestAnimationFrame, over the last second), the worst frame in that second, and on the road the scenery
+     governor's own smoothed interval (Persp.frameStats.gapMs) and its row, and the walkers' governor's row
+     (Persp.walkerStats.level), each "row r of n" (0 is the richest). Its own requestAnimationFrame loop runs only
+     while it is on; its words change FPS_TEXT_MS apart. sample(ms, now) and lines() work without a page (tests). */
+  const FPS_WINDOW_MS = 1000; // the worst frame and the rate are over this much of the page's time
+  const FPS_TEXT_MS = 250;
+  const FPS_GAP_MAX = 1000; // a gap longer than this (a tab in the background) is not a frame
+  const Meter = {
+    on: false,
+    el: null,
+    raf: 0,
+    last: 0,
+    shown: 0,
+    gaps: [], // [time, ms] over the last FPS_WINDOW_MS
+    /** One frame's interval (ms) at page time `now`. */
+    sample(ms, now) {
+      if (!(ms > 0) || ms > FPS_GAP_MAX) return;
+      this.gaps.push([now, ms]);
+      while (this.gaps.length && this.gaps[0][0] < now - FPS_WINDOW_MS) this.gaps.shift();
+    },
+    /** What the box says: the rate and the worst frame; on the road, both governors' rows. */
+    lines() {
+      const n = this.gaps.length;
+      const mean = n ? this.gaps.reduce((a, g) => a + g[1], 0) / n : 0;
+      const worst = n ? Math.max(...this.gaps.map((g) => g[1])) : 0;
+      const out = [n ? (1000 / mean).toFixed(0) + " fps  " + mean.toFixed(1) + " ms  worst " + worst.toFixed(0) + " ms" : "-- fps"];
+      const G = ZSR.Game;
+      const P = ZSR.Persp;
+      if (G && G.running && P && P.frameStats) {
+        const fs = P.frameStats;
+        const sc = P.SCENERY_ROWS || 0;
+        const I = ZSR.Interior;
+        const wl = (I && I.LIVE_LEVELS && I.LIVE_LEVELS.length) || 0;
+        out.push("road " + (fs.gapMs || 0).toFixed(1) + " ms  drawn in " + (fs.ms || 0).toFixed(1) + " ms");
+        out.push("scenery row " + (fs.scenery | 0) + (sc ? " of " + (sc - 1) : "") + "  walkers row " + ((P.walkerStats && P.walkerStats.level) | 0) + (wl ? " of " + (wl - 1) : ""));
+      }
+      return out;
+    },
+    set(on) {
+      on = !!on;
+      if (on === this.on) return;
+      this.on = on;
+      this.gaps.length = 0;
+      this.last = 0;
+      if (typeof document === "undefined" || !document.body || typeof requestAnimationFrame !== "function") return;
+      if (!this.el) {
+        this.el = h("div", { id: "god-fps", class: "hidden", "aria-hidden": "true" });
+        document.body.appendChild(this.el);
+      }
+      this.el.classList.toggle("hidden", !on);
+      cancelAnimationFrame(this.raf);
+      if (on) this.raf = requestAnimationFrame((ts) => this.tick(ts));
+    },
+    tick(ts) {
+      if (!this.on) return;
+      this.raf = requestAnimationFrame((t) => this.tick(t));
+      if (this.last) this.sample(ts - this.last, ts);
+      this.last = ts;
+      if (ts - this.shown >= FPS_TEXT_MS) {
+        this.shown = ts;
+        this.el.textContent = this.lines().join("\n");
+      }
     },
   };
 
@@ -445,6 +513,7 @@
     const tog = (name, label) => h("label", { class: "god-tog" }, [h("input", { type: "checkbox", checked: S().cheat(name), onchange: (e) => (Act.setCheat(name, e.target.checked), render()) }), " " + label]);
     body.appendChild(tog("noDie", "Can't die: walkers, booby traps and crashes do no harm to you, the van, the fence, the builds or the cabin"));
     body.appendChild(tog("holdCalm", "Hold the calm: no wave comes in the yard until this is off (Start a wave still works)"));
+    body.appendChild(tog("fps", "FPS meter: the real frame rate, the worst frame in the last second and, on the road, the scenery and walker rows"));
     body.appendChild(h("div", { class: "god-row" }, [btn("Start a wave now", () => say(Scene.startWave()), "go"), btn("Clear all walkers", () => say(Scene.clearWalkers())), btn("Heal to full", () => say(Scene.heal()))]));
     // one walker of any kind, from the facts (WALKER_TYPES), in front of you
     // (the kind picked is kept: say() rebuilds this tab, and Spawn again spawns the same kind)
@@ -499,6 +568,7 @@
     build();
     if (badge) badge.classList.toggle("hidden", !S().god);
     if (!S().god) started = "";
+    Meter.set(S().cheat("fps"));
     if (open) render();
   }
 
@@ -538,5 +608,5 @@
     return Object.keys(W().WALKER_TYPES || {});
   }
 
-  ZSR.God = { act: Act, scene: Scene, open: openMenu, close, sync, isOpen: () => open, walkerTypes, PHRASE };
+  ZSR.God = { act: Act, scene: Scene, meter: Meter, open: openMenu, close, sync, isOpen: () => open, walkerTypes, PHRASE };
 })(typeof globalThis !== "undefined" ? globalThis : this);
