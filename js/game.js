@@ -59,6 +59,7 @@
   const SHOWCASE_SECS = 4; // the title screen's walkers change kind this often
   const MINI_HAZE = 0.25; // a place gone further into the haze than this is not in view for the minimap's fade
   const SIGN_GAP = 14; // px between the road's edge on the screen and the sign or the lane hint beside it
+  const SIGN_AWAY = 1.2; // px the passed sign slides right for each unit the van drives past its stop line (260 to go)
   // the road's edges are found on the screen this often along it (road units: Game.roadEdges)
   const EDGE_STEP = 120;
   const SPARK_ARMOR = "#c9cdd2"; // a bullet off a helmet or a vest
@@ -1599,13 +1600,15 @@
         band = need;
       }
       y = Math.max(8, Math.min(y, this.H - 8 - lay.h - 6 * lay.k)); // never off the screen, even on one that has no room
-      // slide in from above as it comes into view, slide down and fade once passed
+      // slide in from above as it comes into view; once passed, slide off to the right (away from the road: sliding
+      // down the screen, as the old flat road's did, it would cross the road ahead) and fade
       const lead = (dec.zoneStart - dec.signAt) || 1;
       const into = clamp((this.van.s - dec.signAt) / Math.min(lead, 0.5 * this.speed), 0, 1);
-      const yy = after ? y + after * this.zoom * 0.9 : y - (1 - smooth(into)) * (lay.h + y + 20);
+      const yy = after ? y : y - (1 - smooth(into)) * (lay.h + y + 20);
+      const xx = x + after * SIGN_AWAY;
       const alpha = after ? 1 - after / 260 : 1;
-      D.roadSign(ctx, x, yy, sign, lay, alpha);
-      const boxes = [{ x, y: yy, w: lay.w + 6 * lay.k, h: lay.h + 6 * lay.k }];
+      D.roadSign(ctx, xx, yy, sign, lay, alpha);
+      const boxes = [{ x: xx, y: yy, w: lay.w + 6 * lay.k, h: lay.h + 6 * lay.k }];
       // until the van has taken a way right, the sign carries a line on how lanes work: under it, or on the
       // grass left of the road (above or below the minimap), a size smaller where it would not fit
       if (!this.hintDone && !this.fade) {
@@ -1615,8 +1618,9 @@
         const spots = [];
         const nw = Math.max(lay.w, Math.min(maxW, 300 * lay.k));
         const ux = Math.min(x, this.W - nw - 12);
-        // (under the sign, down to where the road's right edge comes out past its left end)
-        spots.push({ x: ux, y: y + lay.h + 8 * lay.k + 4, w: nw, to: Math.min(floor(ux, nw), E.row(1, ux - SIGN_GAP) - 4) });
+        // (under the sign, lined up with it, or as far right of it as the road's right edge beside the note needs: the
+        // road widens down the screen)
+        spots.push({ x: ux, y: y + lay.h + 8 * lay.k + 4, w: nw, ride: true });
         // on the grass left of the road: out to where its left edge is (oncoming lanes and all) beside the note
         const le = E.side(-1, top, top + 150 * nk0);
         const lw = (le == null ? this.W / 2 : le) - SIGN_GAP - 10;
@@ -1640,16 +1644,24 @@
           for (const sp of spots) {
             if (sp.w < 160) continue;
             const h = D.signNote(ctx, 0, 0, sp.w, text, nk, 1, false);
-            if (sp.y + h <= sp.to) {
-              fit = { sp, nk, y: sp.up ? sp.to - h : sp.y };
+            let sx = sp.x;
+            let to = sp.to;
+            if (sp.ride) {
+              const e = E.side(1, sp.y, sp.y + h + 4);
+              sx = Math.max(sp.x, e == null ? sp.x : e + SIGN_GAP);
+              if (sx > this.W - sp.w - 12) continue;
+              to = floor(sx, sp.w);
+            }
+            if (sp.y + h <= to) {
+              fit = { sp, nk, x: sx, y: sp.up ? to - h : sp.y };
               break;
             }
           }
         }
         if (fit) {
           const sp = fit.sp;
-          const ny = sp === spots[0] ? yy + lay.h + 8 * lay.k + 4 : fit.y; // under the sign it rides along with it
-          boxes.push({ x: sp.x, y: ny, w: sp.w + 4, h: D.signNote(ctx, sp.x, ny, sp.w, text, fit.nk, alpha) + 4 });
+          const ny = sp.ride ? yy + lay.h + 8 * lay.k + 4 : fit.y; // under the sign it rides along with it
+          boxes.push({ x: fit.x, y: ny, w: sp.w + 4, h: D.signNote(ctx, fit.x, ny, sp.w, text, fit.nk, alpha) + 4 });
         }
       }
       return boxes;
