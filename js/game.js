@@ -163,6 +163,12 @@
   // whatever the frame rate: a slow or uneven frame moves it just as several quick ones would
   // SCALE: a frame runs ceil(dt / DRIVE_STEP) drive steps (4 at 60 fps), so the drive's own cost grows with them
   const DRIVE_STEP = 1 / 240;
+  // the road (the gun, new walkers, shots, walkers and their touch on the van) runs in steps no longer than this, and a
+  // frame counts at most MAX_FRAME_DT seconds: a machine down to 1 / MAX_FRAME_DT frames a second plays at full speed
+  // (below that, in slow motion rather than in leaps), its walkers and shots moving as at 60 frames a second
+  // SCALE: a frame runs ceil(dt / ROAD_STEP) road steps (1 at 60 fps, 6 at 10), each over every walker and shot
+  const ROAD_STEP = 1 / 60;
+  const MAX_FRAME_DT = 0.1;
   // px/s/s: a lane slide still going when the van crosses a stop line into a turn slows to a stop at this (harder
   // only near the road's edge), as the van takes its path: under a unit's change in its step a frame at 60 fps
   const SLIDE_STOP = 3000;
@@ -1132,7 +1138,7 @@
       this.rafMs = this.last ? ts - this.last : 0;
       this.rafN = (this.rafN || 0) + 1;
       if (!this.last) this.last = ts;
-      const dt = Math.min(0.05, (ts - this.last) / 1000);
+      const dt = Math.min(MAX_FRAME_DT, (ts - this.last) / 1000);
       this.last = ts;
       // Huge text needs room beside the road for its signs: pull the camera back a little
       this.zoom = this.zoomBase * (textSize() >= 2 ? 0.85 : 1);
@@ -1370,15 +1376,14 @@
       this.placeCam(dt);
     },
 
+    /** One frame of the road, dt seconds (frame clamps it at MAX_FRAME_DT): the wreck's last moments or a wrong
+        turn's dark hold it; else it runs in steps of at most ROAD_STEP (roadStep), so a long frame on a slow machine
+        moves everything just as several quick ones would, walkers and shots included. */
     update(dt) {
-      const t = State().trip;
-      const stats = this.stats;
-      const van = this.van;
-      const St = Streets();
-      this.time += dt;
       if (this.gameOverAt != null) {
+        this.time += dt;
         this.gameOverAt -= dt;
-        this.shake *= 0.9;
+        this.shake *= Math.pow(0.9, dt * 60);
         this.updateParticles(dt);
         if (this.gameOverAt <= 0) {
           this.stop();
@@ -1397,11 +1402,27 @@
           else this.retry();
         } else if (f.phase === "in" && f.t >= DIFF.fadeIn) this.fade = null;
         if (this.fade && this.fade.phase !== "in") {
+          this.time += dt;
           this.updateHud();
           return;
         }
       }
-
+      const n = Math.max(1, Math.ceil(dt / ROAD_STEP - 1e-9));
+      for (let i = 0; i < n; i++) {
+        // (stopped: arrived or wrecked; a wrong turn's dark holds the rest of the frame)
+        if (!this.roadStep(dt / n)) return;
+        if (this.fade && this.fade.phase !== "in") break;
+      }
+      this.updateHud();
+    },
+    /** One step of the road (update): the drive, the gun, new walkers, shots, walkers, crates, bodies and dust.
+        Returns false once the drive stops (arrived, or the van wrecked). */
+    roadStep(dt) {
+      const t = State().trip;
+      const stats = this.stats;
+      const van = this.van;
+      const St = Streets();
+      this.time += dt;
       // drive, in steps of at most DRIVE_STEP (the same path and camera however the frames fall)
       const steps = Math.max(1, Math.ceil(dt / DRIVE_STEP - 1e-9));
       for (let i = 0; i < steps; i++) this.driveStep(dt / steps);
@@ -1420,7 +1441,7 @@
           if (this.arrive.t >= DIFF.parkWait) {
             this.stop();
             if (this.hooks.onArrive) this.hooks.onArrive(this.opts.to);
-            return;
+            return false;
           }
         }
       }
@@ -1512,6 +1533,7 @@
       const ry = fx;
       ZSR.Persp.setup(this);
       const SC = World().SCREAM;
+      const kd = Math.pow(0.85, dt * 60); // a knock dies away (0.85 a 60th of a second)
       for (let i = this.zombies.length - 1; i >= 0; i--) {
         const z = this.zombies[i];
         const x0 = z.x; // where it stood (its legs go by the ground it covers)
@@ -1551,8 +1573,8 @@
         this.blockWalker(z);
         z.vx = vx; // for the aim, which leads a walker
         z.vy = vy;
-        z.kx *= 0.85;
-        z.ky *= 0.85;
+        z.kx *= kd;
+        z.ky *= kd;
         z.hit = Math.max(0, z.hit - dt);
         z.cool = Math.max(0, z.cool - dt);
         // touching the van, in the van's own frame: seen in 3D a walker must stay outside the van, so one inside its
@@ -1594,7 +1616,7 @@
             continue;
           }
           this.hurtVan(z.dmg, z.x, z.y);
-          if (this.gameOverAt != null) return;
+          if (this.gameOverAt != null) return false;
         }
         // its 3D figure: its heading, legs and pose, as on foot (js/perspective.js animate)
         ZSR.Persp.animate(this, z, dt, x0, y0, touching);
@@ -1629,7 +1651,7 @@
       }
       this.updateParticles(dt);
       this.shake *= Math.pow(0.02, dt);
-      this.updateHud();
+      return true;
     },
 
     /** The walker at i goes down: off the road's list (no longer hit or counted), over the way `dir` (world angle;
@@ -1682,12 +1704,13 @@
       }
     },
     updateParticles(dt) {
+      const drag = Math.pow(0.96, dt * 60); // (0.96 a 60th of a second)
       for (let i = this.particles.length - 1; i >= 0; i--) {
         const p = this.particles[i];
         p.x += (p.vx + (p.cx || 0)) * dt;
         p.y += (p.vy + (p.cy || 0)) * dt;
-        p.vx *= 0.96;
-        p.vy *= 0.96;
+        p.vx *= drag;
+        p.vy *= drag;
         p.life -= dt;
         if (p.vz != null) {
           // a drop in the air (the angled camera): it falls and lands where it comes down (as on foot)
@@ -2311,6 +2334,8 @@
     ROAD_LATE_DAY,
     roadRow,
     DRIVE_STEP,
+    ROAD_STEP,
+    MAX_FRAME_DT,
     ROAD_PARTICLE_CAP,
     ROAD_FALLEN_MAX,
     SPARK_ARMOR,

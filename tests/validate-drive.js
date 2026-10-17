@@ -2089,6 +2089,79 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     console.log(`walkers blocked: ${put} put in buildings' parts and ${wetPut} in the river, all put out; ${came} of ${tries} walkers behind a building came round it (the slowest in ${slowest.toFixed(1)} s, at most ${worst.toFixed(1)} into it); ${pairs.length} drives (${all ? "every route" : "a sample: --all-walkers for every route"}), ${spawned} walkers, ${frames} walker frames: ${badSpawn} came from inside, ${inB} in a building, ${inR} in the river (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
   }
 }
+/* ---------- a slow machine's long frames: the road in steps (ROAD_STEP), the frame clamped at MAX_FRAME_DT ----------
+   One frame of 0.1 s (10 frames a second) is exactly six of 1/60 s, and one of 1/30 two: the van, every walker (its
+   place and health), the shots, kills, scrap and the van's health, with walkers coming, a gun firing and the lanes
+   changing on the same 0.1 s beats. So a machine down to 1 / MAX_FRAME_DT frames a second plays at full speed (the
+   old 0.05 s clamp ran it in slow motion below 20). */
+{
+  const sErr = (m) => err("road steps", m);
+  if (!(G.ROAD_STEP > 0 && G.ROAD_STEP <= 1 / 60 + 1e-12)) sErr(`ROAD_STEP is ${G.ROAD_STEP} (want at most 1/60 s)`);
+  if (!(G.MAX_FRAME_DT >= 0.1)) sErr(`MAX_FRAME_DT is ${G.MAX_FRAME_DT} (want at least 0.1 s: 10 frames a second at full speed)`);
+  const lcg = (seed) => {
+    let q = seed >>> 0;
+    return () => ((q = (q * 1664525 + 1013904223) >>> 0) / 4294967296);
+  };
+  const random0 = Math.random;
+  const day0 = ZSR.State.save.day;
+  const up0 = Object.assign({}, upgrades);
+  const trip = (frame, secs, a, b) => {
+    Math.random = lcg(4242);
+    ZSR.State.save.day = 5;
+    Object.assign(upgrades, { engine: 2, damage: 2, fireRate: 2 });
+    start(a, b);
+    G.spawnTimer = 0.5;
+    let came = 0;
+    const add0 = G.addZombie;
+    G.addZombie = function (...args) {
+      came++;
+      return add0.apply(this, args);
+    };
+    const per = Math.round(0.1 / frame);
+    const N = Math.round(secs / frame);
+    for (let k = 0; k < N && G.running; k++) {
+      if (k % per === 0) {
+        const tt = k / per / 10;
+        const dec = G.upcoming();
+        G.keys.left = G.keys.right = false;
+        if (dec && !G.turn && (dec.stop - G.van.s) / G.speed < 1.0) {
+          const o = right(dec);
+          const lane = o.lanes.reduce((best, l) => (Math.abs(S.laneCenter(l, dec.n) - G.van.d) < Math.abs(S.laneCenter(best, dec.n) - G.van.d) ? l : best), o.lanes[0]);
+          const tg = S.laneCenter(lane, dec.n);
+          G.keys.left = G.van.d > tg + 8;
+          G.keys.right = G.van.d < tg - 8;
+        }
+        Object.assign(G.pointer, { seen: true, x: G.W / 2 + 80 * Math.sin(tt), y: G.H * 0.45, down: true });
+      }
+      G.update(frame);
+    }
+    G.addZombie = add0;
+    const st = { came, van: [G.van.x, G.van.y, G.van.s], walkers: G.zombies.map((z) => [z.type, z.x, z.y, z.hp]), shots: G.bullets.length, kills: ZSR.State.trip.walkers, scrap: ZSR.State.trip.scrap, hp: ZSR.State.trip.vanHp, time: G.time };
+    G.stop();
+    G.pointer.down = false;
+    return st;
+  };
+  let checked = 0;
+  let downed = 0;
+  for (const [a, b] of [["base", "hospital"], ["police", "mall"]]) {
+    const ref = trip(1 / 60, 20, a, b);
+    for (const frame of [0.1, 1 / 30]) {
+      const got = trip(frame, 20, a, b);
+      checked++;
+      if (JSON.stringify(got) !== JSON.stringify(ref)) {
+        const gap = Math.max(...got.van.map((v, i) => Math.abs(v - ref.van[i])));
+        sErr(`${a} to ${b}: 20 s in frames of ${frame.toFixed(3)} s is not 20 s in frames of 1/60 (van ${gap.toFixed(3)} apart; walkers ${got.walkers.length} against ${ref.walkers.length}, kills ${got.kills} against ${ref.kills}, health ${got.hp} against ${ref.hp})`);
+      }
+    }
+    if (!(ref.came >= 8)) sErr(`${a} to ${b}: only ${ref.came} walkers came in 20 s to check`);
+    downed += ref.kills;
+  }
+  if (!downed) sErr("no walker was shot down on the drives checked");
+  Math.random = random0;
+  ZSR.State.save.day = day0;
+  Object.assign(upgrades, up0);
+  console.log(`road steps: ${checked} drives of 20 s in frames of 0.1 s and 1/30 s the same as in 1/60 s (van, walkers, shots, kills, scrap, health); a frame counts up to ${G.MAX_FRAME_DT} s`);
+}
 /* ---------- the angled camera's ground squares on the card (js/perspective-gl.js, WebGL stubbed) ----------
    A drive's squares, made on a clock that charges each size what a graphics card might (1.5, 0.8 and 0.4 ms): a square
    the view will need again soon is kept, not pushed off and made again (fewer than 10% made twice); a view that needs
