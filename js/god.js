@@ -291,7 +291,8 @@
         const sc = P.SCENERY_ROWS || 0;
         const I = ZSR.Interior;
         const wl = (I && I.LIVE_LEVELS && I.LIVE_LEVELS.length) || 0;
-        out.push("road " + (fs.gapMs || 0).toFixed(1) + " ms  drawn in " + (fs.ms || 0).toFixed(1) + " ms");
+        // (the governor's interval is 0 until a drive has run a moment, and stands still while it is paused)
+        out.push("road " + (fs.gapMs > 0 ? fs.gapMs.toFixed(1) : "--") + " ms  drawn in " + (fs.ms || 0).toFixed(1) + " ms" + (G.paused ? "  paused" : ""));
         out.push("scenery row " + (fs.scenery | 0) + (sc ? " of " + (sc - 1) : "") + "  walkers row " + ((P.walkerStats && P.walkerStats.level) | 0) + (wl ? " of " + (wl - 1) : ""));
       }
       return out;
