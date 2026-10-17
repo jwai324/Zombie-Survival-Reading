@@ -2,6 +2,8 @@
 /* The angled road's scenery at scale, checked by counts, never by milliseconds (js/perspective-art.js vegLayout and
    buckets, js/perspective.js drawWorld's plant and prop loops, its scenery governor and release, js/perspective-gl.js
    keepFor and release, js/sprites.js inRiver), on the real road code with the page stubbed:
+   - the roadside's props (js/game.js buildScenery) in a city 1, 2 and 3 times as wide: the same, from as many roads,
+     none past what the camera sees from the route;
    - the plant layout on a synthetic city 1, 2 and 3 times as wide (today's copied) along the same drive: the squares
      made, the plants made, the spots tried and what each square looked at stay the same; only the index grows, with
      the roads; a drive's first view makes a bounded number of squares;
@@ -212,6 +214,71 @@ const listed = (t) => P.list.filter((o) => o._t === t);
   if (Math.abs(a.tries / a.made - 18.2) > 18.2 * 0.15) lay(`squares tried ${(a.tries / a.made).toFixed(1)} spots each (a 512 square holds about 18.2 of the 120 grid's)`);
   if (!(c.kept < c.made / 3)) lay(`${c.kept} of ${c.made} squares of plants still kept at the drive's end (the view's old ones are let go)`);
   console.log(`plant layout: along river > mall, cities 1x/2x/3x as wide (${rows.map((r) => r.roads).join("/")} roads): squares made ${rows.map((r) => r.made).join("/")}, plants ${rows.map((r) => r.items).join("/")}, each square looked at ${rows.map((r) => r.near.toFixed(1)).join("/")} roads and such; index entries ${rows.map((r) => r.filed).join("/")}; first view ${a.first.squares} squares, ${a.first.items} plants`);
+}
+
+/* ---------- the roadside (js/game.js buildScenery) does not grow with the city ----------
+   The same drives in a city 1, 2 and 3 times as wide (today's copied, each copy shifted by the city's size): the same
+   props, as many roads given a roadside and as many of the city's roads, side streets, corners and lots looked at;
+   and no road given a roadside that the camera cannot see from the route. */
+{
+  const sErr = (m) => err("roadside", m);
+  const out = [];
+  for (const [a, b] of [["river", "mall"], ["base", "hospital"], ["watertower", "autoshop"]]) {
+    const rows = [];
+    for (const N of [1, 2, 3]) {
+      start(a, b);
+      const D = G.drive;
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      for (const n of D.nodes) {
+        x0 = Math.min(x0, n.x);
+        y0 = Math.min(y0, n.y);
+        x1 = Math.max(x1, n.x);
+        y1 = Math.max(y1, n.y);
+      }
+      // (each copy past what the camera sees from today's city: a bigger city's roads far from this drive)
+      const Wd = x1 - x0 + 2 * P.cfg.far + 4000;
+      const Hd = y1 - y0 + 2 * P.cfg.far + 4000;
+      const syn = Object.assign({}, D, { roads: [], sides: [], nodes: [], lots: [] });
+      for (let i = 0; i < N; i++) {
+        for (let j = 0; j < N; j++) {
+          const mv = (q) => Object.assign({}, q, { x0: q.x0 + i * Wd, y0: q.y0 + j * Hd, x1: q.x1 + i * Wd, y1: q.y1 + j * Hd, key: i || j ? q.key + "#" + i + "," + j : q.key });
+          D.roads.forEach((q) => syn.roads.push(mv(q)));
+          D.sides.forEach((q) => syn.sides.push(mv(q)));
+          D.nodes.forEach((n) => syn.nodes.push(Object.assign({}, n, { x: n.x + i * Wd, y: n.y + j * Hd })));
+          D.lots.forEach((l) => syn.lots.push(Object.assign({}, l, { qx: l.qx + i * Wd, qy: l.qy + j * Hd })));
+        }
+      }
+      G.drive = syn;
+      G.buildScenery();
+      rows.push({ N, all: syn.roads.length, st: G.sceneryStats, props: JSON.stringify(G.props) });
+      // every road given a roadside is one the camera can see from the route: within its reach of the track
+      const reach = P.cfg.far + 600;
+      for (const p of G.props) {
+        let best = Infinity;
+        for (let s = 0; s <= D.track.len; s += 200) {
+          const q = S.at(D.track, s);
+          best = Math.min(best, Math.hypot(p.x - q.x, p.y - q.y));
+        }
+        if (best > reach + 500 + 460) {
+          sErr(`${a} > ${b}: a ${p.kind} ${Math.round(best)} from the route, past what the camera sees (${reach})`);
+          break;
+        }
+      }
+      G.drive = D;
+      G.stop();
+    }
+    const [r1, r2, r3] = rows;
+    for (const r of [r2, r3]) {
+      if (r.props !== r1.props) sErr(`${a} > ${b}: a city ${r.N}x as wide gave the drive other props`);
+      if (r.st.roads !== r1.st.roads || r.st.looked !== r1.st.looked) sErr(`${a} > ${b}: a city ${r.N}x as wide gave ${r.st.roads} roads a roadside and looked at ${r.st.looked} things near the route (1x: ${r1.st.roads}, ${r1.st.looked})`);
+    }
+    if (!(r1.st.roads > 0 && r1.st.roads < r1.all)) sErr(`${a} > ${b}: ${r1.st.roads} of ${r1.all} roads got a roadside`);
+    out.push(`${a} > ${b} ${r1.st.roads}/${r1.all}/${r2.all}/${r3.all} roads`);
+  }
+  console.log(`roadside: the same props in cities 1x/2x/3x as wide (roads with a roadside of all: ${out.join(", ")})`);
 }
 
 /* ---------- seeded by place: the same square again is the same; as thick across a square's edge ---------- */

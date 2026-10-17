@@ -94,6 +94,12 @@
   // a drive's first view (ground squares on the card, plants) is made before the van pulls out (Game.prepStep), for
   // at most this many seconds; a slow computer then drives off with the rest still coming in
   const PREP_SECS = 1;
+  // SCALE: a drive's roadside (buildScenery) is made along the roads within this much of its track: as far as the
+  // camera sees (js/perspective.js cfg.far) and a little more, its track looked at every SCENERY_STEP; a prop keeps
+  // clear of what lies within SCENERY_CLEAR more. A bigger city costs a drive's start no more than its own part of town
+  const SCENERY_REACH = () => (ZSR.Persp ? ZSR.Persp.cfg.far : 3600) + 600;
+  const SCENERY_STEP = 400;
+  const SCENERY_CLEAR = 600;
   // the drive (the van along its track, its turns, lane slides and the camera) runs in steps no longer than this,
   // whatever the frame rate: a slow or uneven frame moves it just as several quick ones would
   // SCALE: a frame runs ceil(dt / DRIVE_STEP) drive steps (4 at 60 fps), so the drive's own cost grows with them
@@ -303,23 +309,66 @@
       this.placeCam(0, true);
     },
 
-    /** Trees, wrecks and junk along every road near the route, and the supply crates on it.
-     *  SCALE: walks every road in the city (D.roads), so its cost grows with the whole city, not the route;
-     *  cull to the route's area if drives start slowly on a bigger map. The minimap likewise draws every road. */
+    /** Trees, wrecks and junk along the roads the drive can see (within SCENERY_REACH of its track), and the supply
+        crates on it. Each road's roadside is seeded by the route and the road, so a road's props do not depend on what
+        else is in the city. SCALE: the city's roads, side streets, corners and lots are each looked at once, against
+        the track every SCENERY_STEP, and only those near it go on; so a drive's start costs what its own part of town
+        holds, not the whole city (tests/validate-scenery.js: the same props, and as many roads walked, in a city three
+        times as wide). The minimap still draws every road of the map. */
     buildScenery() {
       const D = this.drive;
       const G = Streets().GEOM;
-      const r = seeded(Streets().hash(D.path.join(">")) + 7);
-      // a quick box test first: most of the city is far from any one spot
+      const t0 = performance.now();
+      // the part of town the drive can see: the track every SCENERY_STEP (and its end), and a box round it
+      const reach = SCENERY_REACH();
+      const pts = [];
+      for (let s = 0; s < D.track.len + SCENERY_STEP; s += SCENERY_STEP) pts.push(Streets().at(D.track, Math.min(s, D.track.len)));
+      let bx0 = Infinity;
+      let by0 = Infinity;
+      let bx1 = -Infinity;
+      let by1 = -Infinity;
+      for (const p of pts) {
+        bx0 = Math.min(bx0, p.x);
+        by0 = Math.min(by0, p.y);
+        bx1 = Math.max(bx1, p.x);
+        by1 = Math.max(by1, p.y);
+      }
+      /** Is the segment (or point) within R of the track? (a box test first: most of a big city is far from it) */
+      const seen = (x0, y0, x1, y1, R) => {
+        if (Math.max(x0, x1) < bx0 - R || Math.min(x0, x1) > bx1 + R || Math.max(y0, y1) < by0 - R || Math.min(y0, y1) > by1 + R) return false;
+        return pts.some((p) => distSeg(p.x, p.y, x0, y0, x1, y1) < R);
+      };
+      // ... and a point within reach of it, by the track's points filed in squares of the reach
+      const cell = reach + SCENERY_STEP;
+      const grid = new Map();
+      for (const p of pts) {
+        const key = Math.floor(p.x / cell) + "," + Math.floor(p.y / cell);
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push(p);
+      }
+      const inReach = (x, y) => {
+        const cx = Math.floor(x / cell);
+        const cy = Math.floor(y / cell);
+        for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const p of grid.get(cx + i + "," + (cy + j)) || []) if (Math.hypot(p.x - x, p.y - y) < reach + SCENERY_STEP / 2) return true;
+        return false;
+      };
+      // what gets a roadside, and what a prop must keep clear of (a little further out, so one at the edge still does)
+      const clearR = reach + SCENERY_CLEAR;
+      const roadsSeen = D.roads.filter((rd) => seen(rd.x0, rd.y0, rd.x1, rd.y1, reach));
+      const roadsNear = D.roads.filter((rd) => seen(rd.x0, rd.y0, rd.x1, rd.y1, clearR));
+      const sidesNear = D.sides.filter((s) => seen(s.x0, s.y0, s.x1, s.y1, clearR));
+      const nodesNear = D.nodes.filter((n) => seen(n.x, n.y, n.x, n.y, clearR));
+      const lotsNear = D.lots.filter((l) => seen(l.qx, l.qy, l.qx, l.qy, clearR));
+      // a quick box test first: most of what is near the track is far from any one spot
       const box = (s, m) => [Math.min(s.x0, s.x1) - m, Math.min(s.y0, s.y1) - m, Math.max(s.x0, s.x1) + m, Math.max(s.y0, s.y1) + m];
-      const roads = D.roads.map((rd) => [box(rd, G.half + G.shoulder + 60), rd]);
-      const sides = D.sides.map((s) => [box(s, G.sideHalf + G.shoulder + 120), s]);
+      const roads = roadsNear.map((rd) => [box(rd, G.half + G.shoulder + 60), rd]);
+      const sides = sidesNear.map((s) => [box(s, G.sideHalf + G.shoulder + 120), s]);
       const inBox = (b, x, y) => x > b[0] && y > b[1] && x < b[2] && y < b[3];
       const near = (x, y, pad) => {
         for (const [b, rd] of roads) if (inBox(b, x, y) && distSeg(x, y, rd.x0, rd.y0, rd.x1, rd.y1) < G.half + G.shoulder + pad) return true;
         for (const [b, s] of sides) if (inBox(b, x, y) && distSeg(x, y, s.x0, s.y0, s.x1, s.y1) < G.sideHalf + G.shoulder + pad + (s.kind === "deadEnd" ? 60 : 0)) return true;
-        for (const n of D.nodes) if (Math.hypot(n.x - x, n.y - y) < G.boxR + pad) return true;
-        for (const l of D.lots) if (Math.hypot(l.qx - x, l.qy - y) < G.half + G.lotDepth + G.lotHalf + pad) return true;
+        for (const n of nodesNear) if (Math.hypot(n.x - x, n.y - y) < G.boxR + pad) return true;
+        for (const l of lotsNear) if (Math.hypot(l.qx - x, l.qy - y) < G.half + G.lotDepth + G.lotHalf + pad) return true;
         return false;
       };
       const onRoute = new Set();
@@ -350,14 +399,25 @@
         return best[4];
       };
       this.props = [];
-      D.roads.forEach((rd) => {
+      const route = D.path.join(">");
+      roadsSeen.forEach((rd) => {
+        const r = seeded(Streets().hash(route + "|" + rd.key) + 7);
         // the roads the route uses get the full roadside; the rest get a sparser one
         const len = Math.hypot(rd.x1 - rd.x0, rd.y1 - rd.y0);
         const ux = (rd.x1 - rd.x0) / len;
         const uy = (rd.y1 - rd.y0) / len;
         const face = Math.atan2(uy, ux) + Math.PI / 2;
         const step = onRoute.has(rd.key) ? 85 : 170;
-        for (let a = G.boxR; a < len - G.boxR; a += step * (0.6 + r() * 0.8)) {
+        // only the stretch of it the camera can see from the route (a long road may run on far out of sight)
+        let lo = Infinity;
+        let hi = -Infinity;
+        for (let a = 0; a < len + SCENERY_STEP / 2; a += SCENERY_STEP / 2) {
+          const q = Math.min(a, len);
+          if (!inReach(rd.x0 + ux * q, rd.y0 + uy * q)) continue;
+          lo = Math.min(lo, q - SCENERY_STEP / 2);
+          hi = Math.max(hi, q + SCENERY_STEP / 2);
+        }
+        for (let a = Math.max(G.boxR, lo); a < Math.min(len - G.boxR, hi); a += step * (0.6 + r() * 0.8)) {
           for (const sg of [-1, 1]) {
             if (r() < 0.45) continue;
             const off = sg * (G.half + G.shoulder + 40 + r() * 420);
@@ -370,9 +430,9 @@
           if (onRoute.has(rd.key) && r() < 0.12) {
             const x = rd.x0 + ux * a;
             const y = rd.y0 + uy * a;
-            if (D.nodes.some((n) => Math.hypot(n.x - x, n.y - y) < G.boxR + 500)) continue;
-            if (D.lots.some((l) => Math.hypot(l.qx - x, l.qy - y) < 700)) continue;
-            if (D.sides.some((s) => Math.hypot(s.x0 - x, s.y0 - y) < 500)) continue;
+            if (nodesNear.some((n) => Math.hypot(n.x - x, n.y - y) < G.boxR + 500)) continue;
+            if (lotsNear.some((l) => Math.hypot(l.qx - x, l.qy - y) < 700)) continue;
+            if (sidesNear.some((s) => Math.hypot(s.x0 - x, s.y0 - y) < 500)) continue;
             if (zoneLines.some((z) => distSeg(x, y, z[0], z[1], z[2], z[3]) < 300)) continue;
             // which side is oncoming depends on the way the route runs this road
             const i = D.path.indexOf(rd.a);
@@ -384,6 +444,7 @@
         }
       });
       // supply crates sit in our lanes on the route, between the decision points
+      const r = seeded(Streets().hash(route) + 7);
       this.crates = [];
       const n = this.mods.crates || 0;
       const lo = D.startS + 4 * this.speed;
@@ -396,6 +457,8 @@
         this.crates.push({ x: p.x - p.uy * dd, y: p.y + p.ux * dd, t: r() * 3, face: Math.atan2(p.uy, p.ux) + Math.PI / 2 });
         i++;
       }
+      // (for tests and probes: how many of the city's roads got a roadside, and the time it took)
+      this.sceneryStats = { roads: roadsSeen.length, of: D.roads.length, looked: roadsNear.length + sidesNear.length + nodesNear.length + lotsNear.length, ms: performance.now() - t0 };
     },
     makeProp(r, x, y, face) {
       const roll = r();
