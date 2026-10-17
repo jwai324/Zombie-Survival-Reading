@@ -114,7 +114,7 @@ scaling all assume it. `tests/validate-streets.js` also requires side streets in
 - validate-drive's "walkers blocked" drives a fixed sample of routes (one in 17) with walkers coming
   (`--all-walkers` drives every route, about 5.5 min); `tests/validate-balance.js` drives 6 balance cells at 6 seeds
   (about 10 s, `CELLS` and `SEEDS`, and its pop-in trips), and `npm run balance` the whole matrix (5,184 trips, about
-  2 min on 4 cores: 3 routes a danger on 6 days, so it grows with the dangers and days, not the places).
+  3 min on 4 cores: 3 routes a danger on 6 days, so it grows with the dangers and days, not the places).
 - Doubling the places makes them about 4 to 16 times slower.
 - When `npm test` gets slow, sample the pairs (all pairs touching changed places, plus a fixed
   random set) behind a flag, and keep the full sweep for CI.

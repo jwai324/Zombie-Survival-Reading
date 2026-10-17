@@ -2163,7 +2163,7 @@ from changed here.
 - **Days 3 and a clear day 7** are in the matrix (`matrix.json` `days` 1, 3, 5, 7, 10, 20; `clear`: day 7 drives with
   night and fog off). Their flat targets were driven on 36403cd by the same stage-1 harness, which reproduces the
   frozen cells exactly, and added to `targets.json` (`meta.added`). Day 7 guards the Ram Plow's first days; the anchor
-  days 1, 5, 10 and 20 could not see that gap. `npm run balance` is 5,184 trips, about 2 min.
+  days 1, 5, 10 and 20 could not see that gap. `npm run balance` is 5,184 trips, about 3 min on 4 cores.
 - **compare.js** prints each difference with its band and its combined standard error (`+7% of +-20%, se 5%`), so a
   miss by noise reads as one.
 - **Held-out seeds:** the matrix is also judged on seeds 49 to 96 (`--seed0 49`), which none of the tuning saw.
