@@ -1103,7 +1103,8 @@
       ctx.save();
       ctx.translate(L.van.x, L.van.y);
       ctx.rotate(L.van.ang);
-      ZSR.Draw.van(ctx, 0, 0, { upgrades: S.save.upgrades, scale: 0.34 * ik, moving: false, aim: -Math.PI / 2 });
+      ZSR.Draw.van(ctx, 0, 0, { upgrades: S.save.upgrades, scale: 0.34 * ik, moving: false });
+      this.drawRoofGun(ctx, 0.34 * ik, S.save.upgrades);
       ctx.restore();
       L.streets.forEach((s) => s.late && street(s));
       L.names.forEach((n) => this.drawName(ctx, n, L));
@@ -1203,6 +1204,27 @@
       });
     },
 
+    /** The van marker's roof gun (Draw.van draws the roof seen from above, without it: on the road the 3D van carries
+        its own): its mount and the barrels pointing ahead, as many as Spread Shot gives and as long as Heavier Rounds
+        make them, at the marker's scale s. */
+    drawRoofGun(ctx, s, u) {
+      const D = ZSR.Draw;
+      const up = u || {};
+      const n = 1 + (up.spread || 0);
+      const len = 24 + (up.damage || 0) * 3;
+      ctx.save();
+      ctx.scale(s, s);
+      ctx.translate(0, 118 * 0.1);
+      D.circle(ctx, 0, 0, 13, "#2f3136", 3);
+      for (let i = 0; i < n; i++) {
+        ctx.save();
+        ctx.rotate(-Math.PI / 2 + (i - (n - 1) / 2) * ZSR.Upgrades.SPREAD);
+        D.rr(ctx, 8, -3, len, 6, 1.5);
+        D.fillStroke(ctx, "#3b3d44", 2.5);
+        ctx.restore();
+      }
+      ctx.restore();
+    },
     /** A place's building at (l.x, l.y), icon scale k. bare: just the building (the road's minimap), no danger pips or cache marker. */
     drawIcon(ctx, l, selected, hover, fx, k, bare) {
       const S = State();
