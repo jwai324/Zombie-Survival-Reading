@@ -114,14 +114,18 @@
   // SCALE: fade, bandMin and shoveMin are road units, tied to the van's size and speed
   const KEEP = { fade: 400, band: 0.8, bandMin: 60, shove: 0.8, shoveMin: 60 };
   // buildings and the river block walkers (owner, 2026-10-17): one put out of a building's solid part or the river's
-  // bank walks along it for WALK_ROUND s (the way the van is along it, or, the van straight through it, past the
-  // walker's own WALK_STRAIGHT share of its way, toward the nearer end), so it goes round instead of pressing on it.
-  // A new walker comes from a spot SPAWN_CLEAR clear of both with neither between it and the van, trying up to
-  // SPAWN_TRIES spots (the last clear one if every one had something in the way). The river's slope is felt over
-  // RIVER_PROBE units and a line to the van checked for water every RIVER_STEP
+  // bank walks along it for WALK_ROUND s (walkRound: toward the end the van is past, or its own nearer end), so it goes
+  // round instead of pressing on it. A new walker comes from a spot SPAWN_CLEAR clear of both with neither between it
+  // and the van, trying up to SPAWN_TRIES spots (the last clear one if every one had something in the way). The
+  // river's slope is felt over RIVER_PROBE units and a line to the van checked for water every RIVER_STEP
   // SCALE: SPAWN_TRIES spots a spawn (each checks every building on the drive's list: solidLots)
   const WALK_ROUND = 0.4;
-  const WALK_STRAIGHT = 0.15;
+  // ... and one that has gone less than WALK_HEADWAY of its pace along a wall in WALK_STUCK s turns round
+  const WALK_STUCK = 1;
+  const WALK_HEADWAY = 0.25;
+  // ... and keeps to its way along a wall for WALK_MEMORY s after it leaves it (at a corner, back onto it)
+  const WALK_MEMORY = 2;
+  const RIVER_WALL = {};
   const SPAWN_CLEAR = 30;
   const SPAWN_TRIES = 6;
   const BLOCK_PASSES = 3; // (out of one building part may be into another that touches it)
@@ -915,7 +919,8 @@
             const uy = (b.y - a.y) / lu;
             const vx = (d.x - a.x) / lv;
             const vy = (d.y - a.y) / lv;
-            return { cx: a.x + (ux * lu + vx * lv) / 2, cy: a.y + (uy * lu + vy * lv) / 2, ux, uy, vx, vy, hu: lu / 2, hv: lv / 2 };
+            // (its four sides, each a wall a walker remembers its way along: +u, -u, +v, -v)
+            return { cx: a.x + (ux * lu + vx * lv) / 2, cy: a.y + (uy * lu + vy * lv) / 2, ux, uy, vx, vy, hu: lu / 2, hv: lv / 2, walls: [{}, {}, {}, {}] };
           });
           if (!boxes.length) continue;
           const cx = boxes.reduce((s, b) => s + b.cx, 0) / boxes.length;
@@ -935,9 +940,9 @@
       return D && D.riverEdge ? D.riverEdge(x, y, this.drive && this.drive.scale) : Infinity;
     },
     /** Keep walker z out of the drive's buildings (solidLots) and the river with its muddy bank (riverAt), as the
-        van's box keeps it out of the van: one inside is put back out at the nearest side, and then walks along that
-        side (WALK_ROUND) the way it was going, or toward that side's nearer end when it walked straight at it, so it
-        goes round a building or along the bank instead of pressing on it. */
+        van's box keeps it out of the van: one inside is put back out at the nearest side (that does not lead into
+        another part), and then walks along that side for a moment (walkRound), so it goes round a building or along
+        the bank instead of pressing on it. */
     blockWalker(z) {
       const rr = z.r * 0.85;
       // within a part's box grown by rr, as the box's own u, v
@@ -977,8 +982,8 @@
             z.x = b.cx + b.ux * pick[1] + b.vx * pick[2];
             z.y = b.cy + b.uy * pick[1] + b.vy * pick[2];
             // along the side it is out of: a u side runs along v, a v side along u
-            if (pick[3]) this.walkRound(z, b.ux, b.uy, pick[1]);
-            else this.walkRound(z, b.vx, b.vy, pick[2]);
+            if (pick[3]) this.walkRound(z, b.ux, b.uy, pick[1], b.hu + rr, b.walls[pick[2] > 0 ? 2 : 3]);
+            else this.walkRound(z, b.vx, b.vy, pick[2], b.hv + rr, b.walls[pick[1] > 0 ? 0 : 1]);
             moved = true;
           }
         }
@@ -992,26 +997,47 @@
         if (n > 1e-6) {
           z.x += (ex / n) * (rr - e);
           z.y += (ey / n) * (rr - e);
-          this.walkRound(z, -ey / n, ex / n, 0);
+          this.walkRound(z, -ey / n, ex / n, 0, Infinity, RIVER_WALL);
         }
       }
     },
-    /** Walker z was put out along a wall (or the bank) running (tx, ty): from now, for WALK_ROUND s, it walks along
-        it: on the way it already went along this wall, or else the way the van is from it along the wall, or (the
-        van straight through the wall) toward the wall's nearer end (along: where it is along the wall from its
-        middle). Once going one way along a wall it keeps going, so it never dithers in the middle of one. */
-    walkRound(z, tx, ty, along) {
+    /** Walker z was put out along a wall (or the bank) running (tx, ty), `along` from the wall's middle, `half` its half
+        length (Infinity for the bank), `wall` what it is (the same wall again keeps its way): from now, for WALK_ROUND
+        s, it walks along it. Its way: the one it last went along this wall (for WALK_MEMORY s after leaving it), else
+        toward the end the van is past, else (the van straight through the wall) toward its own nearer end; the bank,
+        the way the van is along it. One that makes no headway (another walker coming the other way) turns round. */
+    walkRound(z, tx, ty, along, half, wall) {
       const w = z.wall;
+      const m = z.wallMem;
       const same = w ? w.x * tx + w.y * ty : 0;
+      const remembered = m && m.wall === wall && this.time - m.at < WALK_MEMORY;
       let s;
-      if (Math.abs(same) > 0.7) s = Math.sign(same);
-      else {
+      let since = this.time;
+      let x0 = z.x;
+      let y0 = z.y;
+      if (Math.abs(same) > 0.7 || remembered) {
+        s = Math.abs(same) > 0.7 ? Math.sign(same) : m.s;
+        if (w && Math.abs(same) > 0.7) {
+          since = w.since;
+          x0 = w.x0;
+          y0 = w.y0;
+        }
+        // no headway along it for a while (another walker the other way, a corner it cannot get round): turn round
+        if (this.time - since > WALK_STUCK && Math.abs((z.x - x0) * tx + (z.y - y0) * ty) < z.speed * WALK_STUCK * WALK_HEADWAY) {
+          s = -s;
+          since = this.time;
+          x0 = z.x;
+          y0 = z.y;
+        }
+      } else {
         const v = this.van;
         const toward = v ? (v.x - z.x) * tx + (v.y - z.y) * ty : 0;
-        const d = v ? Math.hypot(v.x - z.x, v.y - z.y) || 1 : 1;
-        s = Math.abs(toward) > WALK_STRAIGHT * d ? Math.sign(toward) : Math.sign(along) || 1;
+        const vanAt = toward + along; // the van, along the wall from its middle
+        if (half === Infinity) s = Math.sign(toward) || 1;
+        else s = Math.abs(vanAt) > half ? Math.sign(vanAt) : Math.sign(along) || 1;
       }
-      z.wall = { x: tx * s, y: ty * s, t: WALK_ROUND };
+      z.wall = { x: tx * s, y: ty * s, t: WALK_ROUND, since, x0, y0 };
+      z.wallMem = { wall, s, at: this.time };
     },
     /** Is x, y a fit spot for a walker of radius r to come from: clear of the buildings and the river, and (strict)
         with nothing of them between it and the van, so it can walk straight in? */

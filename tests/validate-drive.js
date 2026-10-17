@@ -1990,10 +1990,25 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     });
     G.zombies.length = 0;
     G.stop();
-    // round a building: the van parked at the grocery's door, walkers behind the building come round to it
-    start("base", "grocery");
-    drive(right, 1.0, () => G.arrive && G.arrive.parked);
-    if (G.running && G.arrive && G.arrive.parked) {
+    // round a building: the van parked at the grocery's door, three walkers of different kinds behind the building
+    // (6 seeded tries) all come round to it, never inside it
+    const lcg = (seed) => {
+      let q = seed >>> 0;
+      return () => ((q = (q * 1664525 + 1013904223) >>> 0) / 4294967296);
+    };
+    const random0 = Math.random;
+    let came = 0;
+    let tries = 0;
+    let worst = 0;
+    let slowest = 0;
+    for (let seed = 1; seed <= 6; seed++) {
+      Math.random = lcg(seed * 7919);
+      start("base", "grocery");
+      drive(right, 1.0, () => G.arrive && G.arrive.parked);
+      if (!(G.running && G.arrive && G.arrive.parked)) {
+        bErr("the van never parked at the grocery");
+        break;
+      }
       G.arrive.t = -1e9; // (stay parked)
       const lot = G.drive.lots.find((l) => l.node === "grocery");
       const Qg = B.solids(lot);
@@ -2004,19 +2019,25 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
       const ux = (mid.x - v.x) / away;
       const uy = (mid.y - v.y) / away;
       const half = Math.max(...c.map((p) => Math.hypot(p.x - mid.x, p.y - mid.y)));
-      const behind = [-0.3, 0, 0.3].map((o, i) => Object.assign(G.addZombie(kinds[i], mid.x + ux * (half + 60) - uy * o * half, mid.y + uy * (half + 60) + ux * o * half), { hp: 1e4, maxHp: 1e4, dmg: 0, born: -10 }));
-      let worst = 0;
-      let came = 0;
-      for (let f = 0; f < 60 * 30 && G.running; f++) {
+      const off = [-0.3, 0, 0.3][seed % 3];
+      const behind = [0, 1, 2].map((i) => Object.assign(G.addZombie(kinds[(i + seed) % kinds.length], mid.x + ux * (half + 60) - uy * (off + (i - 1) * 0.3) * half, mid.y + uy * (half + 60) + ux * (off + (i - 1) * 0.3) * half), { hp: 1e4, maxHp: 1e4, dmg: 0, born: -10 }));
+      const at = new Map();
+      for (let f = 0; f < 60 * 30 && G.running && at.size < behind.length; f++) {
         G.update(1 / 60);
-        for (const z of behind) worst = Math.max(worst, inside(Qg, z));
-        came = behind.filter((z) => Math.hypot(z.x - G.van.x, z.y - G.van.y) < 160).length;
-        if (came === behind.length) break;
+        for (const z of behind) {
+          worst = Math.max(worst, inside(Qg, z));
+          if (!at.has(z) && Math.hypot(z.x - G.van.x, z.y - G.van.y) < 160) at.set(z, f / 60);
+        }
       }
-      if (worst > 0.5) bErr(`a walker going round the grocery was ${worst.toFixed(1)} inside it`);
-      if (came < behind.length) bErr(`only ${came} of ${behind.length} walkers behind the grocery came round it to the parked van in 30 s`);
-    } else bErr("the van never parked at the grocery");
-    G.stop();
+      tries += behind.length;
+      came += at.size;
+      for (const tt of at.values()) slowest = Math.max(slowest, tt);
+      G.stop();
+    }
+    Math.random = random0;
+    // (2 units: one squeezed between the parked van's nose and the wall, 45 apart, is put out of the van last)
+    if (worst > 2) bErr(`a walker going round the grocery was ${worst.toFixed(1)} inside it`);
+    if (came < tries) bErr(`only ${came} of ${tries} walkers behind the grocery came round it to the parked van in 30 s`);
     // drives with walkers coming: none from inside a building or the river, none ever in one
     const all = process.argv.includes("--all-walkers");
     const ids = W.LOCATIONS.map((l) => l.id);
@@ -2065,7 +2086,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     if (badSpawn) bErr(`${badSpawn} of ${spawned} walkers came from inside a building or the river (or within 10 of one)`);
     if (inB) bErr(`${inB} walker frames inside a building's solid part (deepest ${deepB.toFixed(1)})`);
     if (inR) bErr(`${inR} walker frames in the river or on its bank (deepest ${deepR.toFixed(1)})`);
-    console.log(`walkers blocked: ${put} put in buildings' parts and ${wetPut} in the river, all put out; walkers behind a building came round it; ${pairs.length} drives (${all ? "every route" : "a sample: --all-walkers for every route"}), ${spawned} walkers, ${frames} walker frames: ${badSpawn} came from inside, ${inB} in a building, ${inR} in the river (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+    console.log(`walkers blocked: ${put} put in buildings' parts and ${wetPut} in the river, all put out; ${came} of ${tries} walkers behind a building came round it (the slowest in ${slowest.toFixed(1)} s, at most ${worst.toFixed(1)} into it); ${pairs.length} drives (${all ? "every route" : "a sample: --all-walkers for every route"}), ${spawned} walkers, ${frames} walker frames: ${badSpawn} came from inside, ${inB} in a building, ${inR} in the river (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
   }
 }
 /* ---------- the angled camera's ground squares on the card (js/perspective-gl.js, WebGL stubbed) ----------
