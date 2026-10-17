@@ -1231,12 +1231,17 @@
   };
 
   /** A 64 x 64 wall face. `opts` (optional, plain data) reaches the drawing function and is part of the cache key. */
-  function texture(kind, palette, opts) {
+  function texture(kind, palette, opts, res) {
     // the van textures take their colors from the current paint job and show the bolt-on upgrades
     const paint = kind.startsWith("van") ? ":" + vanSig() : "";
     const p = palette || {};
-    const key = "tex:" + kind + ":" + p.wall + p.shelf + p.counter + p.wallStyle + p.table + paint + (opts ? JSON.stringify(opts) : "");
-    return cached(key, 64, 64, (ctx, w, h) => (TEX[kind] || TEX.wall)(ctx, w, h, p, opts || {}));
+    // res > 1: the same face drawn sharper, for a view that shows it large (the angled road camera's van)
+    const r = res > 1 ? res : 1;
+    const key = "tex:" + kind + ":" + p.wall + p.shelf + p.counter + p.wallStyle + p.table + paint + (opts ? JSON.stringify(opts) : "") + (r > 1 ? "@" + r : "");
+    return cached(key, 64 * r, 64 * r, (ctx) => {
+      ctx.scale(r, r);
+      (TEX[kind] || TEX.wall)(ctx, 64, 64, p, opts || {});
+    });
   }
   /** Add a wall face: fn(ctx, w, h, palette, opts) draws into 64 x 64. Replaces one of the same name. */
   function registerTexture(name, fn) {

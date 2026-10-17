@@ -31,7 +31,7 @@
             + its right; height 0 waist..1 chest; size]), ribs, kneeRip
             ([left, right]), fray, pads, bands, smears (n), armBlood ([left, right]), handBlood, mouthW, jag
      variants  looks the seed picks between (each overrides look)
-   The road's top-down walkers (js/sprites.js) use the same skin, shirt and hair colours. */
+   The road draws these same figures (js/perspective.js), so a kind looks the same on foot and on the road. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});

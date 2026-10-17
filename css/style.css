@@ -50,7 +50,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); f
 .hud-label { color: var(--muted); font-size: .9rem; font-weight: 700; }
 .hud-value { min-width: 2ch; text-align: right; font-weight: 700; }
 .hp-box { min-width: 13rem; }
-.road-box { min-width: min(70vw, 26rem); }
+.road-box { min-width: min(70vw, 26rem); pointer-events: none; } /* it has nothing to click, and it sits over the road just behind the van: clicks and the aim go through it to the road */
 .goal-box { font-size: .95rem; text-transform: none; letter-spacing: .02em; }
 .bar { flex: 1; height: .9rem; min-width: 4.4rem; background: #2b2d31; border: .19rem solid var(--ink); position: relative; overflow: hidden; }
 .bar-fill { height: 100%; width: 100%; background: var(--olive); transition: width .15s linear, background .3s; }

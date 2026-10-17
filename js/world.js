@@ -402,9 +402,10 @@
      scream (it screams: SCREAM).
      mix: its weight in a building (danger, day) and a yard wave (day, heavy) before the place's theme
      (WALKER_THEMES); the river reads RIVER.walkerMix, an alarm ALARM.mix, the road `road.w`. walkerWeights adds
-     them up. road (js/game.js, the van's top-down view): speed px/s, r px, dmg to the van, scrap, reach px past
-     its radius, w [base, perN]: its road weight is base + perN * n (n: the trip's danger and day), armor (optional,
-     0..1): the share of its non-fatal hits that also glance off its gear in grey sparks, with less blood. */
+     them up. road (js/game.js, the drive on the angled road camera): speed road units/s, r road units, dmg to the
+     van, scrap, reach road units past its radius, w [base, perN]: its road weight is base + perN * n (n: the trip's
+     danger and day), armor (optional, 0..1): the share of its non-fatal hits that also glance off its gear in grey
+     sparks, with less blood. */
   const WALKER_TYPES = {
     walker: {
       name: "Walker", hp: 30, speed: 1.25, r: 0.32, bite: 12, reach: 0.85, fenceDps: 6, scrap: 2, knock: 1, scream: false,

@@ -42,7 +42,13 @@
         maxHp: 100 + u.armor * 30,
         speed: 1 + u.engine * 0.14, // road scroll and mile rate multiplier
         laneSpeed: 380 + u.engine * 50, // px/s the van can slide across the road
-        ram: 4 + u.bumper * 9, // damage dealt to walkers that touch the van
+        // damage dealt to walkers that touch the van: 4, then 28, 40, 52 ... (the plow itself is the big step). On the
+        // angled road a walker pressed on the van slides off its side after a touch or two (the old top-down road's
+        // stayed on it until downed), so the plow must down one in fewer touches to be worth what it was there
+        // (DESIGN.md "Walkers and balance": Ram Plow 1 about halves a dangerous drive's damage, Ram Plow 3 a quarter)
+        // SCALE: tied to the road walkers' health (WALKER_TYPES hp x the trip's hpMult): tougher walkers or more levels
+        // change how many touches it takes
+        ram: 4 + u.bumper * 12 + (u.bumper ? 12 : 0),
         ramKnock: 90 + u.bumper * 40,
         damage: 10 + u.damage * 6,
         fireInterval: Math.max(0.14, 0.4 - u.fireRate * 0.052), // seconds between shots

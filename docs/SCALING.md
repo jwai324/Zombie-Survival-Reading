@@ -39,10 +39,18 @@ The current city sits close to three hard test limits:
 |-------|-----|---------|-------|
 | Longest drive | 137 s | 150 s | `tests/validate-streets.js` |
 | Shortest lane window | 2.53 s | 2.5 s | `GEOM.winMin` |
-| Tightest turn arc | 99 px | 95 px | `MIN_ARC` |
+| Tightest turn arc | 108 px (99 before the corners were shaped for the angled camera, 2026-10-17) | 95 px | `MIN_ARC` |
 
 Any new road, and any place pushed further out, will likely trip one of them. Decide on purpose
 whether the ceiling moves (a longer drive is a design choice) or the geometry changes.
+
+Corners are shaped so the angled camera turns through them comfortably (`Streets.cornerSpin`, 2026-10-17): an
+uncomfortable corner's stop line moves back (up to `GEOM.backMax` 1100) and its arc widens, and the van brakes by the
+turn's sharpness (`COMFORT.sharpTo` 135 deg: a sharper turn brakes as for 135, and further where its road is too
+short, down to `minBrake` 0.3). `tests/validate-streets.js` checks every right-way turn again with every road 30%
+shorter (the denser-city check): today's corners hold at 0.7 of their length; at 0.5 the Frog Lane corner goes 7% past
+comfort even braked to 0.35. Corner shapes are memoised once per corner, way in and van speed (`cornerMemo`, a few
+hundred entries today).
 
 ### The board is a fixed 1000 x 700 box
 
@@ -58,8 +66,10 @@ scaling all assume it. `tests/validate-streets.js` also requires side streets in
   bounds and the hand-drawn scenery below. Drives get longer because road seconds scale with
   map distance (`GEOM.minScale`). Revisit `SETTINGS.tripMaxSeconds` and the drive-time ceiling.
 - **Hand-drawn scenery is in map units:**
-  - The river curve is drawn twice with the same points, in `js/map.js` and `js/sprites.js`.
-    The `sprites.js` copy assumes the river lies west of x = 140.
+  - The river's course is one copy, `Streets.RIVER` in `js/streets.js` (quadratic curves in map units, half its
+    width, its bank in px). The road (`Draw.riverBand`), the city map, the places' drives (a drive turns away from
+    the river: `GEOM.riverClear`) and what grows or stands by the road (`Draw.inRiver`, `Draw.riverEdge` in
+    `js/sprites.js`) all read it. More water on a bigger map: more curves there.
   - The hills, the `DISTRICTS` labels and the compass sit at fixed coordinates.
   - All of these must move if the board grows.
 - **Districts and regions:** if the city outgrows one screen, the map may need regions or
@@ -77,9 +87,16 @@ scaling all assume it. `tests/validate-streets.js` also requires side streets in
   - That is fine for hundreds of nodes. Past that, cache the graph and use a heap.
   - `js/map.js` has a fallback copy, used only when Streets is not loaded.
 - **Scenery:**
-  - `buildScenery` in `js/game.js` lays props along every road in the city, not just the route.
+  - `buildScenery` in `js/game.js` looks at the city's roads, side streets, corners and lots once against the drive's
+    track (every `SCENERY_STEP`) and lays props only along the stretch of each road within `SCENERY_REACH` of it (the
+    camera's reach). On a city with 2 and 3 times the roads a drive's start costs the same (0.9 ms mean over the 272
+    routes, against 2.0 / 6.9 / 18.2 ms when it walked every road; `tests/validate-scenery.js` "roadside").
   - The minimap draws every road each frame, with no culling.
-  - Both costs grow with total city size. Cull to the route's bounding box when drives start to stall.
+  - `Draw.cityRoads` (js/sprites.js) filters every road for each ground square the angled view draws.
+  - These two still grow with total city size. Cull them to the view when they start to show.
+  - The angled view's plants do not: they are made a 512 square at a time as the view reaches it, and each square
+    looks only at the roads filed in its bucket (`VEG_BUCKET`). On synthetic cities 1x, 2x and 3x as wide the same
+    drive makes the same squares in the same time (`tests/validate-scenery.js`).
 - **Note text is tied to routes:**
   - A note that names a street must name one on the shortest route to a place it reveals; `tests/validate-text.js` checks this.
   - A new road can change shortest routes and fail old notes at all six levels.
@@ -89,12 +106,21 @@ scaling all assume it. `tests/validate-streets.js` also requires side streets in
 
 `validate-streets` and `validate-drive` drive every ordered pair of places at two speeds.
 
-- With 17 places they take about 5 s and 9 s.
+- With 17 places they take about 5 s and 90 s (validate-streets checks the road's two van speeds, the river and the
+  corners' comfort; validate-drive drives every route on the angled camera at both engines, draws the sign on every
+  frame of every route at the slowest, and draws the road in its night, fog, sign, minimap and title screen checks;
+  validate-drive's comfort section drives 63 routes that cover every turn, a set that grows with the corners, not the
+  routes: `COMFORT_ALL=1` drives all of them). `tests/validate-scenery.js` takes about 50 s.
+- validate-drive's "walkers blocked" drives a fixed sample of routes (one in 17) with walkers coming
+  (`--all-walkers` drives every route, about 5.5 min); `tests/validate-balance.js` drives 6 balance cells at 6 seeds
+  (about 10 s, `CELLS` and `SEEDS`, and its pop-in trips), and `npm run balance` the whole matrix (5,184 trips, about
+  3 min on 4 cores: 3 routes a danger on 6 days, so it grows with the dangers and days, not the places).
 - Doubling the places makes them about 4 to 16 times slower.
 - When `npm test` gets slow, sample the pairs (all pairs touching changed places, plus a fixed
   random set) behind a flag, and keep the full sweep for CI.
-- `validate-engine` is the slowest validator (about 55 s of npm test's 95 s on the shared build
-  container). It enters every building `SPAWN_TRIPS` (6) times on days 1 and 40, walks a walker from
+- `npm test` takes about 3.5 min on a 4-core box: validate-drive about 90 s (the slowest), validate-scenery about
+  50 s, validate-engine about 35 s, validate-crew about 13 s, validate-balance about 10 s, the rest a few seconds each.
+  `validate-engine` enters every building `SPAWN_TRIPS` (6) times on days 1 and 40, walks a walker from
   every wreck spot in the yard (349 today: it grows with yard plots and room levels), and renders
   every kind in every state. More places, rooms or kinds make it slower; sample there first.
 
@@ -123,6 +149,65 @@ looks different. A near full-detail figure costs 2-4 ms on a software canvas (ab
 - Walker3D's colour-string table (`CC_N`, 16384) holds every colour the six kinds use at every light
   and fog step (about 4,000 to 7,000). More kinds and variants need more; validate-art's
   `WALKER_COLOURS` (6000) fails first.
+
+### The road camera (angled, every drive)
+
+Every drive uses it (the flat, top-down road camera went on 2026-10-17: `DESIGN.md`, "every drive on the angled
+camera"). Its limits all grow with how far the view sees (`Persp.cfg.far`, 3600 units) and with how many walkers a drive brings (`ROAD_DANGER`). Measured
+headless on software WebGL (pessimistic; compare, do not read as a real PC's times), 1280 x 800, Engine Tune 0,
+draw ms median / 95th percentile (2026-10-16): with the drive's own walkers a straight draws in 15.3 / 23.7 and the
+junction turn in 13.1 / 21.6; with 10 walkers kept ahead of the van, 16.1 / 27.2 and 18.6 / 30.0 (the walkers
+catch up with the braking van, so their pictures are bigger; the ground costs the same). A turn wants about twice
+a straight's new ground squares. With 25 walkers on screen the walkers alone take about 6 ms a frame at dpr 1 and
+11 ms at dpr 2, so on a software renderer their governor steps down a row. `ZSR.Persp.frameStats` (`ms`, `groundMs`, `worldMs`,
+`walkersMs`, `squaresMade`) and `ZSR.Persp.walkerStats` show a frame's cost on a real machine.
+
+Since 2026-10-17 the corners, each place's own building and the scenery are built for every route, and checked with
+every route put on the angled camera in memory (`DESIGN.md`, "every drive on the angled camera"). On a CPU-drawn
+canvas the scenery governor cuts a frame by about 30% (river to mall at night: 51.9 to 37.0 ms median); at its
+richest row it costs what the scenery cost before. `frameStats` also carries `scenery` (the governor's row), `gapMs`
+(the smoothed frame interval), `plants`, `props`, `vegSquares` and `vegMade`; `ZSR.PerspBuild.stats` a frame's
+buildings and parts.
+
+| Spot | Now | Where | What it limits |
+|------|-----|-------|----------------|
+| `SCENERY_REACH`, `SCENERY_STEP`, `SCENERY_CLEAR` | `cfg.far` + 600, 400, 600 units | `js/game.js` | A drive's roadside is laid along the roads within reach of its track (looked at every step); a prop keeps clear of what lies a little further out. A bigger `cfg.far` reaches further |
+| `FOG` | near 60, far 760 units | `js/perspective.js` | In fog the view sees `far` (ground squares, plants, props and walkers drawn only that far: fog days draw less) and things fade into it from `near`; walkers still come from `cfg.far` |
+| `NIGHT_BEAM` | reach 2050 units | `js/perspective.js` | The headlights' beam laid on the ground (about halfway from the old road's 520 to the haze); the dark is one screen-sized layer, drawn again only when what it shows moves |
+| `EDGE_STEP`, `SIGN_GAP` | 120 units, 14 px | `js/game.js` | The road's edges are found on the screen this often along it (out to the haze) to keep the sign and the lane hint off it |
+| `SIGN_ROOM`, `SIGN_NARROW_W`, `SIGN_GLIDE` | 160 px, 700 px, 0.8 window widths a second | `js/game.js` | Only a window under 700 px wide, or with under 160 px right of its middle, has the sign across the top; on any other the sign stands at the right, at least 160 px wide, gliding after the road's edge (never leaping) and over it for a moment in a bend. validate-drive draws it every frame of every route at 1280 x 800 |
+| `PERSP` (`range`, `keepUp`) | 2600, 900 units | `js/game.js` | How far shots fly and how near a walker keeps up with the van (both tied to `cfg.far`) |
+| `ROAD_DANGER`, `ROAD_LATE`, `ROAD_LATE_DAY` | 6 rows (danger 0 to 5); day 10 | `js/game.js` | The road's walkers by danger: how often (`spawns`, 1.4 x `DIFF`'s later on), in how big groups, how far ahead and how near the road, how hard they keep up beside the van; each row's `early` numbers on day 1, its own from `ROAD_LATE_DAY`. A danger past the last row takes the last: a new danger 6 needs a row, and `npm run balance` has no target for it (the flat target is frozen at dangers 0 to 5, days 1, 3, 5, 7, 10 and 20) |
+| `ROAD_OPEN`, `VERGE` | 0.5 of `cfg.far`; 40 to 140 units past the shoulder | `js/perspective.js` | A walker from down the road that would come nearer than this steps out of the verge's thicket instead (and onto the road: `Game.stepOut`), so none fades in on the open road in plain view; validate-balance holds the share that does to 5% |
+| `Upgrades` `ram` | 4, then 28 + 12 a level | `js/upgrades.js` | The Ram Plow's damage to a walker that touches the van: matched to the old road's worth on the angled one (DESIGN.md "Walkers and balance"); a sixth level or tougher walkers change how many touches it takes |
+| `DIFF.minInterval` | 0.6 s | `js/game.js` | The shortest average gap between walkers, after night and the row's `spawns` (0.77 s at danger 5 on day 20 today, so it does not bind yet) |
+| `GROUP_SPREAD` | 160 units | `js/game.js` | A group's walkers come within this of its first |
+| `KEEP` (`fade`, `band`, `bandMin`, `shove`, `shoveMin`) | 400 units, 0.8 s, 60 units, 0.8, 60 units/s | `js/game.js` | The keep-up carry by where a walker is (none ahead of the nose, over 0.8 s of the van's drive to beside it) and the shove off the nose; tied to the van's size and speed |
+| `SPAWN_TRIES`, `SPAWN_CLEAR` | 6 spots, 30 units | `js/game.js` | A new walker's spot is checked against every building part on the drive (`solidLots`: 37 today) and the river, and its line to the van against them; the most spots tried a spawn |
+| `BLOCK_PASSES`, `WALK_ROUND`, `WALK_MEMORY`, `WALK_STUCK` | 3; 0.4, 2, 1 s | `js/game.js` | Walkers are put out of building parts (each lot's circle checked first, so a bigger city costs a walker one check a lot) and the river every step, then walk along the wall; more parts that touch may need more passes |
+| `ROAD_STEP`, `MAX_FRAME_DT`, `STEP_SLACK` | 1/60 s, 0.1 s, 2% | `js/game.js` | The road runs `stepsIn(dt, ROAD_STEP)` steps a frame (1 at 60 fps, 6 at 10; a step may run 2% long, so a browser's 16.6 to 16.8 ms frames run one, as the balance run's do), each over every walker and shot; below 10 fps a frame still counts only 0.1 s (slow motion) |
+| `PERSP` corners (`brake`, `brakeIn`, `brakeOut`, `look`, `nose`) | 0.75, 150, 300, 300, 50 units | `js/game.js` | `brake`, `brakeIn`, `look`, `lookRamp`, `camW` and `camPace` are mirrored in `Streets.CAM`, which shapes every corner for them: change both together (validate-drive checks they match) |
+| `GEOM.backMax`, `COMFORT` (`sharpTo`, `minBrake`, `spin`) | 1100 units; 135 deg, 0.3, 43 deg/s | `js/streets.js` | How far a stop line moves back for comfort, where braking by sharpness bottoms out (just past today's sharpest turn, 133), the comfort target the corners are shaped for |
+| `Persp.minAspect`, `Persp.maxFov` | 1.25, 90 deg | `js/perspective.js` | A window narrower than 1.25 to 1 sees as wide as a 1.25 window; the tallest view (portrait phones) |
+| `planBrake` | one 4-unit walk of a turn path a turn | `js/game.js` | Runs once when a turn is committed to; grows with a turn path's length |
+| `DRIVE_STEP` | 1/240 s | `js/game.js` | The drive's steps a frame (4 at 60 fps) |
+| `cfg.far` | 3600 units | `js/perspective.js` | How far the view sees: ground squares, plants, props and walkers a frame, where walkers come from |
+| `NEAR_PX`, `FADE_IN` | 6 px a unit, 0.5 s | `js/perspective.js` | Nothing nearer the camera is drawn; a new walker's fade-in at the edge of the view |
+| `VEG_CELL`, `VEG_IDLE` | 512 units; 240 frames | `js/perspective.js` | A square of plants is made the first time the view reaches it and let go once unused this long (a longer drive has more squares, not more plants a frame) |
+| `VEG_STEP`, `VEG_BUCKET`, `keyOf` | 120 units; 2048 units; 32768 each way | `js/perspective-art.js` | The plants' spot grid (one seeded spot a cell: density), the roads' buckets a square looks in, how far from the origin a square's key reaches (about 16.7M units at 512) |
+| `PROP_CELL`, `LOD_AT`, `LOD_BAND` | 512 units; 0.35; 300 units | `js/perspective.js` | Props filed by square (world and ground squares); far props fade to a simpler look from 35% into the haze band over 300 units |
+| `SCENERY_BUDGET_MS`, `SCENERY_LEVELS` | 25 ms (40 fps); 5 rows | `js/perspective.js` | The scenery governor's one budget (the real frame interval) and its rows, richest first; it never sets the walkers' rows. While the page's own draw is under `SCENERY_OWN` (45%) of the interval its rows down are a trial, undone if even the thinnest did not speed the frames up (a browser capped at 30 fps) |
+| `TILE`, `LIVE_BUDGET_MS` | 62.5, 4 ms | `js/perspective.js` | See "Walkers" below |
+| `BUDGET` | 7 ms | `js/perspective-gl.js` | Ground squares drawn a frame, by what each size has been costing |
+| `KEEP`, `KEEP_VIEWS`, `SPARE` | 360 squares (a floor); 1.9; 48 | `js/perspective-gl.js` | Squares kept on the card: `keepFor` keeps 1.9 times the most a view of this window needs, never under 360 (365 at 1280 x 800, 415 at 1920 x 1080, 529 at 2560 x 1080; peak memory 228, about 270 and about 340 MB). A view needs about 190 to 250 on a 16:9 or 16:10 window, about 320 at 21:9 and more than 360 at 32:9, plus a few dozen drawn ahead; a view that needs more than `KEEP` keeps its own squares and `SPARE` more (memory grows with it: about 300 MB at 5120 x 1300). Do not lower `KEEP` under about 300: a maximized 1080p window would draw squares again every frame. A bigger `cfg.far` needs more |
+| `AHEAD_SECS`, `FRESH` | 0.35, 0.7, 1.1 s; 30 frames | `js/perspective-gl.js` | The views ahead whose squares are drawn in the frame's one work list (after the holes and the near squares; `AHEAD_BUDGET` is gone), never pushing off one used this recently; their squares on the card are kept every frame |
+| `PREP_BUDGET`, `PREP_HOLES`; `PREP_SECS` | 24 ms, 60 ms; 1 s | `js/perspective-gl.js`; `js/game.js` | Squares drawn a frame while the van waits at its door for its first view, and the most it waits |
+| `LANDMARK_SEEN` | 2.4 x `cfg.far` | `js/perspective-buildings.js` | How far past the haze a landmark (the Water Tower) is drawn as a silhouette |
+| `DETAIL_PX`, `PROP_PX`, `FINE_PX` | 70, 170, 50 px | `js/perspective-buildings.js` | How wide a building must be on the screen before its windows and signs, then its props, are drawn; the props and fine details fade in over 50 px more |
+| `PROP_CLEAR`, `FOOT` | 10 units; wreck 108 x 54, barrier 72 x 20 | `js/perspective-art.js` | Trees and bushes keep off the drive's wrecks and barriers (their footprints as drawn in js/perspective.js): a new standing prop kind needs its footprint here |
+| `NEAR` | 420 units | `js/perspective-buildings.js` | Things within this of a building's parts are sorted against them part by part (more and bigger buildings: more to sort) |
+| `TOWER_TOP` | 352 units | `js/perspective-buildings.js` | The Water Tower's antenna tip: the camera sees nothing higher than itself (about 340 units on a small window, 357 at 1280 x 800), so nothing should stand taller |
+| `PerspBuild.ROWS` | 17 rows | `js/perspective-buildings.js` | One building per place id; a later file adds rows (see the add-a-place checklist) |
 
 ### Fixed counts in code
 
@@ -186,7 +271,7 @@ missing. Growth rules:
 - **Tutorial card ids are stored in each slot's settings** (`settings.tutorial`): append, never rename
   or remove (see "The tutorial" below).
 - **Walker kind ids are permanent.** `save.met` (the day each kind was first met: the crew's told-once
-  tips) keys on them, and so do a trip's building snapshots, the 3D and road looks, the themes and the
+  tips) keys on them, and so do a trip's building snapshots, the 3D looks, the themes and the
   mixes. Add a kind; never rename or remove one. An unknown id is a plain walker everywhere.
 - **Room ids are permanent** for the yard too: `save.builds` (each room build's strength left; no key
   = whole, 0 = wrecked) keys on them. `upgradeSave` drops a key for a room with no plot or not built,
@@ -240,17 +325,35 @@ missing. Growth rules:
 11. A new `type` needs an entry in each of:
     - `js/map.js` `TYPE_LABEL` and roof colours
     - `js/sprites.js` `ROOF` and the lot art
-12. An outdoor place (like River Landing) follows `RIVER` in `js/world.js`, `js/river.js` and the
+12. Its building on the angled road: a row for the new id in `js/perspective-buildings.js` `ROWS`, or in an
+    appended `js/perspective-buildings2.js` (`Object.assign(ZSR.PerspBuild.ROWS, { ... })` with the pieces in
+    `ZSR.PerspBuild.kit`, loaded after `js/perspective-buildings.js` in `index.html` and in the script lists of
+    `tests/validate-drive.js` and `tests/validate-scenery.js`). `build(b, L)` lays out its parts in the lot's own
+    frame: the front wall at `L.F`, everything inside the lot, nothing low where the van parks, its name on a
+    `sign(..., { name: true })` under about Z 170, nothing taller than `TOWER_TOP` (only a landmark should come
+    near it). Optional: `ground` (`surface`, `stripes`, `extra`) and `landmark`. validate-drive fails for a place
+    without a row, then drives to it on the angled camera and checks it parked. A new landmark picture it reuses goes
+    in a `js/landmarksN.js` file, which also joins those script lists. The place's drive points down the widest gap
+    between its roads and turns away from the river by itself (`Streets.RIVER`, `GEOM.riverClear`); validate-streets
+    fails if a drive or lot lies in the water, or if a turn at its corner cannot be made comfortable. The building's
+    parts standing on the ground and at least 30 tall block walkers (`PerspBuild.solids`); give a part
+    `solid: false` if walkers should pass under or through it (an awning). validate-drive "walkers blocked" puts a
+    walker in every part and checks it comes out.
+13. Its walkers on the road come by its `danger` (`ROAD_DANGER` row in `js/game.js`). A new place at an existing
+    danger needs nothing more; if the drives to it are much longer or shorter than that danger's others, run
+    `npm run balance -- --by route` and look at its routes. A new danger needs its own row (a danger past the last
+    row takes the last).
+14. An outdoor place (like River Landing) follows `RIVER` in `js/world.js`, `js/river.js` and the
     river special cases in `js/streets.js`, `js/map.js` and `js/state.js`. If there will be more
     than one, generalise those `type === "river"` checks into an `outdoor` handler first.
-13. Check:
+15. Check:
     - the gun danger bands
     - door-note walker counts against `walkersPerLocation`, and where the texts put walkers against
       the place's rules
     - the radio key-ring tips (`js/story-home.js`, checked by hand)
     - the counts in `README.md` and `docs/GAME_SPEC.md`
-14. Decide the old-save migration (see above).
-15. `npm test`.
+16. Decide the old-save migration (see above).
+17. `npm test` (and `npm run balance` if the place changes how dangerous drives are).
 
 ## Walkers
 
@@ -276,14 +379,18 @@ reads `Object.keys(WALKER_TYPES)`, so nothing in the code says "six". The design
 | `K_MIN`, `K_MAX` | 0.6, 1.6 | `js/walker3d.js` | Perspective inside one figure |
 | `CC_N` | 16384 | `js/walker3d.js` | Colour strings kept; keep it a few times what a busy scene uses |
 | `ENV_MAX` | 24 | `js/walker3d.js` | Fit-envelope points kept per kind |
-| `ROAD_PARTICLE_CAP`, `ROAD_FALLEN_MAX` | 400, 24 | `js/game.js` | Road dust, sparks and blood; downed road walkers |
+| `buildEnv` | one envelope walking and one running (`envRun`, half the samples) a kind | `js/walker3d.js` | Runs once per kind as the page loads (about 10 ms a kind on a desktop); a kind's running gait is `RUN_GAIT` blended in by `st.run` |
+| `ROAD_PARTICLE_CAP`, `ROAD_FALLEN_MAX` | 400, 24 | `js/game.js` | Road dust, sparks and blood; downed road walkers (on the angled drive each downed walker also keeps a pooled picture) |
+| `TILE` | 62.5 road units | `js/perspective.js` | A Walker3D tile on the angled drive (on-foot size against the van, whose roof is `VAN_Z` 50); hit circles stay the road's `r` |
+| `LIVE_BUDGET_MS` | 4 ms | `js/perspective.js` | The angled drive's walker renders and pictures a frame (smoothed) before its walker governor steps a row down the interiors' `LIVE_LEVELS` |
 | `breachChanged` | one search out to `breachRange` round each hole | `js/yard.js` | Runs on every hole change (about 0.5 ms); its arrays (two Int32Arrays that swap, so nothing is made per change) are one entry per yard tile; it resets `pathT` only for the walkers the change touches (below) |
 | `pickWreckTarget` | one yard search a pick | `js/yardwreck.js` | A wrecker picks once inside and again only when its target falls, never every frame |
 | `WALKER_FILES` | `walker3d.js`, `walker3d-looks.js` | `tests/validate-art.js` | Add `walker3d-looks2.js` and on here |
+| the script lists | the angled drive's draw files, page order | `tests/validate-drive.js` and `tests/validate-scenery.js` (top) | Add `walker3d-looks2.js` and on there too, after `walker3d-looks.js` (and a new `landmarksN.js` or `perspective-buildingsN.js` in page order) |
 | `WALKER_OPS` | 600, 350, 160 | `tests/validate-art.js` | Canvas calls one figure may make at lod 0 / 1 / 2 (563 / 304 / 116 today) |
 | `WALKER_H_MAX` | 1.3 tiles | `tests/validate-art.js` | The tallest box (capped at 0.98 under a ceiling) |
 | `WALKER_COLOURS` | 6000 | `tests/validate-art.js` | Colours 3,000 random draws may use (`CC_N` holds 16384) |
-| `ROAD_OPS` | 360 | `tests/validate-art.js` | Canvas calls one road walker, standing or downed (253 today) |
+| `ROAD_OPS` | 60 | `tests/validate-art.js` | Canvas calls one of the road's flying bits (a drop, a splat, dust, a spark) may make |
 | `SPAWN_TRIPS` | 6 | `tests/validate-engine.js` | Fresh visits per building on days 1 and 40 (about 5 ms each) |
 | `RULE_DAYS` | 120 | `tests/validate-world.js` | Walker rules are checked for every count up to this day (the count stops growing by day 33 today) |
 
@@ -324,23 +431,25 @@ searches and when matters more than how fast one search is.
    so a new kind that weighs a lot at danger 3+ may need a theme's multiplier raised.
 3. Its 3D look: `Walker3D.addType(id, def)` in `js/walker3d-looks.js`, or a new `js/walker3d-looks2.js`
    once that file is big (a `<script>` tag after `walker3d-looks.js` and before `interior.js`, and an
-   entry in `WALKER_FILES` in `tests/validate-art.js`, `WANT` in `tests/validate-engine.js` and
-   `ENGINE` in `tests/validate-crew.js`). It needs a box (height at most `WALKER_H_MAX`, width matching
-   `r`), a gait (stride, `turnRate`, `clawRate`), a fall style (`crumple`, `tree`, `fold`, `kneel` or
+   entry in `WALKER_FILES` in `tests/validate-art.js`, `WANT` in `tests/validate-engine.js`,
+   `ENGINE` in `tests/validate-crew.js` and the script list at the top of `tests/validate-drive.js`, after
+   `js/walker3d-looks.js`: without it the angled drive's draw test draws the new kind as a plain walker). It needs a box (height at most `WALKER_H_MAX`, width matching
+   `r`; on the angled drive it runs toward `RUN_GAIT` as it keeps up with the van, and validate-art's section R
+   holds that at full size too), a gait (stride, `turnRate`, `clawRate`), a fall style (`crumple`, `tree`, `fold`, `kneel` or
    `tumble`), its lod 0 / 1 / 2 parts within `WALKER_OPS`, a look with gore off, and variants by seed if
    any. validate-art fails for a kind with no look; until then it draws as a walker.
-4. Its road look: a `ZOMBIE_LOOK` row in `js/sprites.js`, one variant per 3D variant, with the same
-   skin, shirt and hair colours as the 3D look (validate-art checks).
-5. A crew tip, if it gets one (told once, after it is first met): a tip in `CREW_TIPS` (`js/story-crew.js`),
+   On the road it is the same figure, seen from the road camera's height (the old top-down road looks,
+   `ZOMBIE_LOOK`, went with the flat camera on 2026-10-17: there is no second look to make).
+4. A crew tip, if it gets one (told once, after it is first met): a tip in `CREW_TIPS` (`js/story-crew.js`),
    its rule in `js/crewstate.js` (`metOnce` on `save.met`, and a place in `URGENT`), the contract lists
    (`CONTRACT_TIPS` and `TIP_VARS` in `tests/validate-world.js`, `TIP_VARS` in `tests/validate-crew.js`,
    `CREW_TIP_VARS` in `tests/validate-text.js`, the tips table in `docs/CREW.md`), and its words at six
    levels (merged into the crew member's tips with `Object.assign`, as `levelN-crew2.js` does).
-6. Text: in-world the word is "walker". The kind's `name` shows only in god mode. A note that names a
+5. Text: in-world the word is "walker". The kind's `name` shows only in god mode. A note that names a
    kind ("a big one") must match the place's mix or a rule's `type`.
-7. A figure with more parts costs every frame it is drawn near: if `WALKER_OPS` must rise, re-run the
+6. A figure with more parts costs every frame it is drawn near: if `WALKER_OPS` must rise, re-run the
    A/B in `DESIGN.md` ("Walkers v2").
-8. `npm test`. God mode's Spawn walker, the title screen, the alarm, the waves, the river and the road
+7. `npm test`. God mode's Spawn walker, the title screen, the alarm, the waves, the river and the road
    pick the new kind up from the table.
 
 ## The crew
@@ -369,7 +478,7 @@ quests or errands need facts and words, not engine changes, within these limits.
   look-ahead for Pip's tip (`js/crewstate.js`), `QUESTS_PER_PLACE`, and the How it works paragraph
   bound (`tests/validate-text.js`).
 - `npm test` drives a full play-through of every story quest on the real facts and the crew in the
-  yard and every quest building (`tests/validate-crew.js`, about 16 of npm test's 95 seconds); it
+  yard and every quest building (`tests/validate-crew.js`, about 13 of npm test's 3.5 minutes); it
   grows with the number of quests.
 
 ## The tutorial
@@ -409,7 +518,8 @@ These are ordered by payoff. None is needed until the matching limit is hit.
    tests and the scenery).
 3. **Move the pole off key 6** before adding a sixth gun.
 4. **Sample the slow sweeps** (route pairs in the streets and drive tests; building spawn trips and
-   wreck spots in the engine test): `npm test` is about 95 s today.
-5. **Cull road scenery and the minimap** to the route's area once drive start-up or frame time
-   shows it.
+   wreck spots in the engine test; validate-drive's every-route sweep, the slowest): `npm test` is about 3.5 min
+   today, 2.4 times what it was before every drive went on the angled camera (86 s at 36403cd).
+5. **Cull the minimap's roads and `Draw.cityRoads`' road list** to the view once frame time shows it
+   (the road's scenery is already laid only where a drive can see: `SCENERY_REACH`).
 6. **Per-level lazy loading of text** once the content files pass a few MB.

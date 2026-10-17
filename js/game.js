@@ -1,4 +1,4 @@
-/* The road: a top-down drive through the city along the route picked on the map.
+/* The road: a drive through the city along the route picked on the map, seen from behind and above the van.
    The van drives itself; A and D (or the arrows, or the touch buttons) change lanes. Every building sits at
    the end of its own drive off its corner: the van sets out from its parking spot, up that drive, so the
    first decision is that place's corner, and it ends by turning onto the destination's drive at its corner
@@ -10,13 +10,20 @@
    A wrong way: a fade, then the page (hooks.onWrongTurn) offers
    try again (retry(): the drive starts over where it set out; van damage, scrap, walkers and
    miles stay), the town map, or back to where the van set out.
-   The camera follows the van with its heading up; a minimap tracks it but never shows the route.
-   Route geometry lives in js/streets.js. Walkers come from ahead and from both shoulders; the
-   player aims and shoots. The trip's van health, scrap and walker count live in ZSR.State.trip.
+   The camera looks down the road from behind and above the van (js/perspective.js draws the world, works the roof
+   gun's aim and maps screen <-> world), every drive; a minimap tracks the van but never shows the route. The van
+   brakes into each turn it takes (more into a sharp one) and the camera follows lazily, facing a point ahead on the
+   van's own path. The drive (the van, its turns and the camera) runs in short fixed steps (DRIVE_STEP), and the rest
+   of the road (the gun, walkers, shots) in steps of ROAD_STEP, so it all moves the same at any frame rate.
+   Route geometry lives in js/streets.js. Walkers come from far down the road and from both shoulders, by the
+   trip's danger and day (ROAD_DANGER); ahead of the van they walk at it, beside and behind it they keep up with it
+   (KEEP), and buildings and the river block them; the player aims and shoots. The trip's van health, scrap and
+   walker count live in ZSR.State.trip.
    Every kind of walker comes, by the trip's danger and day (WORLD.walkerWeights "road"); a screamer that sees
    the van screams and every walker near it speeds up (WORLD.SCREAM, tiles x DIFF.pxPerTile). A downed walker
    goes over and fades (this.fallen); with WORLD.SETTINGS.walkerGore on, hits spray blood.
-   All tuning lives in DIFF and WORLD.WALKER_TYPES[...].road (and .knock, .scream). */
+   All tuning lives in DIFF, ROAD_DANGER, KEEP and WORLD.WALKER_TYPES[...].road (and .knock, .scream); the balance
+   against the old top-down road is checked by tests/balance (npm run balance). */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -30,6 +37,8 @@
   const DIFF = {
     baseInterval: 2.2, // seconds between walkers on the road at danger 0, day 1
     intervalStep: 0.07,
+    // SCALE: the shortest gap between walkers on average, after every multiplier (night, ROAD_DANGER spawns): a
+    // longer, more dangerous drive late in the game brings no more walkers than this
     minInterval: 0.6,
     hpStep: 0.1,
     speedStep: 0.025,
@@ -37,15 +46,14 @@
     pxPerTile: 56, // road px for one tile on foot: a walker's road radius over its own, 18 px / 0.32 tiles (the scream's reach)
     roadScroll: 240, // van speed in px/s before engine upgrades
     milesPerSecond: 0.11,
-    sideSpawnChance: 0.45,
     crateScrap: 15,
     fogChanceAfterDay: 5,
-    chase: 0.65, // walkers keep up with this share of the van's speed (as the old scrolling road did)
     wrongDrive: 1.25, // seconds driven down a wrong road before the fade
     fadeOut: 0.6,
     fadeIn: 0.6,
     parkWait: 1.6, // seconds parked before the place opens
-    quietAtDoor: 900, // px from the parking spot where walkers stop coming
+    quietAtDoor: 3, // seconds at the van's own speed from the parking spot where walkers stop coming (900 units at Engine 0)
+    nightSpawns: 0.85, // at night walkers come this much more often (the gap between them times this)
   };
   // SCALE: the most particles (dust, sparks, blood) the road keeps; past it a hit's blood is skipped
   const ROAD_PARTICLE_CAP = 400;
@@ -53,15 +61,150 @@
   const ROAD_FALLEN_MAX = 24;
   const BLOOD = ["#a3201a", "#7d1610"]; // a little brighter than the 3D figures' (118, 18, 14): it must show on the asphalt
   const SHOWCASE_SECS = 4; // the title screen's walkers change kind this often
+  const MINI_HAZE = 0.25; // a place gone further into the haze than this is not in view for the minimap's fade
+  const SIGN_GAP = 14; // px between the road's edge on the screen and the sign or the lane hint beside it
+  const SIGN_AWAY = 1.2; // px the passed sign slides right for each unit the van drives past its stop line (260 to go)
+  // the sign stands right of the road at least this wide (px); a window narrower than SIGN_NARROW_W, or with less
+  // room than this right of its middle, has it across the top instead (drawSign)
+  // SCALE: px of the window, not of the city: a longer place name wraps within SIGN_ROOM
+  const SIGN_ROOM = 160;
+  const SIGN_NARROW_W = 700;
+  const SIGN_GLIDE = 0.8; // window widths a second the sign moves at most to keep beside the road's edge as it swings
+  // SCALE: the road's edges are found on the screen this often along it (road units: Game.roadEdges), out to cfg.far:
+  // a deeper view costs the sign more points a frame (about 32 today)
+  const EDGE_STEP = 120;
   const SPARK_ARMOR = "#c9cdd2"; // a bullet off a helmet or a vest
   /** How long a downed walker lasts: the 3D figures' fall (js/walker3d.js), or 2 s without them. */
   const fallSecs = () => (ZSR.Walker3D && ZSR.Walker3D.FALL_SECS > 0 ? ZSR.Walker3D.FALL_SECS : 2);
   const HIT_WORDS = ["BLAM!", "KRAK!", "THUD!"];
+  // the angled camera (js/perspective.js), every drive: the van a little faster than the old top-down road's, its
+  // shots much faster (far down the road they look slow); the van parks parkShort short of the door (seen in 3D its
+  // nose would be in the wall). How many walkers come and how is ROAD_DANGER's
+  // SCALE: range (how far a shot flies) and keepUp (how near a walker must be to keep up with the van) are tied to
+  // how far the angled view sees (Persp.cfg.far)
+  const PERSP = { pace: 1.25, shot: 1.6, range: 2600, keepUp: 900, parkShort: 45 };
+  // the road's walkers by the trip's danger (the destination's, WORLD.LOCATIONS; 0 is the drive home), tuned so that
+  // a drive at each danger and day is as hard as it was on the old top-down road (DESIGN.md "Balance"; tests/balance):
+  //   spawns  walkers come this many times as often as DIFF's interval says (night and DIFF.minInterval after it)
+  //   chase   the share of the van's speed a walker beside or behind it keeps up at (KEEP)
+  //   group   how many come together on average (spawnGroup), each group as far apart as so many walkers
+  //   far     the share that come from far down the road (Persp.spawn), the rest out of the roadside
+  //   farY    ... how far ahead those far off come from, as shares of how far the view sees (Persp.cfg.far)
+  //   farX    ... and how far past the road's edge, at most (units)
+  //   sideY   the roadside's: how far ahead of the camera (units, from and to)
+  //   sideX   ... and how far past the road's edge (units, from and to; never past the edge of the view)
+  // A row's numbers are for day ROAD_LATE_DAY on; `early` gives the ones that differ on day 1, and the days between go
+  // over from one to the other in even steps (roadRow): on the first days the van's gun is weak and the walkers come
+  // nearer, closer together and keep up harder, as the old road's did in effect. ROAD_LATE is every row's unless the
+  // row says otherwise: walkers 1.4 times as often as the old road's (they are seen from further off), from far down
+  // the road itself (farX: on it, as the old road's came down from the top of the screen), keeping up at 0.72 of the
+  // van's speed beside it (the van passes them as fast as the old road's 0.65 did at its pace, 1 against 1.25)
+  // SCALE: one row a danger; a danger past the last row takes the last
+  const ROAD_LATE = { spawns: 1.4, chase: 0.72, group: 1, far: 0.55, farY: [0.5, 0.8], farX: 30, sideY: [700, 2200], sideX: [600, 1400] };
+  const ROAD_DANGER = [
+    {}, // the drive home
+    {},
+    { chase: 0.78, group: 1.5, spawns: 1.3, early: { spawns: 1.0, chase: 0.84, group: 2.5, farY: [0.35, 0.5] } },
+    { chase: 0.74, early: { spawns: 1.2, chase: 0.8, group: 2.5, farY: [0.425, 0.575] } },
+    { chase: 0.75, early: { spawns: 1.0, chase: 0.8, group: 4.5, farY: [0.35, 0.5] } },
+    { chase: 0.78, group: 1.25, early: { spawns: 0.85, chase: 0.88, group: 5, farY: [0.2, 0.35] } },
+  ].map((r) => Object.assign({}, ROAD_LATE, { farY: ROAD_LATE.farY.slice(), sideY: ROAD_LATE.sideY.slice(), sideX: ROAD_LATE.sideX.slice(), early: {} }, r));
+  // SCALE: the day a row's own (late) numbers take over from its `early` ones (roadRow): a longer game with later
+  // upgrades may want it later, and tests/balance's matrix has its days 1 to 20 round it
+  const ROAD_LATE_DAY = 10;
+  // SCALE: the walkers of a group come within this many units of its first
+  const GROUP_SPREAD = 160;
+  // SCALE: the most walkers on the road at once (a group may pass it by a few): no new ones come until some go. Today's
+  // drives have at most about 18 with a player shooting and 33 with nobody shooting; each walker costs its update
+  // (and its neighbours') and a live 3D figure (under the walkers' governor)
+  const ROAD_WALKERS_MAX = 40;
+  // the keep-up carry, by where a walker is from the van (owner, 2026-10-17): ahead of the nose there is none, so a
+  // walker there walks at the van on its own feet and the van closes on it at its whole speed; beside and behind it the
+  // walker sprints to keep up (the `chase` share of the van's speed of its ROAD_DANGER row, within PERSP.keepUp of
+  // it, fading out over `fade` further off). Over `band` seconds of the van's drive ahead of the nose (at least
+  // bandMin units) one goes over to the other, so nobody jumps from walking to sprinting; one in the van's path keeps
+  // walking; and a walker ahead of the van's middle is never carried away from the van faster than it walks at it,
+  // so its feet never slide back. A walker pressed onto the nose is shoved off to its nearer side, at `shove` of the
+  // van's speed (at least `shoveMin` units a second), so none rides the bumper: from there it keeps up beside the van.
+  // SCALE: fade, bandMin and shoveMin are road units, tied to the van's size and speed
+  const KEEP = { fade: 400, band: 0.8, bandMin: 60, shove: 0.8, shoveMin: 60 };
+  // buildings and the river block walkers (owner, 2026-10-17): one put out of a building's solid part or the river's
+  // bank walks along it for WALK_ROUND s (walkRound: toward the end the van is past, or its own nearer end), so it goes
+  // round instead of pressing on it. A new walker comes from a spot SPAWN_CLEAR clear of both with neither between it
+  // and the van, trying up to SPAWN_TRIES spots (the first clear one if every one had something in the way). The
+  // river's slope is felt over RIVER_PROBE units and a line to the van checked for water every RIVER_STEP
+  // SCALE: SPAWN_TRIES spots a spawn (each checks every building on the drive's list: solidLots)
+  const WALK_ROUND = 0.4;
+  // ... and one that has gone less than WALK_HEADWAY of its pace along a wall in WALK_STUCK s turns round
+  const WALK_STUCK = 1;
+  const WALK_HEADWAY = 0.25;
+  // ... and keeps to its way along a wall for WALK_MEMORY s after it leaves it (at a corner, back onto it)
+  const WALK_MEMORY = 2;
+  const RIVER_WALL = {};
+  const SPAWN_CLEAR = 30;
+  const SPAWN_TRIES = 6;
+  const BLOCK_PASSES = 3; // (out of one building part may be into another that touches it)
+  const RIVER_PROBE = 4;
+  const RIVER_STEP = 90;
+  // ... and its corners. The van brakes into each turn it takes: from the stop line (never before: braking must not
+  // tell which way is right) it eases down by the time its path bends, holds that round the bend, then eases back up.
+  // How far: brake x its speed into a gentle turn, less for a sharper one (js/streets.js brakeFor: by the turn's angle,
+  // down to 0.4 at 135 deg, and further where a road was too short for the corner's comfortable shape). The ease takes
+  // brakeIn at least (at the slowest van; longer for a faster one or a deeper brake, so no frame changes the speed more
+  // than the light brake's do) and starts no sooner than it must (St.brakeSpan); back up over brakeOut (longer for a
+  // deeper brake). The corners themselves are shaped for this camera (js/streets.js cornerSpin mirrors these numbers).
+  // The camera follows lazily: it faces a point look ahead along the van's own path, never past a stop line the van
+  // has not crossed (from one it looks further ahead again lookRamp times as fast as the van drives), and turns toward
+  // it on a critically damped spring of camW per second; the spring's clock runs with the van's speed to the camPace
+  // power (0: by time, 1: by distance), so a faster van turns the view a little faster and the bend never runs out of
+  // the view. The van's nose eases into and out of a bend over nose units either side of it.
+  // SCALE: brake, brakeIn, look, lookRamp, camW and camPace are mirrored in js/streets.js CAM (validate-drive checks
+  // them), which shapes every corner for them: change both together. Nose is road units tuned for today's turns.
+  Object.assign(PERSP, { brake: 0.75, brakeIn: 150, brakeOut: 300, look: 300, lookRamp: 2, camW: 2.2, camPace: 0.5, nose: 50 });
+  // the road's canvas is drawn at no more device px a CSS px than this, as the angled view's ground on the card
+  // (js/perspective-gl.js): only 175% and 200% screen scaling go past it, where a canvas drawn by the CPU costs about
+  // 2.3 times dpr 1's (1.5 about 1.7 times) for words and pictures barely sharper
+  // SCALE: a cost cap, the same at any city size; a bigger screen or a costlier frame may want it lower
+  const ROAD_DPR_MAX = 1.5;
+  // a drive's first view (ground squares on the card, plants) is made before the van pulls out (Game.prepStep), for
+  // at most this many seconds; a slow computer then drives off with the rest still coming in
+  // SCALE: a wait, not a size: a deeper view (more squares in the first one) waits no longer, it drives off with more
+  // still coming
+  const PREP_SECS = 1;
+  // SCALE: a drive's roadside (buildScenery) is made along the roads within this much of its track: as far as the
+  // camera sees (js/perspective.js cfg.far) and a little more, its track looked at every SCENERY_STEP; a prop keeps
+  // clear of what lies within SCENERY_CLEAR more. A bigger city costs a drive's start no more than its own part of town
+  const SCENERY_REACH = () => (ZSR.Persp ? ZSR.Persp.cfg.far : 3600) + 600;
+  const SCENERY_STEP = 400;
+  const SCENERY_CLEAR = 600;
+  // the drive (the van along its track, its turns, lane slides and the camera) runs in steps no longer than this,
+  // whatever the frame rate: a slow or uneven frame moves it just as several quick ones would
+  // SCALE: a frame runs ceil(dt / DRIVE_STEP) drive steps (4 at 60 fps), so the drive's own cost grows with them
+  const DRIVE_STEP = 1 / 240;
+  // the road (the gun, new walkers, shots, walkers and their touch on the van) runs in steps no longer than this, and a
+  // frame counts at most MAX_FRAME_DT seconds: a machine down to 1 / MAX_FRAME_DT frames a second plays at full speed
+  // (below that, in slow motion rather than in leaps), its walkers and shots moving as at 60 frames a second
+  // SCALE: a frame runs ceil(dt / ROAD_STEP) road steps (1 at 60 fps, 6 at 10), each over every walker and shot
+  const ROAD_STEP = 1 / 60;
+  const MAX_FRAME_DT = 0.1;
+  // ... and a step may run this share longer than ROAD_STEP or DRIVE_STEP (stepsIn): a browser's 60 Hz frames come
+  // 16.6 to 16.8 ms apart (its clock is rounded to 0.1 ms, a 59.94 Hz screen's always over), and each must run one
+  // road step, as the balance run's 1/60 s frames do (tests/balance), not two half ones
+  const STEP_SLACK = 0.02;
+  /** How many steps of at most `step` (STEP_SLACK over) a frame of dt seconds runs: at least one. */
+  const stepsIn = (dt, step) => Math.max(1, Math.ceil(dt / (step * (1 + STEP_SLACK)) - 1e-9));
+  // px/s/s: a lane slide still going when the van crosses a stop line into a turn slows to a stop at this (harder
+  // only near the road's edge), as the van takes its path: under a unit's change in its step a frame at 60 fps
+  const SLIDE_STOP = 3000;
+  // how fast the van's heading and the camera's slide across the road ease, per second: at 60 fps the same share a
+  // frame as before they were frame-rate independent (the van 0.2 of the way, the slide 0.05)
+  const EASE = { van: -60 * Math.log(0.8), camSlide: -60 * Math.log(0.95) };
   const SIZE = { normal: 1, large: 1.3, huge: 2 };
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const normAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   const smooth = (x) => x * x * (3 - 2 * x);
+  const smoother = (x) => x * x * x * (x * (6 * x - 15) + 10); // smooth to its second derivative: no jolt at either end
   const textSize = () => SIZE[document.documentElement.getAttribute("data-size")] || 1;
   function seeded(seed) {
     let s = seed >>> 0 || 1;
@@ -97,17 +240,17 @@
     },
 
     resize() {
-      const dpr = Math.min(2, root.devicePixelRatio || 1);
+      const dpr = Math.min(ROAD_DPR_MAX, root.devicePixelRatio || 1);
       this.dpr = dpr;
       this.W = root.innerWidth;
       this.H = root.innerHeight;
       this.canvas.width = Math.round(this.W * dpr);
       this.canvas.height = Math.round(this.H * dpr);
       this.ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      // the camera: the van sits low in the middle; small screens see a little more of the road
+      // the camera's zoom (js/perspective.js setup: how far behind and above the van it sits): small screens see a
+      // little more of the road
       this.zoomBase = clamp(Math.min(this.W / 1000, this.H / 640), 0.55, 1);
       this.zoom = this.zoomBase;
-      this.anchorY = this.H * 0.72;
     },
 
     bindInput() {
@@ -188,20 +331,22 @@
       this.opts = opts;
       const day = S.save.day;
       this.mods = { fog: !fx.headlights && day >= DIFF.fogChanceAfterDay && Math.random() < 0.25, night: !fx.headlights && day >= 4 && day % 3 === 0, crates: fx.crates };
-      const interval = Math.max(DIFF.minInterval, DIFF.baseInterval - DIFF.intervalStep * n) * (this.mods.night ? 0.85 : 1);
-      // every kind's road weight: road.w[0] + road.w[1] * n (WORLD.WALKER_TYPES)
-      this.diff = { interval, hpMult: 1 + DIFF.hpStep * n, speedMult: Math.min(DIFF.maxSpeedMult, 1 + DIFF.speedStep * n), weights: World().walkerWeights("road", { n }) };
+      // seconds between walkers before ROAD_DANGER's row and the night (spawnGap); every kind's road weight:
+      // road.w[0] + road.w[1] * n (WORLD.WALKER_TYPES)
+      const interval = DIFF.baseInterval - DIFF.intervalStep * n;
+      const row = roadRow(opts.danger, day);
+      this.diff = { interval, row, hpMult: 1 + DIFF.hpStep * n, speedMult: Math.min(DIFF.maxSpeedMult, 1 + DIFF.speedStep * n), weights: World().walkerWeights("road", { n }) };
       // the route: the path the map planned, or the shortest one from where the van is
       const r = opts.path && opts.path.length > 1 ? { path: opts.path } : St.route((t && t.at) || "base", opts.to);
       const path = r.path;
       let dist = 0;
       for (let i = 0; i < path.length - 1; i++) dist += Math.hypot(loc(path[i]).x - loc(path[i + 1]).x, loc(path[i]).y - loc(path[i + 1]).y);
-      this.speed = DIFF.roadScroll * this.stats.speed;
+      this.speed = DIFF.roadScroll * this.stats.speed * PERSP.pace;
       const secs = opts.seconds || clamp(dist * World().SETTINGS.tripSecondsPerUnit, World().SETTINGS.tripMinSeconds, World().SETTINGS.tripMaxSeconds);
       this.drive = St.buildDrive(path, { scale: St.scaleFor(dist, secs, this.speed), speed: this.speed });
       this.origin = path[0];
       this.van = { s: 0, d: 0, x: 0, y: 0, heading: 0, vd: 0, w: 66, h: 118, aim: -Math.PI / 2, hurt: 0, cooldown: 0, flash: 0 };
-      this.cam = { x: 0, y: 0, th: 0, d: 110, rel: 0 };
+      this.cam = { x: 0, y: 0, th: 0, d: 110, rel: 0, w: 0 };
       this.time = 0;
       this.attempt = 0;
       this.gameOverAt = null;
@@ -237,37 +382,85 @@
       this.turn = null;
       this.fail = null;
       this.arrive = null;
+      this.signSpot = null; // where the last sign stood as the van crossed its stop line (drawSign)
       this.hintDone = false;
       this.zombies = [];
       this.bullets = [];
       this.particles = [];
       this.bursts = [];
       this.fallen = [];
+      this.odo = 0; // how far the van has driven this try, along its own path
+      this.stopOdo = -1e9; // ... at the last stop line it crossed
+      this.corner = null; // the angled camera's braking for a turn: { x0, xa, xb, xc } along odo, from the share f0
+      this.lastTurn = null;
       this.spawnTimer = 2.2;
       this.shake = 0;
-      this.placeVan(0);
+      this.placeVan(0, true);
       this.cam.th = Math.atan2(this.vanP.uy, this.vanP.ux);
       this.cam.d = (Streets().ourLeft(2) + G.half) / 2;
-      this.placeCam(1);
+      this.placeCam(0, true);
     },
 
-    /** Trees, wrecks and junk along every road near the route, and the supply crates on it.
-     *  SCALE: walks every road in the city (D.roads), so its cost grows with the whole city, not the route;
-     *  cull to the route's area if drives start slowly on a bigger map. The minimap likewise draws every road. */
+    /** Trees, wrecks and junk along the roads the drive can see (within SCENERY_REACH of its track), and the supply
+        crates on it. Each road's roadside is seeded by the route and the road, so a road's props do not depend on what
+        else is in the city. SCALE: the city's roads, side streets, corners and lots are each looked at once, against
+        the track every SCENERY_STEP, and only those near it go on; so a drive's start costs what its own part of town
+        holds, not the whole city (tests/validate-scenery.js: the same props, and as many roads walked, in a city three
+        times as wide). The minimap still draws every road of the map. */
     buildScenery() {
       const D = this.drive;
       const G = Streets().GEOM;
-      const r = seeded(Streets().hash(D.path.join(">")) + 7);
-      // a quick box test first: most of the city is far from any one spot
+      const t0 = performance.now();
+      // the part of town the drive can see: the track every SCENERY_STEP (and its end), and a box round it
+      const reach = SCENERY_REACH();
+      const pts = [];
+      for (let s = 0; s < D.track.len + SCENERY_STEP; s += SCENERY_STEP) pts.push(Streets().at(D.track, Math.min(s, D.track.len)));
+      let bx0 = Infinity;
+      let by0 = Infinity;
+      let bx1 = -Infinity;
+      let by1 = -Infinity;
+      for (const p of pts) {
+        bx0 = Math.min(bx0, p.x);
+        by0 = Math.min(by0, p.y);
+        bx1 = Math.max(bx1, p.x);
+        by1 = Math.max(by1, p.y);
+      }
+      /** Is the segment (or point) within R of the track? (a box test first: most of a big city is far from it) */
+      const seen = (x0, y0, x1, y1, R) => {
+        if (Math.max(x0, x1) < bx0 - R || Math.min(x0, x1) > bx1 + R || Math.max(y0, y1) < by0 - R || Math.min(y0, y1) > by1 + R) return false;
+        return pts.some((p) => distSeg(p.x, p.y, x0, y0, x1, y1) < R);
+      };
+      // ... and a point within reach of it, by the track's points filed in squares of the reach
+      const cell = reach + SCENERY_STEP;
+      const grid = new Map();
+      for (const p of pts) {
+        const key = Math.floor(p.x / cell) + "," + Math.floor(p.y / cell);
+        if (!grid.has(key)) grid.set(key, []);
+        grid.get(key).push(p);
+      }
+      const inReach = (x, y) => {
+        const cx = Math.floor(x / cell);
+        const cy = Math.floor(y / cell);
+        for (let i = -1; i <= 1; i++) for (let j = -1; j <= 1; j++) for (const p of grid.get(cx + i + "," + (cy + j)) || []) if (Math.hypot(p.x - x, p.y - y) < reach + SCENERY_STEP / 2) return true;
+        return false;
+      };
+      // what gets a roadside, and what a prop must keep clear of (a little further out, so one at the edge still does)
+      const clearR = reach + SCENERY_CLEAR;
+      const roadsSeen = D.roads.filter((rd) => seen(rd.x0, rd.y0, rd.x1, rd.y1, reach));
+      const roadsNear = D.roads.filter((rd) => seen(rd.x0, rd.y0, rd.x1, rd.y1, clearR));
+      const sidesNear = D.sides.filter((s) => seen(s.x0, s.y0, s.x1, s.y1, clearR));
+      const nodesNear = D.nodes.filter((n) => seen(n.x, n.y, n.x, n.y, clearR));
+      const lotsNear = D.lots.filter((l) => seen(l.qx, l.qy, l.qx, l.qy, clearR));
+      // a quick box test first: most of what is near the track is far from any one spot
       const box = (s, m) => [Math.min(s.x0, s.x1) - m, Math.min(s.y0, s.y1) - m, Math.max(s.x0, s.x1) + m, Math.max(s.y0, s.y1) + m];
-      const roads = D.roads.map((rd) => [box(rd, G.half + G.shoulder + 60), rd]);
-      const sides = D.sides.map((s) => [box(s, G.sideHalf + G.shoulder + 120), s]);
+      const roads = roadsNear.map((rd) => [box(rd, G.half + G.shoulder + 60), rd]);
+      const sides = sidesNear.map((s) => [box(s, G.sideHalf + G.shoulder + 120), s]);
       const inBox = (b, x, y) => x > b[0] && y > b[1] && x < b[2] && y < b[3];
       const near = (x, y, pad) => {
         for (const [b, rd] of roads) if (inBox(b, x, y) && distSeg(x, y, rd.x0, rd.y0, rd.x1, rd.y1) < G.half + G.shoulder + pad) return true;
         for (const [b, s] of sides) if (inBox(b, x, y) && distSeg(x, y, s.x0, s.y0, s.x1, s.y1) < G.sideHalf + G.shoulder + pad + (s.kind === "deadEnd" ? 60 : 0)) return true;
-        for (const n of D.nodes) if (Math.hypot(n.x - x, n.y - y) < G.boxR + pad) return true;
-        for (const l of D.lots) if (Math.hypot(l.qx - x, l.qy - y) < G.half + G.lotDepth + G.lotHalf + pad) return true;
+        for (const n of nodesNear) if (Math.hypot(n.x - x, n.y - y) < G.boxR + pad) return true;
+        for (const l of lotsNear) if (Math.hypot(l.qx - x, l.qy - y) < G.half + G.lotDepth + G.lotHalf + pad) return true;
         return false;
       };
       const onRoute = new Set();
@@ -298,14 +491,25 @@
         return best[4];
       };
       this.props = [];
-      D.roads.forEach((rd) => {
+      const route = D.path.join(">");
+      roadsSeen.forEach((rd) => {
+        const r = seeded(Streets().hash(route + "|" + rd.key) + 7);
         // the roads the route uses get the full roadside; the rest get a sparser one
         const len = Math.hypot(rd.x1 - rd.x0, rd.y1 - rd.y0);
         const ux = (rd.x1 - rd.x0) / len;
         const uy = (rd.y1 - rd.y0) / len;
         const face = Math.atan2(uy, ux) + Math.PI / 2;
         const step = onRoute.has(rd.key) ? 85 : 170;
-        for (let a = G.boxR; a < len - G.boxR; a += step * (0.6 + r() * 0.8)) {
+        // only the stretch of it the camera can see from the route (a long road may run on far out of sight)
+        let lo = Infinity;
+        let hi = -Infinity;
+        for (let a = 0; a < len + SCENERY_STEP / 2; a += SCENERY_STEP / 2) {
+          const q = Math.min(a, len);
+          if (!inReach(rd.x0 + ux * q, rd.y0 + uy * q)) continue;
+          lo = Math.min(lo, q - SCENERY_STEP / 2);
+          hi = Math.max(hi, q + SCENERY_STEP / 2);
+        }
+        for (let a = Math.max(G.boxR, lo); a < Math.min(len - G.boxR, hi); a += step * (0.6 + r() * 0.8)) {
           for (const sg of [-1, 1]) {
             if (r() < 0.45) continue;
             const off = sg * (G.half + G.shoulder + 40 + r() * 420);
@@ -318,9 +522,9 @@
           if (onRoute.has(rd.key) && r() < 0.12) {
             const x = rd.x0 + ux * a;
             const y = rd.y0 + uy * a;
-            if (D.nodes.some((n) => Math.hypot(n.x - x, n.y - y) < G.boxR + 500)) continue;
-            if (D.lots.some((l) => Math.hypot(l.qx - x, l.qy - y) < 700)) continue;
-            if (D.sides.some((s) => Math.hypot(s.x0 - x, s.y0 - y) < 500)) continue;
+            if (nodesNear.some((n) => Math.hypot(n.x - x, n.y - y) < G.boxR + 500)) continue;
+            if (lotsNear.some((l) => Math.hypot(l.qx - x, l.qy - y) < 700)) continue;
+            if (sidesNear.some((s) => Math.hypot(s.x0 - x, s.y0 - y) < 500)) continue;
             if (zoneLines.some((z) => distSeg(x, y, z[0], z[1], z[2], z[3]) < 300)) continue;
             // which side is oncoming depends on the way the route runs this road
             const i = D.path.indexOf(rd.a);
@@ -332,6 +536,7 @@
         }
       });
       // supply crates sit in our lanes on the route, between the decision points
+      const r = seeded(Streets().hash(route) + 7);
       this.crates = [];
       const n = this.mods.crates || 0;
       const lo = D.startS + 4 * this.speed;
@@ -344,6 +549,8 @@
         this.crates.push({ x: p.x - p.uy * dd, y: p.y + p.ux * dd, t: r() * 3, face: Math.atan2(p.uy, p.ux) + Math.PI / 2 });
         i++;
       }
+      // (for tests and probes: how many of the city's roads got a roadside, and the time it took)
+      this.sceneryStats = { roads: roadsSeen.length, of: D.roads.length, looked: roadsNear.length + sidesNear.length + nodesNear.length + lotsNear.length, ms: performance.now() - t0 };
     },
     makeProp(r, x, y, face) {
       const roll = r();
@@ -376,8 +583,12 @@
     stop() {
       this.running = false;
       this.paused = false;
+      this.prep = this.prepping = false;
       cancelAnimationFrame(this.raf);
       this.hud.root.classList.add("hidden");
+      // a drive really ended (at the door, dead, off to the map or the title; a wrong turn's retry is not a stop): the
+      // angled view lets go of its ground squares, plants and walker canvases until the next drive
+      if (ZSR.Persp && ZSR.Persp.release) ZSR.Persp.release();
     },
 
     banner(text, ms) {
@@ -392,57 +603,183 @@
     },
 
     /* ---------- Where things are ---------- */
-    /** Put the van at its (s, d) on the current track, or on its own path through a turn. */
-    placeVan(dt) {
+    /** Put the van at its (s, d) on the current track, or on its own path through a turn; its heading eases toward
+        the road's (and the lean of a lane slide) over dt, or is put there (snap). */
+    placeVan(dt, snap) {
       const tn = this.turn;
       const p = tn ? Streets().at(tn.track, this.turnS()) : Streets().at(this.track, this.van.s);
       this.vanP = p;
       const v = this.van;
-      const d = tn ? 0 : v.d;
+      // through a turn the van rides its own path, off it only while a lane slide still going at the stop line runs out
+      const d = tn ? (tn.slide ? tn.slide.e : 0) : v.d;
       v.x = p.x - p.uy * d;
       v.y = p.y + p.ux * d;
+      // where the camera keeps to and looks from: the van, or through a turn its path (the slide's run-out is the van's own)
+      const b = this.vanBase || (this.vanBase = { x: 0, y: 0 });
+      b.x = tn ? p.x : v.x;
+      b.y = tn ? p.y : v.y;
       const lean = clamp(Math.atan2(v.vd, Math.max(60, this.curSpeed || this.speed)), -0.35, 0.35);
-      const want = Math.atan2(p.uy, p.ux) + lean;
-      v.heading = dt ? v.heading + normAngle(want - v.heading) * Math.min(1, dt * 12) : want;
+      // the camera turns slowly enough to show the van's own turn: its nose eases into and out of a bend (its path's
+      // heading averaged PERSP.nose behind and ahead) instead of starting to swing all at once
+      const want = this.pathHeading(PERSP.nose) + lean;
+      v.heading = snap ? want : v.heading + normAngle(want - v.heading) * (1 - Math.exp(-dt * EASE.van));
+    },
+    /** The heading of the van's own path around it: its tangent averaged over W0 behind and ahead (more weight near
+        the van), across the turn it is in or has just left. Ahead it never reaches past the next stop line, and from
+        one it reaches out again only as the van drives on, so the heading never jumps where a turn begins. */
+    pathHeading(W0) {
+      const St = Streets();
+      const tn = this.turn;
+      const last = this.lastTurn;
+      const dec = tn ? null : this.upcoming();
+      const ahead = Math.max(0, Math.min(W0, this.odo - this.stopOdo, dec ? dec.stop - this.van.s : W0));
+      const N = 4;
+      let sx = 0;
+      let sy = 0;
+      for (let i = -N; i <= N; i++) {
+        const u = ((i < 0 ? W0 : ahead) * i) / N;
+        let a;
+        if (tn) {
+          const x = this.turnS() + u;
+          a = tn.main && x > tn.track.len ? St.at(this.track, tn.s1 + x - tn.track.len) : St.at(tn.track, x);
+        } else {
+          const s = this.van.s + u;
+          if (last && s < last.s1 && this.van.s - last.s1 < W0) a = St.at(last.track, last.track.len + s - last.s1);
+          else a = St.at(this.track, s);
+        }
+        const w = N + 1 - Math.abs(i);
+        sx += a.ux * w;
+        sy += a.uy * w;
+      }
+      return Math.atan2(sy, sx);
     },
     /** How far along its turn path the van is: on the route its place (s) runs on underneath and maps onto the path. */
     turnS() {
       const tn = this.turn;
       return tn.main ? (this.van.s - tn.s0) * tn.k : this.van.s;
     },
-    /** The camera rides the road at the van, heading up, centered on our side of it (through a turn: off the van's path, easing over). */
-    placeCam(k) {
+    /** The camera rides the road at the van, centered on our side of it (through a turn: off the van's path, easing
+        over), facing lazily down the van's own path (lazyHeading). Its heading and its slide ease over dt, or are put
+        where they belong (snap). */
+    placeCam(dt, snap) {
       const c = this.cam;
-      const p = this.vanP;
-      c.th += normAngle(Math.atan2(p.uy, p.ux) - c.th) * k;
-      let off;
+      const v = this.van;
+      this.lazyHeading(dt, snap);
       if (this.turn) {
         const tn = this.turn;
-        off = c.rel = tn.cam0 + (tn.cam1 - tn.cam0) * smooth(clamp(this.turnS() / Math.min(tn.track.len, 700), 0, 1));
+        const x = clamp(this.turnS() / Math.min(tn.track.len, 700), 0, 1);
+        c.rel = tn.cam0 + (tn.cam1 - tn.cam0) * smoother(x);
       } else {
         const want = (this.laneRange()[0] - 33 + Streets().GEOM.half) / 2;
-        c.d += (want - c.d) * Math.min(1, k * 0.6);
-        off = c.d;
-        c.rel = c.d - this.van.d;
+        c.d = snap ? want : c.d + (want - c.d) * (1 - Math.exp(-dt * EASE.camSlide));
+        c.rel = c.d - v.d;
       }
-      c.x = p.x - p.uy * off;
-      c.y = p.y + p.ux * off;
+      // off the van along the camera's own right, not the road's: while the view turns (it lags the road through a
+      // turn) the van keeps its place on the screen instead of bobbing up and down it
+      const b = this.vanBase || v;
+      c.x = b.x - Math.sin(c.th) * c.rel;
+      c.y = b.y + Math.cos(c.th) * c.rel;
     },
-    /** World -> screen (CSS px). */
+    /** The way the angled camera wants to face: toward a point PERSP.look along the van's own path ahead (its turn,
+        then the road it rejoins), so the view turns into a bend as the van comes to it. Never past the next stop line
+        before the van crosses it (the view gives no way away); from a stop line it looks further ahead again as the
+        van drives on, so the way it faces never jumps. */
+    lookHeading() {
+      const L = Math.min(PERSP.look, (this.odo - this.stopOdo) * PERSP.lookRamp + 4);
+      const a = L >= 4 ? this.ahead(L) : null;
+      const b = this.vanBase || this.van;
+      return a && a.L >= 4 ? Math.atan2(a.y - b.y, a.x - b.x) : Math.atan2(this.vanP.uy, this.vanP.ux);
+    },
+    /** The point L along the van's own path ahead of it, in its lane (its turn, then the road it rejoins), the
+        path's heading there (th) and how far ahead it is (L): never past the next stop line the van has not crossed. */
+    ahead(L) {
+      const St = Streets();
+      const v = this.van;
+      const tn = this.turn;
+      let a;
+      let d;
+      if (tn) {
+        const s = this.turnS() + L;
+        if (tn.main && s > tn.track.len) {
+          a = St.at(this.track, tn.s1 + (s - tn.track.len));
+          d = tn.d1;
+        } else {
+          a = St.at(tn.track, s);
+          d = 0;
+        }
+      } else {
+        const dec = this.upcoming();
+        if (dec) L = Math.max(0, Math.min(L, dec.stop - v.s));
+        a = St.at(this.track, v.s + L);
+        d = v.d;
+      }
+      return { x: a.x - a.uy * d, y: a.y + a.ux * d, th: Math.atan2(a.uy, a.ux), L };
+    },
+    /** The angled camera's heading: a critically damped spring toward lookHeading(), stepped exactly over dt (the
+        drive's steps are short enough that the target barely moves in one). Its clock runs with the van's speed to
+        the PERSP.camPace power. */
+    lazyHeading(dt, snap) {
+      const c = this.cam;
+      const tg = this.lookHeading();
+      if (snap) {
+        c.th = tg;
+        c.w = 0;
+        return;
+      }
+      const s = this.spring(c.th, c.w || 0, tg, dt * this.camPace());
+      c.th = s.th;
+      c.w = s.w;
+    },
+    /** How fast the angled camera's spring clock runs: with the van's speed (against the slowest van's) to the
+        PERSP.camPace power. */
+    camPace() {
+      return Math.pow(Math.max(0.25, (this.curSpeed || this.speed) / (DIFF.roadScroll * PERSP.pace)), PERSP.camPace);
+    },
+    /** One exact step of a critically damped spring (PERSP.camW per second) of heading th turning at w, toward tg
+        held still, over h. */
+    spring(th, w, tg, h) {
+      const k = PERSP.camW;
+      const e0 = normAngle(th - tg);
+      const q = w + k * e0;
+      const ex = Math.exp(-k * h);
+      return { th: tg + (e0 + q * h) * ex, w: (w - k * q * h) * ex };
+    },
+    /** Where the angled view will be at each of `times` (seconds from now, rising), so its ground can be drawn ahead:
+        its spot and heading, its spring stepped on along the van's own path at the van's speed now. Stops short at a
+        stop line the van has not crossed (which way it goes is not known yet). */
+    viewsAhead(times) {
+      const c = this.cam;
+      const v = this.curSpeed || this.speed;
+      const pace = this.camPace();
+      let th = c.th;
+      let w = c.w || 0;
+      let t = 0;
+      const out = [];
+      for (const T of times) {
+        while (t < T - 1e-9) {
+          const h = Math.min(1 / 30, T - t);
+          t += h;
+          const L = v * t;
+          const p = this.ahead(L);
+          if (p.L < L - 1) return out;
+          const q = this.ahead(L + Math.min(PERSP.look, (this.odo + L - this.stopOdo) * PERSP.lookRamp + 4));
+          const s = this.spring(th, w, q.L - p.L >= 4 ? Math.atan2(q.y - p.y, q.x - p.x) : p.th, h * pace);
+          th = s.th;
+          w = s.w;
+        }
+        const p = this.ahead(v * T);
+        out.push({ x: p.x - Math.sin(th) * c.rel, y: p.y + Math.cos(th) * c.rel, th });
+      }
+      return out;
+    },
+    /** World -> screen (CSS px): the ground, through the angled camera (js/perspective.js; off the bottom of the
+        screen behind it). */
     toScreen(x, y) {
-      const c = this.cam;
-      const a = -Math.PI / 2 - c.th;
-      const dx = x - c.x;
-      const dy = y - c.y;
-      return { x: this.W / 2 + (dx * Math.cos(a) - dy * Math.sin(a)) * this.zoom, y: this.anchorY + (dx * Math.sin(a) + dy * Math.cos(a)) * this.zoom };
+      return ZSR.Persp.toScreen(this, x, y);
     },
-    /** Screen -> world. */
+    /** Screen -> world: the ground under that spot (no farther than the haze). */
     toWorld(sx, sy) {
-      const c = this.cam;
-      const a = Math.PI / 2 + c.th;
-      const dx = (sx - this.W / 2) / this.zoom;
-      const dy = (sy - this.anchorY) / this.zoom;
-      return { x: c.x + dx * Math.cos(a) - dy * Math.sin(a), y: c.y + dx * Math.sin(a) + dy * Math.cos(a) };
+      return ZSR.Persp.toWorld(this, sx, sy);
     },
     /** The decision whose lanes or sign are coming up (main track only). */
     upcoming() {
@@ -461,22 +798,84 @@
     pickType() {
       return World().pickWalkerType(this.diff.weights);
     },
-    /** One walker from off the screen: from ahead or a shoulder; its kind from the road's mix unless `type` is given. */
-    spawnZombie(type) {
-      const G = Streets().GEOM;
-      const side = Math.random() < DIFF.sideSpawnChance ? (Math.random() < 0.5 ? "left" : "right") : "top";
-      let sx;
-      let sy;
-      if (side === "top") {
-        const cx = this.W / 2 - (this.turn ? this.cam.rel : this.cam.d) * this.zoom;
-        sx = rand(cx - (G.half + 30) * this.zoom, cx + (G.half + 30) * this.zoom);
-        sy = -40;
-      } else {
-        sx = side === "left" ? -40 : this.W + 40;
-        sy = rand(this.H * 0.05, this.H * 0.6);
+    /** The next walkers: a group of ROAD_DANGER's `group` on average (a share past a whole number is the chance of
+        one more), the first where Persp.spawn says (spawnZombie), the rest round it within GROUP_SPREAD. Returns how
+        many came (at least 1, so the gap to the next group grows with it). */
+    spawnGroup() {
+      const g = Math.max(1, this.diff.row.group || 1);
+      let n = Math.floor(g);
+      if (g > n && Math.random() < g - n) n++;
+      const z0 = this.spawnZombie();
+      if (!z0) return 1;
+      // (the first came out of the verge's thicket, Persp.spawn: the rest come out of it beside it, along the road and
+      // deeper in, never onto the open road)
+      const out = this.spawnOut;
+      for (let i = 1; i < n; i++) {
+        const kind = this.pickType();
+        const r = World().WALKER_TYPES[kind].road.r;
+        for (let k = 0; k < SPAWN_TRIES; k++) {
+          let x;
+          let y;
+          if (out) {
+            const along = (Math.random() * 2 - 1) * GROUP_SPREAD;
+            const deep = Math.random() * GROUP_SPREAD * 0.5;
+            x = z0.x + out.y * along + out.x * deep;
+            y = z0.y - out.x * along + out.y * deep;
+          } else {
+            const a = Math.random() * Math.PI * 2;
+            const d = GROUP_SPREAD * (0.4 + 0.6 * Math.random());
+            x = z0.x + Math.cos(a) * d;
+            y = z0.y + Math.sin(a) * d;
+          }
+          if (this.clearSpot(x, y, r, false)) {
+            const z = this.addZombie(kind, x, y);
+            if (out) this.stepOut(z, out);
+            break;
+          }
+        }
       }
-      const w = this.toWorld(sx, sy);
-      return this.addZombie(type || this.pickType(), w.x, w.y);
+      return n;
+    },
+    /** A walker out of the verge's thicket (Persp.spawn) steps out onto the road, straight across it (against `out`,
+        the way from the road into the verge), to a place across its own half of the road at random, before it turns
+        for the van: it comes out where the old road's walkers stood, in the van's way (DESIGN.md "Walkers and
+        balance"), without fading in on the open road. */
+    stepOut(z, out) {
+      const St = Streets();
+      const P = ZSR.Persp;
+      P.setup(this);
+      const q = St.at(this.track, this.van.s + P.local(z.x, z.y).Y - P.local(this.van.x, this.van.y).Y);
+      const across = Math.abs((z.x - q.x) * -q.uy + (z.y - q.y) * q.ux);
+      const to = Math.random() * St.GEOM.half;
+      if (across > to && z.speed > 0) z.step = { x: -out.x, y: -out.y, t: (across - to) / z.speed };
+    },
+    /** Seconds to the next walker: the trip's interval (DIFF), ROAD_DANGER's spawns times as often, more often at
+        night, and on average never under DIFF.minInterval; each one +-30%. */
+    spawnGap() {
+      const mean = Math.max(DIFF.minInterval, (this.diff.interval * (this.mods.night ? DIFF.nightSpawns : 1)) / this.diff.row.spawns);
+      return mean * rand(0.7, 1.3);
+    },
+    /** One walker from far down the road or out of the weeds at a side (js/perspective.js spawn, where the trip's
+        ROAD_DANGER row says: the camera sees far, so they come from far off and fade in); its kind from the road's mix
+        unless `type` is given. */
+    spawnZombie(type) {
+      const kind = type || this.pickType();
+      const T = World().WALKER_TYPES[kind];
+      const r = T && T.road ? T.road.r : 18;
+      // never in a building or the river, and best with neither in its way to the van (clearSpot)
+      let w = null;
+      for (let i = 0; i < SPAWN_TRIES; i++) {
+        const p = ZSR.Persp.spawn(this, this.diff.row);
+        if (this.clearSpot(p.x, p.y, r, true)) {
+          w = p;
+          break;
+        }
+        if (!w && this.clearSpot(p.x, p.y, r, false)) w = p;
+      }
+      this.spawnOut = (w && w.out) || null; // (out of the verge: spawnGroup keeps the rest of the group in it)
+      const z = w ? this.addZombie(kind, w.x, w.y) : null;
+      if (z && w.out) this.stepOut(z, w.out);
+      return z;
     },
     /** A walker of `type` (a WORLD.WALKER_TYPES id; an unknown one is the first kind, a plain walker) at world x, y.
         Its road stats are the kind's `road` row; health is its on-foot health, tougher with the trip's danger and day. */
@@ -511,6 +910,7 @@
         cool: 0,
         kx: 0,
         ky: 0,
+        born: this.time, // it fades in (js/perspective.js walker)
       };
       this.zombies.push(z);
       return z;
@@ -540,6 +940,185 @@
       }
       return null;
     },
+    /** How fast the keep-up carries walker z along the van's heading (world units a second; KEEP): none ahead of the
+        van's nose or in its path, the trip's `chase` share (ROAD_DANGER) of the van's speed beside and behind it
+        within PERSP.keepUp, over KEEP.band (seconds of the van's drive) between; and while it is ahead of the van's
+        middle never faster than own (its own pace at the van now) brings it back, so it never moves away from the van
+        with its feet going toward it. */
+    carry(z, own) {
+      const v = this.van;
+      if (!v) return 0;
+      const fx = Math.cos(v.heading);
+      const fy = Math.sin(v.heading);
+      const ox = z.x - v.x;
+      const oy = z.y - v.y;
+      const dist = Math.hypot(ox, oy) || 1;
+      const ly = ox * fx + oy * fy; // how far ahead of the van's middle
+      const near = clamp((PERSP.keepUp - dist) / KEEP.fade, 0, 1);
+      const band = Math.max(KEEP.bandMin, KEEP.band * (this.curSpeed || 0));
+      const beside = 1 - smooth(clamp((ly - v.h / 2) / band, 0, 1));
+      // ahead of the van's middle only a walker that will pass beside it keeps up: one in its path walks on into the
+      // nose (and is shoved off it), from out past the van's side to where it would press on that side
+      const lat = ly > 0 ? smooth(clamp((Math.abs(ox * -fy + oy * fx) - v.w / 2) / Math.max(1, z.r * 0.85), 0, 1)) : 1;
+      const c = (this.curSpeed || 0) * (this.diff ? this.diff.row.chase : ROAD_LATE.chase) * near * beside * lat;
+      return ly > 0 ? Math.min(c, (Math.max(0, own) * dist) / ly) : c;
+    },
+    /** The drive's buildings as walkers meet them: each lot's solid parts (js/perspective-buildings.js solids: what
+        stands on the ground and is tall enough to stop a walker) as boxes { cx, cy, ux, uy, vx, vy, hu, hv } (middle,
+        unit axes, half sizes), with a circle round each lot's; made once a drive. */
+    solidLots() {
+      if (this.solidsFor === this.drive && this.solids) return this.solids;
+      const B = ZSR.PerspBuild;
+      const out = [];
+      if (B && typeof B.solids === "function") {
+        for (const l of this.drive.lots || []) {
+          const boxes = B.solids(l).map(([a, b, , d]) => {
+            const lu = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+            const lv = Math.hypot(d.x - a.x, d.y - a.y) || 1;
+            const ux = (b.x - a.x) / lu;
+            const uy = (b.y - a.y) / lu;
+            const vx = (d.x - a.x) / lv;
+            const vy = (d.y - a.y) / lv;
+            // (its four sides, each a wall a walker remembers its way along: +u, -u, +v, -v)
+            return { cx: a.x + (ux * lu + vx * lv) / 2, cy: a.y + (uy * lu + vy * lv) / 2, ux, uy, vx, vy, hu: lu / 2, hv: lv / 2, walls: [{}, {}, {}, {}] };
+          });
+          if (!boxes.length) continue;
+          const cx = boxes.reduce((s, b) => s + b.cx, 0) / boxes.length;
+          const cy = boxes.reduce((s, b) => s + b.cy, 0) / boxes.length;
+          const R = Math.max(...boxes.map((b) => Math.hypot(b.cx - cx, b.cy - cy) + Math.hypot(b.hu, b.hv)));
+          out.push({ cx, cy, R, boxes });
+        }
+      }
+      this.solidsFor = this.drive;
+      this.solids = out;
+      return out;
+    },
+    /** How far (world units) the point x, y is from the river's bank (Draw.riverEdge; negative in it), or Infinity
+        without the river. */
+    riverAt(x, y) {
+      const D = ZSR.Draw;
+      return D && D.riverEdge ? D.riverEdge(x, y, this.drive && this.drive.scale) : Infinity;
+    },
+    /** Keep walker z out of the drive's buildings (solidLots) and the river with its muddy bank (riverAt), as the
+        van's box keeps it out of the van: one inside is put back out at the nearest side (that does not lead into
+        another part), and then walks along that side for a moment (walkRound), so it goes round a building or along
+        the bank instead of pressing on it. */
+    blockWalker(z) {
+      const rr = z.r * 0.85;
+      // within a part's box grown by rr, as the box's own u, v
+      const into = (b, x, y) => {
+        const ox = x - b.cx;
+        const oy = y - b.cy;
+        const u = ox * b.ux + oy * b.uy;
+        const v = ox * b.vx + oy * b.vy;
+        return Math.abs(u) < b.hu + rr && Math.abs(v) < b.hv + rr ? { u, v } : null;
+      };
+      // (out of one part may be into another beside it: a few passes, until it is in none)
+      for (let pass = 0, moved = true; moved && pass < BLOCK_PASSES; pass++) {
+        moved = false;
+        for (const L of this.solidLots()) {
+          if (Math.abs(z.x - L.cx) > L.R + rr || Math.abs(z.y - L.cy) > L.R + rr) continue;
+          for (const b of L.boxes) {
+            const q = into(b, z.x, z.y);
+            if (!q) continue;
+            // out the nearest side that is not into another of the lot's parts (the nearest if every side is)
+            const au = b.hu + rr;
+            const av = b.hv + rr;
+            const exits = [
+              [au - q.u, au, q.v, 0],
+              [au + q.u, -au, q.v, 0],
+              [av - q.v, q.u, av, 1],
+              [av + q.v, q.u, -av, 1],
+            ].sort((m, n) => m[0] - n[0]);
+            let pick = exits[0];
+            for (const ex of exits) {
+              const x = b.cx + b.ux * ex[1] + b.vx * ex[2];
+              const y = b.cy + b.uy * ex[1] + b.vy * ex[2];
+              if (!L.boxes.some((o) => o !== b && into(o, x, y))) {
+                pick = ex;
+                break;
+              }
+            }
+            z.x = b.cx + b.ux * pick[1] + b.vx * pick[2];
+            z.y = b.cy + b.uy * pick[1] + b.vy * pick[2];
+            // along the side it is out of: a u side runs along v, a v side along u
+            if (pick[3]) this.walkRound(z, b.ux, b.uy, pick[1], b.hu + rr, b.walls[pick[2] > 0 ? 2 : 3]);
+            else this.walkRound(z, b.vx, b.vy, pick[2], b.hv + rr, b.walls[pick[1] > 0 ? 0 : 1]);
+            moved = true;
+          }
+        }
+      }
+      const e = this.riverAt(z.x, z.y);
+      if (e < rr) {
+        // out along the way the bank's distance grows fastest
+        const ex = this.riverAt(z.x + RIVER_PROBE, z.y) - e;
+        const ey = this.riverAt(z.x, z.y + RIVER_PROBE) - e;
+        const n = Math.hypot(ex, ey);
+        if (n > 1e-6) {
+          z.x += (ex / n) * (rr - e);
+          z.y += (ey / n) * (rr - e);
+          this.walkRound(z, -ey / n, ex / n, 0, Infinity, RIVER_WALL);
+        }
+      }
+    },
+    /** Walker z was put out along a wall (or the bank) running (tx, ty), `along` from the wall's middle, `half` its half
+        length (Infinity for the bank), `wall` what it is (the same wall again keeps its way): from now, for WALK_ROUND
+        s, it walks along it. Its way: the one it last went along this wall (for WALK_MEMORY s after leaving it), else
+        toward the end the van is past, else (the van straight through the wall) toward its own nearer end; the bank,
+        the way the van is along it. One that makes no headway (another walker coming the other way) turns round. */
+    walkRound(z, tx, ty, along, half, wall) {
+      const w = z.wall;
+      const m = z.wallMem;
+      const same = w ? w.x * tx + w.y * ty : 0;
+      const remembered = m && m.wall === wall && this.time - m.at < WALK_MEMORY;
+      let s;
+      let since = this.time;
+      let x0 = z.x;
+      let y0 = z.y;
+      if (Math.abs(same) > 0.7 || remembered) {
+        s = Math.abs(same) > 0.7 ? Math.sign(same) : m.s;
+        if (w && Math.abs(same) > 0.7) {
+          since = w.since;
+          x0 = w.x0;
+          y0 = w.y0;
+        }
+        // no headway along it for a while (another walker the other way, a corner it cannot get round): turn round
+        if (this.time - since > WALK_STUCK && Math.abs((z.x - x0) * tx + (z.y - y0) * ty) < z.speed * WALK_STUCK * WALK_HEADWAY) {
+          s = -s;
+          since = this.time;
+          x0 = z.x;
+          y0 = z.y;
+        }
+      } else {
+        const v = this.van;
+        const toward = v ? (v.x - z.x) * tx + (v.y - z.y) * ty : 0;
+        const vanAt = toward + along; // the van, along the wall from its middle
+        if (half === Infinity) s = Math.sign(toward) || 1;
+        else s = Math.abs(vanAt) > half ? Math.sign(vanAt) : Math.sign(along) || 1;
+      }
+      z.wall = { x: tx * s, y: ty * s, t: WALK_ROUND, since, x0, y0 };
+      z.wallMem = { wall, s, at: this.time };
+    },
+    /** Is x, y a fit spot for a walker of radius r to come from: clear of the buildings and the river, and (strict)
+        with nothing of them between it and the van, so it can walk straight in? */
+    clearSpot(x, y, r, strict) {
+      const pad = r + SPAWN_CLEAR;
+      if (this.riverAt(x, y) < pad) return false;
+      const v = this.van;
+      for (const L of this.solidLots()) {
+        for (const b of L.boxes) {
+          const ox = x - b.cx;
+          const oy = y - b.cy;
+          if (Math.abs(ox * b.ux + oy * b.uy) < b.hu + pad && Math.abs(ox * b.vx + oy * b.vy) < b.hv + pad) return false;
+          if (strict && v && segHitsBox(x, y, v.x, v.y, b, r)) return false;
+        }
+      }
+      if (strict && v) {
+        const n = Math.ceil(Math.hypot(v.x - x, v.y - y) / RIVER_STEP);
+        for (let i = 1; i < n; i++) if (this.riverAt(x + ((v.x - x) * i) / n, y + ((v.y - y) * i) / n) < r) return false;
+      }
+      return true;
+    },
     /** A screamer saw the van: it stands and screams, and every walker within SCREAM.radius tiles of it (itself
         too) moves SCREAM.mult times faster for SCREAM.secs. Again only after SCREAM.cooldown. */
     scream(z) {
@@ -556,20 +1135,28 @@
         walker gore on, a short spray of blood out the far side, every hit (owner, 2026-10-15). A walker with armor
         (its road row's share) has that share of its non-fatal hits also glance off a helmet or a vest: grey sparks
         (gore on or off) and a smaller spray. Skipped past ROAD_PARTICLE_CAP. */
-    blood(z, x, y, vx, vy, kill) {
+    blood(z, x, y, vx, vy, kill, h) {
       const glance = !kill && z.armor > 0 && Math.random() < z.armor;
-      if (glance) this.sparks(x, y, SPARK_ARMOR);
+      if (glance) this.sparks(x, y, SPARK_ARMOR, h);
       if (World().SETTINGS.walkerGore === false || this.particles.length > ROAD_PARTICLE_CAP) return;
       const a0 = Math.atan2(vy, vx);
       const n = kill ? 9 : glance ? 3 : 5;
-      // the drops fly on with the walker (it keeps up with the van); what lands stays on the road
+      // the drops fly on with the walker (carried with it as it keeps up with the van, Game.carry); what lands stays
+      // on the road
       const v = this.van;
-      const cx = v ? Math.cos(v.heading) * (this.curSpeed || 0) * DIFF.chase : 0;
-      const cy = v ? Math.sin(v.heading) * (this.curSpeed || 0) * DIFF.chase : 0;
+      const cx = v ? Math.cos(v.heading) * (z.carry || 0) : 0;
+      const cy = v ? Math.sin(v.heading) * (z.carry || 0) : 0;
+      // the spray is seen in the air, as on foot (js/interior.js bleed): from the hit's height, and one drop in three
+      // splashes back out to the sides toward the shot (the camera is behind the van: the rest fly out behind the body,
+      // which hides them); it falls and lands (updateParticles)
+      const P = ZSR.Persp;
       for (let i = 0; i < n; i++) {
-        const a = a0 + rand(-0.5, 0.5) * (kill ? 1.6 : 1);
-        const s = rand(60, 160) * (kill ? 1.2 : 1);
-        this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, cx, cy, life: 0.4, maxLife: 0.4, size: rand(3, 4.8), color: BLOOD[i % 2], blood: true, leaves: i % 2 === 0 });
+        const back = i % 3 === 2;
+        const a = back ? a0 + Math.PI + (i % 2 ? 1 : -1) * rand(0.8, 1.3) : a0 + rand(-0.5, 0.5) * (kill ? 1.6 : 1);
+        const s = rand(60, 160) * (kill ? 1.2 : 1) * (back ? 0.6 : 1);
+        const p = { x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, cx, cy, life: 0.4, maxLife: 0.4, size: rand(3, 4.8), color: BLOOD[i % 2], blood: true, leaves: i % 2 === 0 };
+        P.dropAt(p, z, h);
+        this.particles.push(p);
       }
     },
 
@@ -585,45 +1172,90 @@
         this.particles.push({ x: x + Math.cos(a) * r * 0.8, y: y + Math.sin(a) * r * 0.8, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.4, maxLife: 0.4, size: r * rand(0.14, 0.24), color: i % 2 === 0 ? "#6b675c" : "#4a473f", grow: true });
       }
     },
-    sparks(x, y, color) {
+    /** Sparks flying out from x, y; h: their height, on the angled camera (a shot's, where it hit). */
+    sparks(x, y, color, h) {
       if (this.particles.length > ROAD_PARTICLE_CAP) return;
       for (let i = 0; i < 4; i++) {
         const a = Math.random() * 6.28;
         const s = rand(80, 200);
-        this.particles.push({ x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.25, maxLife: 0.25, size: 3.5, color: color || "#ffe9a6" });
+        const p = { x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 0.25, maxLife: 0.25, size: 3.5, color: color || "#ffe9a6" };
+        if (h > 0) p.z = h;
+        this.particles.push(p);
       }
     },
 
     frame(ts) {
       if (!this.running) return;
       this.raf = requestAnimationFrame((t) => this.frame(t));
+      // the time since the last frame as the page shows them (the angled view's scenery governor reads it: the whole
+      // frame's cost, the canvas's raster and the compositor's included), and which frame this is
+      this.rafMs = this.last ? ts - this.last : 0;
+      this.rafN = (this.rafN || 0) + 1;
       if (!this.last) this.last = ts;
-      const dt = Math.min(0.05, (ts - this.last) / 1000);
+      const dt = Math.min(MAX_FRAME_DT, (ts - this.last) / 1000);
       this.last = ts;
       // Huge text needs room beside the road for its signs: pull the camera back a little
       this.zoom = this.zoomBase * (textSize() >= 2 ? 0.85 : 1);
-      if (!this.paused) this.update(dt);
+      // a drive's first view is made while the van waits at its door (a retry's behind the dark), so it never pulls
+      // out on a stall: it goes once the ground under the view and just ahead of it is drawn (Persp.ready), or after
+      // PREP_SECS whatever is left
+      this.prep = this.prepStep();
+      if (this.prep) this.updateHud();
+      else if (!this.paused) this.update(dt);
+      // (the drive ended in this update: arrived, or the wreck's last moments over. stop() let go of the view's
+      // squares, plants and pictures (Persp.release), and drawing it again would make them all over)
+      if (!this.running) return;
       this.draw();
+    },
+    /** Whether the van still waits at its door this frame (frame): from a drive's start, and a retry's, until its
+        first view is ready or PREP_SECS of the page's time have gone. */
+    prepStep() {
+      if (!ZSR.Persp || !ZSR.Persp.ready) return false;
+      if (this.prepFor !== this.drive || this.prepTry !== this.attempt) {
+        this.prepFor = this.drive;
+        this.prepTry = this.attempt;
+        this.prepT = 0;
+        this.prepping = true;
+      }
+      if (!this.prepping) return false;
+      this.prepT += Math.min(0.25, (this.rafMs || 0) / 1000);
+      if (this.prepT >= PREP_SECS || ZSR.Persp.ready(this)) this.prepping = false;
+      return this.prepping;
     },
 
     /* ---------- Decisions ---------- */
     /** The van crossed a stop line: the lane it is in is the way it goes. */
     commit(dec) {
       const St = Streets();
+      this.stopOdo = this.odo - (this.van.s - dec.stop);
       const lane = St.laneOf(this.van.d, dec.n);
       const opt = dec.options[dec.lanes[lane]];
       this.next += 1;
       if (opt.correct) this.hintDone = true;
       if (opt.correct && opt.kind === "through") return;
-      // the van drives its own path from the lane it is in: one smooth arc, whichever lane (streets.js turnPath)
-      const tp = St.turnPath(this.drive, dec, opt, this.van.d);
-      const cam0 = this.cam.d - this.van.d; // the camera's offset from the van, kept as the turn begins
+      // the van drives its own path from the lane it is in: one smooth arc, whichever lane (streets.js turnPath). Still
+      // sliding across the lanes, it plans its path from where the slide runs out (at SLIDE_STOP, or harder near the
+      // road's edge) and runs out onto it, so it never stops sideways at once
+      let dPlan = this.van.d;
+      let slide = null;
+      const vd = this.van.vd || 0;
+      if (Math.abs(vd) > 1) {
+        const room = vd > 0 ? St.GEOM.half - St.GEOM.vanHalf - this.van.d : this.van.d - (St.ourLeft(dec.n) + St.GEOM.vanHalf);
+        const A = Math.max(SLIDE_STOP, (vd * vd) / (2 * Math.max(1, room)));
+        dPlan = this.van.d + (Math.sign(vd) * vd * vd) / (2 * A);
+        slide = { e: this.van.d - dPlan, v: vd, A };
+      }
+      const tp = St.turnPath(this.drive, dec, opt, dPlan);
+      const cam0 = this.cam.d - dPlan; // the camera's offset from the van's path, kept as the turn begins
       if (opt.correct) {
         // a junction or the destination: the van's place on the route runs on underneath (signs, progress) and maps onto the path
         const s1 = dec.kind === "dest" ? this.drive.endS : tp.rejoin;
         const cam1 = dec.kind === "dest" ? 0 : (St.ourLeft(2) + St.GEOM.half) / 2 - tp.d1;
-        this.turn = { track: tp.track, main: true, s0: dec.stop, s1, k: tp.track.len / Math.max(1, s1 - dec.stop), d1: tp.d1, cam0, cam1 };
+        this.turn = { track: tp.track, main: true, s0: dec.stop, s1, k: tp.track.len / Math.max(1, s1 - dec.stop), d1: tp.d1, cam0, cam1, slide };
+        // the part of this step past the stop line was driven at the road's rate: on the turn's path it is the same distance
+        this.van.s = dec.stop + (this.van.s - dec.stop) / this.turn.k;
         if (dec.kind === "dest") this.arrive = { t: 0, parked: false };
+        this.planBrake(tp.track);
         return;
       }
       // the wrong way: drive into it for a moment, then fade and start over
@@ -631,7 +1263,8 @@
       this.onMain = false;
       this.van.s = Math.max(0, this.van.s - dec.stop);
       this.van.d = 0;
-      this.turn = { track: tp.track, main: false, cam0, cam1: 0 };
+      this.turn = { track: tp.track, main: false, cam0, cam1: 0, slide };
+      this.planBrake(tp.track);
       this.fail = { t: 0, msg: this.failText(opt, dec) };
       Audio().play("wrong");
     },
@@ -688,15 +1321,126 @@
       f.t = 0;
     },
 
-    update(dt) {
-      const t = State().trip;
-      const stats = this.stats;
-      const van = this.van;
+    /** The corner braking for the turn path just committed to (from its stop line, this.stopOdo): the
+        share it brakes to (by the turn's sharpness and shape: St.brakeFor), where it starts to ease down and where it
+        has (by where the path starts to bend, brakeIn at least, by the van's speed: St.brakeSpan), where the bend
+        ends, and where it is back up to speed. */
+    planBrake(track) {
       const St = Streets();
-      this.time += dt;
+      const a0 = St.at(track, 0);
+      const a1 = St.at(track, track.len);
+      const h0 = Math.atan2(a0.uy, a0.ux);
+      const h1 = Math.atan2(a1.uy, a1.ux);
+      // the bend: the first and last places the path's heading is off its start's and its end's (a 4-unit walk;
+      // SCALE: once per turn, so a turn path's length is walked once when it is committed to)
+      let a = 0;
+      let b = track.len;
+      for (let q = 0; q <= track.len; q += 4) {
+        const t = St.at(track, q);
+        if (Math.abs(normAngle(Math.atan2(t.uy, t.ux) - h0)) > 0.003) break;
+        a = q;
+      }
+      for (let q = track.len; q >= a; q -= 4) {
+        const t = St.at(track, q);
+        if (Math.abs(normAngle(Math.atan2(t.uy, t.ux) - h1)) > 0.003) break;
+        b = q;
+      }
+      // how hard: PERSP.brake into a gentle turn, more into a sharp one (by its angle: one that doubles back is taken
+      // slowly), and more again where its road was too short for the shape it wanted (js/streets.js brakeFor)
+      const B = St.brakeFor(normAngle(h1 - h0), track.r, a, this.speed);
+      // (brakeIn is for the slowest van: a faster one eases over more road, in the same time, never more sharply; a
+      // deeper brake eases over more road too, so no frame changes the speed more than the light brake's do; on a long
+      // straight before the bend the van keeps its speed a while: St.brakeSpan)
+      const [xs, xa] = St.brakeSpan(a, B, this.speed);
+      const xb = Math.max(b, xa);
+      // from the speed it has now (still easing back up from a turn just before, the share it is at)
+      const f0 = this.brakeAt();
+      this.corner = { x0: this.stopOdo, xs, xa, xb, xc: xb + St.brakeOutFor(B, PERSP.brakeOut, this.speed), f0, B };
+    },
+    /** The share of its speed the van drives at for its corner now (1 with none). */
+    brakeAt() {
+      const c = this.corner;
+      if (!c) return 1;
+      const x = this.odo - c.x0;
+      const B = c.B;
+      if (x >= c.xc) {
+        this.corner = null;
+        return 1;
+      }
+      if (x < c.xs) return c.f0;
+      if (x < c.xa) return c.f0 - (c.f0 - B) * smoother(clamp((x - c.xs) / (c.xa - c.xs), 0, 1));
+      if (x < c.xb) return B;
+      return B + (1 - B) * smoother((x - c.xb) / (c.xc - c.xb));
+    },
+    /** Where the van stops on its track: the end (at a place, a parking spot short of the door). */
+    driveEnd() {
+      return this.track.len - (this.arrive ? PERSP.parkShort : 0);
+    },
+    /** One step of the drive: the van follows its track (it brakes into a parking spot or a dead end), commits to the
+        way its lane goes at each stop line, slides between lanes or drives its turn; then the van and the camera are placed. */
+    driveStep(dt) {
+      const t = State().trip;
+      const van = this.van;
+      const end = this.driveEnd();
+      const left = end - van.s;
+      // and into a turn
+      const brake = (this.arrive || !this.onMain ? clamp(Math.sqrt(Math.max(0, left) / 260), 0, 1) : 1) * this.brakeAt();
+      this.curSpeed = this.speed * brake;
+      // through a turn on the route, s runs at the rate that keeps the van's own speed on its path
+      const s0 = van.s;
+      van.s = Math.min(end, van.s + (this.curSpeed * dt) / (this.turn && this.turn.main ? this.turn.k : 1));
+      this.odo += (van.s - s0) * (this.turn && this.turn.main ? this.turn.k : 1);
+      t.miles += DIFF.milesPerSecond * this.stats.speed * dt * brake;
+      while (this.onMain && !this.arrive && this.next < this.drive.decisions.length && van.s >= this.drive.decisions[this.next].stop) this.commit(this.drive.decisions[this.next]);
+      // a place at the end of its one road: past the last decision the road runs on to it, and the van parks there
+      if (this.onMain && !this.arrive && !this.turn && this.next >= this.drive.decisions.length) this.arrive = { t: 0, parked: false };
+      // lanes: the player slides, or the van drives its turn
+      van.vd = 0;
+      if (this.turn) {
+        const tn = this.turn;
+        const sl = tn.slide;
+        if (sl) {
+          // a slide still going at the stop line runs out at a steady rate, onto the path
+          const v1 = sl.v - Math.sign(sl.v) * Math.min(Math.abs(sl.v), sl.A * dt);
+          sl.e += ((sl.v + v1) / 2) * dt;
+          sl.v = v1;
+          van.vd = v1;
+          if (!v1) tn.slide = null;
+        }
+        if (tn.main && !this.arrive && van.s >= tn.s1) {
+          // back on the route's road, in the lane the turn ended in (the part of this step past the turn's end at the road's own rate)
+          van.s = tn.s1 + (van.s - tn.s1) * tn.k;
+          van.d = tn.d1;
+          this.cam.d = tn.cam1 + tn.d1;
+          this.lastTurn = tn;
+          this.turn = null;
+        }
+      } else {
+        let dir = 0;
+        if (this.keys.left) dir -= 1;
+        if (this.keys.right) dir += 1;
+        const [lo, hi] = this.laneRange();
+        const d0 = van.d;
+        let nd = van.d + dir * this.stats.laneSpeed * dt;
+        // a lane that ends (a bay after its stop line) eases the van back over instead of jumping it
+        const ease = Math.max(this.stats.laneSpeed, 320) * dt;
+        if (nd < lo) nd = Math.min(lo, Math.max(nd, d0) + ease);
+        if (nd > hi) nd = Math.max(hi, Math.min(nd, d0) - ease);
+        van.d = nd;
+        van.vd = dt > 0 ? (van.d - d0) / dt : 0;
+      }
+      this.placeVan(dt);
+      this.placeCam(dt);
+    },
+
+    /** One frame of the road, dt seconds (frame clamps it at MAX_FRAME_DT): the wreck's last moments or a wrong
+        turn's dark hold it; else it runs in steps of at most ROAD_STEP (roadStep), so a long frame on a slow machine
+        moves everything just as several quick ones would, walkers and shots included. */
+    update(dt) {
       if (this.gameOverAt != null) {
+        this.time += dt;
         this.gameOverAt -= dt;
-        this.shake *= 0.9;
+        this.shake *= Math.pow(0.9, dt * 60);
         this.updateParticles(dt);
         if (this.gameOverAt <= 0) {
           this.stop();
@@ -715,53 +1459,37 @@
           else this.retry();
         } else if (f.phase === "in" && f.t >= DIFF.fadeIn) this.fade = null;
         if (this.fade && this.fade.phase !== "in") {
+          this.time += dt;
           this.updateHud();
           return;
         }
       }
-
-      // drive: the van follows its track; it brakes into a parking spot or a dead end
-      const left = this.track.len - van.s;
-      const brake = this.arrive || !this.onMain ? clamp(Math.sqrt(Math.max(0, left) / 260), 0, 1) : 1;
-      this.curSpeed = this.speed * brake;
-      // through a turn on the route, s runs at the rate that keeps the van's own speed on its path
-      van.s = Math.min(this.track.len, van.s + (this.curSpeed * dt) / (this.turn && this.turn.main ? this.turn.k : 1));
-      t.miles += DIFF.milesPerSecond * stats.speed * dt * brake;
-      while (this.onMain && !this.arrive && this.next < this.drive.decisions.length && van.s >= this.drive.decisions[this.next].stop) this.commit(this.drive.decisions[this.next]);
-      // a place at the end of its one road: past the last decision the road runs on to it, and the van parks there
-      if (this.onMain && !this.arrive && !this.turn && this.next >= this.drive.decisions.length) this.arrive = { t: 0, parked: false };
-      // lanes: the player slides, or the van drives its turn
-      van.vd = 0;
-      if (this.turn) {
-        const tn = this.turn;
-        if (tn.main && !this.arrive && van.s >= tn.s1) {
-          // back on the route's road, in the lane the turn ended in
-          van.d = tn.d1;
-          this.cam.d = tn.cam1 + tn.d1;
-          this.turn = null;
-        }
-      } else {
-        let dir = 0;
-        if (this.keys.left) dir -= 1;
-        if (this.keys.right) dir += 1;
-        const [lo, hi] = this.laneRange();
-        const d0 = van.d;
-        let nd = van.d + dir * stats.laneSpeed * dt;
-        // a lane that ends (a bay after its stop line) eases the van back over instead of jumping it
-        const ease = Math.max(stats.laneSpeed, 320) * dt;
-        if (nd < lo) nd = Math.min(lo, Math.max(nd, d0) + ease);
-        if (nd > hi) nd = Math.max(hi, Math.min(nd, d0) - ease);
-        van.d = nd;
-        van.vd = dt > 0 ? (van.d - d0) / dt : 0;
+      const n = stepsIn(dt, ROAD_STEP);
+      for (let i = 0; i < n; i++) {
+        // (stopped: arrived or wrecked; a wrong turn's dark holds the rest of the frame)
+        if (!this.roadStep(dt / n)) return;
+        if (this.fade && this.fade.phase !== "in") break;
       }
-      this.placeVan(dt);
-      this.placeCam(Math.min(1, dt * 5));
+      this.updateHud();
+    },
+    /** One step of the road (update): the drive, the gun, new walkers, shots, walkers, crates, bodies and dust.
+        Returns false once the drive stops (arrived, or the van wrecked). */
+    roadStep(dt) {
+      const t = State().trip;
+      const stats = this.stats;
+      const van = this.van;
+      const St = Streets();
+      this.time += dt;
+      // drive, in steps of at most DRIVE_STEP (the same path and camera however the frames fall)
+      const steps = stepsIn(dt, DRIVE_STEP);
+      for (let i = 0; i < steps; i++) this.driveStep(dt / steps);
+      const end = this.driveEnd();
       if (this.fail) {
         this.fail.t += dt;
         if (this.fail.t >= DIFF.wrongDrive && !this.fade) this.startFade(this.fail.msg);
       }
       if (this.arrive) {
-        if (van.s >= this.track.len - 3) {
+        if (van.s >= end - 3) {
           if (!this.arrive.parked) {
             this.arrive.parked = true;
             this.banner(St.text(this.opts.to === "base" ? "home" : "here").toUpperCase(), 2500);
@@ -770,7 +1498,7 @@
           if (this.arrive.t >= DIFF.parkWait) {
             this.stop();
             if (this.hooks.onArrive) this.hooks.onArrive(this.opts.to);
-            return;
+            return false;
           }
         }
       }
@@ -778,60 +1506,75 @@
       // the gun
       van.hurt = Math.max(0, van.hurt - dt * 2);
       van.cooldown -= dt;
-      const vs = this.toScreen(van.x, van.y);
-      const rot = van.heading - this.cam.th;
-      // the mount sits h * 0.1 behind the van's middle (sprites.js van)
-      const ty = van.h * 0.1 * this.zoom;
-      const turret = { x: vs.x - Math.sin(rot) * ty, y: vs.y + Math.cos(rot) * ty };
-      if (this.pointer.seen) van.aim = Math.atan2(this.pointer.y - turret.y, this.pointer.x - turret.x);
-      let aim = van.aim;
-      const toWorldAngle = (a) => a + this.cam.th + Math.PI / 2;
-      if (State().settings.aimAssist) aim = this.assist(aim, turret);
+      // gun: where its mount is in the world, the world angle it points (at a walker clicked, led), its height and how
+      // a shot drops, that angle on the screen, and the barrels' spread (js/perspective.js aim)
+      const gun = ZSR.Persp.aim(this, State().settings.aimAssist, stats.bulletSpeed * PERSP.shot, stats.bullets);
       const firing = (this.pointer.down || this.keys.fire) && !this.fade;
       if (firing && van.cooldown <= 0) {
         van.cooldown = stats.fireInterval;
         const n = stats.bullets;
-        const tw = this.toWorld(turret.x, turret.y);
-        // bullets carry the van's own speed, so on screen (which rides with the van) they fly straight at the pointer
+        // bullets carry the van's own speed, so on screen (which rides with the van) they fly straight at the pointer;
+        // the camera has already moved this frame, so a new one starts a frame's carry back
         const cx = Math.cos(van.heading) * this.curSpeed;
         const cy = Math.sin(van.heading) * this.curSpeed;
+        const bs = stats.bulletSpeed * PERSP.shot;
         for (let i = 0; i < n; i++) {
-          const a = toWorldAngle(aim + (i - (n - 1) / 2) * ZSR.Upgrades.SPREAD);
-          this.bullets.push({ x: tw.x + Math.cos(a) * 24, y: tw.y + Math.sin(a) * 24, vx: Math.cos(a) * stats.bulletSpeed, vy: Math.sin(a) * stats.bulletSpeed, cx, cy, dmg: stats.damage });
+          // each barrel along its own line, the fan centred on the aim (closed in on a walker clicked: gun.spread)
+          const a = gun.angle + (i - (n - 1) / 2) * gun.spread;
+          const shot = { x: gun.x + Math.cos(a) * 24 - cx * dt, y: gun.y + Math.sin(a) * 24 - cy * dt, vx: Math.cos(a) * bs, vy: Math.sin(a) * bs, cx, cy, dmg: stats.damage };
+          // shots have a height: they leave the barrels and drop toward what the pointer is on
+          Object.assign(shot, { z: gun.z + gun.dz * 24, dz: gun.dz });
+          this.bullets.push(shot);
         }
         van.flash = 0.07;
         Audio().play("shoot");
       }
       van.flash = Math.max(0, van.flash - dt);
-      van.drawAim = aim;
+      van.drawAim = gun.screen;
+      van.aimW = gun.angle;
+      van.aimDz = gun.dz || 0;
+      van.aimSpread = gun.spread;
 
       // walkers keep coming down the destination's drive, until the van is nearly at the door
-      if (!this.arrive || this.track.len - van.s > DIFF.quietAtDoor) {
+      if (!this.arrive || this.track.len - van.s > DIFF.quietAtDoor * this.speed) {
         this.spawnTimer -= dt;
-        if (this.spawnTimer <= 0) {
-          this.spawnZombie();
-          this.spawnTimer = this.diff.interval * rand(0.7, 1.3);
-        }
+        // (never more than ROAD_WALKERS_MAX on the road at once: the next comes when one goes)
+        if (this.spawnTimer <= 0) this.spawnTimer = this.zombies.length < ROAD_WALKERS_MAX ? this.spawnGap() * this.spawnGroup() : this.spawnGap();
       }
       for (let i = this.bullets.length - 1; i >= 0; i--) {
         const b = this.bullets[i];
         b.x += (b.vx + b.cx) * dt;
         b.y += (b.vy + b.cy) * dt;
-        if (Math.hypot(b.x - van.x, b.y - van.y) > 1300) {
+        if (b.dz) b.z = Math.max(6, b.z + b.dz * Math.hypot(b.vx, b.vy) * dt);
+        if (Math.hypot(b.x - van.x, b.y - van.y) > PERSP.range) {
           this.bullets.splice(i, 1);
           continue;
         }
+        // the shot's whole step this frame (fast shots would skip past an edge), and only below the walker's head (a
+        // shot over it flies on)
+        const stepX = (b.vx + b.cx) * dt;
+        const stepY = (b.vy + b.cy) * dt;
         for (let j = 0; j < this.zombies.length; j++) {
           const z = this.zombies[j];
-          const dx = z.x - b.x;
-          const dy = z.y - b.y;
+          let dx = z.x - b.x;
+          let dy = z.y - b.y;
+          // nearest point of this frame's step (from where it was, t 0, to where it is, t 1)
+          const t = clamp((dx * stepX + dy * stepY) / (stepX * stepX + stepY * stepY || 1) + 1, 0, 1);
+          dx -= stepX * (t - 1);
+          dy -= stepY * (t - 1);
+          if (b.z != null && b.z > ZSR.Persp.walkerH(z) + 8) continue;
           if (dx * dx + dy * dy < (z.r + 6) * (z.r + 6)) {
             z.hp -= b.dmg;
             z.hit = 0.12;
             z.kx += b.vx * 0.08 * z.knock;
             z.ky += b.vy * 0.08 * z.knock;
-            this.sparks(b.x, b.y);
-            this.blood(z, b.x, b.y, b.vx, b.vy, z.hp <= 0);
+            // where it hit: the nearest point of the shot's step (b is at the step's end, up to a walker's width past
+            // it), at the shot's height
+            const hx = z.x - dx;
+            const hy = z.y - dy;
+            const hz = b.z != null ? b.z : undefined;
+            this.sparks(hx, hy, undefined, hz);
+            this.blood(z, hx, hy, b.vx, b.vy, z.hp <= 0, hz);
             this.meet(z);
             Audio().play("hit");
             if (z.hp <= 0) this.killZombie(j, Math.atan2(b.vy, b.vx));
@@ -841,15 +1584,18 @@
           }
         }
       }
-      // walkers home in on the van and keep up with it, as on the old scrolling road
+      // walkers home in on the van; beside and behind it they keep up with it (Game.carry), as on the old scrolling road
       const fx = Math.cos(van.heading);
       const fy = Math.sin(van.heading);
       const rx = -fy;
       const ry = fx;
-      const chase = this.curSpeed * DIFF.chase;
+      ZSR.Persp.setup(this);
       const SC = World().SCREAM;
+      const kd = Math.pow(0.85, dt * 60); // a knock dies away (0.85 a 60th of a second)
       for (let i = this.zombies.length - 1; i >= 0; i--) {
         const z = this.zombies[i];
+        const x0 = z.x; // where it stood (its legs go by the ground it covers)
+        const y0 = z.y;
         z.frenzyT = Math.max(0, z.frenzyT - dt);
         z.yell = Math.max(0, z.yell - dt);
         z.screamT = Math.max(0, z.screamT - dt);
@@ -857,10 +1603,18 @@
         const dy = van.y - z.y;
         const dist = Math.hypot(dx, dy) || 1;
         z.angle = Math.atan2(dy, dx);
-        // its own way at the van: none while it screams, faster in a frenzy (keeping up with the van is not its own)
+        // its own way at the van: none while it screams, faster in a frenzy (keeping up with the van is not its own);
+        // walkers far off and ahead of the van just walk in; beside and behind it they keep up with it
         const own = z.yell > 0 ? 0 : z.speed * (z.frenzyT > 0 ? SC.mult : 1);
-        let vx = (dx / dist) * own + fx * chase + z.kx;
-        let vy = (dy / dist) * own + fy * chase + z.ky;
+        z.carry = this.carry(z, own);
+        // (going round a building or along the river's bank: along it; out of the verge: onto the road, stepOut)
+        if (z.wall && (z.wall.t -= dt) <= 0) z.wall = null;
+        if (z.step && (z.step.t -= dt) <= 0) z.step = null;
+        const go = z.wall || z.step;
+        const wx = go ? go.x : dx / dist;
+        const wy = go ? go.y : dy / dist;
+        let vx = wx * own + fx * z.carry + z.kx;
+        let vy = wy * own + fy * z.carry + z.ky;
         for (let j = 0; j < this.zombies.length; j++) {
           if (i === j) continue;
           const o = this.zombies[j];
@@ -876,17 +1630,36 @@
         }
         z.x += vx * dt;
         z.y += vy * dt;
-        z.kx *= 0.85;
-        z.ky *= 0.85;
+        this.blockWalker(z);
+        z.vx = vx; // for the aim, which leads a walker
+        z.vy = vy;
+        z.kx *= kd;
+        z.ky *= kd;
         z.hit = Math.max(0, z.hit - dt);
         z.cool = Math.max(0, z.cool - dt);
-        // touching the van: in the van's own frame, an ellipse around its body
-        const lx = (z.x - van.x) * rx + (z.y - van.y) * ry;
-        const ly = (z.x - van.x) * fx + (z.y - van.y) * fy;
-        // (a lanky's long arms reach it from further off)
-        const nx = lx / (van.w / 2 + z.r * 0.8 + z.reach);
-        const ny = ly / (van.h / 2 + z.r * 0.8 + z.reach);
-        if (nx * nx + ny * ny < 1 && z.cool <= 0 && !this.fade) {
+        // touching the van, in the van's own frame: seen in 3D a walker must stay outside the van, so one inside its
+        // sides is put back out at the nearest side, where it presses against the van and hits it (a lanky's long
+        // arms reach it from further off). One the nose pushes on is shoved off to its nearer side (KEEP.shove) as
+        // the van drives on, so none rides the bumper: from there it keeps up beside the van
+        let lx = (z.x - van.x) * rx + (z.y - van.y) * ry;
+        let ly = (z.x - van.x) * fx + (z.y - van.y) * fy;
+        const ax = van.w / 2 + z.r * 0.85;
+        const ay = van.h / 2 + z.r * 0.85;
+        if (Math.abs(lx) < ax && Math.abs(ly) < ay) {
+          if (z.shove && ly > 0) {
+            lx += z.shove * Math.max(KEEP.shoveMin, KEEP.shove * (this.curSpeed || 0)) * dt;
+            if (Math.abs(lx) < ax) ly = ay;
+          } else if (ax - Math.abs(lx) < ay - Math.abs(ly)) lx = (lx < 0 ? -1 : 1) * ax;
+          else {
+            ly = (ly < 0 ? -1 : 1) * ay;
+            if (ly > 0) z.shove = lx < 0 ? -1 : 1; // on the nose: off to the nearer side
+          }
+          z.x = van.x + rx * lx + fx * ly;
+          z.y = van.y + ry * lx + fy * ly;
+        }
+        if (z.shove && (Math.abs(lx) >= ax || ly > ay + KEEP.bandMin)) z.shove = 0;
+        const touching = Math.abs(lx) < ax + 4 + z.reach && Math.abs(ly) < ay + 4 + z.reach;
+        if (touching && z.cool <= 0 && !this.fade) {
           z.cool = 1.0;
           z.hp -= stats.ram;
           const push = stats.ramKnock * z.knock;
@@ -903,12 +1676,16 @@
             continue;
           }
           this.hurtVan(z.dmg, z.x, z.y);
-          if (this.gameOverAt != null) return;
+          if (this.gameOverAt != null) return false;
         }
+        // its 3D figure: its heading, legs and pose, as on foot (js/perspective.js animate)
+        ZSR.Persp.animate(this, z, dt, x0, y0, touching);
         const zs = this.toScreen(z.x, z.y);
         z.vis = zs.x >= 0 && zs.x <= this.W && zs.y >= 0 && zs.y <= this.H;
         if (z.vis) this.meet(z);
-        if (zs.y > this.H + 120 || zs.x < -220 || zs.x > this.W + 220 || zs.y < -900) this.zombies.splice(i, 1);
+        // gone once well behind the camera, or far off to a side
+        const q = ZSR.Persp.local(z.x, z.y);
+        if (q.Y < -500 || Math.abs(q.X) > 4500) this.zombies.splice(i, 1);
       }
       // a screamer that sees the van close (on the screen, within SCREAM.spot tiles) screams, once a cooldown
       const spot = SC.spot * DIFF.pxPerTile;
@@ -929,44 +1706,14 @@
       for (let i = this.fallen.length - 1; i >= 0; i--) {
         const f = this.fallen[i];
         f.life -= dt;
+        if (f.hit > 0) f.hit = Math.max(0, f.hit - dt); // (the angled camera's body flashes on from the killing hit)
         if (f.life <= 0) this.fallen.splice(i, 1);
       }
       this.updateParticles(dt);
       this.shake *= Math.pow(0.02, dt);
-      this.updateHud();
+      return true;
     },
 
-    /** Aim assist. With a pointer: only a walker right under it (a near miss), so the shot still goes where the player points.
-        Keys only (no pointer yet): the walker closest to straight ahead. */
-    assist(aim, from) {
-      let best = null;
-      if (this.pointer.seen) {
-        let bestD = Infinity;
-        for (const z of this.zombies) {
-          const p = this.toScreen(z.x, z.y);
-          const d = Math.hypot(p.x - this.pointer.x, p.y - this.pointer.y);
-          if (d < z.r * this.zoom + 28 && d < bestD) {
-            bestD = d;
-            best = Math.atan2(p.y - from.y, p.x - from.x);
-          }
-        }
-        return best == null ? aim : best;
-      }
-      let bestDiff = 0.42;
-      for (const z of this.zombies) {
-        const p = this.toScreen(z.x, z.y);
-        const dx = p.x - from.x;
-        const dy = p.y - from.y;
-        if (dx * dx + dy * dy > 650 * 650) continue;
-        const a = Math.atan2(dy, dx);
-        const d = Math.abs(normAngle(a - aim));
-        if (d < bestDiff) {
-          bestDiff = d;
-          best = a;
-        }
-      }
-      return best == null ? aim : best;
-    },
     /** The walker at i goes down: off the road's list (no longer hit or counted), over the way `dir` (world angle;
         away from the van when left out) as a fading body, its kill and scrap on the trip. */
     killZombie(i, dir) {
@@ -976,7 +1723,10 @@
       this.dust(z.x, z.y, z.r);
       const max = fallSecs();
       const rot = (dir == null ? z.angle + Math.PI : dir) + rand(-0.3, 0.3);
-      this.fallen.push({ kind: "fallen", type: z.type, seed: z.seed, x: z.x, y: z.y, size: z.r, rot, life: max, max });
+      const f = { kind: "fallen", type: z.type, seed: z.seed, x: z.x, y: z.y, size: z.r, rot, life: max, max };
+      // its 3D body falls from its last step: its heading, legs, pose and the hit's flash
+      ZSR.Persp.fallFrom(z, f);
+      this.fallen.push(f);
       if (this.fallen.length > ROAD_FALLEN_MAX) this.fallen.shift();
       t.walkers += 1;
       t.scrap += z.scrap;
@@ -1014,13 +1764,20 @@
       }
     },
     updateParticles(dt) {
+      const drag = Math.pow(0.96, dt * 60); // (0.96 a 60th of a second)
       for (let i = this.particles.length - 1; i >= 0; i--) {
         const p = this.particles[i];
         p.x += (p.vx + (p.cx || 0)) * dt;
         p.y += (p.vy + (p.cy || 0)) * dt;
-        p.vx *= 0.96;
-        p.vy *= 0.96;
+        p.vx *= drag;
+        p.vy *= drag;
         p.life -= dt;
+        if (p.vz != null) {
+          // a drop in the air (the angled camera): it falls and lands where it comes down (as on foot)
+          p.vz -= ZSR.Persp.BLOOD_FALL * ZSR.Persp.TILE * dt;
+          p.z += p.vz * dt;
+          if (p.z <= 0) p.life = 0;
+        }
         if (p.life <= 0) {
           this.particles.splice(i, 1);
           // a drop of blood that lands leaves a splat on the road for a moment
@@ -1052,84 +1809,38 @@
     draw() {
       const ctx = this.ctx;
       const D = Draw();
-      const St = Streets();
-      const G = St.GEOM;
+      const P = ZSR.Persp;
       const van = this.van;
       if (!van || !this.drive) return;
+      const t0 = performance.now();
       const W = this.W;
       const H = this.H;
       const k = textSize();
       const theme = this.mods.night ? { grass: "#3f3e2c", asphalt: "#2b2c30" } : this.mods.fog ? { grass: "#67654a" } : null;
-      const viewR = Math.hypot(W, H) / this.zoom;
-      const center = this.toWorld(W / 2, H / 2);
-      const view = { x: center.x, y: center.y, r: viewR * 0.6 };
       ctx.save();
-      if (this.shake > 0.5) ctx.translate(rand(-this.shake, this.shake), rand(-this.shake, this.shake));
-      ctx.save();
-      ctx.translate(W / 2, this.anchorY);
-      ctx.scale(this.zoom, this.zoom);
-      ctx.rotate(this.viewTurn());
-      ctx.translate(-this.cam.x, -this.cam.y);
-      D.ground(ctx, view, theme);
-      D.cityRoads(ctx, this.drive, G, theme, view);
-      // lanes before each decision near the view (painted on dirt where the road has run out of paving)
-      const dirtTheme = Object.assign({}, theme || {}, { asphalt: "#7a5c3e" });
-      this.drive.decisions.forEach((d, i) => {
-        if (i < this.next - 1) return;
-        const a = St.at(this.drive.track, d.stop);
-        if (Math.hypot(a.x - view.x, a.y - view.y) > view.r + (d.stop - d.zoneStart) + 400) return;
-        ctx.save();
-        ctx.transform(-a.uy, a.ux, -a.ux, -a.uy, a.x, a.y);
-        D.laneZone(ctx, { len: d.stop - d.zoneStart, n: d.n, ourLeft: St.ourLeft(d.n), rels: d.lanes.map((w) => d.options[w].rel), ways: d.lanes }, G, this.onDirt(d) ? dirtTheme : theme);
-        ctx.restore();
-      });
-      this.drive.lots.forEach((l) => {
-        if (Math.hypot(l.qx - view.x, l.qy - view.y) < view.r + 800) D.lot(ctx, l, G, loc(l.node));
-      });
-      const drawFaced = (p, fn) => {
-        ctx.save();
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.face || 0);
-        fn();
-        ctx.restore();
-      };
-      const pr = view.r + 120;
-      const onScreen = (p, m) => {
-        const q = this.toScreen(p.x, p.y);
-        return q.x > -m && q.x < W + m && q.y > -m && q.y < H + m;
-      };
-      for (const p of this.props) if (Math.abs(p.x - view.x) < pr && Math.abs(p.y - view.y) < pr && onScreen(p, 90)) drawFaced(p, () => D.prop(ctx, Object.assign({}, p, { x: 0, y: 0 })));
-      this.drawCrowd(ctx, D, (c) => drawFaced(c, () => D.prop(ctx, { kind: "crate", x: 0, y: 0, t: c.t })));
-      ctx.restore();
-      // the van, upright on screen at its place on the road
-      const vs = this.toScreen(van.x, van.y);
-      const rot = van.heading - this.cam.th;
-      if (this.gameOverAt == null || this.gameOverAt > 0.9) {
-        ctx.save();
-        ctx.translate(vs.x, vs.y);
-        ctx.rotate(rot);
-        D.van(ctx, 0, 0, { upgrades: State().save.upgrades, aim: (van.drawAim == null ? van.aim : van.drawAim) - rot, t: this.time, hurt: van.hurt, flash: van.flash, scale: this.zoom, moving: !(this.arrive && this.arrive.parked) });
-        ctx.restore();
+      // a shake moves the whole view, the ground on the card too
+      if (this.shake > 0.5) {
+        this.shakeX = rand(-this.shake, this.shake);
+        this.shakeY = rand(-this.shake, this.shake);
       }
-      // names on the buildings, upright
-      this.drive.lots.forEach((l) => {
-        const v0 = G.half + G.shoulder + G.lotGap + 168;
-        const nx = -l.uy * l.side;
-        const ny = l.ux * l.side;
-        const p = this.toScreen(l.qx + nx * v0, l.qy + ny * v0);
-        if (p.x < -200 || p.x > W + 200 || p.y < -60 || p.y > H + 60) return;
-        D.nameBoard(ctx, p.x, p.y, State().isKnown(l.node) ? this.placeName(l.node).toUpperCase() : "?", Math.max(this.zoom, k * 0.8), false);
-      });
+      // the world through the angled camera (js/perspective.js: fog is its haze, thick and near), the names over it
+      P.drawWorld(this, ctx, theme);
+      P.drawNames(this, ctx, k);
       for (const b of this.bursts) {
         const p = this.toScreen(b.x, b.y);
         D.burst(ctx, Object.assign({}, b, { x: p.x, y: p.y }));
       }
-      if (this.mods.fog) D.fog(ctx, W, H, this.dpr, vs.x, vs.y, 300 * this.zoom);
-      if (this.mods.night) D.night(ctx, W, H, this.dpr, vs.x, vs.y, van.drawAim == null ? van.aim : van.drawAim);
+      if (this.mods.night) {
+        // the dark, but for the van's headlights and the gun's lamp; then a light that shines through it (the Water
+        // Tower's antenna light, js/perspective-buildings.js)
+        P.night(this, ctx);
+        if (ZSR.PerspBuild && ZSR.PerspBuild.drawLights) ZSR.PerspBuild.drawLights(ctx);
+      }
       ctx.restore();
       D.vignette(ctx, W, H);
       const signRects = this.drawSign(ctx, k);
-      if (signRects && this.gameOverAt == null) this.drawOverSign(ctx, signRects);
+      // walkers behind the sign drawn again on top of it, so it never hides one coming at the van
+      if (signRects && this.gameOverAt == null) P.drawOverSign(this, ctx, signRects);
       let dim = 0;
       if (this.fade) {
         const f = this.fade;
@@ -1140,6 +1851,8 @@
       this.hudFade(this.hud.top, 1 - dim);
       this.hudFade(this.hud.mini, (1 - dim) * this.miniAlpha());
       this.drawMinimap(k);
+      this.shakeX = this.shakeY = 0;
+      P.frameStats.ms = performance.now() - t0;
     },
     /** Is this decision's lane zone on the dirt part of a road (Frog Lane past its paving)? */
     onDirt(dec) {
@@ -1162,25 +1875,34 @@
         el.style.visibility = a < 0.02 ? "hidden" : "";
       }
     },
-    /** The minimap gives way (fades) while a parking lot by the road is under it, so the place it names can be seen. */
+    /** The minimap gives way (fades) while a place by the road that is really in view is under it, so the place it
+        names can be seen: its lot and building in front of the camera, short of the haze (MINI_HAZE), their box on the
+        screen over the map's. */
     miniAlpha() {
       const mb = this.hudRects().mini;
       let want = 1;
       if (mb && mb.width && this.onMain) {
+        const P = ZSR.Persp;
+        const B = ZSR.PerspBuild;
+        const k = P.setup(this);
         for (const l of this.drive.lots) {
-          // the lot, its building and its name board, as a box on the screen
-          let x0 = Infinity;
-          let y0 = Infinity;
-          let x1 = -Infinity;
-          let y1 = -Infinity;
-          for (const [cx, cy] of l.corners) {
-            const p = this.toScreen(cx, cy);
-            x0 = Math.min(x0, p.x);
-            y0 = Math.min(y0, p.y);
-            x1 = Math.max(x1, p.x);
-            y1 = Math.max(y1, p.y);
+          const rec = B && B.rec ? B.rec(l) : null;
+          // its middle (its building's, if it has one) in view and short of the haze
+          const mx = rec ? rec.cx : l.qx;
+          const my = rec ? rec.cy : l.qy;
+          const Y = (mx - k.ox) * k.Fx + (my - k.oy) * k.Fy;
+          if (Y < 0 || P.fadeAt(Y) < MINI_HAZE) continue;
+          // the lot on the ground, and its building's box (as tall as it stands), each as its outline on the screen
+          // (corners behind the camera left out): one over the map fades it
+          const lot = [];
+          for (const [x, y] of l.corners) lot.push(P.project(x, y, 0));
+          const box = [];
+          if (rec) {
+            const b = rec.bounds;
+            const f = rec.f;
+            for (const X of [b[0], b[1]]) for (const V of [b[2], b[3]]) for (const z of [0, b[5]]) box.push(P.project(f.ox + f.Rx * X + f.Nx * V, f.oy + f.Ry * X + f.Ny * V, z));
           }
-          if (x1 > mb.left && x0 < mb.right && y1 > mb.top && y0 < mb.bottom) {
+          if (hullHitsBox(lot, mb) || hullHitsBox(box, mb)) {
             want = 0.15;
             break;
           }
@@ -1202,7 +1924,8 @@
       const G = St.GEOM;
       const up = this.upcoming();
       let dec = null;
-      let after = 0;
+      let after = 0; // units past its stop line
+      let passed = false;
       if (up && this.van.s >= up.signAt) dec = up;
       else if (this.next > 0) {
         // just past a stop line, the last sign slides away (on a wrong road, s counts from that stop line)
@@ -1211,6 +1934,7 @@
         if (past >= 0 && past < 260) {
           dec = prev;
           after = past;
+          passed = true;
         }
       }
       if (!dec) return null;
@@ -1220,14 +1944,8 @@
       const top = rects.row + 10;
       // how far down something from x to x + w may reach: the screen's edge, or the trip bar or touch buttons under it
       const floor = (x, w) => rects.low.reduce((f, b) => (x < b.right && x + w > b.left ? Math.min(f, b.top - 8) : f), this.H - 8);
-      const left = this.W / 2 + (G.half + G.shoulder + 14 - this.cam.d) * this.zoom;
-      let maxW = this.W - left - 12;
-      let x0 = left;
-      if (maxW < 160) {
-        // a narrow screen: across the top, under the minimap
-        x0 = 8;
-        maxW = this.W - 16;
-      }
+      // the road's edges on the screen: the sign hangs right of where its right edge is beside it
+      const E = this.roadEdges();
       const mb = rects.mini && rects.mini.width ? rects.mini : null;
       const overMini = (x, w, y, h) => mb && x < mb.right + 6 && x + w > mb.left - 6 && y < mb.bottom + 6 && y + h > mb.top - 6;
       // as big as the text size asks, a size smaller while it would run off the bottom or a word past its edge
@@ -1235,20 +1953,57 @@
       let lay;
       let x;
       let y;
-      for (let sk = k0; ; sk -= 0.1) {
-        lay = D.layoutSign(ctx, sign, sk, maxW);
-        x = Math.min(x0, this.W - lay.w - 12);
-        y = overMini(x, lay.w, top, lay.h) ? mb.bottom + 10 : top;
-        if ((lay.fits && y + lay.h + 6 * lay.k <= floor(x, lay.w)) || sk <= Math.max(0.75, k0 * 0.6)) break;
+      let maxW;
+      const spot = this.signSpot;
+      if (passed && spot && spot.dec === dec && spot.k === k) {
+        // a sign just passed keeps where it stood as the van crossed the stop line (and slides off from there): the
+        // road's edge swings across the screen as the camera turns after the van, and the sign must not follow it
+        ({ lay, x, y, maxW } = spot);
+      } else {
+        // a narrow window (SIGN_ROOM: too little room right of its middle) has the sign across the top, under the
+        // minimap. Only the window decides that, never where the road's edge is this frame: while the lagging camera
+        // swings through a bend the far edge comes across the room for a moment, and the sign would jump across the
+        // screen and back. Then it stands at the right, at least SIGN_ROOM wide, over that edge for the moment
+        // (walkers are drawn again over it: Persp.drawOverSign)
+        const narrow = this.W < SIGN_NARROW_W || this.W / 2 - SIGN_GAP - 12 < SIGN_ROOM;
+        // the same sign as last frame glides after the road's edge at SIGN_GLIDE window widths a second at most, and
+        // stays where it is while no edge is beside it: through a bend the edge leaves the sign's rows and comes back
+        // far to the right, and the sign would leap
+        const held = !passed && spot && spot.dec === dec && spot.k === k && !narrow ? spot : null;
+        const step = held ? SIGN_GLIDE * this.W * clamp(this.time - held.t, 0, 0.1) : 0;
+        let band = 150 * k0; // the rows the sign covers, from the top (the road widens down the screen): as laid out
+        for (let pass = 0; pass < 3; pass++) {
+          const re = E.side(1, top, top + band);
+          // (never left of the window's middle: an edge left of it leaves the right half clear of the road)
+          let x0 = re == null ? (held ? held.x : this.W / 2 + SIGN_GAP) : Math.max(this.W / 2, re) + SIGN_GAP;
+          if (held) x0 = held.x + clamp(x0 - held.x, -step, step);
+          maxW = Math.max(SIGN_ROOM, this.W - x0 - 12);
+          if (narrow) {
+            x0 = 8;
+            maxW = this.W - 16;
+          }
+          for (let sk = k0; ; sk -= 0.1) {
+            lay = D.layoutSign(ctx, sign, sk, maxW);
+            x = Math.min(x0, this.W - lay.w - 12);
+            y = overMini(x, lay.w, top, lay.h) ? mb.bottom + 10 : top;
+            if ((lay.fits && y + lay.h + 6 * lay.k <= floor(x, lay.w)) || sk <= Math.max(0.75, k0 * 0.6)) break;
+          }
+          const need = y + lay.h + 6 * lay.k - top;
+          if (need <= band + 1) break;
+          band = need;
+        }
+        y = Math.max(8, Math.min(y, this.H - 8 - lay.h - 6 * lay.k)); // never off the screen, even on one that has no room
+        if (!passed) this.signSpot = { dec, k, lay, x, y, maxW, t: this.time };
       }
-      y = Math.max(8, Math.min(y, this.H - 8 - lay.h - 6 * lay.k)); // never off the screen, even on one that has no room
-      // slide in from above as it comes into view, slide down and fade once passed
+      // slide in from above as it comes into view; once passed, slide off to the right (away from the road: sliding
+      // down the screen, as the old flat road's did, it would cross the road ahead) and fade
       const lead = (dec.zoneStart - dec.signAt) || 1;
       const into = clamp((this.van.s - dec.signAt) / Math.min(lead, 0.5 * this.speed), 0, 1);
-      const yy = after ? y + after * this.zoom * 0.9 : y - (1 - smooth(into)) * (lay.h + y + 20);
+      const yy = after ? y : y - (1 - smooth(into)) * (lay.h + y + 20);
+      const xx = x + after * SIGN_AWAY;
       const alpha = after ? 1 - after / 260 : 1;
-      D.roadSign(ctx, x, yy, sign, lay, alpha);
-      const boxes = [{ x, y: yy, w: lay.w + 6 * lay.k, h: lay.h + 6 * lay.k }];
+      D.roadSign(ctx, xx, yy, sign, lay, alpha);
+      const boxes = [{ x: xx, y: yy, w: lay.w + 6 * lay.k, h: lay.h + 6 * lay.k }];
       // until the van has taken a way right, the sign carries a line on how lanes work: under it, or on the
       // grass left of the road (above or below the minimap), a size smaller where it would not fit
       if (!this.hintDone && !this.fade) {
@@ -1258,18 +2013,25 @@
         const spots = [];
         const nw = Math.max(lay.w, Math.min(maxW, 300 * lay.k));
         const ux = Math.min(x, this.W - nw - 12);
-        spots.push({ x: ux, y: y + lay.h + 8 * lay.k + 4, w: nw, to: floor(ux, nw) });
-        const lw = this.W / 2 - (G.half + G.shoulder + 14 + this.cam.d) * this.zoom - 20;
+        // (under the sign, lined up with it, or as far right of it as the road's right edge beside the note needs: the
+        // road widens down the screen)
+        spots.push({ x: ux, y: y + lay.h + 8 * lay.k + 4, w: nw, ride: true });
+        // on the grass left of the road: out to where its left edge is (oncoming lanes and all) beside the note
+        const le = E.side(-1, top, top + 150 * nk0);
+        const lw = (le == null ? this.W / 2 : le) - SIGN_GAP - 10;
         if (lw >= 160) {
           const besideMini = mb && mb.left < 10 + lw + 6 && mb.right > 4;
-          if (!besideMini) spots.push({ x: 10, y: top, w: lw, to: floor(10, lw) });
+          const to = (y0) => Math.min(y0, E.row(-1, 10 + lw + SIGN_GAP) - 4);
+          if (!besideMini) spots.push({ x: 10, y: top, w: lw, to: to(floor(10, lw)) });
           else {
-            spots.push({ x: 10, y: mb.bottom + 10, w: lw, to: floor(10, lw) });
-            spots.push({ x: 10, y: top, w: lw, to: mb.top - 10 });
+            spots.push({ x: 10, y: mb.bottom + 10, w: lw, to: to(floor(10, lw)) });
+            spots.push({ x: 10, y: top, w: lw, to: to(mb.top - 10) });
           }
         }
         // last, a small screen: along the bottom behind the van (left of the sign when the sign reaches down there)
-        const behind = this.toScreen(this.van.x, this.van.y).y + 75 * this.zoom;
+        const vf = [Math.cos(this.van.heading), Math.sin(this.van.heading)];
+        const rear = ZSR.Persp.project(this.van.x - (vf[0] * this.van.h) / 2, this.van.y - (vf[1] * this.van.h) / 2, 0);
+        const behind = (rear ? rear.y : this.toScreen(this.van.x, this.van.y).y) + 12;
         const bw = y + lay.h + 6 * lay.k > behind ? x - 20 : Math.min(this.W - 20, 760);
         spots.push({ x: 10, y: behind, w: bw, to: floor(10, bw), up: true });
         let fit = null;
@@ -1277,61 +2039,89 @@
           for (const sp of spots) {
             if (sp.w < 160) continue;
             const h = D.signNote(ctx, 0, 0, sp.w, text, nk, 1, false);
-            if (sp.y + h <= sp.to) {
-              fit = { sp, nk, y: sp.up ? sp.to - h : sp.y };
+            let sx = sp.x;
+            let to = sp.to;
+            if (sp.ride) {
+              const e = E.side(1, sp.y, sp.y + h + 4);
+              sx = Math.max(sp.x, e == null ? sp.x : e + SIGN_GAP);
+              if (sx > this.W - sp.w - 12) continue;
+              to = floor(sx, sp.w);
+            }
+            if (sp.y + h <= to) {
+              fit = { sp, nk, x: sx, y: sp.up ? to - h : sp.y };
               break;
             }
           }
         }
         if (fit) {
           const sp = fit.sp;
-          const ny = sp === spots[0] ? yy + lay.h + 8 * lay.k + 4 : fit.y; // under the sign it rides along with it
-          boxes.push({ x: sp.x, y: ny, w: sp.w + 4, h: D.signNote(ctx, sp.x, ny, sp.w, text, fit.nk, alpha) + 4 });
+          const ny = sp.ride ? yy + lay.h + 8 * lay.k + 4 : fit.y; // under the sign it rides along with it
+          boxes.push({ x: fit.x, y: ny, w: sp.w + 4, h: D.signNote(ctx, fit.x, ny, sp.w, text, fit.nk, alpha) + 4 });
         }
       }
       return boxes;
     },
-    /** The angle the road view turns the world by: the van's way is up the screen. */
-    viewTurn() {
-      return -Math.PI / 2 - this.cam.th;
+    /** The road's outer edges on the screen (the sign and the lane hint keep off it), as the camera sees them: the
+        van's road (the route's track, or the wrong road it took) from just behind the van out to the haze, shoulders
+        and oncoming lanes included, each edge a line of screen points every EDGE_STEP. Past a stop line the van has
+        not crossed it runs on straight (where the sign stands must not tell which way is right). side(+1 right | -1 left, ya,
+        yb): how far out that edge comes across rows ya..yb (null when it is not on them); row(side, x): the highest row
+        from which, down the screen, that edge is past x (out to the right of it for +1, to the left for -1; the
+        screen's height when never). */
+    roadEdges() {
+      const St = Streets();
+      const G = St.GEOM;
+      const P = ZSR.Persp;
+      const k = P.setup(this);
+      const off = G.half + G.shoulder;
+      const L = { 1: [], "-1": [] };
+      const s1 = this.van.s + k.far;
+      const dec = this.upcoming();
+      const stop = dec ? dec.stop : this.track.len;
+      const a0 = St.at(this.track, Math.min(stop, this.track.len));
+      for (let s = Math.max(0, this.van.s - 200); s <= s1 + EDGE_STEP - 1e-6; s += EDGE_STEP) {
+        const q = Math.min(s, s1);
+        let a = a0;
+        if (q < stop) a = St.at(this.track, q);
+        else if (!dec) break;
+        else a = { x: a0.x + a0.ux * (q - stop), y: a0.y + a0.uy * (q - stop), ux: a0.ux, uy: a0.uy };
+        for (const sd of [1, -1]) {
+          const p = P.project(a.x - a.uy * off * sd, a.y + a.ux * off * sd, 0);
+          if (p) L[sd].push(p);
+        }
+      }
+      const H = this.H;
+      return {
+        side(sd, ya, yb) {
+          let best = null;
+          const pts = L[sd];
+          const take = (x) => (best = best == null ? x : sd > 0 ? Math.max(best, x) : Math.min(best, x));
+          for (let i = 0; i + 1 < pts.length; i++) {
+            const a = pts[i];
+            const b = pts[i + 1];
+            const lo = Math.max(ya, Math.min(a.y, b.y));
+            const hi = Math.min(yb, Math.max(a.y, b.y));
+            if (lo > hi) continue;
+            const xAt = (y) => (b.y === a.y ? a.x : a.x + ((b.x - a.x) * (y - a.y)) / (b.y - a.y));
+            take(xAt(lo));
+            take(xAt(hi));
+          }
+          return best;
+        },
+        row(sd, x) {
+          let y = H;
+          const pts = L[sd];
+          const past = (p) => (sd > 0 ? p.x >= x : p.x <= x);
+          for (let i = 0; i < pts.length; i++) {
+            const a = pts[i];
+            if (past(a)) y = Math.min(y, a.y);
+            const b = pts[i + 1];
+            if (b && past(a) !== past(b)) y = Math.min(y, a.y + ((b.y - a.y) * (x - a.x)) / (b.x - a.x || 1e-9));
+          }
+          return y;
+        },
+      };
     },
-    /** The walkers, the downed, the crates, the rounds and the particles (world space), in layers. What lies on
-        the road comes first, under every body: blood splats, the pools and shadows of the downed, each walker's
-        shadow (or its frenzy's glow). Then the bodies (the downed, the crates, the walkers), the rounds, and what
-        flies over them. crate(c) draws one crate. */
-    drawCrowd(ctx, D, crate) {
-      for (const p of this.particles) if (p.splat) D.particle(ctx, p);
-      for (const f of this.fallen) D.zombieDown(ctx, f, "ground");
-      for (const z of this.zombies) D.zombieShadow(ctx, z, this.time);
-      for (const f of this.fallen) D.zombieDown(ctx, f, "body");
-      for (const c of this.crates) crate(c);
-      const turn = this.viewTurn();
-      for (const z of this.zombies) D.zombie(ctx, z, this.time, true, turn);
-      for (const b of this.bullets) D.bullet(ctx, b);
-      for (const p of this.particles) if (!p.splat) D.particle(ctx, p);
-    },
-    /** Walkers behind the sign are drawn again on top of it, so the sign never hides one coming at the van
-        (their bodies only: a shadow or a frenzy's glow over the sign would tint its words). */
-    drawOverSign(ctx, rects) {
-      const D = Draw();
-      const hit = this.zombies.filter((z) => {
-        const p = this.toScreen(z.x, z.y);
-        const m = (D.zombieExtent ? D.zombieExtent(z) : z.r * 1.6) * this.zoom + z.reach * this.zoom;
-        return rects.some((r) => p.x > r.x - m && p.x < r.x + r.w + m && p.y > r.y - m && p.y < r.y + r.h + m);
-      });
-      if (!hit.length) return;
-      ctx.save();
-      ctx.beginPath();
-      rects.forEach((r) => ctx.rect(r.x, r.y, r.w, r.h));
-      ctx.clip();
-      ctx.translate(this.W / 2, this.anchorY);
-      ctx.scale(this.zoom, this.zoom);
-      ctx.rotate(this.viewTurn());
-      ctx.translate(-this.cam.x, -this.cam.y);
-      for (const z of hit) D.zombie(ctx, z, this.time, true, this.viewTurn());
-      ctx.restore();
-    },
-
     /** Where the HUD's top row and the minimap sit; measured again only when the screen or the text size changes.
         row: the bottom of the row's boxes (the signs and the minimap go under it); low: the boxes along the bottom. */
     hudRects() {
@@ -1340,12 +2130,16 @@
         this.rectKey = key;
         const top = this.hud.top ? this.hud.top.getBoundingClientRect() : null;
         let row = 60;
+        const boxes = []; // the top row's own boxes (the angled camera keeps its name boards out of them)
         if (top) {
           // the minimap hangs on the left just under the HUD's top row, off our lanes
           row = top.top;
           for (const el of this.hud.top.children) {
             const r = el.getBoundingClientRect();
-            if (r.height) row = Math.max(row, r.bottom);
+            if (r.height) {
+              row = Math.max(row, r.bottom);
+              boxes.push({ left: r.left, right: r.right, top: r.top, bottom: r.bottom });
+            }
           }
           this.hud.root.style.setProperty("--mini-top", Math.round(row + 10) + "px");
         }
@@ -1356,7 +2150,7 @@
           const r = el.getBoundingClientRect();
           if (r.height) low.push({ left: r.left, right: r.right, top: r.top });
         }
-        this.rects = { top, row, low, mini: this.hud.mini ? this.hud.mini.getBoundingClientRect() : null };
+        this.rects = { top, row, low, boxes, mini: this.hud.mini ? this.hud.mini.getBoundingClientRect() : null };
       }
       return this.rects;
     },
@@ -1530,10 +2324,10 @@
         }
         this.flag(ctx, q.x, off ? q.y : q.y - 12 * ik, k, off ? Math.atan2(p.y - q.y, p.x - q.x) : null);
       });
-      // the van: an arrow at the true place, pointing the way it faces
+      // the van: an arrow at the true place, pointing the way it faces (up: the map turns with the van, not with the
+      // camera, which lags it through a turn)
       ctx.save();
       ctx.translate(cx, cy);
-      ctx.rotate(this.van.heading - this.cam.th);
       ctx.beginPath();
       ctx.moveTo(0, -9 * k);
       ctx.lineTo(7 * k, 7 * k);
@@ -1603,40 +2397,117 @@
       ctx.restore();
     },
 
+    /** The title screen's picture (js/main.js, its loop asks every frame) and the garage's preview of the van
+        (js/base.js, once): the van in these upgrades on the angled road, two walkers coming, taking turns through
+        every kind in the facts every SHOWCASE_SECS (the still preview, t 0: the first two). A still scene through the
+        road's camera (js/perspective.js showcase), drawn again only when what it shows changes. */
     showcase(canvas, upgrades, t) {
-      const ctx = canvas.getContext("2d");
-      const W = canvas.width;
-      const H = canvas.height;
-      const D = Draw();
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      const roadW = Math.min(W * 0.6, 220);
-      D.road(ctx, W, H, (W - roadW) / 2, roadW, (t || 0) * 160, null);
-      D.prop(ctx, { kind: "wreck", x: W * 0.12, y: H * 0.85, rot: 0.5, color: "#3f4a55" });
-      D.prop(ctx, { kind: "tree", x: W * 0.88, y: H * 0.15, size: 26, seed: 5 });
-      // two walkers, taking turns through every kind in the facts every SHOWCASE_SECS (the still preview: the first two)
-      const T = World().WALKER_TYPES;
-      const ids = Object.keys(T);
+      const ids = Object.keys(World().WALKER_TYPES);
       const turn = Math.floor((t || 0) / SHOWCASE_SECS);
-      const into = (t || 0) - turn * SHOWCASE_SECS;
-      [
-        { x: W * 0.16, y: H * 0.3 + Math.sin((t || 0) * 2) * 6, angle: 0.3, phase: 0 },
-        { x: W * 0.86, y: H * 0.58, angle: Math.PI - 0.4, phase: 2 },
-      ].forEach((spot, k) => {
-        const type = ids[(turn + k) % ids.length];
-        // a screamer screams for a moment of its turn
-        const yell = T[type].scream && into > 1.2 && into < 1.2 + World().SCREAM.yell ? 1.2 + World().SCREAM.yell - into : 0;
-        D.zombie(ctx, Object.assign({ type, seed: turn + k, r: T[type].road.r * 0.9, hp: 1, maxHp: 1, hit: 0, yell, frenzyT: 0 }, spot), t || 0);
-      });
-      D.van(ctx, W / 2, H * 0.55, { upgrades, aim: -Math.PI / 2 + Math.sin((t || 0) * 1.3) * 0.5, t: t || 0, scale: Math.min(1, H / 150) });
-      D.vignette(ctx, W, H);
+      const kinds = [ids[turn % ids.length], ids[(turn + 1) % ids.length]];
+      return ZSR.Persp.showcase(canvas, { upgrades, kinds, seed: turn });
     },
 
     DIFF,
+    PERSP,
+    KEEP,
+    ROAD_DANGER,
+    ROAD_LATE_DAY,
+    ROAD_WALKERS_MAX,
+    roadRow,
+    DRIVE_STEP,
+    ROAD_STEP,
+    MAX_FRAME_DT,
+    stepsIn,
     ROAD_PARTICLE_CAP,
     ROAD_FALLEN_MAX,
     SPARK_ARMOR,
     fallSecs,
   };
+  /** Does the outline round these screen points (their convex hull; null points left out) overlap box { left, top,
+      right, bottom }? Separating axes: the box's two and each hull edge's normal. */
+  function hullHitsBox(pts, b) {
+    const P = pts.filter(Boolean).sort((p, q) => p.x - q.x || p.y - q.y);
+    if (!P.length) return false;
+    const cross = (o, a, c) => (a.x - o.x) * (c.y - o.y) - (a.y - o.y) * (c.x - o.x);
+    const lo = [];
+    const hi = [];
+    for (const p of P) {
+      while (lo.length >= 2 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop();
+      lo.push(p);
+    }
+    for (let i = P.length - 1; i >= 0; i--) {
+      const p = P[i];
+      while (hi.length >= 2 && cross(hi[hi.length - 2], hi[hi.length - 1], p) <= 0) hi.pop();
+      hi.push(p);
+    }
+    const hull = lo.slice(0, -1).concat(hi.slice(0, -1));
+    const H = hull.length ? hull : P;
+    const corners = [[b.left, b.top], [b.right, b.top], [b.right, b.bottom], [b.left, b.bottom]];
+    const apart = (nx, ny) => {
+      let a0 = Infinity;
+      let a1 = -Infinity;
+      for (const p of H) {
+        const d = p.x * nx + p.y * ny;
+        a0 = Math.min(a0, d);
+        a1 = Math.max(a1, d);
+      }
+      let b0 = Infinity;
+      let b1 = -Infinity;
+      for (const [x, y] of corners) {
+        const d = x * nx + y * ny;
+        b0 = Math.min(b0, d);
+        b1 = Math.max(b1, d);
+      }
+      return a1 < b0 || b1 < a0;
+    };
+    if (apart(1, 0) || apart(0, 1)) return false;
+    for (let i = 0; i < H.length && H.length > 1; i++) {
+      const a = H[i];
+      const c = H[(i + 1) % H.length];
+      if (apart(c.y - a.y, a.x - c.x)) return false;
+    }
+    return true;
+  }
+  /** The road's walkers for a trip at this danger on this day: its ROAD_DANGER row, its `early` numbers on day 1 going
+      over to its own by ROAD_LATE_DAY. */
+  function roadRow(danger, day) {
+    const row = ROAD_DANGER[clamp(Math.round(danger) || 0, 0, ROAD_DANGER.length - 1)];
+    const w = clamp((ROAD_LATE_DAY - (day || 1)) / (ROAD_LATE_DAY - 1), 0, 1);
+    const out = {};
+    for (const k of Object.keys(row)) {
+      if (k === "early") continue;
+      const a = row[k];
+      const e = row.early && row.early[k] != null ? row.early[k] : a;
+      out[k] = Array.isArray(a) ? a.map((x, i) => x + (e[i] - x) * w) : a + (e - a) * w;
+    }
+    return out;
+  }
+  /** Does the segment from (x0, y0) to (x1, y1) pass within pad of box b (Game.solidLots: middle, unit axes, half
+      sizes)? In the box's own frame, the slab test against the box grown by pad. */
+  function segHitsBox(x0, y0, x1, y1, b, pad) {
+    const ax = x0 - b.cx;
+    const ay = y0 - b.cy;
+    const u0 = ax * b.ux + ay * b.uy;
+    const v0 = ax * b.vx + ay * b.vy;
+    const du = (x1 - x0) * b.ux + (y1 - y0) * b.uy;
+    const dv = (x1 - x0) * b.vx + (y1 - y0) * b.vy;
+    let t0 = 0;
+    let t1 = 1;
+    for (const [p, d, h] of [[u0, du, b.hu + pad], [v0, dv, b.hv + pad]]) {
+      if (Math.abs(d) < 1e-9) {
+        if (Math.abs(p) >= h) return false;
+        continue;
+      }
+      let a = (-h - p) / d;
+      let c = (h - p) / d;
+      if (a > c) [a, c] = [c, a];
+      t0 = Math.max(t0, a);
+      t1 = Math.min(t1, c);
+      if (t0 > t1) return false;
+    }
+    return true;
+  }
   function distSeg(px, py, x0, y0, x1, y1) {
     const dx = x1 - x0;
     const dy = y1 - y0;
