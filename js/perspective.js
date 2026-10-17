@@ -127,7 +127,9 @@
   // asked for a beam "in between" the old flat road's (about 520 ahead) and the angled drive's first one (to the haze,
   // 3600): reach is about halfway.
   const NIGHT_BEAM = { reach: 2050, beamFrom: 40, beamHalf: 26, beamOpen: 0.34, beamFull: 0.3, glow: 170, glow0: 30, lamp: 360, lampHalf: 0.22 };
-  const NIGHT_DARK = "rgba(8,10,20,0.88)";
+  // (the old overlay filled its layer at 0.88 every frame without clearing it, so outside the lights it built up to
+  // black within a few frames: the night as it has always looked is this, fully dark there)
+  const NIGHT_DARK = "rgb(8,10,20)";
   // the title screen's still scene (showcase): the camera's zoom for a 200 px tall picture, where the van sits up it,
   // and where its walkers stand ([X right of the road's middle, Y ahead of the van])
   const SHOW = { zoom: 0.5, vanAt: 0.76, walkers: [[-125, 215], [245, 285]] };
