@@ -143,6 +143,10 @@
   // asked for a beam "in between" the old flat road's (about 520 ahead) and the angled drive's first one (to the haze,
   // 3600): reach is about halfway.
   const NIGHT_BEAM = { reach: 2050, beamFrom: 40, beamHalf: 26, beamOpen: 0.34, beamFull: 0.3, glow: 170, glow0: 30, lamp: 360, lampHalf: 0.22 };
+  // ... the beam's and the lamp's sides fade out over rings laid round them (no hard edge across a storefront or a
+  // barrier): ring i is grow x i wider than the beam there (and min x i units more, for its narrow near end) and the
+  // lamp lampGrow x i rad wider each side, lit this much of what it rings
+  const NIGHT_FEATHER = { lit: [0.6, 0.3, 0.12], grow: 0.07, min: 7, lampGrow: 0.035 };
   // (the old overlay filled its layer at 0.88 every frame without clearing it, so outside the lights it built up to
   // black within a few frames: the night as it has always looked is this, fully dark there)
   const NIGHT_DARK = "rgb(8,10,20)";
@@ -2085,11 +2089,29 @@
         c.fillStyle = NIGHT_DARK;
         c.fillRect(0, 0, k.W, k.H);
         c.globalCompositeOperation = "destination-out";
-        const fan = (pts) => {
-          c.beginPath();
+        const path = (pts) => {
           pts.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
           c.closePath();
+        };
+        // a shape (its points for ring 0, the shape itself, and each ring round it): the shape, then each ring between
+        // it and the last, lit less and less (the rings do not overlap, so nothing is lit twice)
+        const feathered = (ring) => {
+          let inner = ring(0);
+          if (!ok(inner)) return;
+          c.beginPath();
+          path(inner);
           c.fill();
+          NIGHT_FEATHER.lit.forEach((lit, i) => {
+            const outer = ring(i + 1);
+            if (!ok(outer)) return;
+            c.globalAlpha = lit;
+            c.beginPath();
+            path(outer);
+            path(inner);
+            c.fill("evenodd");
+            c.globalAlpha = 1;
+            inner = outer;
+          });
         };
         if (vs && ok(glow)) {
           // a soft disc on the ground round the van: its glow0 to glow, as the ground's own scale squeezes it
@@ -2119,14 +2141,24 @@
             lg.addColorStop(t, "rgba(0,0,0," + (0.95 * (1 - u * u * (3 - 2 * u))).toFixed(3) + ")");
           }
           c.fillStyle = lg;
-          fan(beam);
+          const F = NIGHT_FEATHER;
+          feathered((i) => (i ? [at(d0, -(N.beamHalf * (1 + i * F.grow) + i * F.min)), at(d1, -(w1 * (1 + i * F.grow) + i * F.min)), at(d1, w1 * (1 + i * F.grow) + i * F.min), at(d0, N.beamHalf * (1 + i * F.grow) + i * F.min)] : beam));
         }
         if (ok(lamp) && lampTip) {
           const lg = c.createLinearGradient(lamp[0].x, lamp[0].y, lampTip.x, lampTip.y);
           lg.addColorStop(0, "rgba(0,0,0,0.9)");
           lg.addColorStop(1, "rgba(0,0,0,0)");
           c.fillStyle = lg;
-          fan(lamp);
+          feathered((i) => {
+            if (!i) return lamp;
+            const half = N.lampHalf + i * NIGHT_FEATHER.lampGrow;
+            const pts = [lamp[0]];
+            for (let j = 0; j <= 6; j++) {
+              const a = aim - half + (j / 6) * 2 * half;
+              pts.push(gp(mx + Math.cos(a) * N.lamp, my + Math.sin(a) * N.lamp));
+            }
+            return pts;
+          });
         }
         c.globalCompositeOperation = "source-over";
       } else S.reused++;
