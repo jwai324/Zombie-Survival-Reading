@@ -120,8 +120,8 @@ const PAGE = [...fs.readFileSync(path.join(ROOT, "index.html"), "utf8").matchAll
 // file split off into another story file, story-quests2.js say, is loaded and checked here too)
 const FACTS = PAGE.filter((f) => f === "layouts.js" || f === "world.js" || /^story[\w-]*\.js$/.test(f));
 if (!["layouts.js", "world.js", "story-crew.js"].every((f) => FACTS.includes(f))) throw new Error("validate-crew: index.html does not load layouts.js, world.js and story-crew.js (" + FACTS.join(", ") + ")");
-const STATE = FACTS.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js"]);
-const ENGINE = STATE.concat(["audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "houseart.js", "riverart.js", "crewart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js"]);
+const STATE = FACTS.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "xoverstate.js"]);
+const ENGINE = STATE.concat(["audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "houseart.js", "riverart.js", "crewart.js", "crossart.js", "streets.js", "interior.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "robodog.js", "river.js"]);
 
 /** A fresh game in its own sandbox, scripts in the page's order.
     opts: engine (the first-person engine too, with stand-in art and Interior.init), content (the six reading
@@ -1370,6 +1370,10 @@ group("real facts: every topic can be told, in order", () => {
   const g = loadGame();
   const { S, W } = g;
   if (!Object.keys(W.CREW || {}).length) return;
+  // in each universe (docs/UNIVERSES.md): off tells the base topics only; a universe adds its own after them
+  ["off"].concat(Object.keys(W.UNIVERSES || {})).forEach((u) => {
+  const seen = (x) => !x.universe || x.universe === u;
+  S.settings.universe = u;
   S.newGame(1, "Topics");
   // every gate open: late in the game, full trust, every quest done, every note read, every room built, the dog home
   S.save.day = lateDay(W);
@@ -1387,10 +1391,10 @@ group("real facts: every topic can be told, in order", () => {
       told.push(t.id);
       S.markTopic(id, t.id);
     }
-    const afters = (W.QUESTS || []).filter((q) => q.giver === id).map((q) => q.id);
-    const want = afters.concat((T.topics || []).map((t) => t.id));
+    const afters = (W.QUESTS || []).filter((q) => q.giver === id && seen(q)).map((q) => q.id);
+    const want = afters.concat((T.topics || []).filter(seen).map((t) => t.id));
     real.topics += want.length;
-    ok(same(told, want), `topics: ${id} told ${told.join(", ")}; want the quest payoffs then every topic in order: ${want.join(", ")}`);
+    ok(same(told, want), `topics (${u}): ${id} told ${told.join(", ")}; want the quest payoffs then every topic in order: ${want.join(", ")}`);
     if ((T.moods || []).length) {
       const moods = [];
       for (let i = 0; i < T.moods.length; i++) {
@@ -1400,6 +1404,7 @@ group("real facts: every topic can be told, in order", () => {
       }
       ok(same(moods, T.moods.map((m) => m.id)) && S.nextTopic(id).id === T.moods[0].id, `topics: ${id}'s moods do not take turns (${moods})`);
     }
+  });
   });
 });
 
@@ -1438,8 +1443,13 @@ group("real facts: the dog's topics wait for its hand-in (the thank-you and the 
 group("real facts: every story quest through the state API", () => {
   const g = loadGame();
   const { S, W } = g;
-  const QUESTS = W.QUESTS || [];
-  if (!QUESTS.length) return;
+  if (!(W.QUESTS || []).length) return;
+  real.quests = 0;
+  // in each universe: the base quests, and that universe's own track beside them (docs/UNIVERSES.md)
+  ["off"].concat(Object.keys(W.UNIVERSES || {})).forEach((u) => {
+  const QUESTS = (W.QUESTS || []).filter((q) => !q.universe || q.universe === u);
+  const track = (q) => q.universe || null;
+  S.settings.universe = u;
   S.newGame(1, "Quests");
   S.save.day = lateDay(W);
   W.LOCATIONS.forEach((l) => !S.save.known.includes(l.id) && S.save.known.push(l.id));
@@ -1453,8 +1463,8 @@ group("real facts: every story quest through the state API", () => {
       const o = S.offer(id);
       if (!o || o.kind !== "quest") return;
       const q = o.def;
-      const order = QUESTS.filter((x) => x.giver === id).map((x) => x.id);
-      ok(order.indexOf(q.id) === done.filter((d) => d.startsWith(id + ":")).length, `quests: ${id} offered ${q.id} out of order`);
+      const order = QUESTS.filter((x) => x.giver === id && track(x) === track(q)).map((x) => x.id);
+      ok(order.indexOf(q.id) === done.filter((d) => d.startsWith(id + ":") && order.includes(d.slice(id.length + 1))).length, `quests: ${id} offered ${q.id} out of order`);
       ok(!S.questsAt(q.at).some((x) => x.id === q.id), `quests: ${q.id} waits in ${q.at} before it is accepted`);
       S.accept(id, o);
       ok(S.questsAt(q.at).some((x) => x.id === q.id), `quests: ${q.id} does not wait in ${q.at} once accepted`);
@@ -1473,13 +1483,15 @@ group("real facts: every story quest through the state API", () => {
     });
     if (!moved) break;
   }
-  real.quests = done.length;
-  ok(done.length === QUESTS.length, `quests: only ${done.length} of ${QUESTS.length} story quests could be offered and done (stuck: ${QUESTS.filter((q) => !done.includes(q.giver + ":" + q.id)).map((q) => q.id).join(", ")})`);
+  real.quests = Math.max(real.quests, done.length);
+  ok(done.length === QUESTS.length, `quests (${u}): only ${done.length} of ${QUESTS.length} story quests could be offered and done (stuck: ${QUESTS.filter((q) => !done.includes(q.giver + ":" + q.id)).map((q) => q.id).join(", ")})`);
+  if (u !== "off") return; // the errands below once, with the base game
   // afterwards: errands
   S.crewIds().forEach((id) => {
     const list = (W.ERRANDS || {})[id] || [];
     const o = S.offer(id);
     if (list.length) ok(o && o.kind === "errand" && o.count >= list[0].count[0] && o.count <= list[0].count[1], `errands: ${id} offers no errand once the story quests are done`);
+  });
   });
 });
 
@@ -1557,6 +1569,8 @@ group("real facts: quests wait for their days, errands for the first quest", () 
   // each giver's quests in order: not on the day before its `when.day`, then on that day
   QUESTS.forEach((q) => {
     const day = (q.when && q.when.day) || 1;
+    S.settings.universe = q.universe || "off"; // a crossover quest is offered only in its own universe
+    if (q.when && q.when.room) S.save.rooms[q.when.room] = Math.max(S.save.rooms[q.when.room] || 0, q.when.level || 1);
     if (day > 1) {
       S.save.day = day - 1;
       const o = S.offer(q.giver);
@@ -1573,7 +1587,7 @@ group("real facts: quests wait for their days, errands for the first quest", () 
   S2.newGame(1, "Errands");
   S2.save.day = 2;
   S2.crewIds().forEach((id) => {
-    const first = QUESTS.find((q) => q.giver === id);
+    const first = QUESTS.find((q) => q.giver === id && !q.universe);
     if (!first) return;
     const o = S2.offer(id);
     ok(o && o.kind === "quest" && o.def.id === first.id, `errands: ${id}'s first story quest is not offered on day 2`);
@@ -1586,6 +1600,94 @@ group("real facts: quests wait for their days, errands for the first quest", () 
     if (((W.ERRANDS || {})[id] || []).some((x) => S2.crewItemStocked(x.item))) ok(e && e.kind === "errand" && S2.crewItemStocked(e.def.item), `errands: ${id} asks for no errand, or one no known shelf stocks, after the first story quest (${JSON.stringify(e && e.def.id)})`);
     S2.save.day = 2;
   });
+});
+
+/* ---------- The crossover universes (docs/UNIVERSES.md, js/xoverstate.js) ---------- */
+group("real facts: the crossover universes add on top, and off adds nothing", () => {
+  const g = loadGame();
+  const { S, W } = g;
+  const U = W.UNIVERSES || {};
+  if (!Object.keys(U).length) return;
+  // off: no crossover topic, quest, ledger line or broadcast, ever
+  S.settings.universe = "off";
+  S.newGame(1, "Off");
+  ok(S.universe() === "off", "universe: a new save is not off by default");
+  S.save.rooms.radio = 1;
+  S.save.day = lateDay(W);
+  W.LOCATIONS.forEach((l) => !S.save.known.includes(l.id) && S.save.known.push(l.id));
+  S.crewIds().forEach((id) => S.addTrust(id, 1000));
+  for (let i = 0; i < 12; i++) tripHome(S);
+  ok(!S.save.log.some((e) => e.x), "universe off: a day page carries a crossover line or broadcast");
+  S.crewIds().forEach((id) => {
+    for (let i = 0; i < 60; i++) {
+      const t = S.nextTopic(id);
+      if (!t || t.mood) break;
+      const def = ((W.CREW_TALK[id] || {}).topics || []).find((x) => x.id === t.id);
+      ok(!(def && def.universe), `universe off: ${id} told the crossover topic ${t.id}`);
+      S.markTopic(id, t.id);
+    }
+    const o = S.offer(id);
+    ok(!(o && o.def && o.def.universe), `universe off: ${id} offered the crossover quest ${o && o.def && o.def.id}`);
+  });
+  ok(!S.roboHome(), "universe off: the robot dog is home");
+  // each universe: its ledger lines in order every journalEvery-th page, its broadcasts every radioEvery-th radio day
+  Object.entries(U).forEach(([u, def]) => {
+    S.settings.universe = u;
+    S.newGame(1, u);
+    S.save.rooms.radio = 1;
+    const J = (def.journal || []).length;
+    const R = (def.radio || []).length;
+    const days = Math.max(J * (def.journalEvery || 1), R * (def.radioEvery || 1)) + 6;
+    for (let i = 0; i < days; i++) tripHome(S);
+    const js = S.save.log.map((e) => e.x && e.x.journal).filter((x) => x != null);
+    const rs = S.save.log.map((e) => e.x && e.x.radio).filter((x) => x != null);
+    ok(same(js, [...Array(J).keys()]), `universe ${u}: the ledger lines came ${JSON.stringify(js)}, not each once in order`);
+    ok(same(rs.slice(0, R), [...Array(R).keys()]), `universe ${u}: the broadcasts came ${JSON.stringify(rs)}, not in order first`);
+    ok(S.save.log.every((e) => !e.x || e.x.u === u), `universe ${u}: a day page names another universe`);
+    ok(S.save.log.every((e) => !(e.x && e.x.radio != null) || e.radio != null), `universe ${u}: a broadcast came on a day the radio heard nothing`);
+    // the words resolve at every level
+    for (let lv = 1; lv <= 6; lv++) {
+      S.settings.level = lv;
+      [["journal", J], ["radio", R]].forEach(([kind, n]) => {
+        for (let i = 0; i < n; i++) ok(g.ZSR.xoverText(u, kind, i).text.length > 20, `universe ${u}: ${kind} ${i} has no words at level ${lv}`);
+      });
+    }
+    S.settings.level = 3;
+    // switching away and back keeps its count
+    const st = JSON.stringify(S.save.xover[u]);
+    S.settings.universe = "off";
+    tripHome(S);
+    S.settings.universe = u;
+    ok(JSON.stringify(S.save.xover[u]) === st, `universe ${u}: a day with the universe off changed its progress`);
+  });
+  // the robot dog (a universe with robotQuest): home once its quest is done; bites shut it down; Tomas fixes it for scrap
+  Object.entries(U).filter(([, d]) => d.robotQuest).forEach(([u, def]) => {
+    S.settings.universe = u;
+    S.newGame(1, "Robo");
+    ok(!S.roboHome(), `robot dog (${u}): home before ${def.robotQuest} is done`);
+    S.save.crew.quests[def.robotQuest] = { state: "done", day: 1, doneDay: 1 };
+    ok(S.roboHome() && S.roboOn() && S.roboHp() === W.ROBO.hp, `robot dog (${u}): not home and whole once ${def.robotQuest} is done`);
+    let bites = 0;
+    while (!S.roboBite(10) && bites < 100) bites++;
+    ok(bites + 1 === Math.ceil(W.ROBO.hp / 10) && !S.roboOn(), `robot dog (${u}): shut down after ${bites + 1} bites of 10 (health ${W.ROBO.hp})`);
+    S.save.scrap = W.ROBO.repairScrap - 1;
+    ok(S.roboRepair() === -1 && !S.roboOn(), `robot dog (${u}): fixed without the scrap`);
+    S.save.scrap = W.ROBO.repairScrap + 5;
+    ok(S.roboRepair() === W.ROBO.repairScrap && S.roboOn() && S.save.scrap === 5 && S.roboHp() === W.ROBO.hp, `robot dog (${u}): not fixed for ${W.ROBO.repairScrap} scrap`);
+    const json = JSON.stringify(S.save);
+    S.commit();
+    S.loadSave(1);
+    ok(JSON.stringify(S.save.xover) === JSON.stringify(JSON.parse(json).xover), `robot dog (${u}): the save did not keep it`);
+    S.settings.universe = "off";
+    ok(!S.roboHome(), `robot dog: home with the universe off`);
+  });
+  // an old save without the field loads with it
+  S.settings.universe = "off";
+  S.newGame(2, "Old");
+  delete S.save.xover;
+  S.commit();
+  S.loadSave(2);
+  ok(S.save.xover && Object.keys(U).every((u) => S.save.xover[u] && S.save.xover[u].journal === 0) && S.save.xover.robo, "universe: an old save without xover did not get one");
 });
 
 /* =====================================================================================================
@@ -2697,6 +2799,7 @@ simGroup("building", "buildings: a story object (or the dog) waits only once its
   const QS = W.QUESTS || [];
   const qScale = Z.CREW_ART.scale.qObj;
   QS.forEach((q) => {
+    S.settings.universe = q.universe || "off"; // a crossover quest waits only in its own universe (docs/UNIVERSES.md)
     S.newGame(1, "Sim");
     const loc = placeOf(W, q.at);
     if (!S.isKnown(q.at)) S.save.known.push(q.at);
@@ -2732,6 +2835,7 @@ simGroup("building", "buildings: walking onto every story object, a death, a sec
   const { I, S, W, ZSR: Z } = g;
   const nothing = (Z.textAt((t) => (t.recap && t.recap.haul ? t.recap : null)) || {}).nothing;
   (W.QUESTS || []).filter((q) => q.kind !== "dog").forEach((q) => {
+    S.settings.universe = q.universe || "off";
     S.newGame(1, "Sim");
     accept(S, q);
     const loc = placeOf(W, q.at);
@@ -2946,13 +3050,81 @@ simGroup("building", "buildings: a gun never lies on a story quest's spot, and k
   ok(!bad.length, `guns: ${bad.slice(0, 6).join("; ")}`);
 });
 
+/* ---------- Rivet, the robot dog (js/robodog.js) ---------- */
+simGroup("yard", "robot dog: follows you, zaps a walker (it slows), takes bites, shuts down, Tomas fixes it at home", () => {
+  const g = engineGame(211);
+  const { I, S, W } = g;
+  const def = Object.values(W.UNIVERSES || {}).find((d) => d.robotQuest);
+  const u = Object.keys(W.UNIVERSES || {}).find((k) => W.UNIVERSES[k] === def);
+  if (!def) return;
+  S.settings.universe = u;
+  homeYard(g, (S2) => (S2.save.crew.quests[def.robotQuest] = { state: "done", day: 1, doneDay: 1 }));
+  ok(I.robo && I.props.includes(I.robo.prop) && I.robo.prop.img, "robot dog: not in the yard once its quest is done");
+  // it follows
+  const p = I.player;
+  standAt(g, p.x, p.y, p.x + 1, p.y);
+  I.robo.x = p.x;
+  I.robo.y = p.y;
+  const start = { x: p.x, y: p.y };
+  const open = openGround(g);
+  if (open) standAt(g, open.x, open.y, open.x + 1, open.y);
+  stepFor(g, 4);
+  const d = Math.hypot(I.robo.x - I.player.x, I.robo.y - I.player.y);
+  ok(d < 3, `robot dog: ${d.toFixed(2)} tiles from you after 4 s (from ${JSON.stringify(start)})`);
+  // a zap: an awake walker in range is hurt a little and slowed
+  const z = I.spawnWalkerAhead("walker");
+  if (ok(z, "robot dog: no room for a walker")) {
+    z.awake = true;
+    z.speed = 0.001; // it stays where it is
+    I.robo.x = z.x - 1.5 * Math.cos(I.player.a);
+    I.robo.y = z.y - 1.5 * Math.sin(I.player.a);
+    I.robo.zapT = 0;
+    const hp = z.hp;
+    I.roboUpdate(0.05);
+    ok(z.hp === hp - W.ROBO.zapDamage && z.slowT > 0 && z.slowMul === W.ROBO.slow, `robot dog: the zap did ${hp - z.hp} harm, slowT ${z.slowT}`);
+    // bites: the walker reaches it, you are out of its reach
+    I.robo.x = z.x + 0.4;
+    I.robo.y = z.y;
+    I.player.x = z.x + 6;
+    I.player.y = z.y;
+    let n = 0;
+    for (let i = 0; i < 40 && S.roboOn(); i++) {
+      z.cool = 0;
+      I.roboBites(I.robo);
+      n++;
+    }
+    ok(!S.roboOn() && I.robo.pose === "off", `robot dog: not shut down after ${n} bites (health ${S.roboHp()})`);
+    ok(g.toasts.some((t) => /shut down/.test(t.text)), "robot dog: no toast when it shut down");
+    I.walkers.length = 0;
+  }
+  // home: Tomas fixes it for scrap
+  S.save.scrap = 100;
+  const words = I.roboHomeWords();
+  ok(S.roboOn() && S.save.scrap === 100 - W.ROBO.repairScrap && /fixed/.test(words), `robot dog: not fixed at home (${words}; scrap ${S.save.scrap})`);
+  // switched off: gone from the yard
+  S.settings.universe = "off";
+  I.roboUpdate(0.05);
+  ok(!I.robo, "robot dog: still in the yard with the universe off");
+  S.settings.universe = u;
+  // a building: it comes in beside you
+  S.startTrip();
+  enterBuilding(g, W.LOCATIONS.find((l) => l.id === "gasngo"));
+  ok(I.robo && Math.hypot(I.robo.x - I.player.x, I.robo.y - I.player.y) < 3, "robot dog: not beside you in a building");
+  S.trip = null;
+  S.settings.universe = "off";
+});
+
 /* ---------- A whole play-through ---------- */
-simGroup("loop", "play-through: every story quest, the errands, the perks and the save, day by day", () => {
-  const g = engineGame(301);
+/* Played once in each crossover universe (docs/UNIVERSES.md): its quests are the base ones plus that universe's own
+   track, so the base quests are played in every run. A room a quest waits for (when.room) is built from the start. */
+const playThrough = (universe, seed) => () => {
+  const g = engineGame(seed);
   const { I, S, W, ZSR: Z } = g;
-  const QS = W.QUESTS || [];
+  S.settings.universe = universe;
+  const QS = (W.QUESTS || []).filter((q) => !q.universe || q.universe === universe);
   if (!QS.length) return;
   S.newGame(1, "Loop");
+  QS.forEach((q) => q.when && q.when.room && (S.save.rooms[q.when.room] = Math.max(S.save.rooms[q.when.room] || 0, q.when.level || 1)));
   const ids = S.crewIds();
   const toFind = W.LOCATIONS.filter((l) => l.type !== "base").map((l) => l.id);
   const PERKS = Object.keys(S.crewFx());
@@ -3076,7 +3248,7 @@ simGroup("loop", "play-through: every story quest, the errands, the perks and th
     }
   }
   const done = QS.filter((q) => S.questState(q.id) === "done").length;
-  ok(done === QS.length, `play-through: ${done} of ${QS.length} story quests done in ${counts.days} days (open: ${QS.filter((q) => S.questState(q.id) !== "done").map((q) => q.id + " " + S.questState(q.id))})`);
+  ok(done === QS.length, `play-through (${universe}): ${done} of ${QS.length} story quests done in ${counts.days} days (open: ${QS.filter((q) => S.questState(q.id) !== "done").map((q) => q.id + " " + S.questState(q.id))})`);
   ok(!S.dogHome() || S.dogName(), "play-through: the dog came home but was never named");
   ok(counts.errands > 0 && counts.perks > 0, `play-through: no errands (${counts.errands}) or perks (${counts.perks}) along the way`);
   const fx = S.crewFx();
@@ -3088,7 +3260,11 @@ simGroup("loop", "play-through: every story quest, the errands, the perks and th
   sim.loopDays = counts.days;
   sim.loopQuests = done;
   sim.loopErrands = counts.errands;
-});
+};
+const UNIS = Object.keys(loadGame().W.UNIVERSES || {});
+(UNIS.length ? UNIS : ["off"]).forEach((u, i) =>
+  simGroup("loop", `play-through (${u}): every story quest, the errands, the perks and the save, day by day`, playThrough(u, 301 + i))
+);
 
 if (errors.length) {
   errors.forEach((e) => console.log("ERROR " + e));

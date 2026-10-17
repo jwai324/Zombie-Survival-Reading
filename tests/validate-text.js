@@ -357,6 +357,35 @@ function checkHome(ctx, t, spec) {
   });
 }
 
+/* The crossover universes (docs/UNIVERSES.md): T.universe[u] in js/content/levelN-<u>.js holds June's ledger lines
+   (`journal`, a few lines under a day's page: the tag range, a little longer) and the broadcasts (`radio`, the lot
+   range), one per WORLD.UNIVERSES[u] entry, in order. A broadcast names its speaker, as the base radio's do. The
+   crew's words for a universe's topics and quests live in T.crew with the rest (checkCrew). */
+const XJ_SCALE = 1.6; // a crossover ledger line runs this times an item tag's length
+function checkUniverses(ctx, t, spec) {
+  const U = WORLD.UNIVERSES || {};
+  const T = t.universe || {};
+  Object.keys(T).forEach((u) => { if (!U[u]) err(`${ctx} universe.${u}`, "not a universe in WORLD.UNIVERSES (js/story-<universe>.js)"); });
+  Object.entries(U).forEach(([u, def]) => {
+    [["journal", spec.tag, XJ_SCALE], ["radio", spec.lot, 1]].forEach(([kind, range, scale]) => {
+      const facts = def[kind] || [];
+      const list = T[u] && T[u][kind];
+      const kctx = `${ctx} universe.${u}.${kind}`;
+      if (!facts.length) return;
+      if (!Array.isArray(list) || list.length !== facts.length) return err(kctx, `needs ${facts.length} entries (js/content/level${spec.n}-${u}.js), has ${Array.isArray(list) ? list.length : 0}`);
+      list.forEach((e, i) => {
+        if (!e || !isStr(e.title)) err(`${kctx}[${i}]`, "title missing");
+        checkText(`${kctx}[${i}]`, e && e.text, spec, scale, facts[i].facts, range);
+        if (/\b(blood|bloody|gore|guts|corpse|dead body)\b/i.test((e && e.text) || "")) err(`${kctx}[${i}]`, "no gore in reading text");
+        if (kind === "radio" && facts[i].voice && e && e.text) {
+          const v = facts[i].voice.split(" ").pop();
+          if (!e.text.includes(v) && !(e.title || "").includes(v)) err(`${kctx}[${i}]`, `the speaker (${facts[i].voice}) is never named`);
+        }
+      });
+    });
+  });
+}
+
 /* ---------- The crew at home base: T.crew in js/content/levelN-crew.js (docs/CREW.md "Words") ----------
    Facts: CREW_TALK, CREW_TIPS, CREW_REPORTS, ERRANDS (js/story-crew.js), QUESTS and DOG (js/story-quests.js).
    Every text is checked like any other (checkText: its facts' numbers, people, places and placeholders), plus the
@@ -1018,6 +1047,7 @@ function checkLevel(n) {
     });
   });
   checkHome(ctx, t, spec);
+  checkUniverses(ctx, t, Object.assign({ n }, spec));
   checkTutorial(ctx, n, t);
   const crew = checkCrew(ctx, n, t, spec, crewMode);
   if (crew) console.log(`level ${n}: crew ${crew.written} of ${crew.total} texts written, ${crew.words} words (${crewMode === "off" ? "not checked until they are written" : crewMode})`);

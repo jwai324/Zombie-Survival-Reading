@@ -493,7 +493,8 @@
       sel.value = String(S().stars(id));
       const card = h("div", { class: "god-card" }, h("div", { class: "god-row" }, [h("strong", {}, ZSR.crewName(id)), h("label", {}, ["Trust ", sel])]));
       (W().QUESTS || [])
-        .filter((q) => q && q.giver === id)
+        // a crossover universe's quests only while it is on (Settings: Universe; docs/UNIVERSES.md)
+        .filter((q) => q && q.giver === id && (!q.universe || q.universe === (S().universe ? S().universe() : "off")))
         .forEach((q) => {
           const st = S().questState(q.id) || (S().god.offer[id] === q.id ? "offered" : "not taken");
           card.appendChild(

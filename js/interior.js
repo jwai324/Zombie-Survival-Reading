@@ -1219,6 +1219,7 @@
       z.cool = Math.max(0, z.cool - dt);
       z.hurtT = Math.max(0, z.hurtT - dt);
       z.trapT = Math.max(0, (z.trapT || 0) - dt);
+      if (z.slowT > 0) z.slowT -= dt; // a robot dog's zap slows it a while (js/robodog.js)
       // running is loud: sprinting players are noticed from farther away
       const hear = this.keys.shift && this.player.moving ? HEAR_SPRINT : HEAR;
       if (!z.awake && (dist < hear || (this.time - this.noise < 1.5 && dist < this.noiseR) || z.hurtT > 0)) z.awake = true;
@@ -1239,7 +1240,7 @@
         return "scream";
       }
       // a scream's frenzy: faster for a while (never the tutorial's practice walker)
-      const speed = z.speed * (z.frenzyT > 0 && !z.practice ? SC.mult : 1);
+      const speed = z.speed * (z.frenzyT > 0 && !z.practice ? SC.mult : 1) * (z.slowT > 0 ? z.slowMul || 1 : 1);
       // a bite past a plain walker's reach (a lanky's long arms) needs a clear line: never round a wall's corner
       const reach0 = WT().walker.reach;
       const reach = z.reach != null ? z.reach : reach0;
@@ -1720,6 +1721,10 @@
         grad.addColorStop(1, heavy ? "#b06a3a" : "#c9d6df");
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, Wd, H / 2 + 1);
+        // a crossover universe's sky over the yard (Mira-9, or the shipyard ring: js/crossart.js); the walls, the
+        // cabin's roof and the trees drawn next cover it where they stand
+        const uni = this.mode === "yard" && ZSR.Crossover && State().universeDef ? State().universeDef() : null;
+        if (uni && uni.sky) ZSR.Crossover.sky(ctx, Wd, H, p.a, uni.sky, heavy);
       }
       const dirX = Math.cos(p.a);
       const dirY = Math.sin(p.a);

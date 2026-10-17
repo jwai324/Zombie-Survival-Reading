@@ -2337,3 +2337,28 @@ Judgment calls (cheap to change):
 - **The real dog stays** in the Leo universe; the Bolt-model robot dog is a second companion.
 - **The Fortitude sky** is the old Indestructium shipyard ring with Mars as a bright point, both
   from Book 1.
+
+### Built (2026-10-17): judgment calls
+
+The design is `docs/UNIVERSES.md` ("How it works, as built"). Cheap to change:
+
+- **Pacing by the universe's own count, not the day.** A ledger line on every second day page, a broadcast on
+  every third day the radio hears the news, each in order. A player who switches a universe on late starts at its
+  first line, and switching away and back loses nothing. Crew topics and quest days still use the game's day.
+- **A crossover quest is its giver's own track** beside the base one (one open on each). The base quest is offered
+  first when both could be. Errands still start after the base quest 1.
+- **Pip's Fortitude track waits for the Radio room** (`pip-fort-1` when: room radio), since it decodes what comes
+  on the radio.
+- **The Fortitude keepsakes are Pip's quest objects**, not extra stash loot: the same pickup, tag and backpack
+  path the base quests use, so nothing new can break the stashes, and the decoding gives each a reason.
+- **The robot dog is named Rivet** (by Tomas, "because it is held together with them"), after Koen's Bolt. Its
+  numbers: 60 health, a 6-harm zap every 1.8 s within 4.5 tiles that halves a walker's speed for 1.6 s, 20 scrap
+  to fix (`WORLD.ROBO`). It never zaps or is bitten by the tutorial's practice walker. It does not shelter: it stays
+  with you in a wave. Shut down, it stays home on trips.
+- **Tomas fixes Rivet without a walk**: when you arrive home or a wave is cleared, if the base has the scrap, told
+  in that moment's toast. No new crew report (that would need words at six levels for one line).
+- **The sky is in the yard only** (not on the road or at the river). Mira-9 sits to the northeast; the ring is
+  highest to the north, Mars low to the southeast.
+- **Settings line, toasts and the slot summary are one level of English**, like the game's other engine strings.
+- **God mode lists a universe's quests only while it is on**, so a quest can never be jumped to where its object
+  would not show.

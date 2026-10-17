@@ -18,8 +18,16 @@
     return out;
   }
   const roster = () => W().CREW || {};
-  const questList = () => (Array.isArray(W().QUESTS) ? W().QUESTS : []);
-  const questDef = (qid) => questList().find((q) => q.id === qid) || null;
+  /* The crossover universes (docs/UNIVERSES.md): a topic or quest with `universe` is told or offered only while that
+     universe is on (State.universe, js/xoverstate.js; without it, as in the tests that load no crossover state, off).
+     A crossover quest is its giver's own track: one open on it beside one open on the base track. */
+  const universeOn = () => (ZSR.State && ZSR.State.universe ? ZSR.State.universe() : "off");
+  const inUniverse = (x) => !!x && (!x.universe || x.universe === universeOn());
+  const trackOf = (q) => (q && q.universe) || null;
+  const allQuests = () => (Array.isArray(W().QUESTS) ? W().QUESTS : []);
+  const questList = () => allQuests().filter(inUniverse);
+  // any quest by id, whatever universe is on: a save keeps the state of every quest it ever opened
+  const questDef = (qid) => allQuests().find((q) => q.id === qid) || null;
   const errandsOf = (id) => ((W().ERRANDS || {})[id] || []).filter(Boolean);
   function errandDef(eid) {
     for (const list of Object.values(W().ERRANDS || {})) {
@@ -321,7 +329,7 @@
       const after = questList().find((q) => q.giver === id && this.questState(q.id) === "done" && !c.heard.includes(q.id) && ZSR.crewText("quest", q.id, "after"));
       if (after) return { id: after.id, mood: false, quest: after.id };
       const T = talkOf(id);
-      const topic = (T.topics || []).find((t) => t && !c.heard.includes(t.id) && this.crewWhen(t.when, id));
+      const topic = (T.topics || []).find((t) => t && inUniverse(t) && !c.heard.includes(t.id) && this.crewWhen(t.when, id));
       if (topic) return { id: topic.id, mood: false };
       const moods = (T.moods || []).filter(Boolean);
       if (!moods.length) return null;
@@ -490,11 +498,12 @@
     handInReady(id) {
       return this.requests(id).some((r) => this.requestReady(r));
     },
-    /** The giver's next story quest in order, whatever its gates: null while the one before is open, or when all are done. */
-    nextStoryQuest(id) {
+    /** The giver's next story quest in order on a track (null: the base quests; a universe id: that universe's
+        own), whatever its gates: null while the one before is open, or when all are done. */
+    nextStoryQuest(id, track) {
       const c = this.crewSave();
       for (const q of questList()) {
-        if (q.giver !== id) continue;
+        if (q.giver !== id || trackOf(q) !== (track || null)) continue;
         const st = c.quests[q.id];
         if (!st) return q;
         if (st.state !== "done") return null;
@@ -555,9 +564,13 @@
       // god mode (js/god.js): a story quest picked in the menu is offered now, whatever its gates and order
       const forced = this.god && this.god.offer[id] && questDef(this.god.offer[id]);
       if (forced && forced.giver === id && !this.questState(forced.id)) return { kind: "quest", def: forced };
-      const q = this.nextStoryQuest(id);
-      const open = this.requests(id).filter((r) => r.kind === "quest").length;
-      if (q && open < this.crewPerKind() && this.crewWhen(q.when, id) && this.isKnown(q.at)) return { kind: "quest", def: q };
+      // the base track first, then the universe's own (each holds its own open quest: requestsPerCrew per track)
+      const tracks = [null].concat(universeOn() !== "off" ? [universeOn()] : []);
+      for (const tr of tracks) {
+        const q = this.nextStoryQuest(id, tr);
+        const open = this.requests(id).filter((r) => r.kind === "quest" && trackOf(r.def) === tr).length;
+        if (q && open < this.crewPerKind() && this.crewWhen(q.when, id) && this.isKnown(q.at)) return { kind: "quest", def: q };
+      }
       return this.errandOffer(id);
     },
     /** Open requests of each kind a crew member may have (CREW_RULES.requestsPerCrew, at least 1). */
@@ -581,7 +594,7 @@
     },
     /** Errands start once this crew member's first story quest is handed in (at once if they give none). */
     crewErrandsOpen(id) {
-      const first = questList().find((q) => q.giver === id);
+      const first = questList().find((q) => q.giver === id && !trackOf(q));
       return !first || this.questState(first.id) === "done";
     },
     /** The next errand in turn whose item a known place stocks, with a shelf pickup in its days that no other

@@ -1,6 +1,6 @@
 # Crossover Universes: Captain Leo and the Fortitude Chronicles
 
-**Status: agreed design, not built (owner, 2026-10-17).** The owner's decisions are logged in
+**Status: built (2026-10-17).** The owner's decisions are logged in
 `DESIGN.md` under "Owner decisions: crossover universes". Sources: the `jwai324/Captain-Leo` repo
 (the book text in `project/Captain_Leo.txt`), the `jwai324/The-Fortitide` repo (Book 1 in
 `js/chapters.js`) and the owner's Notion page "Fortitude Chronicles — Series Bible".
@@ -123,39 +123,80 @@ super-algae spores; the Abyss Explorer pins; "If you stop failing, you stop lear
 | Journal | June adds lines about the vault, the bursts, the shipyard ring. |
 | Crew talk | New topics: Book 1 legends the town learned in school, the vault, the Accord. Mr. Reyes of Reyes Hardware claims his family descends from Dr. Camila Reyes; after so many centuries nobody can check, and the texts never confirm it. |
 | Quest chain | **Pip decodes the bursts** the way Ava did: count them, find the pictures, listen to the background waves. Five quests long, its own track beside the base quests. |
-| Found items | An Abyss Explorer pin, a page from the Fortitude Accord, a tag from a Waiting Vault pod. Item tags at six levels. |
+| Found items | A tag from a Waiting Vault pod, a copy of an Accord page, an Abyss Explorer pin: the story objects of Pip's track (see "How it works"), each with its tag at six levels. |
 
-## How the words are built (when it is built)
+## Files
+
+| File | What it holds |
+|------|---------------|
+| `js/story-leo.js`, `js/story-fortitude.js` | Facts: `WORLD.UNIVERSES[u]` (name, sky, `journal`, `radio`, pacing, `robotQuest`), `WORLD.ROBO` (Leo), and the crew topics and quests each universe appends to `CREW_TALK` and `QUESTS` with `universe: "<u>"` |
+| `js/content/levelN-leo.js`, `levelN-fortitude.js` | Words at six levels: `T.universe[u].journal` / `.radio`, and the crew's words for the topics and quests, merged into `T.crew.talk` / `T.crew.quests` |
+| `js/xoverstate.js` | Mixed into `ZSR.State` after `js/crewstate.js`: `universe()`, `universeDef()`, `save.xover`, `xoverLog(entry)` (the day page's crossover line and broadcast), Rivet's health (`roboHome`, `roboOn`, `roboBite`, `roboRepair`), `ZSR.xoverText` |
+| `js/crewstate.js` | Topics and quests with `universe` show only in that universe; each universe's quests are a giver's own track (`nextStoryQuest(id, track)`; `offer` tries the base track first) |
+| `js/robodog.js` | Rivet in the yard and in buildings (mixed into `ZSR.Interior`): follow, zap, bites, shutdown, repair words |
+| `js/crossart.js` | Art: `roboDog`, `zapSpark` (`ZSR.CROSS_ART`), and `ZSR.Crossover.sky` (Mira-9; the ring and Mars) |
+| `js/interior.js` | Draws the sky over the yard; a zapped walker's `slowT` / `slowMul` |
+| `js/backpack.js`, `css/style.css` | The day page shows the crossover line under June's page and the broadcast after the base one (`.ledger-x`, `.radio-x`) |
+| `js/main.js`, `index.html` | Settings: Universe (Off / Captain Leo / Fortitude), with a line on what each adds; the save slot shows its universe |
+| `js/god.js` | God mode lists a universe's quests only while it is on |
+
+## How it works, as built
+
+- **The setting** is `settings.universe` per slot ("off" by default; read() fills it into old slots). It can change
+  any time. Topics, quests, ledger lines, broadcasts, the sky and Rivet follow it at once; nothing is lost when it
+  is switched away, because the save keeps every quest's state and each universe's own counts (`save.xover[u]`).
+- **Ledger lines** ride on every `journalEvery`-th day page written while the universe is on (2), in order, until
+  the list ends. **Broadcasts** ride on every `radioEvery`-th day the radio hears the news (3), in order, then
+  repeat their last third like the base radio. Both are stored on the day's log entry (`entry.x = { u, journal,
+  radio }`), so an old page reads the same whatever is on now.
+- **Topics** with `universe` are skipped by `nextTopic` in any other universe; within it they come after any base
+  topic that is ready, in list order.
+- **Quests**: a crossover quest is its giver's own track (Tomas: Leo; Pip: Fortitude). One open on each track at
+  once; `offer` gives the base quest when one can be offered, else the track's, else an errand. All base quest rules
+  hold within the track (`tests/validate-world.js` groups by giver and track). Errands still start after the base
+  quest 1.
+- **Rivet** (Leo): home once `tomas-leo-5` is handed in. It follows you in the yard and in buildings (it turns up
+  beside you when you walk in; on the road it is in the van, unseen). Every 1.8 s it zaps the nearest awake walker
+  within 4.5 tiles in a clear line: 6 harm (a pistol does 25) and half speed for 1.6 s. A walker with Rivet in reach
+  and you out of it bites Rivet on its own bite clock; 60 health in all (about six bites). Shut down, it lies dark,
+  stays home on trips, and Tomas fixes it for 20 scrap when you arrive home or a wave is cleared (only with the
+  scrap). The practice walker in the tutorial is never zapped or biting it.
+- **The sky** (yard only): Mira-9 to the northeast, a pale disk with turning clouds; or the shipyard ring, a thin
+  silver arc highest to the north, and Mars low to the southeast. Both are fixed in the world and hidden behind
+  anything standing in front.
+- **The Fortitude keepsakes** (the pod tag, the Accord page, the Abyss Explorer pin) are the story objects of Pip's
+  track, each with its tag at six levels, rather than extra stash loot: one tested path (quest objects) instead of
+  a new one, and the decoding gives each a reason to be found.
+
+## How the words are built
 
 - Facts in their own files: `js/story-leo.js`, `js/story-fortitude.js`. Words at all six levels in
   their own files: `js/content/levelN-leo.js`, `js/content/levelN-fortitude.js`. Base files are not
   edited for crossover words.
-- Crossover radio and journal entries live in their own arrays, keyed by day, and are appended to
-  (never inserted into), like the base ones.
+- Crossover radio and journal entries live in their own lists (`WORLD.UNIVERSES[u].journal` / `.radio`), told
+  in order by the universe's own count; append to them, never insert, like the base ones (saves store indexes).
 - Each crossover text exists at all six levels and follows `docs/TEXT_GUIDE.md`.
-- Size, roughly: 4,000 to 6,000 words a level per universe (five-quest chains), 25,000 to 35,000
-  across six levels;
-  about a tenth of the base game.
+- Size as written: about 2,600 to 3,900 words a level per universe (levels 4 to 6 measured), about a tenth of
+  the base game.
+- June writes her ledger in the first person, but a line whose facts name her must say "June" (the validator), so
+  the words bring her name in through someone talking to her.
 - **The ongoing cost:** every later base story beat has to be checked against both universes.
 
-## Engine work (not started)
+## Tests
 
-1. `settings.universe` per slot (Off by default), the Settings control, and a crossover save block
-   per universe.
-2. The sky layer in the yard (Mira-9; the shipyard ring and Mars).
-3. Radio and journal hooks: a crossover entry plays after (or, for the knock, before) the day's base
-   entry, never instead of it.
-4. Crew topics gated by universe, with the same rules as base topics.
-5. A crossover quest track per universe, at most one crossover quest open at a time, beside the base
-   story quest and errand.
-6. Found items (Fortitude): extra stash or cache loot appended without reordering any spot.
-7. The robot dog (Leo): a companion that follows the player in the yard and in buildings, rides
-   in the van, zaps walkers, can be shut down by bites and is repaired for scrap. Walkers must be able
-   to target it; add it to `docs/SCALING.md` when built.
-8. Tests: every crossover text at six levels; Off shows no crossover text; base texts unchanged.
+- `tests/validate-world.js`: the crossover quests by the base rules, within their track; a quest's `universe` is a
+  `UNIVERSES` key.
+- `tests/validate-text.js`: `T.universe[u]` at every level (one text per fact entry, the tag range x 1.6 for
+  ledger lines, the lot range for broadcasts, the speaker named); the topics' and quests' words with the crew's.
+- `tests/validate-crew.js`: off adds nothing; each universe's ledger lines and broadcasts in order and paced; a
+  day with the universe off keeps its count; Rivet's health, shutdown, repair and save; old saves get `xover`;
+  topics and quests in order per universe; every crossover object waits on its spot and is walked onto; Rivet
+  follows, zaps (the walker slows), is bitten, shuts down, is fixed, leaves when the universe goes off, and comes
+  into a building; a whole play-through in each universe.
+- `tests/validate-god.js`: god mode offers and jumps to each crossover quest in its universe.
 
 ## Open questions
 
-- Leo: the robot dog's numbers (zap rate, slow or stagger strength, bites to shut down, repair
-  price) are tuned when it is built.
-- Fortitude: who keeps the Accord archive broadcasting (left open on purpose for now).
+- Fortitude: who keeps the Accord archive broadcasting (left open on purpose).
+- Rivet's numbers (`WORLD.ROBO`) want a play-test: whether 6 harm every 1.8 s helps enough without carrying a wave.
+- Rivet in the river (fishing) and on the road: not there now.

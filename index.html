@@ -121,6 +121,13 @@
         <span>Mouse look speed</span>
         <input type="range" id="opt-sens" min="0.4" max="2.5" step="0.1">
       </div>
+      <div class="field">
+        <span>Universe</span>
+        <div class="seg" id="universe-seg" role="radiogroup" aria-label="Universe">
+          <button data-universe="off">Off</button><button data-universe="leo">Captain Leo</button><button data-universe="fortitude">Fortitude</button>
+        </div>
+        <p id="universe-note" class="small muted"></p>
+      </div>
       <label class="field toggle"><input type="checkbox" id="opt-sound"><span>Sound effects</span></label>
       <label class="field toggle"><input type="checkbox" id="opt-aim"><span>Aim assist on the road</span></label>
       <label class="field toggle"><input type="checkbox" id="opt-shake"><span>Screen shake</span></label>
@@ -333,6 +340,8 @@
 <script src="js/story-home.js"></script>
 <script src="js/story-crew.js"></script>
 <script src="js/story-quests.js"></script>
+<script src="js/story-leo.js"></script>
+<script src="js/story-fortitude.js"></script>
 <!-- SCALE: each levelN.js assigns ZSR.TEXT[N] and must come before its part files. More places go in new
      part files (levelN-places3.js ...), each with its own tag here; tests/validate-text.js finds them. -->
 <script src="js/content/level1.js"></script>
@@ -342,6 +351,8 @@
 <script src="js/content/level1-crew.js"></script>
 <script src="js/content/level1-crew2.js"></script>
 <script src="js/content/level1-quests.js"></script>
+<script src="js/content/level1-leo.js"></script>
+<script src="js/content/level1-fortitude.js"></script>
 <!-- June's first-run tutorial: level 1 only, read at every reading level (js/tutorial.js) -->
 <script src="js/content/level1-tutorial.js"></script>
 <script src="js/content/level2.js"></script>
@@ -351,6 +362,8 @@
 <script src="js/content/level2-crew.js"></script>
 <script src="js/content/level2-crew2.js"></script>
 <script src="js/content/level2-quests.js"></script>
+<script src="js/content/level2-leo.js"></script>
+<script src="js/content/level2-fortitude.js"></script>
 <script src="js/content/level3.js"></script>
 <script src="js/content/level3-places1.js"></script>
 <script src="js/content/level3-places2.js"></script>
@@ -358,6 +371,8 @@
 <script src="js/content/level3-crew.js"></script>
 <script src="js/content/level3-crew2.js"></script>
 <script src="js/content/level3-quests.js"></script>
+<script src="js/content/level3-leo.js"></script>
+<script src="js/content/level3-fortitude.js"></script>
 <script src="js/content/level4.js"></script>
 <script src="js/content/level4-places1.js"></script>
 <script src="js/content/level4-places2.js"></script>
@@ -365,6 +380,8 @@
 <script src="js/content/level4-crew.js"></script>
 <script src="js/content/level4-crew2.js"></script>
 <script src="js/content/level4-quests.js"></script>
+<script src="js/content/level4-leo.js"></script>
+<script src="js/content/level4-fortitude.js"></script>
 <script src="js/content/level5.js"></script>
 <script src="js/content/level5-places1.js"></script>
 <script src="js/content/level5-places2.js"></script>
@@ -372,6 +389,8 @@
 <script src="js/content/level5-crew.js"></script>
 <script src="js/content/level5-crew2.js"></script>
 <script src="js/content/level5-quests.js"></script>
+<script src="js/content/level5-leo.js"></script>
+<script src="js/content/level5-fortitude.js"></script>
 <script src="js/content/level6.js"></script>
 <script src="js/content/level6-places1.js"></script>
 <script src="js/content/level6-places2.js"></script>
@@ -379,10 +398,13 @@
 <script src="js/content/level6-crew.js"></script>
 <script src="js/content/level6-crew2.js"></script>
 <script src="js/content/level6-quests.js"></script>
+<script src="js/content/level6-leo.js"></script>
+<script src="js/content/level6-fortitude.js"></script>
 <script src="js/upgrades.js"></script>
 <script src="js/weapons.js"></script>
 <script src="js/state.js"></script>
 <script src="js/crewstate.js"></script>
+<script src="js/xoverstate.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/sprites.js"></script>
 <script src="js/sprites3d.js"></script>
@@ -394,6 +416,7 @@
 <script src="js/houseart.js"></script>
 <script src="js/riverart.js"></script>
 <script src="js/crewart.js"></script>
+<script src="js/crossart.js"></script>
 <script src="js/decor.js"></script>
 <script src="js/locks.js"></script>
 <script src="js/streets.js"></script>
@@ -408,6 +431,7 @@
 <script src="js/house.js"></script>
 <script src="js/yardwreck.js"></script>
 <script src="js/crew.js"></script>
+<script src="js/robodog.js"></script>
 <script src="js/river.js"></script>
 <script src="js/map.js"></script>
 <script src="js/backpack.js"></script>
