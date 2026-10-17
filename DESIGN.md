@@ -1073,3 +1073,35 @@ the refusals would still explain the wait.
   ring a `near` rule the same way, every ring tile within `r` tiles of the footprint. validate-text
   errs when a crew tip or report has a sentence over the level's Max sentence (other texts warn past
   Max + 3); the 14 crew2 offenders and two pip.radio texts were split, every fact kept.
+
+## Owner decisions: crossover universes (2026-10-17)
+
+Design only; nothing is built yet. The full canon and the build plan are in `docs/UNIVERSES.md`.
+
+| Question | Answer |
+|----------|--------|
+| What is the option? | A Universe setting: Off / Captain Leo / Fortitude. One at a time. |
+| Reskin or add-on? | Add-on. The current story stays canon in every universe; each universe adds its own storyline on top and never edits a base text. Off is today's game. |
+| How does it switch? | In Settings, saved per slot, changeable any time. Each universe keeps its own crossover progress. Old saves read as Off. |
+| Who is it for? | The same teen players and rules as the base game. |
+| Leo: where and when? | The river town is a colony town on Mira-8, next to Mira-9, about 200 years after Mission One. |
+| Leo: what caused the Fall? | The Gray: spores of Mira-8's long-dead sky-forest, dug up by miners across the river. The Mirans had warned the colony. |
+| Leo: Leo's crew? | Legends from about 200 years ago. Sool the Miran is still alive and is the living link. |
+| Leo v1 | Sky (Mira-9), radio (the three-note knock, a Miran voice), journal lines, crew talk, and a Tomas quest chain rebuilding a broken Bolt-model robot dog. No found items. |
+| Fortitude: where and when? | Earth, hundreds of years after Book 4. Only Book 1 events are named; Books 2 to 4 happened but are never mentioned. |
+| Fortitude: what caused the Fall? | The Waiting Vault across the river: a public cryosleep vault whose timer and cooling failed together. The sleepers woke wrong. |
+| Fortitude: the book's characters? | Legends only, never heard or met. |
+| Fortitude v1 | Sky, radio (Fortitude-style bursts), journal lines, crew talk, found Book 1 items, and a Pip quest chain decoding the bursts the way Ava did. |
+| Endings | Both storylines stay open, like the River Convoy. |
+
+Judgment calls (cheap to change):
+
+- **Both origins sit across the river**, because a base note already says the Fall began as "some
+  sickness across the river".
+- **Mira-8 is Earth-like**, seeded with Earth life, because base texts name birds, fish, the sun and
+  a moon. Mira-8 keeps its own small moon; Mira-9 is a separate, huge pale disk.
+- **Pip is named after PIP**, the ship's helper on Skip-One (Leo crew talk), to turn the name clash
+  into a story beat.
+- **The real dog stays** in the Leo universe; the Bolt-model robot dog is a second companion.
+- **The Fortitude sky** is the old Indestructium shipyard ring with Mars as a bright point, both
+  from Book 1.

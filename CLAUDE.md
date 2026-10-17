@@ -12,6 +12,9 @@ guns, rooms and story. Build every change so it still holds at 2 to 3 times toda
 
 Read `docs/CREW.md` before changing June, Tomas, Pip, their quests or the dog.
 
+Read `docs/UNIVERSES.md` before writing anything for the Captain Leo or Fortitude crossover
+storylines, and before changing a base story fact they lean on (the Fall began across the river).
+
 Read `docs/SCALING.md` before adding a place, a road, a gun, a room, a level or a walker kind,
 or before touching the map's size. It lists the add-a-place checklist, the save-compat rules, the
 limits the current city already sits near, and every `SCALE:` spot (`grep -rn "SCALE:" js tests`).
