@@ -387,6 +387,7 @@
       this.makePlayer(start[0], start[1], start[2]);
       this.houseLoad(); // the cabin: its doors, windows and roof (js/house.js)
       this.crewEnter(); // the crew and the dog at their spots (js/crew.js); dressYard puts them in the scene
+      if (this.roboEnter) this.roboEnter(); // Rivet, the robot dog, in the Captain Leo universe (js/robodog.js)
       this.wreckEnter(); // the wreckers' wave state (js/yardwreck.js)
       this.dressYard();
       this.breachChanged(); // which walkers each hole the save kept would draw
@@ -400,8 +401,10 @@
       this.startLoop();
       const holes = this.fenceHoles().length;
       const wrecked = this.wreckedWords(); // "Garden and Well" (js/yardwreck.js), or ""
-      const tail = wrecked ? " Wrecked: " + wrecked + "." : "";
-      this.toast((holes ? "Home. The fence has " + holes + " hole" + (holes > 1 ? "s" : "") + ". E at a gap fixes it for " + W().SETTINGS.fenceRepairScrap + " scrap." : "Home. Quiet for now.") + tail, holes || wrecked ? 4.5 : 3);
+      const robo = this.roboHomeWords ? this.roboHomeWords() : ""; // Tomas fixes a shut-down Rivet (js/robodog.js)
+      if (robo && this.hooks.onYardChanged) this.hooks.onYardChanged();
+      const tail = (wrecked ? " Wrecked: " + wrecked + "." : "") + robo;
+      this.toast((holes ? "Home. The fence has " + holes + " hole" + (holes > 1 ? "s" : "") + ". E at a gap fixes it for " + W().SETTINGS.fenceRepairScrap + " scrap." : "Home. Quiet for now.") + tail, holes || wrecked || robo ? 4.5 : 3);
     },
 
     /* ---------- What the base rooms put in the yard ---------- */
@@ -433,6 +436,7 @@
       this.dressHouse();
       Object.entries(Y.plots).forEach(([room, plot]) => this.buildPlot(room, plot, (S.save.rooms[room] || 0) | 0));
       this.crewDress(); // the crew and the dog are props too: back in the scene (js/crew.js)
+      if (this.roboDress) this.roboDress();
       this.maskDirty = true;
       this.refreshScene(); // the van's paint and gear may have changed too
       this.yardFenceLook(walls);
@@ -1117,7 +1121,8 @@
             : "Wave cleared. " + holes + " hole" + (holes > 1 ? "s" : "") + " in the fence: " + (fixer ? fixer + " will fix " + (holes > 1 ? "them (" + fenceScrap + " each" : "it (" + fenceScrap) + ", from the base), or E at a gap fixes one now." : "E at a gap fixes it for " + fenceScrap + ".");
           const cabin = !broken ? "" : " The cabin has " + broken + " broken door" + (broken > 1 ? "s or windows" : " or window") + (cabinFixer ? ": " + cabinFixer + " will see to " + (broken > 1 ? "them" : "it") + ", or E there fixes it now." : ": E there fixes it, or use the computer.");
           const builds = this.wreckClearedWords(vanHit); // wrecked builds and a beaten van (js/yardwreck.js), or ""
-          this.toast(fence + builds + cabin, holes || broken || builds ? 5.5 : 3);
+          const robo = this.roboHomeWords ? this.roboHomeWords() : ""; // Tomas fixes a shut-down Rivet (js/robodog.js)
+          this.toast(fence + builds + cabin + robo, holes || broken || builds || robo ? 5.5 : 3);
           Audio().play("correct");
           if (this.hooks.onWaveCleared) this.hooks.onWaveCleared();
         } else if (this.cabinHoldsWave() && !this.indoorAt(this.player.x, this.player.y)) {
@@ -1151,6 +1156,7 @@
       this.yardUnjam(dt);
       this.yardAnimate(dt);
       this.crewUpdate(dt); // the crew wander, shelter, fix things, call the next wave (js/crew.js)
+      if (this.roboUpdate) this.roboUpdate(dt); // Rivet follows you, zaps walkers (js/robodog.js)
       // the signs follow the text size
       const de = root.document && root.document.documentElement;
       if (de && de.getAttribute("data-size") !== this.yardSize) this.dressYard();

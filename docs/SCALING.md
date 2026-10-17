@@ -452,6 +452,19 @@ searches and when matters more than how fast one search is.
 7. `npm test`. God mode's Spawn walker, the title screen, the alarm, the waves, the river and the road
    pick the new kind up from the table.
 
+## The crossover universes
+
+`docs/UNIVERSES.md`. A third universe is facts and words, not engine work: a `js/story-<u>.js` that adds
+`WORLD.UNIVERSES[<u>]` (and its topics and quests with `universe: "<u>"`), six `js/content/levelN-<u>.js`, and a
+button in Settings (`#universe-seg`, js/main.js `UNIVERSE_NOTE`). Limits:
+
+- **Saves store indexes**: `entry.x` keeps a universe's ledger line and broadcast by index, and `save.xover[u]`
+  counts them. Append to `journal` and `radio`; never insert or reorder.
+- **Quest spots**: each universe's quests count toward a building's two quest spots (`QUESTS_PER_PLACE`) with the
+  base ones. Two universes together use 10 of the 15 buildings that had room; a third needs spots that still fit,
+  or the cap raised per universe.
+- **One robot dog**: `WORLD.ROBO` and `save.xover.robo` are one companion, for the universe with `robotQuest`.
+
 ## The crew
 
 The crew at home base is data-driven (`docs/CREW.md`): a fourth crew member, more topics, more

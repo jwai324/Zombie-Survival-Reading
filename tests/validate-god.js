@@ -34,7 +34,7 @@ function load() {
   sb.globalThis = sb;
   vm.createContext(sb);
   const page = [...fs.readFileSync(path.join(ROOT, "index.html"), "utf8").matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m) => m[1]);
-  const want = (f) => f === "layouts.js" || f === "world.js" || /^story[\w-]*\.js$/.test(f) || ["upgrades.js", "weapons.js", "state.js", "crewstate.js", "god.js"].includes(f);
+  const want = (f) => f === "layouts.js" || f === "world.js" || /^story[\w-]*\.js$/.test(f) || ["upgrades.js", "weapons.js", "state.js", "crewstate.js", "xoverstate.js", "god.js"].includes(f);
   ok(page.includes("god.js") && page.indexOf("god.js") > page.indexOf("main.js"), "index.html loads js/god.js after js/main.js");
   page.filter(want).forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
   return { sb, store, ZSR: sb.ZSR, writes: () => writes };
@@ -104,6 +104,7 @@ try {
   });
   // every story quest can be offered now, out of order and at 0 stars, accepted, and jumped to
   (W.QUESTS || []).forEach((q) => {
+    S.settings.universe = q.universe || "off"; // a crossover quest's object waits only in its own universe
     A.offerQuest(q.id);
     const o = S.offer(q.giver);
     ok(o && o.kind === "quest" && o.def.id === q.id, `offerQuest ${q.id}: offered now`);
@@ -114,6 +115,7 @@ try {
     ok(S.questState(q.id) === "active" && S.isKnown(q.at) && S.questsAt(q.at).some((x) => x.id === q.id), `activateQuest ${q.id}: its object waits at ${q.at}`);
     A.resetQuest(q.id);
   });
+  S.settings.universe = "off";
   A.setCheat("noDie", true);
   ok(S.cheat("noDie"), "setCheat");
 

@@ -204,6 +204,7 @@
       this.placeGun(loc, start);
       this.placeRod(loc, tpl);
       this.placeQuestObjects(loc);
+      if (this.roboEnter) this.roboEnter(); // Rivet comes in with you, in the Captain Leo universe (js/robodog.js)
       if (snap) {
         this.restore(snap);
       } else {
@@ -1308,6 +1309,7 @@
       this.updatePickups();
       this.updateAlarm(dt || 0);
       this.updateTripDog(dt || 0);
+      if (this.roboUpdate) this.roboUpdate(dt || 0);
     },
     buildingFacing(cand) {
       this.notes.forEach((n) => this.noteVisible(n) && cand.push({ kind: "note", obj: n, x: n.x, y: n.y }));

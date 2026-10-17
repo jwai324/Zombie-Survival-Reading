@@ -2300,3 +2300,65 @@ most of a frame, and one whose graphics card a thinner row speeds up, settle whe
 - clear days 8 and 9 at dangers 2 and 4 are now somewhat easier than the old road (they sit between days 5 and 10,
   which pass, on the even blend of `roadRow`);
 - night and fog drives are still not balanced against the old road.
+
+## Owner decisions: crossover universes (2026-10-17)
+
+Design only; nothing is built yet. The full canon and the build plan are in `docs/UNIVERSES.md`.
+
+| Question | Answer |
+|----------|--------|
+| What is the option? | A Universe setting: Off / Captain Leo / Fortitude. One at a time. |
+| Reskin or add-on? | Add-on. The current story stays canon in every universe; each universe adds its own storyline on top and never edits a base text. Off is today's game. |
+| How does it switch? | In Settings, saved per slot, changeable any time. Each universe keeps its own crossover progress. Old saves read as Off. |
+| Who is it for? | The same teen players and rules as the base game. |
+| Leo: where and when? | The river town is a colony town on Mira-8, next to Mira-9, about 200 years after Mission One. |
+| Leo: what caused the Fall? | The Gray: spores of Mira-8's long-dead sky-forest, dug up by miners across the river. The Mirans had warned the colony. |
+| Leo: Leo's crew? | Legends from about 200 years ago. Sool the Miran is still alive and is the living link. |
+| Leo v1 | Sky (Mira-9), radio (the three-note knock, a Miran voice), journal lines, crew talk, and a Tomas quest chain rebuilding a broken Bolt-model robot dog. No found items. |
+| Fortitude: where and when? | Earth, hundreds of years after Book 4. Only Book 1 events are named; Books 2 to 4 happened but are never mentioned. |
+| Fortitude: what caused the Fall? | The Waiting Vault across the river: a public cryosleep vault whose timer and cooling failed together. The sleepers woke wrong. |
+| Fortitude: the book's characters? | Legends only, never heard or met. |
+| Fortitude v1 | Sky, radio (Fortitude-style bursts), journal lines, crew talk, found Book 1 items, and a Pip quest chain decoding the bursts the way Ava did. |
+| Endings | Both storylines stay open, like the River Convoy. |
+| Quest chains (2026-10-17, later) | Five quests each: Tomas's robot dog (Leo), Pip's decoding (Fortitude). |
+| The robot dog (Leo) | Follows you in the yard and in buildings and rides in the van. A weak helper: zaps slow or stagger walkers. Too many bites shut it down until Tomas repairs it at the cabin for scrap. |
+| The bursts (Fortitude) | Decoded, they are old Accord records: an automatic Book 1-era archive still broadcasting. Who keeps it running stays open. |
+| Mr. Reyes (Fortitude) | Claims descent from Dr. Camila Reyes; unproven and never confirmed. |
+| Radio pace | The knock and the bursts come about every 3 days, beside the day's base broadcast. |
+
+Judgment calls (cheap to change):
+
+- **Both origins sit across the river**, because a base note already says the Fall began as "some
+  sickness across the river".
+- **Mira-8 is Earth-like**, seeded with Earth life, because base texts name birds, fish, the sun and
+  a moon. Mira-8 keeps its own small moon; Mira-9 is a separate, huge pale disk.
+- **Pip is named after PIP**, the ship's helper on Skip-One (Leo crew talk), to turn the name clash
+  into a story beat.
+- **The real dog stays** in the Leo universe; the Bolt-model robot dog is a second companion.
+- **The Fortitude sky** is the old Indestructium shipyard ring with Mars as a bright point, both
+  from Book 1.
+
+### Built (2026-10-17): judgment calls
+
+The design is `docs/UNIVERSES.md` ("How it works, as built"). Cheap to change:
+
+- **Pacing by the universe's own count, not the day.** A ledger line on every second day page, a broadcast on
+  every third day the radio hears the news, each in order. A player who switches a universe on late starts at its
+  first line, and switching away and back loses nothing. Crew topics and quest days still use the game's day.
+- **A crossover quest is its giver's own track** beside the base one (one open on each). The base quest is offered
+  first when both could be. Errands still start after the base quest 1.
+- **Pip's Fortitude track waits for the Radio room** (`pip-fort-1` when: room radio), since it decodes what comes
+  on the radio.
+- **The Fortitude keepsakes are Pip's quest objects**, not extra stash loot: the same pickup, tag and backpack
+  path the base quests use, so nothing new can break the stashes, and the decoding gives each a reason.
+- **The robot dog is named Rivet** (by Tomas, "because it is held together with them"), after Koen's Bolt. Its
+  numbers: 60 health, a 6-harm zap every 1.8 s within 4.5 tiles that halves a walker's speed for 1.6 s, 20 scrap
+  to fix (`WORLD.ROBO`). It never zaps or is bitten by the tutorial's practice walker. It does not shelter: it stays
+  with you in a wave. Shut down, it stays home on trips.
+- **Tomas fixes Rivet without a walk**: when you arrive home or a wave is cleared, if the base has the scrap, told
+  in that moment's toast. No new crew report (that would need words at six levels for one line).
+- **The sky is in the yard only** (not on the road or at the river). Mira-9 sits to the northeast; the ring is
+  highest to the north, Mars low to the southeast.
+- **Settings line, toasts and the slot summary are one level of English**, like the game's other engine strings.
+- **God mode lists a universe's quests only while it is on**, so a quest can never be jumped to where its object
+  would not show.

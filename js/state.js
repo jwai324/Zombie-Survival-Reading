@@ -19,6 +19,7 @@
     mouseSens: 1,
     seenHowto: false,
     tutorial: null, // the first-run tutorial's done ids (js/tutorial.js); null = none. A primitive: read() merges shallowly
+    universe: "off", // the crossover storyline on top of the base story: "off" or a WORLD.UNIVERSES key (js/xoverstate.js)
   };
 
   function read(key, fallback) {
@@ -125,6 +126,7 @@
       riverRest: null, // the day River Landing was fished out (WORLD.RIVER.cap fish on one trip); it rests restockDays
       labAcc: 0, // partial medical kits brewing in the Lab
       crew: State.crewFresh ? State.crewFresh() : null, // June, Tomas and Pip: trust, talk, requests, the dog (js/crewstate.js)
+      xover: State.xoverFresh ? State.xoverFresh() : null, // each crossover universe's progress, and the robot dog (js/xoverstate.js)
       stats: { trips: 0, walkers: 0, notesRead: 0, wordsRead: 0, items: 0 },
       met: {}, // walker kinds met: { [WALKER_TYPES id]: the day one was first seen or hurt } (the crew's told-once tips)
       wave: 0, // waves survived during this stay at the base (escalation)
@@ -188,6 +190,7 @@
       if (s.house[k] == null) s.house[k] = fresh.house[k];
     });
     if (State.crewUpgrade) State.crewUpgrade(s); // the crew's fields, one per crew member (a member added later too)
+    if (State.xoverUpgrade) State.xoverUpgrade(s); // the crossover universes' progress (a universe added later too)
     // the builds' health: only built rooms with a plot, a finite number from 0 up to that level's strength
     if (!s.builds || typeof s.builds !== "object" || Array.isArray(s.builds)) s.builds = {};
     Object.keys(s.builds).forEach((room) => {
@@ -811,6 +814,7 @@
         s.radioHeard = (s.radioHeard || 0) + 1;
       }
       if (trip) entry.recap = Object.assign({ food: s.food, hungry: s.food <= 0, next: this.nextBuild() }, trip);
+      if (this.xoverLog) this.xoverLog(entry); // with a universe on, its next ledger line and broadcast (js/xoverstate.js)
       s.log.push(entry);
       if (s.log.length > 120) s.log.splice(0, s.log.length - 120);
       return entry;

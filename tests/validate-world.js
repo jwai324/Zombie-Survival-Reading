@@ -1148,7 +1148,10 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   }
   const ids2 = new Set();
   const perPlace = {};
+  // a giver's quests in order, one list per track: the base quests, and each crossover universe's own track
+  // (docs/UNIVERSES.md: `universe` on a quest), which runs beside the base one with its own order and gates
   const byGiver = {};
+  const track = (q) => (q.universe ? q.giver + " (" + q.universe + ")" : q.giver);
   const dogQuests = QUESTS.filter((q) => q.kind === "dog");
   if (W.QUESTS != null && !Array.isArray(W.QUESTS)) err("QUESTS: must be a list");
   if (dogQuests.length > DOG_QUESTS) err(`QUESTS: ${dogQuests.length} dog quests, the save holds ${DOG_QUESTS} dog`);
@@ -1157,7 +1160,8 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
     if (!q.id || ids2.has(q.id)) err(`${ctx}: needs an id of its own`);
     ids2.add(q.id);
     if (crewOn && !CREW[q.giver]) err(`${ctx}: giver "${q.giver}" is not in CREW`);
-    (byGiver[q.giver] = byGiver[q.giver] || []).push(q);
+    (byGiver[track(q)] = byGiver[track(q)] || []).push(q);
+    if (q.universe != null && !(W.UNIVERSES || {})[q.universe]) err(`${ctx}: universe "${q.universe}" is not in UNIVERSES`);
     if (q.kind != null && q.kind !== "dog") err(`${ctx}: kind "${q.kind}" (leave it out, or "dog")`);
     checkWhen(ctx, q.when);
     // facts
@@ -1217,7 +1221,7 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
     if (/\b(left|right) of\b/i.test(brief)) err(`${ctx}: the brief steers by "left of" or "right of"; use the landmark, a room or a sign`);
     // no place reveals: a quest's texts name only its own place, the places known at the start, and the places
     // of the giver's earlier quests (each was known when it was offered)
-    const allowed = new Set([q.at].concat([...known], byGiver[q.giver].slice(0, -1).map((x) => x.at)));
+    const allowed = new Set([q.at].concat([...known], byGiver[track(q)].slice(0, -1).map((x) => x.at)));
     const questWords = ["brief", "tag", "journal", "done", "after"].map((key) => (factsOf(q[key]) || []).join(" ")).join(" ");
     W.LOCATIONS.forEach((l) => { if (!allowed.has(l.id) && questWords.includes(l.name)) err(`${ctx}: names ${l.name}, which the player may not know yet (a quest names only its own place and places already known)`); });
     if (crewOn && CREW[q.giver] && !brief.includes(CREW[q.giver].name)) err(`${ctx}: the brief must name who asks (${CREW[q.giver].name})`);

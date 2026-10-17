@@ -340,12 +340,17 @@
       const waiting = !!r && !o.tune && S.radioWaiting() === entry;
       const showR = !!r && !waiting;
       const recap = ZSR.recapText(entry.recap);
+      // a crossover universe's ledger line and broadcast for this day (js/xoverstate.js), as written that day
+      const x = entry.x && ZSR.xoverText ? entry.x : null;
+      const xj = x && x.journal != null ? ZSR.xoverText(x.u, "journal", x.journal) : null;
+      const xr = x && x.radio != null && r ? ZSR.xoverText(x.u, "radio", x.radio) : null;
+      const xRadio = () => (xr && xr.text ? '<div class="radio-x">' + (xr.title ? '<h4 class="radio-head">' + esc(xr.title) + "</h4>" : "") + paragraphs(xr.text) + "</div>" : "");
       let html = "";
       if (o.tune) {
         document.getElementById("note-caption").textContent = "Day " + entry.day + " · the radio in the dining room";
         document.getElementById("note-title").textContent = "On the radio" + (r && r.title ? ": " + r.title : "");
         document.getElementById("note-found").textContent = "Pip turns the dial, and a voice comes through";
-        if (r) html += paragraphs(r.text);
+        if (r) html += paragraphs(r.text) + xRadio();
       } else {
         document.getElementById("note-caption").textContent = "Day " + entry.day + " · home";
         document.getElementById("note-title").textContent = j.title || "June's journal";
@@ -359,18 +364,19 @@
           html += '<div class="ledger-quest">' + paragraphs(line) + "</div>";
           if (S.seeCrewTalk) S.seeCrewTalk("quest:" + qid + ":journal", wordCount(line));
         });
-        if (showR) html += '<h4 class="radio-head">On the radio' + (r.title ? ": " + esc(r.title) : "") + "</h4>" + paragraphs(r.text);
+        if (xj && xj.text) html += '<div class="ledger-x">' + paragraphs(xj.text) + "</div>";
+        if (showR) html += '<h4 class="radio-head">On the radio' + (r.title ? ": " + esc(r.title) : "") + "</h4>" + paragraphs(r.text) + xRadio();
         else if (waiting) html += '<p class="radio-wait">News on the radio today. Tune in at the radio in the dining room.</p>';
       }
       document.getElementById("note-text").innerHTML = html;
       if (!o.tune && !entry.read) {
         entry.read = true;
         // a day from before the radio waited to be tuned in (no `tuned` field) counts its broadcast here, as it did
-        S.save.stats.wordsRead += wordCount(recap + " " + j.text + " " + (showR && entry.tuned == null ? r.text : ""));
+        S.save.stats.wordsRead += wordCount(recap + " " + j.text + " " + (xj ? xj.text : "") + " " + (showR && entry.tuned == null ? r.text + " " + (xr ? xr.text : "") : ""));
       }
       if (showR && entry.tuned === false) {
         entry.tuned = true;
-        S.save.stats.wordsRead += wordCount(r.text);
+        S.save.stats.wordsRead += wordCount(r.text + " " + (xr ? xr.text : ""));
       }
       const primary = document.getElementById("btn-note-primary");
       document.getElementById("btn-note-secondary").classList.add("hidden");

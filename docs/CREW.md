@@ -296,6 +296,14 @@ W.DOG = { ideas: ["...", "...", "..."], facts: { ask: [...], named: [...], pet: 
   `brief` says Pip gives you treats to hold out. `DOG.ideas` are Pip's three name ideas (short,
   plain, not a person in `PEOPLE`, not "Biscuit" or "Peanut").
 
+### Crossover tracks (`universe`)
+
+A topic or quest with `universe: "<u>"` (appended by `js/story-<u>.js`, docs/UNIVERSES.md) is told or offered only
+while that universe is on. A universe's quests are their giver's own track: one open on it beside one open on the
+base track; `offer` gives the base quest first. Every rule above holds within a track (stars 0 to 4 in order, the
+first at a start place on day 2 or later, the second at an early place, the brief's place, direction, landmark
+and reward). The words go in `js/content/levelN-<u>.js`, merged into `T.crew.talk` and `T.crew.quests`.
+
 ## Save state
 
 New top-level `save.crew`, filled into old saves by `upgradeSave` (no version bump):

@@ -84,6 +84,11 @@
       tone(1200, 0.03, "square", 0.08);
       setTimeout(() => tone(700, 0.05, "square", 0.1), 60);
     },
+    zap() {
+      // a robot dog's zap (js/robodog.js): a bright crackle
+      noise(0.08, 0.18, 5200, 2400);
+      tone(1400, 0.07, "square", 0.09, 2200);
+    },
     hit() {
       tone(240, 0.05, "triangle", 0.2, 120);
     },

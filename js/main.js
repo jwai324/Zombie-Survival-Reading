@@ -297,6 +297,18 @@
   }
 
   /* ---------- Settings ---------- */
+  // what each Universe choice adds (docs/UNIVERSES.md): the base story stays the same in every one
+  const UNIVERSE_NOTE = {
+    off: "The town's own story, and nothing more.",
+    leo: "The same story, on Mira-8 next to Mira-9, long after Captain Leo's first mission. Adds Mira-9 in the sky, news on the radio, lines in June's journal, new talk, and Tomas's robot dog.",
+    fortitude: "The same story, on Earth, hundreds of years after the Fortitude Chronicles. Adds the old shipyard ring in the sky, bursts on the radio, lines in June's journal, new talk, and Pip's decoding.",
+  };
+  /** " · Captain Leo" on a save slot's summary when a universe is on. */
+  function universeTail(settings) {
+    const u = settings && settings.universe;
+    const def = u && (ZSR.WORLD.UNIVERSES || {})[u];
+    return def ? " · " + esc(def.name) : "";
+  }
   function applySettings() {
     document.documentElement.setAttribute("data-size", State.settings.textSize);
     document.querySelectorAll("#grade-seg button").forEach((b) => b.classList.toggle("on", Number(b.dataset.grade) === State.settings.level));
@@ -306,6 +318,13 @@
     $("opt-aim").checked = !!State.settings.aimAssist;
     $("opt-shake").checked = !!State.settings.shake;
     $("opt-sens").value = State.settings.mouseSens || 1;
+    const uni = State.universe ? State.universe() : "off";
+    document.querySelectorAll("#universe-seg button").forEach((b) => {
+      b.classList.toggle("on", b.dataset.universe === uni);
+      // a universe the facts do not define is not offered (js/story-leo.js, js/story-fortitude.js)
+      b.classList.toggle("hidden", b.dataset.universe !== "off" && !(ZSR.WORLD.UNIVERSES || {})[b.dataset.universe]);
+    });
+    $("universe-note").textContent = UNIVERSE_NOTE[uni] || UNIVERSE_NOTE.off;
     $("settings-for").textContent = whoseSettings();
     refreshTitle();
   }
@@ -333,7 +352,7 @@
       if (slot.save) {
         const s = slot.save;
         const level = Object.values(s.rooms || {}).reduce((a, b) => a + b, 0);
-        info.innerHTML = '<div class="who">' + esc(slot.label || "Player " + slot.id) + '</div><div class="sum">Day ' + s.day + " · base level " + level + " · " + (s.backpack || []).length + " notes · " + (s.scrap || 0) + " scrap · " + ORDINAL[slot.settings.level] + " grade</div>";
+        info.innerHTML = '<div class="who">' + esc(slot.label || "Player " + slot.id) + '</div><div class="sum">Day ' + s.day + " · base level " + level + " · " + (s.backpack || []).length + " notes · " + (s.scrap || 0) + " scrap · " + ORDINAL[slot.settings.level] + " grade" + universeTail(slot.settings) + "</div>";
       } else info.innerHTML = '<div class="who muted">Slot ' + slot.id + '</div><div class="sum">Empty</div>';
       const acts = document.createElement("div");
       acts.className = "acts";
@@ -982,6 +1001,13 @@
     document.querySelectorAll("#grade-seg button").forEach((b) =>
       b.addEventListener("click", () => {
         State.settings.level = Number(b.dataset.grade);
+        State.saveSettings();
+        applySettings();
+      })
+    );
+    document.querySelectorAll("#universe-seg button").forEach((b) =>
+      b.addEventListener("click", () => {
+        State.settings.universe = b.dataset.universe;
         State.saveSettings();
         applySettings();
       })
