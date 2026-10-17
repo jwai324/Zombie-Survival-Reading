@@ -148,7 +148,7 @@
   // ... the beam's and the lamp's sides fade out over rings laid round them (no hard edge across a storefront or a
   // barrier): ring i is grow x i wider than the beam there (and min x i units more, for its narrow near end) and the
   // lamp lampGrow x i rad wider each side, lit this much of what it rings
-  const NIGHT_FEATHER = { lit: [0.6, 0.3, 0.12], grow: 0.07, min: 7, lampGrow: 0.035 };
+  const NIGHT_FEATHER = { lit: [0.72, 0.5, 0.32, 0.18, 0.07], grow: 0.045, min: 5, lampGrow: 0.022 };
   // (the old overlay filled its layer at 0.88 every frame without clearing it, so outside the lights it built up to
   // black within a few frames: the night as it has always looked is this, fully dark there)
   const NIGHT_DARK = "rgb(8,10,20)";
