@@ -900,7 +900,7 @@
     /** How a walker on the angled drive looks this frame (game.js update, once it has moved from x0, y0; touching:
         it presses on the van), as on foot (js/interior.js animWalker): its heading turns at its look's turn rate (no
         snap as the van goes by or a shot throws it back) toward where it is going (its ground motion, smoothed, the
-        keep-up carry included), or toward
+        keep-up carry included; along a wall or the bank while it goes round one, game.js blockWalker), or toward
         the van while it claws or screams at it, or while something throws it back from the van (the keep-up never
         carries a walker away from the van: game.js carry); its legs go by the ground it covered, running
         (Walker3D st.run) as that outpaces its kind's walk (near the van it sprints, owner 2026-10-16); the walk
@@ -932,7 +932,7 @@
       const claw = touching || z.cool > CLAW_HOLD;
       const a = z.angle || 0;
       let want = a;
-      if (!claw && !(z.yell > 0) && sp > 0.15 * TILE && z.svx * Math.cos(a) + z.svy * Math.sin(a) >= 0) want = Math.atan2(z.svy, z.svx);
+      if (!claw && !(z.yell > 0) && sp > 0.15 * TILE && (z.wall || z.svx * Math.cos(a) + z.svy * Math.sin(a) >= 0)) want = Math.atan2(z.svy, z.svx);
       const I = ZSR.Interior;
       const m = (gt.turnRate > 0 ? gt.turnRate : I ? I.TURN_RATE : 7) * dt;
       z.heading = normA(z.heading + clamp(normA(want - z.heading), -m, m));

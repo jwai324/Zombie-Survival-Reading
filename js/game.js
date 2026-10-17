@@ -83,6 +83,20 @@
   // second), so none rides the bumper: from there it keeps up beside the van.
   // SCALE: fade, bandMin and shoveMin are road units, tied to the van's size and speed
   const KEEP = { fade: 400, band: 0.8, bandMin: 60, shove: 0.8, shoveMin: 60 };
+  // buildings and the river block walkers (owner, 2026-10-17): one put out of a building's solid part or the river's
+  // bank walks along it for WALK_ROUND s (the way the van is along it, or, the van straight through it, past the
+  // walker's own WALK_STRAIGHT share of its way, toward the nearer end), so it goes round instead of pressing on it.
+  // A new walker comes from a spot SPAWN_CLEAR clear of both with neither between it and the van, trying up to
+  // SPAWN_TRIES spots (the last clear one if every one had something in the way). The river's slope is felt over
+  // RIVER_PROBE units and a line to the van checked for water every RIVER_STEP
+  // SCALE: SPAWN_TRIES spots a spawn (each checks every building on the drive's list: solidLots)
+  const WALK_ROUND = 0.4;
+  const WALK_STRAIGHT = 0.15;
+  const SPAWN_CLEAR = 30;
+  const SPAWN_TRIES = 6;
+  const BLOCK_PASSES = 3; // (out of one building part may be into another that touches it)
+  const RIVER_PROBE = 4;
+  const RIVER_STEP = 90;
   // ... and its corners. The van brakes into each turn it takes: from the stop line (never before: braking must not
   // tell which way is right) it eases down by the time its path bends, holds that round the bend, then eases back up.
   // How far: brake x its speed into a gentle turn, less for a sharper one (js/streets.js brakeFor: by the turn's angle,
@@ -720,8 +734,20 @@
     /** One walker from far down the road or out of the weeds at a side (js/perspective.js spawn: the camera sees far,
         so they come from far off and fade in); its kind from the road's mix unless `type` is given. */
     spawnZombie(type) {
-      const w = ZSR.Persp.spawn(this);
-      return this.addZombie(type || this.pickType(), w.x, w.y);
+      const kind = type || this.pickType();
+      const T = World().WALKER_TYPES[kind];
+      const r = T && T.road ? T.road.r : 18;
+      // never in a building or the river, and best with neither in its way to the van (clearSpot)
+      let w = null;
+      for (let i = 0; i < SPAWN_TRIES; i++) {
+        const p = ZSR.Persp.spawn(this);
+        if (this.clearSpot(p.x, p.y, r, true)) {
+          w = p;
+          break;
+        }
+        if (!w && this.clearSpot(p.x, p.y, r, false)) w = p;
+      }
+      return w ? this.addZombie(kind, w.x, w.y) : null;
     },
     /** A walker of `type` (a WORLD.WALKER_TYPES id; an unknown one is the first kind, a plain walker) at world x, y.
         Its road stats are the kind's `road` row; health is its on-foot health, tougher with the trip's danger and day. */
@@ -808,6 +834,140 @@
       const lat = ly > 0 ? smooth(clamp((Math.abs(ox * -fy + oy * fx) - v.w / 2) / Math.max(1, z.r * 0.85), 0, 1)) : 1;
       const c = (this.curSpeed || 0) * DIFF.chase * near * beside * lat;
       return ly > 0 ? Math.min(c, (Math.max(0, own) * dist) / ly) : c;
+    },
+    /** The drive's buildings as walkers meet them: each lot's solid parts (js/perspective-buildings.js solids: what
+        stands on the ground and is tall enough to stop a walker) as boxes { cx, cy, ux, uy, vx, vy, hu, hv } (middle,
+        unit axes, half sizes), with a circle round each lot's; made once a drive. */
+    solidLots() {
+      if (this.solidsFor === this.drive && this.solids) return this.solids;
+      const B = ZSR.PerspBuild;
+      const out = [];
+      if (B && typeof B.solids === "function") {
+        for (const l of this.drive.lots || []) {
+          const boxes = B.solids(l).map(([a, b, , d]) => {
+            const lu = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+            const lv = Math.hypot(d.x - a.x, d.y - a.y) || 1;
+            const ux = (b.x - a.x) / lu;
+            const uy = (b.y - a.y) / lu;
+            const vx = (d.x - a.x) / lv;
+            const vy = (d.y - a.y) / lv;
+            return { cx: a.x + (ux * lu + vx * lv) / 2, cy: a.y + (uy * lu + vy * lv) / 2, ux, uy, vx, vy, hu: lu / 2, hv: lv / 2 };
+          });
+          if (!boxes.length) continue;
+          const cx = boxes.reduce((s, b) => s + b.cx, 0) / boxes.length;
+          const cy = boxes.reduce((s, b) => s + b.cy, 0) / boxes.length;
+          const R = Math.max(...boxes.map((b) => Math.hypot(b.cx - cx, b.cy - cy) + Math.hypot(b.hu, b.hv)));
+          out.push({ cx, cy, R, boxes });
+        }
+      }
+      this.solidsFor = this.drive;
+      this.solids = out;
+      return out;
+    },
+    /** How far (world units) the point x, y is from the river's bank (Draw.riverEdge; negative in it), or Infinity
+        without the river. */
+    riverAt(x, y) {
+      const D = ZSR.Draw;
+      return D && D.riverEdge ? D.riverEdge(x, y, this.drive && this.drive.scale) : Infinity;
+    },
+    /** Keep walker z out of the drive's buildings (solidLots) and the river with its muddy bank (riverAt), as the
+        van's box keeps it out of the van: one inside is put back out at the nearest side, and then walks along that
+        side (WALK_ROUND) the way it was going, or toward that side's nearer end when it walked straight at it, so it
+        goes round a building or along the bank instead of pressing on it. */
+    blockWalker(z) {
+      const rr = z.r * 0.85;
+      // within a part's box grown by rr, as the box's own u, v
+      const into = (b, x, y) => {
+        const ox = x - b.cx;
+        const oy = y - b.cy;
+        const u = ox * b.ux + oy * b.uy;
+        const v = ox * b.vx + oy * b.vy;
+        return Math.abs(u) < b.hu + rr && Math.abs(v) < b.hv + rr ? { u, v } : null;
+      };
+      // (out of one part may be into another beside it: a few passes, until it is in none)
+      for (let pass = 0, moved = true; moved && pass < BLOCK_PASSES; pass++) {
+        moved = false;
+        for (const L of this.solidLots()) {
+          if (Math.abs(z.x - L.cx) > L.R + rr || Math.abs(z.y - L.cy) > L.R + rr) continue;
+          for (const b of L.boxes) {
+            const q = into(b, z.x, z.y);
+            if (!q) continue;
+            // out the nearest side that is not into another of the lot's parts (the nearest if every side is)
+            const au = b.hu + rr;
+            const av = b.hv + rr;
+            const exits = [
+              [au - q.u, au, q.v, 0],
+              [au + q.u, -au, q.v, 0],
+              [av - q.v, q.u, av, 1],
+              [av + q.v, q.u, -av, 1],
+            ].sort((m, n) => m[0] - n[0]);
+            let pick = exits[0];
+            for (const ex of exits) {
+              const x = b.cx + b.ux * ex[1] + b.vx * ex[2];
+              const y = b.cy + b.uy * ex[1] + b.vy * ex[2];
+              if (!L.boxes.some((o) => o !== b && into(o, x, y))) {
+                pick = ex;
+                break;
+              }
+            }
+            z.x = b.cx + b.ux * pick[1] + b.vx * pick[2];
+            z.y = b.cy + b.uy * pick[1] + b.vy * pick[2];
+            // along the side it is out of: a u side runs along v, a v side along u
+            if (pick[3]) this.walkRound(z, b.ux, b.uy, pick[1]);
+            else this.walkRound(z, b.vx, b.vy, pick[2]);
+            moved = true;
+          }
+        }
+      }
+      const e = this.riverAt(z.x, z.y);
+      if (e < rr) {
+        // out along the way the bank's distance grows fastest
+        const ex = this.riverAt(z.x + RIVER_PROBE, z.y) - e;
+        const ey = this.riverAt(z.x, z.y + RIVER_PROBE) - e;
+        const n = Math.hypot(ex, ey);
+        if (n > 1e-6) {
+          z.x += (ex / n) * (rr - e);
+          z.y += (ey / n) * (rr - e);
+          this.walkRound(z, -ey / n, ex / n, 0);
+        }
+      }
+    },
+    /** Walker z was put out along a wall (or the bank) running (tx, ty): from now, for WALK_ROUND s, it walks along
+        it: on the way it already went along this wall, or else the way the van is from it along the wall, or (the
+        van straight through the wall) toward the wall's nearer end (along: where it is along the wall from its
+        middle). Once going one way along a wall it keeps going, so it never dithers in the middle of one. */
+    walkRound(z, tx, ty, along) {
+      const w = z.wall;
+      const same = w ? w.x * tx + w.y * ty : 0;
+      let s;
+      if (Math.abs(same) > 0.7) s = Math.sign(same);
+      else {
+        const v = this.van;
+        const toward = v ? (v.x - z.x) * tx + (v.y - z.y) * ty : 0;
+        const d = v ? Math.hypot(v.x - z.x, v.y - z.y) || 1 : 1;
+        s = Math.abs(toward) > WALK_STRAIGHT * d ? Math.sign(toward) : Math.sign(along) || 1;
+      }
+      z.wall = { x: tx * s, y: ty * s, t: WALK_ROUND };
+    },
+    /** Is x, y a fit spot for a walker of radius r to come from: clear of the buildings and the river, and (strict)
+        with nothing of them between it and the van, so it can walk straight in? */
+    clearSpot(x, y, r, strict) {
+      const pad = r + SPAWN_CLEAR;
+      if (this.riverAt(x, y) < pad) return false;
+      const v = this.van;
+      for (const L of this.solidLots()) {
+        for (const b of L.boxes) {
+          const ox = x - b.cx;
+          const oy = y - b.cy;
+          if (Math.abs(ox * b.ux + oy * b.uy) < b.hu + pad && Math.abs(ox * b.vx + oy * b.vy) < b.hv + pad) return false;
+          if (strict && v && segHitsBox(x, y, v.x, v.y, b, r)) return false;
+        }
+      }
+      if (strict && v) {
+        const n = Math.ceil(Math.hypot(v.x - x, v.y - y) / RIVER_STEP);
+        for (let i = 1; i < n; i++) if (this.riverAt(x + ((v.x - x) * i) / n, y + ((v.y - y) * i) / n) < r) return false;
+      }
+      return true;
     },
     /** A screamer saw the van: it stands and screams, and every walker within SCREAM.radius tiles of it (itself
         too) moves SCREAM.mult times faster for SCREAM.secs. Again only after SCREAM.cooldown. */
@@ -1280,8 +1440,12 @@
         // walkers far off and ahead of the van just walk in; beside and behind it they keep up with it
         const own = z.yell > 0 ? 0 : z.speed * (z.frenzyT > 0 ? SC.mult : 1);
         z.carry = this.carry(z, own);
-        let vx = (dx / dist) * own + fx * z.carry + z.kx;
-        let vy = (dy / dist) * own + fy * z.carry + z.ky;
+        // (going round a building or along the river's bank: along it)
+        if (z.wall && (z.wall.t -= dt) <= 0) z.wall = null;
+        const wx = z.wall ? z.wall.x : dx / dist;
+        const wy = z.wall ? z.wall.y : dy / dist;
+        let vx = wx * own + fx * z.carry + z.kx;
+        let vy = wy * own + fy * z.carry + z.ky;
         for (let j = 0; j < this.zombies.length; j++) {
           if (i === j) continue;
           const o = this.zombies[j];
@@ -1297,6 +1461,7 @@
         }
         z.x += vx * dt;
         z.y += vy * dt;
+        this.blockWalker(z);
         z.vx = vx; // for the aim, which leads a walker
         z.vy = vy;
         z.kx *= 0.85;
@@ -2103,6 +2268,31 @@
       const a = H[i];
       const c = H[(i + 1) % H.length];
       if (apart(c.y - a.y, a.x - c.x)) return false;
+    }
+    return true;
+  }
+  /** Does the segment from (x0, y0) to (x1, y1) pass within pad of box b (Game.solidLots: middle, unit axes, half
+      sizes)? In the box's own frame, the slab test against the box grown by pad. */
+  function segHitsBox(x0, y0, x1, y1, b, pad) {
+    const ax = x0 - b.cx;
+    const ay = y0 - b.cy;
+    const u0 = ax * b.ux + ay * b.uy;
+    const v0 = ax * b.vx + ay * b.vy;
+    const du = (x1 - x0) * b.ux + (y1 - y0) * b.uy;
+    const dv = (x1 - x0) * b.vx + (y1 - y0) * b.vy;
+    let t0 = 0;
+    let t1 = 1;
+    for (const [p, d, h] of [[u0, du, b.hu + pad], [v0, dv, b.hv + pad]]) {
+      if (Math.abs(d) < 1e-9) {
+        if (Math.abs(p) >= h) return false;
+        continue;
+      }
+      let a = (-h - p) / d;
+      let c = (h - p) / d;
+      if (a > c) [a, c] = [c, a];
+      t0 = Math.max(t0, a);
+      t1 = Math.min(t1, c);
+      if (t0 > t1) return false;
     }
     return true;
   }

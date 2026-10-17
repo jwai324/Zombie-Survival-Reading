@@ -1928,6 +1928,146 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   upgrades.engine = 0;
   if (M) console.log(`persp feet: ${out.join("; ")}`);
 }
+/* ---------- buildings and the river block walkers (owner, 2026-10-17) ----------
+   A walker put inside a building's solid part (js/perspective-buildings.js solids) or the river with its muddy bank
+   (Draw.riverEdge) is put back out at once; one behind a building walks round it to the van instead of pressing on
+   its back wall; and over drives with walkers coming (a sample of routes here, every route with --all-walkers) none
+   comes from inside either or ever stands in one. */
+{
+  const B = ZSR.PerspBuild;
+  const Dr = ZSR.Draw;
+  const bErr = (m) => err("walkers blocked", m);
+  const quads = () => G.drive.lots.flatMap((l) => B.solids(l));
+  // how deep a point is inside a convex quad (positive inside), straight from the buildings' corners
+  const depthIn = (c, x, y) => {
+    const cx = (c[0].x + c[2].x) / 2;
+    const cy = (c[0].y + c[2].y) / 2;
+    let m = Infinity;
+    for (let i = 0; i < 4; i++) {
+      const a = c[i];
+      const b = c[(i + 1) % 4];
+      const L = Math.hypot(b.x - a.x, b.y - a.y) || 1;
+      let nx = -(b.y - a.y) / L;
+      let ny = (b.x - a.x) / L;
+      if ((cx - a.x) * nx + (cy - a.y) * ny < 0) [nx, ny] = [-nx, -ny];
+      m = Math.min(m, (x - a.x) * nx + (y - a.y) * ny);
+    }
+    return m;
+  };
+  const inside = (Q, z) => Math.max(...Q.map((c) => depthIn(c, z.x, z.y))) + z.r * 0.85;
+  const wet = (z) => z.r * 0.85 - Dr.riverEdge(z.x, z.y, G.drive.scale);
+  if (!B || typeof B.solids !== "function" || typeof G.blockWalker !== "function") bErr("no solids (PerspBuild.solids) or no Game.blockWalker");
+  else {
+    // put out at once: a walker of every kind in the middle of every solid part, and all along the river
+    start("base", "grocery");
+    for (let i = 0; i < 5; i++) G.update(1 / 60);
+    const Q = quads();
+    const kinds = Object.keys(W.WALKER_TYPES);
+    let put = 0;
+    Q.forEach((c, i) => {
+      const k = kinds[i % kinds.length];
+      const z = G.addZombie(k, (c[0].x + c[2].x) / 2, (c[0].y + c[2].y) / 2);
+      G.blockWalker(z); // (one call: every part it is in, in a few passes)
+      put++;
+      if (inside(Q, z) > 0.5) bErr(`a ${k} in the middle of a building's part was left ${inside(Q, z).toFixed(1)} inside it`);
+    });
+    const R = S.RIVER;
+    const k = G.drive.scale;
+    let wetPut = 0;
+    R.curves.forEach(([p0, p1, p2]) => {
+      for (let t = 0; t <= 1; t += 0.05) {
+        const m = 1 - t;
+        const x = (m * m * p0[0] + 2 * m * t * p1[0] + t * t * p2[0]) * k;
+        const y = (m * m * p0[1] + 2 * m * t * p1[1] + t * t * p2[1]) * k;
+        for (const off of [0, R.half * k * 0.7, R.half * k + R.bank * 0.6]) {
+          const z = G.addZombie(kinds[wetPut % kinds.length], x + off, y);
+          // (from the river's middle a walker may take a few steps to reach the bank: each step puts it out its way)
+          for (let n = 0; n < 40 && wet(z) > 0.5; n++) G.blockWalker(z);
+          wetPut++;
+          if (wet(z) > 0.5) bErr(`a walker put in the river at ${x.toFixed(0)}, ${y.toFixed(0)} was left ${wet(z).toFixed(1)} in it`);
+        }
+      }
+    });
+    G.zombies.length = 0;
+    G.stop();
+    // round a building: the van parked at the grocery's door, walkers behind the building come round to it
+    start("base", "grocery");
+    drive(right, 1.0, () => G.arrive && G.arrive.parked);
+    if (G.running && G.arrive && G.arrive.parked) {
+      G.arrive.t = -1e9; // (stay parked)
+      const lot = G.drive.lots.find((l) => l.node === "grocery");
+      const Qg = B.solids(lot);
+      const c = Qg[0];
+      const mid = { x: (c[0].x + c[2].x) / 2, y: (c[0].y + c[2].y) / 2 };
+      const v = G.van;
+      const away = Math.hypot(mid.x - v.x, mid.y - v.y);
+      const ux = (mid.x - v.x) / away;
+      const uy = (mid.y - v.y) / away;
+      const half = Math.max(...c.map((p) => Math.hypot(p.x - mid.x, p.y - mid.y)));
+      const behind = [-0.3, 0, 0.3].map((o, i) => Object.assign(G.addZombie(kinds[i], mid.x + ux * (half + 60) - uy * o * half, mid.y + uy * (half + 60) + ux * o * half), { hp: 1e4, maxHp: 1e4, dmg: 0, born: -10 }));
+      let worst = 0;
+      let came = 0;
+      for (let f = 0; f < 60 * 30 && G.running; f++) {
+        G.update(1 / 60);
+        for (const z of behind) worst = Math.max(worst, inside(Qg, z));
+        came = behind.filter((z) => Math.hypot(z.x - G.van.x, z.y - G.van.y) < 160).length;
+        if (came === behind.length) break;
+      }
+      if (worst > 0.5) bErr(`a walker going round the grocery was ${worst.toFixed(1)} inside it`);
+      if (came < behind.length) bErr(`only ${came} of ${behind.length} walkers behind the grocery came round it to the parked van in 30 s`);
+    } else bErr("the van never parked at the grocery");
+    G.stop();
+    // drives with walkers coming: none from inside a building or the river, none ever in one
+    const all = process.argv.includes("--all-walkers");
+    const ids = W.LOCATIONS.map((l) => l.id);
+    const pairs = [];
+    ids.forEach((a, i) => ids.forEach((b, j) => a !== b && (all || (i + 2 * j) % 17 === 0) && pairs.push([a, b])));
+    const sp0 = G.spawnZombie;
+    let spawned = 0;
+    let badSpawn = 0;
+    let frames = 0;
+    let inB = 0;
+    let inR = 0;
+    let deepB = 0;
+    let deepR = 0;
+    let Qd = [];
+    G.spawnZombie = function (type) {
+      const z = sp0.call(this, type);
+      if (z) {
+        spawned++;
+        if (inside(Qd, z) > -10 || wet(z) > -10) badSpawn++;
+      }
+      return z;
+    };
+    const day0 = ZSR.State.save.day;
+    ZSR.State.save.day = 10;
+    const t0 = Date.now();
+    for (const [a, b] of pairs) {
+      start(a, b);
+      G.spawnTimer = 0;
+      Qd = quads();
+      drive(right, 1.0, () => {
+        for (const z of G.zombies) {
+          frames++;
+          const d = Qd.length ? inside(Qd, z) : -1;
+          const e = wet(z);
+          if (d > 1) inB++;
+          if (e > 1) inR++;
+          deepB = Math.max(deepB, d);
+          deepR = Math.max(deepR, e);
+        }
+      });
+      G.stop();
+    }
+    ZSR.State.save.day = day0;
+    G.spawnZombie = sp0;
+    if (!(spawned > 200)) bErr(`only ${spawned} walkers came on ${pairs.length} drives`);
+    if (badSpawn) bErr(`${badSpawn} of ${spawned} walkers came from inside a building or the river (or within 10 of one)`);
+    if (inB) bErr(`${inB} walker frames inside a building's solid part (deepest ${deepB.toFixed(1)})`);
+    if (inR) bErr(`${inR} walker frames in the river or on its bank (deepest ${deepR.toFixed(1)})`);
+    console.log(`walkers blocked: ${put} put in buildings' parts and ${wetPut} in the river, all put out; walkers behind a building came round it; ${pairs.length} drives (${all ? "every route" : "a sample: --all-walkers for every route"}), ${spawned} walkers, ${frames} walker frames: ${badSpawn} came from inside, ${inB} in a building, ${inR} in the river (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
+  }
+}
 /* ---------- the angled camera's ground squares on the card (js/perspective-gl.js, WebGL stubbed) ----------
    A drive's squares, made on a clock that charges each size what a graphics card might (1.5, 0.8 and 0.4 ms): a square
    the view will need again soon is kept, not pushed off and made again (fewer than 10% made twice); a view that needs
