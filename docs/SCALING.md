@@ -111,7 +111,7 @@ scaling all assume it. `tests/validate-streets.js` also requires side streets in
   minimap and title screen checks; validate-drive's comfort section drives 63 routes that cover every turn, a set that grows with the corners,
   not the routes: `COMFORT_ALL=1` drives all of them). `tests/validate-scenery.js` takes about 45 s.
 - validate-drive's "walkers blocked" drives a fixed sample of routes (one in 17) with walkers coming
-  (`--all-walkers` drives every route, about 2 min); `tests/validate-balance.js` drives 6 balance cells at 6 seeds
+  (`--all-walkers` drives every route, about 5.5 min); `tests/validate-balance.js` drives 6 balance cells at 6 seeds
   (about 6 s, `CELLS` and `SEEDS`), and `npm run balance` the whole matrix (3,456 trips, about 1.5 min on 4 cores:
   3 routes a danger, so it grows with the dangers, not the places).
 - Doubling the places makes them about 4 to 16 times slower.

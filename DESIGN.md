@@ -2097,7 +2097,8 @@ before with after and are not a real PC's; "before" is b7b8202):
     kind in the van's path (its own pace, off the nose within 0.35 s, then pressing a side);
   - "walkers blocked" (new): a walker of every kind in every building part and all along the river is put out;
     walkers behind the grocery come round to the parked van (6 seeds); and over a sample of drives with walkers
-    coming none spawns in or ever stands in a building or the river (`--all-walkers` drives every route);
+    coming none spawns in or ever stands in a building or the river (`--all-walkers` drives every route: 272 drives,
+    18,589 walkers, about 20 million walker frames, none in either, in about 5.5 min);
   - "road steps" (new): frames of 0.1 s and 1/30 s against 1/60 s, bit for bit;
   - "walker cap" (new): no walker comes while `ROAD_WALKERS_MAX` are on the road, and they come again under it.
 - **`tests/validate-balance.js`** (new, in `npm test`, about 6 s): six cells, 6 seeds a route, against wide bands
