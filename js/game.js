@@ -65,7 +65,13 @@
   const MINI_HAZE = 0.25; // a place gone further into the haze than this is not in view for the minimap's fade
   const SIGN_GAP = 14; // px between the road's edge on the screen and the sign or the lane hint beside it
   const SIGN_AWAY = 1.2; // px the passed sign slides right for each unit the van drives past its stop line (260 to go)
-  // the road's edges are found on the screen this often along it (road units: Game.roadEdges)
+  // the sign stands right of the road at least this wide (px); a window narrower than SIGN_NARROW_W, or with less
+  // room than this right of its middle, has it across the top instead (drawSign)
+  const SIGN_ROOM = 160;
+  const SIGN_NARROW_W = 700;
+  const SIGN_GLIDE = 0.8; // window widths a second the sign moves at most to keep beside the road's edge as it swings
+  // SCALE: the road's edges are found on the screen this often along it (road units: Game.roadEdges), out to cfg.far:
+  // a deeper view costs the sign more points a frame (about 32 today)
   const EDGE_STEP = 120;
   const SPARK_ARMOR = "#c9cdd2"; // a bullet off a helmet or a vest
   /** How long a downed walker lasts: the 3D figures' fall (js/walker3d.js), or 2 s without them. */
@@ -365,6 +371,7 @@
       this.turn = null;
       this.fail = null;
       this.arrive = null;
+      this.signSpot = null; // where the last sign stood as the van crossed its stop line (drawSign)
       this.hintDone = false;
       this.zombies = [];
       this.bullets = [];
@@ -1903,7 +1910,8 @@
       const G = St.GEOM;
       const up = this.upcoming();
       let dec = null;
-      let after = 0;
+      let after = 0; // units past its stop line
+      let passed = false;
       if (up && this.van.s >= up.signAt) dec = up;
       else if (this.next > 0) {
         // just past a stop line, the last sign slides away (on a wrong road, s counts from that stop line)
@@ -1912,6 +1920,7 @@
         if (past >= 0 && past < 260) {
           dec = prev;
           after = past;
+          passed = true;
         }
       }
       if (!dec) return null;
@@ -1931,28 +1940,47 @@
       let x;
       let y;
       let maxW;
-      let band = 150 * k0; // the rows the sign covers, from the top (the road widens down the screen): as laid out
-      for (let pass = 0; pass < 3; pass++) {
-        const re = E.side(1, top, top + band);
-        const left = (re == null ? this.W / 2 : re) + SIGN_GAP;
-        maxW = this.W - left - 12;
-        let x0 = left;
-        if (maxW < 160) {
-          // a narrow screen: across the top, under the minimap
-          x0 = 8;
-          maxW = this.W - 16;
+      const spot = this.signSpot;
+      if (passed && spot && spot.dec === dec && spot.k === k) {
+        // a sign just passed keeps where it stood as the van crossed the stop line (and slides off from there): the
+        // road's edge swings across the screen as the camera turns after the van, and the sign must not follow it
+        ({ lay, x, y, maxW } = spot);
+      } else {
+        // a narrow window (SIGN_ROOM: too little room right of its middle) has the sign across the top, under the
+        // minimap. Only the window decides that, never where the road's edge is this frame: while the lagging camera
+        // swings through a bend the far edge comes across the room for a moment, and the sign would jump across the
+        // screen and back. Then it stands at the right, at least SIGN_ROOM wide, over that edge for the moment
+        // (walkers are drawn again over it: Persp.drawOverSign)
+        const narrow = this.W < SIGN_NARROW_W || this.W / 2 - SIGN_GAP - 12 < SIGN_ROOM;
+        // the same sign as last frame glides after the road's edge at SIGN_GLIDE window widths a second at most, and
+        // stays where it is while no edge is beside it: through a bend the edge leaves the sign's rows and comes back
+        // far to the right, and the sign would leap
+        const held = !passed && spot && spot.dec === dec && spot.k === k && !narrow ? spot : null;
+        const step = held ? SIGN_GLIDE * this.W * clamp(this.time - held.t, 0, 0.1) : 0;
+        let band = 150 * k0; // the rows the sign covers, from the top (the road widens down the screen): as laid out
+        for (let pass = 0; pass < 3; pass++) {
+          const re = E.side(1, top, top + band);
+          // (never left of the window's middle: an edge left of it leaves the right half clear of the road)
+          let x0 = re == null ? (held ? held.x : this.W / 2 + SIGN_GAP) : Math.max(this.W / 2, re) + SIGN_GAP;
+          if (held) x0 = held.x + clamp(x0 - held.x, -step, step);
+          maxW = Math.max(SIGN_ROOM, this.W - x0 - 12);
+          if (narrow) {
+            x0 = 8;
+            maxW = this.W - 16;
+          }
+          for (let sk = k0; ; sk -= 0.1) {
+            lay = D.layoutSign(ctx, sign, sk, maxW);
+            x = Math.min(x0, this.W - lay.w - 12);
+            y = overMini(x, lay.w, top, lay.h) ? mb.bottom + 10 : top;
+            if ((lay.fits && y + lay.h + 6 * lay.k <= floor(x, lay.w)) || sk <= Math.max(0.75, k0 * 0.6)) break;
+          }
+          const need = y + lay.h + 6 * lay.k - top;
+          if (need <= band + 1) break;
+          band = need;
         }
-        for (let sk = k0; ; sk -= 0.1) {
-          lay = D.layoutSign(ctx, sign, sk, maxW);
-          x = Math.min(x0, this.W - lay.w - 12);
-          y = overMini(x, lay.w, top, lay.h) ? mb.bottom + 10 : top;
-          if ((lay.fits && y + lay.h + 6 * lay.k <= floor(x, lay.w)) || sk <= Math.max(0.75, k0 * 0.6)) break;
-        }
-        const need = y + lay.h + 6 * lay.k - top;
-        if (need <= band + 1) break;
-        band = need;
+        y = Math.max(8, Math.min(y, this.H - 8 - lay.h - 6 * lay.k)); // never off the screen, even on one that has no room
+        if (!passed) this.signSpot = { dec, k, lay, x, y, maxW, t: this.time };
       }
-      y = Math.max(8, Math.min(y, this.H - 8 - lay.h - 6 * lay.k)); // never off the screen, even on one that has no room
       // slide in from above as it comes into view; once passed, slide off to the right (away from the road: sliding
       // down the screen, as the old flat road's did, it would cross the road ahead) and fade
       const lead = (dec.zoneStart - dec.signAt) || 1;

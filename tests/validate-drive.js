@@ -128,39 +128,99 @@ function drive(pick, lead, onFrame, dt) {
 }
 const right = (dec) => dec.options.find((o) => o.correct);
 
-/* ---------- every route, a careful driver ---------- */
+/* ---------- every route, a careful driver ----------
+   At the slowest van the sign is also drawn every frame (Draw.roadSign recorded, on a 1280 x 800 window with the
+   page's HUD): while it shows fully (alpha 0.9 or more) it never moves more than SIGN_JUMP px from one frame to the
+   next, through every bend (the lagging camera swings the road's edge across the screen) and as it slides away. */
 const ids = W.LOCATIONS.map((l) => l.id);
 let routes = 0;
 let maxBack = 0;
 let turns = 0;
-for (const engine of [0, 5]) {
-  upgrades.engine = engine; // the slowest and the fastest van
-  for (const a of ids) {
-    for (const b of ids) {
-      if (a === b) continue;
-      const c = `${a} > ${b} (engine ${engine})`;
-      start(a, b);
-      routes++;
-      let back = 0;
-      let camBack = 0;
-      let wasTurn = false;
-      drive(right, 1.0, (p) => {
-        if (!G.running || G.fade || (G.arrive && G.arrive.parked)) return;
-        // forward is the van's heading; a step back is a judder or a spin
-        const fx = Math.cos(G.van.heading);
-        const fy = Math.sin(G.van.heading);
-        back = Math.max(back, -((G.van.x - p.x) * fx + (G.van.y - p.y) * fy));
-        camBack = Math.max(camBack, -((G.cam.x - p.cx) * fx + (G.cam.y - p.cy) * fy));
-        if (G.turn && !wasTurn) turns++;
-        wasTurn = !!G.turn;
-      });
-      maxBack = Math.max(maxBack, back, camBack);
-      if (arrived !== b) err(c, `did not arrive (arrived ${arrived}, attempt ${G.attempt})`);
-      else if (G.attempt !== 0) err(c, `needed ${G.attempt + 1} tries in the right lanes`);
-      if (back > 0.5) err(c, `the van stepped back ${back.toFixed(2)} px in a frame`);
-      if (camBack > 0.5) err(c, `the camera stepped back ${camBack.toFixed(2)} px in a frame`);
+const SIGN_JUMP = 120;
+const signLog = { shown: 0, frames: 0, most: 0, jumps: 0 };
+{
+  const roadSign0 = ZSR.Draw.roadSign;
+  const hud0 = G.hudRects;
+  const W0 = globalThis.innerWidth;
+  const H0 = globalThis.innerHeight;
+  let drawn = null;
+  const sctx = new Proxy(
+    { font: "10px sans-serif" },
+    {
+      get(o, k) {
+        if (k === "measureText") return (t) => ({ width: String(t).length * 0.55 * (parseFloat((/(\d+(\.\d+)?)px/.exec(o.font) || [])[1]) || 10) });
+        if (k in o) return o[k];
+        if (k === "createLinearGradient" || k === "createRadialGradient") return () => ({ addColorStop: noop });
+        return noop;
+      },
+      set(o, k, v) {
+        o[k] = v;
+        return true;
+      },
+    }
+  );
+  for (const engine of [0, 5]) {
+    upgrades.engine = engine; // the slowest and the fastest van
+    const signs = engine === 0;
+    if (signs) {
+      globalThis.innerWidth = 1280;
+      globalThis.innerHeight = 800;
+      G.resize();
+      G.hudRects = () => ({ top: null, row: 54, boxes: [], low: [{ left: 432, right: 848, top: 746 }], mini: { left: 9, top: 63, right: 250, bottom: 234, width: 241, height: 171 } });
+      ZSR.Draw.roadSign = (ctx, x, y, sign, lay, alpha) => (drawn = { x, y, alpha });
+    }
+    for (const a of ids) {
+      for (const b of ids) {
+        if (a === b) continue;
+        const c = `${a} > ${b} (engine ${engine})`;
+        start(a, b);
+        routes++;
+        let back = 0;
+        let camBack = 0;
+        let wasTurn = false;
+        let last = null;
+        drive(right, 1.0, (p) => {
+          if (signs && G.running) {
+            drawn = null;
+            G.drawSign(sctx, 1);
+            const up = G.upcoming();
+            const which = drawn && (up && G.van.s >= up.signAt ? G.next : G.next - 1);
+            if (drawn) {
+              signLog.frames++;
+              if (!last || last.which !== which) signLog.shown++;
+              else if (drawn.alpha >= 0.9 && last.alpha >= 0.9) {
+                const d = Math.hypot(drawn.x - last.x, drawn.y - last.y);
+                signLog.most = Math.max(signLog.most, d);
+                if (d > SIGN_JUMP && signLog.jumps++ < 5) err(c, `the sign of decision ${which} moved ${d.toFixed(0)} px in a frame (${last.x.toFixed(0)}, ${last.y.toFixed(0)} to ${drawn.x.toFixed(0)}, ${drawn.y.toFixed(0)}) at ${G.time.toFixed(2)} s${G.turn ? ", in a turn" : ""}`);
+              }
+            }
+            last = drawn && Object.assign({ which }, drawn);
+          }
+          if (!G.running || G.fade || (G.arrive && G.arrive.parked)) return;
+          // forward is the van's heading; a step back is a judder or a spin
+          const fx = Math.cos(G.van.heading);
+          const fy = Math.sin(G.van.heading);
+          back = Math.max(back, -((G.van.x - p.x) * fx + (G.van.y - p.y) * fy));
+          camBack = Math.max(camBack, -((G.cam.x - p.cx) * fx + (G.cam.y - p.cy) * fy));
+          if (G.turn && !wasTurn) turns++;
+          wasTurn = !!G.turn;
+        });
+        maxBack = Math.max(maxBack, back, camBack);
+        if (arrived !== b) err(c, `did not arrive (arrived ${arrived}, attempt ${G.attempt})`);
+        else if (G.attempt !== 0) err(c, `needed ${G.attempt + 1} tries in the right lanes`);
+        if (back > 0.5) err(c, `the van stepped back ${back.toFixed(2)} px in a frame`);
+        if (camBack > 0.5) err(c, `the camera stepped back ${camBack.toFixed(2)} px in a frame`);
+      }
+    }
+    if (signs) {
+      ZSR.Draw.roadSign = roadSign0;
+      G.hudRects = hud0;
+      globalThis.innerWidth = W0;
+      globalThis.innerHeight = H0;
+      G.resize();
     }
   }
+  if (signLog.shown < ids.length * (ids.length - 1)) err("every route", `only ${signLog.shown} signs drawn on ${ids.length * (ids.length - 1)} routes`);
 }
 upgrades.engine = 0;
 
@@ -2525,7 +2585,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   GA.stop();
   console.log(`comfort: ${nTurns} right-way turns on ${check.length} routes at each engine, angled: view at most ${worst.w[0].toFixed(1)} / ${worst.w[5].toFixed(1)} deg/s (engine 0 / 5), ${worst.acc[0].toFixed(0)} / ${worst.acc[5].toFixed(0)} deg/s2, lag ${worst.lag[0].toFixed(1)} / ${worst.lag[5].toFixed(1)} deg; road after the bend ${VIEWS.map((v) => v.name + " " + worst.marg[v.name].toFixed(0) + " px in").join(", ")}; hop ${worst.hop.toFixed(2)}, speed at most ${(worst.dv * 100).toFixed(2)}% a frame; Home Base to Corner Grocery ${bg[0] && bg[0].toFixed(1)} / ${bg[5] && bg[5].toFixed(1)}; ${nWrong} wrong ways: ${worst.ww[0].toFixed(1)} / ${worst.ww[5].toFixed(1)} deg/s, ${worst.wacc[0].toFixed(0)} / ${worst.wacc[5].toFixed(0)} deg/s2, lag ${worst.wlag[0].toFixed(1)} / ${worst.wlag[5].toFixed(1)} deg (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 }
-console.log(`drive: ${routes} routes driven (${turns} turns), largest step back ${maxBack.toFixed(2)} px; left alone the first wrong way is ${Object.entries(failedAt).map(([k, n]) => k + " " + n).join(", ")}`);
+console.log(`drive: ${routes} routes driven (${turns} turns), largest step back ${maxBack.toFixed(2)} px; ${signLog.shown} signs over ${signLog.frames} frames, the most one moved in a frame ${signLog.most.toFixed(0)} px; left alone the first wrong way is ${Object.entries(failedAt).map(([k, n]) => k + " " + n).join(", ")}`);
 errors.slice(0, 40).forEach((e) => console.log("ERROR " + e));
 if (errors.length > 40) console.log(`... ${errors.length - 40} more errors`);
 console.log(errors.length ? `FAILED: ${errors.length} errors` : "ok");
