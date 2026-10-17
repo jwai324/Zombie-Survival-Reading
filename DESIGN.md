@@ -1631,7 +1631,8 @@ uses the angled camera ("The flat camera taken out" below).
   of squares a frame, holes up to `PREP_HOLES` 60 ms. The same happens behind the dark after a retry. The trip clock
   does not run meanwhile.
 - **The road canvas's dpr is capped at 1.5** (`ROAD_DPR_MAX`); only 175% and 200% screen scaling go past it. A
-  dpr that changed with the governor was rejected: resizing a canvas mid-drive is itself a hitch.
+  dpr that changed with the governor was rejected: resizing a canvas mid-drive is itself a hitch. (Reversed by the
+  owner the same day: "Driving lag on the owner's PC" below.)
 - **Ground squares at sharp corners: one work list a frame, most visible first:**
   1. holes near the van;
   2. squares near the van;
@@ -2362,3 +2363,68 @@ The design is `docs/UNIVERSES.md` ("How it works, as built"). Cheap to change:
 - **Settings line, toasts and the slot summary are one level of English**, like the game's other engine strings.
 - **God mode lists a universe's quests only while it is on**, so a quest can never be jumped to where its object
   would not show.
+
+## Driving lag on the owner's PC (2026-10-17)
+
+**Reported:** "The driving is lagging a lot." The owner's FPS meter (hardware acceleration on, per chrome://gpu):
+
+| | Paused | Driving |
+|---|---|---|
+| Frame rate | 28 fps (35.6 ms) | 9 fps (107 ms, the governor's smoothed 114 ms) |
+| The page's own draw | 8.1 ms | 12.4 ms |
+| Scenery row | 4 of 4 | 4 of 4 |
+
+**Read:** about 90% of a driving frame is outside this code: the browser's raster, compositing and the graphics card.
+The scenery governor was already at its thinnest row and cannot help: plants are not the cost. Driving costs about
+70 ms a frame more than paused, only 4 ms of it in the page's draw. **Likely cause, not proven on the owner's
+PC:** the ground squares. Their upload and smaller copies run on the card after the code returns, so `BUDGET`
+(7 ms of the code's own time) lets a fast processor send several a frame. A slow frame lets the van cover more
+ground, which wants more squares the next frame. Context: until PR #31 (this morning) only base to grocery used the
+angled camera. On the same drive here, the flat camera's code took 1.6 ms a frame and the angled one 19 ms.
+
+**Owner decisions:**
+- Make the tile budget react to the real frame time, not just the game's own time.
+- Lower the drawing resolution automatically when frames stay slow. This reverses "a dpr that changed with the
+  governor was rejected": one resize hitch a row is far cheaper than 9 fps.
+
+**Built:**
+- **Squares on slow frames** (`js/perspective-gl.js` `TILE_SLOW_MS` 40):
+  - **The interval:** `PerspGL.slowGap` smooths the real frame interval (`g.rafMs`) over about half a second. Not
+    counted: pauses, the van waiting at its door, gaps over 250 ms.
+  - **The cap:** past 40 ms a frame draws at most `max(1, round(2 * 40 / interval))` squares (2 at 45 ms, 1 from
+    54 ms). One hole near the van can still go past the cap, as it can past the time budget.
+  - **Not affected:** the van's wait at its door and a drive's first 4 frames.
+  - **Threshold:** 40 ms is over a 30 fps cap's 33.3 ms, so Chrome's Energy Saver keeps every square.
+- **The resolution governor** (`js/perspective.js` `RES_LEVELS` 100 / 80 / 65 / 50%; `resStep`, `resScale`):
+  - **What it scales:** the road's canvas, and with it the card's ground, are drawn at a share of their device px
+    (`game.js` resize; the browser scales them up).
+  - **What it reads:** the scenery governor's smoothed interval, so the same frames count (no pause, fade, door
+    wait or the drive's first 1.5 s).
+  - **Stepping:** a row down after 2 s over `RES_SLOW_MS` 36 ms. A row up after 10 s under `RES_FAST_MS` 20 ms;
+    that wait doubles (up to 8 times) for a row it had to leave. Each change holds both governors for 2 s.
+  - **Applied between frames:** `Game.frame` resizes after the draw that changed the row.
+  - **Kept:** for later drives, and outside god mode in `localStorage` `zsr-road-res`, so a slow machine starts
+    where it ended.
+  - **The minimap** keeps the device's px (`Game.miniDpr`).
+- **The FPS meter** adds `squares N/frame` while capped and `pixels N%` below full.
+
+**Measured** (headless Chromium `--disable-gpu`, 1920 x 1080 at 125%, base to hospital, interleaved runs, frame
+interval median over the drive's second half). This container has no real graphics card, so these are directions,
+not the owner's numbers:
+
+| | Before | Squares cap only | Both |
+|---|---|---|---|
+| Frame interval | 167-200 ms | 150-167 ms | 83-100 ms |
+
+- **At 1280 x 720 at 100%:** 83 to 50 ms.
+- **The resolution row settles** at 50% here.
+- **Squares missing under the view:** about 155 a frame before and after. This machine never catches up either way,
+  and the cap does not add holes.
+- **Tests:** validate-scenery checks the resolution governor (a 30 fps cap keeps full pixels; 107 ms frames step
+  it down one row at a time to 50%, holding the scenery governor; pauses say nothing; fast frames climb back after
+  the wait) and the squares' cap (none at 33.3 ms, 2 at 45 ms, 1 at 107 ms). `npm test` passes.
+
+**Open:**
+- **Check on the owner's PC.** If the FPS meter shows `pixels 50%` and frames still over 36 ms, the next step is a
+  cheaper frame (fewer squares kept sharp, cheaper walkers), not more rows.
+- **50% looks soft** on a 1080p screen. It is the floor; the owner may prefer 65%.

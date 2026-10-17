@@ -240,7 +240,11 @@
     },
 
     resize() {
-      const dpr = Math.min(ROAD_DPR_MAX, root.devicePixelRatio || 1);
+      // the device px a CSS px, and the share of them the resolution governor draws (js/perspective.js RES_LEVELS:
+      // the browser scales the canvas up to the window); the minimap keeps the device's
+      this.miniDpr = Math.min(ROAD_DPR_MAX, root.devicePixelRatio || 1);
+      this.resScale = ZSR.Persp && ZSR.Persp.resScale ? ZSR.Persp.resScale() : 1;
+      const dpr = this.miniDpr * this.resScale;
       this.dpr = dpr;
       this.W = root.innerWidth;
       this.H = root.innerHeight;
@@ -1206,6 +1210,8 @@
       // squares, plants and pictures (Persp.release), and drawing it again would make them all over)
       if (!this.running) return;
       this.draw();
+      // the resolution governor changed its row in this draw: the canvas takes it before the next frame
+      if (ZSR.Persp && ZSR.Persp.resScale && ZSR.Persp.resScale() !== this.resScale) this.resize();
     },
     /** Whether the van still waits at its door this frame (frame): from a drive's start, and a retry's, until its
         first view is ready or PREP_SECS of the page's time have gone. */
@@ -2161,7 +2167,7 @@
       if (!c || !ctx) return;
       const r = this.hudRects().mini;
       if (!r || !r.width) return;
-      const dpr = this.dpr || 1;
+      const dpr = this.miniDpr || 1;
       const w = Math.round(r.width);
       const h = Math.round(r.height);
       if (c.width !== Math.round(w * dpr) || c.height !== Math.round(h * dpr)) {
