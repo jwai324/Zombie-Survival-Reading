@@ -73,6 +73,16 @@
   // SCALE: range (how far a shot flies) and keepUp (how near a walker must be to keep up with the van) are tied to
   // how far the angled view sees (Persp.cfg.far); spawns sets how many walkers a drive brings
   const PERSP = { pace: 1.25, shot: 1.6, spawns: 1.4, range: 2600, keepUp: 900, parkShort: 45 };
+  // the keep-up carry, by where a walker is from the van (owner, 2026-10-17): ahead of the nose there is none, so a
+  // walker there walks at the van on its own feet and the van closes on it at its whole speed; beside and behind it the
+  // walker sprints to keep up (DIFF.chase of the van's speed, within PERSP.keepUp of it, fading out over `fade` further
+  // off). Over `band` seconds of the van's drive ahead of the nose (at least bandMin units) one goes over to the
+  // other, so nobody jumps from walking to sprinting; one in the van's path keeps walking; and a walker ahead of the
+  // van's middle is never carried away from the van faster than it walks at it, so its feet never slide back. A walker
+  // pressed onto the nose is shoved off to its nearer side, at `shove` of the van's speed (at least `shoveMin` units a
+  // second), so none rides the bumper: from there it keeps up beside the van.
+  // SCALE: fade, bandMin and shoveMin are road units, tied to the van's size and speed
+  const KEEP = { fade: 400, band: 0.8, bandMin: 60, shove: 0.8, shoveMin: 60 };
   // ... and its corners. The van brakes into each turn it takes: from the stop line (never before: braking must not
   // tell which way is right) it eases down by the time its path bends, holds that round the bend, then eases back up.
   // How far: brake x its speed into a gentle turn, less for a sharper one (js/streets.js brakeFor: by the turn's angle,
@@ -776,6 +786,29 @@
       }
       return null;
     },
+    /** How fast the keep-up carries walker z along the van's heading (world units a second; KEEP): none ahead of the
+        van's nose or in its path, DIFF.chase of the van's speed beside and behind it within PERSP.keepUp, over
+        KEEP.band (seconds of the van's drive) between; and while it is ahead of the van's middle never faster than
+        own (its own pace at the van now) brings it back, so it never moves away from the van with its feet going
+        toward it. */
+    carry(z, own) {
+      const v = this.van;
+      if (!v) return 0;
+      const fx = Math.cos(v.heading);
+      const fy = Math.sin(v.heading);
+      const ox = z.x - v.x;
+      const oy = z.y - v.y;
+      const dist = Math.hypot(ox, oy) || 1;
+      const ly = ox * fx + oy * fy; // how far ahead of the van's middle
+      const near = clamp((PERSP.keepUp - dist) / KEEP.fade, 0, 1);
+      const band = Math.max(KEEP.bandMin, KEEP.band * (this.curSpeed || 0));
+      const beside = 1 - smooth(clamp((ly - v.h / 2) / band, 0, 1));
+      // ahead of the van's middle only a walker that will pass beside it keeps up: one in its path walks on into the
+      // nose (and is shoved off it), from out past the van's side to where it would press on that side
+      const lat = ly > 0 ? smooth(clamp((Math.abs(ox * -fy + oy * fx) - v.w / 2) / Math.max(1, z.r * 0.85), 0, 1)) : 1;
+      const c = (this.curSpeed || 0) * DIFF.chase * near * beside * lat;
+      return ly > 0 ? Math.min(c, (Math.max(0, own) * dist) / ly) : c;
+    },
     /** A screamer saw the van: it stands and screams, and every walker within SCREAM.radius tiles of it (itself
         too) moves SCREAM.mult times faster for SCREAM.secs. Again only after SCREAM.cooldown. */
     scream(z) {
@@ -798,12 +831,11 @@
       if (World().SETTINGS.walkerGore === false || this.particles.length > ROAD_PARTICLE_CAP) return;
       const a0 = Math.atan2(vy, vx);
       const n = kill ? 9 : glance ? 3 : 5;
-      // the drops fly on with the walker (it keeps up with the van once near it, as it does); what lands stays on the
-      // road
+      // the drops fly on with the walker (carried with it as it keeps up with the van, Game.carry); what lands stays
+      // on the road
       const v = this.van;
-      const keep = v ? clamp((PERSP.keepUp - Math.hypot(v.x - z.x, v.y - z.y)) / 400, 0, 1) : 1;
-      const cx = v ? Math.cos(v.heading) * (this.curSpeed || 0) * DIFF.chase * keep : 0;
-      const cy = v ? Math.sin(v.heading) * (this.curSpeed || 0) * DIFF.chase * keep : 0;
+      const cx = v ? Math.cos(v.heading) * (z.carry || 0) : 0;
+      const cy = v ? Math.sin(v.heading) * (z.carry || 0) : 0;
       // the spray is seen in the air, as on foot (js/interior.js bleed): from the hit's height, and one drop in three
       // splashes back out to the sides toward the shot (the camera is behind the van: the rest fly out behind the body,
       // which hides them); it falls and lands (updateParticles)
@@ -1226,12 +1258,11 @@
           }
         }
       }
-      // walkers home in on the van and keep up with it, as on the old scrolling road
+      // walkers home in on the van; beside and behind it they keep up with it (Game.carry), as on the old scrolling road
       const fx = Math.cos(van.heading);
       const fy = Math.sin(van.heading);
       const rx = -fy;
       const ry = fx;
-      const chase = this.curSpeed * DIFF.chase;
       ZSR.Persp.setup(this);
       const SC = World().SCREAM;
       for (let i = this.zombies.length - 1; i >= 0; i--) {
@@ -1246,11 +1277,11 @@
         const dist = Math.hypot(dx, dy) || 1;
         z.angle = Math.atan2(dy, dx);
         // its own way at the van: none while it screams, faster in a frenzy (keeping up with the van is not its own);
-        // walkers far off just walk in; they keep up with the van once near it
+        // walkers far off and ahead of the van just walk in; beside and behind it they keep up with it
         const own = z.yell > 0 ? 0 : z.speed * (z.frenzyT > 0 ? SC.mult : 1);
-        const keep = clamp((PERSP.keepUp - dist) / 400, 0, 1);
-        let vx = (dx / dist) * own + fx * chase * keep + z.kx;
-        let vy = (dy / dist) * own + fy * chase * keep + z.ky;
+        z.carry = this.carry(z, own);
+        let vx = (dx / dist) * own + fx * z.carry + z.kx;
+        let vy = (dy / dist) * own + fy * z.carry + z.ky;
         for (let j = 0; j < this.zombies.length; j++) {
           if (i === j) continue;
           const o = this.zombies[j];
@@ -1274,17 +1305,25 @@
         z.cool = Math.max(0, z.cool - dt);
         // touching the van, in the van's own frame: seen in 3D a walker must stay outside the van, so one inside its
         // sides is put back out at the nearest side, where it presses against the van and hits it (a lanky's long
-        // arms reach it from further off)
+        // arms reach it from further off). One the nose pushes on is shoved off to its nearer side (KEEP.shove) as
+        // the van drives on, so none rides the bumper: from there it keeps up beside the van
         let lx = (z.x - van.x) * rx + (z.y - van.y) * ry;
         let ly = (z.x - van.x) * fx + (z.y - van.y) * fy;
         const ax = van.w / 2 + z.r * 0.85;
         const ay = van.h / 2 + z.r * 0.85;
         if (Math.abs(lx) < ax && Math.abs(ly) < ay) {
-          if (ax - Math.abs(lx) < ay - Math.abs(ly)) lx = (lx < 0 ? -1 : 1) * ax;
-          else ly = (ly < 0 ? -1 : 1) * ay;
+          if (z.shove && ly > 0) {
+            lx += z.shove * Math.max(KEEP.shoveMin, KEEP.shove * (this.curSpeed || 0)) * dt;
+            if (Math.abs(lx) < ax) ly = ay;
+          } else if (ax - Math.abs(lx) < ay - Math.abs(ly)) lx = (lx < 0 ? -1 : 1) * ax;
+          else {
+            ly = (ly < 0 ? -1 : 1) * ay;
+            if (ly > 0) z.shove = lx < 0 ? -1 : 1; // on the nose: off to the nearer side
+          }
           z.x = van.x + rx * lx + fx * ly;
           z.y = van.y + ry * lx + fy * ly;
         }
+        if (z.shove && (Math.abs(lx) >= ax || ly > ay + KEEP.bandMin)) z.shove = 0;
         const touching = Math.abs(lx) < ax + 4 + z.reach && Math.abs(ly) < ay + 4 + z.reach;
         if (touching && z.cool <= 0 && !this.fade) {
           z.cool = 1.0;
@@ -2015,6 +2054,7 @@
 
     DIFF,
     PERSP,
+    KEEP,
     DRIVE_STEP,
     ROAD_PARTICLE_CAP,
     ROAD_FALLEN_MAX,

@@ -900,8 +900,9 @@
     /** How a walker on the angled drive looks this frame (game.js update, once it has moved from x0, y0; touching:
         it presses on the van), as on foot (js/interior.js animWalker): its heading turns at its look's turn rate (no
         snap as the van goes by or a shot throws it back) toward where it is going (its ground motion, smoothed, the
-        keep-up carry included), or toward the van while it claws or screams at it, or while the van carries it away
-        from it (a walker ahead: the owner's to decide, DESIGN.md); its legs go by the ground it covered, running
+        keep-up carry included), or toward
+        the van while it claws or screams at it, or while something throws it back from the van (the keep-up never
+        carries a walker away from the van: game.js carry); its legs go by the ground it covered, running
         (Walker3D st.run) as that outpaces its kind's walk (near the van it sprints, owner 2026-10-16); the walk
         blend; a claw's swipes at its look's rate while it presses on the van or has just hit it; the scream while it
         yells; each pose eased in and out over Walker3D's POSE_BLEND. Only looks: nothing here moves it. */

@@ -1798,56 +1798,81 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
 }
 /* ---------- the angled camera's walkers keeping up with the van: their feet go with them ----------
    Beside and behind the van (out of its reach) every kind faces the way it goes, so its feet do not slide sideways
-   (as on foot: js/interior.js animWalker), and runs (Walker3D st.run) at a cadence a body can run at. Walkers ahead
-   are left out: facing the van while it carries them away is the owner's to decide (DESIGN.md). */
+   (as on foot: js/interior.js animWalker), and runs (Walker3D st.run) at a cadence a body can run at. Ahead of the van
+   there is no keep-up pull (owner, 2026-10-17): a walker there walks at the van at its own pace with its feet planted,
+   and never moves away from the van while its legs walk toward it (the old "moonwalk"); over the band where it goes
+   over to keeping up (KEEP.band) it may slip a little as it turns. One in the van's path walks straight into the nose
+   and is shoved off it to a side within a moment, where it keeps up and claws at the van. */
 {
   const P = ZSR.Persp;
   const M = ZSR.Walker3D;
   const TILE = P.TILE;
+  const K = G.KEEP;
   const kinds = Object.keys(W.WALKER_TYPES);
   const q90 = (a) => (a.length ? a.slice().sort((x, y) => x - y)[Math.floor(a.length * 0.9)] : NaN);
   const out = [];
+  if (!K || !(K.band > 0)) err("persp feet", "Game.KEEP (the keep-up carry by where a walker is) is missing");
   for (const engine of [0, 5]) {
     upgrades.engine = engine;
-    start("base", "grocery");
-    for (let i = 0; i < 30; i++) G.update(1 / 60);
-    const v = G.van;
-    const fx = Math.cos(v.heading);
-    const fy = Math.sin(v.heading);
-    G.zombies.length = 0;
-    const put = (type, ahead, side) => Object.assign(G.addZombie(type, v.x + fx * ahead - fy * side, v.y + fy * ahead + fx * side), { hp: 1e4, maxHp: 1e4, dmg: 0, born: -10 });
-    kinds.forEach((k, i) => {
-      put(k, -40 + 40 * (i % 3), (i % 2 ? 1 : -1) * (300 + 25 * i)); // beside, well out to a side
-      put(k, -260 - 70 * i, (i % 2 ? 1 : -1) * 90); // behind
-    });
     const slides = [];
     const steps = [];
     const runs = [];
-    for (let f = 0; f < 140; f++) {
-      const prev = new Map(G.zombies.map((z) => [z, [z.x, z.y, z.gait]]));
-      G.update(1 / 60);
-      if (!G.running) break;
-      if (f < 45) continue; // (their motion smoothed and turned to)
-      for (const z of G.zombies) {
-        const p0 = prev.get(z);
-        if (!p0 || z.pose !== "walk" || z.poseW < 1) continue;
-        const ly = (z.x - G.van.x) * Math.cos(G.van.heading) + (z.y - G.van.y) * Math.sin(G.van.heading);
-        if (ly > G.van.h / 2) continue;
-        const vx = (z.x - p0[0]) * 60;
-        const vy = (z.y - p0[1]) * 60;
-        const sp = Math.hypot(vx, vy);
-        slides.push(Math.hypot(vx - Math.cos(z.heading) * sp * z.move, vy - Math.sin(z.heading) * sp * z.move));
-        if (z.type === "walker" && sp > 2 * W.WALKER_TYPES.walker.speed * TILE) {
-          steps.push(((((z.gait - p0[2]) % 1) + 1) % 1) * 60 * 2); // two steps a gait cycle
-          runs.push(z.run);
+    const ahead = { slides: [], back: [], band: [] };
+    for (let rep = 0; rep < 2; rep++) {
+      start("base", "grocery");
+      for (let i = 0; i < 30; i++) G.update(1 / 60);
+      const v = G.van;
+      const fx = Math.cos(v.heading);
+      const fy = Math.sin(v.heading);
+      G.zombies.length = 0;
+      const put = (type, a, side) => Object.assign(G.addZombie(type, v.x + fx * a - fy * side, v.y + fy * a + fx * side), { hp: 1e4, maxHp: 1e4, dmg: 0, born: -10 });
+      kinds.forEach((k, i) => {
+        put(k, -40 + 40 * (i % 3), (i % 2 ? 1 : -1) * (300 + 25 * i)); // beside, well out to a side
+        put(k, -260 - 70 * i, (i % 2 ? 1 : -1) * 90); // behind
+        put(k, 500 + 120 * i + 200 * rep, (i % 2 ? 1 : -1) * (60 + 70 * rep)); // ahead, near the road's middle
+        put(k, 700 + 90 * i + 150 * rep, (i % 2 ? -1 : 1) * (250 + 90 * i)); // ahead, out to a side
+      });
+      for (let f = 0; f < 150; f++) {
+        const prev = new Map(G.zombies.map((z) => [z, [z.x, z.y, z.gait]]));
+        G.update(1 / 60);
+        if (!G.running) break;
+        if (f < 45) continue; // (their motion smoothed and turned to)
+        const band = Math.max(K.bandMin, K.band * G.curSpeed);
+        for (const z of G.zombies) {
+          const p0 = prev.get(z);
+          if (!p0 || z.pose !== "walk" || z.poseW < 1) continue;
+          const ly = (z.x - G.van.x) * Math.cos(G.van.heading) + (z.y - G.van.y) * Math.sin(G.van.heading);
+          const vx = (z.x - p0[0]) * 60;
+          const vy = (z.y - p0[1]) * 60;
+          const sp = Math.hypot(vx, vy);
+          const slide = Math.hypot(vx - Math.cos(z.heading) * sp * z.move, vy - Math.sin(z.heading) * sp * z.move);
+          if (ly > G.van.h / 2) {
+            // ahead: planted past the band, and never backward against the way it faces anywhere
+            (ly > G.van.h / 2 + band ? ahead.slides : ahead.band).push(slide);
+            ahead.back.push(-(vx * Math.cos(z.heading) + vy * Math.sin(z.heading)));
+            continue;
+          }
+          slides.push(slide);
+          if (z.type === "walker" && sp > 2 * W.WALKER_TYPES.walker.speed * TILE) {
+            steps.push(((((z.gait - p0[2]) % 1) + 1) % 1) * 60 * 2); // two steps a gait cycle
+            runs.push(z.run);
+          }
         }
       }
+      G.stop();
     }
     const slide = q90(slides);
     const cad = steps.length ? steps.reduce((a, b) => a + b, 0) / steps.length : NaN;
     const run = runs.length ? runs.reduce((a, b) => a + b, 0) / runs.length : NaN;
+    const front = q90(ahead.slides);
+    const band = q90(ahead.band);
+    const backward = ahead.back.filter((b) => b > 0.15 * TILE).length;
     if (!(slides.length > 200)) err("persp feet", `engine ${engine}: only ${slides.length} walker frames beside or behind the van to check`);
     if (!(slide < 30)) err("persp feet", `engine ${engine}: walkers beside and behind the van slide ${slide.toFixed(0)} units/s (90th percentile) against the way they face (want under 30)`);
+    if (!(ahead.slides.length > 200)) err("persp feet", `engine ${engine}: only ${ahead.slides.length} walker frames ahead of the van to check`);
+    if (!(front < 15)) err("persp feet", `engine ${engine}: walkers ahead of the van slide ${front.toFixed(0)} units/s (90th percentile; want under 15: no keep-up pull in front, they walk at the van)`);
+    if (!(band < 60)) err("persp feet", `engine ${engine}: walkers going over to keeping up just ahead of the nose slip ${band.toFixed(0)} units/s (90th percentile; want under 60)`);
+    if (backward) err("persp feet", `engine ${engine}: ${backward} frames of a walker ahead of the van moving backward against the way it faces (a moonwalk)`);
     if (!(steps.length > 20)) err("persp feet", `engine ${engine}: no walker kept up with the van beside it`);
     else {
       // (a walk cycle at the walk's stride took 8.7 and 12 to 14; running strides, 5.3 and 8.3)
@@ -1855,8 +1880,50 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
       if (!(cad >= 3 && cad <= most)) err("persp feet", `engine ${engine}: a walker keeping up beside the van takes ${cad.toFixed(1)} steps a second (a run: 3 to ${most})`);
       if (!(run > 0.5)) err("persp feet", `engine ${engine}: a walker keeping up beside the van runs only ${run.toFixed(2)} of the way (Walker3D st.run)`);
     }
-    out.push(`engine ${engine}: slide ${slide.toFixed(0)} units/s (p90), a walker beside it ${cad.toFixed(1)} steps/s, run ${run.toFixed(2)}`);
+    // in the van's path: every kind walks at the van at its own pace, onto the nose, and is shoved off it to a side
+    start("base", "grocery");
+    for (let i = 0; i < 30; i++) G.update(1 / 60);
+    const v = G.van;
+    const fx = Math.cos(v.heading);
+    const fy = Math.sin(v.heading);
+    G.zombies.length = 0;
+    const path = kinds.map((k, i) => Object.assign(G.addZombie(k, v.x + fx * (500 + 140 * i) - fy * ((i % 3) - 1) * 12, v.y + fy * (500 + 140 * i) + fx * ((i % 3) - 1) * 12), { hp: 1e4, maxHp: 1e4, born: -10, scream: false }));
+    const rec = new Map(path.map((z) => [z, { pace: [], run: 0, nose: 0, side: 0 }]));
+    for (let f = 0; f < 60 * 5 && G.running; f++) {
+      const prev = new Map(G.zombies.map((z) => [z, [z.x, z.y]]));
+      G.update(1 / 60);
+      const V = G.van;
+      const Fx = Math.cos(V.heading);
+      const Fy = Math.sin(V.heading);
+      for (const z of G.zombies) {
+        const r = rec.get(z);
+        if (!r) continue;
+        const lx = (z.x - V.x) * -Fy + (z.y - V.y) * Fx;
+        const ly = (z.x - V.x) * Fx + (z.y - V.y) * Fy;
+        const ax = V.w / 2 + z.r * 0.85;
+        const ay = V.h / 2 + z.r * 0.85;
+        if (ly >= ay - 1 && ly <= ay + 6 && Math.abs(lx) < ax) r.nose = Math.max(r.nose, (r.run += 1 / 60));
+        else r.run = 0;
+        if (Math.abs(ly) < V.h / 2 && Math.abs(lx) >= ax - 1 && Math.abs(lx) < ax + 40) r.side += 1 / 60;
+        const p0 = prev.get(z);
+        if (p0 && ly > ay + 60) {
+          const dx = V.x - z.x;
+          const dy = V.y - z.y;
+          const d = Math.hypot(dx, dy);
+          r.pace.push(((z.x - p0[0]) * 60 * dx + (z.y - p0[1]) * 60 * dy) / d / z.speed);
+        }
+      }
+    }
+    let worstNose = 0;
+    for (const [z, r] of rec) {
+      const pace = r.pace.length ? r.pace.reduce((a, b) => a + b, 0) / r.pace.length : NaN;
+      if (!(Math.abs(pace - 1) < 0.1)) err("persp feet", `engine ${engine}: a ${z.type} in the van's path came at it at ${pace.toFixed(2)} times its own pace (want 1: no keep-up pull in front)`);
+      if (!(r.nose < 0.35)) err("persp feet", `engine ${engine}: a ${z.type} rode the van's nose for ${r.nose.toFixed(2)} s (want it shoved off to a side within 0.35 s)`);
+      if (!(r.side > 0.2)) err("persp feet", `engine ${engine}: a ${z.type} shoved off the nose pressed on the van's side only ${r.side.toFixed(2)} s`);
+      worstNose = Math.max(worstNose, r.nose);
+    }
     G.stop();
+    out.push(`engine ${engine}: slide ${slide.toFixed(0)} units/s beside and behind, ${front.toFixed(0)} ahead (${band.toFixed(0)} going over), ${backward} backward (p90), a walker beside it ${cad.toFixed(1)} steps/s, run ${run.toFixed(2)}, on the nose at most ${worstNose.toFixed(2)} s`);
   }
   upgrades.engine = 0;
   if (M) console.log(`persp feet: ${out.join("; ")}`);
