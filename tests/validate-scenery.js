@@ -619,7 +619,36 @@ const listed = (t) => P.list.filter((o) => o._t === t);
     const kept = GL.tiles.size;
     if (!(before > 50) || !(kept > 50) || !P.vegLayout) relErr(`a wrong turn's retry lost the drive's squares (${before} before, ${kept} after, plants ${P.vegLayout ? "kept" : "gone"})`);
     G.stop();
-    console.log(`release: a stop let go of ${tiles} ground squares (${deleted} textures deleted), ${squares} squares of plants and the walkers' canvases; a wrong turn's retry kept its ${kept}`);
+    // the drive ends inside the page's own frame (Game.frame: update, then draw), at the door and in a wreck: the
+    // frame that ends it must not draw it again (it would make the squares, plants and pictures all over)
+    const ends = [];
+    for (const how of ["arrive", "wreck"]) {
+      start("base", "grocery");
+      let ts = 1000;
+      const frame = () => G.frame((ts += 1000 / 60));
+      if (how === "arrive") {
+        // up to a few frames short of the door opening, then the page's frames, drawn, until it opens
+        while (G.running && !(G.arrive && G.arrive.parked && G.arrive.t > G.DIFF.parkWait - 0.3)) step(null, false);
+      } else {
+        for (let i = 0; i < 120; i++) step(null, false);
+        ZSR.State.trip.vanHp = 1;
+        G.hurtVan(5, G.van.x, G.van.y);
+        if (G.gameOverAt == null) relErr("a blow that takes the last health did not wreck the van");
+      }
+      let n = 0;
+      let drew = 0;
+      while (G.running && n < 400) {
+        frame();
+        n++;
+        if (G.running && GL.tiles.size) drew++;
+      }
+      if (G.running) relErr(`${how}: the drive did not end in ${n} frames`);
+      else if (!drew) relErr(`${how}: the frames before the end drew no ground squares (the check would prove nothing)`);
+      const left = GL.tiles.size + (P.vegLayout ? P.vegLayout.cells.size : 0) + (P.livePool ? P.livePool.size : 0);
+      if (left || P.vegLayout || !(GL.canvas.width === 1 && GL.canvas.height === 1)) relErr(`${how}: after the frame that ended the drive, ${GL.tiles.size} ground squares, plants ${P.vegLayout ? "made again" : "gone"}, ${P.livePool ? P.livePool.size : 0} walker canvases, the card ${GL.canvas.width} x ${GL.canvas.height}`);
+      ends.push(`${how} after ${n} frames`);
+    }
+    console.log(`release: a stop let go of ${tiles} ground squares (${deleted} textures deleted), ${squares} squares of plants and the walkers' canvases; a wrong turn's retry kept its ${kept}; a drive ended in the page's own frame (${ends.join(", ")}) is not drawn again`);
   } finally {
     globalThis.document = realDoc;
     G.canvas = realCanvas;

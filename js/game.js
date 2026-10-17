@@ -1197,6 +1197,9 @@
       this.prep = this.prepStep();
       if (this.prep) this.updateHud();
       else if (!this.paused) this.update(dt);
+      // (the drive ended in this update: arrived, or the wreck's last moments over. stop() let go of the view's
+      // squares, plants and pictures (Persp.release), and drawing it again would make them all over)
+      if (!this.running) return;
       this.draw();
     },
     /** Whether the van still waits at its door this frame (frame): from a drive's start, and a retry's, until its
