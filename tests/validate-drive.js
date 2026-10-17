@@ -13,7 +13,10 @@
      short of the grocery's wall;
    - the angled camera's whole frame drawn on a recording 2D context (no WebGL: the 2D ground): every kind of
      walker live (Walker3D), a scream and its frenzy, clawing, hurt (health bars), shot, downed, gore on and off:
-     no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow.
+     no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow;
+   - every drive on the angled camera: every turn in the city comfortable (the view's spin, its jolt and its lag, the
+     road after the bend on the screen at 1280 x 800 and 960 x 1040), no hops, braking smooth and never before a stop
+     line, Home Base to Corner Grocery as built, a sample of wrong ways; the corner shapes' camera is the camera.
    Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -1307,6 +1310,230 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     globalThis.document = realDoc;
     globalThis.performance = realPerf;
   }
+}
+
+/* ---------- the angled camera on every drive: every turn comfortable (js/streets.js corner shapes, js/game.js braking
+   by sharpness) ----------
+   The road's code again with every drive on the angled camera (its PERSP_ROUTES gate opened, if it still has one), a
+   careful driver at the slowest and the fastest van on routes that take every turn in the city. Through every right-way turn the view spins under
+   45 / 65 deg/s, its spin changes under 300 deg/s2, it lags the van under 35 / 38 deg, and once the bend is over the
+   road 300 to 900 ahead stays on the screen at 1280 x 800 and at 960 x 1040 (half a screen); no hop where a turn
+   starts or ends; no frame changes the speed by more than 2%; the van never slows in the 1.5 s before a stop line
+   (the reading and the choice keep their time); Home Base to
+   Corner Grocery turns as built (37.4 / 52.9 deg/s). A sample of wrong ways (the sharpest at each decision, and every
+   side street) to the same limits. And the corner shapes' model of the camera (Streets.CAM) is the camera (PERSP). */
+{
+  const t0 = Date.now();
+  const cErr = (m) => err("comfort", m);
+  const D = 180 / Math.PI;
+  const norm = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  const PE = G.PERSP;
+  const CAM = S.CAM;
+  ["camW", "camPace", "look", "lookRamp", "brake", "brakeIn"].forEach((k) => {
+    if (CAM[k] !== PE[k]) cErr(`Streets.CAM.${k} is ${CAM[k]}, PERSP.${k} ${PE[k]}: the corner shapes model another camera`);
+  });
+  if (Math.abs(CAM.paceSpeed - G.DIFF.roadScroll * PE.pace) > 1e-9) cErr(`Streets.CAM.paceSpeed ${CAM.paceSpeed} is not the slowest angled van (${G.DIFF.roadScroll * PE.pace})`);
+  const most = {};
+  Object.keys(upgrades).forEach((k) => (most[k] = 0));
+  most.engine = ZSR.Upgrades.DEFS.engine.max;
+  const top = ZSR.Upgrades.stats(most).speed * G.DIFF.roadScroll * PE.pace;
+  if (Math.abs(CAM.topSpeed - top) > 1e-6) cErr(`Streets.CAM.topSpeed ${CAM.topSpeed} is not the fastest van (${top})`);
+  if (S.GEOM.vanHalf * 2 !== G.van.w) cErr(`Streets.GEOM.vanHalf ${S.GEOM.vanHalf} is not half the van's width (${G.van.w}): corners keep the wrong width on the paving`);
+  // every drive angled: js/game.js once more, its gate opened
+  const src = fs.readFileSync(path.join(ROOT, "js/game.js"), "utf8").replace('PERSP_ROUTES.includes(path.join(">"))', "true");
+  vm.runInThisContext(src, { filename: "js/game.js" });
+  const GA = ZSR.Game;
+  GA.init(canvas, { onArrive: (to) => (arrived = to), onWrongTurn: (info) => (wrongTurn = info), onDeath: noop, onPause: noop, onPauseKey: noop });
+  const lim = { 0: { w: 45, lag: 35 }, 5: { w: 65, lag: 38 } };
+  const VIEWS = [[1280, 800], [960, 1040]].map(([w, h]) => ({ W: w, H: h, zoom: Math.max(0.55, Math.min(1, Math.min(w / 1000, h / 640))), name: w + "x" + h }));
+  /** One drive a > b, a careful driver on the lane's centre taking pick(dec) (the right way when left out): a record
+      a frame, till it parks or the screen fades after a wrong way. */
+  const ride = (a, b, pick) => {
+    ZSR.State.trip = { at: a, vanHp: 1e9, vanMaxHp: 1e9, scrap: 0, walkers: 0, miles: 0 };
+    const r = S.route(a, b);
+    arrived = null;
+    GA.startTrip({ to: b, name: name(b), danger: 0, path: r.path });
+    GA.spawnTimer = 1e9;
+    if (!GA.persp) cErr(`${a} > ${b} did not drive on the angled camera`);
+    const rows = [];
+    let t = 0;
+    let dist = 0;
+    while (GA.running && !GA.fade && t < 300) {
+      const dec = GA.upcoming();
+      GA.keys.left = GA.keys.right = false;
+      if (dec && !GA.turn && (dec.stop - GA.van.s) / GA.speed < 1.0) {
+        const o = (pick && pick(dec)) || right(dec);
+        const lane = o.lanes.reduce((best, l) => (Math.abs(S.laneCenter(l, dec.n) - GA.van.d) < Math.abs(S.laneCenter(best, dec.n) - GA.van.d) ? l : best), o.lanes[0]);
+        const tg = S.laneCenter(lane, dec.n);
+        if (Math.abs(GA.van.d - tg) < 40) GA.van.d = tg;
+        else GA.keys[GA.van.d > tg ? "left" : "right"] = true;
+      }
+      const was = GA.turn;
+      const x = GA.van.x;
+      const y = GA.van.y;
+      const sp0 = GA.curSpeed;
+      const before = GA.upcoming();
+      GA.update(1 / 60);
+      t += 1 / 60;
+      if (!GA.running) break;
+      const step = Math.hypot(GA.van.x - x, GA.van.y - y);
+      dist += step;
+      const tn = GA.turn;
+      rows.push({ th: GA.cam.th, head: GA.van.heading, tp: Math.atan2(GA.vanP.uy, GA.vanP.ux), spd: GA.curSpeed, sp0, step, dist, x: GA.van.x, y: GA.van.y, cx: GA.cam.x, cy: GA.cam.y, start: !!tn && tn !== was, end: !tn && !!was, main: tn ? tn.main : !!(was && was.main), wrong: !!tn && !tn.main, park: (!!GA.arrive || !GA.onMain) && GA.driveEnd() - GA.van.s < 262, pre: !!before && !tn && GA.onMain && !GA.arrive && GA.van.s < before.stop && before.stop - GA.van.s < 1.5 * GA.speed });
+    }
+    return rows;
+  };
+  /** The van's own path at distance d along it (from the record), or null past it. */
+  const along = (rows, d, from) => {
+    let i = from;
+    while (i < rows.length - 1 && rows[i + 1].dist < d) i++;
+    if (i >= rows.length - 1) return null;
+    const A = rows[i];
+    const B = rows[i + 1];
+    const u = Math.max(0, Math.min(1, (d - A.dist) / (B.dist - A.dist || 1)));
+    return { x: A.x + (B.x - A.x) * u, y: A.y + (B.y - A.y) * u, i };
+  };
+  const worst = { w: { 0: 0, 5: 0 }, acc: { 0: 0, 5: 0 }, lag: { 0: 0, 5: 0 }, marg: {}, hop: 0, dv: 0, pre: 1, ww: { 0: 0, 5: 0 }, wlag: { 0: 0, 5: 0 }, wacc: { 0: 0, 5: 0 } };
+  VIEWS.forEach((v) => (worst.marg[v.name] = Infinity));
+  let nTurns = 0;
+  let nWrong = 0;
+  /** A turn's camera from the record: rows i0 (it starts) to i1 (it ends), the next turn's start (or null). */
+  const turnStats = (rows, i0, i1, next) => {
+    const hEnd = rows[i1].tp;
+    let iB = i1;
+    while (iB > i0 && Math.abs(norm(rows[iB - 1].tp - hEnd)) * D < 0.5) iB--;
+    const iEnd = Math.min(rows.length - 1, Math.max(i1, iB + 240), next != null ? next - 1 : Infinity);
+    let pkW = 0;
+    let pkA = 0;
+    let lag = 0;
+    for (let i = Math.max(2, i0 - 30); i <= iEnd; i++) {
+      const w = norm(rows[i].th - rows[i - 1].th) * 60;
+      const wp = norm(rows[i - 1].th - rows[i - 2].th) * 60;
+      pkW = Math.max(pkW, Math.abs(w) * D);
+      pkA = Math.max(pkA, Math.abs(w - wp) * 60 * D);
+      lag = Math.max(lag, Math.abs(norm(rows[i].head - rows[i].th)) * D);
+    }
+    return { iB, iEnd, pkW, pkA, lag };
+  };
+  // the routes: enough to take every turn in the city (each corner, from each road in, out each way) at least once,
+  // and Home Base to Corner Grocery; COMFORT_ALL=1 drives every route (about four times as long)
+  // SCALE: about a quarter of the routes today; it grows with the corners, not with the routes
+  const ids = W.LOCATIONS.map((l) => l.id);
+  const pairs = [];
+  ids.forEach((a) => ids.forEach((b) => a !== b && pairs.push([a, b])));
+  let check = pairs;
+  if (!process.env.COMFORT_ALL) {
+    const turnsOf = ([a, b]) => {
+      const p = S.route(a, b).path;
+      const out = ["|" + p[0] + "|" + p[1], p[p.length - 2] + "|" + p[p.length - 1] + "|"];
+      for (let i = 1; i < p.length - 1; i++) out.push(p[i - 1] + "|" + p[i] + "|" + p[i + 1]);
+      return out;
+    };
+    const left = new Set();
+    const of = pairs.map((pr) => [pr, turnsOf(pr)]);
+    of.forEach(([, ts]) => ts.forEach((t) => left.add(t)));
+    check = [["base", "grocery"]];
+    turnsOf(["base", "grocery"]).forEach((t) => left.delete(t));
+    while (left.size) {
+      let best = null;
+      let bn = 0;
+      of.forEach(([pr, ts]) => {
+        const n = ts.filter((t) => left.has(t)).length;
+        if (n > bn) {
+          bn = n;
+          best = [pr, ts];
+        }
+      });
+      check.push(best[0]);
+      best[1].forEach((t) => left.delete(t));
+    }
+  }
+  const bg = {};
+  for (const engine of [0, 5]) {
+    upgrades.engine = engine;
+    let ri = 0;
+    for (const [a, b] of check) {
+      {
+        const c = `${a} > ${b} (engine ${engine})`;
+        const rows = ride(a, b);
+        if (arrived !== b) cErr(`${c} did not arrive`);
+        const starts = [];
+        rows.forEach((r, i) => r.start && starts.push(i));
+        starts.forEach((i0, q) => {
+          let i1 = rows.findIndex((r, i) => i > i0 && r.end);
+          if (i1 < 0) i1 = rows.length - 1;
+          const st = turnStats(rows, i0, i1, starts[q + 1]);
+          nTurns++;
+          worst.w[engine] = Math.max(worst.w[engine], st.pkW);
+          worst.acc[engine] = Math.max(worst.acc[engine], st.pkA);
+          worst.lag[engine] = Math.max(worst.lag[engine], st.lag);
+          if (st.pkW > lim[engine].w) cErr(`${c} turn ${q + 1}: the view spun at ${st.pkW.toFixed(1)} deg/s (want under ${lim[engine].w})`);
+          if (st.pkA > 300) cErr(`${c} turn ${q + 1}: the view's spin changed at ${st.pkA.toFixed(0)} deg/s2 (a jolt)`);
+          if (st.lag > lim[engine].lag) cErr(`${c} turn ${q + 1}: the view lagged the van by ${st.lag.toFixed(1)} deg (want under ${lim[engine].lag})`);
+          if (a === "base" && b === "grocery" && q === 0) bg[engine] = st.pkW;
+          // after the bend: the road 300 to 900 ahead (the van's own path, short of the next turn) on the screen
+          const cap = starts[q + 1] != null ? rows[starts[q + 1]].dist : rows[rows.length - 1].dist;
+          for (let i = st.iB + 1; i <= st.iEnd; i += 3) {
+            VIEWS.forEach((v) => {
+              P.setup({ W: v.W, H: v.H, zoom: v.zoom, cam: { x: rows[i].cx, y: rows[i].cy, th: rows[i].th } });
+              for (let L = 300; L <= 900 && rows[i].dist + L <= cap; L += 100) {
+                const p = along(rows, rows[i].dist + L, i);
+                if (!p) break;
+                const s = P.project(p.x, p.y, 0);
+                const m = s ? Math.min(s.x, v.W - s.x) : -Infinity;
+                worst.marg[v.name] = Math.min(worst.marg[v.name], m);
+                if (m < 0) {
+                  cErr(`${c} turn ${q + 1}: at ${v.name} the road ${L} ahead left the screen after the bend (${s ? m.toFixed(0) + " px" : "behind the camera"})`);
+                  break;
+                }
+              }
+            });
+          }
+        });
+        rows.forEach((r, i) => {
+          // no hop where a turn starts or ends: the van's step is what its speed says
+          if ((r.start || r.end) && r.main && i > 1 && i < rows.length - 2) {
+            for (let j = i - 1; j <= i + 1; j++) if (rows[j].spd >= 0.3 * GA.speed) worst.hop = Math.max(worst.hop, Math.abs(rows[j].step - 0.5 * (rows[j].sp0 + rows[j].spd) / 60));
+          }
+          if (i && !r.park && rows[i - 1].spd > 0.5 * GA.speed) worst.dv = Math.max(worst.dv, Math.abs(r.spd - rows[i - 1].spd) / GA.speed);
+          if (i && r.pre && r.spd < rows[i - 1].spd - 1e-9) worst.pre = Math.min(worst.pre, r.spd / rows[i - 1].spd);
+        });
+        // a sample of wrong ways: on every sixth route, at each decision the sharpest wrong way (a side street's turn)
+        if (ri++ % 6 === 0) {
+          ZSR.State.trip = { at: a, vanHp: 1e9, vanMaxHp: 1e9, scrap: 0, walkers: 0, miles: 0 };
+          GA.startTrip({ to: b, name: name(b), danger: 0, path: S.route(a, b).path });
+          const decs = GA.drive.decisions.slice();
+          GA.stop();
+          decs.forEach((dec0, k) => {
+            const pickIdx = dec0.options.map((o, j) => j).filter((j) => !dec0.options[j].correct).sort((x, y) => Math.abs(dec0.options[y].rel) - Math.abs(dec0.options[x].rel))[0];
+            const wr = ride(a, b, (dec) => (GA.drive.decisions.indexOf(dec) === k ? dec.options[pickIdx] : null));
+            const i0 = wr.findIndex((r) => r.start && r.wrong);
+            if (i0 < 0) return cErr(`${c}: the wrong way at decision ${k} was never driven`);
+            const st = turnStats(wr, i0, wr.length - 1, null);
+            nWrong++;
+            worst.ww[engine] = Math.max(worst.ww[engine], st.pkW);
+            worst.wacc[engine] = Math.max(worst.wacc[engine], st.pkA);
+            worst.wlag[engine] = Math.max(worst.wlag[engine], st.lag);
+            const kind = dec0.options[pickIdx].kind;
+            if (st.pkW > lim[engine].w) cErr(`${c}: the wrong ${kind} at decision ${k} spun the view at ${st.pkW.toFixed(1)} deg/s (want under ${lim[engine].w})`);
+            if (st.pkA > 300) cErr(`${c}: the wrong ${kind} at decision ${k} changed the view's spin at ${st.pkA.toFixed(0)} deg/s2`);
+            if (st.lag > lim[engine].lag) cErr(`${c}: the wrong ${kind} at decision ${k} lagged the view ${st.lag.toFixed(1)} deg behind the van`);
+          });
+        }
+      }
+    }
+  }
+  upgrades.engine = 0;
+  if (worst.hop > 0.3) cErr(`the van hops ${worst.hop.toFixed(2)} units on a frame where a turn starts or ends`);
+  if (worst.dv > 0.02) cErr(`the van's speed changed ${(worst.dv * 100).toFixed(2)}% of it in one frame (at most 2%)`);
+  if (worst.pre < 1) cErr(`the van slowed (to ${worst.pre.toFixed(3)} of its speed) before a stop line`);
+  // Home Base to Corner Grocery, the drive the owner tested: its junction exactly as built
+  [[0, 37.4], [5, 52.9]].forEach(([e, want]) => {
+    if (!(Math.abs(bg[e] - want) < 0.1)) cErr(`Home Base to Corner Grocery turned the view at ${bg[e] && bg[e].toFixed(1)} deg/s at engine ${e} (as built: ${want})`);
+  });
+  GA.stop();
+  ZSR.Game = G; // the road as it was loaded, for anything after this
+  console.log(`comfort: ${nTurns} right-way turns on ${check.length} routes at each engine, angled: view at most ${worst.w[0].toFixed(1)} / ${worst.w[5].toFixed(1)} deg/s (engine 0 / 5), ${worst.acc[0].toFixed(0)} / ${worst.acc[5].toFixed(0)} deg/s2, lag ${worst.lag[0].toFixed(1)} / ${worst.lag[5].toFixed(1)} deg; road after the bend ${VIEWS.map((v) => v.name + " " + worst.marg[v.name].toFixed(0) + " px in").join(", ")}; hop ${worst.hop.toFixed(2)}, speed at most ${(worst.dv * 100).toFixed(2)}% a frame; Home Base to Corner Grocery ${bg[0] && bg[0].toFixed(1)} / ${bg[5] && bg[5].toFixed(1)}; ${nWrong} wrong ways: ${worst.ww[0].toFixed(1)} / ${worst.ww[5].toFixed(1)} deg/s, ${worst.wacc[0].toFixed(0)} / ${worst.wacc[5].toFixed(0)} deg/s2, lag ${worst.wlag[0].toFixed(1)} / ${worst.wlag[5].toFixed(1)} deg (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 }
 console.log(`drive: ${routes} routes driven (${turns} turns), largest step back ${maxBack.toFixed(2)} px; left alone the first wrong way is ${Object.entries(failedAt).map(([k, n]) => k + " " + n).join(", ")}`);
 errors.slice(0, 40).forEach((e) => console.log("ERROR " + e));

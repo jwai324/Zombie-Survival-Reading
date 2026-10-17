@@ -70,22 +70,28 @@
   // SCALE: range (how far a shot flies) and keepUp (how near a walker must be to keep up with the van) are tied to
   // how far the angled view sees (Persp.cfg.far); spawns sets how many walkers a drive brings
   const PERSP = { pace: 1.25, shot: 1.6, spawns: 1.4, range: 2600, keepUp: 900, parkShort: 45 };
-  // ... and its corners. The van brakes lightly into each turn it takes: from the stop line (never before: braking must
-  // not tell which way is right) it eases down to brake x its speed by the time its path bends (over brakeIn at
-  // least, for a bend that starts at its stop line: brakeIn at the slowest van, longer for a faster one, so the ease
-  // always takes about the same time), holds that round the bend, then eases back up over brakeOut.
+  // ... and its corners. The van brakes into each turn it takes: from the stop line (never before: braking must not
+  // tell which way is right) it eases down by the time its path bends, holds that round the bend, then eases back up.
+  // How far: brake x its speed into a gentle turn, less for a sharper one (js/streets.js brakeFor: by the turn's angle,
+  // down to 0.4 at 135 deg, and further where a road was too short for the corner's comfortable shape). The ease takes
+  // brakeIn at least (at the slowest van; longer for a faster one or a deeper brake, so no frame changes the speed more
+  // than the light brake's do) and starts no sooner than it must (St.brakeSpan); back up over brakeOut (longer for a
+  // deeper brake). The corners themselves are shaped for this camera (js/streets.js cornerSpin mirrors these numbers).
   // The camera follows lazily: it faces a point look ahead along the van's own path, never past a stop line the van
   // has not crossed (from one it looks further ahead again lookRamp times as fast as the van drives), and turns toward
   // it on a critically damped spring of camW per second; the spring's clock runs with the van's speed to the camPace
   // power (0: by time, 1: by distance), so a faster van turns the view a little faster and the bend never runs out of
   // the view. The van's nose eases into and out of a bend over nose units either side of it.
-  // SCALE: brakeIn, brakeOut, look and nose are road units tuned for today's turns (arcs of radius 99 to 400, stop
-  // lines at least a lane window apart); much tighter turns or closer stop lines need them checked (validate-drive)
+  // SCALE: brake, brakeIn, look, lookRamp, camW and camPace are mirrored in js/streets.js CAM (validate-drive checks
+  // them), which shapes every corner for them: change both together. Nose is road units tuned for today's turns.
   Object.assign(PERSP, { brake: 0.75, brakeIn: 150, brakeOut: 300, look: 300, lookRamp: 2, camW: 2.2, camPace: 0.5, nose: 50 });
   // the drive (the van along its track, its turns, lane slides and the camera) runs in steps no longer than this,
   // whatever the frame rate: a slow or uneven frame moves it just as several quick ones would
   // SCALE: a frame runs ceil(dt / DRIVE_STEP) drive steps (4 at 60 fps), so the drive's own cost grows with them
   const DRIVE_STEP = 1 / 240;
+  // px/s/s: a lane slide still going when the van crosses a stop line into a turn slows to a stop at this (harder
+  // only near the road's edge), as the van takes its path: under a unit's change in its step a frame at 60 fps
+  const SLIDE_STOP = 3000;
   // how fast the van's heading and the flat camera ease toward the road, per second: at 60 fps the same share a
   // frame as before they were frame-rate independent (the van 0.2 of the way, the camera's heading 1/12, its slide 0.05)
   const EASE = { van: -60 * Math.log(0.8), camTurn: 60 * Math.log(12 / 11), camSlide: -60 * Math.log(0.95) };
@@ -437,9 +443,14 @@
       const p = tn ? Streets().at(tn.track, this.turnS()) : Streets().at(this.track, this.van.s);
       this.vanP = p;
       const v = this.van;
-      const d = tn ? 0 : v.d;
+      // through a turn the van rides its own path, off it only while a lane slide still going at the stop line runs out
+      const d = tn ? (tn.slide ? tn.slide.e : 0) : v.d;
       v.x = p.x - p.uy * d;
       v.y = p.y + p.ux * d;
+      // where the camera keeps to and looks from: the van, or through a turn its path (the slide's run-out is the van's own)
+      const b = this.vanBase || (this.vanBase = { x: 0, y: 0 });
+      b.x = tn ? p.x : v.x;
+      b.y = tn ? p.y : v.y;
       const lean = clamp(Math.atan2(v.vd, Math.max(60, this.curSpeed || this.speed)), -0.35, 0.35);
       // the angled camera turns slowly enough to show the van's own turn: its nose eases into and out of a bend
       // (its path's heading averaged PERSP.nose behind and ahead) instead of starting to swing all at once
@@ -502,8 +513,9 @@
       }
       // off the van along the camera's own right, not the road's: while the view turns (it lags the road through a
       // turn) the van keeps its place on the screen instead of bobbing up and down it
-      c.x = v.x - Math.sin(c.th) * c.rel;
-      c.y = v.y + Math.cos(c.th) * c.rel;
+      const b = this.vanBase || v;
+      c.x = b.x - Math.sin(c.th) * c.rel;
+      c.y = b.y + Math.cos(c.th) * c.rel;
     },
     /** The way the angled camera wants to face: toward a point PERSP.look along the van's own path ahead (its turn,
         then the road it rejoins), so the view turns into a bend as the van comes to it. Never past the next stop line
@@ -512,7 +524,8 @@
     lookHeading() {
       const L = Math.min(PERSP.look, (this.odo - this.stopOdo) * PERSP.lookRamp + 4);
       const a = L >= 4 ? this.ahead(L) : null;
-      return a && a.L >= 4 ? Math.atan2(a.y - this.van.y, a.x - this.van.x) : Math.atan2(this.vanP.uy, this.vanP.ux);
+      const b = this.vanBase || this.van;
+      return a && a.L >= 4 ? Math.atan2(a.y - b.y, a.x - b.x) : Math.atan2(this.vanP.uy, this.vanP.ux);
     },
     /** The point L along the van's own path ahead of it, in its lane (its turn, then the road it rejoins), the
         path's heading there (th) and how far ahead it is (L): never past the next stop line the van has not crossed. */
@@ -806,14 +819,25 @@
       this.next += 1;
       if (opt.correct) this.hintDone = true;
       if (opt.correct && opt.kind === "through") return;
-      // the van drives its own path from the lane it is in: one smooth arc, whichever lane (streets.js turnPath)
-      const tp = St.turnPath(this.drive, dec, opt, this.van.d);
-      const cam0 = this.cam.d - this.van.d; // the camera's offset from the van, kept as the turn begins
+      // the van drives its own path from the lane it is in: one smooth arc, whichever lane (streets.js turnPath). Still
+      // sliding across the lanes, it plans its path from where the slide runs out (at SLIDE_STOP, or harder near the
+      // road's edge) and runs out onto it, so it never stops sideways at once
+      let dPlan = this.van.d;
+      let slide = null;
+      const vd = this.van.vd || 0;
+      if (Math.abs(vd) > 1) {
+        const room = vd > 0 ? St.GEOM.half - St.GEOM.vanHalf - this.van.d : this.van.d - (St.ourLeft(dec.n) + St.GEOM.vanHalf);
+        const A = Math.max(SLIDE_STOP, (vd * vd) / (2 * Math.max(1, room)));
+        dPlan = this.van.d + (Math.sign(vd) * vd * vd) / (2 * A);
+        slide = { e: this.van.d - dPlan, v: vd, A };
+      }
+      const tp = St.turnPath(this.drive, dec, opt, dPlan);
+      const cam0 = this.cam.d - dPlan; // the camera's offset from the van's path, kept as the turn begins
       if (opt.correct) {
         // a junction or the destination: the van's place on the route runs on underneath (signs, progress) and maps onto the path
         const s1 = dec.kind === "dest" ? this.drive.endS : tp.rejoin;
         const cam1 = dec.kind === "dest" ? 0 : (St.ourLeft(2) + St.GEOM.half) / 2 - tp.d1;
-        this.turn = { track: tp.track, main: true, s0: dec.stop, s1, k: tp.track.len / Math.max(1, s1 - dec.stop), d1: tp.d1, cam0, cam1 };
+        this.turn = { track: tp.track, main: true, s0: dec.stop, s1, k: tp.track.len / Math.max(1, s1 - dec.stop), d1: tp.d1, cam0, cam1, slide };
         // the part of this step past the stop line was driven at the road's rate: on the turn's path it is the same distance
         this.van.s = dec.stop + (this.van.s - dec.stop) / this.turn.k;
         if (dec.kind === "dest") this.arrive = { t: 0, parked: false };
@@ -825,7 +849,7 @@
       this.onMain = false;
       this.van.s = Math.max(0, this.van.s - dec.stop);
       this.van.d = 0;
-      this.turn = { track: tp.track, main: false, cam0, cam1: 0 };
+      this.turn = { track: tp.track, main: false, cam0, cam1: 0, slide };
       this.planBrake(tp.track);
       this.fail = { t: 0, msg: this.failText(opt, dec) };
       Audio().play("wrong");
@@ -883,9 +907,10 @@
       f.t = 0;
     },
 
-    /** The angled camera's corner braking for the turn path just committed to (from its stop line, this.stopOdo):
-        where the van has slowed to PERSP.brake (where the path starts to bend, brakeIn at least, by the van's
-        speed), where the bend ends, and where it is back up to speed. */
+    /** The angled camera's corner braking for the turn path just committed to (from its stop line, this.stopOdo): the
+        share it brakes to (by the turn's sharpness and shape: St.brakeFor), where it starts to ease down and where it
+        has (by where the path starts to bend, brakeIn at least, by the van's speed: St.brakeSpan), where the bend
+        ends, and where it is back up to speed. */
     planBrake(track) {
       if (!this.persp) return;
       const St = Streets();
@@ -907,24 +932,30 @@
         if (Math.abs(normAngle(Math.atan2(t.uy, t.ux) - h1)) > 0.003) break;
         b = q;
       }
-      // (brakeIn is for the slowest van: a faster one eases over more road, in the same time, never more sharply)
-      const xa = Math.max(a, (PERSP.brakeIn * this.speed) / (DIFF.roadScroll * PERSP.pace));
+      // how hard: PERSP.brake into a gentle turn, more into a sharp one (by its angle: one that doubles back is taken
+      // slowly), and more again where its road was too short for the shape it wanted (js/streets.js brakeFor)
+      const B = St.brakeFor(normAngle(h1 - h0), track.r, a, this.speed);
+      // (brakeIn is for the slowest van: a faster one eases over more road, in the same time, never more sharply; a
+      // deeper brake eases over more road too, so no frame changes the speed more than the light brake's do; on a long
+      // straight before the bend the van keeps its speed a while: St.brakeSpan)
+      const [xs, xa] = St.brakeSpan(a, B, this.speed);
       const xb = Math.max(b, xa);
       // from the speed it has now (still easing back up from a turn just before, the share it is at)
       const f0 = this.brakeAt();
-      this.corner = { x0: this.stopOdo, xa, xb, xc: xb + PERSP.brakeOut, f0 };
+      this.corner = { x0: this.stopOdo, xs, xa, xb, xc: xb + St.brakeOutFor(B, PERSP.brakeOut, this.speed), f0, B };
     },
     /** The share of its speed the van drives at for its corner now (1 with none). */
     brakeAt() {
       const c = this.corner;
       if (!c) return 1;
       const x = this.odo - c.x0;
-      const B = PERSP.brake;
+      const B = c.B;
       if (x >= c.xc) {
         this.corner = null;
         return 1;
       }
-      if (x < c.xa) return c.f0 - (c.f0 - B) * smoother(clamp(x / c.xa, 0, 1));
+      if (x < c.xs) return c.f0;
+      if (x < c.xa) return c.f0 - (c.f0 - B) * smoother(clamp((x - c.xs) / (c.xa - c.xs), 0, 1));
       if (x < c.xb) return B;
       return B + (1 - B) * smoother((x - c.xb) / (c.xc - c.xb));
     },
@@ -954,6 +985,15 @@
       van.vd = 0;
       if (this.turn) {
         const tn = this.turn;
+        const sl = tn.slide;
+        if (sl) {
+          // a slide still going at the stop line runs out at a steady rate, onto the path
+          const v1 = sl.v - Math.sign(sl.v) * Math.min(Math.abs(sl.v), sl.A * dt);
+          sl.e += ((sl.v + v1) / 2) * dt;
+          sl.v = v1;
+          van.vd = v1;
+          if (!v1) tn.slide = null;
+        }
         if (tn.main && !this.arrive && van.s >= tn.s1) {
           // back on the route's road, in the lane the turn ended in (the part of this step past the turn's end at the road's own rate)
           van.s = tn.s1 + (van.s - tn.s1) * tn.k;

@@ -92,13 +92,25 @@
     // walkerStats.ms) and the ground squares drawn (on the card)
     frameStats: { ms: 0, groundMs: 0, worldMs: 0, walkersMs: 0, squaresMade: 0 },
 
+    // SCALE: the narrowest the view may be across, as the width-to-height share that sees that far at cfg.fov (1.6:
+    // a 1280 x 800 window sees 43 degrees to each side): a narrower window (half a screen, 960 x 1040) sees as far to
+    // the sides with a taller view, so the road after a sharp corner stays on it, up to maxFov (degrees, top to bottom:
+    // a phone held upright); wider windows are as cfg.fov gives
+    minAspect: 1.25,
+    maxFov: 90,
+    /** Half the camera's height of view on a W x H screen, as its tangent: cfg.fov's, or more on a narrow screen. */
+    viewTan(W, H) {
+      const t = Math.tan((this.cfg.fov * Math.PI) / 360);
+      return Math.max(t, Math.min(Math.tan((this.maxFov * Math.PI) / 360), (t * this.minAspect * H) / Math.max(1, W)));
+    },
+
     /** The camera for this frame: where it sits, behind the road camera's spot, and how it projects. */
     setup(g) {
       const c = this.cfg;
       const th = (c.pitch * Math.PI) / 180;
       const sn = Math.sin(th);
       const cs = Math.cos(th);
-      const f = g.H / 2 / Math.tan((c.fov * Math.PI) / 360);
+      const f = g.H / 2 / this.viewTan(g.W, g.H);
       const v0 = (g.H / 2 - g.H * c.vanAt) / f;
       const bh = (cs + v0 * sn) / (sn - v0 * cs); // how far behind, per unit of height, puts the van at vanAt
       const h = f / (c.scale * g.zoom * (bh * cs + sn));
