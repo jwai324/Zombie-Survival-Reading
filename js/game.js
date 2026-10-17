@@ -448,7 +448,9 @@
       v.x = p.x - p.uy * d;
       v.y = p.y + p.ux * d;
       // where the camera keeps to and looks from: the van, or through a turn its path (the slide's run-out is the van's own)
-      this.vanBase = tn ? { x: p.x, y: p.y } : { x: v.x, y: v.y };
+      const b = this.vanBase || (this.vanBase = { x: 0, y: 0 });
+      b.x = tn ? p.x : v.x;
+      b.y = tn ? p.y : v.y;
       const lean = clamp(Math.atan2(v.vd, Math.max(60, this.curSpeed || this.speed)), -0.35, 0.35);
       // the angled camera turns slowly enough to show the van's own turn: its nose eases into and out of a bend
       // (its path's heading averaged PERSP.nose behind and ahead) instead of starting to swing all at once
