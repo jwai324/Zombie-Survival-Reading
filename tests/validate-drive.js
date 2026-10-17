@@ -2252,10 +2252,35 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     downed += ref.kills;
   }
   if (!downed) sErr("no walker was shot down on the drives checked");
+  // a browser's 60 Hz frames (16.6 to 16.8 ms apart: its clock is rounded to 0.1 ms; a 59.94 Hz screen's are 16.7 or
+  // 16.8) each run ONE road step of four drive steps, as the balance run's 1/60 s frames do; 1/30 s runs two, 0.1 s six
+  {
+    start("base", "hospital");
+    let roads = 0;
+    let drives = 0;
+    const rs0 = G.roadStep;
+    const ds0 = G.driveStep;
+    G.roadStep = function (...args) {
+      roads++;
+      return rs0.apply(this, args);
+    };
+    G.driveStep = function (...args) {
+      drives++;
+      return ds0.apply(this, args);
+    };
+    for (const [ms, want] of [[16.6, 1], [16.7, 1], [16.8, 1], [1000 / 60, 1], [1000 / 59.94, 1], [1000 / 30, 2], [100, 6]]) {
+      roads = drives = 0;
+      G.update(ms / 1000);
+      if (roads !== want || drives !== want * 4) sErr(`a frame of ${ms.toFixed(2)} ms ran ${roads} road steps and ${drives} drive steps (want ${want} and ${want * 4})`);
+    }
+    G.roadStep = rs0;
+    G.driveStep = ds0;
+    G.stop();
+  }
   Math.random = random0;
   ZSR.State.save.day = day0;
   Object.assign(upgrades, up0);
-  console.log(`road steps: ${checked} drives of 20 s in frames of 0.1 s and 1/30 s the same as in 1/60 s (van, walkers, shots, kills, scrap, health); a frame counts up to ${G.MAX_FRAME_DT} s`);
+  console.log(`road steps: ${checked} drives of 20 s in frames of 0.1 s and 1/30 s the same as in 1/60 s (van, walkers, shots, kills, scrap, health); a browser's 16.6-16.8 ms frames one step each; a frame counts up to ${G.MAX_FRAME_DT} s`);
 }
 /* ---------- the angled camera's ground squares on the card (js/perspective-gl.js, WebGL stubbed) ----------
    A drive's squares, made on a clock that charges each size what a graphics card might (1.5, 0.8 and 0.4 ms): a square

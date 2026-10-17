@@ -182,6 +182,12 @@
   // SCALE: a frame runs ceil(dt / ROAD_STEP) road steps (1 at 60 fps, 6 at 10), each over every walker and shot
   const ROAD_STEP = 1 / 60;
   const MAX_FRAME_DT = 0.1;
+  // ... and a step may run this share longer than ROAD_STEP or DRIVE_STEP (stepsIn): a browser's 60 Hz frames come
+  // 16.6 to 16.8 ms apart (its clock is rounded to 0.1 ms, a 59.94 Hz screen's always over), and each must run one
+  // road step, as the balance run's 1/60 s frames do (tests/balance), not two half ones
+  const STEP_SLACK = 0.02;
+  /** How many steps of at most `step` (STEP_SLACK over) a frame of dt seconds runs: at least one. */
+  const stepsIn = (dt, step) => Math.max(1, Math.ceil(dt / (step * (1 + STEP_SLACK)) - 1e-9));
   // px/s/s: a lane slide still going when the van crosses a stop line into a turn slows to a stop at this (harder
   // only near the road's edge), as the van takes its path: under a unit's change in its step a frame at 60 fps
   const SLIDE_STOP = 3000;
@@ -1450,7 +1456,7 @@
           return;
         }
       }
-      const n = Math.max(1, Math.ceil(dt / ROAD_STEP - 1e-9));
+      const n = stepsIn(dt, ROAD_STEP);
       for (let i = 0; i < n; i++) {
         // (stopped: arrived or wrecked; a wrong turn's dark holds the rest of the frame)
         if (!this.roadStep(dt / n)) return;
@@ -1467,7 +1473,7 @@
       const St = Streets();
       this.time += dt;
       // drive, in steps of at most DRIVE_STEP (the same path and camera however the frames fall)
-      const steps = Math.max(1, Math.ceil(dt / DRIVE_STEP - 1e-9));
+      const steps = stepsIn(dt, DRIVE_STEP);
       for (let i = 0; i < steps; i++) this.driveStep(dt / steps);
       const end = this.driveEnd();
       if (this.fail) {
@@ -2404,6 +2410,7 @@
     DRIVE_STEP,
     ROAD_STEP,
     MAX_FRAME_DT,
+    stepsIn,
     ROAD_PARTICLE_CAP,
     ROAD_FALLEN_MAX,
     SPARK_ARMOR,
