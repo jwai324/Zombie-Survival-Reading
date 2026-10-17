@@ -37,9 +37,54 @@
   // SCALE: px a world unit: nearer the camera than this, nothing is drawn (the van is about 2); a lower camera or a
   // bigger cfg.scale brings things nearer to it
   const NEAR_PX = 6;
-  // SCALE: the overgrowth is filed in squares this big, so a frame looks only at those under the view (a longer drive
-  // has more squares, not more plants a frame)
+  // SCALE: the overgrowth is made and filed in squares this big (js/perspective-art.js vegLayout), so a frame looks
+  // only at those under the view and a square is made the first time the view reaches it (a longer drive or a bigger
+  // city has more squares, not more plants a frame); one the view has left for VEG_IDLE frames is let go (made again,
+  // the same, if the view comes back)
   const VEG_CELL = 512;
+  const VEG_IDLE = 240;
+  // SCALE: the road's props (game.js buildScenery: along every road in the city) are filed in squares this big, so a
+  // frame, and a ground square being drawn, looks only at those under it, not at all of the city's
+  const PROP_CELL = 512;
+  // A far prop is drawn simpler (a wreck its body and cabin, no wheels, rust or windows; a barrier or a sign flat
+  // faces, no pictures): from LOD_AT of the way into the haze band (far * 0.55 on), its detail fading out over LOD_BAND
+  // units, so nothing pops; the scenery governor's `lod` brings it in to where the haze starts
+  const LOD_AT = 0.35;
+  const LOD_BAND = 300;
+  /* The scenery governor: on a machine that cannot keep up, the angled drive's scenery thins (never the flat camera,
+     owner 2026-10-16). It reads the whole frame's real interval (game.js frame: g.rafMs, requestAnimationFrame's own
+     time between frames, so the canvas's raster and the compositor count, not just this code's time), smoothed, against
+     SCENERY_BUDGET_MS: a row down after SCENERY_SLOW_SECS over it, a row up after SCENERY_UP_SECS under SCENERY_FAST of
+     it (the wait to climb back to a row it had to leave doubling each time, up to SCENERY_BACKOFF x). Its own rows, its
+     own clock: separate from the walkers' governor (liveGovern: the walkers' renders against LIVE_BUDGET_MS) and from
+     pace (the 2D ground's layers). It never moves the walkers' rows, and after either governor changes a row its
+     clocks start over (SCENERY_HOLD_SECS), so a walker row's change is never read as the scenery's cost: walkers come
+     first, scenery yields. Each row's numbers are eased to over a second or two, so plants fade out and back, nothing
+     pops. Its row, and the smoothed interval, are in frameStats (scenery, gapMs).
+     SCALE: one budget, in ms of frame interval: 25 is 40 fps (a 60 Hz screen that misses frames shows 33 ms). A bigger
+     city keeps the same budget: its squares and props are filed, so the cost a frame stays what the view holds */
+  const SCENERY_BUDGET_MS = 25;
+  const SCENERY_FAST = 0.75;
+  const SCENERY_SLOW_SECS = 2;
+  const SCENERY_UP_SECS = 8;
+  const SCENERY_BACKOFF = 8;
+  const SCENERY_WARM_SECS = 1.5; // a drive's first seconds say nothing (its ground squares and pictures being made)
+  const SCENERY_HOLD_SECS = 2;
+  const SCENERY_GAP_MAX = 250; // ms: a longer gap (a tab in the background, a pause in the debugger) is not a frame
+  // SCALE: the governor's rows, richest first; each a whole setting: smooth (the pictures' imageSmoothingQuality:
+  // 'low' skips the mipmaps, much cheaper on a canvas drawn by the CPU), minPx (plants shorter than this on the
+  // screen fade out, CSS px), thin (this share of the far grass and bushes, past THIN_FROM of the view, fades out, by
+  // each plant's own stable hash), lod (far props simple from the haze band's start), shadows (plant shadows)
+  const SCENERY_LEVELS = [
+    { smooth: "medium", minPx: 0, thin: 0, lod: 0, shadows: 1 },
+    { smooth: "low", minPx: 12, thin: 0, lod: 0, shadows: 1 },
+    { smooth: "low", minPx: 16, thin: 0, lod: 1, shadows: 0 },
+    { smooth: "low", minPx: 16, thin: 0.5, lod: 1, shadows: 0 },
+    { smooth: "low", minPx: 22, thin: 0.75, lod: 1, shadows: 0 },
+  ];
+  const SCENERY_EASE = { minPx: 8, thin: 0.3, lod: 0.6, shadows: 0.8 }; // how fast each eases to its row's, a second
+  const THIN_FROM = 0.4; // thinning starts this share of cfg.far ahead, all of it by THIN_FROM + 0.15
+  const THIN_EDGE = 0.08; // a thinned plant fades over this much of its hash
   // The walkers are the interiors' live 3D figures (js/walker3d.js), drawn the way js/interior.js draws them: each into
   // its own pooled canvas when it looks different, under the interiors' governor rows (ZSR.Interior.LIVE_LEVELS).
   // SCALE: road units a Walker3D tile. On-foot proportions against the van: on foot a walker stands 0.92 tiles to the
@@ -76,9 +121,9 @@
   };
 
   const Persp = {
-    // SCALE: far is how far ahead the view sees (world units): the ground squares (js/perspective-gl.js GRIDS, KEEP),
-    // the plants, props and walkers drawn a frame, where walkers come from and PERSP.range / keepUp in js/game.js
-    // all grow with it
+    // SCALE: far is how far ahead the view sees (world units): the ground squares (js/perspective-gl.js GRIDS, keepFor),
+    // the plants (made a square at a time wherever the view reaches: out to far, no other limit), props and walkers
+    // drawn a frame, where walkers come from and PERSP.range / keepUp in js/game.js all grow with it
     cfg: { pitch: 30, fov: 60, vanAt: 0.8, scale: 1.55, far: 3600 },
     GUN_Z,
     AIM_Z,
@@ -90,8 +135,10 @@
     canvases: [],
     // this frame's cost, for a test page to show: the whole road draw (ms, set by game.js draw), the ground in it (on
     // the card or warped), the world standing on it, the walkers' share of that (their renders and pictures, as
-    // walkerStats.ms) and the ground squares drawn (on the card)
-    frameStats: { ms: 0, groundMs: 0, worldMs: 0, walkersMs: 0, squaresMade: 0 },
+    // walkerStats.ms) and the ground squares drawn (on the card); the plants and props drawn, the squares of plants
+    // kept and made this frame; the scenery governor's row and the frame interval it reads (smoothed, ms; 0 before
+    // the first)
+    frameStats: { ms: 0, groundMs: 0, worldMs: 0, walkersMs: 0, squaresMade: 0, plants: 0, props: 0, vegSquares: 0, vegMade: 0, scenery: 0, gapMs: 0 },
 
     // SCALE: the narrowest the view may be across, as the width-to-height share that sees that far at cfg.fov (1.6:
     // a 1280 x 800 window sees 43 degrees to each side): a narrower window (half a screen, 960 x 1040) sees as far to
@@ -348,14 +395,38 @@
       g.drive.lots.forEach((l) => {
         if (Math.hypot(l.qx - view.x, l.qy - view.y) < view.r + 800) D.lot(ctx, l, G, ZSR.WORLD.place(l.node), B ? B.lotGround(l) : undefined);
       });
-      for (const p of g.props) {
-        if ((p.kind !== "tire" && p.kind !== "rubble") || Math.abs(p.x - view.x) > view.r + 60 || Math.abs(p.y - view.y) > view.r + 60) continue;
+      // the junk lying flat: only the props filed in the squares under this view
+      const pad = view.r + 60;
+      this.propIndex(g).find(view.x - pad, view.y - pad, view.x + pad, view.y + pad, (p) => {
+        if ((p.kind !== "tire" && p.kind !== "rubble") || Math.abs(p.x - view.x) > pad || Math.abs(p.y - view.y) > pad) return;
         ctx.save();
         ctx.translate(p.x, p.y);
         ctx.rotate(p.face || 0);
         D.prop(ctx, Object.assign({}, p, { x: 0, y: 0 }));
         ctx.restore();
+      });
+    },
+    /** The drive's props filed by square (PROP_CELL; js/perspective-art.js buckets), once for each set of props
+        (game.js buildScenery makes a drive's); one in the river or on its bank is left out (it would stand in it). */
+    propIndex(g) {
+      if (this.propsFor !== g.props || !this.propIdx) {
+        const Art = ZSR.PerspArt;
+        const Dr = ZSR.Draw;
+        const list = g.props || [];
+        const scale = g.drive && g.drive.scale;
+        const dry = (p) => !(Dr && Dr.inRiver) || !Dr.inRiver(p.x, p.y, 0, scale);
+        if (Art && Art.buckets) {
+          const B = Art.buckets(PROP_CELL);
+          for (const p of list) if (dry(p)) B.add(p, p.x, p.y, p.x, p.y);
+          this.propIdx = B;
+        } else {
+          // (without the art file, a test that leaves it out: one bucket holding them all)
+          const dryList = list.filter(dry);
+          this.propIdx = { B: Infinity, find: (x0, y0, x1, y1, fn) => dryList.forEach((p) => fn(p)), each: (bx, by, fn) => dryList.forEach((p) => fn(p)) };
+        }
+        this.propsFor = g.props;
       }
+      return this.propIdx;
     },
     /** What the ground leaves out, as part of the card's squares' key (js/perspective-gl.js): a square drawn with other
         flat pieces is never kept. */
@@ -587,24 +658,70 @@
         ctx.fill();
       });
     },
-    /** A tree, bush or clump of tall grass from js/perspective-art.js. */
-    plant(ctx, o) {
+    /** A tree, bush or clump of tall grass from js/perspective-art.js, at this frame's alpha (the haze's), under the
+        scenery governor's eased setting (this.scen.cur): a plant shorter on the screen than its minPx fades out, a far
+        grass or bush whose own hash (o.q) is under its thin share fades out, its shadow fades with `shadows`. True if
+        it was drawn. A tree prop (no q) is never thinned. */
+    plant(ctx, o, alpha) {
+      const a0 = alpha == null ? ctx.globalAlpha : alpha;
+      const cur = this.scen ? this.scen.cur : null;
+      let a = a0;
+      if (cur && cur.thin > 0.001 && o.q != null && (o.kind === "grass" || o.kind === "bush")) {
+        // by how far ahead it is: none at THIN_FROM of the view, all of `thin` 0.15 of it further, so no line shows
+        const k = this.k;
+        const Y = o._Y != null ? o._Y : (o.x - k.ox) * k.Fx + (o.y - k.oy) * k.Fy;
+        const t = cur.thin * clamp((Y / k.far - THIN_FROM) / 0.15, 0, 1);
+        if (t > 0) a *= clamp((o.q - t) / THIN_EDGE, 0, 1);
+      }
+      if (a <= 0.02) return false;
+      const foot = this.project(o.x, o.y, 0);
+      const head = this.project(o.x, o.y, o.h);
+      if (!foot || !head || foot.s > NEAR_PX) return false;
+      const hpx = foot.y - head.y;
+      if (hpx < 2) return false;
+      if (cur && cur.minPx > 0.5) a *= clamp((hpx - cur.minPx * 0.7) / (cur.minPx * 0.3), 0, 1);
+      if (a <= 0.02) return false;
       const s = ZSR.PerspArt.sprite(o.kind, o.v);
-      if (o.kind === "tree" || o.kind === "dead") this.shadow(ctx, o.x + o.h * 0.12, o.y + o.h * 0.08, o.h * 0.32, o.h * 0.2, 0.3, 0.22);
-      this.billboard(ctx, s.img, o.x, o.y, o.h, s.aspect, o.flip, 0.5);
+      const sh = cur ? cur.shadows : 1;
+      if ((o.kind === "tree" || o.kind === "dead") && sh > 0.02) {
+        ctx.globalAlpha = a * sh;
+        this.shadow(ctx, o.x + o.h * 0.12, o.y + o.h * 0.08, o.h * 0.32, o.h * 0.2, 0.3, 0.22);
+      }
+      ctx.globalAlpha = a;
+      const wpx = o.h * s.aspect * foot.s;
+      ctx.save();
+      ctx.transform(o.flip ? -1 : 1, 0, (-(head.x - foot.x) / hpx) * 0.5, 1, foot.x, foot.y);
+      ctx.drawImage(s.img, -wpx / 2, -hpx, wpx, hpx);
+      ctx.restore();
+      return true;
     },
-    /** One of the road's props, standing: a tree, a barrel, a barrier, a sign or a wrecked car. */
-    prop(ctx, p) {
+    /** One of the road's props, standing: a tree, a barrel, a barrier, a sign or a wrecked car. d: how much of its
+        detail shows (1 all, 0 the far, simple one: LOD_AT; in between both, the detail fading). True if drawn. */
+    prop(ctx, p, d) {
       if (p.kind === "tree") {
         if (!p.plant) p.plant = { kind: p.seed % 5 === 0 ? "dead" : "tree", x: p.x, y: p.y, h: 110 + p.size * 3.2, v: p.seed % 4, flip: p.seed % 2 === 1 };
-        this.plant(ctx, p.plant);
-      } else if (p.kind === "barrel") {
+        return this.plant(ctx, p.plant);
+      }
+      const D = d == null ? 1 : d;
+      if (p.kind === "barrel") {
         const s = ZSR.PerspArt.sprite("barrel", ["#7a4a2a", "#5f6b3c", "#4d4f55"].indexOf(p.color) + 3);
         this.shadow(ctx, p.x + 6, p.y + 4, 16, 12, 0, 0.25);
-        this.billboard(ctx, s.img, p.x, p.y, 36, s.aspect, false, 0.3);
-      } else if (p.kind === "barrier") this.barrier(ctx, p);
-      else if (p.kind === "sign") this.sign(ctx, p);
-      else if (p.kind === "wreck") this.car(ctx, p);
+        return this.billboard(ctx, s.img, p.x, p.y, 36, s.aspect, false, 0.3);
+      }
+      if (p.kind === "barrier") this.barrier(ctx, p, D);
+      else if (p.kind === "sign") this.sign(ctx, p, D);
+      else if (p.kind === "wreck") this.car(ctx, p, D);
+      else return false;
+      return true;
+    },
+    /** Draws part of a prop's detail at `d` of the alpha now (none under 0.02), then puts the alpha back. */
+    detail(ctx, d, fn) {
+      if (d <= 0.02) return;
+      if (d >= 0.98) return fn();
+      const a = ctx.globalAlpha;
+      ctx.globalAlpha = a * d;
+      fn();
+      ctx.globalAlpha = a;
     },
     /** A wall between ground points a and b of a box around (cx, cy), if it faces the camera: papered with
         `pieces` (left to right as seen from outside) or filled. */
@@ -625,20 +742,30 @@
       this.poly(ctx, [a.concat(z0), b.concat(z0), b.concat(z1), a.concat(z1)], null, 2.5);
       return true;
     },
-    /** A concrete barrier: the striped faces down its long sides. */
-    barrier(ctx, p) {
+    /** A concrete barrier: the striped faces down its long sides (far off, d under 1: flat faces, the stripes' picture
+        and its shadow fading out). */
+    barrier(ctx, p, d) {
+      const D = d == null ? 1 : d;
       const A = (p.face || 0) + (p.rot || 0);
       const ux = Math.cos(A);
       const uy = Math.sin(A);
       const P = (l, w) => [p.x + ux * l - uy * w, p.y + uy * l + ux * w];
       const c = [P(-36, -10), P(36, -10), P(36, 10), P(-36, 10)];
-      this.shadow(ctx, p.x + 8, p.y + 6, 40, 14, A, 0.25);
+      this.detail(ctx, D, () => this.shadow(ctx, p.x + 8, p.y + 6, 40, 14, A, 0.25));
       const tex = [{ img: ZSR.PerspArt.barrier() }];
-      for (let i = 0; i < 4; i++) this.wall(ctx, c[i], c[(i + 1) % 4], p.x, p.y, 0, 30, i % 2 ? null : tex, "#7d7a74");
+      for (let i = 0; i < 4; i++) {
+        const a = c[i];
+        const b = c[(i + 1) % 4];
+        if (i % 2) this.wall(ctx, a, b, p.x, p.y, 0, 30, null, "#7d7a74");
+        else if (D >= 0.98) this.wall(ctx, a, b, p.x, p.y, 0, 30, tex);
+        else if (this.wall(ctx, a, b, p.x, p.y, 0, 30, null, "#a29167")) this.detail(ctx, D, () => this.wall(ctx, a, b, p.x, p.y, 0, 30, tex));
+      }
       this.poly(ctx, c.map((q) => q.concat(30)), "#a3a09a", 2.5);
     },
-    /** A road sign on its post, its words facing the way the route runs past it. */
-    sign(ctx, p) {
+    /** A road sign on its post, its words facing the way the route runs past it (far off, d under 1: its board a flat
+        face of its colour, the words and its shadow fading out). */
+    sign(ctx, p, d) {
+      const D = d == null ? 1 : d;
       const A = p.face || 0;
       const vx = Math.cos(A);
       const vy = Math.sin(A);
@@ -649,29 +776,35 @@
       const nx = -vy;
       const ny = vx;
       const front = nx * (k.ox - k.Fx * k.b - p.x) + ny * (k.oy - k.Fy * k.b - p.y) > 0;
-      this.shadow(ctx, p.x + 10, p.y + 8, 30, 8, A, 0.22);
+      this.detail(ctx, D, () => this.shadow(ctx, p.x + 10, p.y + 8, 30, 8, A, 0.22));
       if (front) this.column(ctx, p.x, p.y, 0, 86, 3, 3, "#4a4a4f", 2);
-      if (front) this.texWall(ctx, left, right, 46, 88, [{ img: ZSR.PerspArt.signBoard(p.text || "KEEP OUT", p.color || "#d9a21b") }]);
-      else this.texWall(ctx, right, left, 46, 88, [{ img: ZSR.PerspArt.signBack() }]);
-      this.poly(ctx, [left.concat(46), right.concat(46), right.concat(88), left.concat(88)], null, 2.5);
+      const board = [left.concat(46), right.concat(46), right.concat(88), left.concat(88)];
+      const face = () => (front ? this.texWall(ctx, left, right, 46, 88, [{ img: ZSR.PerspArt.signBoard(p.text || "KEEP OUT", p.color || "#d9a21b") }]) : this.texWall(ctx, right, left, 46, 88, [{ img: ZSR.PerspArt.signBack() }]));
+      if (D < 0.98) this.poly(ctx, board, front ? p.color || "#d9a21b" : "#7d7a74", 0);
+      this.detail(ctx, D, face);
+      this.poly(ctx, board, null, 2.5);
       if (!front) this.column(ctx, p.x, p.y, 0, 86, 3, 3, "#4a4a4f", 2);
     },
-    /** A wrecked car: wheels, the body, the cabin with its windows (some smashed), rust. */
-    car(ctx, p) {
+    /** A wrecked car: wheels, the body, the cabin with its windows (some smashed), rust. Far off (d under 1) only the
+        body and the cabin, plain: the wheels, rust, windows and its shadow fade out. */
+    car(ctx, p, d) {
+      const D = d == null ? 1 : d;
       const A = (p.face || 0) + (p.rot || 0) + Math.PI / 2;
       const ux = Math.cos(A);
       const uy = Math.sin(A);
       const P = (l, w) => [p.x + ux * l - uy * w, p.y + uy * l + ux * w];
       const col = p.color || "#5a4538";
       const seed = Math.abs(Math.floor(p.x * 7 + p.y * 13)) % 97;
-      this.shadow(ctx, p.x + 10, p.y + 8, 60, 34, A, 0.3);
-      // wheels (one gone, on some)
-      for (const [l, w] of [[-34, -27], [34, -27], [-34, 27], [34, 27]]) {
-        if ((seed + l + w) % 7 === 0) continue;
-        const c = [P(l - 10, w - 4), P(l + 10, w - 4), P(l + 10, w + 4), P(l - 10, w + 4)];
-        const m = P(l, w);
-        for (let i = 0; i < 4; i++) this.wall(ctx, c[i], c[(i + 1) % 4], m[0], m[1], 0, 18, null, "#1f2023");
-      }
+      this.detail(ctx, D, () => {
+        this.shadow(ctx, p.x + 10, p.y + 8, 60, 34, A, 0.3);
+        // wheels (one gone, on some)
+        for (const [l, w] of [[-34, -27], [34, -27], [-34, 27], [34, 27]]) {
+          if ((seed + l + w) % 7 === 0) continue;
+          const c = [P(l - 10, w - 4), P(l + 10, w - 4), P(l + 10, w + 4), P(l - 10, w + 4)];
+          const m = P(l, w);
+          for (let i = 0; i < 4; i++) this.wall(ctx, c[i], c[(i + 1) % 4], m[0], m[1], 0, 18, null, "#1f2023");
+        }
+      });
       const body = [P(-54, -27), P(54, -27), P(54, 27), P(-54, 27)];
       for (let i = 0; i < 4; i++) {
         const a = body[i];
@@ -681,7 +814,7 @@
         if (i % 2 === 0) {
           const t = 0.2 + (seed % 5) * 0.12;
           const q = (s, z) => [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s, z];
-          this.poly(ctx, [q(t, 11), q(t + 0.16, 12), q(t + 0.12, 22), q(t - 0.02, 20)], "rgba(122,62,28,0.6)", 0);
+          this.detail(ctx, D, () => this.poly(ctx, [q(t, 11), q(t + 0.16, 12), q(t + 0.12, 22), q(t - 0.02, 20)], "rgba(122,62,28,0.6)", 0));
         }
       }
       this.poly(ctx, body.map((q) => q.concat(28)), col, 2.5);
@@ -693,8 +826,10 @@
         if (!this.wall(ctx, a, b, cm[0], cm[1], 28, 47, null, shade(col, -14))) continue;
         const q = (s, z) => [a[0] + (b[0] - a[0]) * s, a[1] + (b[1] - a[1]) * s, z];
         const broken = (seed + i) % 3 === 0;
-        this.poly(ctx, [q(0.12, 31), q(0.88, 31), q(0.82, 44), q(0.18, 44)], broken ? "#56636e" : "#2b3540", 2);
-        if (broken) this.poly(ctx, [q(0.3, 32), q(0.5, 40), q(0.45, 36), q(0.7, 43)], null, 1.5);
+        this.detail(ctx, D, () => {
+          this.poly(ctx, [q(0.12, 31), q(0.88, 31), q(0.82, 44), q(0.18, 44)], broken ? "#56636e" : "#2b3540", 2);
+          if (broken) this.poly(ctx, [q(0.3, 32), q(0.5, 40), q(0.45, 36), q(0.7, 43)], null, 1.5);
+        });
       }
       this.poly(ctx, cab.map((q) => q.concat(47)), shade(col, 12), 2.5);
     },
@@ -1459,17 +1594,13 @@
       // without the 3D figures a downed walker is the road's own top-down body, lying flat
       if (!ZSR.Walker3D) for (const f of g.fallen) this.flat(ctx, f.x, f.y, 1, () => ZSR.Draw.zombieDown(ctx, f));
       this.walkerGround(g, ctx);
-      // the overgrowth along this drive's roads, made once per drive and filed by square
-      if (this.vegFor !== g.drive) {
-        this.veg = ZSR.PerspArt ? ZSR.PerspArt.scatter(g) : [];
-        this.vegFor = g.drive;
-        this.vegCells = new Map();
-        for (const o of this.veg) {
-          const key = Math.floor(o.x / VEG_CELL) + "," + Math.floor(o.y / VEG_CELL);
-          if (!this.vegCells.has(key)) this.vegCells.set(key, []);
-          this.vegCells.get(key).push(o);
-        }
-      }
+      // the overgrowth over this drive's land: a square made the first time the view reaches it, let go once left
+      const Art = ZSR.PerspArt;
+      if (Art && Art.vegLayout && (!this.vegLayout || this.vegLayout.drive !== g.drive)) this.vegLayout = Art.vegLayout(g.drive, VEG_CELL);
+      const VL = Art && Art.vegLayout ? this.vegLayout : null;
+      const vegNo = (this.vegNo = (this.vegNo || 0) + 1);
+      const made0 = VL ? VL.stats.made : 0;
+      const sc = this.sceneryRow(g);
       const list = this.list || (this.list = []);
       list.length = 0;
       const yMin = this.groundY(k.H) - 260;
@@ -1487,12 +1618,14 @@
         o._Y = Y + (back || 0);
         list.push(o);
       };
-      // plants: only the squares under the view, and only those reaching onto the screen (a plant's own height
-      // covers its width and its lean)
-      {
-        const C = VEG_CELL;
-        const ya = yMin - 260;
-        const hw = ((k.W / 2 + 40) * this.depthAt(gone)) / k.f + 260;
+      // plants, then props: only the squares under the view (a square's whole reach, its half-diagonal, against the
+      // view's trapezoid: the screen's width at each depth, plus a plant's own height for its width and its lean),
+      // each made the first time the view reaches it; then each thing on its own (add)
+      // (margin: px past the screen's sides, as add's; reach: world units a thing may stand off its square's middle
+      // past the square's half-diagonal and still show)
+      const under = (C, reach, margin, fn) => {
+        const ya = yMin - reach;
+        const hw = ((k.W / 2 + margin) * this.depthAt(gone)) / k.f + reach;
         let x0 = Infinity;
         let x1 = -Infinity;
         let y0 = Infinity;
@@ -1505,14 +1638,33 @@
           y0 = Math.min(y0, y);
           y1 = Math.max(y1, y);
         }
+        const r = C * 0.7072 + reach;
         for (let cx = Math.floor(x0 / C); cx <= Math.floor(x1 / C); cx++) {
           for (let cy = Math.floor(y0 / C); cy <= Math.floor(y1 / C); cy++) {
-            const cell = this.vegCells.get(cx + "," + cy);
-            if (cell) for (const o of cell) add(o, "plant", o.x, o.y, 0, o.h, 40);
+            const dx = (cx + 0.5) * C - k.ox;
+            const dy = (cy + 0.5) * C - k.oy;
+            const Y = dx * k.Fx + dy * k.Fy;
+            if (Y < yMin - r || Y > gone + r) continue;
+            const X = dx * k.Rx + dy * k.Ry;
+            if (Math.abs(X) > ((k.W / 2 + margin) * this.depthAt(Math.max(yMin, Y + r))) / k.f + r) continue;
+            fn(cx, cy);
           }
         }
+      };
+      if (VL) {
+        // (a plant stands at most 240 tall, and a verge's second clump of grass lies up to 36 outside its square)
+        under(VEG_CELL, 300, 40, (cx, cy) => {
+          for (const o of VL.get(cx, cy, vegNo)) add(o, "plant", o.x, o.y, 0, o.h, 40);
+        });
+        // squares the view has left for a while are let go
+        if (vegNo % 60 === 0) VL.sweep(vegNo - VEG_IDLE);
       }
-      for (const p of g.props) if (p.kind !== "tire" && p.kind !== "rubble") add(p, "prop", p.x, p.y);
+      const PI = this.propIndex(g);
+      const addProp = (p) => {
+        if (p.kind !== "tire" && p.kind !== "rubble") add(p, "prop", p.x, p.y);
+      };
+      if (isFinite(PI.B)) under(PI.B, 0, 300, (cx, cy) => PI.each(cx, cy, addProp));
+      else PI.each(0, 0, addProp);
       for (const c of g.crates) add(c, "crate", c.x, c.y);
       // a building by its own middle (its lot's front can be behind the camera while the building is in view); each
       // place's own (js/perspective-buildings.js) by its parts' middle, with the side streets' ends standing
@@ -1559,7 +1711,13 @@
       for (const o of list) o._skip = null;
       if (B) B.order(g, this, list);
       list.sort((a, b) => b._Y - a._Y);
-      ctx.imageSmoothingQuality = "medium";
+      // the pictures' sampling by the scenery governor's row ('medium': mipmapped; 'low', on a slow machine: not)
+      ctx.imageSmoothingQuality = sc.smooth;
+      // a far prop's detail fades out over LOD_BAND from LOD_AT into the haze band (the governor's lod brings it in;
+      // drawItem reads it, also for what a building draws among its parts)
+      this.lodFrom = fog0 + (1 - this.scen.cur.lod) * LOD_AT * (k.far - fog0);
+      this.plantsDrawn = 0;
+      this.propsDrawn = 0;
       // a landmark past the haze, as a silhouette on its far edge, behind everything standing
       if (B) B.skyline(g, this, ctx);
       for (const o of list) {
@@ -1577,12 +1735,121 @@
       fs.worldMs = performance.now() - t1;
       fs.walkersMs = this.walkerStats.ms;
       fs.squaresMade = GL && GL.on && GL.stats ? GL.stats.made + GL.stats.ahead : 0;
+      fs.plants = this.plantsDrawn;
+      fs.props = this.propsDrawn;
+      fs.vegSquares = VL ? VL.cells.size : 0;
+      fs.vegMade = VL ? VL.stats.made - made0 : 0;
+      this.drawnFor = g.drive;
+    },
+    /** Is this drive's view ready for the van to pull out (game.js prepStep)? Drawn at least once, and on the card
+        every square under the view drawn at its sharpness and those the views just ahead need (js/perspective-gl.js
+        stats); without the card the 2D ground has nothing to make ahead. The plants under the view are made as it is
+        drawn. */
+    ready(g) {
+      if (this.drawnFor !== g.drive) return false;
+      const GL = ZSR.PerspGL;
+      if (!GL || !GL.on || !GL.ok) return true;
+      const st = GL.stats;
+      return !!st && st.drive === g.drive && st.want === st.made && !st.holes && st.aheadLeft === 0;
+    },
+    /** A drive has really stopped (game.js stop: parked at the door, dead, off to the map or the title; never a wrong
+        turn's retry, which keeps the drive): let go of what only a drive needs, so a parked game holds none of it: the
+        ground squares on the card (js/perspective-gl.js release), the plants' squares, the props' index, the walkers'
+        canvases and the 2D ground's layers. The next drive makes them again. */
+    release() {
+      const GL = ZSR.PerspGL;
+      if (GL && GL.release) GL.release();
+      this.vegLayout = null;
+      this.propIdx = null;
+      this.propsFor = null;
+      this.drawnFor = null;
+      for (const a of [this.list, this.liveQ, this.liveNearQ, this.liveWait]) if (a) a.length = 0;
+      const free = (r) => {
+        if (r && r.c) r.c.width = r.c.height = 0;
+        if (r) r.o = null;
+      };
+      if (this.livePool) {
+        this.livePool.forEach(free);
+        this.livePool.clear();
+      }
+      if (this.liveSpare) {
+        this.liveSpare.forEach(free);
+        this.liveSpare.length = 0;
+      }
+      for (const c of this.canvases) c.width = c.height = 0;
+    },
+    /** The scenery governor (SCENERY_LEVELS, see SCENERY_BUDGET_MS), once a frame the page drew (game.js frame sets
+        g.rafMs, the time since the last frame, and g.rafN, its count): eases this.scen.cur toward its row and, on a
+        frame that says something about the drive's cost, smooths the interval and steps the row. Not a drive's cost:
+        a gap over SCENERY_GAP_MAX, a pause or the wrong-turn fade, the van waiting at its door while its first view is
+        made (g.prep), its first SCENERY_WARM_SECS. A page drawn without frames (a test) goes straight to its row.
+        Returns this frame's row. */
+    sceneryRow(g) {
+      const S = this.scen || (this.scen = { level: 0, cur: Object.assign({}, SCENERY_LEVELS[0]), smooth: 0, slowT: 0, fastT: 0, holdT: 0, upWait: [], rafN: null, drive: null, warm: 0, liveAt: null });
+      const L = SCENERY_LEVELS;
+      S.level = clamp(S.level | 0, 0, L.length - 1);
+      const fresh = g.rafN != null && g.rafN !== S.rafN;
+      S.rafN = g.rafN;
+      const gap = fresh ? +g.rafMs || 0 : 0;
+      if (S.drive !== g.drive) {
+        S.drive = g.drive;
+        S.warm = 0;
+        S.slowT = S.fastT = 0;
+      }
+      this.sceneryEase(g.rafN == null ? Infinity : gap / 1000);
+      const fs = this.frameStats;
+      fs.scenery = S.level;
+      fs.gapMs = S.smooth;
+      if (!(gap > 0) || gap > SCENERY_GAP_MAX || g.paused || g.fade || g.prep) return L[S.level];
+      const secs = gap / 1000;
+      S.warm += secs;
+      if (S.warm < SCENERY_WARM_SECS) return L[S.level];
+      // the walkers' governor changed its row: start over (that change is not the scenery's cost)
+      const wl = this.liveLevel | 0;
+      if (S.liveAt !== wl) {
+        if (S.liveAt != null) S.holdT = Math.max(S.holdT, SCENERY_HOLD_SECS);
+        S.liveAt = wl;
+        S.slowT = S.fastT = 0;
+      }
+      // the interval, smoothed over about half a second
+      S.smooth = S.smooth > 0 ? S.smooth + (gap - S.smooth) * (1 - Math.exp(-gap / 500)) : gap;
+      fs.gapMs = S.smooth;
+      if (S.holdT > 0) {
+        S.holdT -= secs;
+        return L[S.level];
+      }
+      S.slowT = S.smooth > SCENERY_BUDGET_MS ? S.slowT + secs : 0;
+      S.fastT = S.smooth < SCENERY_BUDGET_MS * SCENERY_FAST ? S.fastT + secs : 0;
+      const at = S.level;
+      let to = at;
+      if (S.slowT >= SCENERY_SLOW_SECS && at < L.length - 1) {
+        S.upWait[at] = Math.min(SCENERY_UP_SECS * SCENERY_BACKOFF, (S.upWait[at] || SCENERY_UP_SECS) * 2); // this row was too much
+        to = at + 1;
+      } else if (at > 0 && S.fastT >= (S.upWait[at - 1] || SCENERY_UP_SECS)) to = at - 1;
+      if (to !== at) {
+        S.level = to;
+        S.slowT = S.fastT = 0;
+        S.holdT = SCENERY_HOLD_SECS;
+      }
+      fs.scenery = S.level;
+      return L[S.level];
+    },
+    /** The governor's eased setting a step of `secs` toward its row (Infinity: all the way). */
+    sceneryEase(secs) {
+      const S = this.scen;
+      const row = SCENERY_LEVELS[S.level];
+      for (const key of ["minPx", "thin", "lod", "shadows"]) {
+        const step = SCENERY_EASE[key] * secs;
+        const v = S.cur[key];
+        S.cur[key] = Math.abs(row[key] - v) <= step ? row[key] : v + Math.sign(row[key] - v) * step;
+      }
+      S.cur.smooth = row.smooth;
     },
     /** One thing from drawWorld's far-to-near list (or from among a building's parts), faded into the haze by fade. */
     drawItem(g, ctx, o, fade) {
       ctx.globalAlpha = fade;
-      if (o._t === "plant") this.plant(ctx, o);
-      else if (o._t === "prop") this.prop(ctx, o);
+      if (o._t === "plant") this.plantsDrawn += this.plant(ctx, o, fade) ? 1 : 0;
+      else if (o._t === "prop") this.propsDrawn += this.prop(ctx, o, 1 - clamp((o._Y - this.lodFrom) / LOD_BAND, 0, 1)) ? 1 : 0;
       else if (o._t === "crate") this.crate(ctx, o);
       else if (o._t === "lot") {
         if (!ZSR.PerspBuild || !ZSR.PerspBuild.draw(g, ctx, this, o, fade)) this.building(ctx, o);
