@@ -593,13 +593,17 @@
     },
     /** A wall from ground point `left` to `right` (as seen from outside), z0 to z1, papered with textures laid
         left to right ({ img, flip, crop: [from, to] as shares of its width }), each in a few strips so the
-        perspective holds. Each strip but the last reaches a little into the next, so no seam shows. */
+        perspective holds. Each strip but the last reaches a little into the next, so no seam shows. A strip is drawn
+        in the picture's own pixels through its map (a destination as big as its source, as js/perspective-buildings.js
+        texQuad does): drawn into a unit square instead, the browser takes it for a picture shrunk to a dot and blurs or
+        clips it on a small wall (the van far off, a road sign's words). */
     texWall(ctx, left, right, z0, z1, pieces) {
       const S = 4;
       const n = pieces.length;
       const at = (t) => [left[0] + (right[0] - left[0]) * t, left[1] + (right[1] - left[1]) * t];
       pieces.forEach((pc, i) => {
         const W = pc.img.width;
+        const Ht = pc.img.height;
         const [u0, u1] = pc.crop || [0, 1];
         const sw = (W * (u1 - u0)) / S;
         for (let j = 0; j < S; j++) {
@@ -610,13 +614,13 @@
           const bl = this.project(A[0], A[1], z0);
           if (!tl || !tr || !bl) return;
           ctx.save();
-          ctx.transform(tr.x - tl.x, tr.y - tl.y, bl.x - tl.x, bl.y - tl.y, tl.x, tl.y);
+          ctx.transform((tr.x - tl.x) / sw, (tr.y - tl.y) / sw, (bl.x - tl.x) / Ht, (bl.y - tl.y) / Ht, tl.x, tl.y);
           if (pc.flip) {
-            ctx.translate(1, 0);
+            ctx.translate(sw, 0);
             ctx.scale(-1, 1);
           }
           const over = i < n - 1 || j < S - 1 ? 1.04 : 1;
-          ctx.drawImage(pc.img, pc.flip ? W * u1 - (j + 1) * sw : W * u0 + j * sw, 0, sw, pc.img.height, 0, 0, over, 1);
+          ctx.drawImage(pc.img, pc.flip ? W * u1 - (j + 1) * sw : W * u0 + j * sw, 0, sw, Ht, 0, 0, sw * over, Ht);
           ctx.restore();
         }
       });
@@ -1554,8 +1558,11 @@
         const bl = this.project(d[0], d[1], VAN_Z);
         if (!tl || !tr || !bl) return;
         ctx.save();
-        ctx.transform(tr.x - tl.x, tr.y - tl.y, bl.x - tl.x, bl.y - tl.y, tl.x, tl.y);
-        ctx.drawImage(c, 0, j * step * R, 66 * R, step * R, 0, 0, 1, j < N - 1 ? 1.04 : 1);
+        // (in the picture's own pixels, as texWall)
+        const sw = 66 * R;
+        const sh = step * R;
+        ctx.transform((tr.x - tl.x) / sw, (tr.y - tl.y) / sw, (bl.x - tl.x) / sh, (bl.y - tl.y) / sh, tl.x, tl.y);
+        ctx.drawImage(c, 0, j * sh, sw, sh, 0, 0, sw, j < N - 1 ? sh * 1.04 : sh);
         ctx.restore();
       }
     },

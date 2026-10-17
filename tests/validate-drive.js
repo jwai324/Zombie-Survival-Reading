@@ -1084,7 +1084,8 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
      x 800, 1920 x 1080 and 960 x 1040;
    - Spread Shot at a walker clicked far down the road: every barrel's shot hits it;
    - the title screen and the garage's preview: a still angled scene (the van, Walker3D figures of every kind in turn,
-     the first two in the still one), drawn again only when what it shows changes, with no exceptions or NaN; */
+     the first two in the still one), drawn again only when what it shows changes, with no exceptions or NaN;
+   - a wall's picture (the van's walls, a road sign's board) is drawn in its own pixels, never into a unit square. */
 {
   const fErr = (m) => err("flat out", m);
   const finite = (v) => typeof v === "number" && Number.isFinite(v);
@@ -1457,10 +1458,29 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     P.van = v0;
   }
 
+  // a wall's picture in its own pixels (texWall): the destination as big as the source, never a unit square
+  {
+    start("base", "grocery");
+    G.ctx = screen.getContext("2d");
+    for (let i = 0; i < 30; i++) G.update(1 / 60);
+    frame("texWall");
+    P.setup(G);
+    const img = { width: 64, height: 32 };
+    log.length = 0;
+    P.texWall(G.ctx, ahead(400, -40), ahead(400, 40), 0, 40, [{ img }, { img, flip: true, crop: [0.1, 0.9] }]);
+    const di = log.filter((q) => q[1] === "drawImage" && q[2][0] === img);
+    if (di.length !== 8) fErr(`texWall drew ${di.length} strips (want 4 a picture)`);
+    for (const q of di) {
+      const [, , , sw, sh, , , dw, dh] = q[2];
+      if (!(dw >= sw - 1e-9 && dw <= sw * 1.05 && Math.abs(dh - sh) < 1e-9)) fErr(`texWall drew a ${sw.toFixed(1)} x ${sh} strip into ${dw.toFixed(2)} x ${dh} (want its own pixels)`);
+    }
+    G.stop();
+  }
+
   G.hudRects = hud0;
   globalThis.document = realDoc;
   [...bad].slice(0, 12).forEach(fErr);
-  console.log(`flat out: night drawn on change and down the van's heading (beam ${P.NIGHT_BEAM.reach}), fog ${P.FOG.near}..${P.FOG.far}, minimap arrow up and its fade for places in view, signs and hints off the road at 3 sizes, Spread Shot all hits, title screen and garage still scenes, ${bad.size} bad calls`);
+  console.log(`flat out: night drawn on change and down the van's heading (beam ${P.NIGHT_BEAM.reach}), fog ${P.FOG.near}..${P.FOG.far}, minimap arrow up and its fade for places in view, signs and hints off the road at 3 sizes, Spread Shot all hits, title screen and garage still scenes, texWall in its own pixels, ${bad.size} bad calls`);
 }
 /* ---------- each place's own building on the angled camera (js/perspective-buildings.js) ----------
    Every place has a building row and every row is a place; every side street kind stands up. Every destination is
