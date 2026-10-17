@@ -144,7 +144,9 @@
      line: cornerBrake, eased in over brakeEase). cornerSpin is that peak, times fit: the real camera turns at 0.91 to
      1.13 of the bare model's peak on the city's turns (those over 20 deg/s, at Engine Tune 0 and 5), so with fit and
      the shapes' own margin (COMFORT.design) it errs on the safe side; gainK and gainMax are fitted to those turns too.
-     CAM mirrors PERSP and the fastest van (tests/validate-drive.js checks they match); change both together. */
+     CAM mirrors PERSP and the fastest van (tests/validate-drive.js checks they match); change both together.
+     SCALE: topSpeed is the fastest Engine Tune's speed (js/upgrades.js engine max, at the angled pace): a new top level
+     of Engine Tune raises it, and every corner is shaped for it again */
   const CAM = { camW: 2.2, camPace: 0.5, paceSpeed: 300, look: 300, lookRamp: 2, brake: 0.75, brakeIn: 150, topSpeed: 510, easeMax: 2, gainK: 0.5, gainMax: 150, fit: 1.1 };
   /* Braking by sharpness: brake (the light brake into any turn) up to a right angle (sharpFrom), then down to sharp at
      sharpTo (degrees): a turn that doubles back is taken slowly. A turn with less room than its corner wants (a short

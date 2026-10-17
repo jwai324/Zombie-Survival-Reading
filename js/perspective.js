@@ -62,8 +62,8 @@
   // units, so nothing pops; the scenery governor's `lod` brings it in to where the haze starts
   const LOD_AT = 0.35;
   const LOD_BAND = 300;
-  /* The scenery governor: on a machine that cannot keep up, the angled drive's scenery thins (never the flat camera,
-     owner 2026-10-16). It reads the whole frame's real interval (game.js frame: g.rafMs, requestAnimationFrame's own
+  /* The scenery governor: on a machine that cannot keep up, the angled drive's scenery thins (the owner, 2026-10-16:
+     thinner scenery, never a cheaper camera). It reads the whole frame's real interval (game.js frame: g.rafMs, requestAnimationFrame's own
      time between frames, so the canvas's raster and the compositor count, not just this code's time), smoothed, against
      SCENERY_BUDGET_MS: a row down after SCENERY_SLOW_SECS over it, a row up after SCENERY_UP_SECS under SCENERY_FAST of
      it (the wait to climb back to a row it had to leave doubling each time, up to SCENERY_BACKOFF x). Its own rows, its
@@ -135,6 +135,7 @@
   // standing gone into it there: walkers further out are hidden, buildings fade into it by colour), clear to FOG.near
   // ahead of the camera's spot and thickening between. Where walkers come from does not change (spawn reads cfg.far):
   // in fog they are only seen later. The old flat road's fog was a clear circle about 300 units round the van.
+  // SCALE: road units, a look (how thick fog is), not a share of cfg.far: a deeper view leaves fog as it is
   const FOG = { near: 60, far: 760 };
   // Night (game.js mods.night): the dark over everything (NIGHT_DARK), but for what the van lights, laid on the ground
   // and seen through the camera, so it turns with the van: a glow round it (glow, units), its headlights' beam down its
@@ -142,6 +143,7 @@
   // of its reach, gone at reach) and the roof gun's lamp along its aim (lamp units, lampHalf rad each side). The owner
   // asked for a beam "in between" the old flat road's (about 520 ahead) and the angled drive's first one (to the haze,
   // 3600): reach is about halfway.
+  // SCALE: road units, the owner's "in between" look, not a share of cfg.far: a deeper view keeps the beam as it is
   const NIGHT_BEAM = { reach: 2050, beamFrom: 40, beamHalf: 26, beamOpen: 0.34, beamFull: 0.3, glow: 170, glow0: 30, lamp: 360, lampHalf: 0.22 };
   // ... the beam's and the lamp's sides fade out over rings laid round them (no hard edge across a storefront or a
   // barrier): ring i is grow x i wider than the beam there (and min x i units more, for its narrow near end) and the
@@ -1578,8 +1580,7 @@
       x.setTransform(R, 0, 0, R, 33 * R, 59 * R);
       x.fillStyle = looks[Math.min(u.paint || 0, looks.length - 1)].body;
       x.fillRect(-33, -59, 66, 118);
-      const aimW = van.aimW == null ? van.heading : van.aimW;
-      D.van(x, 0, 0, { upgrades: u, aim: aimW - van.heading - Math.PI / 2, t: g.time, hurt: van.hurt, flash: van.flash, scale: 1, moving: !(g.arrive && g.arrive.parked), gun: false });
+      D.van(x, 0, 0, { upgrades: u, t: g.time, hurt: van.hurt, scale: 1, moving: !(g.arrive && g.arrive.parked) });
       const N = 6;
       const step = 118 / N;
       for (let j = 0; j < N; j++) {

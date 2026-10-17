@@ -46,7 +46,6 @@
     pxPerTile: 56, // road px for one tile on foot: a walker's road radius over its own, 18 px / 0.32 tiles (the scream's reach)
     roadScroll: 240, // van speed in px/s before engine upgrades
     milesPerSecond: 0.11,
-    sideSpawnChance: 0.45,
     crateScrap: 15,
     fogChanceAfterDay: 5,
     wrongDrive: 1.25, // seconds driven down a wrong road before the fade
@@ -109,6 +108,8 @@
     { chase: 0.75, early: { spawns: 1.0, chase: 0.8, group: 4.5, farY: [0.35, 0.5] } },
     { chase: 0.78, group: 1.25, early: { spawns: 0.85, chase: 0.88, group: 5, farY: [0.2, 0.35] } },
   ].map((r) => Object.assign({}, ROAD_LATE, { farY: ROAD_LATE.farY.slice(), sideY: ROAD_LATE.sideY.slice(), sideX: ROAD_LATE.sideX.slice(), early: {} }, r));
+  // SCALE: the day a row's own (late) numbers take over from its `early` ones (roadRow): a longer game with later
+  // upgrades may want it later, and tests/balance's matrix has its days 1 to 20 round it
   const ROAD_LATE_DAY = 10;
   // SCALE: the walkers of a group come within this many units of its first
   const GROUP_SPREAD = 160;
@@ -162,9 +163,12 @@
   // the road's canvas is drawn at no more device px a CSS px than this, as the angled view's ground on the card
   // (js/perspective-gl.js): only 175% and 200% screen scaling go past it, where a canvas drawn by the CPU costs about
   // 2.3 times dpr 1's (1.5 about 1.7 times) for words and pictures barely sharper
+  // SCALE: a cost cap, the same at any city size; a bigger screen or a costlier frame may want it lower
   const ROAD_DPR_MAX = 1.5;
   // a drive's first view (ground squares on the card, plants) is made before the van pulls out (Game.prepStep), for
   // at most this many seconds; a slow computer then drives off with the rest still coming in
+  // SCALE: a wait, not a size: a deeper view (more squares in the first one) waits no longer, it drives off with more
+  // still coming
   const PREP_SECS = 1;
   // SCALE: a drive's roadside (buildScenery) is made along the roads within this much of its track: as far as the
   // camera sees (js/perspective.js cfg.far) and a little more, its track looked at every SCENERY_STEP; a prop keeps
