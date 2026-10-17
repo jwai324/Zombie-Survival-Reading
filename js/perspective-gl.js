@@ -24,12 +24,14 @@
   // SCALE: ms of square drawing per frame (the first frames of a drive get more); a turn wants about twice a
   // straight's new squares, and a bigger cfg.far or a wider screen more
   const BUDGET = 7;
-  // SCALE: squares kept on the card: KEEP_VIEWS times the most a view of this window needs (keepFor: about 190 at
-  // 1280x800, 234 at 1920x1080, 328 at 2560x1080), never under KEEP. The views ahead, drawn early, need more on top
-  // of the view's own (on a straight about 1.3 views, through a sharp turn 2 or more), and a turn looks back over
-  // ground passed a few seconds before: KEEP_VIEWS covers about the last 3 seconds of a drive. A view that needs more
-  // still keeps its own squares, those the views ahead hold, and SPARE more (evict), so a very wide screen costs
-  // memory, never squares drawn again every frame
+  // SCALE: squares kept on the card: KEEP_VIEWS times the most a view of this window needs (keepFor: about 192 at
+  // 1280x800, 218 at 1920x1080, 278 at 2560x1080, so it keeps 365, 415 and 529), never under KEEP. The views ahead,
+  // drawn early, need more on top of the view's own (on a straight about 1.5 views, through a sharp turn 2 or more),
+  // and a turn looks back over ground passed a few seconds before: KEEP_VIEWS covers about the last 3 seconds of a
+  // drive. Memory grows with it (mipmaps in: about 230 MB at 1280x800, 270 at 1920x1080, 350 at 2560x1080; 1.4
+  // would save about a quarter at 2560 for more squares drawn again). A view that needs more still keeps its own
+  // squares, those the views ahead hold, and SPARE more (evict), so a very wide screen costs memory, never squares
+  // drawn again every frame
   const KEEP = 360;
   const KEEP_VIEWS = 1.9;
   const SPARE = 48;

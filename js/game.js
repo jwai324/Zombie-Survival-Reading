@@ -83,8 +83,8 @@
   // lines at least a lane window apart); much tighter turns or closer stop lines need them checked (validate-drive)
   Object.assign(PERSP, { brake: 0.75, brakeIn: 150, brakeOut: 300, look: 300, lookRamp: 2, camW: 2.2, camPace: 0.5, nose: 50 });
   // the road's canvas is drawn at no more device px a CSS px than this, as the angled view's ground on the card
-  // (js/perspective-gl.js): only 175% and 200% screen scaling go past it, where a canvas drawn by the CPU costs 2.5
-  // times dpr 1's (1.5 costs about 1.6 times) for words and pictures barely sharper
+  // (js/perspective-gl.js): only 175% and 200% screen scaling go past it, where a canvas drawn by the CPU costs about
+  // 2.3 times dpr 1's (1.5 about 1.7 times) for words and pictures barely sharper
   const ROAD_DPR_MAX = 1.5;
   // a drive's first view (ground squares on the card, plants) is made before the van pulls out (Game.prepStep), for
   // at most this many seconds; a slow computer then drives off with the rest still coming in
