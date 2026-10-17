@@ -469,9 +469,9 @@
       // a little straight at each end, so the path leaves and arrives on its lines
       const T = Math.min(t, back, rMax > 0 ? rMax * Math.tan(Math.abs(a) / 2) + 2 : Infinity) - 2;
       const r = T / Math.tan(Math.abs(a) / 2);
-      // where the lines meet just ahead of a van already almost on the end line, the arc that fits there is tight:
-      // the easing curve is gentler then
-      const eased = r < GEOM.turnWide && t <= back ? easeOver(track(), x0, y0, ux, uy, ex, ey, vx, vy) : null;
+      // where the lines of a slight turn meet just ahead of a van already almost on the end line, the arc that fits
+      // there is tight: the easing curve is gentler then (and keeps near both lines, the turn being slight)
+      const eased = r < GEOM.turnWide && t <= back && Math.abs(a) < EASE_MAX ? easeOver(track(), x0, y0, ux, uy, ex, ey, vx, vy) : null;
       if (eased && tightestOf(eased) > r) return Object.assign(eased, { r: Infinity });
       tr.r = r;
       fillet(tr, X, Y, ux, uy, vx, vy, tr.r);
@@ -481,6 +481,7 @@
     // the lines cross behind (or barely bend): ease over with a cubic curve, then a little straight onto the end line
     return easeOver(tr, x0, y0, ux, uy, ex, ey, vx, vy);
   }
+  const EASE_MAX = Math.PI / 6; // radians: the most a turn may bend to be eased over instead of a tight arc
   /** The tightest bend of a track (its radius), from the turn between neighbouring segments. */
   function tightestOf(tr) {
     let m = Infinity;
