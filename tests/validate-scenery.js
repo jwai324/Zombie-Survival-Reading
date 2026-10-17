@@ -11,7 +11,8 @@
    - nothing grows in the river: no plant, moss mark or prop on the water on the drives along it;
    - the props filed by square give a frame exactly the props a look at all of them gives; a far wreck, barrier or
      sign is drawn simpler;
-   - the scenery governor: slow frames step it down a row at a time (fewer plants drawn), fast ones back up after the
+   - the scenery governor: slow frames step it down a row at a time (fewer plants drawn), a browser that caps its frames
+     is left at the richest row after one trial down, fast ones back up after the
      wait, never the walkers' governor's rows; its settings fade in rather than jump;
    - a real stop lets go of the ground squares, the plants and the walkers' canvases; a wrong turn's retry keeps them;
    - the card keeps at least what the view and the views ahead need at 1280x800, 1920x1080 and 2560x1080.
@@ -456,10 +457,12 @@ const listed = (t) => P.list.filter((o) => o._t === t);
   P.sceneryEase(Infinity);
   const live0 = P.liveLevel;
   let n = (G.rafN = 1);
-  // one frame `ms` after the last: drawn (the plants counted), or only the governor's step (as drawWorld takes it)
-  const frame = (ms, draw) => {
+  // one frame `ms` after the last: drawn (the plants counted), or only the governor's step (as drawWorld takes it);
+  // the page's own draw (game.js draw: frameStats.ms) takes `own` ms of it, most of a slow frame unless said
+  const frame = (ms, draw, own) => {
     G.rafN = ++n;
     G.rafMs = ms;
+    P.frameStats.ms = own == null ? ms * 0.75 : own;
     if (draw === false) P.sceneryRow(G);
     else P.drawWorld(G, ctx, null);
     return P.frameStats;
@@ -504,10 +507,30 @@ const listed = (t) => P.list.filter((o) => o._t === t);
   G.paused = false;
   frame(2000, false);
   if (P.scen.level !== lvP) govErr(`paused frames and a long gap moved it from row ${lvP} to ${P.scen.level}`);
-  console.log(`scenery governor: 40 ms frames stepped it down after ${(firstDown * 0.04).toFixed(1)} s to row ${low} (${plants0} plants drawn to ${plantsLow}), eased in; 16.7 ms frames back up after ${(firstUp / 60).toFixed(1)} s; walkers' rows untouched`);
+  // a browser that caps its frames (Energy Saver: 30 a second) while the page's own draw is small (6 ms): thinning
+  // cannot speed it up, so after one trial down the rows it goes back to the richest and stays there
+  const fresh = () => {
+    Object.assign(P.scen, { level: 0, smooth: 0, own: 0, slowT: 0, fastT: 0, holdT: 0, upWait: [], trial: null, capped: false, warm: 10, liveAt: P.liveLevel | 0, drive: G.drive });
+    P.sceneryEase(Infinity);
+  };
+  fresh();
+  const capRows = [];
+  for (let i = 0; i < 30 * 60; i++) capRows.push(frame(33.3 + ((i * 7) % 5) * 0.1 - 0.2, false, 6).scenery);
+  const capLate = capRows.slice(-20 * 30);
+  if (capLate.some((l) => l !== 0)) govErr(`a browser capped at 30 frames a second (its own draw 6 ms) was still thinned after its trial (rows ${[...new Set(capLate)].join(",")} over the last 20 s)`);
+  // ... but a page whose thinner rows do speed it up (its graphics card's raster: its own draw small) keeps the row
+  // that did: here 30 frames a second down to row 1, 60 from row 2
+  fresh();
+  const gpuRows = [];
+  for (let i = 0; i < 40 * 45; i++) gpuRows.push(frame(P.scen.level >= 2 ? 16.7 : 33.3, false, 8).scenery);
+  const gpuLate = gpuRows.slice(-600);
+  const gpuKept = gpuLate.filter((l) => l >= 2).length / gpuLate.length;
+  if (gpuKept < 0.7 || P.scen.capped) govErr(`a page that thinner rows speed up (60 frames a second from row 2) spent ${(gpuKept * 100).toFixed(0)}% of its last 600 frames on row 2 or thinner${P.scen.capped ? ", taken for capped" : ""}`);
+  console.log(`scenery governor: 40 ms frames stepped it down after ${(firstDown * 0.04).toFixed(1)} s to row ${low} (${plants0} plants drawn to ${plantsLow}), eased in; 16.7 ms frames back up after ${(firstUp / 60).toFixed(1)} s; walkers' rows untouched; a 30 fps cap left at the richest row after its trial (${capRows.filter((l) => l > 0).length} of ${capRows.length} frames thinner); a page sped up by row 2 kept it`);
   delete G.rafN;
   delete G.rafMs;
-  Object.assign(P.scen, { level: 0, smooth: 0, slowT: 0, fastT: 0, holdT: 0, upWait: [], rafN: null });
+  Object.assign(P.scen, { level: 0, smooth: 0, own: 0, slowT: 0, fastT: 0, holdT: 0, upWait: [], rafN: null, trial: null, capped: false });
+  P.frameStats.ms = 0;
   P.sceneryEase(Infinity);
   G.stop();
 }

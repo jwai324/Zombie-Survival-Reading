@@ -82,6 +82,16 @@
   const SCENERY_WARM_SECS = 1.5; // a drive's first seconds say nothing (its ground squares and pictures being made)
   const SCENERY_HOLD_SECS = 2;
   const SCENERY_GAP_MAX = 250; // ms: a longer gap (a tab in the background, a pause in the debugger) is not a frame
+  // A browser that caps its frames (Chrome's Energy Saver on battery: 30 a second; a 30 Hz screen) is not slow, and
+  // thinning cannot bring its frames closer. So while the page's own draw (frameStats.ms, smoothed) is under
+  // SCENERY_OWN of the interval, its rows down are a trial: once one has brought the interval down by SCENERY_GAIN (by
+  // the end of its hold and SCENERY_TRY_SECS more), the frames were slow and the governor goes on as usual (the
+  // graphics card's raster, which the page's own draw does not count, can be what is slow); if even the thinnest row
+  // has not, they are capped: it goes back up to where the trial began and steps down no more on that drive while its
+  // own draw stays under that share. A page whose own draw is most of the interval steps down as before
+  const SCENERY_OWN = 0.45;
+  const SCENERY_GAIN = 0.1;
+  const SCENERY_TRY_SECS = 2;
   // SCALE: the governor's rows, richest first; each a whole setting: smooth (the pictures' imageSmoothingQuality:
   // 'low' skips the mipmaps, much cheaper on a canvas drawn by the CPU), minPx (plants shorter than this on the
   // screen fade out, CSS px), thin (this share of the far grass and bushes, past THIN_FROM of the view, fades out, by
@@ -1897,7 +1907,7 @@
         made (g.prep), its first SCENERY_WARM_SECS. A page drawn without frames (a test) goes straight to its row.
         Returns this frame's row. */
     sceneryRow(g) {
-      const S = this.scen || (this.scen = { level: 0, cur: Object.assign({}, SCENERY_LEVELS[0]), smooth: 0, slowT: 0, fastT: 0, holdT: 0, upWait: [], rafN: null, drive: null, warm: 0, liveAt: null });
+      const S = this.scen || (this.scen = { level: 0, cur: Object.assign({}, SCENERY_LEVELS[0]), smooth: 0, own: 0, slowT: 0, fastT: 0, holdT: 0, upWait: [], rafN: null, drive: null, warm: 0, liveAt: null, trial: null, capped: false });
       const L = SCENERY_LEVELS;
       S.level = clamp(S.level | 0, 0, L.length - 1);
       const fresh = g.rafN != null && g.rafN !== S.rafN;
@@ -1907,6 +1917,8 @@
         S.drive = g.drive;
         S.warm = 0;
         S.slowT = S.fastT = 0;
+        S.trial = null;
+        S.capped = false;
       }
       this.sceneryEase(g.rafN == null ? Infinity : gap / 1000);
       const fs = this.frameStats;
@@ -1923,20 +1935,42 @@
         S.liveAt = wl;
         S.slowT = S.fastT = 0;
       }
-      // the interval, smoothed over about half a second
-      S.smooth = S.smooth > 0 ? S.smooth + (gap - S.smooth) * (1 - Math.exp(-gap / 500)) : gap;
+      // the interval, and the page's own draw (the last frame's: game.js draw sets frameStats.ms), smoothed over about
+      // half a second
+      const k = 1 - Math.exp(-gap / 500);
+      S.smooth = S.smooth > 0 ? S.smooth + (gap - S.smooth) * k : gap;
+      S.own += ((+fs.ms || 0) - S.own) * k;
       fs.gapMs = S.smooth;
       if (S.holdT > 0) {
         S.holdT -= secs;
         return L[S.level];
       }
-      S.slowT = S.smooth > SCENERY_BUDGET_MS ? S.slowT + secs : 0;
+      // a trial (SCENERY_OWN): the rows down sped the frames up, so they were slow (keep going as usual); or even the
+      // thinnest row did not, so they are capped: back up to where the trial began, and stay
+      const tr = S.trial;
+      if (tr && (tr.t += secs) >= SCENERY_TRY_SECS) {
+        if (S.smooth <= tr.before * (1 - SCENERY_GAIN) || S.own >= SCENERY_OWN * S.smooth) S.trial = null;
+        else if (S.level >= L.length - 1) {
+          S.trial = null;
+          S.level = tr.from;
+          S.capped = true;
+          S.slowT = S.fastT = 0;
+          S.holdT = SCENERY_HOLD_SECS;
+          fs.scenery = S.level;
+          return L[S.level];
+        }
+      }
+      // (once found capped, the drive's frames are slow only when the page's own draw takes most of them)
+      const capped = S.capped && S.own < SCENERY_OWN * S.smooth;
+      S.slowT = S.smooth > SCENERY_BUDGET_MS && !capped ? S.slowT + secs : 0;
       S.fastT = S.smooth < SCENERY_BUDGET_MS * SCENERY_FAST ? S.fastT + secs : 0;
       const at = S.level;
       let to = at;
       if (S.slowT >= SCENERY_SLOW_SECS && at < L.length - 1) {
         S.upWait[at] = Math.min(SCENERY_UP_SECS * SCENERY_BACKOFF, (S.upWait[at] || SCENERY_UP_SECS) * 2); // this row was too much
         to = at + 1;
+        if (S.trial) S.trial.t = 0;
+        else if (S.own < SCENERY_OWN * S.smooth) S.trial = { from: at, before: S.smooth, t: 0 };
       } else if (at > 0 && S.fastT >= (S.upWait[at - 1] || SCENERY_UP_SECS)) to = at - 1;
       if (to !== at) {
         S.level = to;
