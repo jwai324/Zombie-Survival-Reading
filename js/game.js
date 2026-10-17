@@ -66,6 +66,7 @@
   const SIGN_AWAY = 1.2; // px the passed sign slides right for each unit the van drives past its stop line (260 to go)
   // the sign stands right of the road at least this wide (px); a window narrower than SIGN_NARROW_W, or with less
   // room than this right of its middle, has it across the top instead (drawSign)
+  // SCALE: px of the window, not of the city: a longer place name wraps within SIGN_ROOM
   const SIGN_ROOM = 160;
   const SIGN_NARROW_W = 700;
   const SIGN_GLIDE = 0.8; // window widths a second the sign moves at most to keep beside the road's edge as it swings

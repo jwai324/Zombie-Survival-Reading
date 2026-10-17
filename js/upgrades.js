@@ -46,6 +46,8 @@
         // angled road a walker pressed on the van slides off its side after a touch or two (the old top-down road's
         // stayed on it until downed), so the plow must down one in fewer touches to be worth what it was there
         // (DESIGN.md "Walkers and balance": Ram Plow 1 about halves a dangerous drive's damage, Ram Plow 3 a quarter)
+        // SCALE: tied to the road walkers' health (WALKER_TYPES hp x the trip's hpMult): tougher walkers or more levels
+        // change how many touches it takes
         ram: 4 + u.bumper * 12 + (u.bumper ? 12 : 0),
         ramKnock: 90 + u.bumper * 40,
         damage: 10 + u.damage * 6,

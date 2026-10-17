@@ -40,6 +40,7 @@
   // on a 720 px window, just short of the haze) would fade in on the open road in plain view: it steps out of the
   // thicket on the road's verge there instead, VERGE units past the shoulder (js/perspective-art.js grows the verge
   // thicket out to 140 past it)
+  // SCALE: ROAD_OPEN is a share of cfg.far (a deeper view moves it out with the haze); VERGE is tied to GEOM's verge
   const ROAD_OPEN = 0.5;
   const VERGE = [40, 140];
   // SCALE: seconds a new walker takes to come out of the weeds (walkers spawn at the edge of the view, cfg.far)

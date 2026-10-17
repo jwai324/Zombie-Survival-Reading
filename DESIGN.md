@@ -2116,3 +2116,187 @@ before with after and are not a real PC's; "before" is b7b8202):
 - the walk-in interiors still clamp a frame at 0.05 s;
 - the packs on the first days at dangerous places were judged by numbers; they were looked at in only a few
   screenshots.
+
+### Review fixes (2026-10-17, last)
+
+A review of the whole angled-camera branch (feel, look, balance and regressions) found the problems below; each was
+checked again by a second reviewer before it was fixed. Where this section and the ones above disagree, this one is
+current: the Ram Plow's damage, the late rows of dangers 2 to 5, the balance matrix's days and where near packs come
+from changed here.
+
+**The Ram Plow is worth what it was** (`js/upgrades.js` `ram`):
+- **What was wrong:** on the old road a walker that reached the van stayed on it until downed, so the plow hit it
+  every second; on the angled road a walker pressed on the van slides off its side after a touch or two (about 1.5
+  blows a walker against 2.1). Ram Plow 1 (13 damage) cut a dangerous day-5 drive's damage by only 13 to 35%, against
+  46 to 60% on the old road, so clear days 6 to 8, the plow's first days on the economy's schedule, were 24 to 64% harder
+  than the old game at dangers 2 to 5 (7 of 8 cells failed).
+- **The fix:** the plow's damage is 4 with none, then 28, 40, 52, 64 and 76 (`4 + 12 a level + 12 for having one`,
+  was `4 + 9 a level`). The plow itself is the big step: a straight `4 + 16 a level` matched Ram Plow 3 but left Ram
+  Plow 1 weak, `4 + 24 a level` the other way round. The garage shows the new number.
+- **Measured** (danger 3 / 4 / 5 on day 5, night and fog off, seeds 101 to 148, damage with the plow against without):
+  Ram Plow 1 x0.51 / 0.50 / 0.42 (old road 0.54 / 0.47 / 0.40, before the fix 0.87 / 0.80 / 0.65); Ram Plow 3 x0.20 /
+  0.23 / 0.24 (old road 0.28 / 0.24 / 0.22, before 0.50 / 0.43 / 0.40).
+- **What it moved:** the drives the plow is bought for got easier, so the late rows keep up harder beside the van:
+  danger 2 `chase` 0.70 to 0.78 with groups of 1.5 at 1.3 x `DIFF`'s rate (was 1 at 1.4), danger 3 0.72 to 0.74,
+  danger 4 0.72 to 0.75, danger 5 0.73 to 0.78.
+
+**Near packs step out of the verge** (`js/perspective.js` `spawn`, `ROAD_OPEN`, `VERGE`; `Game.stepOut`):
+- **What was wrong:** on days 1 to 5 at dangers 2, 4 and 5 the packs came 720 to 1,800 units ahead on the open road,
+  clear of the haze and 20 to 35 px tall, and faded in there: 24, 25 and 43% of all walkers on day 1 appeared in
+  plain view on the asphalt (16% on day 5 at danger 5).
+- **The fix:** a walker from down the road that would come nearer than `ROAD_OPEN` (half the view's reach, where a
+  plain walker is about 13 px tall on a 720 px window, just short of the haze) comes out of the verge's thicket
+  instead, 40 to 140 units past the shoulder beside the van's own road there (js/perspective-art.js grows that
+  thicket), and the rest of its group beside it along the verge. Each then **steps out onto the road**, straight across
+  it to a place on its own half at random, before it turns for the van.
+- **Why it steps out:** packs that only came out of the verge and homed on the van were much easier (danger 2 on day
+  1: 41 HP a trip against the old road's 103; danger 5 on day 5: 137 against 314): they met the van from the side and
+  the bot shot them while they kept up beside it. Re-fitting the early rows to that (keep-up up to 0.92 to 0.98,
+  bigger groups) brought the damage back but not the scrap: the bot downed nearly every walker it met (scrap 26 to
+  42% high). Stepped out, they stand where the old road's did, in the van's way, and the early rows fitted before
+  hold as they were (danger 2 day 1: 107, danger 4 day 5: 148 against 172).
+- **Measured** (the balance bot's trips, 8 seeds a route; on the screen, at least 20 px tall, at least half clear of
+  the haze, within the road's half width and 60 of the van's road): danger 2 / 3 / 4 / 5 on day 1 from 23.6 / 6.2 /
+  25.2 / 43.1% to 2.0 / 3.1 / 0.5 / 0.7%; danger 5 on day 5 15.5 to 1.2%; day 10 unchanged (1.1 to 1.4%: the haze).
+
+**The balance matrix and its report** (`tests/balance`):
+- **Days 3 and a clear day 7** are in the matrix (`matrix.json` `days` 1, 3, 5, 7, 10, 20; `clear`: day 7 drives with
+  night and fog off). Their flat targets were driven on 36403cd by the same stage-1 harness, which reproduces the
+  frozen cells exactly, and added to `targets.json` (`meta.added`). Day 7 guards the Ram Plow's first days; the anchor
+  days 1, 5, 10 and 20 could not see that gap. `npm run balance` is 5,184 trips, about 2 min.
+- **compare.js** prints each difference with its band and its combined standard error (`+7% of +-20%, se 5%`), so a
+  miss by noise reads as one.
+- **Held-out seeds:** the matrix is also judged on seeds 49 to 96 (`--seed0 49`), which none of the tuning saw.
+- **Results** (48 seeds a route): 32 of 36 cells pass on the tuning seeds, 31 of 36 on the held-out ones. The code
+  before this drop, judged on the same 36 cells: 30 and 26 (it failed danger 5 on day 1, dangers 3 and 4 on day 3 and
+  dangers 3 to 5 on the clear day 7, all but one too hard; it had passed 23 of the old 24 cells). "!" is outside the
+  band.
+
+| cell | dmg: flat / now | wrecked: flat / now | met: flat / now | scrap: flat / now | tuning seeds | held-out seeds |
+| --- | --- | --- | --- | --- | --- | --- |
+| d0/day1 | 15.7 / 17.9 | 1% / 1% | 22.0 / 23.2 | 27.9 / 29.6 | pass | pass |
+| d1/day1 | 33.8 / 31.4 | 6% / 3% | 18.2 / 16.7 | 25.1 / 22.0 | pass | FAIL (dmg) |
+| d2/day1 | 102.8 / 109.2 | 46% / 49% | 22.0 / 22.1 | 29.8 / 32.5 | pass | pass |
+| d3/day1 | 176.0 / 207.2 | 81% / 85% | 24.0 / 26.2 | 30.7 / 34.9 | pass | pass |
+| d4/day1 | 374.6 / 320.3 | 100% / 99% | 31.5 / 29.8 | 36.8 / 39.8 | pass | pass |
+| d5/day1 | 546.5 / 794.8! | 99% / 99% | 35.8 / 30.9 | 37.7 / 55.1! | FAIL | FAIL (dmg, scrap) |
+| d0/day3 | 3.1 / 3.4 | 0% / 0% | 23.4 / 25.2 | 33.7 / 37.4 | pass | pass |
+| d1/day3 | 9.1 / 6.1 | 0% / 0% | 19.6 / 19.1 | 30.7 / 30.2 | pass | pass |
+| d2/day3 | 25.2 / 24.3 | 3% / 0% | 24.0 / 22.8 | 39.4 / 39.0 | pass | pass |
+| d3/day3 | 48.1 / 57.2 | 7% / 8% | 25.0 / 27.6 | 41.9 / 47.9 | pass | pass |
+| d4/day3 | 173.5 / 150.4 | 52% / 61% | 33.4 / 33.8 | 54.3 / 55.9 | pass | FAIL (died) |
+| d5/day3 | 313.2 / 254.3 | 80% / 79% | 38.2 / 36.0 | 58.1 / 67.3! | FAIL | pass |
+| d0/day5 | 8.2 / 9.1 | 0% / 0% | 23.2 / 24.5 | 36.5 / 39.0 | pass | pass |
+| d1/day5 | 14.8 / 15.0 | 0% / 0% | 18.9 / 18.9 | 30.2 / 31.5 | pass | pass |
+| d2/day5 | 36.6 / 33.1 | 0% / 1% | 23.4 / 23.5 | 40.5 / 40.2 | pass | pass |
+| d3/day5 | 64.4 / 68.7 | 8% / 8% | 24.6 / 27.3 | 41.9 / 46.3 | pass | pass |
+| d4/day5 | 171.6 / 148.3 | 47% / 44% | 32.7 / 34.9 | 53.2 / 54.1 | pass | pass |
+| d5/day5 | 314.3 / 298.4 | 84% / 82% | 37.8 / 39.0 | 54.9 / 67.1! | FAIL | FAIL (scrap) |
+| d0/day7 | 2.8 / 2.3 | 0% / 0% | 24.7 / 27.6 | 41.4 / 45.1 | pass | pass |
+| d1/day7 | 6.0 / 2.0 | 0% / 0% | 20.3 / 20.9 | 35.8 / 36.4 | pass | pass |
+| d2/day7 | 15.5 / 10.4! | 1% / 0% | 24.4 / 24.7 | 43.8 / 44.6 | FAIL | pass |
+| d3/day7 | 22.3 / 24.1 | 0% / 0% | 26.4 / 28.8 | 48.6 / 54.0 | pass | pass |
+| d4/day7 | 50.2 / 57.1 | 0% / 2% | 34.8 / 38.6 | 64.8 / 72.7 | pass | pass |
+| d5/day7 | 85.6 / 89.2 | 12% / 13% | 39.8 / 42.9 | 73.5 / 82.5 | pass | pass |
+| d0/day10 | 10.0 / 5.0 | 0% / 0% | 25.6 / 27.6 | 60.1 / 64.6 | pass | FAIL (dmg) |
+| d1/day10 | 10.9 / 7.8 | 0% / 0% | 20.8 / 20.6 | 52.5 / 53.1 | pass | pass |
+| d2/day10 | 23.5 / 25.6 | 0% / 0% | 25.4 / 25.5 | 56.7 / 62.5 | pass | pass |
+| d3/day10 | 34.8 / 33.8 | 0% / 0% | 27.1 / 29.3 | 65.9 / 70.2 | pass | pass |
+| d4/day10 | 79.0 / 69.6 | 1% / 1% | 36.1 / 41.4 | 83.2 / 92.8 | pass | pass |
+| d5/day10 | 119.3 / 107.2 | 8% / 7% | 40.5 / 45.7 | 89.2 / 99.3 | pass | pass |
+| d0/day20 | 0.2 / 0.0 | 0% / 0% | 37.9 / 37.1 | 106.6 / 106.0 | pass | pass |
+| d1/day20 | 0.2 / 0.0 | 0% / 0% | 31.5 / 29.7 | 89.8 / 91.5 | pass | pass |
+| d2/day20 | 0.3 / 0.2 | 0% / 0% | 39.1 / 36.2 | 110.9 / 106.3 | pass | pass |
+| d3/day20 | 0.9 / 0.6 | 0% / 0% | 41.6 / 40.3 | 117.3 / 115.2 | pass | pass |
+| d4/day20 | 2.0 / 0.6 | 0% / 0% | 56.0 / 57.1 | 144.7 / 152.7 | pass | pass |
+| d5/day20 | 3.3 / 3.5 | 0% / 0% | 63.3 / 64.0 | 166.0 / 167.6 | pass | pass |
+
+- **The misses:**
+  - danger 5 on days 1, 3 and 5: its damage can be matched, its scrap cannot. The angled bot downs most of the
+    walkers it meets there and the old road's did not, and no spawn lever changes that share. The economy's schedule
+    first goes to a danger 5 place on day 17;
+  - danger 2 on day 7: 10.4 HP against 15.5, 0.1 HP past its +-5 HP floor (it passes held out);
+  - held out only: danger 1 on day 1 (-20%, on the band's edge), danger 4 on day 3 (wrecked 10.4 points high) and the
+    drive home on day 10 (4.2 HP against 10.0: the Ram Plow halves a drive this mild, and its floor is 5 HP).
+- **Clear days 6 to 9 against the old road** (seeds 101 to 148, a check the matrix does not run): days 7 to 9 pass 9
+  of 12 cells (before: 5 of 12, every miss too hard, by 24 to 64%); the misses are now too easy (danger 2 on day 9,
+  13.9 HP against 21.1; danger 4 on day 9, 57 against 77; danger 5 on day 8, scrap 15% high). Day 6 passes 2 of 3
+  (before: none; danger 5's wrecked share is 26% against 43%).
+
+**The road sign never jumps** (`Game.drawSign`, `SIGN_ROOM`, `SIGN_NARROW_W`, `SIGN_GLIDE`, `signSpot`):
+- **What was wrong:** the across-the-top place under the minimap, meant for narrow windows, also took over whenever
+  the far road's edge came within 186 px of the screen's right edge, which the lagging camera does for a moment in
+  bends. The sign then leapt about 1,100 px and back, and a passed sign followed the swinging edge as it faded.
+- **The fix:**
+  - only the window decides the across-the-top place (narrower than 700 px, or under 160 px right of its middle);
+  - anywhere else the sign stands at the right, never narrower than 160 px and never left of the window's middle (a
+    road edge left of the middle leaves the right half clear). A sign seen last frame glides after the road's edge at
+    0.8 window widths a second at most, and stays put while no edge is beside it. In a bend it may stand over the far
+    edge for a moment; walkers are drawn over it again (`drawOverSign`);
+  - a passed sign keeps where it stood as the van crossed the stop line, and slides off from there.
+- **Measured** (every route at Engine Tune 0, the sign drawn every frame; a jump is over 120 px in a frame while it is
+  at least 90% shown): 571 / 643 / 186 / 664 jumps at 1280 x 800, 1920 x 1080, 960 x 1040 and 1366 x 657 before,
+  none after (and none at 1440 x 900). It now moves at most 19 px in a frame.
+
+**60 Hz frames run one road step** (`STEP_SLACK`, `stepsIn`): a browser's clock is rounded to 0.1 ms, so its 60 Hz
+frames come 16.6 to 16.8 ms apart, and 63% of them ran two half steps (a 59.94 Hz screen every frame). Over the
+balance matrix that played 2 to 4% easier than the harness's 1/60 s frames (kills up in 21 of 24 cells, damage down
+in all six day-1 cells). A step may now run 2% longer than `ROAD_STEP` (and `DRIVE_STEP`): 16.6 to 16.8 ms frames run
+one step, as the harness does, and 1/30 s and 0.1 s frames still run exactly two and six (the balance run's trips are
+unchanged to the last number).
+
+**A capped browser keeps its scenery** (`SCENERY_OWN`, `SCENERY_GAIN`, `SCENERY_TRY_SECS`): a browser capped at 30
+frames a second (Chrome's Energy Saver on battery, a 30 Hz screen) thinned the scenery to its lowest row within 16 s
+and stayed there, though thinning cannot bring capped frames closer. Now, while the page's own draw (`frameStats.ms`)
+is under 45% of the interval, the governor's rows down are a trial: once a row has brought the interval down by 10%
+it goes on as before (the graphics card's raster can be what is slow, and the page's own draw does not count it); if
+even the thinnest row has not, it goes back to where the trial began and steps down no more on that drive while its
+own draw stays that small. Measured on the governor itself (300 s of synthetic frames): a 30 fps cap with a 6 ms draw
+spent 95% at the lowest row before, 95% at the richest after (one 20 s trial down the rows); a page whose own draw is
+most of a frame, and one whose graphics card a thinner row speeds up, settle where they did before.
+
+**The look:**
+- **A building's fine details fade in** (`FINE_PX`, `R.fine`, `fine()` in js/perspective-buildings.js): its props, lamp
+  posts, panes, posters, shingles and fruit came in all at once mid-screen about 4 to 5 s before parking. They now fade
+  in as the building grows from 170 to 220 px across (about a second's drive); `R.lod` is still an integer, for the
+  part order's cache.
+- **Night's edges are soft** (`NIGHT_FEATHER`): the beam's and the gun lamp's sides fade out over five rings laid round
+  them (each 4.5% wider and 5 units more, the lamp 0.022 rad each side more; lit 72, 50, 32, 18 and 7% of the light
+  they ring), not in one hard line across a storefront or a barrier. Three rings showed as steps. The rings are filled even-odd, so nothing is lit twice and
+  the beam's own light is as before; no blur filter (it would cost on every redraw on a CPU canvas). The glow round the
+  van was already soft.
+- **No tree stands on a wreck** (`PROP_CLEAR`, `FOOT` in js/perspective-art.js): a tree, dead tree or bush is no longer
+  grown inside a wrecked car's or a barrier's footprint (plus 10 units) of the drive's own props; grass still grows
+  round them. On four drives 97 trees and bushes stood on 509 wrecks and barriers; none now.
+- **The road box lets clicks through** (`css/style.css` `.road-box`): the "TO ... ARRIVE" box sits over the road just
+  behind the van, where walkers keep up; it has nothing to click, so presses and the aim now go through it.
+- **The map's van has its roof gun again** (`Map.drawRoofGun`): the marker lost it when the top-down turret went; it
+  now shows the mount and its barrels (as many as Spread Shot gives, as long as Heavier Rounds make them).
+
+**Smaller fixes:**
+- A drive that ends inside the page's own frame (at the door, or the wreck's last moment) is no longer drawn once more
+  after `stop()` let go of its squares, plants and pictures (`Game.frame`): that one draw made about 17 squares, 115
+  plant squares, the card's full-size canvas and the night layer again, 30 to 50 MB of the 200 to 400 the stop frees.
+- Seven limits added on this branch carry their `SCALE:` tag (`FOG`, `NIGHT_BEAM`, `EDGE_STEP`, `ROAD_LATE_DAY`,
+  `ROAD_DPR_MAX`, `PREP_SECS`, `Streets.CAM`), and docs/SCALING.md's test times are current (npm test about 3.5 min,
+  2.4 times 36403cd's 86 s).
+- Gone: `DIFF.sideSpawnChance` (read nowhere), `Draw.van`'s dead `aim`, `flash` and `gun` arguments, and Persp's
+  `SPAWN` fallback (the fog test passes the drive's own row); three comments that still spoke of the top-down road.
+
+**Tests added or changed:**
+- **`tests/validate-drive.js`:** the every-route sweep draws the sign on every frame at Engine Tune 0 (1280 x 800 with
+  the page's HUD) and fails if it moves more than 120 px in a frame while at least 90% shown; "road steps" checks that
+  16.6, 16.7, 16.8 ms and 59.94 Hz frames run one road step of four drive steps (1/30 s two, 0.1 s six). The sweep
+  takes about 6 s more.
+- **`tests/validate-scenery.js`:** "release" ends a drive at the door and in a wreck through `Game.frame` (it found
+  130 and 192 squares made again before the fix); the governor leaves a 30 fps cap at the richest row after its trial
+  and keeps the row that speeds a page up; no tree or bush on a wreck or barrier.
+- **`tests/validate-balance.js`:** a clear day-7 cell (danger 4), and the pop-in check: on days 1 and 5 at dangers 2,
+  4 and 5 at most 5% of walkers may appear in plain view on the open road (0.5% now; 24% before).
+- **`tests/balance`:** days 3 and 7 with their flat targets, `clear` days, the standard errors in the report.
+
+**Still open:**
+- danger 5 before day 7 and the other misses above;
+- clear days 8 and 9 at dangers 2 and 4 are now somewhat easier than the old road (they sit between days 5 and 10,
+  which pass, on the even blend of `roadRow`);
+- night and fog drives are still not balanced against the old road.
