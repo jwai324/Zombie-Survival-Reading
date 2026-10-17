@@ -2089,6 +2089,41 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     console.log(`walkers blocked: ${put} put in buildings' parts and ${wetPut} in the river, all put out; ${came} of ${tries} walkers behind a building came round it (the slowest in ${slowest.toFixed(1)} s, at most ${worst.toFixed(1)} into it); ${pairs.length} drives (${all ? "every route" : "a sample: --all-walkers for every route"}), ${spawned} walkers, ${frames} walker frames: ${badSpawn} came from inside, ${inB} in a building, ${inR} in the river (${((Date.now() - t0) / 1000).toFixed(0)} s)`);
   }
 }
+/* ---------- no new walkers come while ROAD_WALKERS_MAX are on the road ---------- */
+{
+  const cErr = (m) => err("walker cap", m);
+  const M = G.ROAD_WALKERS_MAX;
+  if (!(M >= 20)) cErr(`ROAD_WALKERS_MAX is ${M}`);
+  else {
+    start("base", "hospital");
+    for (let i = 0; i < 30; i++) G.update(1 / 60);
+    const v = G.van;
+    const fx = Math.cos(v.heading);
+    const fy = Math.sin(v.heading);
+    G.zombies.length = 0;
+    // a crowd at the cap, standing still well off the road ahead (so none goes)
+    for (let i = 0; i < M; i++) Object.assign(G.addZombie("walker", v.x + fx * (900 + 40 * i) - fy * 1500, v.y + fy * (900 + 40 * i) + fx * 1500), { hp: 1e6, maxHp: 1e6, speed: 0, born: -10 });
+    G.spawnTimer = 0;
+    let most = 0;
+    for (let f = 0; f < 60 * 4 && G.running; f++) {
+      G.update(1 / 60);
+      most = Math.max(most, G.zombies.length);
+    }
+    if (most > M) cErr(`${most} walkers on the road with ${M} the cap`);
+    // and with room again, they come again
+    G.zombies.length = M - 10;
+    G.spawnTimer = 0;
+    let came = false;
+    const n0 = G.zombies.length;
+    for (let f = 0; f < 60 * 4 && G.running && !came; f++) {
+      G.update(1 / 60);
+      came = G.zombies.length > n0;
+    }
+    if (!came) cErr("no walker came with room under the cap");
+    G.stop();
+    console.log(`walker cap: at most ${most} walkers on the road with the cap at ${M}; under it they come again`);
+  }
+}
 /* ---------- a slow machine's long frames: the road in steps (ROAD_STEP), the frame clamped at MAX_FRAME_DT ----------
    One frame of 0.1 s (10 frames a second) is exactly six of 1/60 s, and one of 1/30 two: the van, every walker (its
    place and health), the shots, kills, scrap and the van's health, with walkers coming, a gun firing and the lanes

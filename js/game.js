@@ -13,14 +13,17 @@
    The camera looks down the road from behind and above the van (js/perspective.js draws the world, works the roof
    gun's aim and maps screen <-> world), every drive; a minimap tracks the van but never shows the route. The van
    brakes into each turn it takes (more into a sharp one) and the camera follows lazily, facing a point ahead on the
-   van's own path. The drive (the van, its turns and the camera) runs in short fixed steps (DRIVE_STEP), so it moves
-   the same at any frame rate.
-   Route geometry lives in js/streets.js. Walkers come from ahead and from both shoulders; the
-   player aims and shoots. The trip's van health, scrap and walker count live in ZSR.State.trip.
+   van's own path. The drive (the van, its turns and the camera) runs in short fixed steps (DRIVE_STEP), and the rest
+   of the road (the gun, walkers, shots) in steps of ROAD_STEP, so it all moves the same at any frame rate.
+   Route geometry lives in js/streets.js. Walkers come from far down the road and from both shoulders, by the
+   trip's danger and day (ROAD_DANGER); ahead of the van they walk at it, beside and behind it they keep up with it
+   (KEEP), and buildings and the river block them; the player aims and shoots. The trip's van health, scrap and
+   walker count live in ZSR.State.trip.
    Every kind of walker comes, by the trip's danger and day (WORLD.walkerWeights "road"); a screamer that sees
    the van screams and every walker near it speeds up (WORLD.SCREAM, tiles x DIFF.pxPerTile). A downed walker
    goes over and fades (this.fallen); with WORLD.SETTINGS.walkerGore on, hits spray blood.
-   All tuning lives in DIFF and WORLD.WALKER_TYPES[...].road (and .knock, .scream). */
+   All tuning lives in DIFF, ROAD_DANGER, KEEP and WORLD.WALKER_TYPES[...].road (and .knock, .scream); the balance
+   against the old top-down road is checked by tests/balance (npm run balance). */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -103,6 +106,10 @@
   const ROAD_LATE_DAY = 10;
   // SCALE: the walkers of a group come within this many units of its first
   const GROUP_SPREAD = 160;
+  // SCALE: the most walkers on the road at once (a group may pass it by a few): no new ones come until some go. Today's
+  // drives have at most about 18 with a player shooting and 33 with nobody shooting; each walker costs its update
+  // (and its neighbours') and a live 3D figure (under the walkers' governor)
+  const ROAD_WALKERS_MAX = 40;
   // the keep-up carry, by where a walker is from the van (owner, 2026-10-17): ahead of the nose there is none, so a
   // walker there walks at the van on its own feet and the van closes on it at its whole speed; beside and behind it the
   // walker sprints to keep up (the `chase` share of the van's speed of its ROAD_DANGER row, within PERSP.keepUp of
@@ -1481,7 +1488,8 @@
       // walkers keep coming down the destination's drive, until the van is nearly at the door
       if (!this.arrive || this.track.len - van.s > DIFF.quietAtDoor * this.speed) {
         this.spawnTimer -= dt;
-        if (this.spawnTimer <= 0) this.spawnTimer = this.spawnGap() * this.spawnGroup();
+        // (never more than ROAD_WALKERS_MAX on the road at once: the next comes when one goes)
+        if (this.spawnTimer <= 0) this.spawnTimer = this.zombies.length < ROAD_WALKERS_MAX ? this.spawnGap() * this.spawnGroup() : this.spawnGap();
       }
       for (let i = this.bullets.length - 1; i >= 0; i--) {
         const b = this.bullets[i];
@@ -2332,6 +2340,7 @@
     KEEP,
     ROAD_DANGER,
     ROAD_LATE_DAY,
+    ROAD_WALKERS_MAX,
     roadRow,
     DRIVE_STEP,
     ROAD_STEP,
