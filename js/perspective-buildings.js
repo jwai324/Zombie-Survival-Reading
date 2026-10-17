@@ -800,18 +800,19 @@
       b.beams(posts, 3.5, "#3a3d42");
       b.box(-w - 6, w + 6, v - 6, v, 22, 42, { wall: "#e6dfcc", top: "#c9c2b2", faces: { front: [stripeBoard(-w - 6, w + 6, 22, 42, INK)], back: [stripeBoard(-w - 6, w + 6, 22, 42, INK)] } });
     },
-    /** A closed road: two striped barricades on their legs, a cone at each side. */
+    /** A closed road: two striped barricades on their legs across the end of its paving (past where a van that
+        turned in would stop), a cone at each side. */
     closed(b, G) {
       const w = G.sideHalf * 0.96;
-      for (const v of [-58, -22]) {
+      for (const v of [10, 46]) {
         const legs = [];
         for (const x of [-w / 2 + 14, w / 2 - 14]) legs.push([[x, v - 9, 0], [x, v, 44]], [[x, v + 9, 0], [x, v, 44]]);
         b.beams(legs, 2.5, "#e6dfcc");
         b.box(-w / 2, w / 2, v - 3, v + 3, 26, 44, { wall: "#f3eee0", top: "#d4621e", faces: { front: [stripeBoard(-w / 2, w / 2, 26, 44, "#d4621e")], back: [stripeBoard(-w / 2, w / 2, 26, 44, "#d4621e")] } });
       }
       for (const x of [-G.sideHalf * 1.2, G.sideHalf * 1.2]) {
-        b.box(x - 13, x + 13, -53, -27, 0, 4, { wall: "#2f3136", top: "#3a3d42" });
-        b.cone(x, -40, 11, 4, 36, "#d4621e", { n: 8 });
+        b.box(x - 13, x + 13, 15, 41, 0, 4, { wall: "#2f3136", top: "#3a3d42" });
+        b.cone(x, 28, 11, 4, 36, "#d4621e", { n: 8 });
       }
     },
     /** No through road: a heavy grey gate rail between two posts. */
