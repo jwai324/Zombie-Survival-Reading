@@ -47,6 +47,13 @@
   // ... and its holes (nothing but haze under them) up to this many ms a frame, so the first frame shows soon and the
   // rest fill in over the next few while it waits (the first frames of a drive without the wait get this as BUDGET)
   const PREP_HOLES = 60;
+  // A square costs the card more than this code sees: its upload and smaller copies run on the card after the code
+  // returns, so a fast processor with a slow card fits several a frame in BUDGET, each slowing the frames, and a slow
+  // frame lets the van cover more ground, wanting more squares the next (owner, 2026-10-17: 9 fps driving, 28 paused,
+  // the page's own draw 12 ms). So once the real frame interval (game.js g.rafMs, smoothed: slowGap) is over
+  // TILE_SLOW_MS, a frame draws at most 2 * TILE_SLOW_MS / interval squares (at least 1; a hole near the van always)
+  // SCALE: an interval, the same at any city size; over a 30 fps cap's 33.3 ms so a capped browser keeps its squares
+  const TILE_SLOW_MS = 40;
   const AHEAD_SECS = [0.35, 0.7, 1.1];
   const FRESH = 30;
   const COST0 = { 512: 3, 256: 1.2, 128: 0.5 }; // ms a square of each size is guessed to cost before one has been timed
@@ -68,6 +75,8 @@
     scratch: {}, // a 2D canvas per size, to draw squares in
     frame: 0,
     cost: Object.assign({}, COST0), // ms each size of square has been taking (a running mean)
+    gap: 0, // the real frame interval, ms, smoothed (slowGap), and the frame it was last read on
+    rafN: null,
 
     /** The card, its program and its canvas under the road's (once). */
     init(g) {
@@ -204,9 +213,11 @@
       const t0 = performance.now();
       // (the van waiting at its door while its first view is made, game.js prepStep: PREP_BUDGET)
       const budget = g.prep ? PREP_BUDGET : this.started < 4 ? PREP_HOLES : BUDGET;
+      // ... and on slow frames, a few squares at most (TILE_SLOW_MS)
+      const cap = g.prep || this.started < 4 ? Infinity : this.squareCap(g);
       // (miss: squares under the view with no copy at all; nearLeft: near the van, left at the wrong sharpness or
       // missing; aheadLeft: the views ahead's missing squares left for want of time, -1 with no views ahead)
-      const st = (this.stats = { drive: g.drive, want: want.length, miss, have: need.length, made: 0, ahead: 0, aheadLeft: soon ? 0 : -1, holes: 0, nearLeft: 0, ms: 0 });
+      const st = (this.stats = { drive: g.drive, want: want.length, miss, have: need.length, made: 0, ahead: 0, aheadLeft: soon ? 0 : -1, holes: 0, nearLeft: 0, ms: 0, cap });
       let forced = false;
       let room = null;
       for (const it of work) {
@@ -215,7 +226,7 @@
         if (it.c && this.best(w.grid, w.tx, w.ty, w.lod)) continue;
         const px = w.grid.lods[w.lod].px;
         const end = performance.now() - t0 + this.cost[px];
-        if (st.made + st.ahead && end > budget) {
+        if (st.made + st.ahead && (end > budget || st.made + st.ahead >= cap)) {
           if (!w.hole || (forced && !(g.prep && end <= PREP_HOLES))) {
             if (it.c) st.aheadLeft++;
             else {
@@ -369,6 +380,20 @@
       this.viewMost = most;
       return (this.keep = Math.max(KEEP, Math.ceil(KEEP_VIEWS * most)));
     },
+    /** The real frame interval in ms (game.js g.rafMs), smoothed over about half a second, for TILE_SLOW_MS: once a
+        frame (g.rafN); not a pause, the van waiting at its door, or a gap over 250 ms. Kept from drive to drive. */
+    slowGap(g) {
+      if (g.rafN == null || g.rafN === this.rafN) return this.gap || 0;
+      this.rafN = g.rafN;
+      const ms = +g.rafMs || 0;
+      if (ms > 0 && ms <= 250 && !g.paused && !g.prep) this.gap = this.gap > 0 ? this.gap + (ms - this.gap) * (1 - Math.exp(-ms / 500)) : ms;
+      return this.gap || 0;
+    },
+    /** The most squares this frame may draw (TILE_SLOW_MS): Infinity unless the frames are slow. */
+    squareCap(g) {
+      const gap = this.slowGap(g);
+      return gap <= TILE_SLOW_MS ? Infinity : Math.max(1, Math.round((2 * TILE_SLOW_MS) / gap));
+    },
     /** make(), timed: what each size of square costs, as a running mean, for the budget. */
     timed(g, P, grid, tx, ty, lod, theme) {
       const px = grid.lods[lod].px;
@@ -467,5 +492,6 @@
       if (this.canvas) this.canvas.width = this.canvas.height = 1;
     },
   };
+  GL.TILE_SLOW_MS = TILE_SLOW_MS;
   ZSR.PerspGL = GL;
 })(typeof window !== "undefined" ? window : globalThis);

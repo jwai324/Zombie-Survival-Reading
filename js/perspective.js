@@ -93,6 +93,22 @@
   const SCENERY_OWN = 0.45;
   const SCENERY_GAIN = 0.1;
   const SCENERY_TRY_SECS = 2;
+  /* The resolution governor (owner, 2026-10-17: "lower the drawing resolution automatically when frames stay slow").
+     Where the graphics card is what is slow, a frame's cost is its pixels, which thinner scenery barely touches: so
+     the road's canvas and the card's ground are drawn at RES_LEVELS of their usual device px (game.js resize; the
+     browser scales them up to the window). It reads the scenery governor's smoothed interval: a row down after
+     RES_SLOW_SECS over RES_SLOW_MS, a row up after RES_UP_SECS under RES_FAST_MS. RES_SLOW_MS is over a 30 fps cap's
+     33.3 ms, so a browser capped at 30 (Energy Saver) keeps its pixels. Each change resizes the canvases (one hitch),
+     so both governors hold RES_HOLD_SECS after it. The row is kept for later drives and, outside god mode, for later
+     visits on this computer (localStorage RES_KEY), so a slow machine starts where it last ended.
+     SCALE: rows by the frame's interval, the same at any city size */
+  const RES_LEVELS = [1, 0.8, 0.65, 0.5];
+  const RES_SLOW_MS = 36;
+  const RES_FAST_MS = 20;
+  const RES_SLOW_SECS = 2;
+  const RES_UP_SECS = 10;
+  const RES_HOLD_SECS = 2;
+  const RES_KEY = "zsr-road-res";
   // SCALE: the governor's rows, richest first; each a whole setting: smooth (the pictures' imageSmoothingQuality:
   // 'low' skips the mipmaps, much cheaper on a canvas drawn by the CPU), minPx (plants shorter than this on the
   // screen fade out, CSS px), thin (this share of the far grass and bushes, past THIN_FROM of the view, fades out, by
@@ -176,6 +192,8 @@
     TILE,
     BLOOD_FALL,
     SCENERY_ROWS: SCENERY_LEVELS.length, // (the god-mode FPS meter shows the row of how many)
+    RES_ROWS: RES_LEVELS.length,
+    RES_LEVELS,
     FOG,
     NIGHT_BEAM,
     // the walkers' last frame (tests and perf probes): figures drawn, Walker3D renders, ms the walkers took, governor row
@@ -187,7 +205,7 @@
     // walkerStats.ms) and the ground squares drawn (on the card); the plants and props drawn, the squares of plants
     // kept and made this frame; the scenery governor's row and the frame interval it reads (smoothed, ms; 0 before
     // the first)
-    frameStats: { ms: 0, groundMs: 0, worldMs: 0, walkersMs: 0, squaresMade: 0, plants: 0, props: 0, vegSquares: 0, vegMade: 0, scenery: 0, gapMs: 0 },
+    frameStats: { ms: 0, groundMs: 0, worldMs: 0, walkersMs: 0, squaresMade: 0, plants: 0, props: 0, vegSquares: 0, vegMade: 0, scenery: 0, gapMs: 0, res: 0 },
 
     // SCALE: the narrowest the view may be across, as the width-to-height share that sees that far at cfg.fov (1.6:
     // a 1280 x 800 window sees 43 degrees to each side): a narrower window (half a screen, 960 x 1040) sees as far to
@@ -1950,6 +1968,12 @@
       S.smooth = S.smooth > 0 ? S.smooth + (gap - S.smooth) * k : gap;
       S.own += ((+fs.ms || 0) - S.own) * k;
       fs.gapMs = S.smooth;
+      // the resolution governor's row changed (game.js resizes after this frame): the scenery's clocks start over
+      if (this.resStep(S.smooth, secs)) {
+        S.holdT = Math.max(S.holdT, RES_HOLD_SECS);
+        S.slowT = S.fastT = 0;
+      }
+      fs.res = this.resGov.level;
       if (S.holdT > 0) {
         S.holdT -= secs;
         return L[S.level];
@@ -1988,6 +2012,51 @@
       }
       fs.scenery = S.level;
       return L[S.level];
+    },
+    /** The resolution governor (RES_LEVELS, see RES_SLOW_MS), a counted frame of `secs` at the smoothed interval `ms`
+        (sceneryRow): steps its row; true when the row changed. */
+    resStep(ms, secs) {
+      const R = this.resRow();
+      if (R.holdT > 0) {
+        R.holdT -= secs;
+        return false;
+      }
+      R.slowT = ms > RES_SLOW_MS ? R.slowT + secs : 0;
+      R.fastT = ms < RES_FAST_MS ? R.fastT + secs : 0;
+      const at = R.level;
+      let to = at;
+      if (R.slowT >= RES_SLOW_SECS && at < RES_LEVELS.length - 1) {
+        R.upWait[at] = Math.min(RES_UP_SECS * SCENERY_BACKOFF, (R.upWait[at] || RES_UP_SECS) * 2); // this row was too much
+        to = at + 1;
+      } else if (at > 0 && R.fastT >= (R.upWait[at - 1] || RES_UP_SECS)) to = at - 1;
+      if (to === at) return false;
+      R.level = to;
+      R.slowT = R.fastT = 0;
+      R.holdT = RES_HOLD_SECS;
+      // (god mode keeps nothing on the disk, as js/state.js write)
+      if (!(ZSR.State && ZSR.State.god)) {
+        try {
+          root.localStorage.setItem(RES_KEY, String(to));
+        } catch (e) {
+          /* private mode or storage full: this visit keeps it */
+        }
+      }
+      return true;
+    },
+    /** The resolution governor's state: its row as this computer last left it (RES_KEY), or the full one. */
+    resRow() {
+      if (this.resGov) return this.resGov;
+      let level = 0;
+      try {
+        level = clamp(parseInt(root.localStorage.getItem(RES_KEY), 10) || 0, 0, RES_LEVELS.length - 1);
+      } catch (e) {
+        level = 0;
+      }
+      return (this.resGov = { level, slowT: 0, fastT: 0, holdT: 0, upWait: [] });
+    },
+    /** The share of its usual device px the road's canvas is drawn at (game.js resize). */
+    resScale() {
+      return RES_LEVELS[this.resRow().level];
     },
     /** The governor's eased setting a step of `secs` toward its row (Infinity: all the way). */
     sceneryEase(secs) {

@@ -260,8 +260,9 @@
      A small box over the game, above the GOD MODE badge: the real frame rate (the browser's own time between frames,
      from requestAnimationFrame, over the last second), the worst frame in that second, and on the road the scenery
      governor's own smoothed interval (Persp.frameStats.gapMs) and its row, and the walkers' governor's row
-     (Persp.walkerStats.level), each "row r of n" (0 is the richest). Its own requestAnimationFrame loop runs only
-     while it is on; its words change FPS_TEXT_MS apart. sample(ms, now) and lines() work without a page (tests). */
+     (Persp.walkerStats.level), each "row r of n" (0 is the richest), and when slow frames cut them, the ground's
+     squares a frame (PerspGL TILE_SLOW_MS) and the road's share of its pixels (Persp RES_LEVELS). Its own
+     requestAnimationFrame loop runs only while it is on; its words change FPS_TEXT_MS apart. sample(ms, now) and lines() work without a page (tests). */
   const FPS_WINDOW_MS = 1000; // the worst frame and the rate are over this much of the page's time
   const FPS_TEXT_MS = 250;
   const FPS_GAP_MAX = 1000; // a gap longer than this (a tab in the background) is not a frame
@@ -292,8 +293,13 @@
         const I = ZSR.Interior;
         const wl = (I && I.LIVE_LEVELS && I.LIVE_LEVELS.length) || 0;
         // (the governor's interval is 0 until a drive has run a moment, and stands still while it is paused)
-        out.push("road " + (fs.gapMs > 0 ? fs.gapMs.toFixed(1) : "--") + " ms  drawn in " + (fs.ms || 0).toFixed(1) + " ms" + (G.paused ? "  paused" : ""));
-        out.push("scenery row " + (fs.scenery | 0) + (sc ? " of " + (sc - 1) : "") + "  walkers row " + ((P.walkerStats && P.walkerStats.level) | 0) + (wl ? " of " + (wl - 1) : ""));
+        // (the ground's squares a frame, when slow frames cap them: js/perspective-gl.js TILE_SLOW_MS)
+        const GS = ZSR.PerspGL && ZSR.PerspGL.stats;
+        const cap = GS && isFinite(GS.cap) ? "  squares " + GS.cap + "/frame" : "";
+        out.push("road " + (fs.gapMs > 0 ? fs.gapMs.toFixed(1) : "--") + " ms  drawn in " + (fs.ms || 0).toFixed(1) + " ms" + cap + (G.paused ? "  paused" : ""));
+        // (and the share of the usual pixels the road is drawn at: js/perspective.js RES_LEVELS)
+        const res = G.resScale != null && G.resScale !== 1 ? "  pixels " + Math.round(G.resScale * 100) + "%" : "";
+        out.push("scenery row " + (fs.scenery | 0) + (sc ? " of " + (sc - 1) : "") + "  walkers row " + ((P.walkerStats && P.walkerStats.level) | 0) + (wl ? " of " + (wl - 1) : "") + res);
       }
       return out;
     },

@@ -573,6 +573,101 @@ const listed = (t) => P.list.filter((o) => o._t === t);
   Object.assign(P.scen, { level: 0, smooth: 0, own: 0, slowT: 0, fastT: 0, holdT: 0, upWait: [], rafN: null, trial: null, capped: false });
   P.frameStats.ms = 0;
   P.sceneryEase(Infinity);
+  P.resGov = null; // (its 40 ms frames stepped the resolution down too)
+  G.stop();
+}
+
+/* ---------- the resolution governor, and the ground's squares on slow frames ---------- */
+{
+  const resErr = (m) => err("resolution governor", m);
+  start("river", "mall");
+  for (let i = 0; i < 400; i++) step(null, false);
+  P.liveRow();
+  P.sceneryRow(G);
+  const freshScen = () => Object.assign(P.scen, { level: 0, smooth: 0, own: 0, slowT: 0, fastT: 0, holdT: 0, upWait: [], trial: null, capped: false, warm: 10, liveAt: P.liveLevel | 0, drive: G.drive });
+  freshScen();
+  P.resGov = null;
+  const L = P.RES_LEVELS;
+  if (!(L.length >= 2 && L[0] === 1 && L.every((v, i) => i === 0 || v < L[i - 1]))) resErr(`its rows should start at 1 and only shrink: ${L.join(", ")}`);
+  if (P.resScale() !== 1) resErr(`with nothing stored it starts at ${P.resScale()}, not the full resolution`);
+  let n = (G.rafN = 1);
+  const frame = (ms) => {
+    G.rafN = ++n;
+    G.rafMs = ms;
+    P.frameStats.ms = 8;
+    P.sceneryRow(G);
+    return P.resRow().level;
+  };
+  // a browser capped at 30 frames a second keeps its pixels
+  for (let i = 0; i < 30 * 20; i++) frame(33.3 + ((i * 7) % 5) * 0.1 - 0.2);
+  if (P.resRow().level !== 0) resErr(`20 s at a 30 fps cap took it to row ${P.resRow().level}`);
+  // slow frames (the owner's 107 ms): a row down after its wait, one at a time, to the last; each change holds the
+  // scenery governor
+  const rows = [];
+  let held = true;
+  for (let i = 0; i < 10 * 30; i++) {
+    const was = P.resRow().level;
+    rows.push(frame(107));
+    if (rows[i] !== was && !(P.scen.holdT > 0)) held = false;
+  }
+  const firstDown = rows.indexOf(1);
+  if (firstDown < 0) resErr("30 s of 107 ms frames never stepped it down");
+  else if (firstDown * 0.107 < 1.5) resErr(`it stepped down after ${(firstDown * 0.107).toFixed(2)} s (want its slow wait first)`);
+  for (let i = 1; i < rows.length; i++) if (rows[i] > rows[i - 1] + 1) resErr(`it skipped a row: ${rows[i - 1]} to ${rows[i]}`);
+  if (rows[rows.length - 1] !== L.length - 1) resErr(`30 s of 107 ms frames left it at row ${rows[rows.length - 1]}, not the last`);
+  if (!held) resErr("a change of its row did not hold the scenery governor");
+  if (P.resScale() !== L[L.length - 1]) resErr(`its last row draws ${P.resScale()} of the pixels`);
+  // paused frames and a long gap say nothing
+  const lvP = P.resRow().level;
+  G.paused = true;
+  for (let i = 0; i < 300; i++) frame(30);
+  G.paused = false;
+  frame(2000);
+  if (P.resRow().level !== lvP) resErr(`paused frames and a long gap moved it from row ${lvP} to ${P.resRow().level}`);
+  // fast frames: back up a row after its wait (doubled for a row it had to leave), never two at once
+  const up = [];
+  for (let i = 0; i < 60 * 60; i++) up.push(frame(16.7));
+  const firstUp = up.findIndex((l) => l < lvP);
+  if (firstUp < 0) resErr(`a minute at 16.7 ms never stepped it back up from row ${lvP}`);
+  else if (firstUp / 60 < 10) resErr(`it stepped back up after ${(firstUp / 60).toFixed(1)} s of fast frames (want its wait first)`);
+  for (let i = 1; i < up.length; i++) if (up[i] < up[i - 1] - 1) resErr(`it climbed two rows at once: ${up[i - 1]} to ${up[i]}`);
+  console.log(`resolution governor: a 30 fps cap kept full pixels; 107 ms frames stepped it down after ${(firstDown * 0.107).toFixed(1)} s to ${L[L.length - 1] * 100}%, one row at a time, holding the scenery; 16.7 ms frames back up after ${(firstUp / 60).toFixed(1)} s`);
+  // the ground's squares (js/perspective-gl.js): no cap at a 30 fps cap, a few at most on slow frames, 1 at 107 ms
+  const GLs = ZSR.PerspGL;
+  if (GLs && GLs.squareCap) {
+    const capAt = (ms) => {
+      GLs.gap = 0;
+      for (let i = 0; i < 120; i++) {
+        G.rafN = ++n;
+        G.rafMs = ms;
+        GLs.squareCap(G);
+      }
+      return GLs.squareCap(G);
+    };
+    const c30 = capAt(33.3);
+    const c45 = capAt(45);
+    const c107 = capAt(107);
+    if (c30 !== Infinity) resErr(`a 30 fps cap's frames limit the ground's squares to ${c30} a frame`);
+    if (!(c45 >= 1 && c45 <= 2)) resErr(`45 ms frames allow ${c45} squares a frame (want 1 or 2)`);
+    if (c107 !== 1) resErr(`107 ms frames allow ${c107} squares a frame (want 1)`);
+    G.paused = true;
+    for (let i = 0; i < 120; i++) {
+      G.rafN = ++n;
+      G.rafMs = 16.7;
+      GLs.squareCap(G);
+    }
+    G.paused = false;
+    if (GLs.squareCap(G) !== 1) resErr("paused frames moved the ground's slow-frame interval");
+    GLs.gap = 0;
+    GLs.rafN = null;
+    console.log(`ground squares on slow frames: none capped at 33.3 ms, ${c45} a frame at 45 ms, ${c107} at 107 ms`);
+  } else resErr("js/perspective-gl.js has no squareCap");
+  delete G.rafN;
+  delete G.rafMs;
+  freshScen();
+  P.scen.rafN = null;
+  P.resGov = null;
+  P.frameStats.ms = 0;
   G.stop();
 }
 
