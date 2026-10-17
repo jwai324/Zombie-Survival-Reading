@@ -2161,7 +2161,7 @@
         silhouette), and each side street's end. */
     collect(g, P, add) {
       const k = P.k;
-      const fog0 = k.far * 0.55;
+      const fog0 = k.fog0;
       const gone = fog0 + 0.98 * (k.far - fog0);
       this.sky = this.sky || [];
       this.sky.length = 0;
@@ -2179,7 +2179,8 @@
         }
         const Y = (rec.cx - k.ox) * k.Fx + (rec.cy - k.oy) * k.Fy;
         if (rec.landmark && Y >= gone) {
-          if (Y < k.far * LANDMARK_SEEN) this.sky.push(l);
+          // (in fog nothing shows past it)
+          if (!k.fog && Y < k.far * LANDMARK_SEEN) this.sky.push(l);
           continue;
         }
         add(l, "lot", rec.cx, rec.cy, 0, rec.reach + 40);
@@ -2523,7 +2524,7 @@
         building, gone once it has gone into the haze, and moved down out of the HUD's top row. */
     names(g, P, ctx, kText) {
       const k = P.k;
-      const fog0 = k.far * 0.55;
+      const fog0 = k.fog0;
       const D = ZSR.Draw;
       const hud = g.hudRects ? g.hudRects() : null;
       const boxes = (hud && hud.boxes) || [];

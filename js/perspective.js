@@ -1,5 +1,5 @@
-/* The angled road camera: a test of a view down the road from behind and above the van, on one drive only
-   (PERSP_ROUTES in js/game.js; every other drive keeps the flat, top-down camera).
+/* The road camera: a view down the road from behind and above the van, every drive (js/game.js; the old flat,
+   top-down road camera is gone, owner 2026-10-17).
    The ground (grass and its overgrowth, roads, lanes, lots, junk lying flat) is the road's own top-down art. With
    WebGL it is laid down by the graphics card in squares drawn once (js/perspective-gl.js); without, it is drawn
    into a few layers each frame and warped onto the 2D canvas strip by strip (Mode-7 style). Everything standing
@@ -8,7 +8,10 @@
    js/perspective-buildings.js each place's own building, River Landing's dock and the side streets' ends, which
    the ground then leaves out). The road sign, the name boards, the HUD and the minimap stay flat.
    The camera is pitched down cfg.pitch degrees; the van sits at cfg.vanAt of the screen's height, drawn
-   cfg.scale times the road's zoom; ground past cfg.far fades into haze.
+   cfg.scale times the road's zoom; ground past cfg.far fades into haze. In fog the haze is thick and near (FOG: the
+   view sees FOG.far, everything standing fading into it from FOG.near); at night it is near black, and everything is
+   dark but what the van lights (night: its headlights' beam down its own heading, NIGHT_BEAM, and the gun's lamp).
+   The title screen and the garage's preview are a still scene through this camera (showcase).
    Walkers are the interiors' live 3D figures (js/walker3d.js Walker3D.draw), seen from the camera's own height, each
    in its own pooled canvas redrawn when it looks different under the interiors' governor rows; they move and pose as
    on foot (animate: a heading turning at its look's rate, legs by the ground covered, scream, claw, the hit flash,
@@ -110,6 +113,22 @@
   const NIGHT_FROM = 0.1;
   const NIGHT_FOG = 0.85;
   const NIGHT_EDGE = 0.12;
+  // Fog (game.js mods.fog): the haze comes in close and thick. The view sees FOG.far ahead (the ground and everything
+  // standing gone into it there: walkers further out are hidden, buildings fade into it by colour), clear to FOG.near
+  // ahead of the camera's spot and thickening between. Where walkers come from does not change (spawn reads cfg.far):
+  // in fog they are only seen later. The old flat road's fog was a clear circle about 300 units round the van.
+  const FOG = { near: 60, far: 760 };
+  // Night (game.js mods.night): the dark over everything (NIGHT_DARK), but for what the van lights, laid on the ground
+  // and seen through the camera, so it turns with the van: a glow round it (glow, units), its headlights' beam down its
+  // own heading (from beamFrom ahead of its middle, half beamHalf wide there, opening beamOpen a unit; bright to beamFull
+  // of its reach, gone at reach) and the roof gun's lamp along its aim (lamp units, lampHalf rad each side). The owner
+  // asked for a beam "in between" the old flat road's (about 520 ahead) and the angled drive's first one (to the haze,
+  // 3600): reach is about halfway.
+  const NIGHT_BEAM = { reach: 2050, beamFrom: 40, beamHalf: 26, beamOpen: 0.34, beamFull: 0.3, glow: 170, glow0: 30, lamp: 360, lampHalf: 0.22 };
+  const NIGHT_DARK = "rgba(8,10,20,0.88)";
+  // the title screen's still scene (showcase): the camera's zoom for a 200 px tall picture, where the van sits up it,
+  // and where its walkers stand ([X right of the road's middle, Y ahead of the van])
+  const SHOW = { zoom: 0.5, vanAt: 0.76, walkers: [[-125, 215], [245, 285]] };
   // without js/interior.js (a test that leaves it out): no governor, every walker every frame at full detail
   const NO_GOVERNOR = { LIVE_LEVELS: [{ near: Infinity, farLod: 0, far: 1, max: Infinity, maxPx: Infinity, scale: 1, lodPx: [0, 0] }], LIVE_START: 0, LIVE_STEP: 1, LIVE_SPARE: 0, LIVE_IDLE: 0, LIVE_SHRINK: Infinity, NEAR_STICK: 1 };
   const normA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -129,6 +148,8 @@
     AIM_Z,
     TILE,
     BLOOD_FALL,
+    FOG,
+    NIGHT_BEAM,
     // the walkers' last frame (tests and perf probes): figures drawn, Walker3D renders, ms the walkers took, governor row
     walkerStats: { drawn: 0, renders: 0, ms: 0, level: 0 },
     res: 1, // ground layer resolution: eased down while frames run slow, back up when they don't
@@ -152,19 +173,23 @@
       return Math.max(t, Math.min(Math.tan((this.maxFov * Math.PI) / 360), (t * this.minAspect * H) / Math.max(1, W)));
     },
 
-    /** The camera for this frame: where it sits, behind the road camera's spot, and how it projects. */
+    /** The camera for this frame: where it sits, behind the road camera's spot, and how it projects; how far it sees
+        (far: cfg.far, or FOG.far in fog) and where the haze starts on the ground (fogG) and on what stands (fog0).
+        g.vanAt, when set, puts the van elsewhere up the screen (the title screen's still scene). */
     setup(g) {
       const c = this.cfg;
       const th = (c.pitch * Math.PI) / 180;
       const sn = Math.sin(th);
       const cs = Math.cos(th);
       const f = g.H / 2 / this.viewTan(g.W, g.H);
-      const v0 = (g.H / 2 - g.H * c.vanAt) / f;
+      const v0 = (g.H / 2 - g.H * (g.vanAt || c.vanAt)) / f;
       const bh = (cs + v0 * sn) / (sn - v0 * cs); // how far behind, per unit of height, puts the van at vanAt
       const h = f / (c.scale * g.zoom * (bh * cs + sn));
       const a = g.cam.th;
+      const fog = !!(g.mods && g.mods.fog);
+      const far = fog ? Math.min(c.far, FOG.far) : c.far;
       // a shake (the van hit) moves the whole view, ground and all
-      this.k = { sn, cs, f, cx: g.W / 2 + (g.shakeX || 0), cy: g.H / 2 + (g.shakeY || 0), h, b: bh * h, ox: g.cam.x, oy: g.cam.y, Fx: Math.cos(a), Fy: Math.sin(a), Rx: -Math.sin(a), Ry: Math.cos(a), W: g.W, H: g.H, far: c.far };
+      this.k = { sn, cs, f, cx: g.W / 2 + (g.shakeX || 0), cy: g.H / 2 + (g.shakeY || 0), h, b: bh * h, ox: g.cam.x, oy: g.cam.y, Fx: Math.cos(a), Fy: Math.sin(a), Rx: -Math.sin(a), Ry: Math.cos(a), W: g.W, H: g.H, far, fog, fog0: fog ? FOG.near : far * 0.55, fogG: fog ? FOG.near : far * 0.45 };
       return this.k;
     },
     /** World (x, y, height) -> screen, with s the px per world unit there and Y how far ahead; null behind the camera. */
@@ -292,8 +317,9 @@
       const G = ZSR.Streets.GEOM;
       let X;
       let Y;
+      // (from as far in fog as on a clear day: in fog they are only seen later)
       if (Math.random() < 0.55) {
-        Y = k.far * (0.5 + Math.random() * 0.3);
+        Y = this.cfg.far * (0.5 + Math.random() * 0.3);
         X = (Math.random() * 2 - 1) * (G.half + 700);
       } else {
         Y = 700 + Math.random() * 1500;
@@ -433,20 +459,20 @@
     groundKey() {
       return ZSR.PerspBuild ? ZSR.PerspBuild.GROUND_KEY : "flat";
     },
-    /** How far into the haze something Y ahead has gone (1: clear, 0: gone), as drawWorld fades everything standing. */
+    /** How far into the haze something Y ahead has gone (1: clear, 0: gone), as drawWorld fades everything standing:
+        from k.fog0 to k.far (in fog both near). */
     fadeAt(Y) {
       const k = this.k;
-      const fog0 = k.far * 0.55;
-      return Y > fog0 ? 1 - clamp((Y - fog0) / (k.far - fog0), 0, 1) : 1;
+      return Y > k.fog0 ? 1 - clamp((Y - k.fog0) / (k.far - k.fog0), 0, 1) : 1;
     },
-    /** The sky over the far edge of the ground, fading into the haze there. */
+    /** The sky over the far edge of the ground, fading into the haze there (in fog, all of it the fog). */
     sky(ctx, haze, night) {
       const k = this.k;
       const far = this.project(k.ox + k.Fx * k.far, k.oy + k.Fy * k.far, 0);
       const skyY = far ? far.y : 0;
       if (skyY <= 0) return skyY;
       const sg = ctx.createLinearGradient(0, 0, 0, skyY);
-      sg.addColorStop(0, night ? "#121310" : "#8f8b78");
+      sg.addColorStop(0, night ? "#121310" : k.fog ? "rgb(" + haze.map((c) => Math.min(255, c + 14)).join(",") + ")" : "#8f8b78");
       sg.addColorStop(1, "rgb(" + haze.join(",") + ")");
       ctx.fillStyle = sg;
       ctx.fillRect(0, 0, k.W, skyY + 2);
@@ -483,12 +509,12 @@
         const Xr = ((W - k.cx) * d) / k.f;
         ctx.drawImage(L.canvas, (Xl + L.hw) * L.k, (L.y1 - Ya) * L.k, (Xr - Xl) * L.k, Math.max(0.5, (Ya - Yb) * L.k), 0, sy, W, dh + 0.6);
       }
-      // haze: none near the van, thick at the far edge
-      const y0 = this.project(k.ox + k.Fx * k.far * 0.45, k.oy + k.Fy * k.far * 0.45, 0);
+      // haze: none near the van, thick at the far edge (from k.fogG: near, in fog)
+      const y0 = this.project(k.ox + k.Fx * k.fogG, k.oy + k.Fy * k.fogG, 0);
       if (y0 && y0.y > 0) {
         const top = Math.max(0, skyY);
         const hg = ctx.createLinearGradient(0, top, 0, y0.y);
-        hg.addColorStop(0, rgba(0.85 * clamp((Math.min(this.groundY(top), k.far) - k.far * 0.45) / (k.far * 0.55), 0, 1)));
+        hg.addColorStop(0, rgba((k.fog ? 1 : 0.85) * clamp((Math.min(this.groundY(top), k.far) - k.fogG) / (k.far - k.fogG), 0, 1)));
         hg.addColorStop(1, rgba(0));
         ctx.fillStyle = hg;
         ctx.fillRect(0, top, W, y0.y - top);
@@ -1023,8 +1049,9 @@
         show: its feet, the top of its box, how wide a tile is there, and the picture it wants. Walker3D's level camera
         is put where this one looks from: as high over the walker (eye) as the road camera is over the ground for its
         distance (dist: this camera's depth along the bearing, so the figure's own perspective is the camera's), so it
-        is seen from above; the region leaves room for how far its parts can show over and under its feet from there. */
-    liveGeo(g, o, falling, row, no) {
+        is seen from above; the region leaves room for how far its parts can show over and under its feet from there.
+        rec: a record of the caller's own to draw into instead of the pool's (the title screen's still figures). */
+    liveGeo(g, o, falling, row, no, rec) {
       const M = ZSR.Walker3D;
       const k = this.k;
       const foot = this.project(o.x, o.y, 0);
@@ -1075,7 +1102,7 @@
       let fl = Math.ceil(below * rpx + pad);
       const up = Math.ceil(above * rpx + pad);
       fl = Math.min(fl, Math.floor(up * 1.5)); // (Walker3D keeps the floor under 0.6 of the region)
-      const r = this.liveTarget(o, rw, up + fl);
+      const r = rec || this.liveTarget(o, rw, up + fl);
       r.o = o;
       r.falling = falling;
       r.frame = no;
@@ -1281,9 +1308,7 @@
         new walker. */
     walkerGround(g, ctx) {
       const M = ZSR.Walker3D;
-      const k = this.k;
-      const fog0 = k.far * 0.55;
-      const haze = (Y) => (Y > fog0 ? 1 - clamp((Y - fog0) / (k.far - fog0), 0, 1) : 1);
+      const haze = (Y) => this.fadeAt(Y);
       const D3 = ZSR.Draw3;
       const splat = D3 && D3.hasSprite && D3.hasSprite("bloodSplat") ? D3.sprite("bloodSplat") : null;
       for (const p of g.particles) {
@@ -1495,7 +1520,7 @@
     roof(g, ctx, L) {
       const D = ZSR.Draw;
       const van = g.van;
-      const u = ZSR.State.save.upgrades;
+      const u = g.upgrades || ZSR.State.save.upgrades;
       const looks = ZSR.Upgrades.PAINT_LOOKS;
       const R = TEX_RES;
       const c = this.roofCanvas || (this.roofCanvas = document.createElement("canvas"));
@@ -1526,12 +1551,14 @@
         ctx.restore();
       }
     },
-    /** The roof gun standing on the van: a ring and a post, then the barrels (one more per Spread Shot, longer with
-        Heavier Rounds) along the aim and tipped down toward it, a flash at their tips as it fires. */
+    /** The roof gun standing on the van: a ring and a post, then the barrels along the aim and tipped down toward it,
+        a flash at their tips as it fires. Every gun upgrade shows (as on the old top-down van): Spread Shot adds
+        barrels, Heavier Rounds lengthen them (a muzzle brake from 3), Rate of Fire puts a jacket round them (1; copper at
+        5), a drum beside the breech (2; bigger, with a brass ring, at 4) and cooling fins on the jacket (3). */
     gun(g, ctx) {
       const D = ZSR.Draw;
       const van = g.van;
-      const u = ZSR.State.save.upgrades;
+      const u = g.upgrades || ZSR.State.save.upgrades;
       const mx = van.x - Math.cos(van.heading) * van.h * 0.1;
       const my = van.y - Math.sin(van.heading) * van.h * 0.1;
       this.flat(ctx, mx, my, VAN_Z, () => D.circle(ctx, mx, my, 13, "#2f3136", 3));
@@ -1542,28 +1569,78 @@
       const dz = van.aimDz || 0;
       const n = 1 + (u.spread || 0);
       const len = 26 + (u.damage || 0) * 3;
+      const rof = u.fireRate || 0;
       const w = 5.5 * p0.s;
+      // a point along the aim (l ahead of the breech, x to its right), on the screen
+      const ax = Math.cos(aim);
+      const ay = Math.sin(aim);
+      const along = (l, x) => this.project(mx + ax * l - ay * x, my + ay * l + ax * x, GUN_Z + dz * l);
+      const stroke = (a, b, lw, c) => {
+        ctx.strokeStyle = c;
+        ctx.lineWidth = lw;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+      };
       const breech = () => D.circle(ctx, p0.x, p0.y, 7.5 * p0.s, "#2f3136", 2.5);
       // aimed back toward the camera, the barrels are in front of the breech
-      const back = Math.cos(aim) * this.k.Fx + Math.sin(aim) * this.k.Fy < 0;
-      if (back) breech();
+      const back = ax * this.k.Fx + ay * this.k.Fy < 0;
+      const drum = () => {
+        if (rof < 2) return;
+        const big = rof >= 4;
+        const c = along(-3, 14);
+        if (!c) return;
+        const r = (big ? 9.5 : 7) * c.s;
+        D.circle(ctx, c.x, c.y, r, big ? "#3a3d42" : "#5d636b", 2.5);
+        D.circle(ctx, c.x, c.y, r * 0.4, "#2f3136", 2);
+        if (big) for (let q = 0; q < 8; q++) D.circle(ctx, c.x + Math.cos((q * TAU) / 8) * r * 0.72, c.y + Math.sin((q * TAU) / 8) * r * 0.72, Math.max(0.8, 1.1 * c.s), "#d9a21b", 0.5);
+      };
+      if (back) {
+        drum();
+        breech();
+      }
       ctx.lineCap = "round";
       const tips = [];
+      const step = ZSR.Upgrades.SPREAD;
       for (let i = 0; i < n; i++) {
-        const a = aim + (i - (n - 1) / 2) * ZSR.Upgrades.SPREAD;
+        const a = aim + (i - (n - 1) / 2) * step;
         const p1 = this.project(mx + Math.cos(a) * len, my + Math.sin(a) * len, GUN_Z + dz * len);
         if (!p1) continue;
-        [[w + 3.5, INK], [w, "#4b5057"], [w * 0.3, "rgba(255,255,255,0.28)"]].forEach(([lw, c]) => {
-          ctx.strokeStyle = c;
-          ctx.lineWidth = lw;
-          ctx.beginPath();
-          ctx.moveTo(p0.x, p0.y);
-          ctx.lineTo(p1.x, p1.y);
-          ctx.stroke();
-        });
+        [[w + 3.5, INK], [w, "#4b5057"], [w * 0.3, "rgba(255,255,255,0.28)"]].forEach(([lw, c]) => stroke(p0, p1, lw, c));
+        if ((u.damage || 0) >= 3) {
+          // a muzzle brake at the tip
+          const q = this.project(mx + Math.cos(a) * (len - 6), my + Math.sin(a) * (len - 6), GUN_Z + dz * (len - 6));
+          if (q) [[w * 1.6 + 3, INK], [w * 1.6, "#5a5d66"]].forEach(([lw, c]) => stroke(q, p1, lw, c));
+        }
         tips.push(p1);
       }
-      if (!back) breech();
+      if (rof >= 1) {
+        // the jacket round the barrels' roots (short of their tips), as wide as they fan out along it
+        const jl = Math.min(len - 15, 9 + rof * 1.2);
+        const half = ((n - 1) / 2) * step * (7 + jl) + 4;
+        const a = along(7, 0);
+        const b = along(7 + jl, 0);
+        if (a && b) {
+          const jw = 2 * half * p0.s;
+          ctx.lineCap = "butt"; // (square ends: the barrels' tips show past it)
+          stroke(a, b, jw + 3, INK);
+          stroke(a, b, jw, rof >= 5 ? "#b8733a" : "#4b5057");
+          if (rof >= 3) {
+            for (let q = 0; q < 3; q++) {
+              const l = 9 + (q * jl) / 3;
+              const f0 = along(l, -half - 3.5);
+              const f1 = along(l, half + 3.5);
+              if (f0 && f1) stroke(f0, f1, Math.max(1, 2 * p0.s), rof >= 5 ? "#e0a066" : "#9ea3aa");
+            }
+          }
+          ctx.lineCap = "round";
+        }
+      }
+      if (!back) {
+        drum();
+        breech();
+      }
       if (van.flash > 0) for (const t of tips) D.circle(ctx, t.x, t.y, 8 * t.s, "#ffd25a", 2);
     },
 
@@ -1591,8 +1668,6 @@
       // the walkers' pictures for this frame (each drawn again only when it looks different), then what lies on the
       // road under every body: splats, shadows and frenzy glows
       this.walkerFrame(g);
-      // without the 3D figures a downed walker is the road's own top-down body, lying flat
-      if (!ZSR.Walker3D) for (const f of g.fallen) this.flat(ctx, f.x, f.y, 1, () => ZSR.Draw.zombieDown(ctx, f));
       this.walkerGround(g, ctx);
       // the overgrowth over this drive's land: a square made the first time the view reaches it, let go once left
       const Art = ZSR.PerspArt;
@@ -1604,7 +1679,7 @@
       const list = this.list || (this.list = []);
       list.length = 0;
       const yMin = this.groundY(k.H) - 260;
-      const fog0 = k.far * 0.55;
+      const fog0 = k.fog0;
       const gone = fog0 + 0.98 * (k.far - fog0); // past this all is haze
       // margin: px past the screen's sides a thing's foot may stand and still be drawn (size: its own reach, world units)
       const add = (o, t, x, y, back, size, margin) => {
@@ -1755,7 +1830,7 @@
     /** A drive has really stopped (game.js stop: parked at the door, dead, off to the map or the title; never a wrong
         turn's retry, which keeps the drive): let go of what only a drive needs, so a parked game holds none of it: the
         ground squares on the card (js/perspective-gl.js release), the plants' squares, the props' index, the walkers'
-        canvases and the 2D ground's layers. The next drive makes them again. */
+        canvases, the 2D ground's layers and the night's. The next drive makes them again. */
     release() {
       const GL = ZSR.PerspGL;
       if (GL && GL.release) GL.release();
@@ -1777,6 +1852,8 @@
         this.liveSpare.length = 0;
       }
       for (const c of this.canvases) c.width = c.height = 0;
+      if (this.nightLayer) this.nightLayer.width = this.nightLayer.height = 0;
+      this.nightKey = null;
     },
     /** The scenery governor (SCENERY_LEVELS, see SCENERY_BUDGET_MS), once a frame the page drew (game.js frame sets
         g.rafMs, the time since the last frame, and g.rafN, its count): eases this.scen.cur toward its row and, on a
@@ -1879,6 +1956,230 @@
         const name = ZSR.State.isKnown(l.node) ? g.placeName(l.node).toUpperCase() : "?";
         ZSR.Draw.nameBoard(ctx, p.x, p.y, name, Math.max(g.zoom, k * 0.8) * clamp(p.s / (g.zoom * this.cfg.scale), 0.6, 1.2), false);
       });
+    },
+    /** The night over the frame (game.js draw, after the world): NIGHT_DARK everywhere but what the van lights, each
+        laid on the ground and seen through this camera, so the beam turns with the van, not with the screen: a glow
+        round the van, its headlights' beam down its own heading (NIGHT_BEAM: bright to beamFull of its reach, then
+        fading out) and the roof gun's lamp along its aim. The dark is a layer the size of the screen, drawn again only
+        when what it shows moves: its key is the shapes' corners on the screen to the pixel (the aim to about a degree),
+        so on a straight with the aim held it goes up as it was (on a canvas drawn by the CPU, drawing it took about 7 ms
+        a frame). nightStats counts the layers drawn and reused. */
+    night(g, ctx) {
+      const k = this.setup(g);
+      const N = NIGHT_BEAM;
+      const van = g.van;
+      const dpr = g.dpr || 1;
+      const fx = Math.cos(van.heading);
+      const fy = Math.sin(van.heading);
+      const gp = (x, y) => this.project(x, y, 0);
+      // the beam: a strip of ground from beamFrom ahead of the van's middle out to its reach, opening as it goes
+      const d0 = N.beamFrom;
+      const d1 = N.reach;
+      const w1 = N.beamHalf + N.beamOpen * (d1 - d0);
+      const at = (d, w) => gp(van.x + fx * d - fy * w, van.y + fy * d + fx * w);
+      const beam = [at(d0, -N.beamHalf), at(d1, -w1), at(d1, w1), at(d0, N.beamHalf)];
+      const axis = [at(d0, 0), at(d1, 0)];
+      // the glow round the van (where its edge is, along its own axes), and the gun's lamp: a fan along the aim
+      const vs = gp(van.x, van.y);
+      const glow = [gp(van.x + fx * N.glow, van.y + fy * N.glow), gp(van.x - fy * N.glow, van.y + fx * N.glow)];
+      const mx = van.x - fx * van.h * 0.1;
+      const my = van.y - fy * van.h * 0.1;
+      const aim = Math.round((van.aimW == null ? van.heading : van.aimW) * 57.3) / 57.3;
+      const lamp = [gp(mx, my)];
+      for (let i = 0; i <= 6; i++) {
+        const a = aim - N.lampHalf + (i / 6) * 2 * N.lampHalf;
+        lamp.push(gp(mx + Math.cos(a) * N.lamp, my + Math.sin(a) * N.lamp));
+      }
+      const lampTip = gp(mx + Math.cos(aim) * N.lamp, my + Math.sin(aim) * N.lamp);
+      this.nightBeam = axis.every(Boolean) ? axis : null; // (its line on the screen, for tests)
+      const all = beam.concat(axis, [vs], glow, lamp, [lampTip]);
+      const ok = (pts) => pts.every((p) => p);
+      let key = k.W + "x" + k.H + "@" + dpr;
+      for (const p of all) key += p ? "|" + Math.round(p.x) + "," + Math.round(p.y) : "|-";
+      const S = this.nightStats || (this.nightStats = { drawn: 0, reused: 0 });
+      let L = this.nightLayer;
+      const w = Math.round(k.W * dpr);
+      const h = Math.round(k.H * dpr);
+      if (!L || L.width !== w || L.height !== h) {
+        L = this.nightLayer = this.nightLayer || document.createElement("canvas");
+        L.width = w;
+        L.height = h;
+        this.nightKey = null;
+      }
+      if (key !== this.nightKey) {
+        this.nightKey = key;
+        S.drawn++;
+        const c = L.getContext("2d");
+        c.setTransform(dpr, 0, 0, dpr, 0, 0);
+        c.globalCompositeOperation = "source-over";
+        c.clearRect(0, 0, k.W, k.H);
+        c.fillStyle = NIGHT_DARK;
+        c.fillRect(0, 0, k.W, k.H);
+        c.globalCompositeOperation = "destination-out";
+        const fan = (pts) => {
+          c.beginPath();
+          pts.forEach((p, i) => (i ? c.lineTo(p.x, p.y) : c.moveTo(p.x, p.y)));
+          c.closePath();
+          c.fill();
+        };
+        if (vs && ok(glow)) {
+          // a soft disc on the ground round the van: its glow0 to glow, as the ground's own scale squeezes it
+          const ax = [glow[0].x - vs.x, glow[0].y - vs.y];
+          const ay = [glow[1].x - vs.x, glow[1].y - vs.y];
+          c.save();
+          c.transform(ay[0] / N.glow, ay[1] / N.glow, ax[0] / N.glow, ax[1] / N.glow, vs.x, vs.y);
+          const rg = c.createRadialGradient(0, 0, N.glow0, 0, 0, N.glow);
+          rg.addColorStop(0, "rgba(0,0,0,1)");
+          rg.addColorStop(1, "rgba(0,0,0,0)");
+          c.fillStyle = rg;
+          c.fillRect(-N.glow, -N.glow, 2 * N.glow, 2 * N.glow);
+          c.restore();
+        }
+        if (ok(beam) && ok(axis)) {
+          // bright to beamFull of the way, then fading out: stops placed where those distances are on the screen
+          const [a, b] = axis;
+          const ux = b.x - a.x;
+          const uy = b.y - a.y;
+          const L2 = ux * ux + uy * uy || 1;
+          const lg = c.createLinearGradient(a.x, a.y, b.x, b.y);
+          for (const f of [0, N.beamFull, 0.5, 0.7, 0.85, 1]) {
+            const p = at(d0 + f * (d1 - d0), 0);
+            if (!p) continue;
+            const t = clamp(((p.x - a.x) * ux + (p.y - a.y) * uy) / L2, 0, 1);
+            const u = clamp((f - N.beamFull) / (1 - N.beamFull), 0, 1);
+            lg.addColorStop(t, "rgba(0,0,0," + (0.95 * (1 - u * u * (3 - 2 * u))).toFixed(3) + ")");
+          }
+          c.fillStyle = lg;
+          fan(beam);
+        }
+        if (ok(lamp) && lampTip) {
+          const lg = c.createLinearGradient(lamp[0].x, lamp[0].y, lampTip.x, lampTip.y);
+          lg.addColorStop(0, "rgba(0,0,0,0.9)");
+          lg.addColorStop(1, "rgba(0,0,0,0)");
+          c.fillStyle = lg;
+          fan(lamp);
+        }
+        c.globalCompositeOperation = "source-over";
+      } else S.reused++;
+      ctx.drawImage(L, 0, 0, k.W, k.H);
+    },
+    /** The title screen's and the garage's still scene (game.js showcase) on `canvas`: the van on a straight road
+        through this camera, in the paint and upgrades given (o.upgrades), its gun on the nearer walker, o.kinds
+        coming at it (Walker3D figures, as on the road: a screamer screams), a wreck, a barrier and the roadside going
+        into the haze. Drawn only when what it shows changes (the canvas's size, the upgrades, the kinds, o.seed): the
+        title's loop asks every frame and nearly always finds its picture already there. True if it drew. */
+    showcase(canvas, o) {
+      const key = canvas.width + "x" + canvas.height + "|" + JSON.stringify(o.upgrades || {}) + "|" + (o.kinds || []).join(",") + "|" + (o.seed || 0);
+      if (canvas._showKey === key) return false;
+      canvas._showKey = key;
+      const ctx = canvas.getContext("2d");
+      const W = canvas.width;
+      const H = canvas.height;
+      const G = ZSR.Streets.GEOM;
+      // (the scenery governor's thinning is the drive's: the still scene has every plant)
+      const scen = this.scen;
+      this.scen = null;
+      const D = ZSR.Draw;
+      const Art = ZSR.PerspArt;
+      const M = ZSR.Walker3D;
+      // the scene: the van at the origin heading up the screen (north), the camera right behind it
+      const th = -Math.PI / 2;
+      const van = { x: 0, y: 0, heading: th, w: 66, h: 118, hurt: 0, flash: 0 };
+      const sc = { W, H, zoom: SHOW.zoom * Math.min(1, H / 200), vanAt: SHOW.vanAt, cam: { x: 0, y: 0, th }, mods: {}, van, time: 0, upgrades: o.upgrades || {}, dpr: 1, zombies: [], fallen: [] };
+      const k = this.setup(sc);
+      const at = (X, Y) => [X, -Y]; // X to the right, Y ahead
+      const roadX = -ZSR.Streets.laneCenter(0, 2); // the road's middle (the van in our left lane)
+      ctx.save();
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.fillStyle = "#5d5a3e";
+      ctx.fillRect(0, 0, W, H);
+      const haze = this.haze(sc);
+      const skyY = this.sky(ctx, haze, false);
+      // the road: shoulders, asphalt, the middle's two yellow lines and each side's lane dashes, ink at its edges
+      const y0 = this.groundY(H) - 40;
+      const y1 = k.far;
+      const band = (xa, xb, fill, ya, yb) => this.poly(ctx, [at(xa, ya == null ? y0 : ya), at(xb, ya == null ? y0 : ya), at(xb, yb == null ? y1 : yb), at(xa, yb == null ? y1 : yb)].map((p) => p.concat(0)), fill, 0);
+      band(roadX - G.half - G.shoulder - 4, roadX + G.half + G.shoulder + 4, INK);
+      band(roadX - G.half - G.shoulder, roadX + G.half + G.shoulder, "#78736a");
+      band(roadX - G.half, roadX + G.half, "#35363b");
+      band(roadX - 9, roadX - 3, "#d6b03c");
+      band(roadX + 3, roadX + 9, "#d6b03c");
+      for (let y = y0 - (y0 % 160); y < y1; y += 160) for (const x of [roadX - G.lane, roadX + G.lane]) band(x - 3, x + 3, "rgba(230,226,214,0.8)", y, y + 70);
+      // the haze over the far road, as the drive's (drawWorldGround)
+      const hz = this.project(k.ox + k.Fx * k.fogG, k.oy + k.Fy * k.fogG, 0);
+      if (hz && hz.y > 0) {
+        const top = Math.max(0, skyY);
+        const hg = ctx.createLinearGradient(0, top, 0, hz.y);
+        hg.addColorStop(0, "rgba(" + haze.join(",") + ",0.85)");
+        hg.addColorStop(1, "rgba(" + haze.join(",") + ",0)");
+        ctx.fillStyle = hg;
+        ctx.fillRect(0, top, W, hz.y - top);
+      }
+      // what stands, far to near: the roadside's plants, a wreck and a barrier, the walkers, the van
+      const items = [];
+      const side = G.half + G.shoulder;
+      if (Art && Art.sprite) {
+        const r = (i) => ((Math.sin(i * 12.9898 + 4.1) * 43758.5453) % 1 + 1) % 1;
+        for (let i = 0; i < 26; i++) {
+          const left = i % 2 === 0;
+          const Y = 200 + i * 130 + r(i) * 90;
+          const X = roadX + (left ? -1 : 1) * (side + 50 + r(i + 40) * 520);
+          const kind = i % 5 === 0 ? "tree" : i % 5 === 3 ? "dead" : i % 2 ? "bush" : "grass";
+          const h = kind === "tree" ? 170 + r(i + 7) * 70 : kind === "dead" ? 150 + r(i + 9) * 50 : kind === "bush" ? 50 + r(i + 3) * 20 : 30 + r(i + 5) * 12;
+          const [x, y] = at(X, Y);
+          items.push({ Y, draw: () => this.plant(ctx, { kind, x, y, h, v: i % 4, flip: i % 3 === 0 }, this.fadeAt(Y)) });
+        }
+      }
+      const [wx, wy] = at(roadX - G.lane * 1.1, 980);
+      items.push({ Y: 980, draw: () => this.car(ctx, { x: wx, y: wy, face: 0, rot: 0.5, color: "#3f4a55" }, 1) });
+      const [bx, by] = at(roadX + G.half + 40, 1500);
+      if (Art) items.push({ Y: 1500, draw: () => this.barrier(ctx, { x: bx, y: by, face: Math.PI / 2, rot: 0.3 }, 1) });
+      const T = this.liveTune();
+      const row = T.LIVE_LEVELS[0];
+      const recs = (canvas._showRecs = canvas._showRecs || []);
+      const kinds = o.kinds || [];
+      const spots = SHOW.walkers.map(([X, Y]) => [roadX + X, Y]);
+      const shown = [];
+      kinds.slice(0, spots.length).forEach((type, i) => {
+        if (!M || !M.TYPES) return;
+        const WT = ZSR.WORLD.WALKER_TYPES[type] || {};
+        const [x, y] = at(spots[i][0], spots[i][1]);
+        const scream = !!WT.scream;
+        const z = { type, seed: (o.seed || 0) + i, x, y, r: (WT.road && WT.road.r) || 18, heading: Math.atan2(van.y - y, van.x - x) + (i ? 0.25 : -0.2), gait: 0.15 + i * 0.4, move: 1, pose: scream ? "scream" : "walk", poseW: 1, clawPh: 0, yell: scream ? 0.6 : 0, hit: 0, run: 0, angle: 0 };
+        shown.push(z);
+        const rec = recs[i] || (recs[i] = (() => {
+          const c = document.createElement("canvas");
+          return { c, g: c.getContext("2d"), lw: 0, lh: 0 };
+        })());
+        items.push({
+          Y: spots[i][1],
+          draw: () => {
+            const g2 = this.liveGeo(sc, z, false, row, 1, rec);
+            if (!g2) return;
+            g2.lod = g2.lodSize;
+            this.shadow(ctx, z.x, z.y, z.r * 0.9, z.r * 0.7, 0, 0.32);
+            this.liveRender(sc, g2, T, 1);
+            this.blitFigure(ctx, g2, 1);
+          },
+        });
+      });
+      // the gun on the nearer walker's chest
+      const aimAt = shown[0];
+      const mx = van.x - Math.cos(th) * van.h * 0.1;
+      const my = van.y - Math.sin(th) * van.h * 0.1;
+      van.aimW = aimAt ? Math.atan2(aimAt.y - my, aimAt.x - mx) : th - 0.3;
+      van.aimDz = -0.05;
+      items.push({ Y: 0, draw: () => this.van(sc, ctx) });
+      items.sort((a, b) => b.Y - a.Y);
+      for (const it of items) {
+        ctx.globalAlpha = 1;
+        it.draw();
+      }
+      ctx.globalAlpha = 1;
+      D.vignette(ctx, W, H);
+      ctx.restore();
+      this.scen = scen;
+      return true;
     },
     /** Walkers behind the road sign, drawn again on top of it (game.js drawOverSign): this frame's pictures where
         they were put up (nothing is drawn anew), their bodies and health bars only (a shadow or a frenzy's glow over

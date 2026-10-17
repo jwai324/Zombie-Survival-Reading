@@ -237,8 +237,9 @@ for (let n = 2; n <= 4; n++) {
 /* ---------- every route, slow van and fast van ---------- */
 const ids = W.LOCATIONS.map((l) => l.id); // places only: a junction is never a destination
 const deg = (id) => S.neighbors(id).length;
-// Upgrades: engine 0 .. 5, on the flat road's pace and on the angled camera's (js/game.js PERSP.pace 1.25)
-const SPEEDS = [1, 1.7, 1.25, 2.125];
+// Upgrades: engine 0 .. 5, at the road's pace (js/game.js PERSP.pace 1.25: every drive is on the angled camera; the
+// flat road's own pace, 1 to 1.7, went with its camera on 2026-10-17)
+const SPEEDS = ANGLED;
 let drives = 0;
 let minWin = Infinity;
 let maxTime = 0;

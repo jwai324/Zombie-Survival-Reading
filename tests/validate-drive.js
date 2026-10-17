@@ -6,17 +6,18 @@
      (the left lane goes straight on), so the first wrong way is a junction or the destination;
    - a wrong lane on purpose: the fade, the wrong-turn panel (the drive holds until a choice), then
      "try again" starts the drive over with the trip's miles, walkers and scrap kept, and the next try arrives;
-   - the roof gun: a shot flies straight at the pointer on screen, whichever way it points, at any van speed;
-   - the angled camera's test drive (js/perspective.js): only Home Base to Corner Grocery, screen and world
-     map back onto each other, and there too a shot flies straight at the pointer; a walker clicked anywhere on
-     its picture is hit, walking or not, ahead or aside; walkers stay outside the van and hit it; the van parks
-     short of the grocery's wall;
+   - every drive on the angled camera (js/perspective.js; the old flat camera and its top-down walkers are gone):
+     screen and world map back onto each other; the roof gun's shot flies straight at the pointer on screen (at its
+     own height), whichever way it points, at either engine; a walker clicked anywhere on its picture is hit, walking
+     or not, ahead or aside; walkers stay outside the van and hit it; the van parks short of the grocery's wall;
    - the angled camera's whole frame drawn on a recording 2D context (no WebGL: the 2D ground): every kind of
      walker live (Walker3D), a scream and its frenzy, clawing, hurt (health bars), shot, downed, gore on and off:
-     no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow;
-   - every drive on the angled camera: every turn in the city comfortable (the view's spin, its jolt and its lag, the
-     road after the bend on the screen at 1280 x 800 and 960 x 1040), no hops, braking smooth and never before a stop
-     line, Home Base to Corner Grocery as built, a sample of wrong ways; the corner shapes' camera is the camera.
+     no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow; night's dark
+     drawn again only when what it shows moves, its beam down the van's own heading; fog's view short and its haze
+     thick near; the title screen and the garage's preview a still angled scene, drawn on change;
+   - every turn in the city comfortable (the view's spin, its jolt and its lag, the road after the bend on the screen
+     at 1280 x 800 and 960 x 1040), no hops, braking smooth and never before a stop line, Home Base to Corner Grocery as
+     built, a sample of wrong ways; the corner shapes' camera is the camera.
    - each place's own building on the angled camera (js/perspective-buildings.js), driven to and parked at on every
      destination: every place has a row (and every row a place), every side street kind its standing end; drawn from
      the approach and parked cameras with no exceptions or NaN, all of it in front of the camera once parked, nothing
@@ -378,7 +379,8 @@ for (const a of ids) {
   G.zombies.length = 0;
   const hid = G.spawnWalkerAhead("screamer");
   if (hid) {
-    place(hid, -(G.H - G.anchorY) / G.zoom - 60, 0);
+    ZSR.Persp.setup(G);
+    place(hid, ZSR.Persp.groundY(G.H) - 80, 0); // (groundY: ahead of the camera's spot, level with the van)
     G.update(1 / 60);
     if (hid.yell > 0) err(c, "a screamer off the screen screamed");
   }
@@ -542,45 +544,6 @@ for (const a of ids) {
     G.zombies.length = 0;
     G.particles.length = 0;
   }
-  // drawn in layers: everything that lies on the road (splats, pools, shadows and frenzy glows) under every body,
-  // the bodies (downed, crates, walkers without their own shadow), then the rounds and what flies
-  {
-    const calls = [];
-    const D = new Proxy({}, { get: (o, k) => (...a) => calls.push({ k, a }) });
-    G.zombies.length = 0;
-    G.fallen.length = 0;
-    G.particles.length = 0;
-    const zs = [G.addZombie(kinds[0], G.van.x, G.van.y - 300), G.addZombie(kinds[kinds.length - 1], G.van.x + 40, G.van.y - 320)];
-    zs[1].frenzyT = 2;
-    G.killZombie(G.zombies.indexOf(G.addZombie(kinds[0], G.van.x - 40, G.van.y - 280)), 0);
-    G.killZombie(G.zombies.indexOf(G.addZombie(kinds[1 % kinds.length], G.van.x - 80, G.van.y - 280)), 0);
-    const splat = { x: 0, y: 0, vx: 0, vy: 0, life: 1, maxLife: 1.4, size: 4, color: "#a3201a", blood: true, splat: true };
-    const drop = { x: 0, y: 0, vx: 50, vy: 0, life: 0.3, maxLife: 0.4, size: 4, color: "#a3201a", blood: true };
-    const dust = { x: 0, y: 0, vx: 50, vy: 0, life: 0.3, maxLife: 0.4, size: 4, color: "#6b675c", grow: true };
-    G.particles.push(drop, splat, dust, Object.assign({}, splat));
-    const crates0 = G.crates;
-    const bullets0 = G.bullets;
-    G.crates = [{ x: 0, y: 0, t: 0 }];
-    G.bullets = [{ x: 0, y: 0, vx: 1, vy: 0 }];
-    G.drawCrowd({}, D, (cr) => calls.push({ k: "crate", a: [cr] }));
-    G.crates = crates0;
-    G.bullets = bullets0;
-    const ground = (q) => (q.k === "particle" && q.a[1].splat) || (q.k === "zombieDown" && q.a[2] === "ground") || q.k === "zombieShadow";
-    const fly = (q) => (q.k === "particle" && !q.a[1].splat) || q.k === "bullet";
-    const lastGround = calls.map(ground).lastIndexOf(true);
-    const firstBody = calls.findIndex((q) => !ground(q) && !fly(q));
-    const lastBody = calls.map((q) => !ground(q) && !fly(q)).lastIndexOf(true);
-    const firstFly = calls.findIndex(fly);
-    const n = (k, f) => calls.filter((q) => q.k === k && (!f || f(q))).length;
-    if (!(lastGround < firstBody && lastBody < firstFly)) err(c, `the road's layers are out of order: ${calls.map((q) => q.k + (q.k === "zombieDown" ? ":" + q.a[2] : q.k === "particle" && q.a[1].splat ? ":splat" : "")).join(", ")}`);
-    if (n("zombieShadow") !== zs.length || n("zombie", (q) => q.a[3] === true) !== zs.length || n("zombie") !== zs.length) err(c, `${zs.length} walkers drew ${n("zombieShadow")} shadows and ${n("zombie")} bodies (${n("zombie", (q) => q.a[3] === true)} without their own shadow)`);
-    if (n("zombieDown", (q) => q.a[2] === "ground") !== G.fallen.length || n("zombieDown", (q) => q.a[2] === "body") !== G.fallen.length) err(c, `${G.fallen.length} downed walkers drew ${n("zombieDown", (q) => q.a[2] === "ground")} grounds and ${n("zombieDown", (q) => q.a[2] === "body")} bodies`);
-    if (n("particle") !== G.particles.length || n("crate") !== 1 || n("bullet") !== 1) err(c, `drew ${n("particle")} of ${G.particles.length} particles, ${n("crate")} crates, ${n("bullet")} rounds`);
-    G.zombies.length = 0;
-    G.fallen.length = 0;
-    G.particles.length = 0;
-  }
-
   // a kill: off the road's list, a downed body of its kind for FALL secs, the trip's tally up one
   {
     G.zombies.length = 0;
@@ -619,49 +582,12 @@ for (const a of ids) {
   console.log(`road walkers: ${kinds.length} kinds, scream at ${SC.spot * PX} px, frenzy within ${SC.radius * PX} px, downed for ${FALL} s`);
 }
 
-/* ---------- the roof gun: shots fly at the pointer on screen ---------- */
-let worstAim = 0;
-for (const engine of [0, 5]) {
-  upgrades.engine = engine;
-  for (const deg of [0, 45, 90, 135, 180, 225, 270, 315]) {
-    start("base", "hospital");
-    for (let i = 0; i < 90; i++) G.update(1 / 60); // up to speed, clear of the start
-    const vs = G.toScreen(G.van.x, G.van.y);
-    const a = (deg * Math.PI) / 180;
-    Object.assign(G.pointer, { x: vs.x + Math.cos(a) * 260, y: vs.y + Math.sin(a) * 260, seen: true, down: true });
-    G.van.cooldown = 0;
-    G.update(1 / 60);
-    G.pointer.down = false;
-    const b = G.bullets[G.bullets.length - 1];
-    // where the shot left the mount, on screen, and the line from there to the pointer
-    const from = G.toScreen(b.x, b.y);
-    const ux = G.pointer.x - from.x;
-    const uy = G.pointer.y - from.y;
-    const len = Math.hypot(ux, uy);
-    for (let i = 0; i < 12; i++) {
-      G.update(1 / 60);
-      if (!G.bullets.includes(b)) break;
-      const p = G.toScreen(b.x, b.y);
-      worstAim = Math.max(worstAim, Math.abs(((p.x - from.x) * uy - (p.y - from.y) * ux) / len));
-    }
-    G.stop();
-  }
-}
-upgrades.engine = 0;
-// the camera eases a little through the van's own lean; a few pixels off the line is fine, a drift (tens of px) is not
-if (worstAim > 6) err("gun", `a shot drifted ${worstAim.toFixed(1)} px off the line to the pointer`);
-
-console.log(`gun: shots stay within ${worstAim.toFixed(1)} px of the line to the pointer`);
-
-/* ---------- the angled camera: Home Base to Corner Grocery only ---------- */
+/* ---------- the angled camera, every drive: screen and world, the roof gun ---------- */
 const P = ZSR.Persp;
-for (const [a, b] of [["base", "gasngo"], ["grocery", "base"], ["base", "hospital"]]) {
-  start(a, b);
-  if (G.persp) err("persp", `${a} > ${b} drove with the angled camera`);
-  G.stop();
-}
+// the flat, top-down camera and its walkers are gone (owner, 2026-10-17): no switch, no fallback left to drift
+["persp", "flatToScreen", "flatToWorld", "drawFlat", "assist", "drawCrowd", "viewTurn", "anchorY"].forEach((k) => k in G && err("persp", `js/game.js still has the flat camera's ${k}`));
+["zombie", "zombieShadow", "zombieDown", "ZOMBIE_LOOK", "road", "fog", "night"].forEach((k) => k in ZSR.Draw && err("persp", `js/sprites.js still has the top-down road's Draw.${k}`));
 start("base", "grocery");
-if (!G.persp) err("persp", "base > grocery drove with the flat camera");
 for (let i = 0; i < 90; i++) G.update(1 / 60);
 let worstTrip = 0;
 // points on the ground short of the haze (past it, the ground stops at the haze line)
@@ -672,9 +598,12 @@ for (const [sx, sy] of [[60, 700], [640, 560], [1200, 400], [300, 200], [640, 12
 }
 if (worstTrip > 0.5) err("persp", `a screen point came back ${worstTrip.toFixed(2)} px off through the world`);
 G.stop();
+// the roof gun: a shot flies straight at the pointer on the screen, seen at its own height, whichever way it points
+// (round the gun, 220 px out), at the slowest and the fastest van
 let worstPersp = 0;
-for (const deg of [0, 45, 90, 135, 180, 225, 270, 315]) {
-  start("base", "grocery");
+for (const [engine, deg] of [0, 5].flatMap((e) => [0, 45, 90, 135, 180, 225, 270, 315].map((d) => [e, d]))) {
+  upgrades.engine = engine;
+  start("base", "hospital");
   for (let i = 0; i < 90; i++) G.update(1 / 60);
   // the pointer around the gun as the screen shows it, on the roof
   P.setup(G);
@@ -702,6 +631,7 @@ for (const deg of [0, 45, 90, 135, 180, 225, 270, 315]) {
   }
   G.stop();
 }
+upgrades.engine = 0;
 if (worstPersp > 6) err("persp gun", `a shot drifted ${worstPersp.toFixed(1)} px off the line to the pointer`);
 console.log(`persp: screen and world agree within ${worstTrip.toFixed(3)} px; shots stay within ${worstPersp.toFixed(1)} px of the line to the pointer`);
 
@@ -773,8 +703,8 @@ drive(right, 1.0, () => {
 if (gap == null || gap < 30) err("persp park", `the van parked ${gap == null ? "never" : gap.toFixed(1) + " units"} from the grocery's front wall`);
 console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside} walkers left inside the van; parked ${gap == null ? "-" : gap.toFixed(0)} units short of the wall`);
 
-/* ---------- turns: no hop where a turn starts or ends, the van keeps its place on the screen (both cameras); on the
-   angled camera the van brakes lightly into a turn and the view follows lazily, the same at any frame rate ---------- */
+/* ---------- turns: no hop where a turn starts or ends, the van keeps its place on the screen; the van brakes into a
+   turn and the view follows lazily, the same at any frame rate ---------- */
 {
   const D = 180 / Math.PI;
   const norm = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -836,8 +766,8 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   }
   upgrades.engine = 0;
   if (worstHop > 0.3) err("turns", `the van hops ${worstHop.toFixed(2)} units on a frame where a turn starts or ends`);
-  // 2. the van keeps its place up and down the screen through every turn, on both cameras (the camera's offset used
-  // to be laid off the road, not the view: the van rose 12-17 px through a flat junction, 23 px on the angled one)
+  // 2. the van keeps its place up and down the screen through every turn (the camera's offset used to be laid off the
+  // road, not the view: the van rose 23 px through a junction)
   let worstBob = 0;
   for (const [a, b] of [["base", "grocery"], ["base", "hospital"], ["hospital", "base"]]) {
     const R = rec(a, b, [1 / 60]);
@@ -845,8 +775,8 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     worstBob = Math.max(worstBob, Math.max(...ys) - Math.min(...ys));
   }
   if (worstBob > 2) err("turns", `the van moves ${worstBob.toFixed(1)} px up or down the screen through the drive's turns`);
-  // 3. the angled camera's corner braking: none before a stop line (the reading and the choice keep their time) and
-  // none on the flat camera; down to PERSP.brake into each turn the van takes, smoothly (the junction, the grocery's
+  // 3. the corner braking: none before a stop line (the reading and the choice keep their time); down to PERSP.brake
+  // into each gentle turn the van takes, smoothly (the junction, the grocery's
   // bend from its stop line, and a wrong way, at either engine); back to full speed after
   let minSpd = 1;
   let minWrong = 1;
@@ -877,10 +807,6 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   if (worstPre < 0.9999) err("persp brake", `the van slowed (to ${worstPre.toFixed(3)}) before a stop line`);
   // at 60 fps no frame changes the speed by more than 2% of it (a smooth ease of about 0.5 s at any engine; 1.38%)
   if (worstDv > 0.02) err("persp brake", `the van's speed jumped ${(worstDv * 100).toFixed(1)}% of it in one frame`);
-  {
-    const R = rec("base", "hospital", [1 / 60]);
-    if (R.some((r) => !r.dest && r.spd !== G.speed)) err("turns", "the van braked into a turn on the flat camera");
-  }
   // 4. the angled camera follows lazily: through the junction its yaw stays gentle and smooth, it lags the van but
   // never so far that the new road leaves the view, and it catches up on the straight after; the same at engine 5
   const lim = { 0: { w: 45, lag: 35 }, 5: { w: 65, lag: 38 } };
@@ -1144,6 +1070,238 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   [...bad].slice(0, 12).forEach(drawErr);
   console.log(`persp draw: ${seen.renders} Walker3D renders (${[...seen.kinds].length} kinds, poses ${[...seen.poses].join("/")}, ${seen.falls} falling), gore on and off, ${bad.size} bad calls`);
 }
+/* ---------- what the flat camera carried, on the angled camera (2026-10-17) ----------
+   Drawn on a 2D context that records and checks every call (no WebGL: the 2D ground):
+   - night: the dark is drawn again only when what it shows moves (the same frame twice: once), its beam lies down the
+     van's own heading on the screen (not up the screen) and reaches about halfway from the old road's 520 to the haze;
+   - fog: the view sees FOG.far, its haze starts FOG.near ahead; a walker past it is not drawn, one near is; walkers
+     still come from where they do on a clear day; no landmark silhouette shows past the fog;
+   - the title screen and the garage's preview: a still angled scene (the van, Walker3D figures of every kind in turn,
+     the first two in the still one), drawn again only when what it shows changes, with no exceptions or NaN; */
+{
+  const fErr = (m) => err("flat out", m);
+  const finite = (v) => typeof v === "number" && Number.isFinite(v);
+  let where = "(setup)";
+  const bad = new Set();
+  const log = []; // [tag, call, args]
+  function context2d(canvas, tag) {
+    const state = { fillStyle: "#000000", strokeStyle: "#000000", globalAlpha: 1, lineWidth: 1, font: "10px sans-serif", lineCap: "butt", lineJoin: "miter", imageSmoothingEnabled: true, imageSmoothingQuality: "low", textAlign: "start", textBaseline: "alphabetic", globalCompositeOperation: "source-over" };
+    const stack = [];
+    const calls = {
+      save: () => stack.push(Object.assign({}, state)),
+      restore: () => stack.length && Object.assign(state, stack.pop()),
+      measureText: (t) => ({ width: String(t).length * 0.55 * (parseFloat(/(\d+(\.\d+)?)px/.exec(state.font) ? /(\d+(\.\d+)?)px/.exec(state.font)[1] : 10) || 10) }),
+      createLinearGradient: () => ({ addColorStop: noop }),
+      createRadialGradient: () => ({ addColorStop: noop }),
+      createPattern: () => ({}),
+      getImageData: (x, y, w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) }),
+      createImageData: (w, h) => ({ width: w, height: h, data: new Uint8ClampedArray(Math.max(1, w * h) * 4) }),
+      getTransform: () => ({ a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 }),
+      isPointInPath: () => false,
+    };
+    return new Proxy(
+      {},
+      {
+        get(o, k) {
+          if (k === "canvas") return canvas;
+          if (k in state) return state[k];
+          if (typeof k !== "string") return undefined;
+          return (...args) => {
+            for (const a of args) if (typeof a === "number" && !finite(a)) bad.add(`${where}: ${tag} ${k}(${args.map((x) => (typeof x === "number" ? x : typeof x)).join(", ")})`);
+            if (k === "drawImage" && !(args[0] && args[0].width > 0 && args[0].height > 0)) bad.add(`${where}: ${tag} drawImage() of something with no size`);
+            log.push([tag, k, args]);
+            return calls[k] ? calls[k](...args) : undefined;
+          };
+        },
+        set(o, k, v) {
+          if (k === "globalAlpha" && !(finite(v) && v >= 0 && v <= 1)) bad.add(`${where}: ${tag} globalAlpha ${v}`);
+          if (k === "lineWidth" && !(finite(v) && v >= 0)) bad.add(`${where}: ${tag} lineWidth ${v}`);
+          if (k in state) state[k] = v;
+          else o[k] = v;
+          return true;
+        },
+      }
+    );
+  }
+  const canvasEl = (tag) => {
+    const c = Object.assign(el(), { width: 300, height: 150, tagName: "CANVAS" });
+    c.getContext = (kind) => (kind === "2d" ? c.ctx || (c.ctx = context2d(c, tag)) : null);
+    return c;
+  };
+  const realDoc = globalThis.document;
+  globalThis.document = Object.assign({}, realDoc, { createElement: (t) => (String(t).toLowerCase() === "canvas" ? canvasEl("pooled") : el()) });
+  const P = ZSR.Persp;
+  const B = ZSR.PerspBuild;
+  const screen = canvasEl("screen");
+  screen.width = 1280;
+  screen.height = 720;
+  const hud0 = G.hudRects;
+  const MINI = { left: 10, top: 65, right: 250, bottom: 235, width: 240, height: 170 };
+  const hudFor = (w, h) => () => ({ top: null, row: 52, low: [{ left: w / 2 - 210, right: w / 2 + 210, top: h - 50 }], boxes: [{ left: 10, right: 660, top: 10, bottom: 52 }], mini: MINI });
+  G.hudRects = hudFor(1280, 720);
+  const frame = (label) => {
+    where = label;
+    log.length = 0;
+    try {
+      G.draw();
+      return true;
+    } catch (e) {
+      fErr(`${label}: G.draw threw ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+      return false;
+    }
+  };
+  const ahead = (d, side) => {
+    const fx = Math.cos(G.van.heading);
+    const fy = Math.sin(G.van.heading);
+    return [G.van.x + fx * d - fy * (side || 0), G.van.y + fy * d + fx * (side || 0)];
+  };
+
+  // night: the dark drawn again only when it moves; its beam down the van's own heading; its reach "in between"
+  {
+    start("base", "hospital");
+    G.ctx = screen.getContext("2d");
+    G.mods.night = true;
+    for (let i = 0; i < 120; i++) G.update(1 / 60);
+    const NS = () => Object.assign({ drawn: 0, reused: 0 }, P.nightStats);
+    frame("night");
+    const a = NS();
+    frame("night, the same again");
+    const b = NS();
+    if (!(b.reused === a.reused + 1 && b.drawn === a.drawn)) fErr(`night: the same frame twice drew the dark ${b.drawn - a.drawn} more times (want it reused)`);
+    G.van.aimW = (G.van.aimW || G.van.heading) + 0.2;
+    frame("night, the gun turned");
+    if (NS().drawn !== b.drawn + 1) fErr("night: turning the gun did not draw the dark again (its lamp follows the aim)");
+    // the van turned a quarter of a radian off the camera: the beam's line on the screen is the van's own
+    let worst = 0;
+    for (const off of [-0.45, -0.2, 0.25, 0.5]) {
+      G.van.heading = G.cam.th + off;
+      frame("night, the van turned " + off);
+      P.setup(G);
+      const v = P.project(G.van.x, G.van.y, 0);
+      const n = P.project(...ahead(400), 0);
+      const L = P.nightBeam;
+      if (!L || !v || !n) {
+        fErr(`night: no beam drawn with the van turned ${off}`);
+        continue;
+      }
+      const d = Math.atan2(L[1].y - L[0].y, L[1].x - L[0].x) - Math.atan2(n.y - v.y, n.x - v.x);
+      worst = Math.max(worst, Math.abs(Math.atan2(Math.sin(d), Math.cos(d))));
+    }
+    if (worst > 0.02) fErr(`night: the headlights' beam is ${((worst * 180) / Math.PI).toFixed(1)} deg off the van's own heading on the screen`);
+    const N = P.NIGHT_BEAM;
+    const mid = (520 + P.cfg.far) / 2;
+    if (!(Math.abs(N.reach - mid) < 0.1 * (P.cfg.far - 520))) fErr(`night: the beam reaches ${N.reach}, not about halfway between the old road's 520 and the haze (${mid})`);
+    G.stop();
+  }
+
+  // fog: thick and near, walkers past it hidden, where they come from unchanged, no silhouette past it
+  {
+    start("base", "hospital");
+    G.ctx = screen.getContext("2d");
+    G.mods.fog = true;
+    for (let i = 0; i < 90; i++) G.update(1 / 60);
+    const k = P.setup(G);
+    if (!(k.fog && k.far === P.FOG.far && k.far < P.cfg.far && k.fog0 === P.FOG.near)) fErr(`fog: the view sees ${k.far} (fog ${P.FOG.far}) and its haze starts ${k.fog0} ahead`);
+    if (P.fadeAt(P.FOG.near) !== 1 || P.fadeAt(P.FOG.far) !== 0 || !(P.fadeAt((P.FOG.near + P.FOG.far) / 2) < 0.6)) fErr("fog: things do not fade into it from FOG.near to FOG.far");
+    let past = 0;
+    for (let i = 0; i < 400; i++) {
+      const w = P.spawn(G);
+      if (P.local(w.x, w.y).Y > P.FOG.far + 150) past++;
+    }
+    if (past < 100) fErr(`fog: only ${past} of 400 walkers came from past the fog (they come from where they do on a clear day)`);
+    G.zombies.length = 0;
+    const near = Object.assign(G.addZombie("walker", ...ahead(260)), { born: -9, hp: 1e9, maxHp: 1e9, dmg: 0 });
+    const far = Object.assign(G.addZombie("walker", ...ahead(P.FOG.far + 400)), { born: -9, hp: 1e9, maxHp: 1e9, dmg: 0 });
+    const shown = [];
+    const w0 = P.walker;
+    P.walker = function (g2, c2, z, f) {
+      shown.push(z);
+      return w0.call(this, g2, c2, z, f);
+    };
+    frame("fog, walkers near and far");
+    P.walker = w0;
+    if (!shown.includes(near)) fErr("fog: a walker 260 ahead was not drawn");
+    if (shown.includes(far)) fErr(`fog: a walker ${P.FOG.far + 400} ahead, past the fog, was drawn`);
+    G.stop();
+    // the Water Tower is a silhouette past the haze on a clear day, never past the fog
+    if (B) {
+      start("base", "watertower");
+      G.ctx = screen.getContext("2d");
+      G.mods.fog = true;
+      let pastFog = 0;
+      drive(right, 1.0, () => {
+        if (Math.floor(G.time * 60) % 30) return false;
+        frame("fog, the tower");
+        if (B.stats.skyline) fErr("fog: the Water Tower's silhouette showed past the fog");
+        const lot = G.drive.lots.find((l) => l.node === "watertower");
+        const rec = B.rec(lot);
+        const k2 = P.k;
+        if ((rec.cx - k2.ox) * k2.Fx + (rec.cy - k2.oy) * k2.Fy > k2.far) pastFog++;
+        return G.arrive && G.arrive.parked;
+      });
+      if (!pastFog) fErr("fog: the drive to the Water Tower never had it past the fog to check");
+      G.stop();
+    }
+  }
+
+  // the title screen and the garage's preview: a still angled scene
+  {
+    const M = ZSR.Walker3D;
+    const kinds = Object.keys(W.WALKER_TYPES);
+    const drawn = [];
+    const d0 = M.draw;
+    M.draw = (c, type, st, cam) => {
+      drawn.push(type);
+      return d0(c, type, st, cam);
+    };
+    let vans = 0;
+    const v0 = P.van;
+    P.van = function (...a) {
+      vans++;
+      return v0.apply(this, a);
+    };
+    const c = canvasEl("title");
+    c.width = 320;
+    c.height = 200;
+    const ups = { armor: 2, engine: 1, bumper: 2, paint: 3, damage: 3, fireRate: 4, spread: 2 };
+    const shown = new Set();
+    let first = null;
+    let draws = 0;
+    for (let t = 0; t <= kinds.length * 4 + 1; t += 0.5) {
+      where = `title screen at ${t} s`;
+      drawn.length = 0;
+      let did;
+      try {
+        did = G.showcase(c, ups, t);
+      } catch (e) {
+        fErr(`${where}: threw ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+        break;
+      }
+      if (did) {
+        draws++;
+        drawn.forEach((k) => shown.add(k));
+        if (t === 0) first = drawn.slice();
+      }
+      if (did !== (t % 4 === 0)) fErr(`${where}: ${did ? "drew again with nothing changed" : "did not draw its walkers' new turn"}`);
+    }
+    kinds.forEach((k) => shown.has(k) || fErr(`the title screen never shows a ${k}`));
+    if (!first || first.slice().sort().join() !== kinds.slice(0, 2).sort().join()) fErr(`the title screen's still picture shows ${first && first.join(", ")} (the facts' first two kinds expected)`);
+    if (vans !== draws) fErr(`the title screen drew the van ${vans} times in ${draws} pictures`);
+    // the garage: another van's upgrades draw again, the same do not
+    const g = canvasEl("garage");
+    g.width = 360;
+    g.height = 200;
+    where = "garage preview";
+    if (!G.showcase(g, ups, 0) || G.showcase(g, ups, 0) || !G.showcase(g, Object.assign({}, ups, { paint: 1 }), 0)) fErr("the garage's preview is not drawn once per van");
+    M.draw = d0;
+    P.van = v0;
+  }
+
+  G.hudRects = hud0;
+  globalThis.document = realDoc;
+  [...bad].slice(0, 12).forEach(fErr);
+  console.log(`flat out: night drawn on change and down the van's heading (beam ${P.NIGHT_BEAM.reach}), fog ${P.FOG.near}..${P.FOG.far}, title screen and garage still scenes, ${bad.size} bad calls`);
+}
 /* ---------- each place's own building on the angled camera (js/perspective-buildings.js) ----------
    Every place has a building row and every row is a place; every side street kind stands up. Every destination is
    driven to on the angled camera (its drive put on it here, as every drive will be) and drawn on a 2D context that
@@ -1258,8 +1416,6 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     for (const L of W.LOCATIONS) {
       const to = L.id;
       start(to === "base" ? "grocery" : "base", to);
-      G.persp = true; // (every drive on the angled camera)
-      G.resetDrive();
       G.ctx = screen.getContext("2d");
       const lot = G.drive.lots.find((l) => l.node === to);
       const rec = B.rec(lot);
@@ -1298,8 +1454,8 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
       if (!events.includes(lot)) bErr(`${to}: its building was not drawn when parked`);
       if (to === "watertower") {
         // at night its antenna light shines through the dark: drawn after the night's overlay (PerspBuild.drawLights)
-        const night0 = D.night;
-        D.night = function (...a) {
+        const night0 = P.night;
+        P.night = function (...a) {
           log.push(["(night)", a, null]);
           return night0.apply(this, a);
         };
@@ -1309,7 +1465,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
         frame(`${to} parked at night`);
         G.mods.night = false;
         G.time = t0;
-        D.night = night0;
+        P.night = night0;
         const dark = log.findIndex((c) => c[0] === "(night)");
         const lit = log.findIndex((c, i) => i > dark && c[0] === "fill" && c[2] === "#ff4a3a");
         if (dark < 0 || lit < 0) bErr(`the Water Tower's antenna light is not drawn over the night's dark (lights ${B.lights.length})`);
@@ -1396,8 +1552,6 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     // name boards: none for a building gone into the haze, and none in the HUD's top row (a box over the whole top)
     {
       start("base", "hospital");
-      G.persp = true;
-      G.resetDrive();
       G.ctx = screen.getContext("2d");
       const boards = [];
       const nb0 = D.nameBoard;
@@ -1431,11 +1585,10 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
       G.hudRects = hud0;
       G.stop();
     }
-    // the angled ground leaves out what stands, the flat camera's keeps it
+    // the angled ground leaves out what stands; drawn without the buildings (no js/perspective-buildings.js), the
+    // ground keeps its flat pieces
     {
       start("base", "grocery");
-      G.persp = true;
-      G.resetDrive();
       const fills = (fn, style) => {
         log.length = 0;
         fn(screen.getContext("2d"));
@@ -1446,13 +1599,13 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
       else {
         const view = { x: closed.x1, y: closed.y1, r: 400 };
         if (fills((c) => P.drawGround(G, c, Object.assign({}, view)), "#d4621e")) bErr("the angled ground still paints a closed side street's barricade flat");
-        if (!fills((c) => D.cityRoads(c, G.drive, G0, null, view), "#d4621e")) bErr("the flat camera's ground lost its closed side street's barricade");
+        if (!fills((c) => D.cityRoads(c, G.drive, G0, null, view), "#d4621e")) bErr("the ground without the buildings lost its closed side street's barricade");
       }
       for (const [id, style, what] of [["gasngo", "#b3261e", "gas canopy"], ["river", "#6b4a2e", "log stops"]]) {
         const lot = Object.assign({}, G.drive.lots[0], { node: id });
         const look = W.place(id);
         if (fills((c) => D.lot(c, lot, G0, look, B.lotGround(lot)), style)) bErr(`the angled ground still paints the ${what} flat`);
-        if (!fills((c) => D.lot(c, lot, G0, look), style)) bErr(`the flat camera's ground lost the ${what}`);
+        if (!fills((c) => D.lot(c, lot, G0, look), style)) bErr(`the ground without the buildings lost the ${what}`);
       }
       G.stop();
     }
@@ -1642,8 +1795,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
 
 /* ---------- the angled camera on every drive: every turn comfortable (js/streets.js corner shapes, js/game.js braking
    by sharpness) ----------
-   The road's code again with every drive on the angled camera (its PERSP_ROUTES gate opened, if it still has one), a
-   careful driver at the slowest and the fastest van on routes that take every turn in the city. Through every right-way turn the view spins under
+   Every drive is on the angled camera; a careful driver at the slowest and the fastest van on routes that take every turn in the city. Through every right-way turn the view spins under
    45 / 65 deg/s, its spin changes under 300 deg/s2, it lags the van under 35 / 38 deg, and once the bend is over the
    road 300 to 900 ahead stays on the screen at 1280 x 800 and at 960 x 1040 (half a screen); no hop where a turn
    starts or ends; no frame changes the speed by more than 2%; the van never slows in the 1.5 s before a stop line
@@ -1667,11 +1819,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   const top = ZSR.Upgrades.stats(most).speed * G.DIFF.roadScroll * PE.pace;
   if (Math.abs(CAM.topSpeed - top) > 1e-6) cErr(`Streets.CAM.topSpeed ${CAM.topSpeed} is not the fastest van (${top})`);
   if (S.GEOM.vanHalf * 2 !== G.van.w) cErr(`Streets.GEOM.vanHalf ${S.GEOM.vanHalf} is not half the van's width (${G.van.w}): corners keep the wrong width on the paving`);
-  // every drive angled: js/game.js once more, its gate opened
-  const src = fs.readFileSync(path.join(ROOT, "js/game.js"), "utf8").replace('PERSP_ROUTES.includes(path.join(">"))', "true");
-  vm.runInThisContext(src, { filename: "js/game.js" });
-  const GA = ZSR.Game;
-  GA.init(canvas, { onArrive: (to) => (arrived = to), onWrongTurn: (info) => (wrongTurn = info), onDeath: noop, onPause: noop, onPauseKey: noop });
+  const GA = G;
   const lim = { 0: { w: 45, lag: 35 }, 5: { w: 65, lag: 38 } };
   const VIEWS = [[1280, 800], [960, 1040]].map(([w, h]) => ({ W: w, H: h, zoom: Math.max(0.55, Math.min(1, Math.min(w / 1000, h / 640))), name: w + "x" + h }));
   /** One drive a > b, a careful driver on the lane's centre taking pick(dec) (the right way when left out): a record
@@ -1682,7 +1830,6 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     arrived = null;
     GA.startTrip({ to: b, name: name(b), danger: 0, path: r.path });
     GA.spawnTimer = 1e9;
-    if (!GA.persp) cErr(`${a} > ${b} did not drive on the angled camera`);
     const rows = [];
     let t = 0;
     let dist = 0;
@@ -1860,7 +2007,6 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     if (!(Math.abs(bg[e] - want) < 0.1)) cErr(`Home Base to Corner Grocery turned the view at ${bg[e] && bg[e].toFixed(1)} deg/s at engine ${e} (as built: ${want})`);
   });
   GA.stop();
-  ZSR.Game = G; // the road as it was loaded, for anything after this
   console.log(`comfort: ${nTurns} right-way turns on ${check.length} routes at each engine, angled: view at most ${worst.w[0].toFixed(1)} / ${worst.w[5].toFixed(1)} deg/s (engine 0 / 5), ${worst.acc[0].toFixed(0)} / ${worst.acc[5].toFixed(0)} deg/s2, lag ${worst.lag[0].toFixed(1)} / ${worst.lag[5].toFixed(1)} deg; road after the bend ${VIEWS.map((v) => v.name + " " + worst.marg[v.name].toFixed(0) + " px in").join(", ")}; hop ${worst.hop.toFixed(2)}, speed at most ${(worst.dv * 100).toFixed(2)}% a frame; Home Base to Corner Grocery ${bg[0] && bg[0].toFixed(1)} / ${bg[5] && bg[5].toFixed(1)}; ${nWrong} wrong ways: ${worst.ww[0].toFixed(1)} / ${worst.ww[5].toFixed(1)} deg/s, ${worst.wacc[0].toFixed(0)} / ${worst.wacc[5].toFixed(0)} deg/s2, lag ${worst.wlag[0].toFixed(1)} / ${worst.wlag[5].toFixed(1)} deg (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 }
 console.log(`drive: ${routes} routes driven (${turns} turns), largest step back ${maxBack.toFixed(2)} px; left alone the first wrong way is ${Object.entries(failedAt).map(([k, n]) => k + " " + n).join(", ")}`);

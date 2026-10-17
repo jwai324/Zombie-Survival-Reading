@@ -271,7 +271,7 @@
       gl.uniformMatrix4fv(this.loc.m, false, this.matrix(k));
       gl.uniform1i(this.loc.tex, 0);
       gl.uniform3f(this.loc.haze, hazeRGB[0] / 255, hazeRGB[1] / 255, hazeRGB[2] / 255);
-      gl.uniform2f(this.loc.fog, P.depthAt(k.far * 0.45), P.depthAt(k.far));
+      gl.uniform2f(this.loc.fog, P.depthAt(k.fogG), P.depthAt(k.far));
       gl.activeTexture(gl.TEXTURE0);
       need.forEach((n, i) => {
         gl.bindTexture(gl.TEXTURE_2D, n.tile.tex);
