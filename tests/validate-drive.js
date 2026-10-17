@@ -9,7 +9,8 @@
    - every drive on the angled camera (js/perspective.js; the old flat camera and its top-down walkers are gone):
      screen and world map back onto each other; the roof gun's shot flies straight at the pointer on screen (at its
      own height), whichever way it points, at either engine; a walker clicked anywhere on its picture is hit, walking
-     or not, ahead or aside; walkers stay outside the van and hit it; the van parks short of the grocery's wall;
+     or not, ahead or aside, and with Spread Shot every barrel's shot hits it; walkers stay outside the van and hit
+     it; the van parks short of the grocery's wall;
    - the angled camera's whole frame drawn on a recording 2D context (no WebGL: the 2D ground): every kind of
      walker live (Walker3D), a scream and its frenzy, clawing, hurt (health bars), shot, downed, gore on and off:
      no exceptions, no NaN, and over the sign only this frame's pictures, never a shadow or a glow; night's dark
@@ -1081,6 +1082,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
      view under it, not for an empty corner of the sky nor for a place gone into the haze;
    - the sign and the lane hint stay off the road (its edges between the van and the stop line, on the screen) at 1280
      x 800, 1920 x 1080 and 960 x 1040;
+   - Spread Shot at a walker clicked far down the road: every barrel's shot hits it;
    - the title screen and the garage's preview: a still angled scene (the van, Walker3D figures of every kind in turn,
      the first two in the still one), drawn again only when what it shows changes, with no exceptions or NaN; */
 {
@@ -1369,6 +1371,39 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     if (signs < 30 || hints < 5) fErr(`only ${signs} signs and ${hints} lane hints checked`);
   }
 
+  // Spread Shot at a walker clicked far down the road: every barrel's shot hits it
+  {
+    let volleys = 0;
+    for (const spread of [1, 3]) {
+      upgrades.spread = spread;
+      for (const [d, side] of [[1100, 0], [800, 260], [500, -180]]) {
+        start("base", "hospital");
+        for (let i = 0; i < 60; i++) G.update(1 / 60);
+        G.zombies.length = 0;
+        G.spawnTimer = 1e9;
+        const z = Object.assign(G.addZombie("walker", ...ahead(d, side)), { hp: 1e6, maxHp: 1e6, speed: 0, dmg: 0, born: -9, cool: 9 });
+        G.update(1 / 60);
+        P.setup(G);
+        const foot = P.project(z.x, z.y, 0);
+        const head = P.project(z.x, z.y, P.walkerH(z));
+        Object.assign(G.pointer, { x: foot.x + (head.x - foot.x) * 0.25, y: foot.y + (head.y - foot.y) * 0.5, seen: true, down: true });
+        G.van.cooldown = 0;
+        const n0 = G.bullets.length;
+        G.update(1 / 60);
+        G.pointer.down = false;
+        G.van.cooldown = 1e9;
+        const fired = G.bullets.length - n0;
+        for (let i = 0; i < 120 && G.bullets.length; i++) G.update(1 / 60);
+        const hits = Math.round((1e6 - z.hp) / G.stats.damage);
+        volleys++;
+        if (fired !== spread + 1 || hits !== fired) fErr(`Spread Shot ${spread}: at a walker ${d} ahead, ${side} aside, ${hits} of ${fired} shots hit it (want all ${spread + 1})`);
+        G.stop();
+      }
+    }
+    upgrades.spread = 0;
+    if (!volleys) fErr("no Spread Shot volley fired");
+  }
+
   // the title screen and the garage's preview: a still angled scene
   {
     const M = ZSR.Walker3D;
@@ -1425,7 +1460,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   G.hudRects = hud0;
   globalThis.document = realDoc;
   [...bad].slice(0, 12).forEach(fErr);
-  console.log(`flat out: night drawn on change and down the van's heading (beam ${P.NIGHT_BEAM.reach}), fog ${P.FOG.near}..${P.FOG.far}, minimap arrow up and its fade for places in view, signs and hints off the road at 3 sizes, title screen and garage still scenes, ${bad.size} bad calls`);
+  console.log(`flat out: night drawn on change and down the van's heading (beam ${P.NIGHT_BEAM.reach}), fog ${P.FOG.near}..${P.FOG.far}, minimap arrow up and its fade for places in view, signs and hints off the road at 3 sizes, Spread Shot all hits, title screen and garage still scenes, ${bad.size} bad calls`);
 }
 /* ---------- each place's own building on the angled camera (js/perspective-buildings.js) ----------
    Every place has a building row and every row is a place; every side street kind stands up. Every destination is

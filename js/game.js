@@ -1083,8 +1083,8 @@
       van.hurt = Math.max(0, van.hurt - dt * 2);
       van.cooldown -= dt;
       // gun: where its mount is in the world, the world angle it points (at a walker clicked, led), its height and how
-      // a shot drops, and that angle on the screen (js/perspective.js aim)
-      const gun = ZSR.Persp.aim(this, State().settings.aimAssist, stats.bulletSpeed * PERSP.shot);
+      // a shot drops, that angle on the screen, and the barrels' spread (js/perspective.js aim)
+      const gun = ZSR.Persp.aim(this, State().settings.aimAssist, stats.bulletSpeed * PERSP.shot, stats.bullets);
       const firing = (this.pointer.down || this.keys.fire) && !this.fade;
       if (firing && van.cooldown <= 0) {
         van.cooldown = stats.fireInterval;
@@ -1095,8 +1095,8 @@
         const cy = Math.sin(van.heading) * this.curSpeed;
         const bs = stats.bulletSpeed * PERSP.shot;
         for (let i = 0; i < n; i++) {
-          // each barrel along its own line, Upgrades.SPREAD apart
-          const a = gun.angle + (i - (n - 1) / 2) * ZSR.Upgrades.SPREAD;
+          // each barrel along its own line, the fan centred on the aim (closed in on a walker clicked: gun.spread)
+          const a = gun.angle + (i - (n - 1) / 2) * gun.spread;
           const shot = { x: gun.x + Math.cos(a) * 24 - cx * dt, y: gun.y + Math.sin(a) * 24 - cy * dt, vx: Math.cos(a) * bs, vy: Math.sin(a) * bs, cx, cy, dmg: stats.damage };
           // shots have a height: they leave the barrels and drop toward what the pointer is on
           Object.assign(shot, { z: gun.z + gun.dz * 24, dz: gun.dz });
@@ -1109,6 +1109,7 @@
       van.drawAim = gun.screen;
       van.aimW = gun.angle;
       van.aimDz = gun.dz || 0;
+      van.aimSpread = gun.spread;
 
       // walkers keep coming down the destination's drive, until the van is nearly at the door
       if (!this.arrive || this.track.len - van.s > DIFF.quietAtDoor) {

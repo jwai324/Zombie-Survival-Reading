@@ -34,6 +34,8 @@
   const VAN_Z = 50; // the van's roof
   const GUN_Z = VAN_Z + 9; // the roof gun's barrels
   const AIM_Z = 26; // what a shot drops to where the pointer is: a walker's chest
+  // aimed at a walker, Spread Shot's outer barrels cross it this share of its radius off its middle (aim)
+  const SPREAD_HIT = 0.6;
   // SCALE: seconds a new walker takes to come out of the weeds (walkers spawn at the edge of the view, cfg.far)
   const FADE_IN = 0.5;
   const TEX_RES = 3; // the van's faces, drawn sharper than the yard's
@@ -235,12 +237,15 @@
     },
 
     /** The roof gun: its mount (h * 0.1 behind the van's middle, as sprites.js draws it), the world angle to shoot
-        at, the barrels' height and how much a shot drops per unit it flies, and the aim's angle on the screen (for
-        the headlights at night). With a pointer: the walker whose picture is under it, led (a shot carries the van's
-        speed and the walker walks on, so it is aimed at where the two meet); else what is under the pointer at
-        chest height (the shot then flies straight at the pointer on the screen). Aim assist: with a pointer, a
-        walker a little off it counts too; keys only, the walker closest to straight ahead. shot: the shots' speed. */
-    aim(g, assist, shot) {
+        at, the barrels' height and how much a shot drops per unit it flies, the aim's angle on the screen, and the
+        angle between its barrels (spread). With a pointer: the walker whose picture is under it, led (a shot carries
+        the van's speed and the walker walks on, so it is aimed at where the two meet); else what is under the pointer
+        at chest height (the shot then flies straight at the pointer on the screen). Aim assist: with a pointer, a
+        walker a little off it counts too; keys only, the walker closest to straight ahead. shot: the shots' speed;
+        n: how many barrels (Spread Shot). Their fan is centred on the aim; aimed at a walker, it closes in (never
+        wider than Upgrades.SPREAD) so every barrel's line crosses that walker where the shots meet it: far down the
+        road a fixed fan would pass either side of it (two barrels both missing). */
+    aim(g, assist, shot, n) {
       const k = this.setup(g);
       const van = g.van;
       const fx = Math.cos(van.heading);
@@ -301,7 +306,10 @@
       const s0 = this.project(mx, my, GUN_Z);
       const s1 = this.project(tx, ty, tz);
       const dz = (tz - GUN_Z) / Math.max(60, dist);
-      return { x: mx, y: my, angle: Math.atan2(ty - my, tx - mx), z: GUN_Z, dz, screen: s0 && s1 ? Math.atan2(s1.y - s0.y, s1.x - s0.x) : -Math.PI / 2 };
+      const S = (ZSR.Upgrades && ZSR.Upgrades.SPREAD) || 0;
+      const half = ((n || 1) - 1) / 2;
+      const spread = target && half > 0 ? Math.min(S, Math.atan2(SPREAD_HIT * (target.r || 18), Math.max(1, dist)) / half) : S;
+      return { x: mx, y: my, angle: Math.atan2(ty - my, tx - mx), z: GUN_Z, dz, spread, screen: s0 && s1 ? Math.atan2(s1.y - s0.y, s1.x - s0.x) : -Math.PI / 2 };
     },
     /** A point's place from the camera's spot: X to the right, Y ahead (after setup). */
     local(x, y) {
@@ -1602,7 +1610,7 @@
       }
       ctx.lineCap = "round";
       const tips = [];
-      const step = ZSR.Upgrades.SPREAD;
+      const step = van.aimSpread == null ? ZSR.Upgrades.SPREAD : van.aimSpread;
       for (let i = 0; i < n; i++) {
         const a = aim + (i - (n - 1) / 2) * step;
         const p1 = this.project(mx + Math.cos(a) * len, my + Math.sin(a) * len, GUN_Z + dz * len);
