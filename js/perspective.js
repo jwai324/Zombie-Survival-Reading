@@ -1720,7 +1720,10 @@
       this.walkerGround(g, ctx);
       // the overgrowth over this drive's land: a square made the first time the view reaches it, let go once left
       const Art = ZSR.PerspArt;
-      if (Art && Art.vegLayout && (!this.vegLayout || this.vegLayout.drive !== g.drive)) this.vegLayout = Art.vegLayout(g.drive, VEG_CELL);
+      if (Art && Art.vegLayout && (!this.vegLayout || this.vegLayout.drive !== g.drive || this.vegLayout.props !== g.props)) {
+        this.vegLayout = Art.vegLayout(g.drive, VEG_CELL, g.props);
+        this.vegLayout.props = g.props;
+      }
       const VL = Art && Art.vegLayout ? this.vegLayout : null;
       const vegNo = (this.vegNo = (this.vegNo || 0) + 1);
       const made0 = VL ? VL.stats.made : 0;

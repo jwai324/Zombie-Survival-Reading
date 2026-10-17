@@ -22,6 +22,12 @@
   const VEG_BUCKET = 2048;
   // past this far from the nearest asphalt's edge (world units) the land is at its sparsest: no road changes a plant
   const VEG_REACH = 700;
+  // a tree, a dead tree or a bush keeps this far (world units) off a wrecked car's or a barrier's footprint (game.js
+  // buildScenery's props, js/perspective.js car and barrier: half its length and width), so no trunk ends on a car's
+  // roof; grass grows round them, as the overgrowth it is
+  // SCALE: one footprint a standing prop kind: a new kind (game.js buildScenery) needs its own here
+  const PROP_CLEAR = 10;
+  const FOOT = { wreck: { l: 54, w: 27, turn: Math.PI / 2 }, barrier: { l: 36, w: 10, turn: 0 } };
   // a plant's foot keeps this far (world px) off the river's muddy bank; the ground's overgrowth, its marks' reach
   const RIVER_CLEAR = 10;
   const COVER_CLEAR = 40;
@@ -203,12 +209,21 @@
       grows the same plant and a square made again is the same; the land is a thicket at the verges, thinner further
       back, never bare; nothing on a road, a lot, a corner's square or in the river. Counts in `stats` (squares made,
       plants made, spots tried, the roads and such each square looked at), for tests: none of it grows with the city. */
-  function Layout(drive, cell) {
+  function Layout(drive, cell, props) {
     const St = ZSR.Streets;
     const G = St.GEOM;
     const Dr = ZSR.Draw;
     this.drive = drive;
     this.cell = cell;
+    // the drive's wrecks and barriers (game.js buildScenery), filed by square: what stands there is not a tree's place
+    const feet = (this.feet = buckets(VEG_BUCKET));
+    for (const p of props || []) {
+      const F = FOOT[p.kind];
+      if (!F) continue;
+      const A = (p.face || 0) + (p.rot || 0) + F.turn;
+      const R = Math.hypot(F.l, F.w) + PROP_CLEAR;
+      feet.add({ x: p.x, y: p.y, ux: Math.cos(A), uy: Math.sin(A), l: F.l + PROP_CLEAR, w: F.w + PROP_CLEAR }, p.x - R, p.y - R, p.x + R, p.y + R);
+    }
     this.cells = new Map();
     this.stats = { made: 0, items: 0, tries: 0, near: 0, dropped: 0 };
     const half = cell * 0.7072;
@@ -299,6 +314,15 @@
         });
       // near the river every spot is checked against it (RIVER_CLEAR), else none
       const wet = !this.dryFar(mx, my, C * 0.7072 + VEG_STEP + RIVER_CLEAR);
+      // the wrecks and barriers on this square (and just past it)
+      const feet = [];
+      this.feet.find(x0, y0, x1, y1, (f) => feet.push(f));
+      const onProp = (x, y) =>
+        feet.some((f) => {
+          const dx = x - f.x;
+          const dy = y - f.y;
+          return Math.abs(dx * f.ux + dy * f.uy) < f.l && Math.abs(-dx * f.uy + dy * f.ux) < f.w;
+        });
       const out = [];
       for (let i = Math.floor(x0 / S); i * S < x1; i++) {
         for (let j = Math.floor(y0 / S); j * S < y1; j++) {
@@ -321,6 +345,7 @@
           else kind = roll < 0.22 ? "grass" : roll < 0.48 ? "bush" : "tree";
           if (kind === "tree" && e < G.shoulder + 50) kind = "bush";
           if (kind === "tree" && r() < 0.22) kind = "dead";
+          if (kind !== "grass" && feet.length && onProp(x, y)) continue;
           const h = kind === "tree" ? 150 + r() * 90 : kind === "dead" ? 130 + r() * 70 : kind === "bush" ? 40 + r() * 34 : 24 + r() * 22;
           // q: the plant's own share in 0..1, for thinning the far ones by a stable hash (js/perspective.js governor)
           out.push({ kind, x, y, h, v: Math.floor(r() * 4), flip: r() < 0.5, q: r() });
@@ -459,9 +484,10 @@
     /** The bushes, tall grass and trees standing all over a drive's land, made a square (`cell` world units) at a
         time as the view first reaches it (Layout above): its first view costs a few dozen squares, a drive's whole
         length a few thousand, however big the city. Seeded by place, so a spot looks the same on every drive at that
-        drive's scale (a drive at another scale stretches the city under the same grid of spots). */
-    vegLayout(drive, cell) {
-      return new Layout(drive, cell);
+        drive's scale (a drive at another scale stretches the city under the same grid of spots); `props`, the drive's
+        own wrecks and barriers, keep its trees and bushes off them (PROP_CLEAR). */
+    vegLayout(drive, cell, props) {
+      return new Layout(drive, cell, props);
     },
     buckets,
   };

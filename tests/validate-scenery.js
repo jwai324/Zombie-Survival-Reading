@@ -9,6 +9,7 @@
      the roads; a drive's first view makes a bounded number of squares;
    - plants are seeded by place: a square made again is the same, and as thick across a square's edge as inside it;
    - nothing grows in the river: no plant, moss mark or prop on the water on the drives along it;
+   - no tree, dead tree or bush stands on a wrecked car or a barrier (the drive's props keep them off);
    - the props filed by square give a frame exactly the props a look at all of them gives; a far wreck, barrier or
      sign is drawn simpler;
    - the scenery governor: slow frames step it down a row at a time (fewer plants drawn), a browser that caps its frames
@@ -191,6 +192,7 @@ const listed = (t) => P.list.filter((o) => o._t === t);
       if (G.running && f % 6 === 0) {
         P.vegLayout = VL;
         VL.drive = G.drive;
+        VL.props = G.props;
         P.drawWorld(G, ctx, null);
         VL.drive = syn;
         if (!first) first = { squares: VL.stats.made, items: VL.stats.items };
@@ -393,6 +395,45 @@ const listed = (t) => P.list.filter((o) => o._t === t);
   if (wetMarks) wetErr(`${wetMarks} overgrowth marks on the river's water`);
   if (!(marksNear > 20)) wetErr(`only ${marksNear} overgrowth marks drawn near the river: the check saw nothing`);
   console.log(`river: ${plants} plants seen on 5 drives along it (${nearWater} within 400 of its bank), none in it, no props, no overgrowth on the water (${marksNear} marks by it)`);
+}
+
+/* ---------- no tree or bush stands on a wrecked car or a barrier (grass may) ---------- */
+{
+  const onErr = (m) => err("plants on props", m);
+  // a prop's footprint (js/perspective.js car and barrier), turned as drawn
+  const FOOT = { wreck: [54, 27, Math.PI / 2], barrier: [36, 10, 0] };
+  const inside = (p, x, y) => {
+    const [l, w, turn] = FOOT[p.kind];
+    const A = (p.face || 0) + (p.rot || 0) + turn;
+    const dx = x - p.x;
+    const dy = y - p.y;
+    return Math.abs(dx * Math.cos(A) + dy * Math.sin(A)) < l && Math.abs(-dx * Math.sin(A) + dy * Math.cos(A)) < w;
+  };
+  let props = 0;
+  let before = 0;
+  let after = 0;
+  let grass = 0;
+  for (const [a, b] of [["base", "hospital"], ["river", "mall"], ["grocery", "school"], ["police", "library"]]) {
+    start(a, b);
+    const stand = G.props.filter((p) => FOOT[p.kind]);
+    props += stand.length;
+    const count = (VL) => {
+      let n = 0;
+      for (const p of stand) {
+        const cx = Math.floor(p.x / 512);
+        const cy = Math.floor(p.y / 512);
+        for (let i = cx - 1; i <= cx + 1; i++) for (let j = cy - 1; j <= cy + 1; j++) for (const o of VL.get(i, j, 1)) if (inside(p, o.x, o.y)) (o.kind === "grass" ? grass++ : n++);
+      }
+      return n;
+    };
+    before += count(Art.vegLayout(G.drive, 512));
+    after += count(Art.vegLayout(G.drive, 512, G.props));
+    G.stop();
+  }
+  if (!(props > 100)) onErr(`only ${props} wrecks and barriers on the drives checked`);
+  if (!(before > 0)) onErr("without the props given, no tree or bush stood on one (the check would prove nothing)");
+  if (after) onErr(`${after} trees, dead trees or bushes stand on a wrecked car or a barrier`);
+  console.log(`plants on props: ${props} wrecks and barriers on 4 drives; trees and bushes on them ${before} without the drive's props given, ${after} with (grass round them kept)`);
 }
 
 /* ---------- props filed by square: the same as looking at all of them; a far prop is simpler ---------- */
