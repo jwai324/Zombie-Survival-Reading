@@ -132,7 +132,7 @@
     sync() {
       if (this.canvas) this.canvas.style.display = this.on && !this.road.classList.contains("hidden") ? "block" : "none";
     },
-    /** The flat camera, or no card: no ground here, and the road's canvas paints its own background again. */
+    /** No card (none at all, or lost): no ground here, and the road's canvas paints its own background again. */
     hide(g) {
       if (!this.canvas || !this.on) return;
       this.on = false;

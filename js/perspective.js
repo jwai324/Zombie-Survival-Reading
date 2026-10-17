@@ -1770,7 +1770,7 @@
       for (const z of g.zombies) add(z, "walker", z.x, z.y);
       if (ZSR.Walker3D) {
         // a body is sorted by its feet, the van by its middle: one the van has driven onto (its feet or the far end of
-        // it lying there inside the van's box) goes under the van, just before it, as main's flat road lays its fallen
+        // it lying there inside the van's box) goes under the van, just before it, as the old flat road laid its fallen
         // under everything standing
         const v = g.van;
         const vx = Math.cos(v.heading);
