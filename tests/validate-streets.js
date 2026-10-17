@@ -78,6 +78,18 @@ function glides(tr, d) {
   return true;
 }
 const MIN_ARC = 95; // the van's own arc through any turn, at least (px). SCALE: the tightest turn today is 99
+/** How far (world px, at `scale`) a point is from the edge of the river's muddy bank (Streets.RIVER): negative in it.
+    Far off the river's box it does not measure exactly (a quadratic curve keeps within its three points). */
+const RV = S.RIVER;
+const RV_BOX = (() => {
+  const pts = [].concat(...RV.curves);
+  return [Math.min(...pts.map((p) => p[0])), Math.min(...pts.map((p) => p[1])), Math.max(...pts.map((p) => p[0])), Math.max(...pts.map((p) => p[1]))];
+})();
+function riverGap(x, y, scale) {
+  const reach = RV.half * scale + RV.bank;
+  const out = Math.max(RV_BOX[0] * scale - x, x - RV_BOX[2] * scale, RV_BOX[1] * scale - y, y - RV_BOX[3] * scale) - reach;
+  return out > 1000 ? out : S.riverDist(x / scale, y / scale) * scale - reach;
+}
 // This file drives every ordered pair of places at two speeds: O(N^2) drives. On a much bigger city, sample pairs.
 
 /* ---------- street names ---------- */
@@ -201,7 +213,8 @@ for (let n = 2; n <= 4; n++) {
 /* ---------- every route, slow van and fast van ---------- */
 const ids = W.LOCATIONS.map((l) => l.id); // places only: a junction is never a destination
 const deg = (id) => S.neighbors(id).length;
-const SPEEDS = [1, 1.7]; // Upgrades: engine 0 .. 5
+// Upgrades: engine 0 .. 5, on the flat road's pace and on the angled camera's (js/game.js PERSP.pace 1.25)
+const SPEEDS = [1, 1.7, 1.25, 2.125];
 let drives = 0;
 let minWin = Infinity;
 let maxTime = 0;
@@ -209,6 +222,7 @@ let minTime = Infinity;
 let minLot = Infinity;
 let minDrive = Infinity;
 let minArc = Infinity;
+let minRiver = Infinity;
 for (const a of ids) {
   for (const b of ids) {
     if (a === b) continue;
@@ -387,6 +401,34 @@ for (const a of ids) {
         minLot = Math.min(minLot, m);
         if (m < 0) err(cs, `the lot of ${lot.node} overlaps another road by ${(-m).toFixed(0)} px`);
       });
+      // nothing is built in the river (Streets.RIVER: the water and its muddy bank) but the road that runs down to it:
+      // every road, drive and side street (their paving) and every lot but River Landing's own, at this route's scale
+      const wet = (x0, y0, x1, y1, w) => {
+        let m = Infinity;
+        const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 30));
+        for (let i = 0; i <= n; i++) m = Math.min(m, riverGap(x0 + ((x1 - x0) * i) / n, y0 + ((y1 - y0) * i) / n, d.scale) - w);
+        return m;
+      };
+      d.roads.forEach((rd) => {
+        if (rd.toRiver) return;
+        const m = wet(rd.x0, rd.y0, rd.x1, rd.y1, G.half + G.shoulder);
+        minRiver = Math.min(minRiver, m);
+        if (m < 0) err(cs, `${rd.drive ? "the drive of " + rd.a : "road " + rd.key} runs ${(-m).toFixed(0)} px into the river`);
+      });
+      d.sides.forEach((sd) => {
+        const m = wet(sd.x0, sd.y0, sd.x1, sd.y1, G.sideHalf + G.shoulder);
+        if (m < 0) err(cs, `side street ${sd.name} runs ${(-m).toFixed(0)} px into the river`);
+      });
+      d.lots.forEach((lot) => {
+        if (lot.river) return;
+        let m = Infinity;
+        lot.corners.forEach(([x, y], i) => {
+          const [x1, y1] = lot.corners[(i + 1) % 4];
+          m = Math.min(m, wet(x, y, x1, y1, 0));
+        });
+        minRiver = Math.min(minRiver, m);
+        if (m < 0) err(cs, `the lot of ${lot.node} lies ${(-m).toFixed(0)} px into the river`);
+      });
       // the drive starts in the first place's parking spot and ends in the last one's
       const e0 = d.ends.find((e) => e.id === a);
       const e1 = d.ends.find((e) => e.id === b);
@@ -401,7 +443,7 @@ for (const a of ids) {
 }
 
 console.log(`streets: ${roadKeys.length} roads named, ${S.SIDE_STREETS.length} side streets, ${drives} drives checked`);
-console.log(`         shortest lane window ${minWin.toFixed(2)} s, drive time ${minTime.toFixed(0)}..${maxTime.toFixed(0)} s, closest lot ${minLot.toFixed(0)} px from another road, tightest turn ${minArc.toFixed(0)} px, places' drives ${minDrive.toFixed(0)} px clear`);
+console.log(`         shortest lane window ${minWin.toFixed(2)} s, drive time ${minTime.toFixed(0)}..${maxTime.toFixed(0)} s, closest lot ${minLot.toFixed(0)} px from another road, tightest turn ${minArc.toFixed(0)} px, places' drives ${minDrive.toFixed(0)} px clear, ${minRiver.toFixed(0)} px off the river`);
 warnings.forEach((w) => console.log("warn  " + w));
 errors.slice(0, 60).forEach((e) => console.log("ERROR " + e));
 if (errors.length > 60) console.log(`... ${errors.length - 60} more errors`);
