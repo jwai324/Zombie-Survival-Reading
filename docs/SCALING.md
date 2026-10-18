@@ -479,9 +479,11 @@ scale, footprint, tiles, `mesh()`).
     `MODEL_LEVELS` has one row per `LIVE_LEVELS` row (validate-engine checks the counts match). Many
     models in view (the yard's props) mean more redraws waiting: watch the walk-round redraw count
     and the `modelStats` probe before raising the cap.
-- `tests/validate-art.js` `VAN_OPS` [1400, 700, 350]: the most canvas calls the van may make at
-  detail 0 / 1 / 2 from any view with all its gear (the road draws it every frame). A new decal or
-  gear piece must fit, or go to detail 0 only.
+- `tests/validate-art.js` `VAN_OPS` [1450, 700, 350]: the most canvas calls the van may make at
+  detail 0 / 1 / 2 from any view with all its gear (the road draws it every frame; Convoy Red from above
+  is at 1441). A new decal or gear piece must fit, or go to detail 0 only. `VAN_DECAL_AREA` (the
+  smallest decal area on the roof and the back doors) and validate-engine's `ROAD_DECAL` (the share of
+  the van a look's decal must cover from the road camera) hold every look readable from behind.
 
 ### Add a paint look
 

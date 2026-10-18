@@ -893,10 +893,16 @@
   };
 
   /* ---------- Armor (plates by level; the window mesh from 2) ---------- */
+  // armor plates take the paint job: steel mixed this far toward the body colour and a little darker, so the van still
+  // wears its look under full armor (the plates read as plates by their ink, bolts and shade; bars stay bare steel)
+  const PLATE_PAINT = 0.55;
+  const PLATE_DARK = 0.12;
+  /** The paint on a plate for this look ("#rrggbb"). */
+  const plateFill = (look) => mix(mix(STEEL, look.body, PLATE_PAINT), "#000000", PLATE_DARK);
   /** A bolted plate (a design in kind's view); rivets: bolts in its top corners (fine); dark: darker steel (on a pale
       bumper). */
   function plate(k, kind, P, rivets, lod, dark) {
-    k.poly(kind, P, dark ? STEEL_DK : STEEL, { lod: lod == null ? 1 : lod, ink: 0.8 });
+    k.poly(kind, P, dark ? STEEL_DK : plateFill(k.look), { lod: lod == null ? 1 : lod, ink: 0.8 });
     if (!rivets) return;
     const a0 = Math.min(...P.map((p) => p[0]));
     const a1 = Math.max(...P.map((p) => p[0]));
@@ -945,8 +951,8 @@
       // 5: the upper cargo sides, guards on the back corners, plates on the roof, a shield over the windshield's foot
       plate(k, "side", rect(-56, 35.5, -24, 46.2), true);
       for (const s of [1, -1]) {
-        k.poly("back", rect(s * 31.1, 15, s * 33.6, 47), STEEL, { lod: 0, ink: 0.7 });
-        k.poly("roof", rect(s * 17, -52, s * 29, 14), STEEL, { lod: 0, ink: 0.8 });
+        k.poly("back", rect(s * 31.1, 15, s * 33.6, 47), plateFill(k.look), { lod: 0, ink: 0.7 });
+        k.poly("roof", rect(s * 17, -52, s * 29, 14), plateFill(k.look), { lod: 0, ink: 0.8 });
       }
       plate(k, "shield", rect(-HW + 3, 31.4, HW - 3, 37.5), false);
       k.poly("shield", rect(-20, 35, 20, 36.2), INK, { lod: 0 });

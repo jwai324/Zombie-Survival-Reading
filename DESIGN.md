@@ -2523,6 +2523,24 @@ the van on the road (a sloped windshield). Answers to the clarifying questions:
 - The map icon takes each look's decal colours (Convoy Red's flames are now orange and yellow; they
   were near black), bumpers and hubs.
 
+**Polish after the first look (2026-10-18).**
+- From the road camera (behind and above) the looks differed mostly by body colour: every look now has a
+  design on the roof and on the back doors at detail 1 (Hazard bands and chevrons, Convoy Red flames off
+  the windshield and up the back corners, Night Violet a pair of bolts each side of the gun, Radioactive
+  sludge rails, a trefoil and drips over the back windows, Rust patches, Olive stars and B-66, Matte Black
+  pinstripes, Primer panels). Decals wholly under the roof rack are skipped. A design may lay a piece over
+  the fittings (the front bumper's hazard band and B-66 showed under the bumper before). `VAN_OPS` at
+  detail 0 rose from 1400 to 1450 (Convoy Red seen from straight above: 1441).
+- Armor plates take the paint: steel mixed 55% toward the body colour and 12% darker, with their ink,
+  bolts and shade (bars over windows and the grille stay bare steel). Under full armor the van still
+  wears its look; before, Armor 4-5 hid most of it under grey steel.
+- The Garage's preview looks at the van from the front-left (140 degrees round from behind, pitched
+  16 degrees, a narrower 44-degree view so the plow is not twice the tail's size), in the same road
+  scene, with the road's aimed roof gun (the model's still gun reads as boxes from the front). It shows the
+  van's dents (repairing redraws it). The title keeps its view, pixel for pixel.
+- The road's light and ink rule live once, in `js/perspective-buildings.js` (`PerspBuild.LIGHT`,
+  `inkW`); the van reads them (an even light if they are not loaded).
+
 **Measured (headless Chromium, no GPU, a 4-core container shared with other work, so directions):**
 - Yard, full build, the frame median against the commit before: standing near the van -11%, walking
   round it +10% (p95 +4%), far +1%, a heavy wave of 30 walkers -0.5% (p95 +4%). Empty yard: within
