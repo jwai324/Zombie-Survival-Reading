@@ -2599,6 +2599,48 @@ with a test that failed before:
   pose change never jumps it. Bark lines fly out to both sides when it barks straight at you.
 - Box heights: dog 0.40 tiles, Rivet 0.36.
 
+### Stage 2, wave 2 (2026-10-18): the crew, the dog and Rivet in the yard and the cabin, judgment calls
+
+**One pool with the walkers (`js/interior.js` live figures; owners `js/crew.js`, `js/robodog.js`, `js/building.js`).**
+- A prop with a `fig` record (`liveFigure`) is drawn as a live walker is: the same canvas pool, redraw cap and near
+  places, freed when its prop leaves the scene or is hidden, all of them when you leave. The governor now counts frames
+  with only the crew on screen, not only walkers. Without Walker3D's people or Beast3D loaded, the crew and dogs keep
+  their flat sprites (a test drops those files and plays on).
+- Smooth by default: the heading turns at the look's turn rate, steps follow the distance walked, a pose eases out of
+  the old one before into the new one (0.45 s to sit, kneel or get up), a pose loop is 3.5 s, the head turns at 5 rad/s.
+  Far figures redraw their idle loop in fewer steps (posts scene: 1.07 to 0.74 redraws a frame).
+- Animals get room under their feet for near paws (at most 1.4 times their height); people use the walkers' sizing.
+
+**What they do.**
+- Every post has a `face` (the task: a bed, a plot, a note on the wall). Talked to, the head turns to you first; past its
+  reach (0.95 rad) the body turns too, in the talk pose; afterwards they go back to the task. A seated crew member stands
+  up to talk (the seated pose has no talking mouth) and sits back down after.
+- Waves: the crew run to the shelter and cower facing its door; the dog gallops after them and lies low facing it.
+- Every repair job uses the hammer kneel.
+- The dog looks at you within 2.5 tiles and turns all the way round when petted; it gallops from 1.2 tiles a second (all
+  of it by 3.0) and wags harder near you. It never follows anyone onto the bench or a bed.
+- Rivet turns to the walker it zaps, flashes when bitten and lies still when off.
+
+**Seats (`CREW_SEATS` in `js/story-crew.js`, read off the furniture: bench 0.154, dining chair 0.161, bed 0.32 tiles).**
+- June: the porch bench at (6.5, 1.45), facing north over the yard. Tomas (Gus's room): the edge of Gus's bed at
+  (22.7, 6.88), facing south, his head turned to Gus's keep-out sign. Pip: the chair at (15.45, 2.5) facing north to the
+  radio (radio shelf), and at the dining post the chair at (15.45, 3.5) facing west to the table.
+- A sitter is drawn 0.05 tiles in front of a chair or bench and 0.25 in front of a bed's edge, so the seat never covers
+  them.
+- Pip's radio chair is 1 tile from the radio, inside the 1.5 tiles posts keep from the cabin's spots (the post's own tile
+  passes). Kept: Pip at the radio is the story, and from the south E goes to the radio by design; you talk to Pip from
+  the side (tested).
+- The speech bubble's tail (`--tail-top`) and the tutorial's arrow point at the figure's real head (`crewHeadTop`), lower
+  when seated.
+
+**Measured (headless Chromium, no GPU, 1280 x 720, every room at its top level, medians of 3 interleaved runs, render
+time against 3f897f8).** Crew at their posts in view +9% (p95 +3%); Tomas 1.6 tiles away at the van +14% (p95 +18%);
+the crew wandering −2%; a heavy wave on day 20 (about 20 walkers) +2%. Bars: 25% calm, 35% heavy wave. What is left is
+mostly pasting the wider 3D pictures (1.2 to 1.3 times as wide as tall, the flat sprite 0.75).
+
+**Known.** A crew member up close costs about 14 to 18% more render: the renderers do not report the area they drew, so
+the transparent part of a wide picture is still pasted. In the dining room the table can hide Pip from some angles.
+
 ### Stage 3, the models (2026-10-18): judgment calls
 
 **The yard's props, signs, plaques and porch (`js/yardmodels.js` contract, `js/yardmodels1.js`, `js/yardmodels2.js`).**
