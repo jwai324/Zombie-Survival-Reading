@@ -2428,3 +2428,27 @@ not the owner's numbers:
 - **Check on the owner's PC.** If the FPS meter shows `pixels 50%` and frames still over 36 ms, the next step is a
   cheaper frame (fewer squares kept sharp, cheaper walkers), not more rows.
 - **50% looks soft** on a 1080p screen. It is the floor; the owner may prefer 65%.
+
+## Owner decisions: a 3D yard, crew and van (2026-10-18)
+
+The owner asked for every building and sign in the yard to be 3D with views from every side, the crew to
+be 3D like the walkers, eight paint options for the van, and a yard van with more angles that looks like
+the van on the road (a sloped windshield). Answers to the clarifying questions:
+
+| Question | Owner's answer |
+|----------|----------------|
+| How do yard props become 3D? | Live 3D models in the comic style, drawn from the player's real angle like the walkers, redrawn only when that angle changes by a step (about 10 degrees), so standing still costs nothing. Not pre-drawn fixed views. |
+| Which props? | Every billboard prop in the yard: signs and plaques, the big build props (tanks, towers, dishes, the well, drums, flags, lamps, the scarecrow ...), the porch props (bell, bench, posts), and the chickens and goats. |
+| The building shells (sheds, huts, garage, cabin)? | Left as they are: they are already raycast boxes that show every side. |
+| A sign from behind? | Text on both sides (it is a reading game). |
+| Which characters? | June, Tomas and Pip, the stray dog and Rivet the robot dog. This reverses "The crew stay flat 2D" (Walkers v2, 2026-10-15). |
+| How are the crew built? | On the walkers' skeleton: the same ink style and light, human faces (no glowing eyes, no gore), child proportions for Pip, today's outfits and props. |
+| How do the crew move? | Smooth animation; they face their task and turn to face the player when talked to; a real run to the shelter and a hunched pose there; they sit on the porch bench and the cabin chairs instead of the floor. |
+| Portraits (crew card, tutorial card)? | Stay the 2D comic portraits. |
+| How do the 8 paint options work? | Buy each paint style once; the player can switch only among the ones bought. |
+| Which 8? | Keep the 6 (Primer Gray, Matte Black, Rust Bucket, Olive Drab, Hazard, Convoy Red) and add a purple and a neon green: **Night Violet** (silver lightning bolts) and **Radioactive** (black toxic drips). |
+| What does a look change? | The full look: body, roof, trim and bumper, wheel rims, and the decal on every side and the hood. |
+| Price and gate? | Today's prices (20 to 40 scrap and a typing round) and the Garage gate stay. The two new looks need the top Garage level (as Convoy Red does), at 45 and 50 scrap. |
+| Where does the new 3D van show? | Everywhere: the yard, River Landing, the road, the garage preview, the title screen and the workbench side view. The map icon stays top-down art with the new paints. |
+| Speed? | Small cost, tested: a full yard with the crew out at most 25% slower than today, a heavy wave at most 35% slower, the road no slower; the automatic quality steps stay. |
+| Delivery? | Three stages pushed to this branch (van and paint, then the crew, then the yard props and signs), no pull request until asked, a playable test build at the end. |
