@@ -1688,6 +1688,39 @@ else {
       }
     });
     if (worstOut) err(`${what}: draws outside its region: ${worstOut}`);
+    // the box it says it drew in (res x0, y0, x1, y1: the engine pastes only that, js/interior.js drawSprite) holds all
+    // it drew: every point of a filled path, a stroked one's with half its width, each within the region
+    {
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      let pend = [];
+      const take = (m) =>
+        pend.forEach(([a0, b0, a1, b1]) => {
+          x0 = Math.min(x0, a0 - m);
+          y0 = Math.min(y0, b0 - m);
+          x1 = Math.max(x1, a1 + m);
+          y1 = Math.max(y1, b1 + m);
+        });
+      ops.forEach((op) => {
+        const a = op.args;
+        if (op.k === "beginPath") pend = [];
+        else if (op.k === "moveTo" || op.k === "lineTo") pend.push([a[0], a[1], a[0], a[1]]);
+        else if (op.k === "quadraticCurveTo") pend.push([a[0], a[1], a[0], a[1]], [a[2], a[3], a[2], a[3]]);
+        else if (op.k === "ellipse") {
+          const c2 = Math.cos(a[4]);
+          const s2 = Math.sin(a[4]);
+          const ex = Math.hypot(a[2] * c2, a[3] * s2);
+          const ey = Math.hypot(a[2] * s2, a[3] * c2);
+          pend.push([a[0] - ex, a[1] - ey, a[0] + ex, a[1] + ey]);
+        } else if (op.k === "fill") take(0);
+        else if (op.k === "stroke") take((op.lineWidth || 0) / 2);
+      });
+      const cl = (v, hi) => Math.max(0, Math.min(hi, v));
+      if (x1 >= x0 && res && !(res.x0 <= cl(x0, cam.w) + 1e-6 && res.y0 <= cl(y0, cam.h) + 1e-6 && res.x1 >= cl(x1, cam.w) - 1e-6 && res.y1 >= cl(y1, cam.h) - 1e-6))
+        err(`${what}: says it drew in ${res.x0},${res.y0} .. ${res.x1},${res.y1} but drew ${x0.toFixed(1)},${y0.toFixed(1)} .. ${x1.toFixed(1)},${y1.toFixed(1)} (the engine pastes only its box)`);
+    }
     return { ops, res };
   }
   const camFor = (type, h, dist) => {

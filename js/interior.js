@@ -2725,6 +2725,7 @@
         s.img = s.im = t.c;
         s.iw = t.lw;
         s.ih = t.lh;
+        s.bb = t.bbOn ? t.bb : null;
       }
       wait.length = 0;
       return drawn;
@@ -2783,6 +2784,8 @@
         // a crew member, the dog or Rivet: its own state and signature (seat, head, run, wag), the same rules after
         st = this.figState(s.fig, s, lod);
         if (sized && sameFigSig(t, st, this.figRenderer(s.fig).FOG_STEPS || 32, figPoseQ(st, s.fig.live3d === "beast"))) return 0;
+        // one that redraws at most every so many frames (fig.every: the farm's animals) keeps a sound picture till then
+        if (s.fig.every > 1 && !old && s.liveAge < s.fig.every) return 0;
       } else {
         st = this.walkerState(z, s, lod);
         if (sized && sameSig(t, st, M.FOG_STEPS || 32)) return 0; // nothing it shows has changed
@@ -2798,6 +2801,7 @@
       const z = s.live;
       const M = W3();
       const t = s.liveT;
+      t.bbOn = false; // (figDraw sets it again when its renderer says where it drew)
       const st = s.fig ? this.figState(s.fig, s, s.lod) : this.walkerState(z, s, s.lod);
       const rw = s.rw;
       const rh = s.rh;
@@ -2895,7 +2899,8 @@
        liveFigure) and say each frame what they want of it: want (a heading, or null: the way it walks), wantPose,
        wantRun (0..1), wantWag (animals), lookX / lookY (what the head turns to; null: straight ahead), turnTo (past the
        head's reach the body turns to it too), seat (tiles), job, hit, zb (drawn this much nearer than it stands: on a
-       chair or a bed's edge, in front of it). figStep turns that into how it looks: the heading turning at its look's
+       chair or a bed's edge, in front of it), and every (frames: redrawn at most this often, 0 as often as it changes).
+       figStep turns that into how it looks: the heading turning at its look's
        turn rate, the gait by the distance walked, move and run easing, the pose easing (out of the old one first:
        poseW), its loop (poseT), the head turning. drawScene draws it with the walkers (figSprite): one pool, one
        redraw cap, the same near ones, its canvas let go when it leaves the scene (liveSweep). */
@@ -2924,7 +2929,7 @@
       if (!this.figCan(kind, id)) return null;
       const look = kind === "beast" ? id : W3().humanId(id);
       const sd = seed | 0;
-      return { live3d: kind, id: look, seed: sd, heading: heading || 0, vx: 0, vy: 0, gait: 0, move: 0, run: 0, pose: "stand", poseT: (sd * 0.618034) % 1, poseW: 1, seat: 0, job: null, headYaw: 0, wag: 0.5, hit: 0, zb: 0, want: null, wantPose: "stand", wantRun: 0, wantWag: 0.5, lookX: null, lookY: null, turnTo: false, turning: false, sceneAt: -1 };
+      return { live3d: kind, id: look, seed: sd, every: 0, heading: heading || 0, vx: 0, vy: 0, gait: 0, move: 0, run: 0, pose: "stand", poseT: (sd * 0.618034) % 1, poseW: 1, seat: 0, job: null, headYaw: 0, wag: 0.5, hit: 0, zb: 0, want: null, wantPose: "stand", wantRun: 0, wantWag: 0.5, lookX: null, lookY: null, turnTo: false, turning: false, sceneAt: -1 };
     },
     /** A figure's sprite entry (as walkerSprite): its renderer's box (a person PERSON_H x CREW[id].scale tall: the box
         already is, never scaled again), shrunk under a ceiling as walkers are, no health bar, sorted zb nearer than it
@@ -2991,7 +2996,16 @@
       cam.dist = s.ty / shrink;
       cam.eye = 0.5 / shrink;
       cam.floor = s.floorT * px;
-      R.draw(t.g, f.id, st, cam);
+      const r = R.draw(t.g, f.id, st, cam);
+      // the box it drew in (Beast3D reports it): only that is pasted (drawSprite); none, the whole picture
+      if (r && r.x1 > r.x0 && r.y1 > r.y0) {
+        const b = t.bb || (t.bb = [0, 0, 0, 0]);
+        b[0] = r.x0;
+        b[1] = r.y0;
+        b[2] = r.x1;
+        b[3] = r.y1;
+        t.bbOn = true;
+      }
       saveFigSig(t, st, R.FOG_STEPS || 32, figPoseQ(st, f.live3d === "beast"));
     },
     /** One frame of a figure's animation (its owner moved it from (x0, y0) to (x, y) and set what it wants: see the
@@ -3103,18 +3117,35 @@
       const iw = s.iw || img.width;
       const ih = s.ih || img.height;
       const k = iw / s.sw; // picture pixels per screen pixel
-      const bottom = s.top + s.sh;
-      const c1 = s.c1;
+      // a live figure whose renderer said where it drew (s.bb, picture px: Beast3D) is pasted from that box only: its
+      // picture is as wide as every pose from every side, so most of it is clear
+      const bb = s.bb;
+      let sy = 0;
+      let sh = ih;
+      let top = s.top;
+      let bottom = s.top + s.sh;
+      let c0 = s.c0;
+      let c1 = s.c1;
+      if (bb) {
+        const kv = ih / s.sh;
+        sy = bb[1];
+        sh = bb[3] - bb[1];
+        top = s.top + bb[1] / kv;
+        bottom = s.top + bb[3] / kv;
+        c0 = Math.max(c0, Math.floor((s.left + bb[0] / k) / COL));
+        c1 = Math.min(c1, Math.floor((s.left + bb[2] / k) / COL));
+        if (c1 < c0 || !(sh > 0)) return;
+      }
       if (s.dim) ctx.globalAlpha = 1 - s.dim;
       let run = -1;
       let clip = 0;
       let cap = -Infinity;
-      for (let col = s.c0; col <= c1 + 1; col++) {
+      for (let col = c0; col <= c1 + 1; col++) {
         if (col <= c1) {
           clip = this.clipAt(col, s.ty);
           cap = s.ty > this.capD[col] ? this.capY[col] : -Infinity; // seen through an opening from under the roof
           const u0 = (col * COL - s.left) * k;
-          if (clip >= bottom && cap <= s.top && u0 >= 0 && u0 + COL * k <= iw) {
+          if (clip >= bottom && cap <= top && u0 >= 0 && u0 + COL * k <= iw) {
             if (run < 0) run = col;
             continue;
           }
@@ -3122,16 +3153,17 @@
         if (run >= 0) {
           const x0 = run * COL;
           const w = (col - run) * COL;
-          ctx.drawImage(img, (x0 - s.left) * k, 0, w * k, ih, x0, s.top, w, s.sh);
+          ctx.drawImage(img, (x0 - s.left) * k, sy, w * k, sh, x0, top, w, bottom - top);
           run = -1;
         }
-        if (col <= c1 && clip > s.top && clip > cap) this.drawSpriteCol(ctx, s, col, k, clip, cap);
+        if (col <= c1 && clip > top && clip > cap) this.drawSpriteCol(ctx, s, col, k, clip, cap > top ? cap : top, bottom);
       }
       if (s.dim) ctx.globalAlpha = 1;
     },
     /** One column of a sprite, cut off at `clip` (clipAt: the first nearer opaque face that rises over it)
-        and, seen out through an opening from under the roof, above `cap`. */
-    drawSpriteCol(ctx, s, col, k, clip, cap) {
+        and, seen out through an opening from under the roof, above `cap`; `bottom` (optional) where its drawn part
+        ends (a live figure's box: drawSprite). */
+    drawSpriteCol(ctx, s, col, k, clip, cap, bottom) {
       const img = s.im;
       const iw = s.iw || img.width;
       const ih = s.ih || img.height;
@@ -3139,8 +3171,9 @@
       const u0 = (x0 - s.left) * k;
       const u1 = u0 + COL * k;
       if (u1 <= 0 || u0 >= iw) return;
+      const end = bottom != null && bottom < s.top + s.sh ? bottom : s.top + s.sh;
       const y0 = cap > s.top ? cap : s.top;
-      const y1 = clip < s.top + s.sh ? clip : s.top + s.sh;
+      const y1 = clip < end ? clip : end;
       if (y1 <= y0) return;
       const sy = (ih * (y0 - s.top)) / s.sh;
       const sh = (ih * (y1 - y0)) / s.sh;

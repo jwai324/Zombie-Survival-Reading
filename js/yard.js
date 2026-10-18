@@ -69,6 +69,9 @@
     yChicken: { type: "chicken", speed: 0.45, rest: [1.5, 5], idle: [["peck", 6], ["stand", 3], ["sit", 1.5], ["flap", 0.6, 1.4]] },
   };
   const ANIMAL_TURN = 0.6; // radians: a spot farther round than this, a 3D animal turns to it before it sets off
+  // frames: a 3D animal's picture is redrawn at most this often (15 a second at 60; its place on screen moves every
+  // frame). Five of them near you redrew 4 pictures a frame, half again the yard's render time on a software canvas
+  const ANIMAL_EVERY = 4;
   const ANIMAL_LOOK = 2.5; // tiles: you this close, a 3D animal standing at rest looks at you
 
   /** A wall face from yardart's "yWall": material, base color, feature (window, door ...), sign slice, part of a wide feature. */
@@ -636,7 +639,10 @@
             const V = v0 + (i % 2 ? 0.65 : 0.35) * (v1 - v0);
             const p = this.prop(U, V, art, { f: 0 }, { scale, whole: true }); // the animals are never cracked
             const fig = A && I.liveFigure ? I.liveFigure("beast", A.type, 17 + I.yardAnims.length * 29, Math.random() * Math.PI * 2) : null;
-            if (fig) p.fig = fig;
+            if (fig) {
+              fig.every = ANIMAL_EVERY;
+              p.fig = fig;
+            }
             I.yardAnims.push({ p, kind: "wander", art, at, U, V, box, tU: U, tV: V, t: Math.random() * 2, f: 0, ft: Math.random(), rest: true, idle: "stand", oneT: 0 });
           }
         },

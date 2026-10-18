@@ -50,7 +50,8 @@
    (seeded random only); nothing made per draw (preallocated joint, blob and part buffers, one Float64Array for the
    numbers passed between functions, a colour-string table that converges because light and fog come in steps);
    colours "rgb(r,g,b)" / "rgba(r,g,b,a)" with the light, fog and hit flash in them; within the per-lod call ceilings
-   tests/validate-art.js sets (BEAST_OPS).
+   tests/validate-art.js sets (BEAST_OPS). It returns { parts, x0, y0, x1, y1 }: the box (px, inside the region) holding
+   everything it drew, its strokes' widths included (an empty one when nothing was), so the engine pastes only that.
    Size: a figure too big for its region is shrunk about its feet, by an envelope of all its poses worked out once in
    addType (as Walker3D), so a dog never changes size as it sits, barks or turns its head. The model keeps screen
    proportions (no squash to the view's stretch), as the walkers do. */
@@ -156,7 +157,10 @@
   let LEGS = LEGS_Q;
   let ZAPT = 0; // st.poseT through a zap (the bolts' flicker)
   const FLR = new Float64Array(2); // cam.floor: [the feet line's y, px of room under it]
-  const RESULT = { parts: 0 };
+  const RESULT = { parts: 0, x0: 0, y0: 0, x1: 0, y1: 0 };
+  // the drawn area: x0, y0, x1, y1 of every path point and ellipse (mt, lt, qt, elSub, ellA), and the widest line set
+  // (lineW): RESULT's box
+  const BB = new Float64Array(5);
 
   /* ---------- Numbers passed between the drawing functions (never in closure variables: V8 would box them) ---------- */
   const RG = new Float64Array(64);
@@ -1099,14 +1103,39 @@
   /* ---------- Path calls, kept inside the region ---------- */
   const clx = (x) => (x < 0 ? 0 : x > RG[CW] ? RG[CW] : x);
   const cly = (y) => (y < 0 ? 0 : y > RG[CH] ? RG[CH] : y);
+  /** The drawn area takes in (x, y) (px). */
+  function bb(x, y) {
+    if (x < BB[0]) BB[0] = x;
+    if (x > BB[2]) BB[2] = x;
+    if (y < BB[1]) BB[1] = y;
+    if (y > BB[3]) BB[3] = y;
+  }
+  /** The line width (the widest one this draw is the drawn area's margin). */
+  function lineW(w) {
+    if (w > BB[4]) BB[4] = w;
+    G.lineWidth = w;
+  }
   function mt(x, y) {
-    G.moveTo(clx(x), cly(y));
+    const px = clx(x);
+    const py = cly(y);
+    bb(px, py);
+    G.moveTo(px, py);
   }
   function lt(x, y) {
-    G.lineTo(clx(x), cly(y));
+    const px = clx(x);
+    const py = cly(y);
+    bb(px, py);
+    G.lineTo(px, py);
   }
   function qt(x1, y1, x, y) {
-    G.quadraticCurveTo(clx(x1), cly(y1), clx(x), cly(y));
+    // (the curve stays inside its three points: the start is already in)
+    const ax = clx(x1);
+    const ay = cly(y1);
+    const px = clx(x);
+    const py = cly(y);
+    bb(ax, ay);
+    bb(px, py);
+    G.quadraticCurveTo(ax, ay, px, py);
   }
   /** Centre (x, y) of an ellipse moved just enough to keep it inside the region. */
   function ellIn(x, y, a, b, r) {
@@ -1116,6 +1145,8 @@
     const ey = Math.sqrt(a * a * s * s + b * b * c * c);
     RG[ECX] = ex * 2 >= RG[CW] ? RG[W2] : x < ex ? ex : x > RG[CW] - ex ? RG[CW] - ex : x;
     RG[ECY] = ey * 2 >= RG[CH] ? RG[CH] / 2 : y < ey ? ey : y > RG[CH] - ey ? RG[CH] - ey : y;
+    bb(RG[ECX] - ex, RG[ECY] - ey);
+    bb(RG[ECX] + ex, RG[ECY] + ey);
   }
   /** A whole ellipse as its own sub-path (no line from the last point). */
   function elSub(x, y, a, b, r) {
@@ -1138,7 +1169,7 @@
     G.fillStyle = fill;
     G.fill();
     G.strokeStyle = INKS;
-    G.lineWidth = lw || Math.min(RG[OUT] * 1.6, Math.max(0.7, RG[ERB] * 0.4));
+    lineW(lw || Math.min(RG[OUT] * 1.6, Math.max(0.7, RG[ERB] * 0.4)));
     G.stroke();
   }
   function seg(x0, y0, x1, y1) {
@@ -1358,14 +1389,14 @@
       G.fillStyle = col(c, boxLight(f), 1);
       G.fill();
       G.strokeStyle = INKS;
-      G.lineWidth = RG[OUT] * 1.5;
+      lineW(RG[OUT] * 1.5);
       G.stroke();
     }
     if (flat) {
       G.fillStyle = col(c, 0.95, 1);
       G.fill();
       G.strokeStyle = INKS;
-      G.lineWidth = RG[OUT] * 1.5;
+      lineW(RG[OUT] * 1.5);
       G.stroke();
     }
   }
@@ -1498,7 +1529,7 @@
     G.fillStyle = col(V.fur, 0.95, 1);
     G.fill();
     G.strokeStyle = INKS;
-    G.lineWidth = Math.max(0.6, RG[OUT] * 0.6);
+    lineW(Math.max(0.6, RG[OUT] * 0.6));
     G.stroke();
   }
   /** The near haunch's curve on the coat (lod 0): the front of the thigh's outline, an arc round from its top to
@@ -1523,7 +1554,7 @@
       G.beginPath();
       ellA(RG[EX], RG[EY], RG[ERA] * 0.92, RG[ERB] * 0.92, RG[ERO], a0 - 1.2, a0 + 0.5, false);
       G.strokeStyle = col(INK, 1, 0.5);
-      G.lineWidth = Math.max(0.6, RG[OUT] * 0.75);
+      lineW(Math.max(0.6, RG[OUT] * 0.75));
       G.stroke();
       return;
     }
@@ -1560,7 +1591,7 @@
           lt(RG[QX], RG[QY]);
         }
         G.strokeStyle = col(INK, 1, 0.45);
-        G.lineWidth = Math.max(0.6, RG[OUT] * 0.6);
+        lineW(Math.max(0.6, RG[OUT] * 0.6));
         G.stroke();
         // rivets along the top edge, over each leg
         G.beginPath();
@@ -1579,7 +1610,7 @@
         G.fillStyle = col(V.badge, boxLight(0) * 1.05, 1);
         G.fill();
         G.strokeStyle = INKS;
-        G.lineWidth = Math.max(0.6, RG[OUT] * 0.8);
+        lineW(Math.max(0.6, RG[OUT] * 0.8));
         G.stroke();
         if (LOD === 0) {
           // a five-point star stamped on it
@@ -1610,10 +1641,10 @@
     mt(x0, y0);
     lt(RG[QX], RG[QY]);
     G.strokeStyle = INKS;
-    G.lineWidth = w + RG[OUT] * 2;
+    lineW(w + RG[OUT] * 2);
     G.stroke();
     G.strokeStyle = col(V.dark, 1, 1);
-    G.lineWidth = w;
+    lineW(w);
     G.stroke();
   }
 
@@ -1649,7 +1680,7 @@
     for (let pass = 0; pass < 2; pass++) {
       const grow = pass ? 0 : RG[OUT] * 2;
       G.strokeStyle = pass ? col(cu, 1, 1) : INKS;
-      G.lineWidth = w1 + grow;
+      lineW(w1 + grow);
       G.beginPath();
       if (metal || pass) {
         mt(xs, ys);
@@ -1658,7 +1689,7 @@
       lt(S[low * 3], S[low * 3 + 1]);
       G.stroke();
       if (pass && cu !== c) G.strokeStyle = col(c, 1, 1);
-      G.lineWidth = w2 + grow;
+      lineW(w2 + grow);
       pawEnd(low, paw, w2);
       seg(S[low * 3], S[low * 3 + 1], RG[GX], RG[GY]);
     }
@@ -1679,7 +1710,7 @@
         lt(lx + dx * (t + r * 0.5) + dy * r, ly + dy * (t + r * 0.5) - dx * r);
       }
       G.strokeStyle = col(INK, 1, 0.5);
-      G.lineWidth = Math.max(0.5, RG[OUT] * 0.45);
+      lineW(Math.max(0.5, RG[OUT] * 0.45));
       G.stroke();
     }
     if (LOD === 0 && !metal) {
@@ -1691,7 +1722,7 @@
       lt(S[low * 3] + RG[NX] * o, S[low * 3 + 1] + RG[NY] * o);
       lt(S[paw * 3] + RG[NX] * o, S[paw * 3 + 1] + RG[NY] * o);
       G.strokeStyle = col(BLACK, 1, 0.16);
-      G.lineWidth = w2 * 0.4;
+      lineW(w2 * 0.4);
       G.stroke();
     }
     if (metal) {
@@ -1704,7 +1735,7 @@
         G.fillStyle = col(V.joint, 1, 1);
         G.fill();
         G.strokeStyle = INKS;
-        G.lineWidth = Math.max(0.6, RG[OUT] * 0.8);
+        lineW(Math.max(0.6, RG[OUT] * 0.8));
         G.stroke();
         if (LOD > 0) break;
       }
@@ -1751,7 +1782,7 @@
         proj(J[o] + fx * pr[2] * 1.3, J[o + 1] - pr[1] * 0.6, J[o + 2] + fz * pr[2] * 1.3, 0);
         lt(RG[QX], RG[QY]);
         G.strokeStyle = col(WHITE, 1, 0.35);
-        G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+        lineW(Math.max(0.5, RG[OUT] * 0.5));
         G.stroke();
       }
     } else if (LOD === 0 && !metal) {
@@ -1765,7 +1796,7 @@
           lt(RG[QX], RG[QY]);
         }
         G.strokeStyle = col(INK, 1, 0.55);
-        G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+        lineW(Math.max(0.5, RG[OUT] * 0.5));
         G.stroke();
       }
     }
@@ -1791,7 +1822,7 @@
         lt(RG[QX], RG[QY] - up);
       }
       G.strokeStyle = pass ? col(c, 1, 1) : INKS;
-      G.lineWidth = pass ? w : w + RG[OUT] * 2;
+      lineW(pass ? w : w + RG[OUT] * 2);
       G.stroke();
     }
   }
@@ -1813,7 +1844,7 @@
         lt(RG[GX], RG[GY]);
       }
       G.strokeStyle = pass ? col(metal ? V.body : V.legCol || V.fur, 0.95, 1) : INKS;
-      G.lineWidth = pass ? w : w + RG[OUT] * 2;
+      lineW(pass ? w : w + RG[OUT] * 2);
       G.stroke();
     }
   }
@@ -1829,7 +1860,7 @@
       const grow = pass ? 0 : RG[OUT] * 2;
       G.strokeStyle = pass ? col(metal ? V.dark : V.fur, 1, 1) : INKS;
       if (LOD === 2) {
-        G.lineWidth = r0 * S[TM * 3 + 2] * 0.85 + grow;
+        lineW(r0 * S[TM * 3 + 2] * 0.85 + grow);
         G.beginPath();
         mt(S[TB * 3], S[TB * 3 + 1]);
         lt(S[TM * 3], S[TM * 3 + 1]);
@@ -1840,7 +1871,7 @@
       }
       // thick at the base, thinner to the tip
       for (let k = 0; k < 3; k++) {
-        G.lineWidth = r0 * S[(TB + k) * 3 + 2] * (1 - 0.22 * k) + grow;
+        lineW(r0 * S[(TB + k) * 3 + 2] * (1 - 0.22 * k) + grow);
         seg(S[(TB + k) * 3], S[(TB + k) * 3 + 1], S[(TB + k + 1) * 3], S[(TB + k + 1) * 3 + 1]);
       }
     }
@@ -1855,7 +1886,7 @@
       G.fillStyle = col(V.joint, 1, 1);
       G.fill();
       G.strokeStyle = INKS;
-      G.lineWidth = Math.max(0.6, RG[OUT] * 0.8);
+      lineW(Math.max(0.6, RG[OUT] * 0.8));
       G.stroke();
       return;
     }
@@ -1876,7 +1907,7 @@
         lt(tx + (dx * c - dy * s) * L * (pass ? 0.75 : 1), ty + (dy * c + dx * s) * L * (pass ? 0.75 : 1));
       }
       G.strokeStyle = pass ? col(V.fur, 1, 1) : INKS;
-      G.lineWidth = pass ? Math.max(0.5, b.tail[1] * 0.5 * RG[PXS] * S[TT * 3 + 2]) : Math.max(0.9, b.tail[1] * 0.5 * RG[PXS] * S[TT * 3 + 2] + RG[OUT] * 1.2);
+      lineW(pass ? Math.max(0.5, b.tail[1] * 0.5 * RG[PXS] * S[TT * 3 + 2]) : Math.max(0.9, b.tail[1] * 0.5 * RG[PXS] * S[TT * 3 + 2] + RG[OUT] * 1.2));
       G.stroke();
     }
   }
@@ -1925,7 +1956,7 @@
       G.fillStyle = col(V.tailCol || V.fur, half ? 0.97 : 0.88, 1);
       G.fill();
       G.strokeStyle = INKS;
-      G.lineWidth = Math.max(0.6, RG[OUT] * 1.1);
+      lineW(Math.max(0.6, RG[OUT] * 1.1));
       G.stroke();
     }
     if (LOD === 0) {
@@ -1940,7 +1971,7 @@
         lt(RG[QX], RG[QY]);
       }
       G.strokeStyle = col(INK, 1, 0.35);
-      G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+      lineW(Math.max(0.5, RG[OUT] * 0.5));
       G.stroke();
     }
   }
@@ -2016,7 +2047,7 @@
     G.fillStyle = col(V.wing || V.fur, view > 0 ? 0.97 : 0.8, 1);
     G.fill();
     G.strokeStyle = INKS;
-    G.lineWidth = Math.max(0.6, RG[OUT] * 1.05);
+    lineW(Math.max(0.6, RG[OUT] * 1.05));
     G.stroke();
     if (LOD === 0) {
       // the coverts' edge, curving across it; the flight feathers parting below it
@@ -2038,7 +2069,7 @@
         lt(RG[QX], RG[QY]);
       }
       G.strokeStyle = col(INK, 1, 0.3);
-      G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+      lineW(Math.max(0.5, RG[OUT] * 0.5));
       G.stroke();
     }
   }
@@ -2101,7 +2132,7 @@
       G.fillStyle = col(V.ear || V.fur, 1, 1);
       G.fill();
       G.strokeStyle = INKS;
-      G.lineWidth = Math.max(0.7, RG[OUT] * 1.2);
+      lineW(Math.max(0.7, RG[OUT] * 1.2));
       G.stroke();
       if (LOD === 0) {
         // the fold, where it bends over
@@ -2111,7 +2142,7 @@
         headPt(s * E[15] * h[0] * sz, (E[16] + pk * 0.3) * h[1] * sz, E[17] * h[2]);
         lt(RG[QX], RG[QY]);
         G.strokeStyle = col(INK, 1, 0.5);
-        G.lineWidth = Math.max(0.5, RG[OUT] * 0.6);
+        lineW(Math.max(0.5, RG[OUT] * 0.6));
         G.stroke();
       }
       return;
@@ -2143,7 +2174,7 @@
         G.fillStyle = col(metal ? V.dark : V.shade || V.fur, 1, 1);
         G.fill();
         G.strokeStyle = INKS;
-        G.lineWidth = Math.max(0.7, RG[OUT] * 1.2);
+        lineW(Math.max(0.7, RG[OUT] * 1.2));
         G.stroke();
       }
     }
@@ -2244,7 +2275,7 @@
     G.fillStyle = col(V.beak, 1, 1);
     G.fill();
     G.strokeStyle = INKS;
-    G.lineWidth = Math.max(0.6, RG[OUT] * 0.9);
+    lineW(Math.max(0.6, RG[OUT] * 0.9));
     G.stroke();
     if (LOD === 0) {
       // where the upper half meets the lower, on the sides that show
@@ -2260,7 +2291,7 @@
       }
       if (any) {
         G.strokeStyle = col(INK, 1, 0.6);
-        G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+        lineW(Math.max(0.5, RG[OUT] * 0.5));
         G.stroke();
       }
     }
@@ -2303,7 +2334,7 @@
       hornPt(b, s, 0);
       headPt(HP[0], HP[1], HP[2]);
       if (LOD > 0) {
-        G.lineWidth = Math.max(0.6, w0 * 0.7) + grow;
+        lineW(Math.max(0.6, w0 * 0.7) + grow);
         G.beginPath();
         mt(RG[QX], RG[QY]);
         for (let k = 1; k <= HORN_SEGS; k++) {
@@ -2319,7 +2350,7 @@
         const y0 = RG[QY];
         hornPt(b, s, k);
         headPt(HP[0], HP[1], HP[2]);
-        G.lineWidth = Math.max(0.6, w0 * (1 - (0.75 * (k - 1)) / HORN_SEGS)) + grow;
+        lineW(Math.max(0.6, w0 * (1 - (0.75 * (k - 1)) / HORN_SEGS)) + grow);
         seg(x0, y0, RG[QX], RG[QY]);
       }
     }
@@ -2344,7 +2375,7 @@
         lt(cx + dy * r, cy - dx * r);
       }
       G.strokeStyle = col(INK, 1, 0.45);
-      G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+      lineW(Math.max(0.5, RG[OUT] * 0.5));
       G.stroke();
     }
   }
@@ -2379,7 +2410,7 @@
     G.fillStyle = col(V.beard, 1, 1);
     G.fill();
     G.strokeStyle = INKS;
-    G.lineWidth = Math.max(0.6, RG[OUT] * 0.9);
+    lineW(Math.max(0.6, RG[OUT] * 0.9));
     G.stroke();
     if (LOD === 0) {
       G.beginPath();
@@ -2392,7 +2423,7 @@
         lt(RG[QX], RG[QY]);
       }
       G.strokeStyle = col(INK, 1, 0.45);
-      G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+      lineW(Math.max(0.5, RG[OUT] * 0.5));
       G.stroke();
     }
   }
@@ -2422,7 +2453,7 @@
     G.fillStyle = col(V.comb, 1, 1);
     G.fill();
     G.strokeStyle = INKS;
-    G.lineWidth = Math.max(0.6, RG[OUT] * 0.9);
+    lineW(Math.max(0.6, RG[OUT] * 0.9));
     G.stroke();
   }
   /** A hen's wattle (build.wattle [length, width], look.comb): two red lobes hanging under her beak, one far off. */
@@ -2539,7 +2570,7 @@
       G.fill();
       if (LOD < 2) {
         G.strokeStyle = INKS;
-        G.lineWidth = Math.max(0.5, RG[OUT] * 0.6);
+        lineW(Math.max(0.5, RG[OUT] * 0.6));
         G.stroke();
         // the highlight, up and to the left
         G.beginPath();
@@ -2557,7 +2588,7 @@
         headPt(ex + s * h[0] * 0.24, eu + h[1] * 0.34, ez - h[2] * 0.1);
         qt(cx, cy, RG[QX], RG[QY]);
         G.strokeStyle = col(INK, 1, 0.8);
-        G.lineWidth = Math.max(0.6, RG[OUT] * 0.7);
+        lineW(Math.max(0.6, RG[OUT] * 0.7));
         G.stroke();
       }
     }
@@ -2590,7 +2621,7 @@
         qt(cx, cy, RG[QX], RG[QY]);
       }
       G.strokeStyle = col(INK, 1, 0.85);
-      G.lineWidth = Math.max(0.6, RG[OUT] * 0.75);
+      lineW(Math.max(0.6, RG[OUT] * 0.75));
       G.stroke();
     }
     // scruff on the cheeks (lod 0)
@@ -2611,7 +2642,7 @@
       }
       if (any) {
         G.strokeStyle = INKS;
-        G.lineWidth = Math.max(0.6, RG[OUT] * 0.75);
+        lineW(Math.max(0.6, RG[OUT] * 0.75));
         G.stroke();
       }
     }
@@ -2652,7 +2683,7 @@
         lt(x0 + ux * L, y0 + uy * L);
       }
     G.strokeStyle = INKS;
-    G.lineWidth = Math.max(0.8, RG[OUT] * 1.1);
+    lineW(Math.max(0.8, RG[OUT] * 1.1));
     G.stroke();
   }
   /** A robot's head: a box skull and a box snout, two triangle ears, the antenna, the visor and the chemistry nose. */
@@ -2685,7 +2716,7 @@
         G.fillStyle = LIT ? glow(ZAPPING ? V.bright : V.eye, 1) : col(V.eyeOff, 1, 1);
         G.fill();
         G.strokeStyle = INKS;
-        G.lineWidth = Math.max(0.6, RG[OUT] * 0.8);
+        lineW(Math.max(0.6, RG[OUT] * 0.8));
         G.stroke();
       }
       if (LIT && LOD === 0) {
@@ -2740,7 +2771,7 @@
       }
       if (any) {
         G.strokeStyle = col(INK, 1, 0.8);
-        G.lineWidth = Math.max(0.6, RG[OUT] * 0.7);
+        lineW(Math.max(0.6, RG[OUT] * 0.7));
         G.stroke();
       }
     }
@@ -2769,10 +2800,10 @@
     mt(x0, y0);
     lt(x1, y1);
     G.strokeStyle = INKS;
-    G.lineWidth = a[1] * 2 * RG[PXS] * k + RG[OUT] * 2;
+    lineW(a[1] * 2 * RG[PXS] * k + RG[OUT] * 2);
     G.stroke();
     G.strokeStyle = col(V.dark, 1, 1);
-    G.lineWidth = a[1] * 2 * RG[PXS] * k;
+    lineW(a[1] * 2 * RG[PXS] * k);
     G.stroke();
     const r = a[2] * RG[PXS] * k;
     if (LIT && LOD === 0) {
@@ -2786,7 +2817,7 @@
     G.fillStyle = LIT ? glow(ZAPPING ? V.bright : V.tip, 1) : col(V.eyeOff, 1, 1);
     G.fill();
     G.strokeStyle = INKS;
-    G.lineWidth = Math.max(0.6, RG[OUT] * 0.8);
+    lineW(Math.max(0.6, RG[OUT] * 0.8));
     G.stroke();
   }
   /** The zap: two jagged sparks crackling off the nose, ahead, and a flash at it (glow: they light the dark). */
@@ -2812,10 +2843,10 @@
     }
     const w = Math.max(1, sn[2] * 0.5 * RG[PXS] * RG[QK]);
     G.strokeStyle = glow(V.bright, 1);
-    G.lineWidth = w * 2.2;
+    lineW(w * 2.2);
     G.stroke();
     G.strokeStyle = glow(V.eye, 1);
-    G.lineWidth = w;
+    lineW(w);
     G.stroke();
     // the flash at the nose
     headPt(0, sn[3], sn[4] + sn[0] * 1.1);
@@ -2847,6 +2878,10 @@
   function draw(ctx, type, st, cam) {
     const t = TYPES[type] || TYPES.dog;
     RESULT.parts = 0;
+    RESULT.x0 = RESULT.y0 = RESULT.x1 = RESULT.y1 = 0;
+    BB[0] = BB[1] = Infinity;
+    BB[2] = BB[3] = -Infinity;
+    BB[4] = 0;
     if (!t || !ctx || !st || !cam) return RESULT;
     T = t;
     G = ctx;
@@ -2914,6 +2949,14 @@
     }
     for (let i = 0; i < n; i++) drawPart(pOrd[i]);
     RESULT.parts = n;
+    if (BB[2] >= BB[0]) {
+      // a stroke reaches half its width past its points (round caps and joins), and a pixel of smoothing
+      const m = BB[4] / 2 + 1;
+      RESULT.x0 = Math.max(0, Math.floor(BB[0] - m));
+      RESULT.y0 = Math.max(0, Math.floor(BB[1] - m));
+      RESULT.x1 = Math.min(RG[CW], Math.ceil(BB[2] + m));
+      RESULT.y1 = Math.min(RG[CH], Math.ceil(BB[3] + m));
+    }
     G = null;
     return RESULT;
   }
