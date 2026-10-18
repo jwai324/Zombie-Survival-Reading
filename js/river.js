@@ -29,6 +29,7 @@
       this.loadGrid(R.grid, R.palette);
       this.water = new Uint8Array(this.gw * this.gh);
       this.riverSpots = []; // the sign and the note: read with E (the core's read panel, via readSpot)
+      this.vanTiles = []; // the van's V tiles: solid and opaque; the 3D van stands on them (js/modelsprite.js)
       let start = [22.5, 18.5, Math.PI]; // facing west, at the water
       const k = SIGN_SCALE[root.document && document.documentElement.getAttribute("data-size")] || 1;
       for (let y = 0; y < this.gh; y++) {
@@ -39,7 +40,11 @@
           // the far bank and the edges are a wall of trees; a tree out on the grass is a tree (solid, and cover)
           const edge = x === 0 || y === 0 || x === this.gw - 1 || y === this.gh - 1;
           if ((ch === "T" && edge) || ch === "V") {
-            if (ch === "V" && !this.van) this.van = { x, y };
+            if (ch === "V") {
+              if (!this.van) this.van = { x, y };
+              this.vanTiles.push([x, y]);
+              this.setFloor(x, y, "dirt"); // the turnout's dirt runs on under the van
+            }
             continue;
           }
           if (ch === "T") {
@@ -69,6 +74,7 @@
           } else if (ch === "z") this.spawns.push([cx, cy]);
         }
       }
+      if (this.addVanModel) this.addVanModel(this.vanTiles); // the road's 3D van, parked (its cab west, at the water)
       this.dressBank();
       this.makePlayer(start[0], start[1], start[2]);
       this.startPos = start;

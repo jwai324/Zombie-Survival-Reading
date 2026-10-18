@@ -93,7 +93,7 @@ const PAGE = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m)
 // the fact files: js/layouts.js, js/world.js and every js/story*.js the page loads (a split fact file, story-quests2.js,
 // is run too; tests/validate-world.js reads the same list), then the engine
 const FACT_FILES = ["layouts.js", "world.js"].concat(PAGE.filter((f) => /^story[\w-]*\.js$/.test(f)));
-const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "model3d.js", "van3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "perspective.js", "interior.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
+const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "model3d.js", "van3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "perspective.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
 const scripts = PAGE.filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -3911,6 +3911,489 @@ try {
 }
 // (its own OK line, here: the summary at the end of the file is shared with other sections)
 if (errors.length === liveErrors0) console.log(`OK: live walkers: ${liveChecked} checks (every kind in every state drawn in a building, the yard and the cabin; canvases reused and let go; walls hide; ceilings cap; poses ease; the fallen fade; no Draw3.dim; still walkers drawn once; the redraw cap, the near ones and the governor; turning back to a crowd is no burst; the health bar; blood only with gore, its spray from the chest as drawn).`);
+
+/* ---------- The parked van as a 3D model (js/modelsprite.js through the renderer) ----------
+   The yard's and River Landing's van is one Van3D model standing on its V tiles: a frame draws it into a picture
+   (Model3D.draw) and never a V wall face; its strips cover its columns side by side, each at the depth its ray meets
+   the footprint (checked against a ray cast here for synthetic views); a point of the van you see lands on screen
+   where the screen's own projection puts it (just drawn, after turning and after a small step without a redraw); it
+   is lit as the walls are; a walker in front of, behind and beside it sorts right column by column, and one hidden
+   behind it shows no health bar; standing still and turning draw no new picture while it stays whole in view; a walk
+   round it redraws in steps (at least one per MODEL_ANGLE_MAX, never every frame); a wall between you and it clips
+   it, and a wall that hides it all leaves it undrawn; its tiles still block walking, sight and shots; the model
+   governor has a row per walker row, cheaper down the table, and its last row's px holds; a dent redraws it (no
+   refreshScene); its canvas goes MODEL_IDLE frames out of view, and every one with the scene. */
+let modelChecked = 0;
+const modelErrors0 = errors.length;
+{
+  const M3 = ZSR.Model3D;
+  const drawWas = M3 && M3.draw;
+  const faceWas = I.drawFace;
+  const spriteWas = I.drawSprite;
+  const refreshWas = I.refreshScene;
+  const ok = (cond, msg) => {
+    modelChecked++;
+    if (!cond) err(`model sprites: ${msg}`);
+  };
+  let vanDraws = 0;
+  let lastView = null;
+  let vFaces = 0;
+  let order = [];
+  try {
+    if (!M3 || !ZSR.Van3D || !I.modelQueue) throw new Error("js/model3d.js, js/van3d.js or js/modelsprite.js did not load");
+    M3.draw = function (ctx, m, view) {
+      if (m && m.id === "van") {
+        vanDraws++;
+        lastView = view;
+      }
+      return drawWas.call(this, ctx, m, view);
+    };
+    I.drawFace = function (ctx, hit, x, sc) {
+      if (hit.ch === "V") vFaces++;
+      return faceWas.call(this, ctx, hit, x, sc);
+    };
+    I.drawSprite = function (ctx, s) {
+      order.push(s.model ? { strip: true, c0: s.c0, c1: s.c1, ty: s.ty, x0: s.x0, x1: s.x1, X0: s.X0, X1: s.X1, v: s.v, top: s.top } : { live: s.live || null, c0: s.c0, c1: s.c1, ty: s.ty });
+      return spriteWas.call(this, ctx, s);
+    };
+    const ST = 2 * Math.tan(I.FOV / 2);
+    const COL = I.COL;
+    const p = () => I.player;
+    /** One frame; the van's strips left to right (they are drawn far to near). */
+    const frame = () => {
+      order = [];
+      I.render();
+      return order.filter((o) => o.strip).sort((a, b) => a.c0 - b.c0);
+    };
+    const at = (x, y, a) => Object.assign(I.player, { x, y, a });
+    const lookAt = (x, y, tx, ty) => at(x, y, Math.atan2(ty - y, tx - x));
+    /** No V tile is a face in any column (castColumns leaves the model's tiles to it). */
+    const noVHits = () => {
+      const per = I.hitStore.length / I.cols;
+      for (let c = 0; c < I.cols; c++) for (let k = 0; k < I.hitN[c]; k++) if (I.hitStore[c * per + k].ch === "V") return false;
+      return true;
+    };
+    /** The depth (along the view) where the ray through screen x first meets the footprint rectangle, or -1. */
+    const rayDepth = (x, f) => {
+      const a = p().a;
+      const tn = ((x - I.W / 2) * ST) / I.H;
+      const rx = Math.cos(a) - Math.sin(a) * tn;
+      const ry = Math.sin(a) + Math.cos(a) * tn;
+      let t0 = 0;
+      let t1 = Infinity;
+      for (const [o, r, lo, hi] of [[p().x, rx, f.x0, f.x1], [p().y, ry, f.y0, f.y1]]) {
+        if (Math.abs(r) < 1e-12) {
+          if (o < lo || o > hi) return -1;
+          continue;
+        }
+        const ta = (lo - o) / r;
+        const tb = (hi - o) / r;
+        t0 = Math.max(t0, Math.min(ta, tb));
+        t1 = Math.min(t1, Math.max(ta, tb));
+      }
+      return t0 <= t1 && t1 > 0 ? t0 : -1;
+    };
+    /** Strips side by side: each one's columns follow the last one's, none twice. */
+    const contiguous = (strips) => strips.every((s, i) => s.c0 <= s.c1 && (!i || s.c0 === strips[i - 1].c1 + 1));
+    /** The screen x of a world point, or null behind you. */
+    const screenOf = (wx, wy, z) => I.project(wx, wy, z);
+
+    /* the yard */
+    S.newGame(S.activeSlot(), "Test");
+    S.trip = null;
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    I.walkers.length = 0;
+    const van = I.modelOf("van");
+    ok(!!van, "the yard has no van model");
+    if (!van) throw new Error("no van model in the yard");
+    const vt = I.vanTiles.map(([x, y]) => x + "," + y).sort().join(" ");
+    const gridV = [];
+    I.grid.forEach((row, y) => row.forEach((ch, x) => ch === "V" && gridV.push(x + "," + y)));
+    ok(vt === gridV.sort().join(" ") && van.tiles.length === I.vanTiles.length, `the van model stands on ${van.tiles.length} tiles, the grid has V at ${gridV.join(" ")}`);
+    ok(I.van && I.van.x === Math.min(...I.vanTiles.map((t) => t[0])), "this.van is not the van's west (cab) tile");
+    const f = { x0: Math.min(...van.foot.map((q) => q[0])), x1: Math.max(...van.foot.map((q) => q[0])), y0: Math.min(...van.foot.map((q) => q[1])), y1: Math.max(...van.foot.map((q) => q[1])) };
+    const cx = (f.x0 + f.x1) / 2;
+    const cy = (f.y0 + f.y1) / 2;
+    ok(Math.abs(van.x - cx) < 1e-9 && Math.abs(van.y - cy) < 1e-9 && Math.abs(Math.cos(van.rot) + 1) < 1e-9, `the van stands at ${van.x},${van.y} facing ${van.rot} (want its tiles' middle ${cx},${cy}, nose west)`);
+    ok(Math.abs(ZSR.Van3D.L * van.scale - 118 / 62.5) < 1e-9 && Math.abs(ZSR.Van3D.H * van.scale - 0.8) < 1e-9, `the van is ${ZSR.Van3D.L * van.scale} tiles long and ${ZSR.Van3D.H * van.scale} tall (want 1.89, 0.8)`);
+    // its tiles: still solid (walking, walkers), opaque (sight, shots) and seen-through only by the raycaster
+    I.vanTiles.forEach(([x, y]) => {
+      ok(I.solidAt(x + 0.5, y + 0.5) && I.opaqueAt(x + 0.5, y + 0.5) && I.solidMask()[y * I.gw + x] === 1, `the van tile ${x},${y} no longer blocks walking or sight`);
+      ok(I.modelSee && I.modelSee[y * I.gw + x] === 1, `the van tile ${x},${y} is not left to the model`);
+    });
+    ok(!I.lineClear(cx, f.y0 - 1.5, cx, f.y1 + 1.5) && !I.shotClear(cx, f.y0 - 1.5, cx, f.y1 + 1.5), "a line through the van is clear (sight or a shot passes through it)");
+    {
+      const q = { x: cx, y: f.y0 - 0.6 };
+      for (let i = 0; i < 40; i++) I.moveCircle(q, 0, 0.05, 0.3, true);
+      ok(q.y <= f.y0 - 0.3 + 1e-6, `you walked into the van (to ${q.y.toFixed(2)}, its side at ${f.y0})`);
+    }
+
+    // a frame facing it: the van drawn as a model, no V wall face, the floor cast under it
+    lookAt(cx, f.y0 - 2.5, cx, cy);
+    vanDraws = 0;
+    vFaces = 0;
+    let strips = frame();
+    ok(vanDraws === 1, `the first frame facing the van drew its picture ${vanDraws} times (want 1)`);
+    ok(vFaces === 0 && noVHits(), `the van was drawn as ${vFaces} V wall faces`);
+    ok(strips.length > 0 && contiguous(strips), `the van's ${strips.length} strips are not side by side (${JSON.stringify(strips.slice(0, 3).map((s) => [s.c0, s.c1]))})`);
+    ok(strips.every((s) => s.c1 - s.c0 + 1 <= I.MODEL_STRIP), `a strip spans more than MODEL_STRIP (${I.MODEL_STRIP}) columns`);
+    // they span the van: every corner of its box on screen is inside the strips' columns
+    const box = van.box;
+    const span = () => [strips[0].c0 * COL, (strips[strips.length - 1].c1 + 1) * COL];
+    for (let i = 0; i < 4; i++) {
+      const q = screenOf(box.P[i * 2], box.P[i * 2 + 1], 0);
+      if (!q || q.x < 0 || q.x > I.W) continue;
+      const [a, b] = span();
+      ok(q.x >= a - 1 && q.x <= b + 1, `the van's corner at screen x ${q.x.toFixed(1)} is outside its strips (${a}..${b})`);
+    }
+    // the light: a face turned to the world's x is lit as an x-facing wall, one turned to y as a y-facing one (12% darker)
+    if (lastView) {
+      const R = [-Math.sin(van.rot), Math.cos(van.rot)];
+      const F = [Math.cos(van.rot), Math.sin(van.rot)];
+      // (model normals whose world normals point along x and along y)
+      const nX = [R[0], F[0]];
+      const nY = [R[1], F[1]];
+      ok(Math.abs(lastView.lit(nX[0], nX[1], 0) - 1) < 1e-9 && Math.abs(lastView.lit(nY[0], nY[1], 0) - 0.88) < 1e-9, `the van's sides are lit ${lastView.lit(nX[0], nX[1], 0)} and ${lastView.lit(nY[0], nY[1], 0)} (want the walls' 1 and 0.88)`);
+      ok(lastView.lit(0, 0, 1) > 1 && lastView.lit(0, 0, -1) < 0.88, "the van's top is not brighter, or its underside not darker, than its sides");
+      ok(Math.abs(lastView.fog - Math.min(I.sc.fogMax, Math.hypot(cx - p().x, cy - p().y) * I.sc.fogK)) < 1e-9, `the van's fog ${lastView.fog} is not a wall's at its distance`);
+    }
+
+    /** Every strip's depth is where its middle ray (else an edge ray, else the nearest corner) meets the footprint. */
+    const depthsRight = (where) => {
+      const corner = Math.max(0.1, Math.min(...van.foot.map(([x, y]) => (x - p().x) * Math.cos(p().a) + (y - p().y) * Math.sin(p().a))));
+      strips.forEach((s) => {
+        const m = rayDepth((s.x0 + s.x1) / 2, f);
+        let want = m;
+        if (!(m > 0.1)) {
+          const a = rayDepth(s.x0, f);
+          const b = rayDepth(s.x1, f);
+          want = a > 0.1 && b > 0.1 ? Math.min(a, b) : a > 0.1 ? a : b > 0.1 ? b : corner;
+        }
+        ok(Math.abs(s.ty - want) < 1e-6, `${where}: the strip at columns ${s.c0}..${s.c1} is at depth ${s.ty.toFixed(4)}, its ray meets the van at ${want.toFixed(4)}`);
+      });
+    };
+    /** A point of the van's box (corners, ground and roof) lands where the screen's projection puts it, through the
+        picture and the strip that holds it (only the corners you see: one behind the van is not on screen). */
+    const mapsRight = (where) => {
+      const t = I.modelPool.get(van);
+      const e = [t.ex, t.ey];
+      const dirX = Math.cos(p().a);
+      const dirY = Math.sin(p().a);
+      const boxF = { x0: Math.min(box.P[0], box.P[2], box.P[4], box.P[6]), x1: Math.max(box.P[0], box.P[2], box.P[4], box.P[6]), y0: Math.min(box.P[1], box.P[3], box.P[5], box.P[7]), y1: Math.max(box.P[1], box.P[3], box.P[5], box.P[7]) };
+      let n = 0;
+      for (let i = 0; i < 4; i++) {
+        for (const z of [0, box.z1]) {
+          const wx = box.P[i * 2];
+          const wy = box.P[i * 2 + 1];
+          const q = screenOf(wx, wy, z);
+          if (!q || q.x < 1 || q.x > I.W - 1) continue;
+          if (Math.abs(rayDepth(q.x, boxF) - ((wx - p().x) * dirX + (wy - p().y) * dirY)) > 1e-5) continue;
+          const s = strips.find((st) => q.x >= st.x0 && q.x < st.x1);
+          if (!s) continue;
+          const dx = wx - e[0];
+          const dy = wy - e[1];
+          const dp = dx * Math.cos(t.axis) + dy * Math.sin(t.axis);
+          const X = t.cx + (t.Px * (dy * Math.cos(t.axis) - dx * Math.sin(t.axis))) / dp;
+          const Y = t.hr + (t.Py * (0.5 - z)) / dp;
+          const Xs = s.X0 + ((q.x - s.x0) * (s.X1 - s.X0)) / (s.x1 - s.x0);
+          const ys = s.top + Y * s.v;
+          n++;
+          ok(Math.abs(Xs - X) < 1.2 && Math.abs(ys - q.y) < I.MODEL_SEAM_PX + 1, `${where}: a corner of the van (z ${z.toFixed(2)}) maps to picture x ${Xs.toFixed(1)} and screen y ${ys.toFixed(1)}, want ${X.toFixed(1)} and ${q.y.toFixed(1)}`);
+        }
+      }
+      ok(n >= 2, `${where}: only ${n} of the van's corners were on screen to check`);
+    };
+    depthsRight("facing its side");
+    mapsRight("facing its side");
+    // a synthetic view square to its side: every ray meets its near side at the same depth
+    ok(strips.every((s) => Math.abs(s.ty - 2.5) < 1e-6), `square to its side 2.5 tiles off, its strips are at depths ${[...new Set(strips.map((s) => s.ty.toFixed(3)))].join(", ")} (want 2.5)`);
+    // diagonal views from four sides: each strip's depth, and the map onto the screen
+    [[f.x1 + 2.5, f.y0 - 1.7], [f.x0 - 2.2, f.y1 + 1.4], [f.x1 + 1.5, f.y1 + 1.2], [f.x0 - 1.8, f.y0 - 2.1]].forEach(([x, y], i) => {
+      lookAt(x, y, cx, cy);
+      strips = frame();
+      ok(strips.length > 0 && contiguous(strips), `diagonal view ${i}: ${strips.length} strips, not side by side`);
+      ok(vFaces === 0 && noVHits(), `diagonal view ${i}: a V wall face`);
+      depthsRight(`diagonal view ${i}`);
+      mapsRight(`diagonal view ${i}`);
+    });
+
+    // standing still and turning in place (the same eye, a new heading): no new picture while it stays whole in view
+    lookAt(cx + 0.4, f.y0 - 4.5, cx, cy);
+    frame();
+    frame();
+    const a0 = p().a;
+    vanDraws = 0;
+    for (let i = 0; i < 12; i++) frame();
+    ok(vanDraws === 0, `standing still, the van was drawn again ${vanDraws} times in 12 frames`);
+    for (let i = 0; i < 40; i++) {
+      p().a = a0 + 0.35 * Math.sin(i / 6);
+      strips = frame();
+      ok(strips.length > 0, `turning in place (heading ${p().a.toFixed(2)}): the van left the screen`);
+    }
+    ok(vanDraws === 0, `turning in place with the van whole in view, it was drawn again ${vanDraws} times`);
+    p().a = a0 + 0.3;
+    strips = frame();
+    mapsRight("turned in place, no redraw");
+    depthsRight("turned in place, no redraw");
+    // a small step since (no redraw): what you see of it still lands where it should (the old picture seen through
+    // the van's box from where you stand now), and its strips' depths are the eye's own
+    // (close by, 2 tiles off its middle, where a step's parallax shows most)
+    lookAt(cx + 0.2, f.y0 - 1.5, cx, cy);
+    frame();
+    frame();
+    vanDraws = 0;
+    p().x += 0.14;
+    strips = frame();
+    ok(vanDraws === 0, `a small step drew the van again (${JSON.stringify(I.modelStats.why)})`);
+    mapsRight("a small step, no redraw");
+    depthsRight("a small step, no redraw");
+    // ... and turning away until it is cut by the view's edge and back: some redraws, but it never vanishes
+    for (let i = 0; i <= 30; i++) {
+      p().a = a0 + (0.9 * i) / 30;
+      strips = frame();
+      ok(strips.length > 0 || i > 25, `turning toward the view's edge (${(p().a - a0).toFixed(2)} rad), the van left the screen`);
+    }
+
+    // a walk round it, facing it: redraws in steps (at least one per MODEL_ANGLE_MAX), never every frame (2.4 tiles
+    // from its middle: clear of the cabin's wall south of it)
+    {
+      const steps = 360;
+      const r = 2.4;
+      vanDraws = 0;
+      let missing = 0;
+      for (let i = 0; i < steps; i++) {
+        const t = (i / steps) * Math.PI * 2;
+        lookAt(cx + Math.cos(t) * r, cy + Math.sin(t) * r, cx, cy);
+        if (!frame().length) missing++;
+      }
+      const least = Math.floor((2 * Math.PI) / I.MODEL_ANGLE_MAX);
+      const most = Math.ceil((2 * Math.PI) / I.MODEL_ANGLE_MIN);
+      ok(vanDraws >= least && vanDraws <= most && vanDraws < steps / 2, `walking round the van in ${steps} frames, it was drawn ${vanDraws} times (want ${least} to ${most}, never every frame)`);
+      ok(!missing, `walking round the van, it was missing from ${missing} frames`);
+    }
+
+    // walkers in front of it, behind it and beside it sort right, column by column
+    {
+      const kinds = Object.keys(W.WALKER_TYPES);
+      /** Render with one walker at (x, y); returns { z: its sprite, strips, idx } from the draw order. */
+      const withWalker = (x, y) => {
+        I.walkers.length = 0;
+        const z = I.makeWalker(kinds[0], x, y, 1);
+        z.awake = true;
+        z.seed = 31;
+        I.walkers.push(z);
+        frame();
+        const zi = order.findIndex((o) => o.live === z);
+        const sIdx = order.map((o, i) => (o.strip ? i : -1)).filter((i) => i >= 0);
+        return { z, zi, zs: zi >= 0 ? order[zi] : null, over: sIdx.filter((i) => zi >= 0 && order[i].c1 >= order[zi].c0 && order[i].c0 <= order[zi].c1) };
+      };
+      const sortsRight = (w, where) => {
+        ok(!!w.zs, `${where}: the walker was not drawn`);
+        if (!w.zs) return { front: 0, behind: 0 };
+        let front = 0;
+        let behind = 0;
+        w.over.forEach((i) => {
+          const s = order[i];
+          if (Math.abs(s.ty - w.zs.ty) < 1e-9) return;
+          if (s.ty > w.zs.ty) {
+            behind++;
+            ok(i < w.zi, `${where}: a strip of the van behind the walker (depth ${s.ty.toFixed(2)} > ${w.zs.ty.toFixed(2)}) was drawn over it`);
+          } else {
+            front++;
+            ok(i > w.zi, `${where}: a strip of the van in front of the walker (depth ${s.ty.toFixed(2)} < ${w.zs.ty.toFixed(2)}) was drawn under it`);
+          }
+        });
+        return { front, behind };
+      };
+      // looking west along the van's north side from past its east end
+      lookAt(f.x1 + 3.5, f.y0 - 1.2, cx, cy);
+      const inFront = sortsRight(withWalker(f.x1 + 1.5, f.y0 + 0.3), "a walker between you and the van's near end");
+      ok(inFront.behind > 0 && inFront.front === 0, `a walker between you and the van: ${inFront.behind} strips behind it, ${inFront.front} in front (want all behind)`);
+      const behind = sortsRight(withWalker(f.x0 - 1.5, f.y0 + 0.5), "a walker past the van's far end");
+      ok(behind.front > 0 && behind.behind === 0, `a walker past the van's far end: ${behind.front} strips in front of it, ${behind.behind} behind (want all in front)`);
+      // beside it: somewhere along its side the van is in front of the walker in some columns and behind it in others
+      let both = null;
+      for (const [x, y, ex, ey] of [[cx, f.y0 - 0.35, f.x1 + 1.6, f.y0 - 1.6], [cx + 0.3, f.y0 - 0.35, f.x1 + 1.2, f.y0 - 1.0], [cx, f.y1 + 0.35, f.x1 + 1.6, f.y1 + 1.6], [cx - 0.4, f.y0 - 0.4, f.x1 + 2.0, f.y0 - 1.9], [cx + 0.2, f.y1 + 0.4, f.x1 + 2.4, f.y1 + 2.2]]) {
+        lookAt(ex, ey, x, y);
+        const r = sortsRight(withWalker(x, y), `a walker beside the van at ${x.toFixed(1)},${y.toFixed(1)}`);
+        if (r.front > 0 && r.behind > 0) {
+          both = r;
+          break;
+        }
+      }
+      ok(!!both, "no walker beside the van had the van in front of it in some columns and behind it in others");
+      // a hurt walker hidden behind the van shows no health bar over it; in front of it, it does
+      {
+        let bars = 0;
+        const fillWas = I.ctx.fillRect;
+        I.ctx.fillRect = function () {
+          if (I.ctx.fillStyle === "#b3261e") bars++;
+        };
+        lookAt(cx, f.y0 - 3.5, cx, cy);
+        const hurt = (x, y) => {
+          withWalker(x, y);
+          I.walkers[0].hp = I.walkers[0].maxHp / 2;
+          bars = 0;
+          frame();
+          return bars;
+        };
+        const hidden = hurt(cx, f.y1 + 1.3);
+        // (from here the plain walker's head is under the van's roof: it is hidden)
+        const headY = I.H / 2 - (I.H * (ZSR.Walker3D.box(kinds[0], false).head - 0.5)) / (f.y1 + 1.3 - p().y);
+        const roofY = I.H / 2 - (I.H * (van.box.z1 - 0.5)) / (f.y0 - p().y);
+        ok(headY > roofY, `the bar test's walker is not hidden behind the van (its head at ${headY.toFixed(1)}, the roof at ${roofY.toFixed(1)})`);
+        ok(hidden === 0, `a hurt walker hidden behind the van drew ${hidden} health bars over it`);
+        ok(hurt(cx, f.y0 - 1.5) === 1, "a hurt walker in front of the van drew no health bar");
+        I.ctx.fillRect = fillWas;
+      }
+      I.walkers.length = 0;
+    }
+
+    // a wall between you and the van: a wall in front of some of it clips those strips at its top; walls in front of
+    // all of it leave it undrawn
+    {
+      // (north of the van: the open yard; south of it stands the cabin)
+      const y = Math.floor(f.y0) - 2;
+      const free = [];
+      for (let x = Math.floor(f.x0) - 2; x <= Math.ceil(f.x1) + 1; x++) if (I.grid[y][x] === ".") free.push(x);
+      ok(free.length >= 6, `no open row north of the van to stand a test wall on (${free.join(",")})`);
+      const put = (xs, ch) => xs.forEach((x) => (I.grid[y][x] = ch));
+      lookAt(cx, f.y0 - 4.5, cx, cy);
+      const t = I.modelPool.get(van);
+      // one low wall tile (0.35 tall) in front of the van's west half: the van shows over it, never below its top
+      const one = [Math.floor(cx) - 1];
+      const low = 0.35;
+      put(one, "#");
+      I.tileH[one[0] + "," + y] = low;
+      const draws = [];
+      I.ctx.drawImage = function (img, sx, sy, sw, sh, dx, dy, dw, dh) {
+        if (img === (I.modelPool.get(van) || {}).c) draws.push({ dx, dy, dw, dh });
+      };
+      strips = frame();
+      const wa = screenOf(one[0], y, low);
+      const wb = screenOf(one[0] + 1, y, low);
+      if (wa && wb) {
+        const x0 = Math.min(wa.x, wb.x) + COL;
+        const x1 = Math.max(wa.x, wb.x) - COL;
+        const top = Math.max(wa.y, wb.y); // the wall's top on screen there (its near face)
+        const behindWall = draws.filter((d) => d.dx + d.dw > x0 && d.dx < x1);
+        ok(behindWall.length > 0 && behindWall.every((d) => d.dy + d.dh <= top + 0.5), `behind a low wall the van was drawn below the wall's top (${top.toFixed(1)}): ${JSON.stringify(behindWall.filter((d) => d.dy + d.dh > top + 0.5).slice(0, 2))} of ${behindWall.length}`);
+        ok(draws.some((d) => (d.dx + d.dw <= x0 || d.dx >= x1) && d.dy + d.dh > top + 2), "beside the low wall the van was not drawn whole");
+      } else ok(false, "the test wall is not on screen");
+      delete I.tileH[one[0] + "," + y];
+      put(one, ".");
+      // walls across the whole view of it: nothing of it drawn, and a fresh scene draws no picture for it
+      put(free, "#");
+      I.modelRelease();
+      vanDraws = 0;
+      draws.length = 0;
+      strips = frame();
+      ok(vanDraws === 0 && !draws.length && !strips.length, `walled off from you, the van was drawn (${vanDraws} pictures, ${draws.length} draws, ${strips.length} strips)`);
+      put(free, ".");
+      delete I.ctx.drawImage;
+      ok(!!t, "the van had no canvas before the wall test");
+    }
+
+    // the governor: a row of model settings for every walker row, cheaper down the table; on the last row the
+    // pictures are no bigger than its px; a canvas not shown for MODEL_IDLE frames goes back to the spares
+    {
+      const ML = I.MODEL_LEVELS;
+      ok(ML.length === I.LIVE_LEVELS.length, `${ML.length} model governor rows for ${I.LIVE_LEVELS.length} walker rows`);
+      ok(ML[I.LIVE_START].max === I.MODEL_RENDERS_MAX && ML[I.LIVE_START].px === I.MODEL_MAX_PX, `the model governor's starting row is ${JSON.stringify(ML[I.LIVE_START])}, not MODEL_RENDERS_MAX and MODEL_MAX_PX`);
+      ok(ML.every((r, i) => r.max >= 1 && r.px >= 64 && (!i || (r.max <= ML[i - 1].max && r.px <= ML[i - 1].px))), `a model governor row is not cheaper than the one above it: ${JSON.stringify(ML)}`);
+      const lvl0 = I.liveLevel == null ? I.LIVE_START : I.liveLevel;
+      I.setLiveLevel(I.LIVE_LEVELS.length - 1);
+      const last = I.modelRow();
+      I.modelRelease();
+      lookAt(cx, f.y0 - 0.9, cx, cy); // right up against its side: a big picture
+      frame();
+      const t = I.modelPool.get(van);
+      ok(t && Math.max(t.lw, t.lh) <= last.px, `on the governor's last row a picture is ${t && t.lw} x ${t && t.lh} (row px ${last.px})`);
+      I.setLiveLevel(lvl0);
+      // looking away: its canvas is kept MODEL_IDLE frames, then goes back to the spares
+      p().a += Math.PI;
+      for (let i = 0; i < I.MODEL_IDLE; i++) frame();
+      ok(I.modelPool.has(van), "the van's canvas went before MODEL_IDLE frames out of view");
+      frame();
+      frame();
+      ok(!I.modelPool.has(van) && (I.modelSpare || []).length > 0, "the van's canvas was not let go after MODEL_IDLE frames out of view");
+    }
+
+    // a dent tier change draws it again, at once (its sig), and wreckers' claws never refresh the whole scene for it
+    {
+      let refreshed = 0;
+      I.refreshScene = function () {
+        refreshed++;
+        return refreshWas.call(this);
+      };
+      lookAt(cx, f.y0 - 2.5, cx, cy);
+      S.save.vanHp = S.vanMaxHp();
+      frame();
+      frame();
+      const sig0 = I.modelPool.get(van).sig;
+      vanDraws = 0;
+      I.wreckSpotsBuild();
+      I.phase = I.phase || { kind: "calm" };
+      I.hitVan(S.vanMaxHp() * (1 - ZSR.Van3D.DENTS[1]) + 1, 0); // past both dent marks
+      ok(ZSR.Van3D.dentNow() === 2, `the van at ${S.save.vanHp} of ${S.vanMaxHp()} is dent tier ${ZSR.Van3D.dentNow()} (want 2)`);
+      frame();
+      ok(vanDraws === 1 && I.modelPool.get(van).sig !== sig0, `a new dent tier drew the van ${vanDraws} times (sig ${sig0} -> ${I.modelPool.get(van).sig})`);
+      ok(refreshed === 0, `a dent refreshed the whole scene ${refreshed} times (the van redraws itself)`);
+      vanDraws = 0;
+      frame();
+      ok(vanDraws === 0, "the dented van was drawn again with nothing changed");
+      S.save.vanHp = S.vanMaxHp();
+      I.refreshScene = refreshWas;
+    }
+    I.stop();
+    ok(I.modelPool.size === 0 && !(I.modelSpare || []).some((t) => t.c.width), "leaving the yard kept the van's canvas");
+
+    /* River Landing: the same van, on the turnout's dirt */
+    const river = W.LOCATIONS.find((l) => l.outdoor);
+    if (river) {
+      S.startTrip();
+      I.enterRiver(river);
+      I.stop();
+      I.walkers.length = 0;
+      const rv = I.modelOf("van");
+      ok(!!rv && rv.tiles.length === I.vanTiles.length && I.vanTiles.length > 0, "River Landing has no van model on its V tiles");
+      if (rv) {
+        ok(Math.abs(Math.cos(rv.rot) + 1) < 1e-9, "River Landing's van does not face west, its cab to the water");
+        I.vanTiles.forEach(([x, y]) => ok(I.solidAt(x + 0.5, y + 0.5) && I.opaqueAt(x + 0.5, y + 0.5), `River Landing's van tile ${x},${y} no longer blocks`));
+        ok(I.vanTiles.every(([x, y]) => I.floorKind[y * I.gw + x] === ZSR.Draw3.floorId("dirt")), "River Landing's van does not stand on the turnout's dirt");
+        const rf = { x: rv.x, y: rv.y };
+        lookAt(rf.x, rf.y + 2.5, rf.x, rf.y);
+        vanDraws = 0;
+        vFaces = 0;
+        strips = frame();
+        ok(vanDraws === 1 && vFaces === 0 && noVHits() && strips.length > 0, `at River Landing the van drew ${vanDraws} pictures, ${vFaces} V faces, ${strips.length} strips`);
+      }
+      I.stop();
+      ok(I.modelPool.size === 0, "leaving River Landing kept the van's canvas");
+      S.trip = null;
+    } else ok(false, "no outdoor place (River Landing) to check");
+    // a building has no models, and its frames make none
+    const bld = W.LOCATIONS.find((l) => l.id !== "base" && !l.outdoor && I.layoutFor(l));
+    S.startTrip();
+    I.enter(bld);
+    I.stop();
+    ok(!I.models.length && !I.modelSee, `${bld.id} has ${I.models.length} models`);
+    S.trip = null;
+  } catch (e) {
+    err(`model sprites: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
+  } finally {
+    if (M3) M3.draw = drawWas;
+    I.drawFace = faceWas;
+    I.drawSprite = spriteWas;
+    I.refreshScene = refreshWas;
+    delete I.ctx.drawImage;
+    I.walkers.length = 0;
+    S.newGame(S.activeSlot(), "Test");
+    S.trip = null;
+  }
+}
+if (errors.length === modelErrors0) console.log(`OK: model sprites: ${modelChecked} checks (the yard's and River Landing's van drawn as one 3D model on its tiles, no V faces; strips side by side at the depths their rays meet it; the screen's projection, turned and after a step; the walls' light; walkers in front, behind and beside sort by column, no health bar through it; still and turning draw nothing new; a walk round it redraws in steps; walls clip or hide it; its tiles still block; the governor's rows; a dent redraws it; its canvases go out of view and with the scene).`);
 
 /* ---------- June's first-run tutorial (js/tutorial.js) ----------
    Last in the file, so nothing it leaves behind can touch the checks above. The cards go to a stand-in view that

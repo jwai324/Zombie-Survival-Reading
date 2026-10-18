@@ -34,6 +34,9 @@
    far ones redraw when frames run slow, and draws more when they run fast); a screamer's scream speeds up the
    awake walkers near it (WORLD.SCREAM); a killed walker leaves `walkers` at once for `fallen` (collapsing, then
    gone after FALL_SECS), and `blood` holds a hit's spray (only with SETTINGS.walkerGore).
+   Still 3D models (the parked van; js/modelsprite.js, mixed in after this file) are `models`: castColumns leaves their
+   tiles (modelSee) undrawn, drawScene puts each one on screen as strips with their own depths (modelQueue) and
+   drawSprite hands a strip to modelStripDraw; loadGrid and dropSceneCaches let their canvases go.
    Everything reads and writes the trip through ZSR.State. */
 (function (root) {
   "use strict";
@@ -374,6 +377,7 @@
       this.fallen = []; // downed walkers collapsing, then fading (never in walkers: not solid, not a target, not counted)
       this.blood = []; // blood droplets and splats, world space (only with SETTINGS.walkerGore)
       this.liveRelease(); // the last scene's walker canvases go (liveTarget makes or reuses them as walkers show)
+      if (this.modelsReset) this.modelsReset(); // no 3D models stand here yet (js/modelsprite.js: this.models), their canvases go
       this.screamToldT = -Infinity; // when "A scream!" was last said
       this.fence = {}; // "x,y" -> hp
       this.doors = []; // interior doors: { x, y, open }
@@ -449,6 +453,7 @@
       if (this.dimMemo) this.dimMemo.clear();
       if (this.texMemo) this.texMemo.clear();
       this.liveRelease();
+      if (this.modelRelease) this.modelRelease();
       this.sc = null;
     },
     /** A walk-in house under the open sky: `inside(x, y)` says which tiles are under its roof (walls,
@@ -1943,7 +1948,7 @@
       const ry0 = dirY + pY * cam0;
       const rsx = pX * camStep;
       const rsy = pY * camStep;
-      // pixels hidden behind a full-height wall are not cast (wall faces are opaque; the van is not)
+      // pixels hidden behind a full-height wall are not cast (wall faces are opaque)
       const covLo = this.covLo;
       const covHi = this.covHi;
       const store = this.hitStore;
@@ -1959,7 +1964,7 @@
         }
         for (let c = c0; c <= c1 && top < Infinity; c++) {
           const h = this.hitN[c] ? store[c * MAX_HITS] : null;
-          if (!h || !h.full || h.ch === "V") top = Infinity;
+          if (!h || !h.full) top = Infinity;
           else {
             if (h.occ > top) top = h.occ;
             if (h.bottom < bot) bot = h.bottom;
@@ -2045,6 +2050,9 @@
       const lows = sc.lows;
       const lowDefs = this.lowDefs;
       const store = this.hitStore;
+      // tiles a 3D model stands on and draws itself (js/modelsprite.js: the van's V tiles): see-through here, still
+      // solid and opaque everywhere else (sight, shots, walkers, the map)
+      const see = this.modelSee;
       const { zbuf, hitN, hitD, hitTop, lowN, lowD1, lowD2, lowTX, lowSide, lowIdx, lowDef } = this;
       const maxSteps = gw + gh + 8;
       const rise = sc.maxH - 0.5; // the tallest thing anywhere, above eye level
@@ -2174,7 +2182,7 @@
               lastDef = ld;
               continue;
             }
-            if (IS_OPAQUE[ch] !== 1) continue;
+            if (IS_OPAQUE[ch] !== 1 || (see && see[idx] === 1)) continue;
           }
           const ri = out ? -1 : roofOf[idx];
           if (ri >= 0 && ri === lastRoof) continue; // inside a roofed block already seen
@@ -2381,20 +2389,9 @@
         // per face: the side of the tile this ray came in through
         over = over[hit.side === 0 ? (hit.rdx > 0 ? "w" : "e") : hit.rdy > 0 ? "n" : "s"];
       }
+      // (the parked van is a 3D model, js/modelsprite.js: its V tiles are never a face here while it stands on them)
       let tex;
-      if (ch === "V") {
-        let name;
-        if (hit.side === 0) name = hit.rdx > 0 ? "vanFront" : "vanBack";
-        else {
-          // the van's two sides share one body: wheels and doors stay put in the world, only the lettering is redrawn to read
-          name = this.van && hit.x === this.van.x ? "vanCab" : "vanBody";
-          if (flip) {
-            texX = Math.floor(wallX * 64);
-            if (name === "vanBody") name = "vanBodyR";
-          }
-        }
-        tex = this.tex(name);
-      } else if (over) tex = typeof over === "string" ? this.tex(over) : over;
+      if (over) tex = typeof over === "string" ? this.tex(over) : over;
       else if (r && r.wallTex) tex = this.tex(r.wallTex);
       else if ((ch === "#" || ch === "W") && this.wallStyleOf && hit.idx >= 0) tex = this.tex(TEX_OF[ch] || "wall", this.wallStyleOf(hit.x, hit.y));
       else tex = this.tex(TEX_OF[ch] || "wall");
@@ -2516,6 +2513,8 @@
       // picture), the longest-waiting first, while this frame's redraws last (liveMax); the rest keep theirs
       this.liveShown = liveQ.length; // (the governor counts only frames with live walkers on screen)
       this.liveDrawn = liveQ.length ? this.liveRenderAll(liveQ) : 0;
+      // the 3D models (the parked van): each on screen as strips with their own depths (js/modelsprite.js)
+      if (this.models && this.models.length) this.modelQueue(list, sc);
       list.sort((a, b) => b.ty - a.ty);
       // Painter's order, far to near, per column. Every draw stays inside its own 2-px column, so the order
       // only matters within a column: each sprite (far to near) first draws, in each of its columns, the
@@ -2550,6 +2549,7 @@
         const bw = s.barW != null ? (H / s.ty) * s.barW : s.sw * 0.7;
         if (this.clipAt(c, s.ty) <= top) return;
         if (s.ty > this.capD[c] && this.capY[c] > top - 10) return; // its head is above an opening, under the ceiling
+        if (this.modelStripN && this.modelHides(c, s.ty, top)) return; // its head is behind a 3D model (the van)
         ctx.fillStyle = INK;
         ctx.fillRect(s.screenX - bw / 2 - 1, top - 10, bw + 2, 7);
         ctx.fillStyle = "#b3261e";
@@ -2820,6 +2820,7 @@
         edge passes through, is drawn on its own. Both map screen x to picture x the same straight way, so a
         run and the cut column beside it meet without a seam. */
     drawSprite(ctx, s) {
+      if (s.model) return this.modelStripDraw(ctx, s); // a strip of a 3D model's picture (js/modelsprite.js)
       const img = s.im;
       // a live walker's picture is the top-left iw x ih of its pooled canvas; any other picture is the whole image
       const iw = s.iw || img.width;
@@ -2939,6 +2940,7 @@
     FALLEN_MAX,
     BLOOD_MAX,
     FOV,
+    COL,
     CEIL_CAP,
     LIVE_MAX_PX,
     LIVE_STEP,
