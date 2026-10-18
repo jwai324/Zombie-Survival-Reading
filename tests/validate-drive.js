@@ -64,8 +64,9 @@ Object.assign(globalThis, {
 // angled camera, then the interiors (whose governor rows and picture signature the angled camera's walkers use)
 // SCALE: a new walker looks file (js/walker3d-looks2.js) goes in this list too (docs/SCALING.md "Add a walker kind"),
 // and so does a new landmarks file (js/landmarks3.js: the places' buildings stand some of their pictures outside); the
-// crew's looks (js/walker3d-crew.js) load with the walkers, as on the page
-for (const f of ["js/layouts.js", "js/world.js", "js/upgrades.js", "js/streets.js", "js/sprites.js", "js/sprites3d.js", "js/walker3d.js", "js/walker3d-looks.js", "js/walker3d-crew.js", "js/model3d.js", "js/van3d.js", "js/landmarks1.js", "js/landmarks2.js", "js/game.js", "js/perspective.js", "js/perspective-buildings.js", "js/perspective-art.js", "js/perspective-gl.js", "js/interior.js"]) {
+// crew's looks (js/walker3d-crew.js) load with the walkers, as on the page, and the animals (js/beast3d.js: the dogs,
+// live figures in the interiors' pool) after them
+for (const f of ["js/layouts.js", "js/world.js", "js/upgrades.js", "js/streets.js", "js/sprites.js", "js/sprites3d.js", "js/walker3d.js", "js/walker3d-looks.js", "js/walker3d-crew.js", "js/beast3d.js", "js/beast3d-looks.js", "js/model3d.js", "js/van3d.js", "js/landmarks1.js", "js/landmarks2.js", "js/game.js", "js/perspective.js", "js/perspective-buildings.js", "js/perspective-art.js", "js/perspective-gl.js", "js/interior.js", "js/modelsprite.js"]) {
   const file = path.join(ROOT, f);
   if (fs.existsSync(file)) vm.runInThisContext(fs.readFileSync(file, "utf8"), { filename: f });
 }

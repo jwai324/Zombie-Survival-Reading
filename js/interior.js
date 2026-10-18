@@ -34,6 +34,10 @@
    far ones redraw when frames run slow, and draws more when they run fast); a screamer's scream speeds up the
    awake walkers near it (WORLD.SCREAM); a killed walker leaves `walkers` at once for `fallen` (collapsing, then
    gone after FALL_SECS), and `blood` holds a hit's spray (only with SETTINGS.walkerGore).
+   Live figures that are not walkers (the crew on Walker3D's people, the dog and Rivet on Beast3D) share that pool and
+   its governor: a prop with a `fig` record (liveFigure) is drawn live like a walker (figSprite, figState, figDraw), its
+   owner (js/crew.js, js/robodog.js, js/building.js) animates it with figStep, and its canvas goes when it leaves the
+   scene (liveSweep).
    Still 3D models (the parked van; js/modelsprite.js, mixed in after this file) are `models`: castColumns leaves their
    tiles (modelSee) undrawn, drawScene puts each one on screen as strips with their own depths (modelQueue, before the
    walkers: a live walker a model hides whole is not drawn, liveVisible) and drawSprite hands a strip to
@@ -59,7 +63,8 @@
   const INK = "#0f1012";
   // walkers: the kinds and their stats are facts (WORLD.WALKER_TYPES); how they move and look on foot is here
   const WT = () => W().WALKER_TYPES;
-  const W3 = () => ZSR.Walker3D; // the live 3D walker models (js/walker3d.js), when loaded
+  const W3 = () => ZSR.Walker3D; // the live 3D walker models (js/walker3d.js), when loaded; its people are the crew
+  const B3 = () => ZSR.Beast3D; // the live 3D animals (js/beast3d.js: the dog, Rivet), when loaded
   const SPEED_JITTER = 0.1; // each walker's speed is its kind's x (1 +- this)
   const TURN_RATE = 7; // radians a second a walker turns toward where it goes, bites or claws
   const STRIDE = 0.9; // tiles walked per gait cycle when Walker3D gives none
@@ -92,6 +97,22 @@
   const LIVE_RENDERS_MAX = 10; // SCALE: live redraws a frame (the near ones count, and go first); the rest keep their picture
   const LIVE_SCALE_LOW = 0.7; // the governor's resolution step: live pictures at 70% (drawn up unsmoothed)
   const POSE_BLEND = 0.15; // seconds into (and out of) a pose (Walker3D.POSE_BLEND when loaded)
+  // live figures that are not walkers (the crew on Walker3D's people, the dog and Rivet on Beast3D): one pool and one
+  // governor with the walkers. Their owners (js/crew.js, js/robodog.js, js/building.js) animate them with figStep
+  const FIG_BLEND = 0.45; // seconds a person takes to sit down, kneel or get up (poseW 0 to 1); animals: Beast3D.POSE_BLEND
+  const FIG_LOOP = 3.5; // seconds one loop of a person's pose takes (breathing, a blink, the hammer's strike, the talk)
+  const FIG_HEAD_RATE = 5; // radians a second a head turns toward what it looks at
+  const FIG_HEAD_REACH = 0.95; // radians: something looked at farther round than this turns the body too (turnTo)
+  const FIG_SETTLE = 0.2; // ... until it is this close in front
+  const FIG_JUMP = 1.5; // tiles moved in one frame that are a jump (put by a door, beside you), not steps
+  // a pose's loop (poseT) is drawn in this many steps at full detail: the slow ones (breathing, a blink: 32 steps never
+  // miss its 0.035 of the loop) at 32, a talking mouth and a tremble at 64 (they open, shut and shake many times a
+  // loop). Each detail step down halves them (a breath and a blink are a pixel or two there), to at least
+  // FIG_POSE_MIN for a person, FIG_POSE_MIN_BEAST for an animal (its tail wags once a loop and must not stutter)
+  const FIG_POSE_STEPS = { talk: 64, cower: 64 };
+  const FIG_POSE_MIN = 8;
+  const FIG_POSE_MIN_BEAST = 16;
+  const FIG_FLOOR_MAX = 1.4; // room under an animal's feet for its near paws (cam.floor), at most this x its height
   // the frame-time governor (adaptQuality): slow = the smoothed render over QUALITY_RENDER_MS or frames slower than
   // QUALITY_FRAME_MS; each LIVE_LEVELS row is a whole setting, richest first. It starts on LIVE_START (the defaults
   // above), steps down one row when slow for GOV_WAIT frames and up one when fast (under GOV_FAST x both) for
@@ -143,6 +164,31 @@
     t.sFallDir = Math.round(st.fallDir * 16);
     t.sFog = Math.round(st.fog * fogSteps);
     t.sGore = st.gore;
+  }
+  // what a live figure that is not a walker gets (one object, refilled per draw: Walker3D's people read seat, job and
+  // run; Beast3D's animals read run, wag and hit; both headYaw), its camera, and its "has it changed" signature
+  const FIG_ST = { yaw: 0, gait: 0, move: 0, run: 0, pose: "stand", poseT: 0, poseW: 1, seat: 0, job: null, headYaw: 0, wag: 0.5, hit: 0, seed: 0, lod: 0, fog: 0 };
+  const FIG_CAM = { w: 0, h: 0, px: 0, dist: 1, eye: 0.5, floor: 0 };
+  // (q: the steps its loop is drawn in now, figPoseQ)
+  const figPoseQ = (st, beast) => Math.max(beast ? FIG_POSE_MIN_BEAST : FIG_POSE_MIN, (FIG_POSE_STEPS[st.pose] || 32) >> st.lod);
+  function sameFigSig(t, st, fogSteps, q) {
+    return t.sLod === st.lod && t.sPose === st.pose && t.sYaw === Math.round(st.yaw * 64) && t.sGait === sigGait(st.gait) && t.sMove === Math.round(st.move * 16) && t.sRun === Math.round(st.run * 16) && t.sPoseT === Math.round(st.poseT * q) && t.sPoseW === Math.round(st.poseW * 16) && t.sSeat === Math.round(st.seat * 64) && t.sJob === st.job && t.sHead === Math.round(st.headYaw * 32) && t.sWag === Math.round(st.wag * 16) && t.sHit === st.hit && t.sFog === Math.round(st.fog * fogSteps);
+  }
+  function saveFigSig(t, st, fogSteps, q) {
+    t.sLod = st.lod;
+    t.sPose = st.pose;
+    t.sYaw = Math.round(st.yaw * 64);
+    t.sGait = sigGait(st.gait);
+    t.sMove = Math.round(st.move * 16);
+    t.sRun = Math.round(st.run * 16);
+    t.sPoseT = Math.round(st.poseT * q);
+    t.sPoseW = Math.round(st.poseW * 16);
+    t.sSeat = Math.round(st.seat * 64);
+    t.sJob = st.job;
+    t.sHead = Math.round(st.headYaw * 32);
+    t.sWag = Math.round(st.wag * 16);
+    t.sHit = st.hit;
+    t.sFog = Math.round(st.fog * fogSteps);
   }
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -411,7 +457,7 @@
       this.tileH = {}; // "x,y" -> height in tiles (0.1 .. 3.5)
       this.lowTiles = {}; // "x,y" -> { h, tex, top }: see-through and solid, drawn as a slab with a lit top
       this.roofs = []; // { x0, y0, x1, y1 (x1, y1 exclusive), eave, ridge, roofTex, gableTex, wallTex? }
-      this.props = []; // { x, y, img | art + opts, scale, lift, wide | span, solid, foot, cover }: see addProp
+      this.props = []; // { x, y, img | art + opts | fig (a live figure), scale, lift, wide | span, solid, foot, cover }: see addProp
       this.blockers = new Set(); // "x,y" tiles that block movement (solid props)
       this.covers = new Set(); // "x,y" tiles that also stop shots (tall solid props; low tiles with `cover`)
       this.landmarks = [];
@@ -2465,6 +2511,13 @@
       }
       const ceil = this.sky ? Infinity : CEIL_CAP;
       this.props.forEach((pr) => {
+        if (pr.fig) {
+          // a live figure (a crew member, the dog, Rivet: prop.fig, js/crew.js): drawn with the walkers, in the same pool
+          if (pr.hidden || !this.figDrawable(pr.fig)) return;
+          pr.fig.sceneAt = this.frameNo; // (liveSweep: still in the scene)
+          sprites.push(this.figSprite(pr));
+          return;
+        }
         const img = pr.img || (pr.art ? (pr.img = D.sprite(pr.art, pr.opts)) : null); // a named sprite is resolved once
         if (!img || pr.hidden) return;
         const lift = pr.lift || 0;
@@ -2488,6 +2541,7 @@
         s.tx = invDet * (dirY * sx - dirX * sy);
         s.ty = invDet * (-planeY * sx + planeX * sy);
         if (s.ty <= 0.1) return;
+        if (s.envR) this.figFloor(s); // an animal seen from above: room under its feet for the paws nearer than them
         s.screenX = (Wd / 2) * (1 + s.tx / s.ty / aspect);
         s.sh = (H / s.ty) * s.scale;
         s.sw = s.sh * (s.wide || 1);
@@ -2517,7 +2571,8 @@
       // picture), the longest-waiting first, while this frame's redraws last (liveMax); the rest keep theirs
       this.liveShown = liveQ.length; // (the governor counts only frames with live walkers on screen)
       this.liveDrawn = liveQ.length ? this.liveRenderAll(liveQ) : 0;
-      list.sort((a, b) => b.ty - a.ty);
+      // far to near; a figure that sits on a chair or a bed's edge counts as zb nearer (it goes in front of its seat)
+      list.sort((a, b) => (b.zb ? b.ty - b.zb : b.ty) - (a.zb ? a.ty - a.zb : a.ty));
       // Painter's order, far to near, per column. Every draw stays inside its own 2-px column, so the order
       // only matters within a column: each sprite (far to near) first draws, in each of its columns, the
       // low runs behind it that are not drawn yet, then itself (see drawSprite); the low runs left over
@@ -2530,13 +2585,14 @@
       for (let col = 0; col < cols; col++) next[col] = lowN[col] - 1;
       for (let k = 0; k < n; k++) {
         const s = list[k];
+        const sd = s.zb ? s.ty - s.zb : s.ty; // (a bed's edge a figure sits on goes behind it)
         for (let col = s.c0; col <= s.c1; col++) {
           let li = next[col];
           if (li < 0) continue;
           const lb = col * MAX_LOW;
-          if (!(lowD1[lb + li] > s.ty)) continue;
+          if (!(lowD1[lb + li] > sd)) continue;
           do this.drawLowCapped(ctx, col, li--, sc);
-          while (li >= 0 && lowD1[lb + li] > s.ty);
+          while (li >= 0 && lowD1[lb + li] > sd);
           next[col] = li;
         }
         this.drawSprite(ctx, s);
@@ -2720,21 +2776,28 @@
       const old = (s.liveFirst = t.used < this.frameNo - 1 || t.sLod > lod || (rh > t.lh * 1.15 && s.sh > t.shAt * 1.15) || (rw > t.lw * 1.15 && s.sw > t.swAt * 1.15));
       // at once: a picture never drawn (there is nothing to show yet), or a near one's old picture
       if (!t.lh || (old && s.near)) return 1;
-      const st = this.walkerState(z, s, lod);
       const sized = Math.abs(rh - t.lh) <= Math.max(2, rh * 0.02) && Math.abs(rw - t.lw) <= Math.max(2, rw * 0.02);
-      if (sized && sameSig(t, st, M.FOG_STEPS || 32)) return 0; // nothing it shows has changed
+      let st;
+      if (s.fig) {
+        // a crew member, the dog or Rivet: its own state and signature (seat, head, run, wag), the same rules after
+        st = this.figState(s.fig, s, lod);
+        if (sized && sameFigSig(t, st, this.figRenderer(s.fig).FOG_STEPS || 32, figPoseQ(st, s.fig.live3d === "beast"))) return 0;
+      } else {
+        st = this.walkerState(z, s, lod);
+        if (sized && sameSig(t, st, M.FOG_STEPS || 32)) return 0; // nothing it shows has changed
+      }
       if (t.sHit !== st.hit) return 1; // a hit's flash shows at once, and goes at once (two redraws a hit at most)
       if (lod === 0 && s.near) return 1;
       // one taking turns with an old picture shows it a frame or two longer: first in the wait, under this frame's
       // cap (so turning to face a crowd is no burst of redraws); the rest when their turn comes
       return old || s.liveAge >= this.liveFar ? 2 : 0;
     },
-    /** Draw one live walker into its canvas (liveCheck set its size, detail and canvas). */
+    /** Draw one live walker (or figure: figDraw) into its canvas (liveCheck set its size, detail and canvas). */
     liveDraw(s) {
       const z = s.live;
       const M = W3();
       const t = s.liveT;
-      const st = this.walkerState(z, s, s.lod);
+      const st = s.fig ? this.figState(s.fig, s, s.lod) : this.walkerState(z, s, s.lod);
       const rw = s.rw;
       const rh = s.rh;
       const bw = Math.ceil(rw / LIVE_STEP) * LIVE_STEP;
@@ -2755,20 +2818,23 @@
           t.small = 0;
         } else t.g.clearRect(0, 0, Math.max(t.lw, rw), Math.max(t.lh, rh));
       }
-      const shrink = s.scale / s.boxH; // < 1 under a ceiling: drawn as the whole figure, seen from farther off
-      const cam = LIVE_CAM;
-      cam.w = rw;
-      cam.h = rh;
-      cam.px = rh / s.boxH;
-      cam.dist = s.ty / shrink;
-      cam.eye = (0.5 - s.lift) / shrink;
-      M.draw(t.g, z.type, st, cam);
+      if (s.fig) this.figDraw(s, t, st, rw, rh);
+      else {
+        const shrink = s.scale / s.boxH; // < 1 under a ceiling: drawn as the whole figure, seen from farther off
+        const cam = LIVE_CAM;
+        cam.w = rw;
+        cam.h = rh;
+        cam.px = rh / s.boxH;
+        cam.dist = s.ty / shrink;
+        cam.eye = (0.5 - s.lift) / shrink;
+        M.draw(t.g, z.type, st, cam);
+        saveSig(t, st, M.FOG_STEPS || 32);
+      }
       t.lw = rw;
       t.lh = rh;
       t.shAt = s.sh; // its size on screen when drawn
       t.swAt = s.sw;
       t.drawnAt = this.frameNo;
-      saveSig(t, st, M.FOG_STEPS || 32);
     },
     /** This walker's canvas: its own, else a spare one, else a new one rw x rh (in LIVE_STEP steps). liveDraw grows
         it when a picture needs more room, and makes it smaller after LIVE_SHRINK renders at under half of it. A
@@ -2792,7 +2858,8 @@
       }
       return t;
     },
-    /** End of a frame: a canvas whose walker is gone (neither walking nor falling) goes back to the spares at once,
+    /** End of a frame: a canvas whose walker is gone (neither walking nor falling), or whose figure has left the scene
+        (its prop gone from the props or hidden: Rivet switched off, the dog given up), goes back to the spares at once,
         one not drawn for LIVE_IDLE frames too. */
     liveSweep() {
       const pool = this.livePool;
@@ -2800,7 +2867,8 @@
       const now = this.frameNo;
       pool.forEach((t, z) => {
         if (t.used === now) return;
-        if (now - t.used > LIVE_IDLE || (!this.walkers.includes(z) && !(this.fallen && this.fallen.includes(z)))) {
+        const gone = z.live3d ? z.sceneAt !== now : !this.walkers.includes(z) && !(this.fallen && this.fallen.includes(z));
+        if (now - t.used > LIVE_IDLE || gone) {
           pool.delete(z);
           this.liveFree(t);
         }
@@ -2819,6 +2887,205 @@
       if (this.liveSpare) this.liveSpare.forEach((t) => (t.c.width = t.c.height = 0));
       this.livePool = new Map();
       this.liveSpare = [];
+    },
+
+    /* ---------- Live figures that are not walkers: the crew (Walker3D's people), the dog and Rivet (Beast3D) ----------
+       Their owners (js/crew.js, js/robodog.js, js/building.js) keep a record on the figure's prop (prop.fig, from
+       liveFigure) and say each frame what they want of it: want (a heading, or null: the way it walks), wantPose,
+       wantRun (0..1), wantWag (animals), lookX / lookY (what the head turns to; null: straight ahead), turnTo (past the
+       head's reach the body turns to it too), seat (tiles), job, hit, zb (drawn this much nearer than it stands: on a
+       chair or a bed's edge, in front of it). figStep turns that into how it looks: the heading turning at its look's
+       turn rate, the gait by the distance walked, move and run easing, the pose easing (out of the old one first:
+       poseW), its loop (poseT), the head turning. drawScene draws it with the walkers (figSprite): one pool, one
+       redraw cap, the same near ones, its canvas let go when it leaves the scene (liveSweep). */
+    /** The renderer a figure is drawn by: Walker3D (people) or Beast3D (animals). */
+    figRenderer(f) {
+      return f.live3d === "beast" ? B3() : W3();
+    },
+    /** Can a figure of this kind and look be drawn live now? A person: Walker3D with the crew's looks
+        (js/walker3d-crew.js; a crew id with no look of its own is the stand-in "person", Walker3D.humanId); an animal:
+        Beast3D with that type. Without them its owner keeps today's flat sprite. */
+    figCan(kind, id) {
+      if (kind === "beast") {
+        const B = B3();
+        return !!(B && B.draw && B.box && B.TYPES && B.TYPES[id]);
+      }
+      const M = W3();
+      return !!(M && M.draw && M.box && M.HUMANS && M.humanId && M.HUMANS[M.humanId(id)]);
+    },
+    figDrawable(f) {
+      return this.figCan(f.live3d, f.id);
+    },
+    /** A new figure record for a prop (prop.fig), or null when its renderer is not loaded. kind "person" (id: a crew
+        id, drawn as Walker3D.humanId(id)) or "beast" (a Beast3D type). Its loop starts where its seed puts it, so the
+        crew do not breathe in step. */
+    liveFigure(kind, id, seed, heading) {
+      if (!this.figCan(kind, id)) return null;
+      const look = kind === "beast" ? id : W3().humanId(id);
+      const sd = seed | 0;
+      return { live3d: kind, id: look, seed: sd, heading: heading || 0, vx: 0, vy: 0, gait: 0, move: 0, run: 0, pose: "stand", poseT: (sd * 0.618034) % 1, poseW: 1, seat: 0, job: null, headYaw: 0, wag: 0.5, hit: 0, zb: 0, want: null, wantPose: "stand", wantRun: 0, wantWag: 0.5, lookX: null, lookY: null, turnTo: false, turning: false, sceneAt: -1 };
+    },
+    /** A figure's sprite entry (as walkerSprite): its renderer's box (a person PERSON_H x CREW[id].scale tall: the box
+        already is, never scaled again), shrunk under a ceiling as walkers are, no health bar, sorted zb nearer than it
+        stands. An animal also gets envR (its reach round its feet), for the room figFloor makes under it. */
+    figSprite(pr) {
+      const f = pr.fig;
+      const R = this.figRenderer(f);
+      const box = R.box(f.id);
+      const scale = Math.min(box.h, this.walkerCap(pr));
+      const shrink = scale / box.h;
+      const s = { x: pr.x, y: pr.y, live: f, fig: f, falling: false, img: null, im: null, iw: 0, ih: 0, scale, lift: 0, wide: box.w / box.h, boxH: box.h, boxS: scale, boxW: box.w * shrink, head: box.head * shrink, barW: 0, hp: null, dim: 0, fog: 0, rw: 0, rh: 0, lod: 0, liveT: null, liveAge: 0, liveFirst: false, zb: f.zb || 0, floorT: 0, envR: 0 };
+      if (f.live3d === "beast" && R.TYPES[f.id].env) {
+        const T = R.TYPES[f.id];
+        s.envR = Math.max(T.env.rh, T.envRun ? T.envRun.rh : 0) * shrink;
+      }
+      return s;
+    },
+    /** An animal is all below your eye, so a paw nearer than its feet is lower on the screen than its feet line: its
+        picture gets room under the feet line for that (Beast3D's cam.floor: the eye's height x how much bigger the
+        nearest reach is drawn, k - 1, and a margin), at most FIG_FLOOR_MAX x its height. The sprite's top stays the
+        box's top (its lift goes down by the room) and its width the box's (and a margin). */
+    figFloor(s) {
+      const near = s.ty - s.envR;
+      const k = near > 0.05 ? s.ty / near : Infinity;
+      const floor = Math.min(s.boxS * FIG_FLOOR_MAX, 0.5 * (k - 1) + 0.03);
+      s.floorT = floor;
+      s.lift = -floor;
+      s.scale = s.boxS + floor;
+      s.wide = (s.boxW + 0.06) / s.scale;
+    },
+    /** What a figure's renderer draws now (FIG_ST, refilled): which way it faces you (as a walker's yaw), its gait,
+        pose and loop, seat, job, head, wag, a bite's flash, its look, the detail and the fog. */
+    figState(f, s, lod) {
+      const p = this.player;
+      const st = FIG_ST;
+      st.yaw = normAngle(f.heading - Math.atan2(p.y - s.y, p.x - s.x));
+      st.gait = f.gait;
+      st.move = f.move;
+      st.run = f.run;
+      st.pose = f.pose;
+      st.poseT = f.poseT;
+      st.poseW = f.poseW;
+      st.seat = f.seat;
+      st.job = f.job;
+      st.headYaw = f.headYaw;
+      st.wag = f.wag;
+      st.hit = f.hit > 0 ? 1 : 0;
+      st.seed = f.seed;
+      st.lod = lod;
+      st.fog = s.fog;
+      return st;
+    },
+    /** Draw a figure into its canvas: the walkers' camera (the picture holds the box, its feet on the floor at its
+        distance, your eye half a tile up), and for an animal the room under its feet (cam.floor). */
+    figDraw(s, t, st, rw, rh) {
+      const f = s.fig;
+      const R = this.figRenderer(f);
+      const shrink = s.boxS / s.boxH;
+      const px = rh / s.scale; // the picture's px per tile on screen
+      const cam = FIG_CAM;
+      cam.w = rw;
+      cam.h = rh;
+      cam.px = px * shrink;
+      cam.dist = s.ty / shrink;
+      cam.eye = 0.5 / shrink;
+      cam.floor = s.floorT * px;
+      R.draw(t.g, f.id, st, cam);
+      saveFigSig(t, st, R.FOG_STEPS || 32, figPoseQ(st, f.live3d === "beast"));
+    },
+    /** One frame of a figure's animation (its owner moved it from (x0, y0) to (x, y) and set what it wants: see the
+        section's head). A move longer than FIG_JUMP is a jump (no steps). */
+    figStep(f, dt, x0, y0, x, y) {
+      const beast = f.live3d === "beast";
+      const R = this.figRenderer(f);
+      if (!R) return;
+      const look = beast ? R.TYPES && R.TYPES[f.id] : R.HUMANS && R.HUMANS[f.id];
+      const gt = (look && look.gait) || {};
+      let dx = x - x0;
+      let dy = y - y0;
+      let d = Math.hypot(dx, dy);
+      if (d > FIG_JUMP) {
+        d = dx = dy = 0;
+        f.vx = f.vy = 0;
+      }
+      const g = Math.min(1, dt * 6);
+      if (dt > 0) {
+        // smoothed, so a path's corners do not swing the body
+        f.vx += (dx / dt - f.vx) * g;
+        f.vy += (dy / dt - f.vy) * g;
+      }
+      // the heading: what the owner wants, else the way it walks; past the head's reach a look (turnTo) turns it too
+      let want = f.want;
+      if (want == null && Math.hypot(f.vx, f.vy) > 0.15) want = Math.atan2(f.vy, f.vx);
+      let lookA = null;
+      if (f.lookX != null && f.lookY != null && Math.hypot(f.lookX - x, f.lookY - y) > 0.05) {
+        lookA = Math.atan2(f.lookY - y, f.lookX - x);
+        if (f.turnTo) {
+          const off = Math.abs(normAngle(lookA - f.heading));
+          if (off > FIG_HEAD_REACH) f.turning = true;
+          else if (off < FIG_SETTLE) f.turning = false;
+          if (f.turning) want = lookA;
+        }
+      }
+      if (!f.turnTo) f.turning = false;
+      if (want != null) {
+        const m = (gt.turnRate > 0 ? gt.turnRate : TURN_RATE) * dt;
+        f.heading = normAngle(f.heading + clamp(normAngle(want - f.heading), -m, m));
+      }
+      const hmax = R.HEAD_YAW_MAX || 1.1;
+      const hw = lookA == null ? 0 : clamp(normAngle(lookA - f.heading), -hmax, hmax);
+      const hs = FIG_HEAD_RATE * dt;
+      f.headYaw += clamp(hw - f.headYaw, -hs, hs);
+      // the run, the steps (by its stride at that run: the feet stay planted), the walk easing in and out
+      f.run += ((f.wantRun || 0) - f.run) * Math.min(1, dt * 4);
+      if (f.run < 0.005) f.run = 0;
+      if (d > 0) {
+        const sl = R.stride(f.id, f.run);
+        f.gait = (f.gait + d / (sl > 0 ? sl : STRIDE)) % 1;
+      }
+      f.move += ((dt > 0 && d / dt > 0.15 ? 1 : 0) - f.move) * g;
+      if (f.move < 0.005) f.move = 0;
+      // the pose: from standing or walking straight in; from any other, out of it first (to standing), then in
+      const pose = f.wantPose || "stand";
+      const base = (q) => q === "stand" || q === "walk";
+      const step = dt / (beast ? R.POSE_BLEND || 0.2 : FIG_BLEND);
+      if (pose === f.pose) f.poseW = Math.min(1, f.poseW + step);
+      else if (base(f.pose) || f.poseW <= step) {
+        f.pose = pose;
+        f.poseW = base(pose) ? 1 : 0;
+      } else f.poseW -= step;
+      // its loop runs on through every pose (an animal's looping poses share one length: the wag keeps its phase)
+      const loop = beast ? (R.POSE_SECS && R.POSE_SECS[f.pose]) || 1.2 : FIG_LOOP;
+      f.poseT = (f.poseT + dt / loop) % 1;
+      if (beast) f.wag += ((f.wantWag == null ? 0.5 : f.wantWag) - f.wag) * Math.min(1, dt * 3);
+      if (f.hit > 0) f.hit = Math.max(0, f.hit - dt);
+    },
+    /** Out of standing or walking (sitting, kneeling, reading, cowering, sitting down or getting up): its owner waits
+        for it to get up before it walks off. */
+    figPosed(f) {
+      return !!f && f.pose !== "stand" && f.pose !== "walk" && f.poseW > 0.04;
+    },
+    /** The top of a figure's head now (tiles over its feet): its box's head standing, lower as it sits (by its seat
+        and its build: the legs fold under the hips), kneels or cowers, eased by poseW. The crew's speech bubble points
+        its tail there and the tutorial's arrow hangs over it (js/crew.js crewHeadTop). */
+    figHeadTop(f) {
+      const R = this.figRenderer(f);
+      if (!R) return 0;
+      const head = R.box(f.id).head;
+      if (f.live3d === "beast" || f.pose === "stand" || f.pose === "walk") return head;
+      let posed = head;
+      if (f.pose === "sit") {
+        const t = R.HUMANS[f.id];
+        const b = t.build;
+        const K = R.humanH(f.id) / t.h;
+        posed = head - (b.ankle + b.shin + b.thigh) * K + (f.seat || 0) + b.rThigh * 1.15 * K;
+      } else if (f.pose === "cower") posed = head * 0.55;
+      else if (f.pose === "work") {
+        // (the job asked for, else the look's own: on their knees at a bed or a board, or standing with a clipboard)
+        const L = R.HUMANS[f.id].looks[0];
+        if ((f.job || (L && L.job)) !== "clipboard") posed = head * 0.62;
+      }
+      return head + (posed - head) * f.poseW;
     },
     /** One sprite over its columns c0..c1: each run of whole columns (inside the picture, and no nearer
         opaque face cutting into it) goes up in a single draw; a column a wall cuts, or one the picture's
@@ -2960,6 +3227,9 @@
     LIVE_LEVELS,
     LIVE_START,
     NEAR_STICK,
+    FIG_BLEND,
+    FIG_LOOP,
+    FIG_HEAD_REACH,
     QUALITY_WAIT,
     GOV_WAIT,
     GOV_WAIT_UP,

@@ -380,7 +380,8 @@
       const near = Im.crew.reduce((a, c) => (d(c) < d(a) ? c : a));
       const c = was && d(was) <= d(near) + 3 ? was : near; // keep the pick unless another is 3 tiles nearer
       run.crewId = c.id;
-      return { x: c.x, y: c.y, lift: 1.1, label: crewName(c.id) };
+      // over their head as drawn (the 3D figure's own: standing, or lower on a seat; js/crew.js crewHeadTop) and a gap
+      return { x: c.x, y: c.y, lift: (Im.crewHeadTop ? Im.crewHeadTop(c) : 0.8) + 0.3, label: crewName(c.id) };
     }
     return null;
   }

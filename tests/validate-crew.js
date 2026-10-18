@@ -121,17 +121,19 @@ const PAGE = [...fs.readFileSync(path.join(ROOT, "index.html"), "utf8").matchAll
 const FACTS = PAGE.filter((f) => f === "layouts.js" || f === "world.js" || /^story[\w-]*\.js$/.test(f));
 if (!["layouts.js", "world.js", "story-crew.js"].every((f) => FACTS.includes(f))) throw new Error("validate-crew: index.html does not load layouts.js, world.js and story-crew.js (" + FACTS.join(", ") + ")");
 const STATE = FACTS.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "xoverstate.js"]);
-const ENGINE = STATE.concat(["audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "walker3d-crew.js", "model3d.js", "van3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "houseart.js", "riverart.js", "crewart.js", "crossart.js", "streets.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "robodog.js", "river.js"]);
+// (the crew are drawn on Walker3D's people, js/walker3d-crew.js, and the dogs on Beast3D, js/beast3d.js: their looks too)
+const ENGINE = STATE.concat(["audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "walker3d-crew.js", "beast3d.js", "beast3d-looks.js", "model3d.js", "van3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "houseart.js", "riverart.js", "crewart.js", "crossart.js", "streets.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "robodog.js", "river.js"]);
 
 /** A fresh game in its own sandbox, scripts in the page's order.
     opts: engine (the first-person engine too, with stand-in art and Interior.init), content (the six reading
-    levels), afterFacts(ZSR) (runs once the story files are in: swap in a synthetic fixture there).
+    levels), afterFacts(ZSR) (runs once the story files are in: swap in a synthetic fixture there), without (files
+    left out: the engine without the 3D crew, say).
     Returns { sb, ZSR, W, S, I, element, byId, store }. */
 function loadGame(opts) {
-  const o = Object.assign({ engine: false, content: false, afterFacts: null }, opts);
+  const o = Object.assign({ engine: false, content: false, afterFacts: null, without: [] }, opts);
   const b = browser();
-  const want = o.engine ? ENGINE : STATE;
-  const files = PAGE.filter((f) => want.includes(f) || (o.content && f.startsWith("content/")));
+  const want = (o.engine ? ENGINE : STATE).filter((f) => !o.without.includes(f)); // (without: files left out, as a page missing them)
+  const files = PAGE.filter((f) => !o.without.includes(f) && (want.includes(f) || (o.content && f.startsWith("content/"))));
   want.forEach((f) => !files.includes(f) && fs.existsSync(path.join(ROOT, "js", f)) && files.push(f)); // the page order first, then anything it lacks
   const lastFact = Math.max(...FACTS.map((f) => files.indexOf(f)));
   files.forEach((f, i) => {
@@ -1848,21 +1850,23 @@ simGroup("yard", "yard: the crew's props, ten minutes of calm, a build", () => {
   homeYard(g);
   const ids = Object.keys(W.CREW).filter((id) => (W.CREW[id].posts || []).length);
   ok(ids.length && same(I.crew.map((c) => c.id), ids), `yard: the crew in the yard (${I.crew.map((c) => c.id)}) are not every CREW id with posts (${ids})`);
-  const scale = (Z.CREW_ART && Z.CREW_ART.scale && Z.CREW_ART.scale.crew) || 0;
-  ok(scale > 0, "yard: CREW_ART.scale.crew is missing");
-  // (a) the prop: in the scene, at their feet, the crew's prop scale (CREW_ART.scale.crew) times theirs, 0.75 wide, never solid, and one
-  // cached picture per opts set ({ who, pose, f }, f exactly 0 or 1)
+  const M3 = Z.Walker3D;
+  ok(M3 && M3.HUMANS && M3.humanId, "yard: Walker3D's people (js/walker3d.js, js/walker3d-crew.js) did not load");
+  // (a) the prop: in the scene, at their feet, never solid, a live 3D figure drawn with the walkers (prop.fig: Walker3D's
+  // person of their own look, or the stand-in for a crew id with none), no flat picture beside it, in one of the people's
+  // poses, eased (poseW) and looped (poseT) in 0..1
   const propBad = [];
   const props = (when) =>
     I.crew.forEach((c) => {
       const pr = c.prop;
-      const o = (pr && pr.opts) || {};
-      const why = !pr || !I.props.includes(pr) ? "not in the scene" : pr.art !== "crew" ? `art ${pr.art}` : Math.abs(pr.scale - W.CREW[c.id].scale * scale) > 1e-9 ? `scale ${pr.scale}` : pr.wide !== 0.75 ? `wide ${pr.wide}` : pr.solid || pr.lift ? "solid or lifted" : !same(Object.keys(o).sort(), ["f", "pose", "who"]) || o.who !== c.id || !POSES.includes(o.pose) || (o.f !== 0 && o.f !== 1) ? `opts ${JSON.stringify(o)}` : !pr.img ? "no picture" : pr.x !== c.x || pr.y !== c.y ? "not where they stand" : "";
+      const f = pr && pr.fig;
+      const why = !pr || !I.props.includes(pr) ? "not in the scene" : !f ? "not a live figure (prop.fig)" : f.live3d !== "person" || f.id !== M3.humanId(c.id) ? `figure ${f.live3d} ${f.id}` : pr.solid || pr.lift ? "solid or lifted" : pr.img || pr.art ? "a flat picture too" : pr.x !== c.x || pr.y !== c.y ? "not where they stand" : !M3.HUMAN_POSES.includes(f.pose) || !(f.poseW >= 0 && f.poseW <= 1) || !(f.poseT >= 0 && f.poseT < 1) ? `pose ${f.pose} ${f.poseW} ${f.poseT}` : !Number.isFinite(f.heading) || !Number.isFinite(f.gait) ? "heading or gait not a number" : "";
       if (why && !propBad.some((x) => x.startsWith(c.id + "'s"))) propBad.push(`${c.id}'s prop ${when}: ${why}`);
     });
   props("on entry");
   ok(!I.crew.some((c) => I.blockers.has(tileKey(c))), "yard: a crew member's tile is solid (props are never solid)");
-  // (c) ten minutes of calm: never on a tile they may not stand on, always inside the fence, three posts or more each
+  // (c) ten minutes of calm: never on a tile they may not stand on (but their own seat on one: the porch bench, a bed's
+  // edge), always inside the fence, three posts or more each
   const inside = insideFence(W);
   const off = [];
   const out = [];
@@ -1872,7 +1876,7 @@ simGroup("yard", "yard: the crew's props, ten minutes of calm, a build", () => {
     const pass = I.crewPass();
     I.crew.forEach((c) => {
       const [x, y] = [Math.floor(c.x), Math.floor(c.y)];
-      if (!pass(x, y) && off.length < 3) off.push(`${c.id} at ${c.x.toFixed(2)},${c.y.toFixed(2)}`);
+      if (!pass(x, y) && !I.crewOnSeat(c) && off.length < 3) off.push(`${c.id} at ${c.x.toFixed(2)},${c.y.toFixed(2)}`);
       if (!inside.has(x + "," + y) && out.length < 3) out.push(`${c.id} at ${c.x.toFixed(2)},${c.y.toFixed(2)}`);
       if (c.state === "dwell" && c.post) (posts[c.id] = posts[c.id] || new Set()).add(c.post.id);
     });
@@ -1919,7 +1923,8 @@ simGroup("yard", "yard: the crew's props, ten minutes of calm, a build", () => {
   }
   I.update(0.05);
   const pass = I.crewPass();
-  ok(I.crew.every((c) => pass(Math.floor(c.x), Math.floor(c.y))), `yard: after a build a crew member is stuck in it (${I.crew.filter((c) => !pass(Math.floor(c.x), Math.floor(c.y))).map((c) => c.id)})`);
+  const stands = (c, ps) => ps(Math.floor(c.x), Math.floor(c.y)) || I.crewOnSeat(c); // (or on their own seat)
+  ok(I.crew.every((c) => stands(c, pass)), `yard: after a build a crew member is stuck in it (${I.crew.filter((c) => !stands(c, pass)).map((c) => c.id)})`);
   ok(I.crew.every((c) => I.props.includes(c.prop)), "yard: after refreshYard a crew member is no longer in the scene (crewDress)");
   const at = I.crew.map((c) => [c.x, c.y]);
   const moved = new Set();
@@ -1928,7 +1933,7 @@ simGroup("yard", "yard: the crew's props, ten minutes of calm, a build", () => {
     const ps = I.crewPass();
     I.crew.forEach((c, i) => {
       if (Math.hypot(c.x - at[i][0], c.y - at[i][1]) > 1) moved.add(c.id);
-      if (!ps(Math.floor(c.x), Math.floor(c.y)) && off2.length < 3) off2.push(c.id + " at " + c.x.toFixed(2) + "," + c.y.toFixed(2));
+      if (!stands(c, ps) && off2.length < 3) off2.push(c.id + " at " + c.x.toFixed(2) + "," + c.y.toFixed(2));
     });
   });
   ok(!off2.length && moved.size === I.crew.length, `yard: after the build the crew do not wander freely (stuck: ${I.crew.filter((c) => !moved.has(c.id)).map((c) => c.id)}; on a blocked tile: ${off2})`);
@@ -2613,7 +2618,8 @@ simGroup("yard", "yard: the dog at home: near Pip, then trailing, sheltering, ba
   const dq = (W.QUESTS || []).find((q) => q.kind === "dog");
   if (!ok(dq && W.DOG, "dog: no dog quest")) return;
   const lead = dq.giver;
-  const dogScale = Z.CREW_ART.scale.crewDog;
+  const dogPoses = (Z.Beast3D && Z.Beast3D.TYPES.dog && Z.Beast3D.TYPES.dog.poses) || [];
+  ok(dogPoses.length, "dog: Beast3D's dog (js/beast3d.js, js/beast3d-looks.js) did not load");
   /** Run `secs` in the calm: the dog's distances to its leader while they walk (after 3 s) and at rest after a walk. */
   function follow(named) {
     homeYard(g, (S) => {
@@ -2635,8 +2641,9 @@ simGroup("yard", "yard: the dog at home: near Pip, then trailing, sheltering, ba
       const dist = Math.hypot(d.x - c.x, d.y - c.y);
       all.push(dist);
       if (!pass(Math.floor(d.x), Math.floor(d.y))) off++;
-      const o = d.prop.opts || {};
-      if (!props && (d.prop.art !== "crewDog" || Math.abs(d.prop.scale - dogScale) > 1e-9 || d.prop.solid || !I.props.includes(d.prop) || (o.f !== 0 && o.f !== 1) || ("left" in o && o.left !== true) || !same(Object.keys(o).filter((k) => k !== "left").sort(), ["f", "pose"]))) props = JSON.stringify({ art: d.prop.art, scale: d.prop.scale, opts: o });
+      // its prop: in the scene, at its feet, never solid, a live 3D figure (Beast3D's "dog") in one of its poses
+      const f = d.prop.fig;
+      if (!props && (!f || f.live3d !== "beast" || f.id !== "dog" || !dogPoses.includes(f.pose) || d.prop.solid || d.prop.img || d.prop.art || !I.props.includes(d.prop) || d.prop.x !== d.x || d.prop.y !== d.y)) props = JSON.stringify({ art: d.prop.art, fig: f && [f.live3d, f.id, f.pose], solid: d.prop.solid });
       if (c.state === "walk") {
         walkT += 0.05;
         still = 0;
@@ -2723,6 +2730,450 @@ simGroup("yard", "yard: the dog quest handed in, then the dog named", () => {
   ok(!I.talk, "dog: the bubble stayed open after naming");
   ok(JSON.parse(g.store.get("zs.save.1")).crew.dog.name === name, "dog: the name is not in the save");
   ok(I.crewAction(lead) === null || I.crewAction(lead).action !== "name", "dog: the dog is asked for a name again");
+});
+
+/* ---------- The crew in 3D: live figures (js/crew.js crewAnim, js/interior.js figStep and the pool) ---------- */
+/** Every Walker3D and Beast3D draw while fn runs: { kind ("person", "walker" or "beast"), id, what the state and the
+    camera said, frame }. */
+function recordDraws(g, fn) {
+  const { ZSR: Z, I } = g;
+  const out = [];
+  const M = [Z.Walker3D, Z.Beast3D];
+  const was = M.map((m) => m.draw);
+  M.forEach((m, i) => {
+    m.draw = function (ctx, id, st, cam) {
+      const kind = i === 1 ? "beast" : Z.Walker3D.HUMANS[id] ? "person" : "walker";
+      out.push({ kind, id, seed: st.seed, pose: st.pose, poseW: st.poseW, poseT: st.poseT, seat: st.seat, run: st.run, yaw: st.yaw, headYaw: st.headYaw, lod: st.lod, w: cam.w, h: cam.h, px: cam.px, dist: cam.dist, eye: cam.eye, floor: cam.floor || 0, frame: I.frameNo });
+      return was[i].call(this, ctx, id, st, cam);
+    };
+  });
+  try {
+    fn();
+  } finally {
+    M.forEach((m, i) => (m.draw = was[i]));
+  }
+  return out;
+}
+const angleOff = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+const SEAT_ART = { porchBench: "hBench", diningChair: "hChair" }; // the furniture each kind of seat is (js/house.js); a bed is a low tile
+
+simGroup("yard", "3D: the crew and the dog are live figures in the yard and the cabin, in the walkers' pool, cap and near places", () => {
+  const g = engineGame(121);
+  const { I, W, ZSR: Z } = g;
+  const M3 = Z.Walker3D;
+  homeYard(g, (S) => {
+    S.save.crew.dog.home = true;
+    S.save.crew.dog.name = W.DOG.ideas[0];
+  });
+  const o = openGround(g);
+  // (a) in the yard: each held in the open ahead of you, the dog by them; drawn live by its renderer, with the walkers'
+  // camera (a person: no room under the feet, as a walker; the dog: room under its paws, Beast3D's cam.floor)
+  I.crew.forEach((c, i) => hold(g, c.id, o.x - 1 + i, o.y));
+  const d = I.dog;
+  standAt(g, o.x, o.y + 2.6, o.x, o.y);
+  I.update(0.05);
+  Object.assign(d, { x: o.x + 0.5, y: o.y + 0.7, trail: [] });
+  I.crewDogPlace();
+  let draws = recordDraws(g, () => {
+    I.render();
+    I.render();
+  });
+  I.crew.forEach((c) => {
+    const mine = draws.filter((x) => x.kind === "person" && x.id === M3.humanId(c.id));
+    ok(mine.length > 0, `3D: ${c.id} in the open ahead of you was not drawn by Walker3D (${draws.map((x) => x.id)})`);
+    ok(mine.every((x) => x.w >= 2 && x.h >= 2 && x.px > 0 && x.dist > 0.1 && Math.abs(x.eye - 0.5) < 1e-9 && x.floor === 0 && M3.HUMAN_POSES.includes(x.pose)), `3D: ${c.id} was drawn with an odd camera or state (${JSON.stringify(mine[0])})`);
+    ok(I.livePool.has(c.fig), `3D: ${c.id}'s picture is not in the live pool`);
+  });
+  const dd = draws.filter((x) => x.kind === "beast" && x.id === "dog");
+  ok(dd.length > 0 && dd.every((x) => x.floor > 0 && x.floor <= x.h * 0.6 && Z.Beast3D.TYPES.dog.poses.includes(x.pose)), `3D: the dog was not drawn by Beast3D with room under its paws (${JSON.stringify(dd[0])})`);
+  ok(I.liveShown >= I.crew.length + 1, `3D: ${I.liveShown} live figures counted on screen (want the crew and the dog: the governor counts them)`);
+  // (b) in the cabin: June at the stove, seen from across the kitchen
+  const june = crewOf(g, "june") || I.crew[0];
+  const post = (june.def.posts || []).find((p) => p.house && !p.seat) || june.def.posts[0];
+  I.crewSettle(june, post);
+  Object.assign(june, { state: "dwell", t: 1e6, jobT: 1e6, path: [] });
+  I.crewPlace(june);
+  const pass = I.crewPass();
+  const view = [[1, 1], [-1, 1], [1, -1], [-1, -1], [2, 0], [-2, 0], [0, 2], [0, -2]].map(([dx, dy]) => [Math.floor(june.x) + dx, Math.floor(june.y) + dy]).find(([x, y]) => pass(x, y) && I.indoorAt(x + 0.5, y + 0.5) && I.lineClear(x + 0.5, y + 0.5, june.x, june.y));
+  if (ok(view, `3D: no spot in the cabin to see ${june.id} at the ${post.id} post from`)) {
+    standAt(g, view[0] + 0.5, view[1] + 0.5, june.x, june.y);
+    draws = recordDraws(g, () => I.render());
+    ok(draws.some((x) => x.kind === "person" && x.id === M3.humanId(june.id)), `3D: ${june.id} in the cabin (the ${post.id} post) was not drawn live`);
+  }
+  // (c) one pool, one cap, the same near places: three crew members nearer than three walkers take the near places
+  // (drawn in full detail every frame they change), the walkers take turns; never more redraws a frame than the cap
+  I.walkers.length = 0;
+  const p = standAt(g, o.x, o.y + 2.6, o.x, o.y);
+  I.crew.forEach((c, i) => hold(g, c.id, o.x - 0.35 + i * 0.35, p.y - 0.95 - i * 0.05));
+  d.x = o.x - 2.5; // (the dog off to one side, out of view)
+  d.y = p.y + 1.5;
+  I.crewDogPlace();
+  const zs = [0, 1, 2].map((i) => {
+    const z = I.makeWalker("walker", o.x - 0.4 + i * 0.4, p.y - 1.3 - i * 0.1, 1);
+    Object.assign(z, { awake: false, act: "sleep", seed: 900 + i, move: 1 });
+    I.walkers.push(z);
+    return z;
+  });
+  for (let i = 0; i < 12; i++) zs.push(Object.assign(I.makeWalker("walker", o.x - 2 + (i % 5), p.y - 4 - Math.floor(i / 5), 1), { awake: false, act: "sleep", seed: 910 + i }));
+  zs.slice(3).forEach((z) => I.walkers.push(z));
+  I.render(); // (every picture new: the first frame draws them all, as for walkers)
+  I.render();
+  const perFrame = [];
+  let crewNear = 0;
+  let walkerNear = 0;
+  draws = recordDraws(g, () => {
+    for (let f = 0; f < 10; f++) {
+      I.crew.forEach((c) => (c.fig.poseT = (c.fig.poseT + 0.05) % 1)); // they breathe: a new picture each frame
+      zs.forEach((z) => (z.gait = (z.gait + 0.05) % 1));
+      const n0 = I.frameNo;
+      I.render();
+      perFrame.push(I.liveDrawn);
+      if (I.crew.every((c) => I.livePool.get(c.fig) && I.livePool.get(c.fig).nearAt === I.frameNo)) crewNear++;
+      if (zs.slice(0, 3).some((z) => I.livePool.get(z) && I.livePool.get(z).nearAt === I.frameNo)) walkerNear++;
+      if (I.frameNo !== n0 + 1) break;
+    }
+  });
+  ok(Math.max(...perFrame) <= I.liveMax, `3D: ${Math.max(...perFrame)} live redraws in a frame with the crew and walkers on screen (the shared cap is ${I.liveMax})`);
+  ok(crewNear >= 9 && !walkerNear, `3D: the three crew members nearer than three walkers held the near places in ${crewNear} of 10 frames (walkers took them in ${walkerNear}): one set of near places for both`);
+  const crewLod0 = I.crew.map((c) => draws.filter((x) => x.kind === "person" && x.id === M3.humanId(c.id) && x.lod === 0).length);
+  ok(crewLod0.every((n) => n >= 9), `3D: the near crew were drawn in full detail ${crewLod0} times in 10 frames (want every frame they changed)`);
+  I.walkers.length = 0;
+});
+
+simGroup("yard", "3D: at a post they face its task; a sit post sits on its seat (its height, its way, in front of it, E finds them there); they get up before walking off", () => {
+  const g = engineGame(122);
+  const { I, W, ZSR: Z } = g;
+  homeYard(g, (S) => Object.keys(S.save.rooms).forEach((k) => (S.save.rooms[k] = 3)));
+  const M3h = Z.Walker3D.HEAD_YAW_MAX;
+  const SEATS = W.CREW_SEATS || {};
+  const bad = [];
+  const say = (m) => bad.length < 8 && bad.push(m);
+  let seats = 0;
+  let faced = 0;
+  const reachAll = I.reachable(Math.floor(I.player.x), Math.floor(I.player.y), true); // where you can stand (doors open)
+  I.crew.forEach((c) => {
+    (c.def.posts || []).filter((post) => I.crewPostOpen(post)).forEach((post) => {
+      // walk there from the post's own tile (as from anywhere: crewGoPost), with no job to look for
+      const [tx, ty] = I.crewPostTile(post);
+      Object.assign(c, { x: tx + 0.5, y: ty + 0.5, job: null, jobT: 1e6, path: [] });
+      c.fig.pose = c.fig.wantPose = "stand";
+      c.fig.poseW = 1;
+      if (!I.crewGoPost(c, post)) return say(`${c.id} has no way onto the ${post.id} post`);
+      Object.assign(c, { post, state: "walk" });
+      stepFor(g, 12, () => c.state === "walk");
+      c.t = 1e6;
+      stepFor(g, 2.5);
+      const f = c.fig;
+      const seat = I.crewSeatOf(post);
+      const face = I.crewFacePoint(post, c);
+      if (c.state !== "dwell" || c.post !== post) return say(`${c.id} never settled at the ${post.id} post (${c.state})`);
+      if (!face) return say(`${c.id}'s ${post.id} post faces nothing`);
+      const toFace = Math.atan2(face[1] - c.y, face[0] - c.x);
+      if (seat) {
+        seats++;
+        const want = { n: -Math.PI / 2, e: 0, s: Math.PI / 2, w: Math.PI }[post.seat.dir];
+        if (Math.hypot(c.x - seat.x, c.y - seat.y) > 1e-6) say(`${c.id} at the ${post.id} post is not on its seat (${c.x.toFixed(2)},${c.y.toFixed(2)})`);
+        if (!(f.pose === "sit" && f.poseW === 1 && f.seat > 0 && Math.abs(f.seat - SEATS[post.seat.kind]) < 1e-9)) say(`${c.id} at the ${post.id} post: ${f.pose} at ${f.poseW}, seat ${f.seat} (want sitting at ${SEATS[post.seat.kind]})`);
+        if (angleOff(f.heading, want) > 0.05) say(`${c.id} sits facing ${f.heading.toFixed(2)} at the ${post.id} post, not its seat's way ${post.seat.dir}`);
+        if (!(f.zb > 0)) say(`${c.id} on the ${post.id} seat is not drawn in front of it (zb ${f.zb})`);
+        // the head turns to the task as far as it reaches
+        const hw = Math.max(-M3h, Math.min(M3h, Math.atan2(Math.sin(toFace - f.heading), Math.cos(toFace - f.heading))));
+        if (Math.abs(f.headYaw - hw) > 0.05) say(`${c.id} on the ${post.id} seat looks ${f.headYaw.toFixed(2)} off ahead, not at its task (${hw.toFixed(2)})`);
+        // the furniture under it: the porch bench or a chair (a prop at the seat), or a bed's edge (a low tile its height)
+        const key = Math.floor(seat.x) + "," + Math.floor(seat.y);
+        const low = I.lowTiles[key];
+        const art = SEAT_ART[post.seat.kind];
+        const prop = art && I.props.find((pr) => pr.art === art && Math.hypot(pr.x - seat.x, pr.y - seat.y) < 0.1);
+        if (art ? !prop : !(low && Math.abs(low.h - f.seat) < 1e-9)) say(`${c.id}'s ${post.id} seat (${post.seat.kind}) has no ${art || "low tile its height"} under it at ${seat.x},${seat.y}`);
+        // sitting there, drawn just in front of the chair or bench (the sprites' painter's order)
+        if (prop) {
+          const order = [];
+          const ds = I.drawSprite;
+          I.drawSprite = function (ctx, s) {
+            if (s.live === f || (s.x === prop.x && s.y === prop.y && !s.live)) order.push(s.live === f ? "sitter" : "seat");
+            return ds.call(this, ctx, s);
+          };
+          const back = { n: [0, 1], s: [0, -1], e: [-1, 0], w: [1, 0] }; // (seen from in front of it)
+          const [bx, by] = back[post.seat.dir];
+          const spots = [1.6, 1.2].map((r) => [seat.x - bx * r, seat.y - by * r]).concat([[seat.x + by * 1.4, seat.y - bx * 1.4], [seat.x - by * 1.4, seat.y + bx * 1.4]]);
+          const spot = spots.find(([x, y]) => I.crewPass()(Math.floor(x), Math.floor(y)) && I.lineClear(x, y, seat.x, seat.y));
+          if (spot) {
+            standAt(g, spot[0], spot[1], seat.x, seat.y);
+            I.render();
+            if (!(order.indexOf("seat") >= 0 && order.lastIndexOf("sitter") > order.indexOf("seat"))) say(`${c.id} on the ${post.id} seat is not drawn after (in front of) it: ${order}`);
+          }
+          I.drawSprite = ds;
+        }
+        // E finds them on it from somewhere you can stand (a seat by a cabin spot, the radio: from a side, not over it)
+        let talkFrom = null;
+        for (const k of reachAll.keys()) {
+          const [x, y] = k.split(",").map(Number);
+          if (Math.hypot(x + 0.5 - seat.x, y + 0.5 - seat.y) > 2.2) continue;
+          standAt(g, x + 0.5, y + 0.5, seat.x, seat.y);
+          const fe = I.facing();
+          if (fe && fe.kind === "crew" && fe.obj === c) {
+            talkFrom = k;
+            break;
+          }
+        }
+        if (!talkFrom) say(`nowhere to talk to ${c.id} on the ${post.id} seat from (E is for something else everywhere in reach)`);
+      } else {
+        faced++;
+        if (angleOff(f.heading, toFace) > 0.1) say(`${c.id} at the ${post.id} post faces ${f.heading.toFixed(2)}, not its task (${toFace.toFixed(2)})`);
+        if (!(f.pose === I.crewPostPose(post) && f.poseW === 1)) say(`${c.id} at the ${post.id} post is ${f.pose} at ${f.poseW}, not ${I.crewPostPose(post)}`);
+        if (f.seat !== 0 || f.zb !== 0) say(`${c.id} at the ${post.id} post (no seat) has seat ${f.seat}, zb ${f.zb}`);
+      }
+    });
+  });
+  const sits = Object.values(W.CREW).reduce((n, c) => n + (c.posts || []).filter((p) => p.pose === "sit").length, 0);
+  ok(seats === sits && sits > 0, `3D: ${seats} sit posts sat on (of ${sits})`);
+  ok(faced > 10, `3D: only ${faced} posts checked for facing their task`);
+  ok(!bad.length, `3D posts: ${bad.join("; ")}`);
+  // getting up: off a seat they stand first (the sit eases out), then walk; a seat on a solid tile is left by its post's tile
+  const seated = I.crew.find((c) => (c.def.posts || []).some((p) => p.seat && I.crewPostOpen(p)));
+  if (ok(seated, "3D: nobody with a seat to get up from")) {
+    I.crewSettle(seated, seated.def.posts.find((p) => p.seat && I.crewPostOpen(p)));
+    Object.assign(seated, { state: "dwell", t: 1e6, jobT: 1e6, path: [] });
+    stepFor(g, 0.5);
+    ok(seated.fig.pose === "sit" && seated.fig.poseW === 1, `3D: setup, ${seated.id} is not sitting (${seated.fig.pose})`);
+    const at = [seated.x, seated.y];
+    seated.state = "idle";
+    let still = 0;
+    let movedAt = null;
+    stepFor(g, 4, (t) => {
+      const moved = Math.hypot(seated.x - at[0], seated.y - at[1]) > 1e-6;
+      if (!moved && seated.fig.pose === "sit") still += 0.05;
+      if (moved && movedAt == null) {
+        movedAt = t;
+        ok(!I.figPosed(seated.fig), `3D: ${seated.id} set off still sitting (${seated.fig.pose} at ${seated.fig.poseW.toFixed(2)})`);
+      }
+      return movedAt == null;
+    });
+    ok(movedAt != null && still >= I.FIG_BLEND * 0.8 && movedAt <= I.FIG_BLEND + 0.6, `3D: ${seated.id} got up off the seat in ${still.toFixed(2)} s and set off at ${movedAt} s (want about ${I.FIG_BLEND} s up, then away)`);
+    const pass = I.crewPass();
+    ok(pass(Math.floor(seated.x), Math.floor(seated.y)) || I.crewOnSeat(seated), `3D: ${seated.id} left the seat over a solid tile (${seated.x.toFixed(2)},${seated.y.toFixed(2)})`);
+  }
+});
+
+simGroup("yard", "3D: talking turns them to you: the head first, the body past its reach; the talk pose; back to the post after", () => {
+  const g = engineGame(123);
+  const { I, ZSR: Z } = g;
+  homeYard(g);
+  const c = crewOf(g, "june") || I.crew[0];
+  const f = c.fig;
+  const post = (c.def.posts || []).find((p) => p.at && !p.seat && !p.room && I.crewPostOpen(p));
+  if (!ok(post, `3D: ${c.id} has no open yard post to talk at`)) return;
+  I.crewSettle(c, post);
+  Object.assign(c, { state: "dwell", t: 1e6, jobT: 1e6, path: [] });
+  I.crewPlace(c);
+  stepFor(g, 1);
+  const face = I.crewFacePoint(post, c);
+  const toFace = Math.atan2(face[1] - c.y, face[0] - c.x);
+  ok(angleOff(f.heading, toFace) < 0.1, `3D: setup, ${c.id} does not face the ${post.id} post's task`);
+  // you a little to one side (inside the head's reach): the head turns, the body stays on its task
+  const side = (a, r) => standAt(g, c.x + Math.cos(f.heading + a) * r, c.y + Math.sin(f.heading + a) * r, c.x, c.y);
+  side(0.7, 1.6);
+  I.crewOpen(c.id);
+  ok(I.talk && c.state === "talk", `3D: setup, the bubble did not open on ${c.id}`);
+  const h0 = f.heading;
+  stepFor(g, 1.5);
+  const toYou = () => Math.atan2(I.player.y - c.y, I.player.x - c.x);
+  ok(f.pose === "talk" && f.poseW === 1, `3D: talking, ${c.id} is ${f.pose} at ${f.poseW} (want the talk pose: the mouth moving)`);
+  ok(angleOff(f.heading, h0) < 0.02 && angleOff(f.heading + f.headYaw, toYou()) < 0.08, `3D: you 0.7 rad to one side, ${c.id} turned the body ${angleOff(f.heading, h0).toFixed(2)} and looks ${angleOff(f.heading + f.headYaw, toYou()).toFixed(2)} off you (want the head on you, the body still)`);
+  I.crewTalkEnd();
+  stepFor(g, 1.5);
+  // you behind them (past the head's reach): the body turns to you too
+  side(2.6, 1.6);
+  I.crewOpen(c.id);
+  stepFor(g, 2.5);
+  ok(angleOff(f.heading, toYou()) < 0.25 && angleOff(f.heading + f.headYaw, toYou()) < 0.08, `3D: you behind ${c.id}, the body is ${angleOff(f.heading, toYou()).toFixed(2)} off you and the head ${angleOff(f.heading + f.headYaw, toYou()).toFixed(2)} (want both on you)`);
+  const drawn = recordDraws(g, () => I.render());
+  const me = drawn.find((x) => x.kind === "person" && x.id === Z.Walker3D.humanId(c.id));
+  ok(me && me.pose === "talk" && Math.abs(me.yaw + me.headYaw) < 0.1, `3D: talking, ${c.id} is drawn ${me ? me.pose + " looking " + (me.yaw + me.headYaw).toFixed(2) + " off the camera" : "not at all"}`);
+  // closed: back to the post's task and pose
+  I.crewTalkEnd();
+  stepFor(g, 2.5);
+  ok(c.state === "dwell" && angleOff(f.heading, toFace) < 0.1 && Math.abs(f.headYaw) < 0.05 && f.pose === I.crewPostPose(post), `3D: after the bubble ${c.id} is ${c.state}, ${f.pose}, ${angleOff(f.heading, toFace).toFixed(2)} off the task (want back at it)`);
+  // on a seat: they stand to talk (the talk pose), and sit down again after
+  const seatPost = (c.def.posts || []).find((p) => p.seat && I.crewPostOpen(p));
+  if (seatPost) {
+    I.crewSettle(c, seatPost);
+    Object.assign(c, { state: "dwell", t: 1e6, jobT: 1e6, path: [] });
+    I.crewPlace(c);
+    stepFor(g, 0.5);
+    const s = I.crewSeatOf(seatPost);
+    const spot = [[0, -1.5], [1.5, 0], [0, 1.5], [-1.5, 0], [1.2, -1.2], [-1.2, -1.2], [1.2, 1.2], [-1.2, 1.2]].map(([dx, dy]) => [s.x + dx, s.y + dy]).find(([x, y]) => I.crewPass()(Math.floor(x), Math.floor(y)) && I.lineClear(x, y, s.x, s.y));
+    if (ok(spot, `3D: nowhere to talk to ${c.id} on the ${seatPost.id} seat from`)) {
+      standAt(g, spot[0], spot[1], s.x, s.y);
+      // E finds them on it (the aim is the spot they sit on, in sight over the seat's low tile)
+      const aimed = I.facing();
+      ok(aimed && aimed.kind === "crew" && aimed.obj === c, `3D: looking at ${c.id} on the ${seatPost.id} seat, E is for ${aimed ? aimed.kind : "nothing"} (want them)`);
+      I.crewOpen(c.id);
+      stepFor(g, 2);
+      ok(f.pose === "talk" && f.poseW === 1 && Math.hypot(c.x - s.x, c.y - s.y) < 1e-6, `3D: talked to on the ${seatPost.id} seat, ${c.id} is ${f.pose} at ${f.poseW} (want standing to talk, where the seat is)`);
+      I.crewTalkEnd();
+      stepFor(g, 2);
+      ok(f.pose === "sit" && f.poseW === 1 && angleOff(f.heading, s.heading) < 0.05, `3D: after the bubble ${c.id} is ${f.pose} at ${f.poseW}, ${angleOff(f.heading, s.heading).toFixed(2)} off the seat's way (want sitting again)`);
+    }
+  }
+});
+
+simGroup("yard", "3D: a wave: the crew run to the shelter (a real run) and cower in it, turned to its door; the dog runs too and lies low", () => {
+  const g = engineGame(124);
+  const { I, W, ZSR: Z } = g;
+  homeYard(g, (S) => {
+    S.save.crew.dog.home = true;
+    S.save.crew.dog.name = W.DOG.ideas[0];
+  });
+  // out in the open, well away from the cabin, so the run is a long one
+  const o = openGround(g);
+  I.crew.forEach((c, i) => hold(g, c.id, o.x - 1 + i, o.y));
+  Object.assign(I.dog, { x: o.x + 0.5, y: o.y + 0.5, trail: [] });
+  I.crewDogPlace();
+  stepFor(g, 1);
+  I.crew.forEach((c) => (c.t = 0)); // (no longer held: the wave takes them)
+  Object.assign(I.phase, { next: { size: "some", sides: ["n"] }, t: 0.01 });
+  const R = W.CREW_RULES;
+  const runMax = {};
+  const speed = {};
+  const gaitRan = {};
+  let dogRun = 0;
+  const last = I.crew.map((c) => [c.x, c.y, c.fig.gait]);
+  stepFor(g, 20, () => {
+    I.crew.forEach((c, i) => {
+      const v = Math.hypot(c.x - last[i][0], c.y - last[i][1]) / 0.05;
+      if (c.state === "run" && v > 0) {
+        runMax[c.id] = Math.max(runMax[c.id] || 0, c.fig.run);
+        speed[c.id] = Math.max(speed[c.id] || 0, v);
+        if (c.fig.gait !== last[i][2]) gaitRan[c.id] = true;
+      }
+      last[i] = [c.x, c.y, c.fig.gait];
+    });
+    dogRun = Math.max(dogRun, I.dog.fig.run);
+  });
+  ok(I.phase.kind === "wave", "3D wave: no wave began");
+  I.crew.forEach((c) => {
+    ok(runMax[c.id] > 0.9 && gaitRan[c.id] && Math.abs(speed[c.id] - R.runSpeed) < 0.15, `3D wave: ${c.id} ran at run ${runMax[c.id]} and ${speed[c.id]} tiles a second, steps ${!!gaitRan[c.id]} (want a real run, st.run near 1, at runSpeed ${R.runSpeed})`);
+  });
+  ok(dogRun > 0.5, `3D wave: the dog galloped at most ${dogRun.toFixed(2)} keeping up with its leader's run`);
+  // in the shelter: cowering, all the way, turned to its door
+  const door = I.crewShelterDoors()[0];
+  I.crew.forEach((c) => {
+    const f = c.fig;
+    const toDoor = door ? Math.atan2(door.y + 0.5 - c.y, door.x + 0.5 - c.x) : f.heading;
+    ok(c.state === "shelter" && f.pose === "cower" && f.poseW === 1 && f.run === 0 && angleOff(f.heading, toDoor) < 0.15, `3D wave: in the shelter ${c.id} is ${c.state}, ${f.pose} at ${f.poseW}, run ${f.run}, ${angleOff(f.heading, toDoor).toFixed(2)} off its door (want cowering, turned to the door)`);
+  });
+  ok((I.dog.fig.pose === "lie" && I.dog.fig.poseW === 1) || I.dog.barkT > 0, `3D wave: in the shelter the dog is ${I.dog.fig.pose} at ${I.dog.fig.poseW} (want lying low, or barking at walkers near)`);
+  // seen through the open door: drawn cowering
+  if (door) {
+    I.crewSetDoor(door, true);
+    const t = I.crewShelterTiles();
+    standAt(g, door.x + 0.5, door.y + 0.5, t[0].x, t[0].y);
+    const drawn = recordDraws(g, () => I.render()).filter((x) => x.kind === "person");
+    ok(drawn.length && drawn.every((x) => x.pose === "cower"), `3D wave: looking into the shelter the crew are drawn ${drawn.map((x) => x.id + " " + x.pose)} (want cowering)`);
+  }
+});
+
+simGroup("yard", "3D: a figure's canvas goes as it leaves the scene (Rivet switched off, the dog given up), and all of them with the yard", () => {
+  const g = engineGame(125);
+  const { I, S, W } = g;
+  const def = Object.values(W.UNIVERSES || {}).find((d) => d.robotQuest);
+  const u = Object.keys(W.UNIVERSES || {}).find((k) => W.UNIVERSES[k] === def);
+  homeYard(g, (S2) => {
+    S2.save.crew.dog.home = true;
+    if (def) {
+      S2.settings.universe = u;
+      S2.save.crew.quests[def.robotQuest] = { state: "done", day: 1, doneDay: 1 };
+    }
+  });
+  const o = openGround(g);
+  I.crew.forEach((c, i) => hold(g, c.id, o.x - 1 + i, o.y));
+  standAt(g, o.x, o.y + 2.6, o.x, o.y);
+  I.update(0.05);
+  Object.assign(I.dog, { x: o.x + 0.3, y: o.y + 0.8, trail: [] });
+  if (I.robo) Object.assign(I.robo, { x: o.x - 0.4, y: o.y + 1.2 });
+  I.update(0.05);
+  I.render();
+  const figs = I.crew.map((c) => c.fig).concat([I.dog.fig]).concat(I.robo ? [I.robo.fig] : []);
+  ok(figs.every((f) => I.livePool.has(f)), `3D: not every figure in view has a pooled canvas (${figs.filter((f) => !I.livePool.has(f)).map((f) => f.id)})`);
+  // the dog out of the scene (its prop hidden, as a given-up dog's): its canvas goes at the end of the next frame
+  I.dog.prop.hidden = true;
+  I.render();
+  ok(!I.livePool.has(I.dog.fig), "3D: the dog left the scene but kept its canvas");
+  ok(I.crew.every((c) => I.livePool.has(c.fig)), "3D: the crew's canvases went with the dog's");
+  I.dog.prop.hidden = false;
+  if (I.robo) {
+    const rf = I.robo.fig;
+    ok(I.livePool.has(rf), "3D: setup, Rivet has no canvas");
+    S.settings.universe = "off";
+    I.update(0.05); // (roboSync: Rivet leaves)
+    I.render();
+    ok(!I.robo && !I.livePool.has(rf), "3D: Rivet switched off kept its canvas");
+    S.settings.universe = u;
+  }
+  // a figure merely out of view keeps its canvas a while (LIVE_IDLE frames), as a walker's does
+  const c0 = I.crew[0];
+  I.player.a += Math.PI;
+  I.render();
+  ok(I.livePool.has(c0.fig), "3D: a crew member just out of view lost its canvas at once");
+  I.stop();
+  ok(I.livePool.size === 0 && !(I.liveSpare || []).length, `3D: leaving the yard kept ${I.livePool.size} live canvases`);
+});
+
+// (the tutorial's arrow hangs over the same head top: tests/validate-engine.js, the tutorial's step 14b)
+simGroup("yard", "3D: the head's height (standing, sitting): the bubble's tail points at it", () => {
+  const g = engineGame(126);
+  const { I, ZSR: Z } = g;
+  homeYard(g);
+  const c = I.crew.find((m) => (m.def.posts || []).some((p) => p.seat && I.crewPostOpen(p)));
+  if (!ok(c, "3D head: nobody with a seat")) return;
+  const seatPost = c.def.posts.find((p) => p.seat && I.crewPostOpen(p));
+  const standPost = c.def.posts.find((p) => !p.seat && p.pose === "stand");
+  I.crewSettle(c, standPost);
+  Object.assign(c, { state: "dwell", t: 1e6, jobT: 1e6, path: [] });
+  stepFor(g, 0.5);
+  const stand = I.crewHeadTop(c);
+  const box = Z.Walker3D.box(Z.Walker3D.humanId(c.id));
+  ok(Math.abs(stand - box.head) < 1e-9, `3D head: standing, ${c.id}'s head top ${stand} is not the 3D figure's own (box.head ${box.head})`);
+  I.crewSettle(c, seatPost);
+  stepFor(g, 0.5);
+  const sit = I.crewHeadTop(c);
+  ok(sit < stand - 0.1 && sit > I.crewSeatOf(seatPost).h + 0.2, `3D head: sitting, ${c.id}'s head top ${sit.toFixed(3)} (standing ${stand.toFixed(3)}, the seat ${I.crewSeatOf(seatPost).h})`);
+  // the bubble's tail: set to the head's height on the screen inside the bubble (a wide screen: the bubble's box)
+  const el = I.hud.read;
+  const props = {};
+  const keep = [el.getBoundingClientRect, el.style];
+  el.getBoundingClientRect = () => ({ top: 100, height: 400, left: 0, width: 300 });
+  el.style = { setProperty: (k, v) => (props[k] = v) };
+  try {
+    const s = I.crewSeatOf(seatPost);
+    const spot = [[0, -1.6], [1.6, 0], [0, 1.6], [-1.6, 0]].map(([dx, dy]) => [s.x + dx, s.y + dy]).find(([x, y]) => I.crewPass()(Math.floor(x), Math.floor(y)));
+    standAt(g, spot[0], spot[1], s.x, s.y);
+    I.crewBubbleTail(el, c);
+    const q = I.project(c.x, c.y, I.crewHeadTop(c));
+    const want = Math.round(Math.max(12, Math.min(400 - 40, q.y - 100 - 6)));
+    ok(props["--tail-top"] === want + "px", `3D head: the bubble's tail top is ${props["--tail-top"]}, not at the head (${want}px)`);
+  } finally {
+    [el.getBoundingClientRect, el.style] = keep;
+  }
+});
+
+simGroup("yard", "3D: without Walker3D's people and Beast3D the crew and the dog are today's flat sprites", () => {
+  const g = loadGame({ engine: true, content: true, without: ["walker3d-crew.js", "beast3d.js", "beast3d-looks.js"] });
+  const { I, W, ZSR: Z } = g;
+  g.S.newGame(1, "Flat");
+  g.S.trip = null;
+  g.S.save.crew.dog.home = true;
+  I.enterYard({ firstCalm: 999 });
+  I.stop();
+  const scale = (Z.CREW_ART && Z.CREW_ART.scale) || {};
+  // the flat contract (docs/CREW.md): "crew" { who, pose, f } at CREW[id].scale x CREW_ART.scale.crew, 0.75 wide; the
+  // dog "crewDog" { pose, f } at CREW_ART.scale.crewDog; one cached picture per opts set (f exactly 0 or 1)
+  const flat = (pr, art, sc, keys) => !pr.fig && pr.art === art && Math.abs(pr.scale - sc) < 1e-9 && !!pr.img && same(Object.keys(pr.opts || {}).filter((k) => k !== "left").sort(), keys) && (pr.opts.f === 0 || pr.opts.f === 1);
+  ok(I.crew.length && I.crew.every((c) => !c.fig && flat(c.prop, "crew", W.CREW[c.id].scale * scale.crew, ["f", "pose", "who"]) && c.prop.wide === 0.75 && POSES.includes(c.prop.opts.pose)), `3D fallback: the crew are not the flat sprites (${I.crew.map((c) => JSON.stringify({ fig: !!c.fig, art: c.prop.art, opts: c.prop.opts }))})`);
+  ok(I.dog && !I.dog.fig && flat(I.dog.prop, "crewDog", scale.crewDog, ["f", "pose"]), `3D fallback: the dog is not the flat sprite (${I.dog && JSON.stringify({ art: I.dog.prop.art, opts: I.dog.prop.opts })})`);
+  stepFor({ I }, 30);
+  ok(I.crew.every((c) => c.prop.img && c.prop.art === "crew"), "3D fallback: after 30 s of calm a crew member lost the flat picture");
 });
 
 /* ---------- The buildings ---------- */
@@ -2931,9 +3382,13 @@ simGroup("building", "buildings: the dog follows you through the doors and home"
   const farKey = [...ways2.keys()].reduce((a, k) => (steps(k) > steps(a) ? k : a));
   const start = [Math.floor(I.player.x), Math.floor(I.player.y)];
   const bad = { wall: 0, far: 0 };
+  // in 3D it is a live figure (Beast3D's dog) in the scene, and keeping up with you it gallops
+  ok(d.fig && d.fig.live3d === "beast" && d.fig.id === "dog" && d.prop.fig === d.fig && !d.prop.img && I.props.includes(d.prop), "dog: in the building it is not a live 3D figure (Beast3D's dog)");
+  let gallop = 0;
   const watch = () => {
     if (I.solidForPlayer(d.x, d.y)) bad.wall++;
     if (Math.hypot(d.x - I.player.x, d.y - I.player.y) > 6.3) bad.far++;
+    if (d.fig) gallop = Math.max(gallop, d.fig.run);
   };
   const out = playerPath(I, farKey.split(",").map(Number));
   const doorsOnWay = out ? out.filter(([x, y]) => I.grid[y][x] === "O").length : 0;
@@ -2941,6 +3396,9 @@ simGroup("building", "buildings: the dog follows you through the doors and home"
   stepFor(g, 3, watch);
   const sitFar = Math.hypot(d.x - I.player.x, d.y - I.player.y);
   ok(d.pose === "sit" && sitFar <= 1.65, `dog: after 3 s still at the far end it is ${d.pose}, ${sitFar.toFixed(2)} tiles away`);
+  ok(gallop > 0.5 && d.fig.pose === "sit" && d.fig.poseW === 1 && d.fig.run === 0, `dog: in 3D it galloped at most ${gallop.toFixed(2)} keeping up, and caught up it is ${d.fig.pose} at ${d.fig.poseW} (want a gallop, then sitting)`);
+  // turned to you as it sits (you are in sight)
+  ok(angleOff(d.fig.heading, Math.atan2(I.player.y - d.y, I.player.x - d.x)) < 0.2, `dog: sitting by you it faces ${d.fig.heading.toFixed(2)}, not you`);
   const back = playerPath(I, start);
   ok(back && walk(g, back, watch), `dog: could not walk back from the far end of ${loc.id}`);
   stepFor(g, 3, watch);
@@ -3059,7 +3517,7 @@ simGroup("yard", "robot dog: follows you, zaps a walker (it slows), takes bites,
   if (!def) return;
   S.settings.universe = u;
   homeYard(g, (S2) => (S2.save.crew.quests[def.robotQuest] = { state: "done", day: 1, doneDay: 1 }));
-  ok(I.robo && I.props.includes(I.robo.prop) && I.robo.prop.img, "robot dog: not in the yard once its quest is done");
+  ok(I.robo && I.props.includes(I.robo.prop) && I.robo.prop.fig && I.robo.prop.fig.live3d === "beast" && I.robo.prop.fig.id === "robodog" && !I.robo.prop.img, "robot dog: not in the yard as a live 3D figure (Beast3D's robodog) once its quest is done");
   // it follows
   const p = I.player;
   standAt(g, p.x, p.y, p.x + 1, p.y);
@@ -3082,6 +3540,9 @@ simGroup("yard", "robot dog: follows you, zaps a walker (it slows), takes bites,
     const hp = z.hp;
     I.roboUpdate(0.05);
     ok(z.hp === hp - W.ROBO.zapDamage && z.slowT > 0 && z.slowMul === W.ROBO.slow, `robot dog: the zap did ${hp - z.hp} harm, slowT ${z.slowT}`);
+    // in 3D it zaps turned to the walker (Beast3D's zap pose)
+    const rf = I.robo.fig;
+    ok(rf && rf.wantPose === "zap" && angleOff(rf.want, Math.atan2(z.y - I.robo.y, z.x - I.robo.x)) < 1e-9, `robot dog: zapping, its figure wants ${rf && rf.wantPose} turned ${rf && rf.want} (want the zap pose, turned to the walker)`);
     // bites: the walker reaches it, you are out of its reach
     I.robo.x = z.x + 0.4;
     I.robo.y = z.y;
@@ -3094,6 +3555,10 @@ simGroup("yard", "robot dog: follows you, zaps a walker (it slows), takes bites,
       n++;
     }
     ok(!S.roboOn() && I.robo.pose === "off", `robot dog: not shut down after ${n} bites (health ${S.roboHp()})`);
+    // in 3D a bite flashes on it, and shut down it powers down (Beast3D's "off": its lights out, lying where it fell)
+    ok(I.robo.fig.hit > 0, "robot dog: a bite did not flash on its figure");
+    for (let i = 0; i < 20; i++) I.roboUpdate(0.05);
+    ok(I.robo.fig.pose === "off" && I.robo.fig.poseW === 1 && I.robo.fig.hit === 0, `robot dog: shut down, its figure is ${I.robo.fig.pose} at ${I.robo.fig.poseW} (flash ${I.robo.fig.hit})`);
     ok(g.toasts.some((t) => /shut down/.test(t.text)), "robot dog: no toast when it shut down");
     I.walkers.length = 0;
   }
