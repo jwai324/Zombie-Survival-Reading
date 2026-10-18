@@ -1825,8 +1825,9 @@ try {
     });
   const sum = (a, b, which) => which.reduce((n, i) => n + differ(a[i], b[i]), 0);
   for (const k of ["armor", "bumper", "engine"]) for (const o of [0, 3]) {
+    const max = ZSR.Upgrades.DEFS[k].max;
     const base = { armor: o, bumper: o, engine: o };
-    for (let lv = 1; lv <= 5; lv++) {
+    for (let lv = 1; lv <= max; lv++) {
       const a = vanAt(Object.assign({}, base, { [k]: lv - 1 }));
       const b = vanAt(Object.assign({}, base, { [k]: lv }));
       const all = sum(a, b, [0, 1, 2, 3, 4]);
@@ -1857,15 +1858,23 @@ try {
   }
   // and from the road's camera alone (it shows the van from behind and above every frame, its roof and back doors, the
   // sides hardly at all): every look differs from every other by the same clear margin, and each one's decal (its two
-  // colours) covers at least ROAD_DECAL of the van there, drawn about as big as a 720 px road shows it, bare and at
-  // gear 1 with the gun (the rack and the gun stand on the roof: its roof designs lie round them), at the road's lod 0
-  // and lod 1
+  // colours) covers at least ROAD_DECAL of the van there, drawn about as big as a 720 px road shows it, bare, at gear 1
+  // with the gun (the rack and the gun stand on the roof: its roof designs lie round them) and at full armor with the
+  // gun, and ROAD_DECAL_TOP with all its gear at the top, at the road's lod 0 and lod 1
   const ROAD = SIDES.findIndex(([name]) => name === "road camera");
   // SCALE: the least share of the van's pixels a look's decal covers from the road camera (each look's roof and back
   // designs, js/van3d.js DECALS; text is not counted): about a 14 px square on a 720 px road. Before the roof and back
   // designs (2026-10-18) six of the eight looks showed 0 to 1% with the rack on (Olive Drab, at 2% with it, has the
   // least now, its numbers being text); a new look's must show too
   const ROAD_DECAL = 0.015;
+  // SCALE: the same with every gear upgrade at its top (Upgrades.DEFS max) and the gun: the rack and its crate, the
+  // stacks, the light bar, the gun, the spare and the ladder stand on the roof and the back doors. Olive Drab shows the
+  // least, 1.1% at lod 0 (its roof stars lie under the rack, its back stars under the spare and the ladder, its numbers
+  // are text); before Armor 5's roof plates went under the paint (2026-10-18) Night Violet showed 0.6% and Olive Drab
+  // 0.4%. A new gear piece on the roof or the back doors must leave every look this much
+  const ROAD_DECAL_TOP = 0.01;
+  const TOP = {};
+  ["armor", "bumper", "engine", "damage", "fireRate", "spread"].forEach((k) => (TOP[k] = ZSR.Upgrades.DEFS[k].max));
   for (let p = 0; p < LOOKS.length; p++) {
     for (let q = p + 1; q < LOOKS.length; q++) {
       const d = differ(looks[p][ROAD], looks[q][ROAD]);
@@ -1878,7 +1887,9 @@ try {
   for (let p = 0; p < LOOKS.length; p++) {
     const look = LOOKS[p];
     const shares = [];
-    for (const [how, u, o] of [["bare", {}, {}], ["at gear 1 with the gun", { engine: 1, armor: 1, bumper: 1 }, { gun: true }]]) {
+    // (full armor: Armor 5's plates take the paint and its roof plates lie under the paint job's roof design)
+    const cases = [["bare", {}, {}, ROAD_DECAL], ["at gear 1 with the gun", { engine: 1, armor: 1, bumper: 1 }, { gun: true }, ROAD_DECAL], ["at full armor with the gun", { armor: TOP.armor }, { gun: true }, ROAD_DECAL], ["with all its gear at the top and the gun", TOP, { gun: true }, ROAD_DECAL_TOP]];
+    for (const [how, u, o, least] of cases) {
       for (const lod of [0, 1]) {
         const g = raster(RW * 2, RH * 2, colors);
         roadView.lod = lod;
@@ -1888,13 +1899,13 @@ try {
         const van = g.px.reduce((m, v) => m + (v ? 1 : 0), 0);
         const n = g.px.reduce((m, v) => m + (v && want.has(v) ? 1 : 0), 0);
         shares.push(n / (van || 1));
-        if (n < van * ROAD_DECAL) err(`upgrades: from the road camera, ${how}, at lod ${lod}, the van in ${look.name} shows its ${look.decal} decal (${look.decalA}, ${look.decalB}) on only ${n} of its ${van} px (want ${(ROAD_DECAL * 100).toFixed(1)}%)`);
+        if (least === ROAD_DECAL) roadDecalLeast = Math.min(roadDecalLeast, n / (van || 1));
+        if (n < van * least) err(`upgrades: from the road camera, ${how}, at lod ${lod}, the van in ${look.name} shows its ${look.decal} decal (${look.decalA}, ${look.decalB}) on only ${n} of its ${van} px (want ${(least * 100).toFixed(1)}%)`);
       }
     }
     roadShares.push(look.name + " " + shares.map((s) => (s * 100).toFixed(1)).join("/") + "%");
-    roadDecalLeast = Math.min(roadDecalLeast, ...shares);
   }
-  if (process.env.VAN_REPORT) console.log("van decals from the road camera (bare lod 0 / 1, gear 1 and the gun lod 0 / 1): " + roadShares.join(", "));
+  if (process.env.VAN_REPORT) console.log("van decals from the road camera (lod 0 / 1: bare, gear 1 and the gun, full armor and the gun, all gear at the top and the gun): " + roadShares.join(", "));
   const dents = [0, 1, 2].map((dent) => vanAt({ paint: 3 }, { dent }));
   for (let t = 1; t <= 2; t++) {
     const d = sum(dents[t - 1], dents[t], [0, 1, 2, 3, 4]);
@@ -2355,6 +2366,19 @@ try {
     e.on = {};
     e.appendChild = (c) => (e.kids.push(c), c);
     e.addEventListener = (type, fn) => (e.on[type] = fn);
+    // a canvas keeps the colours painted on it (its fillStyle and strokeStyle), every other call does nothing
+    if (String(t).toLowerCase() === "canvas") {
+      e.paints = new Set();
+      const g = new Proxy({}, {
+        get: (o, k) => (k in o ? o[k] : noop),
+        set: (o, k, v) => {
+          if (k === "fillStyle" || k === "strokeStyle") e.paints.add(String(v).toLowerCase());
+          o[k] = v;
+          return true;
+        },
+      });
+      e.getContext = () => g;
+    }
     made.push(e);
     return e;
   };
@@ -2365,10 +2389,35 @@ try {
     B.tab = "garage";
     const swatches = () => made.filter((e) => /\bpaint-swatch\b/.test(e.className || ""));
     const text = (e) => [e.innerHTML || ""].concat((e.kids || []).map(text)).join(" ");
+    /** The colours of a look its swatch's picture (js/base.js paintChip) never paints: the van's own five, and its
+        decal's main colour when it has a decal. */
+    const unpainted = (e, look) => {
+      const chip = (e.kids || []).find((c) => c.paints);
+      return ["body", "roof", "trim", "bumper", "rims"].concat(look.decal === "none" ? [] : ["decalA"]).filter((k) => !chip || !chip.paints.has(look[k].toLowerCase()));
+    };
     B.garage();
     let sw = swatches();
     if (sw.length !== LOOKS.length) err(`paint: the Garage tab draws ${sw.length} paint swatches, want ${LOOKS.length}`);
     sw.forEach((e, i) => { if (!text(e).includes(LOOKS[i].name)) err(`paint: swatch ${i} does not name ${LOOKS[i].name}`); });
+    sw.forEach((e, i) => {
+      const miss = unpainted(e, LOOKS[i]);
+      if (miss.length) err(`paint: the ${LOOKS[i].name} swatch never paints its ${miss.map((k) => k + " " + LOOKS[i][k]).join(", ")} (js/base.js paintChip)`);
+    });
+    // a look whose decal kind paintChip has no branch for yet (a new kind) still shows its decal colour on its swatch
+    const kindNew = Object.assign({}, LOOKS[1], { name: "Test Kind", decal: "test-kind-" + LOOKS.length, decalA: "#123456", decalB: "#654321" });
+    LOOKS.push(kindNew);
+    try {
+      made.length = 0;
+      B.garage();
+      const e = swatches()[LOOKS.length - 1];
+      const miss = e ? unpainted(e, kindNew) : ["its swatch"];
+      if (miss.length) err(`paint: a look with a decal kind js/base.js paintChip has no branch for shows no ${miss.join(", ")} on its swatch (paintChip's last branch: a band in its decal colours)`);
+    } finally {
+      LOOKS.pop();
+    }
+    made.length = 0;
+    B.garage();
+    sw = swatches();
     const word = (i) => text(sw[i]);
     if (!/\bWorn\b/.test(word(0)) || !/\bWear\b/.test(word(violet)) || !word(1).includes("Buy " + LOOKS[1].cost + " scrap")) err(`paint: the swatches say ${word(0)} | ${word(violet)} | ${word(1)}; want Worn, Wear, Buy ${LOOKS[1].cost} scrap`);
     shows.length = 0;

@@ -1396,14 +1396,16 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
 }
 
 // the van's paint looks (js/upgrades.js PAINT_LOOKS): a save keeps the index of the look it wears and of each look it
-// bought, so looks are only appended. Every look whole (its colours real #rrggbb, its decal a kind the van is drawn
-// with), names unique, Primer Gray first and free, then each look's price in DEFS.paint.costs order, rising, and its
-// Garage tier one the Garage reaches (the owner's 2026-10-18 eight: the six old looks and two new ones)
+// bought, so looks are only appended: the looks saves already hold keep their places. Every look whole (its colours
+// real #rrggbb, its decal a kind the van is drawn with), names unique, Primer Gray first and free, then each look's
+// price in DEFS.paint.costs order (any price: a look appended may cost less than the one before it), and its Garage
+// tier one the Garage reaches (the owner's 2026-10-18 eight: the six old looks and two new ones)
 {
   vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", "upgrades.js"), "utf8"), sb, { filename: "upgrades.js" });
   const UP = sb.ZSR.Upgrades;
   const LOOKS = UP.PAINT_LOOKS;
-  // SCALE: a new decal kind is drawn by js/van3d.js and js/sprites.js (and named in js/base.js DECAL_WORDS), then listed here
+  // SCALE: a new decal kind is drawn by js/van3d.js, js/sprites.js and js/base.js paintChip (the Garage swatch), and
+  // named in js/base.js DECAL_WORDS, then listed here
   const DECALS = ["none", "stripe", "patches", "stencil", "hazard", "flames", "lightning", "drips"];
   const COLOURS = ["body", "roof", "trim", "bumper", "rims", "decalA", "decalB"];
   const topTier = Math.max(...W.BASE_ROOMS.garage.levels.map((l) => l.effect.tierCap || 0));
@@ -1421,9 +1423,15 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
         if (l.cost !== 0 || l.tier !== 0) err(`${c}: the first look is the van's own primer: cost 0 and tier 0 (it is ${l.cost}, ${l.tier})`);
         return;
       }
-      if (!Number.isInteger(l.cost) || l.cost <= LOOKS[i - 1].cost) err(`${c}: cost ${l.cost} must be a whole number above the look before it (${LOOKS[i - 1].cost})`);
+      if (!Number.isInteger(l.cost) || l.cost < 1) err(`${c}: cost ${l.cost} must be a positive whole number`);
       if (UP.DEFS.paint.costs[i - 1] !== l.cost) err(`${c}: cost ${l.cost} is not DEFS.paint.costs[${i - 1}] (${UP.DEFS.paint.costs[i - 1]}); Upgrades.cost("paint", level) reads it there for code that reads every upgrade alike`);
       if (!Number.isInteger(l.tier) || l.tier < 1 || l.tier > topTier) err(`${c}: tier ${l.tier} must be 1 to ${topTier} (the top Garage level's tierCap)`);
+    });
+    // saves keep look indexes (upgrades.paint, upgrades.paintOwned; a save from the old paint ladder at paint k owns
+    // looks 0 to k): these looks never move. SCALE: a new look is appended to PAINT_LOOKS and its name to this list
+    const SAVED_LOOKS = ["Primer Gray", "Matte Black", "Rust Bucket", "Olive Drab", "Hazard", "Convoy Red", "Night Violet", "Radioactive"];
+    SAVED_LOOKS.forEach((n, i) => {
+      if (!LOOKS[i] || LOOKS[i].name !== n) err(`PAINT_LOOKS[${i}] is ${LOOKS[i] ? LOOKS[i].name : "missing"}, want ${n}: a save keeps this index, so looks are only appended (docs/SCALING.md)`);
     });
     if (UP.DEFS.paint.max !== LOOKS.length - 1 || UP.DEFS.paint.costs.length !== LOOKS.length - 1) err(`DEFS.paint: max ${UP.DEFS.paint.max} and ${UP.DEFS.paint.costs.length} costs, want one for each look past the first (${LOOKS.length - 1})`);
     ["Night Violet", "Radioactive"].forEach((n) => {

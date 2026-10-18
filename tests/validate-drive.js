@@ -1745,11 +1745,12 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
       if (d && d.o.dent !== want) fErr(`the van at ${share * 100}% health is drawn with dents ${d.o.dent} (want ${want})`);
     }
     trip.vanHp = hp0;
-    // every paint job, with every gear upgrade at its top
+    // every paint job, with every gear upgrade at its top (Upgrades.DEFS max) on every other one
     const u0 = Object.assign({}, upgrades);
     const sigs = new Set();
     for (let paint = 0; paint < U.PAINT_LOOKS.length; paint++) {
-      Object.assign(upgrades, { paint, armor: paint % 2 ? 5 : 0, bumper: paint % 2 ? 5 : 0, engine: paint % 2 ? 5 : 0 });
+      const top = (k) => (paint % 2 ? U.DEFS[k].max : 0);
+      Object.assign(upgrades, { paint, armor: top("armor"), bumper: top("bumper"), engine: top("engine") });
       const p = one(`the van in paint ${paint}`);
       if (p) sigs.add(V.sig(p.u, p.o));
       if (p && Mo && !(Mo.draw(G.ctx, V.mesh(p.u, p.o), p.view) > 0)) fErr(`the van in paint ${paint} drew no faces`);
