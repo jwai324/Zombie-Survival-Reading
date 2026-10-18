@@ -27,7 +27,8 @@
      draws a stand-in;
    - the van model (js/model3d.js and js/van3d.js, after upgrades.js): every paint look with its gear at several
      levels, the dents, the roof gun and every level of detail draws cleanly from all round, near and far, within its
-     canvas-call ceilings, the same way twice, its text never mirrored; each look's decal is on both sides and the hood.
+     canvas-call ceilings, the same way twice, its text never mirrored; each look's decal is on both sides and the hood,
+     and on the roof and the back doors at lod 1 (what the road's camera sees), with its gear on and off.
    validate-world.js checks the layout data, validate-engine.js what the engine makes of it. */
 "use strict";
 const fs = require("fs");
@@ -1125,14 +1126,23 @@ let roadDraws = 0;
    near (parts cut by the camera's near plane) and far, on the checking context: no throw, finite numbers and real
    colours, no images, gradients, read-backs or new canvases, transforms only round its text (inside save and restore,
    never mirrored), within its canvas-call ceiling at every view, the same calls twice. Each look's decal is on both
-   sides and the hood; a look, a gear level or a dent tier changes its signature, and the same signature is the same
-   built model. validate-engine.js checks every upgrade step shows. */
+   sides and the hood, and on the roof and the back doors at lod 1, bare and with all its gear (what the road's camera
+   sees: validate-engine.js checks it shows there); a look, a gear level or a dent tier changes its signature, and the
+   same signature is the same built model. validate-engine.js checks every upgrade step shows. */
 // SCALE: most canvas calls the van may make at lod 0 / 1 / 2, with all its gear at 5, the gun and heavy dents, from any
-// side: the road draws it every frame (the owner's lag problem). New gear or a busier look must fit under these
-const VAN_OPS = [1400, 700, 350];
+// side: the road draws it every frame (the owner's lag problem). New gear or a busier look must fit under these. lod 0
+// rose from 1400 to 1450 (2026-10-18) for each paint job's roof and back designs (every look must read from the road's
+// camera): Convoy Red's flames make 1441 from nearly straight above, the other looks at most 1393 (the roof under the
+// rack and the back glass under the Armor 3 plates are left out to make room). Timed through the road's camera in
+// Chromium the van drew about 10 to 15% slower than before on average over the looks, about 0.6 ms with all its gear
+const VAN_OPS = [1450, 700, 350];
 const VAN_YAWS = 16;
 const VAN_PITCHES = [0.1, 0.5, 0.86]; // radians up from level: the yard's eye, above, the road camera's
+// SCALE: least area (square model units) of a look's decal on the roof, and on the back doors, at lod 1, bare and with
+// all its gear (the roof under the rack left out): about an 8 x 8 patch, a dozen pixels across on the road
+const VAN_DECAL_AREA = 60;
 let vanDraws = 0;
+const decalAreas = [];
 {
   ["model3d.js", "van3d.js"].forEach((f, i) => {
     const at = pageScripts.indexOf(f);
@@ -1281,16 +1291,60 @@ let vanDraws = 0;
         });
       });
     });
-    // C: a look's decal lies on both sides and the hood, in its decal colour; the bare primer's patches are its own
+    // C: a look's decal lies on both sides and the hood, in its decal colour; and on the roof and the back doors at
+    // lod 1 (the road's camera, behind and above, sees those two: it draws the van at lod 0 or 1), at least
+    // VAN_DECAL_AREA square units of it on each. The bare primer's patches are its own (either of its colours)
     const sideOf = (f) => (f.nx > 0.7 ? 1 : f.nx < -0.7 ? -1 : 0);
+    const roofOf = (f) => f.nz > 0.6 && f.cz > V3.H - 5;
+    const backOf = (f) => f.ny < -0.9;
+    /** A decal's area (square model units): its outline's, as laid on its face (text: about a quarter of each letter's
+        square is ink). */
+    const areaOf = (d) => {
+      if (d.k === 2) return d.str.length * d.size * d.size * 0.25;
+      let x = 0;
+      let y = 0;
+      let z = 0;
+      for (let i = 0; i < d.n; i++) {
+        const j = (i + 1) % d.n;
+        const [ax, ay, az] = [d.p[i * 3], d.p[i * 3 + 1], d.p[i * 3 + 2]];
+        const [bx, by, bz] = [d.p[j * 3], d.p[j * 3 + 1], d.p[j * 3 + 2]];
+        x += ay * bz - az * by;
+        y += az * bx - ax * bz;
+        z += ax * by - ay * bx;
+      }
+      return Math.hypot(x, y, z) / 2;
+    };
     LOOKS.forEach((look, p) => {
-      if (look.decal === "none") return;
-      const m = V3.mesh(Object.assign({ paint: p }, NONE), {});
-      const want = M3.rgb(look.decalA).slice(0, 3).join(",");
-      const has = (pred) => m.parts.some((pt) => ["body", "nose", "low"].includes(pt.name) && pt.faces.some((f) => pred(f) && f.decals.some((d) => d.rgb.slice(0, 3).join(",") === want)));
-      if (!has((f) => sideOf(f) > 0)) err(`van ${look.name}: no ${look.decal} decal (decalA) on its right side`);
-      if (!has((f) => sideOf(f) < 0)) err(`van ${look.name}: no ${look.decal} decal (decalA) on its left side`);
-      if (!has((f) => f.nz > 0.6 && f.cy > 30 && f.cz < 35)) err(`van ${look.name}: no ${look.decal} decal (decalA) on its hood`);
+      for (const gear of [NONE, ALL]) {
+        const m = V3.mesh(Object.assign({ paint: p }, gear), {});
+        const want = new Set((look.decal === "none" ? [look.decalA, look.decalB] : [look.decalA]).map((c) => M3.rgb(c).slice(0, 3).join(",")));
+        const mine = (d) => want.has(d.rgb.slice(0, 3).join(","));
+        const body = (fn) => m.parts.filter((pt) => ["body", "nose", "low"].includes(pt.name)).forEach((pt) => pt.faces.forEach(fn));
+        const has = (pred) => {
+          let yes = false;
+          body((f) => (yes = yes || (pred(f) && f.decals.some(mine))));
+          return yes;
+        };
+        // (the area of its outlines and text there, at lod 1)
+        const area = (pred) => {
+          let a = 0;
+          body((f) => pred(f) && f.decals.forEach((d) => d.k !== 1 && d.lod >= 1 && mine(d) && (a += areaOf(d))));
+          return a;
+        };
+        const what = `van ${look.name}${gear === ALL ? " with all its gear" : ""}`;
+        const name = look.decal === "none" ? "primer patches" : `${look.decal} decal (decalA)`;
+        if (gear === NONE) {
+          if (look.decal !== "none" && !has((f) => sideOf(f) > 0)) err(`${what}: no ${name} on its right side`);
+          if (look.decal !== "none" && !has((f) => sideOf(f) < 0)) err(`${what}: no ${name} on its left side`);
+          if (look.decal !== "none" && !has((f) => f.nz > 0.6 && f.cy > 30 && f.cz < 35)) err(`${what}: no ${name} on its hood`);
+        }
+        // (with all the gear: the roof under the rack is left out, so what is round it must still be there)
+        const roof = area(roofOf);
+        const back = area(backOf);
+        if (roof < VAN_DECAL_AREA) err(`${what}: only ${roof.toFixed(0)} sq units of its ${name} on its roof at lod 1 (want ${VAN_DECAL_AREA}: the road's camera sees the roof)`);
+        if (back < VAN_DECAL_AREA) err(`${what}: only ${back.toFixed(0)} sq units of its ${name} on its back doors at lod 1 (want ${VAN_DECAL_AREA}: the road's camera sees them)`);
+        decalAreas.push(`${look.name}${gear === ALL ? "+gear" : ""} ${roof.toFixed(0)}/${back.toFixed(0)}`);
+      }
     });
     // D: the signature changes with the look, each gear level, the dents and the gun; one signature, one built model
     const sigs = new Set();
@@ -1310,6 +1364,7 @@ let vanDraws = 0;
     if (V3.mesh(ALL, { dent: 1 }) !== V3.mesh(ALL, { dent: 1 })) err("Van3D.mesh builds a new model for the same van (it must keep it)");
     sb.document.createElement = realCreate;
     console.log(`van model: ${vanDraws} draws checked; the most canvas calls with all its gear at lod 0 / 1 / 2: ${worst.join(" / ")} (ceilings ${VAN_OPS.join(" / ")})`);
+    console.log(`van decals on the roof / the back doors at lod 1, sq units: ${decalAreas.join(", ")}`);
   }
 }
 

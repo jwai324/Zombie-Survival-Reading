@@ -1721,6 +1721,7 @@ function raster(w, h, shared) {
   };
   return new Proxy(c, { get: (o, k) => (k in o ? o[k] : noop) }); // text, clip, drawImage ...: nothing
 }
+let roadDecalLeast = 1; // the least share of the van a look's decal covers from the road camera (VAN_REPORT=1 lists them)
 try {
   // the art caches every drawing: each one here gets a canvas of its own, drawn on a rasterizer
   const realCreate = sb.document.createElement;
@@ -1780,14 +1781,16 @@ try {
   // showing), behind, its left and right, and the road camera's behind and above. Every armor, ram plow and engine
   // step, from nothing and from the middle, changes it over the five (and on its own from the road camera, from a side
   // and from an end: the road shows it from behind every frame, the yard all round); every look differs from every
-  // other by a clear margin; each look's decal color shows from both sides and over the hood; each dent tier shows
+  // other by a clear margin, over the five and from the road camera alone; each look's decal color shows from both
+  // sides and over the hood, and covers a clear share of the van from the road camera; each dent tier shows
   const V3 = ZSR.Van3D;
   const M3 = ZSR.Model3D;
   const RW = 240;
   const RH = 180;
   const SIDES = [["front", Math.PI, 0.45], ["back", 0, 0.3], ["left", -Math.PI / 2, 0.2], ["right", Math.PI / 2, 0.2], ["road camera", 0.12, 0.86]];
   const colors = new Map(); // one color-id table for every van drawn here
-  const vanViews = SIDES.map(([, yaw, pitch]) => {
+  /** A flat-lit view of the van from yaw, pitch on a w x h picture. */
+  const vanView = (yaw, pitch, w, h) => {
     const t = [0, 0, V3.H / 2];
     const dist = 330;
     const e = [Math.sin(yaw) * Math.cos(pitch) * dist, -Math.cos(yaw) * Math.cos(pitch) * dist, t[2] + Math.sin(pitch) * dist];
@@ -1798,20 +1801,21 @@ try {
     const f = nz([t[0] - e[0], t[1] - e[1], t[2] - e[2]]);
     const r = nz([f[1], -f[0], 0]);
     const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
-    const F = RH / 2 / Math.tan(0.4);
-    const view = M3.view({ ink: 1.2, lod: 0, eye: e, lit: () => 1 });
+    const F = h / 2 / Math.tan(0.4);
+    const view = M3.view({ ink: (1.2 * h) / RH, lod: 0, eye: e, lit: () => 1 });
     view.project = (x, y, z) => {
       const dx = x - e[0];
       const dy = y - e[1];
       const dz = z - e[2];
       const D = dx * f[0] + dy * f[1] + dz * f[2];
       view.D = D;
-      view.X = RW / 2 + ((dx * r[0] + dy * r[1] + dz * r[2]) * F) / D;
-      view.Y = RH / 2 - ((dx * u[0] + dy * u[1] + dz * u[2]) * F) / D;
+      view.X = w / 2 + ((dx * r[0] + dy * r[1] + dz * r[2]) * F) / D;
+      view.Y = h / 2 - ((dx * u[0] + dy * u[1] + dz * u[2]) * F) / D;
       return D > 0;
     };
     return view;
-  });
+  };
+  const vanViews = SIDES.map(([, yaw, pitch]) => vanView(yaw, pitch, RW, RH));
   /** The van drawn from the five sides: their pixels. */
   const vanAt = (u, o) =>
     vanViews.map((view) => {
@@ -1851,6 +1855,46 @@ try {
       if (n < 12) err(`upgrades: the van in ${LOOKS[p].name} shows its ${LOOKS[p].decal} decal (${LOOKS[p].decalA}) on only ${n} px from ${from}`);
     });
   }
+  // and from the road's camera alone (it shows the van from behind and above every frame, its roof and back doors, the
+  // sides hardly at all): every look differs from every other by the same clear margin, and each one's decal (its two
+  // colours) covers at least ROAD_DECAL of the van there, drawn about as big as a 720 px road shows it, bare and at
+  // gear 1 with the gun (the rack and the gun stand on the roof: its roof designs lie round them), at the road's lod 0
+  // and lod 1
+  const ROAD = SIDES.findIndex(([name]) => name === "road camera");
+  // SCALE: the least share of the van's pixels a look's decal covers from the road camera (each look's roof and back
+  // designs, js/van3d.js DECALS; text is not counted): about a 14 px square on a 720 px road. Before the roof and back
+  // designs (2026-10-18) six of the eight looks showed 0 to 1% with the rack on (Olive Drab, at 2% with it, has the
+  // least now, its numbers being text); a new look's must show too
+  const ROAD_DECAL = 0.015;
+  for (let p = 0; p < LOOKS.length; p++) {
+    for (let q = p + 1; q < LOOKS.length; q++) {
+      const d = differ(looks[p][ROAD], looks[q][ROAD]);
+      const all = looks[p][ROAD].reduce((m, v, j) => m + (v || looks[q][ROAD][j] ? 1 : 0), 0);
+      if (d < all * 0.3) err(`upgrades: from the road camera the van in ${LOOKS[p].name} looks too like ${LOOKS[q].name} (${d} of ${all} px differ)`);
+    }
+  }
+  const roadShares = [];
+  const roadView = vanView(SIDES[ROAD][1], SIDES[ROAD][2], RW * 2, RH * 2);
+  for (let p = 0; p < LOOKS.length; p++) {
+    const look = LOOKS[p];
+    const shares = [];
+    for (const [how, u, o] of [["bare", {}, {}], ["at gear 1 with the gun", { engine: 1, armor: 1, bumper: 1 }, { gun: true }]]) {
+      for (const lod of [0, 1]) {
+        const g = raster(RW * 2, RH * 2, colors);
+        roadView.lod = lod;
+        V3.draw(g, roadView, Object.assign({ armor: 0, bumper: 0, engine: 0, paint: p, damage: 0, fireRate: 0, spread: 0 }, u), o);
+        // (flat-lit: Model3D paints a colour as it is)
+        const want = new Set([look.decalA, look.decalB].map((h) => colors.get("rgb(" + M3.rgb(h).slice(0, 3).join(",") + ")")));
+        const van = g.px.reduce((m, v) => m + (v ? 1 : 0), 0);
+        const n = g.px.reduce((m, v) => m + (v && want.has(v) ? 1 : 0), 0);
+        shares.push(n / (van || 1));
+        if (n < van * ROAD_DECAL) err(`upgrades: from the road camera, ${how}, at lod ${lod}, the van in ${look.name} shows its ${look.decal} decal (${look.decalA}, ${look.decalB}) on only ${n} of its ${van} px (want ${(ROAD_DECAL * 100).toFixed(1)}%)`);
+      }
+    }
+    roadShares.push(look.name + " " + shares.map((s) => (s * 100).toFixed(1)).join("/") + "%");
+    roadDecalLeast = Math.min(roadDecalLeast, ...shares);
+  }
+  if (process.env.VAN_REPORT) console.log("van decals from the road camera (bare lod 0 / 1, gear 1 and the gun lod 0 / 1): " + roadShares.join(", "));
   const dents = [0, 1, 2].map((dent) => vanAt({ paint: 3 }, { dent }));
   for (let t = 1; t <= 2; t++) {
     const d = sum(dents[t - 1], dents[t], [0, 1, 2, 3, 4]);
@@ -4983,4 +5027,4 @@ if (errors.length) {
   console.log(`\n${errors.length} engine problem(s).`);
   process.exit(1);
 }
-console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), the breach rule (3/6/12/30 steps, a mend, a corner hole, raiders and wreckers, two holes), wreckers (the builds, the van's floor, provoked, Can't die), wrecked builds and their repairs, a walker reaching you from all ${wreckSpotsTried} wreck spots, and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock), and ${kindsChecked} walker kinds (stats, spawned in front of you in a building, the yard and the river, the scream, downed walkers and blood, heading, gait, the river's and the alarm's kinds, the alarm's cap, a return visit), and ${countsChecked} checks that walkers are never counted (no HUD box, the wave label, the river's toast), the scream's toast, kinds met, and no bite round a corner.`);
+console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, every paint look's decal from the road camera (at least ${(roadDecalLeast * 100).toFixed(1)}% of the van), the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), the breach rule (3/6/12/30 steps, a mend, a corner hole, raiders and wreckers, two holes), wreckers (the builds, the van's floor, provoked, Can't die), wrecked builds and their repairs, a walker reaching you from all ${wreckSpotsTried} wreck spots, and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock), and ${kindsChecked} walker kinds (stats, spawned in front of you in a building, the yard and the river, the scream, downed walkers and blood, heading, gait, the river's and the alarm's kinds, the alarm's cap, a return visit), and ${countsChecked} checks that walkers are never counted (no HUD box, the wave label, the river's toast), the scream's toast, kinds met, and no bite round a corner.`);

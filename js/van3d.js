@@ -66,6 +66,15 @@
   const SHIELD_Y = (z) => COWL[0] - ((z - COWL[1]) * (COWL[0] - SHIELD[0])) / (SHIELD[1] - COWL[1]); // the windshield's edge at height z
   const SLIDE = [-21, 7]; // the sliding door's back and front
   const CAB_DOOR = 9.5; // the cab door's back edge
+  // the roof's flat top (top view): out to x on each side, from y0 at the back (its bevel runs on down to the back
+  // doors) to y1, where the windshield's header bevel starts
+  const ROOF = { x: HW - EDGE, y0: YT + EDGE, y1: SHIELD[0] + SHIELD[1] - H };
+  // the roof rack's tray (top view; engineGear, from Engine 1): it stands on the roof, so a roof decal wholly under it is
+  // never seen and is left out. Seen from the road's camera (behind and above) the roof's back half is the nearest and
+  // biggest part of the van, so each paint job lays a big roof design there for a van with no rack, and the rest round
+  // the rack and the gun's ring (at GUN.y; the road's is 13 in radius, the model's 11): along the roof's sides and
+  // ahead of the ring
+  const RACK = { x0: -25, y0: -55, x1: 25, y1: -27 };
 
   /* ---------- Fixed colours (the look's own come from PAINT_LOOKS) ---------- */
   const GLASS = "#33414c";
@@ -385,9 +394,15 @@
     };
     /** The faces of a kind (and of a side: +1 right, -1 left, for side faces). */
     const of = (kind, side) => faces.filter((r) => r.kind === kind && (!side || r.n[0] * side > 0));
+    // what stands on a kind's faces and hides them (the rack on the roof): [kind, a0, b0, a1, b1] in its view
+    const covers = [];
+    /** A part stands on this much of a kind's faces (a box in its view): designs wholly under it are left out. */
+    k.cover = (kind, a0, b0, a1, b1) => covers.push([kind, a0, b0, a1, b1]);
+    const covered = (kind, pts) => covers.some(([c, a0, b0, a1, b1]) => c === kind && pts.every(([a, b]) => a >= a0 && a <= a1 && b >= b0 && b <= b1));
     /** A filled design (points in its kind's view) on every face of that kind it crosses. o: Builder.poly's. */
     k.poly = (kind, pts, fill, o, side) => {
       const space = SPACE[kind];
+      if (covered(kind, pts)) return;
       for (const r of of(kind, side)) {
         const P = clipPoly(pts.map(([a, b]) => inFrame(r, onFace(r, space, a, b))), r.out);
         if (P.length >= 3 && P.length <= M.MAX_V) B.poly(r.f, P, fill, o);
@@ -396,11 +411,14 @@
     /** An open line design, w ink widths wide. */
     k.line = (kind, pts, color, w, o, side) => {
       const space = SPACE[kind];
+      if (covered(kind, pts)) return;
       for (const r of of(kind, side)) for (const P of clipLine(pts.map(([a, b]) => inFrame(r, onFace(r, space, a, b))), r.out)) B.line(r.f, P, color, w, o);
     };
     /** Text with its middle at (a, b), size units tall, on the face of that kind it lands on (both sides for a side). */
     k.text = (kind, a, b, str, size, fill, o) => {
       const space = SPACE[kind];
+      const half = String(str).length * size * 0.3; // (about half its width: the font's letters are narrow)
+      if (covered(kind, [[a - half, b - size / 2], [a + half, b + size / 2]])) return;
       for (const r of of(kind)) {
         const p = inFrame(r, onFace(r, space, a, b));
         if (inside(p, r.out)) B.text(r.f, p[0], p[1], str, size, fill, Object.assign({ align: "center", base: "middle" }, o));
@@ -536,6 +554,19 @@
     return out;
   }
   const shift = (P, da, db) => P.map(([a, b]) => [a + da, b + db]);
+  /** P mirrored across a = 0 (the other side of the van's middle: a design and its twin). */
+  const mirror = (P) => P.map(([a, b]) => [-a, b]);
+  /** The radiation trefoil round (ca, cb): its three blades (r out, from hub) as one outline, each blade's inner arc
+      running on to the next blade. */
+  function trefoil(ca, cb, r, hub) {
+    const T = [];
+    for (let i = 0; i < 3; i++) {
+      const t0 = Math.PI / 2 + (i * TAU) / 3 - Math.PI / 6;
+      for (let j = 0; j <= 2; j++) T.push([ca + Math.cos(t0 + (j * Math.PI) / 6) * r, cb + Math.sin(t0 + (j * Math.PI) / 6) * r]);
+      T.push([ca + Math.cos(t0 + Math.PI / 3) * hub, cb + Math.sin(t0 + Math.PI / 3) * hub], [ca + Math.cos(t0 + Math.PI * (2 / 3)) * hub, cb + Math.sin(t0 + Math.PI * (2 / 3)) * hub]);
+    }
+    return T;
+  }
 
   /* ---------- The body ---------- */
   function body(k) {
@@ -650,81 +681,128 @@
     // the back: the two doors' seams, their windows (frame, glass, glint), handles, the tail lights and the plate
     k.line("back", [[-27, BUMP.z1 + 0.3], [-27, 46.6], [27, 46.6], [27, BUMP.z1 + 0.3]], INK, 1, { lod: 0 });
     k.line("back", [[0, BUMP.z1 + 0.3], [0, 46.6]], INK, 1, { lod: 1 });
+    // (the glass is left out from Armor 3, whose plates cover it)
     for (const P of BACK_WIN) {
       k.poly("back", grow(P, 1.2), trim, { lod: 0 });
-      k.poly("back", P, GLASS, { lod: 1 });
+      if (k.g.armor < 3) k.poly("back", P, GLASS, { lod: 1 });
     }
     k.poly("back", rect(-5.4, 28.4, 5.4, 29.8), trim, { lod: 0, ink: 0.5 });
     for (const s of [1, -1]) k.poly("back", rect(s * 27.8, 24.6, s * 30.8, 33), TAIL, { lod: 1, ink: 0.8 });
     k.poly("back", rect(-7, 15.6, 7, 20.6), CREAM, { lod: 0, ink: 0.6 });
     k.text("back", 0, 18.1, "B-66", 3.6, INK, { lod: 0 });
-    // the roof's vent hatch
+    // the roof's vent hatch (none under the rack)
     k.poly("roof", rrect(-8, -45, 8, -33, 1.5), mix(look.roof, "#000000", 0.2), { lod: 0, ink: 0.7 });
   }
 
-  /* ---------- The paint jobs' decals (PAINT_LOOKS decal: their kinds) ---------- */
+  /* ---------- The paint jobs' decals (PAINT_LOOKS decal: their kinds) ----------
+     Each is on both sides, the hood, the roof and the back doors. The road's camera sees the van from behind and above
+     (the roof and the back doors, the sides hardly at all), so every design has a roof and a back part big enough to
+     read there at lod 1 (the road draws the van at lod 0 or 1): on the roof round the rack and the gun's ring as well
+     as under them (RACK), on the back doors below their windows and up their outer edges, where the armor plates and
+     the windows leave the paint showing. Their fine bits (inner flames, shades, rings, halos) are lod 0. A design may
+     return a function: what it lays over the van's fittings (the bumpers, the glass, the lights, the plate), laid
+     after them. */
   const DECALS = {
-    // bare primer: panels in two other greys (a sliding door off another van, a fender, the hood and roof patched)
+    // bare primer: panels in two other greys (a sliding door off another van, a fender, the hood, the roof and both back
+    // doors patched)
     none(k, A, B) {
       k.poly("side", rect(SLIDE[0] + 0.4, SILL + 0.4, SLIDE[1] - 0.4, 46.2), B);
       k.poly("side", [[40, 24.3], [54, 24.3], [53, 28.2], [41, 29.4]], A);
       k.poly("hood", [[-21, 41], [-5, 40], [-7, 51], [-22, 53]], A);
       k.poly("roof", [[-24, -24], [12, -26], [13, 6], [-22, 8]], B);
-      k.poly("back", rect(-29.2, BUMP.z1 + 0.6, -0.4, 31), A);
+      k.poly("back", rect(-29.2, BUMP.z1 + 0.6, -0.4, 31), B);
+      k.poly("back", rect(0.4, WELL + 0.4, 29.2, 47), A);
     },
-    // a racing stripe down each side over pinstripes, twin stripes over the hood, the roof and down the back doors
+    // a racing stripe down each side over pinstripes; twin stripes over the hood, the roof (on over its back bevel) and
+    // down the back doors, and a pinstripe along each edge of the roof and down each side of the back doors (they show
+    // past the rack, the gun and the plates)
     stripe(k, A, B) {
       k.line("side", [[YT, 27.1], [YN, 27.1]], B, 1.6, { lod: 0 });
       k.poly("side", rect(YT, 27.9, YN, 30.9), A, { ink: 0.6 });
       k.line("side", [[YT, 31.7], [YN, 31.7]], B, 1.6, { lod: 0 });
-      // (the roof's on its flat only)
+      // (the roof's stop short of its front bevel)
       for (const s of [1, -1]) {
         k.poly("hood", rect(s * 4, -80, s * 11, 80), A, { ink: 0.5, lod: 0 });
-        k.poly("roof", rect(s * 4, YT + EDGE + 0.4, s * 11, SHIELD[0] - EDGE - 0.4), A, { ink: 0.5 });
+        k.poly("roof", rect(s * 4, YT - 1, s * 11, ROOF.y1 - 0.4), A, { ink: 0.5 });
         k.poly("back", rect(s * 4, 0, s * 11, 60), A, { ink: 0.5 });
+        k.line("roof", [[s * 27, YT - 1], [s * 27, ROOF.y1 - 0.4]], B, 1.6);
+        k.line("back", [[s * 26.8, BUMP.z1], [s * 26.8, 60]], B, 1.6);
       }
     },
-    // rust: blooms round the wheel arches and along the sill, on the doors, hood, roof and back; streaks under the windows
+    // rust: blooms round the wheel arches and along the sill, on the doors and the hood; on the roof one each side of the
+    // gun's ring, one ahead of it and a big one where a rack would stand; on the back each door's foot and up a corner
     patches(k, A, B) {
       const r = rng(31);
       const rust = (kind, ca, cb, ra, rb, halo, lod) => {
         if (halo) k.poly(kind, blob(ca, cb, ra * 1.35, rb * 1.35, 8, r), B, { lod: 0 });
         k.poly(kind, blob(ca, cb, ra, rb, 7, r), A, { ink: 0.4, lod });
       };
-      // over each wheel well and along the sill; on the hood, the roof and a back door
+      // over each wheel well and along the sill; on the hood, the roof (each side of the gun's ring, ahead of it, under
+      // the rack) and the back (each door's foot, up the right corner over the tail light)
       for (const y of [WH.front, WH.rear]) rust("side", y, 27.6, WH.arch - 2, 2.4, true);
       rust("side", -6, 13, 9, 3.2, false, 0);
       rust("hood", -12, 49, 5, 3.5);
-      rust("roof", -15, -8, 6, 4.5);
-      rust("roof", 12, -48, 5, 3.5, false, 0);
-      rust("back", -24, 19, 5, 4, true);
+      rust("roof", -23, -13, 6, 9.5);
+      rust("roof", 23.5, -16, 4.5, 6.5);
+      rust("roof", 21, 11, 7.5, 5.5);
+      rust("roof", 6, -42, 11, 7.5, true);
+      rust("back", -19, 19.6, 8, 3.8, true);
+      rust("back", 17, 18.6, 5, 3);
+      rust("back", 28.4, 40.5, 2.3, 5.5);
       rust("front", -24, 13, 4, 2.5, false, 0);
     },
-    // army: a white star in a ring on each side and the hood, the unit number stencilled on the sides, roof, back and
-    // the front bumper
+    // army: a white star in a ring on each side, the hood and the roof (a pair either side of the vent hatch where a
+    // rack would stand, one ahead of the gun), a star on each back door; the unit number stencilled on the sides, the
+    // roof, each back door and the front bumper
     stencil(k, A, B) {
       k.poly("side", ring(-7, 33, 9.4, 10.8, 10), B, { lod: 0 });
       k.poly("side", star(-7, 33, 8.6, 3.4), A);
       k.text("side", -42, 36, "B-66", 7, A);
       k.poly("hood", ring(0, 46, 8.2, 9.2, 8), B, { lod: 0 });
       k.poly("hood", star(0, 46, 7.6, 3), A);
-      k.text("roof", 0, -14, "B-66", 13, A);
-      k.poly("roof", star(0, -42, 6, 2.4), A, { lod: 0 });
-      k.text("back", 0, 25.5, "B-66", 5, A);
-      k.text("front", 0, 11.8, "B-66", 4, B);
+      for (const s of [1, -1]) {
+        k.poly("roof", ring(s * 16.5, -41, 6.8, 8, 8), B);
+        k.poly("roof", star(s * 16.5, -41, 6.6, 2.6), A);
+      }
+      k.poly("roof", ring(-18.2, 11, 8.4, 9.7, 8), B);
+      k.poly("roof", star(-18.2, 11, 8, 3.1), A);
+      k.text("roof", 18, 11, "B-66", 9, A);
+      for (const s of [1, -1]) {
+        k.poly("back", star(s * 15.5, 19.2, 4.6, 1.8), A);
+        k.text("back", s * 14.5, 27.8, "B-66", 6, A);
+      }
+      // the front bumper's, over the bumper (a fitting)
+      return () => k.text("front", 0, 11.8, "B-66", 4, B);
     },
-    // hazard: black stripes on yellow along the sills, across the bumpers and the hood's front edge
+    // hazard: black stripes on yellow along the sills, across the front bumper, the hood's front edge, the roof's front
+    // edge and its back bevel; chevrons across the back doors under their windows (each door's stripes leaning in to
+    // the middle)
     hazard(k, A, B) {
       const band = (kind, a0, a1, b0, b1, period, lod) => {
         k.poly(kind, rect(a0, b0, a1, b1), B, { ink: 0.5, lod });
         for (const P of stripes(a0, a1, b0, b1, period, period * 0.46, 3.5)) k.poly(kind, P, A, { lod });
       };
       band("side", YT, YN, 11.5, 19.5, 13);
-      band("front", -HW, HW, BUMP.z0 + 1, BUMP.z1 - 1, 13);
-      band("back", -HW + CORNER, HW - CORNER, BUMP.z0 + 1, BUMP.z1 - 1, 13);
       band("hood", -24, 24, 49.5, 54.5, 16, 0);
+      // (the roof's and the back doors' a little wider apart than the sides': fewer corners where the road sees them)
+      band("roof", -ROOF.x, ROOF.x, ROOF.y1 - 8, ROOF.y1 - 0.4, 17);
+      // (the back bevel's own creases frame its stripes)
+      for (const P of stripes(-ROOF.x - 1, ROOF.x + 1, YT - 1, ROOF.y0 - 0.05, 17, 17 * 0.46, 3.5)) k.poly("roof", P, A);
+      // the chevrons, on the van's lower body under its seam with the cargo box: the left door's stripes, and the
+      // right's the same mirrored
+      const z0 = BUMP.z1 + 0.7;
+      const z1 = WELL - 0.4;
+      k.poly("back", rect(-30.8, z0, 30.8, z1), B, { ink: 0.5 });
+      for (const P of stripes(-30.8, 0, z0, z1, 15, 15 * 0.46, z1 - z0)) {
+        k.poly("back", P, A);
+        k.poly("back", mirror(P), A);
+      }
+      // the front bumper's, over the bumper (a fitting)
+      return () => band("front", -HW, HW, BUMP.z0 + 1, BUMP.z1 - 1, 13);
     },
-    // hot-rod flames licking back from the nose along each side, and back over the hood from its front edge
+    // hot-rod flames licking back from the nose along each side, back over the hood from its front edge and over the
+    // roof from the windshield (the outer tongues longest, on past the gun along the roof's sides), and up the back
+    // doors' outer corners from the bumper
     flames(k, A, B) {
       const outer = [[YN, 10], [YN, 29], [44, 30.6], [14, 31.2], [-12, 42], [3, 35.6], [-30, 37], [-6, 30], [-40, 29.5], [-4, 24.4], [-32, 19.5], [0, 17], [-20, 11], [12, 10.4]];
       const inner = [[YN, 13], [YN, 26.5], [36, 28.4], [8, 29.5], [-4, 35.5], [3, 31], [-20, 31], [-2, 26.4], [-22, 22], [4, 19.8], [-8, 14], [16, 12.6]];
@@ -740,9 +818,26 @@
       });
       k.poly("hood", [[-30, 60], [-30, 46]].concat(hood, [[30, 46], [30, 60]]), A, { ink: 0.7, lod: 0 });
       k.poly("hood", [[-24, 60], [-24, 50]].concat(hin, [[24, 50], [24, 60]]), B, { lod: 0 });
+      // the roof: from its front edge, the tongues (the right half's valleys and tips, out from the middle one; the left
+      // half mirrored) leaning out, the outer ones running on back along its edges past the gun's ring; the inner
+      // flames drawn in toward the front
+      const front = ROOF.y1 - 0.4;
+      const right = [[4.5, 14], [10.5, -3], [14, 9], [20.5, -14], [23.5, 4], [28.2, -30], [ROOF.x + 0.1, -18]];
+      const tongues = mirror(right).reverse().concat([[0, 6]], right);
+      k.poly("roof", [[-ROOF.x - 0.1, front]].concat(tongues, [[ROOF.x + 0.1, front]]), A, { ink: 0.7 });
+      k.poly("roof", [[-24.5, front]].concat(tongues.map(([x, y]) => [x * 0.8, y + (front - y) * 0.42]), [[24.5, front]]), B, { lod: 0 });
+      // the back: up each outer corner from the bumper (the right corner's; the left's mirrored), the tallest tongue up
+      // the corner past the tail light, the others under the window; the inner flames drawn in toward the foot, kept
+      // on the van's lower body (under its seam with the cargo box: one face each)
+      const foot = BUMP.z1 + 0.1;
+      const corner = [[11.5, foot], [30.7, foot], [30.7, 38], [29.3, 46.6], [26.3, 27.5], [22.4, 31.1], [19.6, 21.6], [15.8, 25.8], [13.4, 18.4]];
+      const squash = (WELL - 0.3 - foot) / (Math.max(...corner.map((p) => p[1])) - foot);
+      const cin = corner.map(([x, z]) => [21 + (x - 21) * 0.8, foot + (z - foot) * squash]);
+      for (const P of [corner, mirror(corner)]) k.poly("back", P, A);
+      for (const P of [cin, mirror(cin)]) k.poly("back", P, B, { lod: 0 });
     },
-    // silver lightning: a bolt down each side sweeping back, a forked pair on the hood, one down the roof, one on each
-    // rear door; each over its shade
+    // silver lightning: a bolt down each side sweeping back, one back over the hood, a pair down the roof (one each side
+    // of the gun) and a pair on the rear doors; each over its shade
     lightning(k, A, B) {
       // a bolt from (a, b) running len toward (da, db) (a unit step), w wide: the zigzag of a lightning bolt
       const bolt = (a, b, da, db, len, w) => {
@@ -751,38 +846,49 @@
         const cx = [-ax[1], ax[0]];
         return [[0.55, 0], [0.15, 0.55], [0.45, 0.55], [0.25, 1], [0.85, 0.4], [0.55, 0.4], [0.8, 0]].map(([u, v]) => [a + ax[0] * v * len + cx[0] * (u - 0.5) * w, b + ax[1] * v * len + cx[1] * (u - 0.5) * w]);
       };
-      // down each side sweeping back from behind the cab door, over its shade; one back over the hood, one down the
-      // roof, one across the rear doors
+      // down each side sweeping back from behind the cab door, over its shade; one back over the hood; a pair down the
+      // roof from its front edge, clear of the gun's ring (their zigzags beside it, their tails by the rack's sides);
+      // one across each rear door's foot, under the seam where the van's lower body meets the cargo box (an inked
+      // line across the doors) and clear of the plate
       const side = bolt(8, 45, -1.25, -0.62, 68, 26);
       k.poly("side", shift(side, 1.1, -1.1), B, { lod: 0 });
       k.poly("side", side, A, { ink: 0.6 });
       const hood = bolt(0, 57.5, 0, -1, 19, 16);
       k.poly("hood", shift(hood, 0.8, -0.8), B, { lod: 0 });
       k.poly("hood", hood, A, { ink: 0.6 });
-      k.poly("roof", bolt(-2, 19, 0, -1, 70, 24), A, { ink: 0.6 });
-      k.poly("back", bolt(-14, 31, 1.6, -1, 30, 14), A, { ink: 0.6 });
+      const roof = bolt(23, ROOF.y1 - 0.5, -0.08, -1, 74, 16);
+      for (const P of [roof, mirror(roof)]) {
+        k.poly("roof", shift(P, 0.8, -0.8), B, { lod: 0 });
+        k.poly("roof", P, A, { ink: 0.6 });
+      }
+      const back = bolt(-28, 21, 1, -0.2, 20, 9.5);
+      for (const P of [back, mirror(back)]) {
+        k.poly("back", shift(P, 0.8, -0.8), B, { lod: 0 });
+        k.poly("back", P, A, { ink: 0.6 });
+      }
     },
-    // radioactive: black sludge running down from the roofline over the sides and back, from the cowl down the hood; a
-    // splat on the roof and the trefoil on each sliding door
+    // radioactive: black sludge running down from the roofline over the sides and back, from the cowl down the hood,
+    // pooled along the roof's edges and over its back bevel; the trefoil on each sliding door and on the roof, a splat on
+    // the roof
     drips(k, A, B) {
-      // the sides' sludge, a glossy streak along its band; down the back doors; down the hood from the cowl; a splat on
-      // the roof; the trefoil on each sliding door
+      // the sides' sludge, a glossy streak along its band; down the hood from the cowl
       k.poly("side", drips(YT, 9, 47.6, 2.4, [[-52, 3.2, 9], [-38, 2.8, 5], [-26, 3.4, 13], [-12, 2.8, 6.5], [1, 3, 10.5]]), A, { ink: 0.4 });
       k.line("side", [[YT + 3, 46.3], [7, 46.3]], B, 1.6, { lod: 0 });
-      k.poly("back", drips(-HW, HW, 47.6, 2.2, [[-24, 2.8, 12], [-4, 3, 6], [16, 3, 14]]), A, { ink: 0.4 });
       // (on the hood the band lies along the cowl and the drips run forward, down its slope: drawn hanging, then turned
       // onto the hood, a along x, b back from the nose)
       k.poly("hood", drips(-30, 30, 0, 2.2, [[-18, 2.8, 7], [-2, 3, 10], [15, 2.6, 5]]).map(([a, b]) => [a, COWL[0] - b]), A, { ink: 0.4, lod: 0 });
-      k.poly("roof", blob(9, 4, 7, 5, 9, rng(7)), A, { ink: 0.4, lod: 0 });
-      // the trefoil: its three blades as one outline (each blade's inner arc runs on to the next blade)
-      const c = [-7, 33];
-      const T = [];
-      for (let i = 0; i < 3; i++) {
-        const t0 = Math.PI / 2 + (i * TAU) / 3 - Math.PI / 6;
-        for (let j = 0; j <= 2; j++) T.push([c[0] + Math.cos(t0 + (j * Math.PI) / 6) * 8.4, c[1] + Math.sin(t0 + (j * Math.PI) / 6) * 8.4]);
-        T.push([c[0] + Math.cos(t0 + Math.PI / 3) * 2.6, c[1] + Math.sin(t0 + Math.PI / 3) * 2.6], [c[0] + Math.cos(t0 + Math.PI * (2 / 3)) * 2.6, c[1] + Math.sin(t0 + Math.PI * (2 / 3)) * 2.6]);
-      }
-      k.poly("side", T, A, { lod: 0 });
+      // the roof: a band along each edge with puddles running in (drawn hanging, then turned: a along y, b in from the
+      // edge), one over the back bevel (on into the back doors'); the trefoil ahead of the gun, a splat where a rack
+      // would stand
+      const rail = (list) => drips(ROOF.y0, ROOF.y1 - 0.4, ROOF.x + 0.3, 3.4, list).map(([a, b]) => [b, a]);
+      k.poly("roof", rail([[12, 3.6, 6.5], [-13, 4.4, 8]]), A, { ink: 0.4 });
+      k.poly("roof", mirror(rail([[1, 4, 7.5], [-21, 3.4, 5.5]])), A, { ink: 0.4 });
+      k.poly("roof", rect(-ROOF.x - 1, YT - 1, ROOF.x + 1, ROOF.y0 - 0.05), A, { ink: 0.4 });
+      k.poly("roof", trefoil(-17.5, 9, 9.5, 2.9), A);
+      k.poly("roof", blob(13, -45, 8.5, 6.8, 9, rng(7)), A, { ink: 0.4 });
+      k.poly("side", trefoil(-7, 33, 8.4, 2.6), A, { lod: 0 });
+      // down the back doors from the roof's bevel, over their windows too (laid after the fittings)
+      return () => k.poly("back", drips(-30.8, 30.8, 47.6, 3.6, [[-17, 4.4, 11], [-1.5, 4.2, 18], [13, 4.6, 8.5], [28, 3.6, 12]]), A, { ink: 0.4 });
     },
   };
 
@@ -890,9 +996,10 @@
         return { fill };
       }, Object.assign({ name, ink: 0, lod: 0 }, o));
     if (e >= 1) {
-      // 1: the roof rack (a low tray and its slats) with a crate on it, bigger from 2
-      const tray = boxPart("rack", -25, -55, H, 25, -27, H + 2.2, "#3a3d42", { ink: 0 });
-      void tray;
+      // 1: the roof rack (a low tray and its slats) with a crate on it, bigger from 2; the roof under the tray is hidden
+      // (the paint and the vent hatch there are left out)
+      boxPart("rack", RACK.x0, RACK.y0, H, RACK.x1, RACK.y1, H + 2.2, "#3a3d42", { ink: 0 });
+      k.cover("roof", RACK.x0, RACK.y0, RACK.x1, RACK.y1);
       boxPart("crate", -22, -52, H + 2.2, e >= 2 ? 20 : -6, -40, H + (e >= 2 ? 10 : 8), e >= 2 ? "#8a6a46" : "#5f6b3c");
     }
     if (e >= 2) {
@@ -1047,10 +1154,12 @@
     wheels(k);
     if (g.bumper > 0) plow(k, g.bumper);
     engineGear(k, g.engine);
-    // the decals, under to over: the paint job, the van's own fittings, the armor, the gun's ring, the dents
+    // the decals, under to over: the paint job, the van's own fittings, what the paint job lays over them (it returns
+    // that: a mark on the front bumper, sludge over the back windows), the armor, the gun's ring, the dents
     const paint = DECALS[look.decal] || DECALS.none;
-    paint(k, look.decalA, look.decalB);
+    const over = paint(k, look.decalA, look.decalB);
     fittings(k);
+    if (over) over();
     armor(k, g.armor);
     if (g.gun) gun(k, g);
     if (g.dent > 0) dents(k, g.dent);
