@@ -61,16 +61,18 @@
   const CABIN_CUE_SECS = 20; // seconds between "Walkers are waiting in the cabin" while they hold a wave open
   const CABIN_LABEL = " · walkers in the cabin"; // the wave label's tail while walkers stand in the cabin, out of sight
   // the farm's animals (b.flock): their speed in tiles a second, how long they rest at a spot, and in 3D (a live
-  // Beast3D figure: js/beast3d-looks2.js) their type and what they do at rest: [pose, weight, seconds] (with seconds,
-  // a bleat or a flap, it plays that long and then they stand). Without Beast3D's farm looks they stay the 2D sprites.
+  // Beast3D figure: js/beast3d-looks2.js) their type and what they do at rest: [pose, weight, seconds]. A one-shot
+  // (Beast3D's pose shorter than its loop: the bleat) plays once and then they stand; a looping pose given seconds (the
+  // flap) plays that long. Without Beast3D's farm looks they stay the 2D sprites.
   // SCALE: a new farm animal is a row here and a Beast3D look (with its sprite art for the fallback)
   const ANIMALS = {
-    yGoat: { type: "goat", speed: 0.35, rest: [2.5, 7], idle: [["graze", 6], ["stand", 3], ["bleat", 1, 1.5]] },
+    yGoat: { type: "goat", speed: 0.35, rest: [2.5, 7], idle: [["graze", 6], ["stand", 3], ["bleat", 1]] },
     yChicken: { type: "chicken", speed: 0.45, rest: [1.5, 5], idle: [["peck", 6], ["stand", 3], ["sit", 1.5], ["flap", 0.6, 1.4]] },
   };
   const ANIMAL_TURN = 0.6; // radians: a spot farther round than this, a 3D animal turns to it before it sets off
-  // frames: a 3D animal's picture is redrawn at most this often (15 a second at 60; its place on screen moves every
-  // frame). Five of them near you redrew 4 pictures a frame, half again the yard's render time on a software canvas
+  // SCALE: frames: a 3D animal's picture is redrawn at most this often (15 a second at 60; its place on screen moves
+  // every frame). Five of them near you redrew 4 pictures a frame, half again the yard's render time on a software
+  // canvas; a bigger farm may want it higher
   const ANIMAL_EVERY = 4;
   const ANIMAL_LOOK = 2.5; // tiles: you this close, a 3D animal standing at rest looks at you
 
@@ -380,6 +382,8 @@
   };
 
   Object.assign(ZSR.Interior, {
+    ANIMALS, // (the farm's animals and how far round a spot turns them first: read by tests/validate-engine.js)
+    ANIMAL_TURN,
     enterYard(opts) {
       const S = State();
       const Y = W().YARD;
@@ -675,11 +679,16 @@
           // in 3D it gets up and turns to the spot before it sets off, so it never slides or walks sideways
           let go = true;
           if (fig) {
-            const [tx, ty] = a.at(a.tU, a.tV);
-            fig.want = Math.atan2(ty - y0, tx - x0);
             fig.wantPose = "walk";
-            const off = Math.abs(Math.atan2(Math.sin(fig.want - fig.heading), Math.cos(fig.want - fig.heading)));
-            go = off < ANIMAL_TURN && !this.figPosed(fig);
+            if (this.figPosed(fig)) {
+              // up first (sitting, grazing, pecking): the turn comes once it stands
+              fig.want = null;
+              go = false;
+            } else {
+              const [tx, ty] = a.at(a.tU, a.tV);
+              fig.want = Math.atan2(ty - y0, tx - x0);
+              go = Math.abs(Math.atan2(Math.sin(fig.want - fig.heading), Math.cos(fig.want - fig.heading))) < ANIMAL_TURN;
+            }
           }
           if (go) {
             a.U += (du / d) * Math.min(d, A.speed * dt);
@@ -691,7 +700,11 @@
           a.rest = true;
           a.t = rand(A.rest[0], A.rest[1]);
           a.idle = pose;
-          a.oneT = secs || 0;
+          // a one-shot plays once: its own length, less the ease back out (held longer, its loop starts it over)
+          const B = fig && this.figRenderer(fig);
+          const once = B && B.POSE_SECS && B.POSE_SECS[pose] < (B.LOOP_SECS || 1.2);
+          a.oneT = once ? Math.max(0.1, B.POSE_SECS[pose] - (B.POSE_BLEND || 0.2)) : secs || 0;
+          if (fig) fig.vx = fig.vy = 0; // it stops where it stands: no turn left over from the walk while it settles
         } else if (a.t <= 0) {
           a.rest = false;
           a.tU = rand(a.box[0], a.box[2]);

@@ -461,7 +461,8 @@ bubble open first pages through it ("Press E to read on"); the crew card's DOM i
   is hidden (`liveSweep`). Each frame the owner (`crewAnim` and `crewDogAnim` in js/crew.js, js/robodog.js,
   js/building.js) sets what the figure wants: `want` (a heading, or null: the way it walks), `wantPose`, `wantRun`
   (0..1), `wantWag` (animals), `lookX` / `lookY` (what the head turns to, null: ahead), `turnTo` (past the head's reach
-  the body turns too), `seat` (tiles), `job`, `hit`, `zb` (drawn this much nearer than it stands); then it calls
+  the body turns too), `seat` (tiles), `job`, `hit`, `zb` (drawn this much nearer than it stands), and once, `every`
+  (frames: its picture redrawn at most this often; 0, the crew's, as often as it changes); then it calls
   `figStep(f, dt, x0, y0, x, y)`, which eases the heading, gait, run, pose (out of the old one first) and head. A move
   longer than `FIG_JUMP` (1.5 tiles) in one frame is a jump, not steps.
 - At a post the figure faces the post's `face`; sitting, it walks to the `seat`'s middle, turns to its `dir`, eases

@@ -482,7 +482,10 @@ searches and when matters more than how fast one search is.
 - The farm's hens and goats are live figures in the walkers' pool (`js/yard.js` `ANIMALS`: speed, rest, what they do at
   rest; `b.flock` puts them up): a new farm animal is a row there, a Beast3D look in an appended `beast3d-looks3.js` and
   its sprite art for the fallback. A full farm adds five figures to the pool (three hens, two goats): they count against
-  `LIVE_RENDERS_MAX`, `LIVE_NEAR` and `LIVE_LEVELS` like the crew. The engine tests that load Beast3D list
+  `LIVE_RENDERS_MAX`, `LIVE_NEAR` and `LIVE_LEVELS` like the crew, each redrawn at most every `ANIMAL_EVERY` (4) frames
+  (`fig.every`; looking over the pens is the yard's one view at the owner's 25% bar, so a bigger farm may want it
+  higher). Beast3D reports the box it drew in and only that is pasted; Walker3D does not yet (the crew and walkers paste
+  their whole pictures). The engine tests that load Beast3D list
   `beast3d-looks2.js` too (validate-engine `WANT`, validate-crew `ENGINE`, validate-drive, validate-scenery).
 
 ## Still 3D models (the van, the yard's props, signs, plaques and porch)

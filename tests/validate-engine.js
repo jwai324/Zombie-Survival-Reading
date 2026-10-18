@@ -5186,7 +5186,6 @@ const faErrors0 = errors.length;
     if (!cond) err(`farm animals: ${msg}`);
     return cond;
   };
-  const TURN = 0.6; // js/yard.js ANIMAL_TURN
   try {
     setRooms(3);
     S.save.builds = {};
@@ -5194,9 +5193,11 @@ const faErrors0 = errors.length;
     I.stop();
     I.walkers.length = 0;
     const herd = I.yardAnims.filter((a) => a.kind === "wander");
-    const TYPE = { yChicken: "chicken", yGoat: "goat" };
-    ok(herd.length >= 5 && herd.some((a) => a.art === "yChicken") && herd.some((a) => a.art === "yGoat"), `the farm at its top level keeps ${herd.length} animals (want its hens and goats)`);
-    herd.forEach((a, i) => ok(!!a.p.fig && a.p.fig.live3d === "beast" && a.p.fig.id === TYPE[a.art], `animal ${i} (${a.art}) is not a live 3D ${TYPE[a.art]} (fig ${a.p.fig && a.p.fig.id})`));
+    const KINDS = I.ANIMALS || {};
+    const TURN = I.ANIMAL_TURN;
+    ok(Object.keys(KINDS).length > 0 && TURN > 0, "js/yard.js does not give the engine its ANIMALS and ANIMAL_TURN");
+    ok(herd.length > 0 && Object.keys(KINDS).every((art) => herd.some((a) => a.art === art)), `the farm at its top level keeps ${herd.length} animals (${[...new Set(herd.map((a) => a.art))]}; want every kind in ANIMALS: ${Object.keys(KINDS)})`);
+    herd.forEach((a, i) => ok(!!a.p.fig && a.p.fig.live3d === "beast" && KINDS[a.art] && a.p.fig.id === KINDS[a.art].type, `animal ${i} (${a.art}) is not a live 3D ${KINDS[a.art] && KINDS[a.art].type} (fig ${a.p.fig && a.p.fig.id})`));
     const figs = herd.map((a) => a.p.fig).filter(Boolean);
     if (figs.length === herd.length) {
       const dt = 1 / 30;
@@ -5206,11 +5207,31 @@ const faErrors0 = errors.length;
       let sideways = 0;
       let outside = 0;
       const firstBad = [];
+      // a one-shot pose (Beast3D's shorter than its loop: the bleat) plays once: its loop never starts over; and an
+      // animal sitting, grazing or pecking (figPosed) never turns, it gets up first
+      const B3 = ZSR.Beast3D;
+      const oneShot = (q) => B3.POSE_SECS[q] < B3.LOOP_SECS;
+      let replays = 0;
+      let shots = 0;
+      let turnedPosed = 0;
       for (let k = 0; k < 30 * 180; k++) {
         const before = herd.map((a) => [a.p.x, a.p.y]);
+        const was = herd.map((a) => ({ pose: a.p.fig.pose, poseT: a.p.fig.poseT, heading: a.p.fig.heading, posed: I.figPosed(a.p.fig) }));
         I.yardAnimate(dt);
         herd.forEach((a, i) => {
           const f = a.p.fig;
+          const w = was[i];
+          if (oneShot(f.pose)) {
+            if (w.pose !== f.pose) shots++;
+            else if (f.poseT < w.poseT - 0.5) {
+              replays++;
+              if (firstBad.length < 3) firstBad.push(`${f.id}'s ${f.pose} started over`);
+            }
+          }
+          if (w.posed && I.figPosed(f) && Math.abs(Math.atan2(Math.sin(f.heading - w.heading), Math.cos(f.heading - w.heading))) > 0.02) {
+            turnedPosed++;
+            if (firstBad.length < 3) firstBad.push(`${f.id} turned in its ${f.pose} pose (${f.poseW.toFixed(2)})`);
+          }
           const [u0, v0, u1, v1] = a.box;
           if (a.U < u0 - 1e-9 || a.U > u1 + 1e-9 || a.V < v0 - 1e-9 || a.V > v1 + 1e-9) outside++;
           const dx = a.p.x - before[i][0];
@@ -5234,6 +5255,8 @@ const faErrors0 = errors.length;
       ok(!outside, `the animals left their pens ${outside} times`);
       ok(moved.every((m) => m > 0.5), `in three minutes not every animal wandered (tiles walked: ${moved.map((m) => m.toFixed(1))})`);
       ok(!slid && !sideways, `the animals moved out of their walk ${slid} times and off the way they face ${sideways} times: ${firstBad.join("; ")}`);
+      ok(!replays, `a one-shot pose started over ${replays} times in ${shots} (it plays once, then they stand): ${firstBad.join("; ")}`);
+      ok(!turnedPosed, `the animals turned ${turnedPosed} times while sitting, grazing or pecking (up first, then the turn): ${firstBad.join("; ")}`);
       ok(seen.get("chicken") && seen.get("chicken").has("peck") && seen.get("chicken").has("walk"), `a hen never pecked or walked (poses ${[...(seen.get("chicken") || [])]})`);
       ok(seen.get("goat") && seen.get("goat").has("graze") && seen.get("goat").has("walk"), `a goat never grazed or walked (poses ${[...(seen.get("goat") || [])]})`);
 
@@ -5283,7 +5306,7 @@ const faErrors0 = errors.length;
     S.trip = null;
   }
 }
-if (errors.length === faErrors0) console.log(`OK: farm animals: ${faChecked} checks (the farm's hens and goats are live 3D figures; through three minutes they stay in their pens, wander, move only in their walk and the way they face, rest pecking and grazing; one standing at rest looks at you near and not far; drawn live in view, let go on leaving).`);
+if (errors.length === faErrors0) console.log(`OK: farm animals: ${faChecked} checks (the farm's hens and goats are live 3D figures; through three minutes they stay in their pens, wander, move only in their walk and the way they face, never turn sitting, grazing or pecking, play a one-shot once, rest pecking and grazing; one standing at rest looks at you near and not far; drawn live in view, let go on leaving).`);
 
 /* ---------- June's first-run tutorial (js/tutorial.js) ----------
    Last in the file, so nothing it leaves behind can touch the checks above. The cards go to a stand-in view that

@@ -2717,9 +2717,10 @@ and sit on the floor at the post, exactly as before 3D.
 **The farm's hens and goats as live 3D figures (`js/yard.js` `ANIMALS`, `b.flock`, `yardAnimate`).**
 - Each is a live figure in the walkers' pool (Beast3D's chicken or goat), on its sprite's prop, which stays the fallback.
 - At each spot they rest a while (hens 1.5 to 5 s, goats 2.5 to 7 s; the sprites walked on at once) in one of their own
-  poses, by weight: a goat grazes (6), stands (3) or bleats once (1, 1.5 s); a hen pecks (6), stands (3), settles down
-  (1.5) or flaps once (0.6, 1.4 s). Then they get up and turn to the next spot before they walk to it (never sliding, never
-  sideways: a test fails when either happens), and one standing within 2.5 tiles of you looks at you.
+  poses, by weight: a goat grazes (6), stands (3) or bleats once (1: the bleat's own 1.1 s less its ease back out, so it
+  never starts over); a hen pecks (6), stands (3), settles down (1.5) or flaps (0.6, 1.4 s). Then they get up, turn to
+  the next spot (only once standing) and walk to it (never sliding, never sideways, never turning while sitting, grazing
+  or pecking: a test fails when any of these happens), and one standing within 2.5 tiles of you looks at you.
 - Hens walk at 0.45 tiles a second (the sprites' 0.6 read as a scurry on the 3D gait's quick steps); goats at 0.35.
 - The pens' low fences hide most of them from outside, as they hid the sprites.
 - Their pictures redraw at most 15 times a second (`ANIMAL_EVERY`; their place on screen moves every frame), and Beast3D
