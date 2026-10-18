@@ -1,13 +1,15 @@
-/* Beast3D: the animals as live 3D jointed figures (the stray dog and Rivet the robot dog now; stage 3's goats and
-   chickens next), drawn fresh into a small region whenever they change, in the walkers' comic style (js/walker3d.js:
+/* Beast3D: the animals as live 3D jointed figures (the stray dog, Rivet the robot dog, and the farm's goats and hens),
+   drawn fresh into a small region whenever they change, in the walkers' comic style (js/walker3d.js:
    ink outline, flat fills, the same light from the upper left, fog in steps, three levels of detail), from any side,
    in any pose. No images and no WebGL: plain Canvas 2D calls straight into the context the engine hands over.
 
-   The looks are data. js/beast3d-looks.js adds the types with Beast3D.addType(id, def): plan, skin, build (bone
-   lengths and radii in tiles), gait, the poses it has and its look (colours and parts). More kinds go in an appended
-   js/beast3d-looks2.js. A type has one of two body plans:
+   The looks are data. js/beast3d-looks.js adds the dogs with Beast3D.addType(id, def): plan, skin, build (bone
+   lengths and radii in tiles), gait, the poses it has and its look (colours and parts); js/beast3d-looks2.js adds the
+   farm's "goat" and "chicken" (and documents their own fields: horns, beard, comb, tail fan ...). More kinds go in an
+   appended js/beast3d-looks3.js. A type has one of two body plans:
      "quad"   four legs: fore left, fore right, hind left, hind right (dog, robot dog, goat)
-     "biped"  two legs under the body (the hind legs' rig) and two folded wings (chicken)
+     "biped"  two legs under the body (the hind legs' rig), drawn before the body (they come out from under its
+              feathers), and two flat feathered wings, folded along its sides or spread (chicken)
    and one of two skins: "fur" (soft blobs: ellipsoids joined under one ink line, tube legs, a tail) or "metal"
    (boxes, tube legs with joint discs, lights that glow).
 
@@ -18,10 +20,14 @@
      move    0..1 from standing to walking
      run     0..1 (default 0): how far the gait goes over to a gallop (the type's gaitRun: longer strides, all four
              feet off the ground between them, the back flexing); stride(type, run) gives the matching stride
-     pose    one of POSES. A pose the type does not list draws "stand". "walk" is "stand" with its legs going (move)
-     poseT   0..1 through the pose's loop: the panting, breathing and the tail's wag (stand, walk, sit, lie, off),
-             one bark (bark), one zap (zap). The engine advances it by dt / POSE_SECS[pose] and wraps it. The looping
-             poses share one length, so the wag and the panting keep their phase through a pose change
+     pose    one of POSES. A pose the type does not list draws "stand". "walk" is "stand" with its legs going (move).
+             The farm's: "graze" (head down, the muzzle in the grass, tearing at it and chewing), "peck" (twice a loop
+             the beak stabs the ground), "flap" (up on its toes, wings spread and beating), "bleat" (head up, mouth
+             open); a biped's "sit" settles it on its belly, its legs folded away under it
+     poseT   0..1 through the pose's loop: the panting, breathing and the tail's wag (stand, walk, sit, lie, off, graze,
+             peck, flap), one bark (bark), one zap (zap), one bleat (bleat). The engine advances it by
+             dt / POSE_SECS[pose] and wraps it. The looping poses share one length, so the wag and the panting keep
+             their phase through a pose change
      poseW   0..1 (default 1): how far it has gone from standing (or walking: move) into the pose. The engine ramps it
              from 0 to 1 over about POSE_BLEND seconds after a pose change (out to "stand" first, then in, as the
              walkers do), so a dog sits down and gets up instead of jumping there
@@ -64,7 +70,8 @@
   const FOG_STEPS = 32; // fog in steps of 1/32 (and the light in steps of 1/LIGHT_STEPS): the colour table converges
   const LIGHT_STEPS = 64;
   const POSE_BLEND = 0.2; // seconds the engine should take to ramp st.poseW from 0 to 1 after a pose change
-  const POSES = ["stand", "walk", "sit", "lie", "bark", "zap", "off"];
+  // (appended, never reordered: the farm's poses came after the dogs')
+  const POSES = ["stand", "walk", "sit", "lie", "bark", "zap", "off", "graze", "peck", "flap", "bleat"];
   const P_STAND = 0;
   const P_WALK = 1;
   const P_SIT = 2;
@@ -72,12 +79,23 @@
   const P_BARK = 4;
   const P_ZAP = 5;
   const P_OFF = 6;
+  const P_GRAZE = 7; // head down to the grass, tearing and chewing (a goat)
+  const P_PECK = 8; // pecking at the ground, twice a loop (a hen)
+  const P_FLAP = 9; // up on its toes, wings spread and beating (a hen)
+  const P_BLEAT = 10; // head up, mouth open: one long bleat (a goat)
   // seconds one poseT loop takes: the looping poses share one length (the wag and the panting keep their phase
-  // through a pose change); a bark and a zap are one loop each (the engine loops them to bark on)
+  // through a pose change); a bark, a zap and a bleat are one loop each (the engine loops them to bark on)
   const LOOP_SECS = 1.2;
-  const POSE_SECS = { stand: LOOP_SECS, walk: LOOP_SECS, sit: LOOP_SECS, lie: LOOP_SECS, off: LOOP_SECS, bark: 0.5, zap: 0.3 };
+  const POSE_SECS = { stand: LOOP_SECS, walk: LOOP_SECS, sit: LOOP_SECS, lie: LOOP_SECS, off: LOOP_SECS, bark: 0.5, zap: 0.3, graze: LOOP_SECS, peck: LOOP_SECS, flap: LOOP_SECS, bleat: 1.1 };
+  // SCALE: how finely the envelope (see fit) samples a pose's loop: a quick one (wingbeats, pecks) needs more steps so
+  // its extremes are in it; any other pose takes ENV_STEPS
+  const ENV_STEPS = 8;
+  const POSE_ENV_STEPS = { graze: 16, peck: 16, flap: 40, bleat: 16 };
   const PANTS = 4; // pants a loop (about 3.3 a second)
   const WAGS = 3; // wags a loop (2.5 a second standing; a bark's short loop wags faster: an excited dog)
+  const CHEWS = 3; // chews a grazing loop
+  const PECKS = 2; // pecks a loop
+  const BEATS = 5; // wingbeats a flapping loop (about 4 a second)
   const HEAD_YAW_MAX = 1.15; // rad either way the head turns toward something (the neck takes NECK_SHARE of it)
   const NECK_SHARE = 0.35;
   const INK = [13, 14, 16];
@@ -107,7 +125,8 @@
   const WNG = 25; // wing w (0 left, 1 right) of a biped, joint k (0 root, 1 tip): WNG + w * 2 + k
   const EART = 29; // the tips of its ears (left, right) and of a robot's antenna: for the fit only
   const ANT = 31;
-  const NJ = 32;
+  const HRN = 32; // the tips of its horns (left, right), or a comb's crest: for the fit only (at the skull without)
+  const NJ = 34;
   const LJ = (l, k) => LEG + l * 4 + k;
   const J = new Float64Array(NJ * 3);
   const JR = new Float64Array(NJ); // how far a part reaches around each joint (tiles): the fit
@@ -116,6 +135,7 @@
   const BF = new Float64Array(9); // body frame: right, up, forward
   const HF = new Float64Array(9); // head frame
   const NF = new Float64Array(9); // scratch frame
+  const TF = new Float64Array(9); // the tail's frame at its base (a fan tail spreads in it)
   const LEGS_Q = [0, 1, 2, 3];
   const LEGS_B = [2, 3];
 
@@ -215,8 +235,9 @@
 
   /* ---------- Colours: rgb arrays in, strings out, from a fixed table (a miss builds one string) ---------- */
   // SCALE: colour-string table slots (a power of two). Every type x variant x light level x fog step x flash is one
-  // colour; a miss only builds one string, so keep it a few times what a busy yard uses (about 3,000 with two kinds)
-  const CC_N = 8192;
+  // colour; a miss only builds one string, so keep it a few times what a busy yard uses (about 3,000 with the two dogs,
+  // about 6,000 with the farm's goats and hens too)
+  const CC_N = 16384;
   const CC_SHIFT = 32 - Math.log2(CC_N);
   const ccKey = new Float64Array(CC_N).fill(-1);
   const ccStr = new Array(CC_N).fill("");
@@ -343,7 +364,9 @@
   const Q_HEADROLL = 12; // the head's tilt (rad)
   const Q_ANT = 13; // a robot's antenna: 0 up, 1 drooped back
   const Q_WING = 14; // a bird's wings: 0 folded, 1 spread
-  const Q_LEG = 16; // leg l: paw x, y, z (model), the pastern's angle (rad back from straight up), the knee's splay
+  const Q_BOB = 15; // the head thrust forward along the neck (tiles): a hen's head-bob, her reach to peck
+  const Q_WUP = 16; // spread wings' angle above level (rad): the wingbeat
+  const Q_LEG = 17; // leg l: paw x, y, z (model), the pastern's angle (rad back from straight up), the knee's splay
   //                  out to the side, and how far the knee's way tips up (a lying dog's elbows rest on the floor)
   const QL = 6;
   const NQ = Q_LEG + 4 * QL;
@@ -389,6 +412,14 @@
     PB[Q_HEADROLL] = 0;
     PB[Q_ANT] = 0.12 * m;
     PB[Q_WING] = 0;
+    PB[Q_WUP] = 0;
+    // a hen's head-bob (gait.headBob, tiles): her head holds still in the air while her body walks under it, then
+    // thrusts forward as each foot lands (twice a cycle): back slowly against the body, forward fast
+    PB[Q_BOB] = 0;
+    if (g.headBob) {
+      const q = frac(2 * ph + 0.15);
+      PB[Q_BOB] = g.headBob * m * (q < 0.7 ? 1 - (2 * q) / 0.7 : -1 + 2 * smooth((q - 0.7) / 0.3));
+    }
     // the legs: each paw on its own phase; the pastern rolls forward under the step, folds up in the swing
     const Sz = g.stride * g.duty * m;
     for (let i = 0; i < NLEG; i++) {
@@ -438,6 +469,8 @@
     PT[Q_HEADROLL] = 0.12;
     PT[Q_ANT] = 0;
     PT[Q_WING] = 0;
+    PT[Q_WUP] = 0;
+    PT[Q_BOB] = 0;
     for (let i = 0; i < NLEG; i++) {
       const l = LEGS[i];
       const s = l & 1 ? 1 : -1;
@@ -477,15 +510,32 @@
     PT[Q_TAILCURL] = 0.05;
     PT[Q_TAILSIDE] = off ? 0.35 : 0.7;
     PT[Q_JAW] = 0;
+    if (b.lieTail && !off) {
+      // (build.lieTail [up, round to its side]: a short tail that stays up; build.lieChew: chewing the cud)
+      PT[Q_TAILUP] = b.lieTail[0];
+      PT[Q_TAILSIDE] = b.lieTail[1];
+      PT[Q_JAW] = (b.lieChew || 0) * (0.5 - 0.5 * Math.cos(TAU * CHEWS * pT));
+    }
     PT[Q_EAR] = 0;
     PT[Q_HEADROLL] = off ? -0.22 : 0.08;
     PT[Q_ANT] = off ? 1 : 0;
     PT[Q_WING] = 0;
+    PT[Q_WUP] = 0;
+    PT[Q_BOB] = 0;
     for (let i = 0; i < NLEG; i++) {
       const l = LEGS[i];
       const s = l & 1 ? 1 : -1;
       const o = Q_LEG + l * QL;
-      if (l < 2) {
+      if (l < 2 && b.lieFold && !off) {
+        // (build.lieFold: a goat kneels down to lie) folded under the chest: the knee (the wrist joint) ahead on the
+        // ground, the hoof tucked back under the forearm
+        PT[o] = s * b.footW * 0.95;
+        PT[o + 1] = b.pawR;
+        PT[o + 2] = half + b.fore[1] * 0.3 - b.pastern[0] * 0.95;
+        PT[o + 3] = -(PI / 2 - 0.08);
+        PT[o + 4] = 0.2;
+        PT[o + 5] = -0.6;
+      } else if (l < 2) {
         PT[o] = s * b.footW * (off ? 0.9 : 1.05);
         PT[o + 1] = b.pawR;
         // out ahead (the forearm flat on the floor), or folded in under the chest
@@ -527,6 +577,8 @@
     PT[Q_HEADROLL] = 0;
     PT[Q_ANT] = zap ? -0.25 : 0;
     PT[Q_WING] = 0;
+    PT[Q_WUP] = 0;
+    PT[Q_BOB] = 0;
     for (let i = 0; i < NLEG; i++) {
       const l = LEGS[i];
       const s = l & 1 ? 1 : -1;
@@ -546,6 +598,143 @@
         PT[o + 4] = 0.2;
         PT[o + 5] = 0.2;
       }
+    }
+  }
+
+  /* ---------- The farm's poses (the goat's and the hen's) ---------- */
+  /** Leg l standing (as baseSet stands it, still), its paw moved (dx out to its side, dz forward) into PT. */
+  function legStand(b, l, dx, dz) {
+    const fore = l < 2;
+    const s = l & 1 ? 1 : -1;
+    const o = Q_LEG + l * QL;
+    PT[o] = s * (b.footW + dx);
+    PT[o + 1] = b.pawR;
+    PT[o + 2] = (fore ? b.len / 2 + b.foreZ : -b.len / 2 + b.hindZ) + dz;
+    PT[o + 3] = fore ? b.foreAng : b.hindAng;
+    PT[o + 4] = fore ? 0.1 : 0.18;
+    PT[o + 5] = fore ? -0.35 : 0.2;
+  }
+  /** The neck's angle above level (rad) that puts the snout's tip y tiles over the ground, for the spine PT holds,
+      the head pitched p (nose down) and thrust bob tiles along the neck (as solve builds them, the head straight and
+      upright: turning it or the neck only lifts the snout off a spine tipped nose down). Out of reach: straight down. */
+  function neckFor(b, y, p, bob) {
+    let fy = PT[Q_SHOY] - PT[Q_HIPY];
+    let fz = PT[Q_SHOZ] - PT[Q_HIPZ];
+    const fl = hyp2(fy, fz) || 1;
+    fy /= fl;
+    fz /= fl;
+    const sn = b.snout;
+    const v = (y - PT[Q_SHOY] - (b.neckFwd + bob) * fy - (b.headUp + sn[3]) * Math.cos(p) + (b.headFwd + sn[4] + sn[0]) * Math.sin(p)) / b.neck[0];
+    return Math.asin(v < -1 ? -1 : v > 1 ? 1 : v);
+  }
+  /** The parts of the pose every farm pose sets alike (no roll, no antenna, the ears and tail as the build has them). */
+  function farmBase(b) {
+    PT[Q_HIPZ] = -b.len / 2;
+    PT[Q_SHOZ] = b.len / 2;
+    PT[Q_ROLL] = 0;
+    PT[Q_TAILCURL] = b.tailCurl;
+    PT[Q_TAILSIDE] = 0;
+    PT[Q_EAR] = 0;
+    PT[Q_HEADROLL] = 0;
+    PT[Q_ANT] = 0;
+    PT[Q_WING] = 0;
+    PT[Q_WUP] = 0;
+    PT[Q_BOB] = 0;
+    PT[Q_JAW] = 0;
+  }
+  /** Grazing (a goat): the withers lower over front legs set a little wider and ahead, the neck down, the muzzle in the
+      grass; it tears at it (the head lifts a little twice a loop) and chews; the tail flicks. */
+  function grazeSet(t, pT) {
+    const b = t.build;
+    farmBase(b);
+    const tear = 0.5 - 0.5 * Math.cos(TAU * 2 * pT); // 0 in the grass .. 1 lifted a little
+    PT[Q_HIPY] = b.hipH;
+    PT[Q_SHOY] = b.shH - b.len * b.grazeDrop;
+    PT[Q_HEAD] = b.grazeHead - 0.1 * tear;
+    PT[Q_TAILUP] = b.tailUp + 0.2;
+    PT[Q_JAW] = 0.05 + 0.12 * (0.5 - 0.5 * Math.cos(TAU * CHEWS * pT));
+    PT[Q_HEADROLL] = 0.05;
+    for (let i = 0; i < NLEG; i++) {
+      const l = LEGS[i];
+      if (l < 2) legStand(b, l, b.footW * 0.25, b.len * 0.12);
+      else legStand(b, l, 0, -b.len * 0.03);
+    }
+    PT[Q_NECK] = neckFor(b, b.snout[2] + 0.004 + tear * b.head[1] * 0.3, PT[Q_HEAD], 0);
+  }
+  /** Pecking (a hen): tipped forward, her neck reaching down, looking; twice a loop her beak stabs the ground, fast,
+      and comes back up slower to hover over it. */
+  function peckSet(t, pT) {
+    const b = t.build;
+    farmBase(b);
+    const q = frac(PECKS * pT);
+    const dip = q < 0.18 ? smooth(q / 0.18) : q < 0.6 ? 1 - smooth((q - 0.18) / 0.42) : 0; // 1 at the ground
+    PT[Q_HIPY] = b.hipH + b.len * 0.08;
+    PT[Q_SHOY] = b.shH - b.len * b.peckDrop;
+    PT[Q_HEAD] = b.peckHead + 0.3 * dip;
+    PT[Q_BOB] = b.neck[0] * 0.35 * dip;
+    PT[Q_TAILUP] = b.tailUp + 0.15;
+    for (let i = 0; i < NLEG; i++) legStand(b, LEGS[i], 0, 0);
+    PT[Q_NECK] = neckFor(b, b.snout[2] + 0.002 + b.head[1] * 1.6 * (1 - dip), PT[Q_HEAD], PT[Q_BOB]);
+  }
+  /** Flapping (a hen): up on her toes, her chest lifted, wings spread and beating (BEATS a loop), her tail fanned up;
+      her body lifts a little with each downstroke. */
+  function flapSet(t, pT) {
+    const b = t.build;
+    farmBase(b);
+    const beat = Math.sin(TAU * BEATS * pT); // 1 up .. -1 down
+    PT[Q_HIPY] = b.hipH + b.len * 0.05 - 0.003 * beat;
+    PT[Q_SHOY] = b.shH + b.len * 0.45 - 0.003 * beat;
+    PT[Q_NECK] = b.neckAng + 0.1;
+    PT[Q_HEAD] = b.headPitch - 0.2;
+    PT[Q_TAILUP] = b.tailUp + 0.25;
+    PT[Q_WING] = 1;
+    PT[Q_WUP] = 0.3 + 0.75 * beat;
+    PT[Q_JAW] = 0;
+    for (let i = 0; i < NLEG; i++) legStand(b, LEGS[i], b.footW * 0.2, 0);
+  }
+  /** A hen sitting (a biped's "sit"): settled on her belly, her legs folded under her, her head drawn in, her tail up;
+      she breathes. */
+  function nestSet(t, pT) {
+    const b = t.build;
+    farmBase(b);
+    const breath = 0.003 * Math.sin(TAU * pT);
+    PT[Q_HIPY] = t.bellyHip + breath;
+    PT[Q_SHOY] = t.bellySho + b.len * 0.12 + breath;
+    PT[Q_NECK] = b.sitNeck;
+    PT[Q_HEAD] = b.headPitch + 0.05;
+    PT[Q_BOB] = -b.neck[0] * 0.25;
+    PT[Q_TAILUP] = b.tailUp + 0.1;
+    for (let i = 0; i < NLEG; i++) {
+      const l = LEGS[i];
+      const s = l & 1 ? 1 : -1;
+      const o = Q_LEG + l * QL;
+      PT[o] = s * b.footW * 0.75;
+      PT[o + 1] = b.pawR;
+      PT[o + 2] = -b.len / 2 + b.hindZ + b.pastern[1] * 0.4;
+      PT[o + 3] = PI / 2 - 0.15;
+      PT[o + 4] = 0.35;
+      PT[o + 5] = 0.3;
+    }
+  }
+  /** A bleat (pT through one): the head comes up, nose high, the mouth opens and holds open, wavering, then closes;
+      the tail flicks up. The comic's lines fly from the mouth as for a bark. */
+  function bleatSet(t, pT) {
+    const b = t.build;
+    farmBase(b);
+    const k = pT < 0.15 ? smooth(pT / 0.15) : pT < 0.72 ? 1 : 1 - smooth((pT - 0.72) / 0.28);
+    const waver = Math.sin(TAU * 9 * pT) * k;
+    RG[BARKK] = 0.85 * k;
+    PT[Q_HIPY] = b.hipH;
+    PT[Q_SHOY] = b.shH + 0.004 * k;
+    PT[Q_NECK] = b.neckAng + 0.3 * k;
+    PT[Q_HEAD] = b.headPitch - 0.6 * k + 0.03 * waver;
+    PT[Q_TAILUP] = b.tailUp + 0.35 * k;
+    PT[Q_JAW] = 0.1 + 0.65 * k + 0.08 * waver;
+    PT[Q_EAR] = 0.3 * k;
+    for (let i = 0; i < NLEG; i++) {
+      const l = LEGS[i];
+      if (l < 2) legStand(b, l, b.footW * 0.15, b.len * 0.06);
+      else legStand(b, l, 0, 0);
     }
   }
 
@@ -578,9 +767,14 @@
     RG[ZAPK] = 0;
     baseSet(t, g, m, ph, pT);
     if (over > 0) {
-      if (pose === P_SIT) sitSet(t, pT);
+      if (pose === P_SIT && t.plan === "biped") nestSet(t, pT);
+      else if (pose === P_SIT) sitSet(t, pT);
       else if (pose === P_LIE) lieSet(t, pT, false);
       else if (pose === P_OFF) lieSet(t, pT, true);
+      else if (pose === P_GRAZE) grazeSet(t, pT);
+      else if (pose === P_PECK) peckSet(t, pT);
+      else if (pose === P_FLAP) flapSet(t, pT);
+      else if (pose === P_BLEAT) bleatSet(t, pT);
       else braceSet(t, pT, pose === P_ZAP);
       // the pose's own numbers in, by its weight: smoothed, so it eases in and settles
       const w = smooth(over);
@@ -590,7 +784,7 @@
       // (a shut-down robot's lights cut out halfway down as it slumps)
       if (pose === P_OFF && over > 0.5) LIT = false;
     } else for (let i = 0; i < NQ; i++) PP[i] = PB[i];
-    RG[LYING] = pose === P_LIE || pose === P_OFF ? smooth(over) : 0;
+    RG[LYING] = pose === P_LIE || pose === P_OFF || (pose === P_SIT && t.plan === "biped") ? smooth(over) : 0;
 
     // the spine and the body's frame (forward from the hips to the withers; up as near the world's up as it goes)
     setJ(HIP, 0, PP[Q_HIPY], PP[Q_HIPZ]);
@@ -634,15 +828,18 @@
       if (fore) ik(top, LJ(l, 1), low, bones[0], bones[1], s * sp, PP[o + 5], -1, paw);
       else ik(top, LJ(l, 1), low, bones[0], bones[1], s * sp, PP[o + 5], 1, paw);
     }
-    // a biped's wings, folded along its sides (spread: out and up)
+    // a biped's wings: the root at the shoulder, the tip back along its side folded (a little down), spread out to its
+    // side at the wingbeat's angle (a little back)
     if (t.plan === "biped" && b.wing) {
       const wg = b.wing;
       const sp = PP[Q_WING];
+      const ce = Math.cos(PP[Q_WUP]);
+      const se = Math.sin(PP[Q_WUP]);
       for (let w = 0; w < 2; w++) {
         const s = w ? 1 : -1;
         const r0 = WNG + w * 2;
         offJ(r0, SHO, BF, s * wg.x, wg.u, wg.f);
-        offJ(r0 + 1, r0, BF, s * (0.01 + wg.len * 0.9 * sp), wg.len * 0.5 * sp, -wg.len * (1 - 0.6 * sp));
+        offJ(r0 + 1, r0, BF, s * (0.004 * (1 - sp) + wg.len * ce * sp), wg.len * (se * sp - 0.1 * (1 - sp)), -wg.len * (1 - 0.8 * sp));
       }
     } else for (let k = 0; k < 4; k++) setJ(WNG + k, J[SHO * 3], J[SHO * 3 + 1], J[SHO * 3 + 2]);
 
@@ -653,7 +850,8 @@
     rot(NF, 1, 0, -PP[Q_ROLL]); // (the neck stays upright: the body rolls under it)
     rot(NF, 2, 0, hy * NECK_SHARE);
     const na = PP[Q_NECK] - RG[PITCH];
-    offJ(NEC, SHO, NF, 0, Math.sin(na) * b.neck[0], b.neckFwd + Math.cos(na) * b.neck[0]);
+    // (a hen thrusts her head forward along it: Q_BOB)
+    offJ(NEC, SHO, NF, 0, Math.sin(na) * b.neck[0], b.neckFwd + Math.cos(na) * b.neck[0] + PP[Q_BOB]);
     // the head: level, turned, pitched by the pose, tilted
     frameSet(HF, null);
     rot(HF, 2, 0, hy);
@@ -676,6 +874,7 @@
       frameSet(NF, null);
       rot(NF, 2, 0, PI + RG[WAGA] + PP[Q_TAILSIDE] * (SEED & 2 ? 1 : -1)); // forward is now back along the body
       rot(NF, 1, 2, -(PP[Q_TAILUP] + RG[PITCH] * 0.6)); // tip up
+      frameSet(TF, NF); // (a tail fan spreads in this frame: its forward and up)
       const seg = b.tail[0] / 3;
       for (let k = 0; k < 3; k++) {
         offJ(TM + k, TB + k, NF, 0, 0, seg);
@@ -694,7 +893,7 @@
     for (let i = 0; i < 2; i++) {
       const s = i ? 1 : -1;
       const k = ears ? ears[i] : null;
-      const E = k === "flop" ? EAR_FLOP : k === "tri" ? EAR_TRI : EAR_UP;
+      const E = k === "flop" ? EAR_FLOP : k === "tri" ? EAR_TRI : k === "side" ? EAR_SIDE : EAR_UP;
       const sz = b.ear || 1;
       if (!k) offJ(EART + i, HED, HF, 0, 0, 0);
       else if (k === "flop") offJ(EART + i, HED, HF, s * E[9] * h[0] * sz, (E[10] * 0.6 + RG[EAR]) * h[1] * sz, E[11] * h[2]);
@@ -704,7 +903,16 @@
       const dr = PP[Q_ANT] * 1.3;
       offJ(ANT, HED, HF, -h[0] * 0.5, h[1] + b.antenna[0] * Math.cos(dr), -h[2] * 0.45 - b.antenna[0] * (0.25 + Math.sin(dr)));
     } else offJ(ANT, HED, HF, 0, 0, 0);
+    // the horns' tips, or a comb's crest (the fit's points: they stand up off the skull)
+    for (let i = 0; i < 2; i++) {
+      if (b.horns) {
+        hornPt(b, i ? 1 : -1, HORN_SEGS);
+        offJ(HRN + i, HED, HF, HP[0], HP[1], HP[2]);
+      } else if (b.comb) offJ(HRN + i, HED, HF, 0, h[1] + b.comb[0], (i ? -0.3 : 0.3) * b.comb[1]);
+      else offJ(HRN + i, HED, HF, 0, 0, 0);
+    }
     const rb = t.reach;
+    JR[HRN] = JR[HRN + 1] = b.horns ? b.horns[1] : b.comb ? b.comb[0] * 0.35 : 0;
     JR[HIP] = rb.hip;
     JR[SHO] = rb.sho;
     JR[NEC] = rb.neck;
@@ -731,6 +939,7 @@
     GR[HED] = t.skin === "metal" ? hyp2(h[1], h[2]) : h[1];
     GR[SNT] = t.skin === "metal" ? hyp2(b.snout[1], b.snout[2]) : b.snout[2];
     GR[EART] = GR[EART + 1] = GR[ANT] = 0;
+    for (let k = 0; k < 4; k++) GR[WNG + k] = 0; // (a wing is on its side: it never props it up off the ground)
     // a biped's fore leg slots stay with its body (unused)
     if (t.plan === "biped") for (let l = 0; l < 2; l++) for (let k = 0; k < 4; k++) setJ(LJ(l, k), J[SHO * 3], J[SHO * 3 + 1], J[SHO * 3 + 2]);
     // rest on the ground: nothing below it (the tail and the ears' tips aside: they lie on the floor or hang)
@@ -1217,9 +1426,23 @@
       blobPush();
     }
     blobDraw(col(V.fur, 1, 1));
+    // patches on its flanks (look.flank, build.flank [[t hips..withers, up, along radius, up radius, side, out], ...]):
+    // flat on the side that faces the camera; at every detail (a goat's patch is its mark from across the yard)
+    if (V.flank && b.flank) {
+      for (let i = 0; i < b.flank.length; i++) {
+        const p = b.flank[i];
+        const s = p[4];
+        if (facing(BF[0] * s, BF[2] * s) < 0.15) continue;
+        ellipsoid(hx + dx * p[0] + BF[0] * s * p[5] + BF[3] * p[1], hy + dy * p[0] + BF[1] * s * p[5] + BF[4] * p[1], hz + dz * p[0] + BF[2] * s * p[5] + BF[5] * p[1], BF[6] * p[2], BF[7] * p[2], BF[8] * p[2], BF[3] * p[3], BF[4] * p[3], BF[5] * p[3], 0, 0, 0);
+        G.beginPath();
+        ellSub(0);
+        G.fillStyle = col(V.flank, 1, 1);
+        G.fill();
+      }
+    }
     if (LOD === 2) return;
-    // a lighter bib down the chest (seen from the front and the sides)
-    if (V.light) {
+    // a lighter bib down the chest (seen from the front and the sides; look.bib false: none)
+    if (V.light && V.bib !== false) {
       const e = b.body[b.body.length - 1];
       ellipsoid(hx + dx * e[0] + BF[6] * e[4] * 0.55 - BF[3] * e[3] * 0.2, hy + dy * e[0] + BF[7] * e[4] * 0.55 - BF[4] * e[3] * 0.2, hz + dz * e[0] + BF[8] * e[4] * 0.55 - BF[5] * e[3] * 0.2, BF[0] * e[2] * 0.6, BF[1] * e[2] * 0.6, BF[2] * e[2] * 0.6, BF[3] * e[3] * 0.62, BF[4] * e[3] * 0.62, BF[5] * e[3] * 0.62, BF[6] * e[4] * 0.45, BF[7] * e[4] * 0.45, BF[8] * e[4] * 0.45);
       const f = facing(BF[6], BF[8]);
@@ -1281,6 +1504,7 @@
   /** The near haunch's curve on the coat (lod 0): the front of the thigh's outline, an arc round from its top to
       the stifle, as the 2D dog has it. */
   function haunchLine() {
+    if (T.plan === "biped") return; // (a bird's thigh is under its feathers)
     for (let i = 0; i < NLEG; i++) {
       const l = LEGS[i];
       if (l < 2 && T.plan === "quad") continue;
@@ -1394,9 +1618,12 @@
   }
 
   /* ---------- Legs ---------- */
-  /** Is leg l on the far side of the body (drawn in the darker coat)? */
-  const legFar = (l) => pKey[PT_LEG + l] > pKey[PT_BODY];
+  /** Is leg l on the far side of the body (drawn in the darker coat)? Set as the parts are sorted. */
+  const LFAR = new Uint8Array(4);
+  const legFar = (l) => LFAR[l] === 1;
   function drawLeg(l) {
+    // (a hen settled on her belly has her legs folded away under her)
+    if (T.plan === "biped" && RG[LYING] > 0.85) return;
     if (LOD === 2) return drawLegsLow(l);
     const b = T.build;
     const fore = l < 2 && T.plan === "quad";
@@ -1408,7 +1635,11 @@
     const w1 = (fore ? b.legR[1] : b.legR[3]) * 2 * RG[PXS] * k;
     const w2 = b.legR[4] * 2 * RG[PXS] * k;
     const metal = T.skin === "metal";
-    const c = metal ? (legFar(l) ? V.dark : V.body) : V.legCol || (legFar(l) ? V.shade : V.fur);
+    const far = legFar(l);
+    // (look.legShade: the far legs' colour when the legs have their own, look.legCol)
+    const c = metal ? (far ? V.dark : V.body) : far && V.legShade ? V.legShade : V.legCol || (far ? V.shade : V.fur);
+    // (build.shinFeather: a hen's shin is in her feathers, only the shank below it bare)
+    const cu = b.shinFeather ? (far ? V.shade : V.fur) : c;
     // ink for both bones, then the colour over them (one shape, no seam); fur starts the colour a little up the
     // upper bone so the tube's round top melts into the haunch
     const x0 = S[mid * 3];
@@ -1417,7 +1648,7 @@
     const ys = metal ? S[top * 3 + 1] : y0 + (S[top * 3 + 1] - y0) * 0.35;
     for (let pass = 0; pass < 2; pass++) {
       const grow = pass ? 0 : RG[OUT] * 2;
-      G.strokeStyle = pass ? col(c, 1, 1) : INKS;
+      G.strokeStyle = pass ? col(cu, 1, 1) : INKS;
       G.lineWidth = w1 + grow;
       G.beginPath();
       if (metal || pass) {
@@ -1426,9 +1657,30 @@
       } else mt(x0, y0);
       lt(S[low * 3], S[low * 3 + 1]);
       G.stroke();
+      if (pass && cu !== c) G.strokeStyle = col(c, 1, 1);
       G.lineWidth = w2 + grow;
       pawEnd(low, paw, w2);
       seg(S[low * 3], S[low * 3 + 1], RG[GX], RG[GY]);
+    }
+    if (LOD === 0 && b.scales) {
+      // a bird's scaly shank: ticks across it
+      const lx = S[low * 3];
+      const ly = S[low * 3 + 1];
+      let dx = RG[GX] - lx;
+      let dy = RG[GY] - ly;
+      const dl = hyp2(dx, dy) || 1;
+      dx /= dl;
+      dy /= dl;
+      const r = w2 * 0.55;
+      G.beginPath();
+      for (let k = 0; k < b.scales; k++) {
+        const t = ((k + 0.8) / (b.scales + 0.6)) * dl;
+        mt(lx + dx * t - dy * r, ly + dy * t + dx * r);
+        lt(lx + dx * (t + r * 0.5) + dy * r, ly + dy * (t + r * 0.5) - dx * r);
+      }
+      G.strokeStyle = col(INK, 1, 0.5);
+      G.lineWidth = Math.max(0.5, RG[OUT] * 0.45);
+      G.stroke();
     }
     if (LOD === 0 && !metal) {
       // shade down the side away from the light
@@ -1482,14 +1734,27 @@
     const fl = hyp2(fx, fz) || 1;
     fx /= fl;
     fz /= fl;
+    if (b.toes) return drawToes(paw, fx, fz, c);
     const py = J[paw * 3 + 1] - J[low * 3 + 1];
     const tip = py > -0.3 * b.pawR ? 0.6 : 0;
     const pr = b.paw;
     const o = paw * 3;
     ellipsoid(J[o] + fx * pr[2] * 0.35, J[o + 1], J[o + 2] + fz * pr[2] * 0.35, fz * pr[0], 0, -fx * pr[0], 0, pr[1], 0, fx * pr[2], -tip * pr[1], fz * pr[2]);
     const metal = T.skin === "metal";
-    ellInk(col(metal ? V.joint : c, 1, 1), Math.max(0.7, RG[OUT] * 1.1));
-    if (LOD === 0 && !metal) {
+    // (look.hoof: a hoof in its own colour, its cleft down the front at lod 0)
+    ellInk(col(metal ? V.joint : V.hoof || c, 1, 1), Math.max(0.7, RG[OUT] * 1.1));
+    if (LOD === 0 && V.hoof && !metal) {
+      if (facing(fx, fz) > -0.2) {
+        proj(J[o] + fx * pr[2] * 1.2, J[o + 1] + pr[1] * 0.7, J[o + 2] + fz * pr[2] * 1.2, 0);
+        G.beginPath();
+        mt(RG[QX], RG[QY]);
+        proj(J[o] + fx * pr[2] * 1.3, J[o + 1] - pr[1] * 0.6, J[o + 2] + fz * pr[2] * 1.3, 0);
+        lt(RG[QX], RG[QY]);
+        G.strokeStyle = col(WHITE, 1, 0.35);
+        G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+        G.stroke();
+      }
+    } else if (LOD === 0 && !metal) {
       // two toe lines on its front
       if (facing(fx, fz) > -0.3) {
         G.beginPath();
@@ -1503,6 +1768,31 @@
         G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
         G.stroke();
       }
+    }
+  }
+  /** A bird's foot (build.toes: its front toes' length): three toes spread ahead and one behind, flat under it (their
+      inked edge on the ground, as high as the foot is off it), in the legs' colour. */
+  function drawToes(paw, fx, fz, c) {
+    const b = T.build;
+    const o = paw * 3;
+    const y = Math.max(0, J[o + 1] - b.pawR);
+    const w = Math.max(0.6, b.legR[4] * 1.4 * RG[PXS] * S[paw * 3 + 2]);
+    const up = w / 2 + RG[OUT]; // (px: the stroke's lower edge on the ground)
+    for (let pass = 0; pass < 2; pass++) {
+      G.beginPath();
+      for (let k = 0; k < 4; k++) {
+        const a = k < 3 ? (k - 1) * 0.55 : PI;
+        const L = k < 3 ? b.toes * (k === 1 ? 1 : 0.85) : b.toes * 0.45;
+        const ca = Math.cos(a);
+        const sa = Math.sin(a);
+        proj(J[o], y, J[o + 2], 0);
+        mt(RG[QX], RG[QY] - up);
+        proj(J[o] + (fx * ca + fz * sa) * L, y, J[o + 2] + (fz * ca - fx * sa) * L, 0);
+        lt(RG[QX], RG[QY] - up);
+      }
+      G.strokeStyle = pass ? col(c, 1, 1) : INKS;
+      G.lineWidth = pass ? w : w + RG[OUT] * 2;
+      G.stroke();
     }
   }
   /** Far away (lod 2): every leg in one ink stroke and one colour stroke (called for the first leg; the rest skip). */
@@ -1532,6 +1822,7 @@
   function drawTail() {
     const b = T.build;
     if (!(b.tail[0] > 0)) return;
+    if (b.fan) return drawFan();
     const metal = T.skin === "metal";
     const r0 = b.tail[1] * 2 * RG[PXS];
     for (let pass = 0; pass < 2; pass++) {
@@ -1590,14 +1881,166 @@
     }
   }
 
-  /* ---------- Wings (a biped's): a folded wing along each side, spread up and out (the hooks for stage 3) ---------- */
+  /** A point of a tail fan into QX, QY: feather a (rad from the tail's line toward its up) at length len from the
+      root, set out x tiles to its side. */
+  function fanPt(a, len, x) {
+    const o = TB * 3;
+    const c = Math.cos(a) * len;
+    const s = Math.sin(a) * len;
+    proj(J[o] + TF[6] * c + TF[3] * s + TF[0] * x, J[o + 1] + TF[7] * c + TF[4] * s + TF[1] * x, J[o + 2] + TF[8] * c + TF[5] * s + TF[2] * x, 0);
+  }
+  /** A tail fan (build.fan [feathers, spread (rad), half-width at its root, flare]): feathers spread from the rump in
+      the tail's plane, up and back, the middle ones longest; a hen's tail is a tent of two such fans meeting along its
+      top feather, the lower ones flared out to either side (flare x their length), so it has body from behind. The far
+      half first, each in look.tailCol or the coat, inked; the near half's quills at lod 0. */
+  function drawFan() {
+    const b = T.build;
+    const f = b.fan;
+    const n = Math.max(2, f[0] | 0);
+    const L = b.tail[0];
+    const da = f[1] / (n - 1);
+    const o = TB * 3;
+    const far = depth(J[o] + TF[0], J[o + 2] + TF[2]) > depth(J[o] - TF[0], J[o + 2] - TF[2]) ? 1 : -1;
+    // (far off, the near half alone)
+    for (let half = LOD === 2 ? 1 : 0; half < 2; half++) {
+      const sd = half ? -far : far;
+      G.beginPath();
+      fanPt(-PI / 2, f[2], 0);
+      mt(RG[QX], RG[QY]);
+      for (let i = 0; i < n; i++) {
+        const a = -f[1] / 2 + da * i;
+        const len = L * (1 - 0.2 * Math.abs((2 * i) / (n - 1) - 1));
+        const x = sd * len * f[3] * (1 - i / (n - 1));
+        if (i > 0) {
+          // the notch between this feather and the last
+          fanPt(a - da / 2, len * 0.84, sd * len * f[3] * (1 - (i - 0.5) / (n - 1)) * 0.84);
+          lt(RG[QX], RG[QY]);
+        }
+        fanPt(a, len, x);
+        lt(RG[QX], RG[QY]);
+      }
+      fanPt(PI / 2, f[2], 0);
+      lt(RG[QX], RG[QY]);
+      G.closePath();
+      G.fillStyle = col(V.tailCol || V.fur, half ? 0.97 : 0.88, 1);
+      G.fill();
+      G.strokeStyle = INKS;
+      G.lineWidth = Math.max(0.6, RG[OUT] * 1.1);
+      G.stroke();
+    }
+    if (LOD === 0) {
+      // the near half's quills: from the root most of the way out
+      G.beginPath();
+      for (let i = 0; i < n; i++) {
+        const a = -f[1] / 2 + da * i;
+        const len = L * (1 - 0.2 * Math.abs((2 * i) / (n - 1) - 1)) * 0.72;
+        fanPt(a, len * 0.25, 0);
+        mt(RG[QX], RG[QY]);
+        fanPt(a, len, -far * len * f[3] * (1 - i / (n - 1)));
+        lt(RG[QX], RG[QY]);
+      }
+      G.strokeStyle = col(INK, 1, 0.35);
+      G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+      G.stroke();
+    }
+  }
+
+  /* ---------- Wings (a biped's): flat feathered shapes from the shoulder, folded along its sides or spread ---------- */
+  // the outline: along the span (0 the root .. 1 the tip) and the chord (0 the leading edge .. 1 the feathers' ends):
+  // the leading edge out to the rounded tip, then the flight feathers' scallops back to the root
+  const WING_U = [0, 0.12, 0.45, 0.8, 1.0, 0.97, 0.8, 0.74, 0.56, 0.5, 0.3, 0.25, 0.08];
+  const WING_V = [0.3, 0.06, 0, 0.07, 0.28, 0.45, 0.6, 0.57, 0.77, 0.73, 0.86, 0.82, 0.78];
+  const WING_TWIST = 0.55; // rad a spread wing's trailing edge hangs below its leading edge (it shows its top)
+  /** Wing w (0 left, 1 right; build.wing { x, u, f, len, r: half its width }): lit on its top side, in shade from
+      under it, inked; the coverts' edge across it and the feathers' parting at lod 0. Folded flat on its side, it is
+      not drawn seen edge-on (from straight ahead or behind). */
   function drawWing(w) {
     const b = T.build;
     if (!b.wing) return;
-    const r0 = WNG + w * 2;
-    ellAlong(r0, r0 + 1, 0.5, b.wing.len * 0.55, b.wing.r);
-    ellInk(col(V.wing || V.fur, 0.95, 1), Math.max(0.7, RG[OUT] * 1.4));
-    if (LOD === 0) crescent(0.18, 0.3);
+    const wg = b.wing;
+    const s = w ? 1 : -1;
+    const o0 = (WNG + w * 2) * 3;
+    const o1 = o0 + 3;
+    // the span (root to tip) and the chord (down its side folded; spread, back and a little down: square to the span)
+    let ux = J[o1] - J[o0];
+    let uy = J[o1 + 1] - J[o0 + 1];
+    let uz = J[o1 + 2] - J[o0 + 2];
+    const ul = hyp3(ux, uy, uz) || 1e-6;
+    ux /= ul;
+    uy /= ul;
+    uz /= ul;
+    const sp = PP[Q_WING];
+    const tc = Math.cos(WING_TWIST) * sp;
+    const ts = 1 - sp + Math.sin(WING_TWIST) * sp;
+    let cx = -BF[3] * ts - BF[6] * tc;
+    let cy = -BF[4] * ts - BF[7] * tc;
+    let cz = -BF[5] * ts - BF[8] * tc;
+    const d = cx * ux + cy * uy + cz * uz;
+    cx -= d * ux;
+    cy -= d * uy;
+    cz -= d * uz;
+    const cl = hyp3(cx, cy, cz) || 1;
+    cx /= cl;
+    cy /= cl;
+    cz /= cl;
+    const W = wg.r * 2;
+    const ox = J[o0];
+    const oy = J[o0 + 1];
+    const oz = J[o0 + 2];
+    // its top side (outward folded, up spread) toward the camera: lit; its underside: in shade
+    let nx = uy * cz - uz * cy;
+    let ny = uz * cx - ux * cz;
+    let nz = ux * cy - uy * cx;
+    const ko = s * (1 - sp);
+    if (nx * (BF[0] * ko + BF[3] * sp) + ny * (BF[1] * ko + BF[4] * sp) + nz * (BF[2] * ko + BF[5] * sp) < 0) {
+      nx = -nx;
+      ny = -ny;
+      nz = -nz;
+    }
+    const vx = RG[CAMX] - ox;
+    const vy = RG[CAMY] - oy;
+    const vz = RG[CAMZ] - oz;
+    const view = (nx * vx + ny * vy + nz * vz) / (hyp3(vx, vy, vz) || 1);
+    // (folded: flat on its side, edge-on it is not there, and far off it is no part of the outline; spread and
+    // edge-on: a crease, not a wing)
+    if (sp < 0.5 ? LOD === 2 || (view < 0.2 && view > -0.2) : view < 0.1 && view > -0.1) return;
+    G.beginPath();
+    for (let i = 0; i < WING_U.length; i++) {
+      const a = WING_U[i] * ul;
+      const c = WING_V[i] * W;
+      proj(ox + ux * a + cx * c, oy + uy * a + cy * c, oz + uz * a + cz * c, 0);
+      if (i) lt(RG[QX], RG[QY]);
+      else mt(RG[QX], RG[QY]);
+    }
+    G.closePath();
+    G.fillStyle = col(V.wing || V.fur, view > 0 ? 0.97 : 0.8, 1);
+    G.fill();
+    G.strokeStyle = INKS;
+    G.lineWidth = Math.max(0.6, RG[OUT] * 1.05);
+    G.stroke();
+    if (LOD === 0) {
+      // the coverts' edge, curving across it; the flight feathers parting below it
+      G.beginPath();
+      for (let k = 0; k < 4; k++) {
+        const a = (k ? 0.12 + 0.27 * k : 0.05) * ul;
+        const c = (k ? 0.5 - 0.06 * k : 0.48) * W;
+        proj(ox + ux * a + cx * c, oy + uy * a + cy * c, oz + uz * a + cz * c, 0);
+        if (k) lt(RG[QX], RG[QY]);
+        else mt(RG[QX], RG[QY]);
+      }
+      for (let k = 0; k < 2; k++) {
+        const a = (0.42 + 0.24 * k) * ul;
+        const c0 = (0.45 - 0.05 * k) * W;
+        const c1 = (0.68 - 0.06 * k) * W;
+        proj(ox + ux * a + cx * c0, oy + uy * a + cy * c0, oz + uz * a + cz * c0, 0);
+        mt(RG[QX], RG[QY]);
+        proj(ox + ux * (a + 0.04 * ul) + cx * c1, oy + uy * (a + 0.04 * ul) + cy * c1, oz + uz * (a + 0.04 * ul) + cz * c1, 0);
+        lt(RG[QX], RG[QY]);
+      }
+      G.strokeStyle = col(INK, 1, 0.3);
+      G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+      G.stroke();
+    }
   }
 
   /* ---------- The head ---------- */
@@ -1629,6 +2072,8 @@
   const EAR_UP = [0.66, 0.55, -0.62, 0.22, 0.86, 0.22, 0.52, 2.05, -0.45];
   const EAR_FLOP = [0.42, 0.82, -0.42, 0.18, 0.98, 0.18, 0.92, 0.62, 0.22, 1.32, -0.78, -0.02, 1.08, -0.12, -0.5, 0.86, 0.55, -0.48];
   const EAR_TRI = [0.7, 0.75, -0.55, 0.15, 0.95, -0.05, 0.5, 1.75, -0.45];
+  // a goat's: out to its side from the back of the skull, a little back, its inside turned forward and up
+  const EAR_SIDE = [0.72, 0.72, -0.5, 0.9, 0.18, -0.2, 2.1, 0.35, -0.7];
   /** Ear s (-1 left, 1 right) of kind k, inked; a standing ear's pink inside (lod 0, from the front). */
   function drawEar(s, k) {
     const b = T.build;
@@ -1671,7 +2116,7 @@
       }
       return;
     }
-    const E = k === "tri" ? EAR_TRI : EAR_UP;
+    const E = k === "tri" ? EAR_TRI : k === "side" ? EAR_SIDE : EAR_UP;
     const metal = T.skin === "metal";
     // the pink inside shows only from the front
     const inner = LOD === 0 && !metal && facing(HF[6], HF[8]) > 0.1 ? 2 : 1;
@@ -1707,7 +2152,7 @@
   function earBehind(s, k) {
     const h = T.build.head;
     if (k === "flop") return headDepth(s * 1.0 * h[0], 0.2 * h[1], -0.15 * h[2]) > headDepth(0, 0, 0) + h[0] * 0.15;
-    const E = k === "tri" ? EAR_TRI : EAR_UP;
+    const E = k === "tri" ? EAR_TRI : k === "side" ? EAR_SIDE : EAR_UP;
     const ex = s * ((E[0] + E[3] + E[6]) / 3);
     return headDepth(ex * h[0], 0.5 * h[1], (E[2] + E[8]) * 0.5 * h[2]) > headDepth(0, 0, 0) + h[0] * 0.15;
   }
@@ -1720,6 +2165,12 @@
     const ff = facing(HF[6], HF[8]); // the face toward the camera (-1..1)
     // ears that are behind the skull first
     if (ears) for (let i = 0; i < 2; i++) if (ears[i] && earBehind(i ? 1 : -1, ears[i])) drawEar(i ? 1 : -1, ears[i]);
+    // horns behind the skull (seen from the front: they sweep back), a beard behind the head (turned away)
+    const horns = b.horns && V.horn;
+    if (horns) for (let i = 0; i < 2; i++) if (hornBehind(i ? 1 : -1)) drawHorn(i ? 1 : -1);
+    const beard = b.beard && V.beard && LOD < 2;
+    const beardFar = beard && headDepth(0, sn[3] - sn[2], sn[4] + sn[0] * 0.5) > headDepth(0, 0, 0) + h[0] * 0.3;
+    if (beardFar) drawBeard();
     // the open mouth: the inside, the lower jaw dropped from its hinge, the tongue
     const jo = RG[JAW];
     if (jo > 0.04 && LOD < 2) drawJaw(jo);
@@ -1755,17 +2206,264 @@
         shine(0.14);
       }
     }
+    // a hen's comb on top; a goat's beard under its chin
+    if (b.comb && V.comb) drawComb();
+    if (beard && !beardFar) drawBeard();
     if (beak && !beakFar) beakDraw();
     // the face: the patch, the eyes, the brows, the nose, the mouth line, the scruff on its cheeks
     if (ff > -0.35) drawFace(ff);
     if (ears) for (let i = 0; i < 2; i++) if (ears[i] && !earBehind(i ? 1 : -1, ears[i])) drawEar(i ? 1 : -1, ears[i]);
+    if (horns) for (let i = 0; i < 2; i++) if (!hornBehind(i ? 1 : -1)) drawHorn(i ? 1 : -1);
     if (RG[BARKK] > 0.3 && LOD < 2 && ff > -0.6) barkLines();
   }
-  /** A beak (look.beak: a bird's), the snout's shape in its own colour, inked. */
+  /** A beak (look.beak: a bird's), in its own colour, inked: the snout's shape, or (build.beakTip) a pointed one, the
+      hull of its base and its tip, with the line between its halves at lod 0; a hen's wattle hangs under it. */
   function beakDraw() {
+    const b = T.build;
+    const sn = b.snout;
+    if (b.wattle && V.comb) drawWattle();
+    if (!b.beakTip) {
+      ellF(HF, HED, 0, sn[3], sn[4] + sn[0] * 0.5, sn[1], sn[2], sn[0] * 0.62);
+      ellInk(col(V.beak, 1, 1), Math.max(0.7, RG[OUT] * 1.2));
+      return;
+    }
+    // the base, a ring round the snout's start (top, bottom, either side), and the tip, hooked down a little
+    HN = 0;
+    headPt(0, sn[3] + sn[2], sn[4]);
+    hbPush();
+    headPt(0, sn[3] - sn[2], sn[4]);
+    hbPush();
+    headPt(sn[1], sn[3], sn[4]);
+    hbPush();
+    headPt(-sn[1], sn[3], sn[4]);
+    hbPush();
+    headPt(0, sn[3] - sn[2] * b.beakTip, sn[4] + sn[0]);
+    hbPush();
+    G.beginPath();
+    hullPath();
+    G.fillStyle = col(V.beak, 1, 1);
+    G.fill();
+    G.strokeStyle = INKS;
+    G.lineWidth = Math.max(0.6, RG[OUT] * 0.9);
+    G.stroke();
+    if (LOD === 0) {
+      // where the upper half meets the lower, on the sides that show
+      G.beginPath();
+      let any = false;
+      for (let s = -1; s <= 1; s += 2) {
+        if (facing(HF[0] * s, HF[2] * s) < -0.1) continue;
+        headPt(s * sn[1] * 0.75, sn[3] - sn[2] * 0.15, sn[4] + sn[0] * 0.05);
+        mt(RG[QX], RG[QY]);
+        headPt(s * sn[1] * 0.2, sn[3] - sn[2] * 0.3, sn[4] + sn[0] * 0.7);
+        lt(RG[QX], RG[QY]);
+        any = true;
+      }
+      if (any) {
+        G.strokeStyle = col(INK, 1, 0.6);
+        G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+        G.stroke();
+      }
+    }
+  }
+
+  /* ---------- The farm's head parts: a goat's horns and beard, a hen's comb and wattle ---------- */
+  const HP = new Float64Array(3); // a horn's point, head-local
+  /** Point k (0 its base .. HORN_SEGS its tip, any step between) along horn s (-1 left, 1 right) of build b,
+      head-local, into HP. build.horns: [length, base radius, lean back at its base (rad from upright), more bend along
+      it (rad), out to its side over its length (tiles)]: from the top of the skull, up and curving back. */
+  const HORN_SEGS = 3;
+  function hornPt(b, s, k) {
+    const h = b.head;
+    const hn = b.horns;
+    HP[0] = s * h[0] * 0.42;
+    HP[1] = h[1] * 0.72;
+    HP[2] = h[2] * 0.08;
+    for (let i = 0; i < k; i++) {
+      const part = Math.min(1, k - i) / HORN_SEGS;
+      const a = hn[2] + (hn[3] * (i + 0.5)) / HORN_SEGS;
+      HP[0] += s * hn[4] * part;
+      HP[1] += Math.cos(a) * hn[0] * part;
+      HP[2] -= Math.sin(a) * hn[0] * part;
+    }
+  }
+  /** Is horn s's middle behind the skull (drawn before it)? */
+  function hornBehind(s) {
+    const b = T.build;
+    hornPt(b, s, HORN_SEGS / 2);
+    return headDepth(HP[0], HP[1], HP[2]) > headDepth(0, 0, 0) + b.head[0] * 0.2;
+  }
+  /** Horn s: thick at the base, tapering to a blunt point (lod 0; farther off one width), inked, in look.horn; its
+      ridges at lod 0. */
+  function drawHorn(s) {
+    const b = T.build;
+    const w0 = b.horns[1] * 2 * RG[PXS] * S[HED * 3 + 2];
+    for (let pass = 0; pass < 2; pass++) {
+      const grow = pass ? 0 : RG[OUT] * 2;
+      G.strokeStyle = pass ? col(V.horn, 1, 1) : INKS;
+      hornPt(b, s, 0);
+      headPt(HP[0], HP[1], HP[2]);
+      if (LOD > 0) {
+        G.lineWidth = Math.max(0.6, w0 * 0.7) + grow;
+        G.beginPath();
+        mt(RG[QX], RG[QY]);
+        for (let k = 1; k <= HORN_SEGS; k++) {
+          hornPt(b, s, k);
+          headPt(HP[0], HP[1], HP[2]);
+          lt(RG[QX], RG[QY]);
+        }
+        G.stroke();
+        continue;
+      }
+      for (let k = 1; k <= HORN_SEGS; k++) {
+        const x0 = RG[QX];
+        const y0 = RG[QY];
+        hornPt(b, s, k);
+        headPt(HP[0], HP[1], HP[2]);
+        G.lineWidth = Math.max(0.6, w0 * (1 - (0.75 * (k - 1)) / HORN_SEGS)) + grow;
+        seg(x0, y0, RG[QX], RG[QY]);
+      }
+    }
+    if (LOD === 0) {
+      // ridges round its lower half: short ticks across it
+      G.beginPath();
+      for (let k = 0; k < 3; k++) {
+        const at = 0.4 + k * 0.4;
+        hornPt(b, s, at);
+        headPt(HP[0], HP[1], HP[2]);
+        const cx = RG[QX];
+        const cy = RG[QY];
+        hornPt(b, s, at + 0.1);
+        headPt(HP[0], HP[1], HP[2]);
+        let dx = RG[QX] - cx;
+        let dy = RG[QY] - cy;
+        const dl = hyp2(dx, dy) || 1;
+        const r = w0 * (1 - (0.75 * at) / HORN_SEGS) * 0.42;
+        dx /= dl;
+        dy /= dl;
+        mt(cx - dy * r, cy + dx * r);
+        lt(cx + dy * r, cy - dx * r);
+      }
+      G.strokeStyle = col(INK, 1, 0.45);
+      G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+      G.stroke();
+    }
+  }
+  /** A head-local point fixed to the lower jaw (u up, f forward of its hinge) into HP: it drops as the mouth opens. */
+  function jawPt(u, f) {
     const sn = T.build.snout;
-    ellF(HF, HED, 0, sn[3], sn[4] + sn[0] * 0.5, sn[1], sn[2], sn[0] * 0.62);
-    ellInk(col(V.beak, 1, 1), Math.max(0.7, RG[OUT] * 1.2));
+    const a = RG[JAW] * T.build.jawOpen;
+    const c = Math.cos(a);
+    const s = Math.sin(a);
+    HP[0] = 0;
+    HP[1] = sn[3] - sn[2] * 0.55 + u * c - f * s;
+    HP[2] = sn[4] + sn[0] * 0.05 + u * s + f * c;
+  }
+  /** A goat's beard (build.beard [length, width], look.beard): a tuft hanging from its chin, swinging down as it opens
+      its mouth: the hull of its root and its tip, inked; two hairs at lod 0. */
+  function drawBeard() {
+    const b = T.build;
+    const sn = b.snout;
+    const bd = b.beard;
+    const L = sn[0];
+    HN = 0;
+    for (let i = 0; i < 5; i++) {
+      // the root along the chin (back, front, either side), then the tip below and back
+      const f = i === 0 ? L * 0.3 : i === 1 ? L * 0.3 + bd[1] : i === 4 ? L * 0.5 - bd[0] * 0.3 : L * 0.3 + bd[1] * 0.5;
+      const u = i === 4 ? -sn[2] * 0.45 - bd[0] : -sn[2] * 0.45;
+      jawPt(u, f);
+      headPt(i === 2 ? bd[1] * 0.35 : i === 3 ? -bd[1] * 0.35 : 0, HP[1], HP[2]);
+      hbPush();
+    }
+    G.beginPath();
+    hullPath();
+    G.fillStyle = col(V.beard, 1, 1);
+    G.fill();
+    G.strokeStyle = INKS;
+    G.lineWidth = Math.max(0.6, RG[OUT] * 0.9);
+    G.stroke();
+    if (LOD === 0) {
+      G.beginPath();
+      for (let k = 0; k < 2; k++) {
+        jawPt(-sn[2] * 0.6, L * 0.3 + bd[1] * (0.3 + 0.4 * k));
+        headPt(0, HP[1], HP[2]);
+        mt(RG[QX], RG[QY]);
+        jawPt(-sn[2] * 0.45 - bd[0] * 0.75, L * 0.5 - bd[0] * 0.22 + bd[1] * (0.1 * k - 0.05));
+        headPt(0, HP[1], HP[2]);
+        lt(RG[QX], RG[QY]);
+      }
+      G.strokeStyle = col(INK, 1, 0.45);
+      G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+      G.stroke();
+    }
+  }
+  /** A hen's comb (build.comb [height over the skull, length, lobes], look.comb): a red crest of rounded lobes along
+      the top of her head (the tallest in the middle), set out to either side by turns so it has some body from the
+      front, inked. */
+  function drawComb() {
+    const b = T.build;
+    const h = b.head;
+    const cb = b.comb;
+    const n = cb[2] || 3;
+    const base = h[1] * 0.78;
+    G.beginPath();
+    headPt(0, base, cb[1] * 0.55);
+    mt(RG[QX], RG[QY]);
+    for (let i = 0; i < n; i++) {
+      const z0 = cb[1] * (0.5 - (i + 0.5) / n);
+      const z1 = cb[1] * (0.5 - (i + 1) / n);
+      const top = h[1] + cb[0] * (1 - (0.35 * Math.abs(i - (n - 1) / 2)) / Math.max(1, (n - 1) / 2));
+      headPt((i & 1 ? 1 : -1) * h[0] * 0.24, top * 1.08, z0);
+      const cx = RG[QX];
+      const cy = RG[QY];
+      headPt(0, i === n - 1 ? base : h[1] + cb[0] * 0.3, z1 - (i === n - 1 ? cb[1] * 0.05 : 0));
+      qt(cx, cy, RG[QX], RG[QY]);
+    }
+    G.closePath();
+    G.fillStyle = col(V.comb, 1, 1);
+    G.fill();
+    G.strokeStyle = INKS;
+    G.lineWidth = Math.max(0.6, RG[OUT] * 0.9);
+    G.stroke();
+  }
+  /** A hen's wattle (build.wattle [length, width], look.comb): two red lobes hanging under her beak, one far off. */
+  function drawWattle() {
+    const sn = T.build.snout;
+    const wt = T.build.wattle;
+    for (let s = -1; s <= 1; s += 2) {
+      if (LOD > 0 && s > 0) break;
+      const x = LOD > 0 ? 0 : s * wt[1] * 0.45;
+      ellF(HF, HED, x, sn[3] - sn[2] - wt[0] * 0.45, sn[4] + sn[0] * 0.08, wt[1] * (LOD > 0 ? 0.9 : 0.5), wt[0] * 0.55, wt[1] * 0.45);
+      ellInk(col(V.comb, 0.92, 1), Math.max(0.6, RG[OUT] * 0.8));
+    }
+  }
+  /* ---------- Hulls: the convex outline of a few projected points (a beak, a beard) ---------- */
+  const HB = new Float64Array(16); // up to 8 screen points
+  let HN = 0;
+  function hbPush() {
+    if (HN >= 8) return;
+    HB[HN * 2] = RG[QX];
+    HB[HN * 2 + 1] = RG[QY];
+    HN++;
+  }
+  /** The convex hull of the HN points in HB, as one closed sub-path (gift wrapping). */
+  function hullPath() {
+    let p0 = 0;
+    for (let i = 1; i < HN; i++) if (HB[i * 2] < HB[p0 * 2] || (HB[i * 2] === HB[p0 * 2] && HB[i * 2 + 1] < HB[p0 * 2 + 1])) p0 = i;
+    let p = p0;
+    for (let n = 0; n < HN; n++) {
+      if (n) lt(HB[p * 2], HB[p * 2 + 1]);
+      else mt(HB[p * 2], HB[p * 2 + 1]);
+      let q = p === 0 ? 1 : 0;
+      for (let i = 0; i < HN; i++) {
+        if (i === p) continue;
+        const cr = (HB[q * 2] - HB[p * 2]) * (HB[i * 2 + 1] - HB[p * 2 + 1]) - (HB[q * 2 + 1] - HB[p * 2 + 1]) * (HB[i * 2] - HB[p * 2]);
+        const far = hyp2(HB[i * 2] - HB[p * 2], HB[i * 2 + 1] - HB[p * 2 + 1]) > hyp2(HB[q * 2] - HB[p * 2], HB[q * 2 + 1] - HB[p * 2 + 1]);
+        if (cr < 0 || (cr === 0 && far)) q = i;
+      }
+      p = q;
+      if (p === p0) break;
+    }
+    G.closePath();
   }
   /** The open mouth (jo 0..1): the dark inside, the lower jaw, the tongue (panting: hanging over the lip). */
   function drawJaw(jo) {
@@ -1821,12 +2519,15 @@
         G.fill();
       }
     }
-    // the eyes: big and dark with a highlight; a brow over each (lod 0)
+    // the eyes: big and dark with a highlight; a brow over each (lod 0). build.eye sizes them; build.eyeSide (0..1)
+    // sets them round toward the sides of the head (a goat's, a hen's)
+    const es = b.eyeSide || 0;
+    const ek = b.eye || 1;
     for (let s = -1; s <= 1; s += 2) {
-      const ex = s * h[0] * 0.44;
+      const ex = s * h[0] * (0.44 + 0.5 * es);
       const eu = h[1] * 0.18;
-      const ez = h[2] * 0.8;
-      const f = faceDecal(ex, eu, ez, h[0] * 0.25, h[1] * 0.27, s * 0.5, 0.15, 0.85);
+      const ez = h[2] * (0.8 - 0.55 * es);
+      const f = faceDecal(ex, eu, ez, h[0] * 0.25 * ek, h[1] * 0.27 * ek, s * (0.5 + 0.5 * es), 0.15, 0.85 * (1 - 0.8 * es));
       if (f < 0.02) continue;
       const exx = RG[EX];
       const eyy = RG[EY];
@@ -1846,7 +2547,7 @@
         G.fillStyle = col(WHITE, 1, 1);
         G.fill();
       }
-      if (LOD === 0) {
+      if (LOD === 0 && V.brows !== false) {
         headPt(ex - s * h[0] * 0.2, eu + h[1] * 0.36, ez - h[2] * 0.02);
         G.beginPath();
         mt(RG[QX], RG[QY]);
@@ -1864,7 +2565,8 @@
     // the nose: a dark round nose on the muzzle's tip, with a shine
     const nf = sn[4] + sn[0] * 1.08;
     const nu = sn[3] + sn[2] * 0.45;
-    ellF(HF, HED, 0, nu, nf, sn[1] * 0.42, sn[2] * 0.36, sn[0] * 0.18);
+    const nk = b.nose || 1; // build.nose: its size
+    ellF(HF, HED, 0, nu, nf, sn[1] * 0.42 * nk, sn[2] * 0.36 * nk, sn[0] * 0.18 * nk);
     ellInk(col(V.nose, 1, 1), Math.max(0.6, RG[OUT] * 0.8));
     if (LOD === 0) {
       G.beginPath();
@@ -2189,7 +2891,12 @@
     HEADBACK = jDepth(HED) > jDepth(SHO) + 0.01;
     pKey[PT_HEAD] = HEADBACK ? jDepth(HED) : Math.min(jDepth(HED), pKey[PT_BODY]) - 0.001;
     pKey[PT_TAIL] = (jDepth(TM) + jDepth(TN)) / 2 + 0.03;
-    for (let l = 0; l < 4; l++) pKey[PT_LEG + l] = (jDepth(LJ(l, 1)) + jDepth(LJ(l, 2))) / 2;
+    for (let l = 0; l < 4; l++) {
+      pKey[PT_LEG + l] = (jDepth(LJ(l, 1)) + jDepth(LJ(l, 2))) / 2;
+      LFAR[l] = pKey[PT_LEG + l] > pKey[PT_BODY] ? 1 : 0;
+      // (a bird's legs come out from under its feathers: before every other part, the far one first)
+      if (t.plan === "biped") pKey[PT_LEG + l] += 10;
+    }
     for (let w = 0; w < 2; w++) pKey[PT_WING + w] = (jDepth(WNG + w * 2) + jDepth(WNG + w * 2 + 1)) / 2 - 0.004;
     let n = 0;
     for (let p = 0; p < NP; p++) {
@@ -2221,8 +2928,12 @@
     }
     return v;
   };
-  const COLOR_KEYS = ["fur", "shade", "light", "patchCol", "nose", "ear", "earIn", "eye", "mouth", "tongue", "wing", "legCol", "body", "dark", "joint", "eyeOff", "badge", "badgeStar", "tip", "bright", "beak", "comb", "horn", "hoof"];
+  const COLOR_KEYS = ["fur", "shade", "light", "patchCol", "nose", "ear", "earIn", "eye", "mouth", "tongue", "wing", "legCol", "body", "dark", "joint", "eyeOff", "badge", "badgeStar", "tip", "bright", "beak", "comb", "horn", "hoof", "beard", "flank", "legShade", "tailCol"];
   const BUILD_DEFAULTS = {
+    grazeDrop: 0.12, // grazing: the withers' drop (x len)
+    grazeHead: 1.25, // grazing: the head's pitch, nose down (rad)
+    peckDrop: 0.6, // pecking: the shoulders' drop (x len)
+    peckHead: 1.0, // pecking: the head's pitch, beak down (rad)
     plan: "quad",
     hipDrop: 0.015,
     shDrop: 0.015,
@@ -2242,7 +2953,7 @@
     jawOpen: 0.6,
     tufts: 0,
   };
-  const GAIT_DEFAULTS = { stride: 0.5, duty: 0.6, lift: 0.03, hindLift: 1, crouch: 0, bob: 0.004, rock: 0, rockPh: 0, flex: 0, roll: 0.02, neckDrop: 0.1, headDip: 0.05, nod: 0.04, tailUp: 0.4, foreRoll: 0.5, hindRoll: 0.55, foreFold: -1.3, hindFold: 0.7, phase: [0.5, 0, 0, 0.5], turnRate: 8 };
+  const GAIT_DEFAULTS = { stride: 0.5, duty: 0.6, lift: 0.03, hindLift: 1, crouch: 0, bob: 0.004, rock: 0, rockPh: 0, flex: 0, roll: 0.02, neckDrop: 0.1, headDip: 0.05, nod: 0.04, tailUp: 0.4, foreRoll: 0.5, hindRoll: 0.55, foreFold: -1.3, hindFold: 0.7, headBob: 0, phase: [0.5, 0, 0, 0.5], turnRate: 8 };
   /** Add (or replace) an animal type. def: { plan, skin, h, w, r, poses, build, gait, gaitRun, look, variants }; see
       js/beast3d-looks.js for every field. */
   function addType(id, def) {
@@ -2281,7 +2992,9 @@
     });
     // how far a part reaches round each joint (the fit and the ground): from the build
     const b = build;
-    const bodyR = Math.max(...b.body.map((e) => Math.max(e[2], e[3], e[4]) + Math.abs(e[1])));
+    // (build.bodyReach: a long body's own, when its biggest radius overstates how far it reaches round the hips and
+    // the withers: a goat's belly runs between them)
+    const bodyR = b.bodyReach > 0 ? b.bodyReach : Math.max(...b.body.map((e) => Math.max(e[2], e[3], e[4]) + Math.abs(e[1])));
     // the spine's height over its belly, at the rump and at the chest (lying or sitting on it)
     const under = (e) => e[3] - e[1];
     t.bellyHip = b.box ? b.box[1] - b.box[3] : under(b.body[0]);
@@ -2296,6 +3009,7 @@
       tail: b.tail[1] * 3,
       legTop: Math.max(b.legR[0], b.legR[2]) * 1.2,
       leg: Math.max(b.legR[1], b.legR[3]) * 1.3,
+      // (a flat wing's outermost points, the ones that set the fit, are round its tip)
       wing: b.wing ? b.wing.r * 1.2 : 0,
     };
     if (b.box) {
@@ -2363,7 +3077,7 @@
           sample("walk", "gait", 8, 0.5, hy, 1, 1);
           t.poses.forEach((p) => {
             if (p === "stand" || p === "walk") return;
-            sample(p, "poseT", 8, 0, hy, 1, 1);
+            sample(p, "poseT", POSE_ENV_STEPS[p] || ENV_STEPS, 0, hy, 1, 1);
             sample(p, "poseW", 6, 0.5, hy, 1, 1);
           });
         });
