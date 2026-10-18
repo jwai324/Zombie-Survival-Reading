@@ -117,6 +117,8 @@
     const A = look.decalA;
     const B = look.decalB;
     const d = look.decal;
+    // SCALE: a new decal kind (js/upgrades.js PAINT_LOOKS decal) is a branch here, roughly as js/van3d.js lays it on
+    // the van's side; without one its swatch shows a plain band in its decal colours (the last branch)
     if (d === "stripe") {
       ctx.fillStyle = A;
       ctx.fillRect(5, 26, 86, 4);
@@ -154,6 +156,12 @@
       });
       ctx.fillStyle = B;
       ctx.fillRect(5, 16, 52, 1);
+    } else if (d !== "none") {
+      // a kind with no branch yet: a band along the side in its two colours, so the swatch still shows them
+      ctx.fillStyle = B;
+      ctx.fillRect(5, 25, 86, 7);
+      ctx.fillStyle = A;
+      ctx.fillRect(5, 26.5, 86, 4);
     }
     ctx.restore();
     // the roof, the cab's side window in its trim, the door pillar, the mirror, the bumpers, the ink outline

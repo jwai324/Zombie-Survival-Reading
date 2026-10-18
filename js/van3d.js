@@ -12,6 +12,7 @@
    Van3D.draw(ctx, view, u, o)   Model3D.draw with it
    Van3D.dentTier(share)  0 .. DENTS.length: how dented it looks at this share of its health
    Van3D.dentNow()        the same for the van now (a trip's van health on a trip, else the save's)
+   Van3D.DECAL_KINDS      the PAINT_LOOKS decal kinds it has designs for
    u: the upgrades { armor, bumper, engine, paint, damage, fireRate, spread } (missing ones 0)
    o: { dent: 0..2, gun: true to stand the roof gun on it (the road draws its own, aimed: false there) }
 
@@ -117,7 +118,8 @@
   });
   function sig(u, o) {
     const g = gearOf(u, o);
-    return "p" + g.paint + "a" + g.armor + "b" + g.bumper + "e" + g.engine + "d" + g.dent + (g.gun ? "g" + g.damage + g.fireRate + g.spread : "");
+    // (a letter before every level, the gun's three too: levels past 9 must not run together, "1" "12" as "11" "2")
+    return "p" + g.paint + "a" + g.armor + "b" + g.bumper + "e" + g.engine + "d" + g.dent + (g.gun ? "g" + g.damage + "r" + g.fireRate + "s" + g.spread : "");
   }
 
   /* ---------- Small helpers ---------- */
@@ -609,8 +611,9 @@
       const card = [{ pts: s > 0 ? P : P.slice().reverse() }, { pts: s > 0 ? P.slice().reverse() : P }];
       const recs = k.part(card, () => ({ fill: look.trim }), { name: "mirror", lod: 0, ink: 0.8 });
       const g = facing(recs, [0, -1, 0]);
-      const c = frameOf(g, out(3.6, 36.5));
-      k.B.poly(g.f, rect(c[0] - 1.4, c[1] - 3.6, c[0] + 1.4, c[1] + 3.6), GLINT, { lod: 0 });
+      // the glint: a streak slanting as the head widens out (it is 2 tall at its inner end, 9 at its outer), inside it
+      // (and cut to it all the same, as a gear part's decals are)
+      k.on(g, [out(2.2, 34.6), out(4.6, 33.6), out(4.6, 39.8), out(2.2, 37.9)].map((p) => frameOf(g, p)), GLINT, { lod: 0 });
     }
   }
 
@@ -948,15 +951,20 @@
       plate(k, "back", rect(-26.4, 24.6, 26.4, 30.4), false);
     }
     if (a >= 5) {
-      // 5: the upper cargo sides, guards on the back corners, plates on the roof, a shield over the windshield's foot
+      // 5: the upper cargo sides, guards on the back corners, a shield over the windshield's foot (and plates on the
+      // roof: roofPlates, laid under the paint job)
       plate(k, "side", rect(-56, 35.5, -24, 46.2), true);
-      for (const s of [1, -1]) {
-        k.poly("back", rect(s * 31.1, 15, s * 33.6, 47), plateFill(k.look), { lod: 0, ink: 0.7 });
-        k.poly("roof", rect(s * 17, -52, s * 29, 14), plateFill(k.look), { lod: 0, ink: 0.8 });
-      }
+      for (const s of [1, -1]) k.poly("back", rect(s * 31.1, 15, s * 33.6, 47), plateFill(k.look), { lod: 0, ink: 0.7 });
       plate(k, "shield", rect(-HW + 3, 31.4, HW - 3, 37.5), false);
       k.poly("shield", rect(-20, 35, 20, 36.2), INK, { lod: 0 });
     }
+  }
+  /** Armor 5's plates along the roof's sides, laid before the paint job: its roof design (what the road's camera sees,
+      from behind and above) is painted over them, as the plates take its paint. Laid over the design they hid its side
+      parts (Night Violet's bolts, Matte Black's pinstripes, Convoy Red's outer flames). */
+  function roofPlates(k, a) {
+    if (a < 5) return;
+    for (const s of [1, -1]) k.poly("roof", rect(s * 17, -52, s * 29, 14), plateFill(k.look), { lod: 0, ink: 0.8 });
   }
 
   /* ---------- The ram plow: wider, taller and further out each level; teeth from 3, a hazard band at 5 ---------- */
@@ -1070,7 +1078,8 @@
     let root = front;
     if (rof >= 1) {
       const jl = Math.min(len - 15, 9 + rof * 1.2);
-      const jacket = k.part(hull(corners(-half, front, gz - 2.8, half, front + jl, gz + 2.8)), (f) => ({ fill: rof >= 5 ? "#b8733a" : BARREL, hide: f.n[1] < -0.9 || f.n[2] < -0.9 }), { name: "jacket", ink: 0, lod: 0 });
+      // (its back sits in the breech's front face, hidden; its underside is open to the yard's eye, below the gun)
+      const jacket = k.part(hull(corners(-half, front, gz - 2.8, half, front + jl, gz + 2.8)), (f) => ({ fill: rof >= 5 ? "#b8733a" : BARREL, hide: f.n[1] < -0.9 }), { name: "jacket", ink: 0, lod: 0 });
       if (rof >= 3)
         for (const r of jacket) if (r.n[2] > 0.5) k.on(r, bands(r, [0, 1, 2].map((q) => front + 2 + (q * (jl - 4)) / 2), 1.4, [r.n[0] * half, 0, gz + r.n[2] * 2.8]), rof >= 5 ? "#e0a066" : "#9ea3aa", { lod: 0 });
       root = front + jl;
@@ -1086,8 +1095,12 @@
       const P = [];
       const s0 = BW * Math.abs(Math.tan(a)) + 0.02; // (its root's corners all ahead of the jacket's or breech's face)
       for (const s of [s0, l1]) for (const [dx, dz] of [[-BW, -BW], [BW, -BW], [BW, BW], [-BW, BW]]) P.push([x0 + ax[0] * s + side[0] * dx, root + ax[1] * s + side[1] * dx, gz + dz]);
-      // (the barrel nearest the middle stays at lod 1: the gun reads as a gun further off)
-      const recs = k.part(hull(P), (f) => ({ fill: BARREL, hide: dot(f.n, ax) < -0.99 || f.n[2] < -0.99 }), { name: "barrel", ink: 0, lod: i === (n - 1) >> 1 ? 1 : 0 });
+      // (the barrel nearest the middle stays at lod 1: the gun reads as a gun further off. Only its root is hidden, on
+      // the jacket's or the breech's face, where that face is drawn too (at lod 1 the jacket is not): its underside
+      // shows from below the gun, the yard's eye)
+      const lod = i === (n - 1) >> 1 ? 1 : 0;
+      const rootHid = rof < 1 || lod === 0;
+      const recs = k.part(hull(P), (f) => ({ fill: BARREL, hide: rootHid && dot(f.n, ax) < -0.99 }), { name: "barrel", ink: 0, lod });
       if (g.damage >= 3)
         for (const r of recs) {
           if (r.n[2] < 0.5) continue;
@@ -1103,7 +1116,8 @@
       // the drum on the breech's right
       const big = rof >= 4;
       const r = big ? 6 : 4.5;
-      const drum = k.part(hull(roundPts("x", [gy - 2, gz - 0.5], r, bw, bw + 4, 6)), (f) => ({ fill: big ? "#3a3d42" : STEEL_DK, hide: f.n[0] < -0.9 }), { name: "drum", ink: 0, lod: 0 });
+      // (every face drawn: its inner end is taller and reaches further back than the breech's side it stands on)
+      const drum = k.part(hull(roundPts("x", [gy - 2, gz - 0.5], r, bw, bw + 4, 6)), () => ({ fill: big ? "#3a3d42" : STEEL_DK }), { name: "drum", ink: 0, lod: 0 });
       const cap = facing(drum, [1, 0, 0]);
       const c = frameOf(cap, [bw + 4, gy - 2, gz - 0.5]);
       if (big) B.poly(cap.f, ellipse(c[0], c[1], r * 0.62, r * 0.62, 6), "#d9a21b", { lod: 0, ink: 0.6 });
@@ -1160,9 +1174,11 @@
     wheels(k);
     if (g.bumper > 0) plow(k, g.bumper);
     engineGear(k, g.engine);
-    // the decals, under to over: the paint job, the van's own fittings, what the paint job lays over them (it returns
-    // that: a mark on the front bumper, sludge over the back windows), the armor, the gun's ring, the dents
+    // the decals, under to over: Armor 5's roof plates, the paint job, the van's own fittings, what the paint job lays
+    // over them (it returns that: a mark on the front bumper, sludge over the back windows), the rest of the armor, the
+    // gun's ring, the dents
     const paint = DECALS[look.decal] || DECALS.none;
+    roofPlates(k, g.armor);
     const over = paint(k, look.decalA, look.decalB);
     fittings(k);
     if (over) over();
@@ -1191,5 +1207,6 @@
     return dentTier(share);
   }
 
-  ZSR.Van3D = { L, W, H, DENTS, GUN, sig, mesh, draw, dentTier, dentNow, lookOf };
+  // (DECAL_KINDS: DECALS' keys; a PAINT_LOOKS decal kind not there draws as the bare primer)
+  ZSR.Van3D = { L, W, H, DENTS, GUN, DECAL_KINDS: Object.keys(DECALS), sig, mesh, draw, dentTier, dentNow, lookOf };
 })(typeof window !== "undefined" ? window : globalThis);

@@ -24,7 +24,8 @@
   // frames, pillars, mirrors, the grille surround), bumpers, wheel rims, and a decal on every side and the hood in its
   // decal colours (decalA the main one, decalB the second). cost: scrap; tier: the Garage upgrade tier it needs
   // (State.upgradeCap's tierCap: 2 with no Garage, 3 to 5 with its levels), so the first six keep the old ladder's gates.
-  // SCALE: a ninth look is a row here (with a decal kind js/van3d.js and js/sprites.js draw) and a cost in DEFS.paint.
+  // SCALE: a ninth look is a row here (with a decal kind js/van3d.js, js/sprites.js and js/base.js paintChip, the Garage
+  // swatch, draw) and a cost in DEFS.paint.
   const PAINT_LOOKS = [
     { name: "Primer Gray", body: "#7a7d82", roof: "#6c6f74", trim: "#4a4d52", bumper: "#3a3c40", rims: "#9a9da2", decal: "none", decalA: "#5f6267", decalB: "#8a8d92", cost: 0, tier: 0 },
     { name: "Matte Black", body: "#26282c", roof: "#303338", trim: "#17181b", bumper: "#141517", rims: "#6a6e76", decal: "stripe", decalA: "#ebe6d7", decalB: "#b8b2a2", cost: 20, tier: 1 },

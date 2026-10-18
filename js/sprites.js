@@ -105,7 +105,8 @@
   }
 
   /** The paint job's decal (js/upgrades.js PAINT_LOOKS decal, in its decalA and decalB) on the roof panel, w x h
-      round (0, 0), the nose up. SCALE: a new decal kind is a branch here (and in js/van3d.js). */
+      round (0, 0), the nose up. SCALE: a new decal kind is a branch here (and in js/van3d.js DECALS and js/base.js
+      paintChip, the Garage swatch). */
   function decal(ctx, kind, w, h, look) {
     const A = (look && look.decalA) || "#ebe6d7";
     const B = (look && look.decalB) || A;

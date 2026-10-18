@@ -28,7 +28,8 @@
    - the van model (js/model3d.js and js/van3d.js, after upgrades.js): every paint look with its gear at several
      levels, the dents, the roof gun and every level of detail draws cleanly from all round, near and far, within its
      canvas-call ceilings, the same way twice, its text never mirrored; each look's decal is on both sides and the hood,
-     and on the roof and the back doors at lod 1 (what the road's camera sees), with its gear on and off.
+     and on the roof and the back doors at lod 1 (what the road's camera sees), with its gear on and off; its parts in
+     the order the yard's eye sees them from beside it, no hidden face showing, every decal inside its face.
    validate-world.js checks the layout data, validate-engine.js what the engine makes of it. */
 "use strict";
 const fs = require("fs");
@@ -1121,19 +1122,24 @@ let roadDraws = 0;
 }
 
 /* ---------- The van model (js/model3d.js, js/van3d.js: loaded after upgrades.js, as the page does) ----------
-   One 3D van everywhere it is seen. Every paint look with the gear at 0, 1, 3, 5 and mixed, the dents, the roof gun and
-   each level of detail, drawn from all round (16 yaws by 3 pitches, the road camera's behind and above among them),
-   near (parts cut by the camera's near plane) and far, on the checking context: no throw, finite numbers and real
-   colours, no images, gradients, read-backs or new canvases, transforms only round its text (inside save and restore,
-   never mirrored), within its canvas-call ceiling at every view, the same calls twice. Each look's decal is on both
-   sides and the hood, and on the roof and the back doors at lod 1, bare and with all its gear (what the road's camera
-   sees: validate-engine.js checks it shows there); a look, a gear level or a dent tier changes its signature, and the
-   same signature is the same built model. validate-engine.js checks every upgrade step shows. */
-// SCALE: most canvas calls the van may make at lod 0 / 1 / 2, with all its gear at 5, the gun and heavy dents, from any
-// side: the road draws it every frame (the owner's lag problem). New gear or a busier look must fit under these. lod 0
+   One 3D van everywhere it is seen. Every paint look with the gear at 0, 1, 3, its top (Upgrades.DEFS max) and mixed,
+   the dents, the roof gun and each level of detail, drawn from all round (16 yaws by 3 pitches, the road camera's
+   behind and above among them), near (parts cut by the camera's near plane) and far, on the checking context: no
+   throw, finite numbers and real colours, no images, gradients, read-backs or new canvases, transforms only round its
+   text (inside save and restore, never mirrored), within its canvas-call ceiling at every view, the same calls twice.
+   Each look's decal is on both sides and the hood, and on the roof and the back doors at lod 1, bare and with all its
+   gear (what the road's camera sees: validate-engine.js checks it shows there); a look, a gear level (two-digit ones
+   too) or a dent tier changes its signature, and the same signature is the same built model. Seen from beside it at
+   the yard's eye, its parts are drawn in the order the eye sees them (a ray cast through the model); no hidden face
+   shows from the yard's eye or from above; every decal lies inside its face. validate-engine.js checks every upgrade
+   step shows. */
+// SCALE: most canvas calls the van may make at lod 0 / 1 / 2, with all its gear at its top (Upgrades.DEFS max), the gun
+// and heavy dents, from any side: the road draws it every frame (the owner's lag problem). New gear or a busier look
+// must fit under these. lod 0
 // rose from 1400 to 1450 (2026-10-18) for each paint job's roof and back designs (every look must read from the road's
-// camera): Convoy Red's flames make 1441 from nearly straight above, the other looks at most 1393 (the roof under the
-// rack and the back glass under the Armor 3 plates are left out to make room). Timed through the road's camera in
+// camera): Convoy Red's flames make 1447 from nearly straight above, the other looks at most 1399 (the roof under the
+// rack and the back glass under the Armor 3 plates are left out to make room; 6 of those are the gun's middle barrel's
+// root, drawn since it shows at lod 1, where its jacket is not, and the road draws no gun). Timed through the road's camera in
 // Chromium the van drew about 10 to 15% slower than before on average over the looks, about 0.6 ms with all its gear
 const VAN_OPS = [1450, 700, 350];
 const VAN_YAWS = 16;
@@ -1165,13 +1171,19 @@ const decalAreas = [];
     if (!(D3.length === 2 && D3[0] < 1 && D3[1] > 0 && D3[1] < D3[0])) err(`Van3D.DENTS is ${JSON.stringify(D3)} (two health shares, falling)`);
     else if (V3.dentTier(1) !== 0 || V3.dentTier(D3[0] - 0.01) !== 1 || V3.dentTier(D3[1] - 0.01) !== 2 || V3.dentTier(0) !== 2) err("Van3D.dentTier does not give 0 / 1 / 2 at full health, under DENTS[0] and under DENTS[1]");
     if (V3.lookOf({ paint: LOOKS.length + 5 }) !== LOOKS[LOOKS.length - 1] || V3.lookOf({}) !== LOOKS[0] || V3.lookOf({ paint: -3 }) !== LOOKS[0]) err("Van3D.lookOf does not keep the paint inside PAINT_LOOKS");
-    const KINDS = new Set(["none", "stripe", "patches", "stencil", "hazard", "flames", "lightning", "drips"]);
+    // (the decal kinds it has designs for: js/van3d.js DECALS)
+    if (!Array.isArray(V3.DECAL_KINDS) || !V3.DECAL_KINDS.includes("none")) err(`Van3D.DECAL_KINDS is ${JSON.stringify(V3.DECAL_KINDS)} (DECALS' kinds, the bare primer's "none" among them)`);
+    const KINDS = new Set(V3.DECAL_KINDS || []);
     LOOKS.forEach((l, i) => {
       if (!KINDS.has(l.decal)) err(`PAINT_LOOKS[${i}] ${l.name}: the van draws no decal "${l.decal}" (js/van3d.js DECALS)`);
       ["body", "roof", "trim", "bumper", "rims", "decalA", "decalB"].forEach((k) => (typeof l[k] === "string" && COLOR.test(l[k])) || err(`PAINT_LOOKS[${i}] ${l.name}: ${k} is ${l[k]}`));
     });
+    const GEAR_KEYS = ["armor", "bumper", "engine", "damage", "fireRate", "spread"];
+    const DEFS = (ZSR.Upgrades && ZSR.Upgrades.DEFS) || {};
     const NONE = { armor: 0, bumper: 0, engine: 0, damage: 0, fireRate: 0, spread: 0 };
-    const ALL = { armor: 5, bumper: 5, engine: 5, damage: 5, fireRate: 5, spread: 3 };
+    // every gear upgrade at its top (Upgrades.DEFS max: a level added there is drawn and checked here)
+    const ALL = {};
+    GEAR_KEYS.forEach((k) => (ALL[k] = DEFS[k] ? DEFS[k].max : 5));
     const GEARS = [NONE, { armor: 1, bumper: 1, engine: 1, damage: 1, fireRate: 1, spread: 1 }, { armor: 3, bumper: 3, engine: 3, damage: 3, fireRate: 3, spread: 2 }, ALL, { armor: 4, bumper: 1, engine: 3, damage: 2, fireRate: 5, spread: 1 }, { armor: 2, bumper: 5, engine: 0, damage: 5, fireRate: 0, spread: 3 }];
     // a camera round the van's middle: yaw 0 behind it, turning to its right; pitch up from level; dist from its middle
     const camera = (yaw, pitch, dist, lod, near, w, h) => {
@@ -1253,15 +1265,15 @@ const decalAreas = [];
     };
     const gearName = (g) => `a${g.armor}b${g.bumper}e${g.engine} gun ${g.damage}/${g.fireRate}/${g.spread}`;
     let worst = [0, 0, 0];
-    // A: the ceilings: every look, all its gear at 5, the gun, heavy dents, each level of detail, from all round (and
-    // from nearly straight above), far and near; a few drawn twice the same. (At lod 1 and 2, from the higher views,
+    // A: the ceilings: every look, all its gear at its top, the gun, heavy dents, each level of detail, from all round
+    // (and from nearly straight above), far and near; a few drawn twice the same. (At lod 1 and 2, from the higher views,
     // where they see the most: the roof's gear, a side and an end)
     LOOKS.forEach((look, p) => {
       for (let lod = 0; lod < 3; lod++) {
         for (let yi = 0; yi < VAN_YAWS; yi++) {
           (lod ? VAN_PITCHES.slice(-1) : VAN_PITCHES).concat([1.3]).forEach((pitch, pi) => {
             const yaw = (yi / VAN_YAWS) * Math.PI * 2;
-            const what = `van ${look.name} all gear 5 lod ${lod} yaw ${yaw.toFixed(2)} pitch ${pitch}`;
+            const what = `van ${look.name} all gear at the top lod ${lod} yaw ${yaw.toFixed(2)} pitch ${pitch}`;
             const u = Object.assign({ paint: p }, ALL);
             const ops = vanDraw(u, { dent: 2, gun: true }, camera(yaw, pitch, 380, lod, 0, 400, 300), what);
             if (!ops) return;
@@ -1272,7 +1284,7 @@ const decalAreas = [];
             }
           });
           // near: the camera inside the van's reach, parts behind its near plane cut off
-          if (yi % 4 === lod) vanDraw(Object.assign({ paint: p }, ALL), { dent: 2, gun: true }, camera((yi / VAN_YAWS) * Math.PI * 2 + 0.3, 0.35, 75, lod, 25, 400, 300), `van ${look.name} all gear 5 lod ${lod} near, yaw ${yi}`);
+          if (yi % 4 === lod) vanDraw(Object.assign({ paint: p }, ALL), { dent: 2, gun: true }, camera((yi / VAN_YAWS) * Math.PI * 2 + 0.3, 0.35, 75, lod, 25, 400, 300), `van ${look.name} all gear at the top lod ${lod} near, yaw ${yi}`);
         }
       }
       // B: every gear set, dent tier, gun or none, at a level of detail by turns, from all round near and far
@@ -1346,22 +1358,229 @@ const decalAreas = [];
         decalAreas.push(`${look.name}${gear === ALL ? "+gear" : ""} ${roof.toFixed(0)}/${back.toFixed(0)}`);
       }
     });
-    // D: the signature changes with the look, each gear level, the dents and the gun; one signature, one built model
-    const sigs = new Set();
-    let sigCount = 0;
+    // D: the signature changes with the look, each gear and gun level up to its top (Upgrades.DEFS max), the dents and
+    // the gun; and past the top, for a bigger game: two-digit levels never run together (damage 1 and fire rate 12 is
+    // not damage 11 and fire rate 2). One signature, one built model
+    const sigOf = new Map(); // each van (its upgrades and options, as JSON) -> its signature
+    const addSig = (u, o) => sigOf.set(JSON.stringify([u, o]), V3.sig(u, o));
     LOOKS.forEach((l, p) => {
-      for (const k of ["armor", "bumper", "engine"]) {
-        for (let lv = 0; lv <= 5; lv++) {
-          sigs.add(V3.sig(Object.assign({ paint: p }, NONE, { [k]: lv }), {}));
-          sigCount += lv === 0 && k !== "armor" ? 0 : 1;
-        }
+      for (const k of GEAR_KEYS) {
+        const gun = !["armor", "bumper", "engine"].includes(k);
+        for (let lv = 0; lv <= ALL[k]; lv++) addSig(Object.assign({ paint: p }, NONE, { [k]: lv }), { gun });
       }
     });
-    if (sigs.size !== sigCount) err(`Van3D.sig: ${sigCount} looks and gear levels give only ${sigs.size} signatures`);
+    const BIG = [0, 1, 2, 10, 11, 12];
+    for (const a of BIG) for (const b of BIG) for (const c of BIG) {
+      addSig(Object.assign({ paint: 0 }, NONE, { damage: a, fireRate: b, spread: c }), { gun: true });
+      addSig(Object.assign({ paint: 0 }, NONE, { armor: a, bumper: b, engine: c }), { gun: false });
+    }
+    const vanOfSig = new Map();
+    for (const [van, s] of sigOf) {
+      if (vanOfSig.has(s)) {
+        err(`Van3D.sig: ${vanOfSig.get(s)} and ${van} have the same signature "${s}" (one would be drawn with the other's built model)`);
+        break;
+      }
+      vanOfSig.set(s, van);
+    }
     const s0 = V3.sig(ALL, {});
     if (V3.sig(ALL, { dent: 1 }) === s0 || V3.sig(ALL, { dent: 2 }) === V3.sig(ALL, { dent: 1 }) || V3.sig(ALL, { gun: true }) === s0) err("Van3D.sig does not change with the dents or the gun");
     if (V3.sig(Object.assign({}, ALL, { damage: 1 }), { gun: true }) === V3.sig(ALL, { gun: true })) err("Van3D.sig does not change with the gun's upgrades when the gun is on");
     if (V3.mesh(ALL, { dent: 1 }) !== V3.mesh(ALL, { dent: 1 })) err("Van3D.mesh builds a new model for the same van (it must keep it)");
+
+    // E, F and G read the built model's faces. A face's corner i; how far a point in a face's plane is inside its
+    // outline (units; < 0 outside); where the ray eye + t d meets a face inside its outline grown by margin units (t,
+    // else Infinity); how far a screen point is inside a screen outline (px, either winding)
+    const cornerOf = (f, i) => [f.p[i * 3], f.p[i * 3 + 1], f.p[i * 3 + 2]];
+    const inFace = (f, q) => {
+      let m = Infinity;
+      for (let i = 0; i < f.n; i++) {
+        const a = cornerOf(f, i);
+        const b = cornerOf(f, (i + 1) % f.n);
+        const [ex, ey, ez] = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        const [wx, wy, wz] = [q[0] - a[0], q[1] - a[1], q[2] - a[2]];
+        m = Math.min(m, ((ey * wz - ez * wy) * f.nx + (ez * wx - ex * wz) * f.ny + (ex * wy - ey * wx) * f.nz) / Math.hypot(ex, ey, ez));
+      }
+      return m;
+    };
+    const rayHit = (f, e, d, margin) => {
+      const den = f.nx * d[0] + f.ny * d[1] + f.nz * d[2];
+      if (Math.abs(den) < 1e-12) return Infinity;
+      const t = (f.nx * (f.p[0] - e[0]) + f.ny * (f.p[1] - e[1]) + f.nz * (f.p[2] - e[2])) / den;
+      if (!(t > 1e-9)) return Infinity;
+      return inFace(f, [e[0] + d[0] * t, e[1] + d[1] * t, e[2] + d[2] * t]) >= -margin ? t : Infinity;
+    };
+    const inScreen = (S, x, y) => {
+      let area = 0;
+      for (let i = 0; i < S.length; i++) area += S[i][0] * S[(i + 1) % S.length][1] - S[(i + 1) % S.length][0] * S[i][1];
+      if (Math.abs(area) < 1e-9) return -1;
+      let m = Infinity;
+      for (let i = 0; i < S.length; i++) {
+        const [ax, ay] = S[i];
+        const [bx, by] = S[(i + 1) % S.length];
+        m = Math.min(m, (Math.sign(area) * ((bx - ax) * (y - ay) - (by - ay) * (x - ax))) / (Math.hypot(bx - ax, by - ay) || 1));
+      }
+      return m;
+    };
+    /** Points spread over a face: its middle, and each of us of the way out to every corner. */
+    const pointsOn = (f, us) => {
+      const out = [[f.cx, f.cy, f.cz]];
+      for (const u of us) for (let i = 0; i < f.n; i++) {
+        const c = cornerOf(f, i);
+        out.push([f.cx + (c[0] - f.cx) * u, f.cy + (c[1] - f.cy) * u, f.cz + (c[2] - f.cz) * u]);
+      }
+      return out;
+    };
+    const facesEye = (f, e) => f.nx * (e[0] - f.cx) + f.ny * (e[1] - f.cy) + f.nz * (e[2] - f.cz) > 0;
+    // the yard's camera (js/modelsprite.js): the eye 0.5 tiles up, looking level (here at the van's middle), its near
+    // cut MODEL_NEAR 0.02 tiles; VAN_TILE road units a tile; a 640 x 576 picture, as the yard draws the van up close
+    const TILE = 62.5;
+    const yardView = (ex, ey, lod) => {
+      const e = [ex, ey, 0.5 * TILE];
+      const l = Math.hypot(ex, ey);
+      const [fx, fy] = [-ex / l, -ey / l];
+      const view = M3.view({ ink: 1.5, lod, near: 0.02 * TILE, eye: e, lit: () => 1 });
+      view.project = (x, y, z) => {
+        const dx = x - e[0];
+        const dy = y - e[1];
+        const D = dx * fx + dy * fy;
+        view.D = D;
+        const s = 384 / Math.max(D, 1e-6);
+        view.X = 320 + (dx * fy - dy * fx) * s;
+        view.Y = 288 - (z - e[2]) * s;
+        return D > view.near;
+      };
+      return view;
+    };
+
+    // E: the parts' order from beside the van, as the yard's eye sees it under its roof, 0.3 to 1 tile off its sides
+    // along its length (there the near plane cuts the nose, the plow and the parts' boxes): where a part drawn later
+    // covers a point of the screen the part nearest there covers, that is the nearest part (the eye's ray through the
+    // point, cast against every face, meets it first). With Ram Plow 1 the plow's box crossed the near plane and was
+    // taken as all of the screen, and the roof gun went over the cab door's side, the plow over the nose
+    /** After a draw of model m: what is drawn over a nearer part ([later, nearer] part names, one a point). */
+    const orderFaults = (m, view) => {
+      const e = view.eye;
+      const act = m.parts.map((pt, i) => i).filter((i) => m.parts[i].lod >= view.lod);
+      const rank = new Map(act.map((_, k) => [m.order[k], k]));
+      const drawn = [];
+      for (const pi of act)
+        for (const f of m.parts[pi].faces) {
+          if (f.hide || !facesEye(f, e)) continue;
+          const S = [];
+          for (let i = 0; i < f.n && view.project(...cornerOf(f, i)); i++) S.push([view.X, view.Y]);
+          if (S.length === f.n) drawn.push({ pi, f, S }); // (a face the near plane cuts is left out)
+        }
+      const faults = [];
+      for (const { f } of drawn) {
+        for (const P of pointsOn(f, [0.5, 0.85])) {
+          const d = [P[0] - e[0], P[1] - e[1], P[2] - e[2]];
+          let best = Infinity;
+          let bp = -1;
+          let bf = null;
+          for (const qi of act) for (const g of m.parts[qi].faces) {
+            const t = rayHit(g, e, d, 0);
+            if (t < best) [best, bp, bf] = [t, qi, g];
+          }
+          if (!bf || bf.hide) continue; // (F's)
+          view.project(...P);
+          const [X, Y] = [view.X, view.Y];
+          if (!drawn.some((o) => o.pi === bp && inScreen(o.S, X, Y) > 1)) continue;
+          let top = -1;
+          for (const o of drawn) if (o.pi !== bp && rank.get(o.pi) > rank.get(bp) && (top < 0 || rank.get(o.pi) > rank.get(top)) && inScreen(o.S, X, Y) > 1) top = o.pi;
+          if (top < 0) continue;
+          const tt = Math.min(...m.parts[top].faces.map((g) => rayHit(g, e, d, 0)));
+          if (tt > best * 1.002) faults.push([m.parts[top].name, m.parts[bp].name]);
+        }
+      }
+      return faults;
+    };
+    {
+      const eyes = [[57.6, 40.3], [50.6, 40]]; // (beside the cab door, 0.4 and 0.3 tiles out)
+      for (const s of [1, -1]) for (const off of [0.3, 0.5, 1]) for (let y = -70; y <= 80; y += 10) eyes.push([s * (V3.W / 2 + off * TILE), y]);
+      for (const [name, g] of [["Ram Plow 1", { bumper: 1 }], ["all its gear", ALL]]) {
+        const u = Object.assign({ paint: 1 }, NONE, g);
+        const o = { dent: 0, gun: true };
+        const m = V3.mesh(u, o);
+        for (const lod of [0, 1]) {
+          let first = null;
+          let n = 0;
+          for (const [ex, ey] of eyes) {
+            const view = yardView(ex, ey, lod);
+            if (!vanDraw(u, o, view, `van with ${name} and the gun from the yard's eye at (${ex}, ${ey}) lod ${lod}`)) continue;
+            const f = orderFaults(m, view);
+            if (f.length && !first) first = `(${ex.toFixed(1)}, ${ey}): the ${f[0][0]} drawn over the nearer ${f[0][1]}`;
+            n += f.length;
+          }
+          if (n) err(`van with ${name} and the gun, from the yard's eye beside it at lod ${lod}: ${n} points of a part drawn over a nearer one (js/model3d.js draw's order), first at ${first}`);
+        }
+      }
+    }
+
+    // F: a hidden face (Builder face o.hide: never drawn) never shows. From the yard's eye all round the van, 0.3 to 8
+    // tiles off it, and from above all round (the road's, the garage's and the bench's cameras), where a hidden face
+    // faces the eye the eye's ray to it meets another face first (a seam under HIDE_SEAM units, a sliver seen edge on, is
+    // let pass), at every level of detail. The gun's undersides were hidden once, and the yard saw through the barrels
+    const HIDE_SEAM = 0.4;
+    {
+      const eyesF = [];
+      for (const off of [0.3, 0.6, 1, 2, 4, 8]) for (let a = 0; a < 24; a++) {
+        const [c, s] = [Math.cos((a / 24) * Math.PI * 2), Math.sin((a / 24) * Math.PI * 2)];
+        const k = Math.min(V3.W / 2 / Math.abs(c || 1e-9), V3.L / 2 / Math.abs(s || 1e-9));
+        eyesF.push([c * (k + off * TILE), s * (k + off * TILE), 0.5 * TILE]);
+      }
+      for (const pitch of [0.15, 0.5, 0.86, 1.2]) for (let y = 0; y < 16; y++) {
+        const yaw = (y / 16) * Math.PI * 2;
+        eyesF.push([Math.sin(yaw) * Math.cos(pitch) * 430, -Math.cos(yaw) * Math.cos(pitch) * 430, V3.H / 2 + Math.sin(pitch) * 430]);
+      }
+      const early = { armor: 1, bumper: 1, engine: 2, damage: 1, fireRate: 2, spread: 1 };
+      const mid = { armor: 3, bumper: 3, engine: 3, damage: 3, fireRate: 4, spread: 2 };
+      for (const g of [NONE, early, mid, ALL]) {
+        const m = V3.mesh(Object.assign({ paint: 1 }, g), { dent: 0, gun: true });
+        for (let lod = 0; lod < 3; lod++) {
+          const act = m.parts.filter((pt) => pt.lod >= lod);
+          const shows = new Map(); // a hidden face that shows -> how many eyes see it
+          for (const e of eyesF)
+            for (const pt of act)
+              pt.faces.forEach((h, hi) => {
+                if (!h.hide || !facesEye(h, e)) return;
+                const seen = pointsOn(h, [0.5, 0.9]).some((P) => {
+                  const d = [P[0] - e[0], P[1] - e[1], P[2] - e[2]]; // (t = 1 at the hidden face)
+                  for (const q of act) for (const g2 of q.faces) if (g2 !== h && rayHit(g2, e, d, HIDE_SEAM) <= 1 + 1e-3) return false;
+                  return true;
+                });
+                const key = `${pt.name}'s face ${hi} (facing ${[h.nx, h.ny, h.nz].map((v) => v.toFixed(2)).join(", ")})`;
+                if (seen) shows.set(key, (shows.get(key) || 0) + 1);
+              });
+          for (const [key, n] of shows) err(`van ${gearName(g)} with the gun at lod ${lod}: ${key} is hidden (never drawn) but nothing covers it from ${n} of ${eyesF.length} eyes: a hole`);
+        }
+      }
+    }
+
+    // G: every decal lies on its face, inside its outline (Builder decals are not cut to their face: a design laid
+    // with B.poly straight onto a gear part's face must fit it, else k.on cuts it), every look with its gear off, in the
+    // middle and at the top, dented and not
+    {
+      const over = new Map();
+      LOOKS.forEach((look, p) => {
+        for (const g of [NONE, GEARS[2], ALL]) for (const dent of [0, 2]) {
+          const m = V3.mesh(Object.assign({ paint: p }, g), { dent, gun: true });
+          for (const pt of m.parts)
+            pt.faces.forEach((f, fi) => {
+              for (const d of f.decals) {
+                if (d.k === 2) continue; // (text: its anchor only)
+                let out = 0;
+                for (let i = 0; i < d.n; i++) {
+                  const q = cornerOf(d, i);
+                  out = Math.max(out, Math.abs(f.nx * (q[0] - f.p[0]) + f.ny * (q[1] - f.p[1]) + f.nz * (q[2] - f.p[2])), -inFace(f, q));
+                }
+                const key = `the ${d.rgb.slice(0, 3).join(",")} ${d.k ? "line" : "polygon"} on ${pt.name}'s face ${fi}`;
+                if (out > 0.01 && !over.has(key)) over.set(key, `van ${look.name} ${gearName(g)} dents ${dent}: ${key} reaches ${out.toFixed(2)} units off its face`);
+              }
+            });
+        }
+      });
+      for (const v of over.values()) err(v);
+    }
     sb.document.createElement = realCreate;
     console.log(`van model: ${vanDraws} draws checked; the most canvas calls with all its gear at lod 0 / 1 / 2: ${worst.join(" / ")} (ceilings ${VAN_OPS.join(" / ")})`);
     console.log(`van decals on the roof / the back doors at lod 1, sq units: ${decalAreas.join(", ")}`);

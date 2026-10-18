@@ -390,6 +390,7 @@
         need: new Int32Array(n), // how many parts must still be drawn before each (-1: drawn)
         after: new Uint8Array(n * n), // after[a * n + b]: part a is drawn after part b
         sbox: new Float64Array(n * 4), // each part's reach on the screen
+        seen: new Uint8Array(n), // the parts a cycle's walk has passed (breakCycle)
       };
     }
   }
@@ -447,6 +448,13 @@
   const QY = new Float64Array(MAX_V * 2 + 4);
   const SEG = new Float64Array(4);
   let nearD = 0;
+  // a part's box (draw: its reach on the screen): its 12 edges as pairs of corners (corner c is x1 if c & 1, y1 if
+  // c & 2, z1 if c & 4), and its corners' depths
+  const BOX_EDGES = new Uint8Array([0, 1, 2, 3, 4, 5, 6, 7, 0, 2, 1, 3, 4, 6, 5, 7, 0, 4, 1, 5, 2, 6, 3, 7]);
+  const BOX_D = new Float64Array(8);
+  // where a box's edge crosses the near plane it is cut this much deeper than the plane (a camera may put a point at
+  // the near depth itself, rounding included, in the screen's middle)
+  const BOX_CUT = 1.001;
 
   /** Project the n points of P (model space) into SX / SY / SD; returns how many are in front (SIN marks them). */
   function projectAll(view, P, n) {
@@ -594,6 +602,34 @@
     return dist[b] - dist[a];
   }
 
+  /** The first part still to draw (need >= 0) that part a must be drawn after (a itself when there is none). */
+  function waitsOn(m, a, n, np) {
+    for (let x = 0; x < n; x++) {
+      const b = m.act[x];
+      if (b !== a && m.need[b] >= 0 && m.after[a * np + b]) return b;
+    }
+    return a;
+  }
+  /** No part left is free to go (each waits on another still to draw), so they wait round a cycle and one of its parts
+      must go before a part it waits on. From part a, follow what each waits on until a part comes round again: that
+      loop is a cycle. The part of it that waits on the fewest goes, the farthest of those: it breaks the fewest answers.
+      (The farthest part left goes wrong two ways: it may only wait on a cycle, as the stack behind the body does, and
+      go under the body it is in front of; or be the big body itself, and go under all the gun on its roof.) */
+  function breakCycle(m, a, n, np) {
+    const act = m.act;
+    const need = m.need;
+    const dist = m.dist;
+    const seen = m.seen;
+    for (let x = 0; x < n; x++) seen[act[x]] = 0;
+    while (!seen[a]) {
+      seen[a] = 1;
+      a = waitsOn(m, a, n, np);
+    }
+    let best = a;
+    for (let c = waitsOn(m, a, n, np); c !== a; c = waitsOn(m, c, n, np)) if (need[c] < need[best] || (need[c] === need[best] && dist[c] > dist[best])) best = c;
+    return best;
+  }
+
   /** Draw a built model; returns how many faces it drew. */
   function draw(ctx, m, view) {
     const parts = m.parts;
@@ -605,7 +641,7 @@
     nearD = view.near > 0 ? view.near : 1e-3 * m.size;
     // far to near: each part after every part it is in front of where the two can overlap on the screen (by the plane
     // between them where there is one, else by their centres' distance less their bias), then the parts go in an order
-    // that keeps all of these (the farthest of those free to go first; a cycle, none free, is broken by the farthest).
+    // that keeps all of these (the farthest of those free to go first; a cycle, none free, is broken by breakCycle).
     // One plane's answer says nothing about a third part: a sort that stops at the first part it is in front of (the
     // far side's wheels) can put it over one it is behind (the body); and two parts apart on the screen have nothing
     // to settle, but their answers could close a cycle (the stack beside the rack, both on the body)
@@ -626,22 +662,48 @@
       dist[i] = Math.sqrt(dx * dx + dy * dy + dz * dz) - pt.bias;
       act[n++] = i;
       need[i] = 0;
-      // its reach on the screen: its box's corners (all of the screen when one is behind the near plane)
+      // its reach on the screen: its box cut at the near plane as its faces are (its corners in front of the plane and
+      // where its edges cross it; none in front: an empty box, nothing to settle). Taken as all of the screen, a box the
+      // camera stands beside (the plow's, beside the cab) was set against every part, and the cycles that closed put
+      // the roof gun over the body there
       const b = pt.box;
       let x0 = Infinity;
       let y0 = Infinity;
       let x1 = -Infinity;
       let y1 = -Infinity;
+      let cut = false;
       for (let c = 0; c < 8; c++) {
-        if (!view.project(c & 1 ? b[3] : b[0], c & 2 ? b[4] : b[1], c & 4 ? b[5] : b[2]) || !(view.D > nearD)) {
-          x0 = y0 = -Infinity;
-          x1 = y1 = Infinity;
-          break;
+        view.project(c & 1 ? b[3] : b[0], c & 2 ? b[4] : b[1], c & 4 ? b[5] : b[2]);
+        BOX_D[c] = view.D;
+        if (!(view.D > nearD)) {
+          cut = true;
+          continue;
         }
         x0 = Math.min(x0, view.X);
         y0 = Math.min(y0, view.Y);
         x1 = Math.max(x1, view.X);
         y1 = Math.max(y1, view.Y);
+      }
+      if (cut) {
+        const at = nearD * BOX_CUT;
+        for (let e = 0; e < 24; e += 2) {
+          const p = BOX_EDGES[e];
+          const q = BOX_EDGES[e + 1];
+          const dp = BOX_D[p];
+          const dq = BOX_D[q];
+          if ((dp > nearD) === (dq > nearD)) continue;
+          // (an end in front but nearer than the cut is already in: the crossing is at most that end)
+          const t = Math.min(1, Math.max(0, (at - dp) / (dq - dp)));
+          const px = p & 1 ? b[3] : b[0];
+          const py = p & 2 ? b[4] : b[1];
+          const pz = p & 4 ? b[5] : b[2];
+          view.project(px + ((q & 1 ? b[3] : b[0]) - px) * t, py + ((q & 2 ? b[4] : b[1]) - py) * t, pz + ((q & 4 ? b[5] : b[2]) - pz) * t);
+          if (!(view.D > nearD)) continue;
+          x0 = Math.min(x0, view.X);
+          y0 = Math.min(y0, view.Y);
+          x1 = Math.max(x1, view.X);
+          y1 = Math.max(y1, view.Y);
+        }
       }
       sb[i * 4] = x0;
       sb[i * 4 + 1] = y0;
@@ -670,6 +732,7 @@
         if (need[a] < 0) continue;
         if (best < 0 || (need[a] === 0 && need[best] > 0) || ((need[a] === 0) === (need[best] === 0) && dist[a] > dist[best])) best = a;
       }
+      if (need[best] > 0) best = breakCycle(m, best, n, np);
       order[k] = best;
       need[best] = -1;
       for (let x = 0; x < n; x++) {
