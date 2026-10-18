@@ -458,6 +458,18 @@ searches and when matters more than how fast one search is.
 7. `npm test`. God mode's Spawn walker, the title screen, the alarm, the waves, the river and the road
    pick the new kind up from the table.
 
+## People and animals in 3D (the crew, the dogs)
+
+- `js/walker3d.js` `CC_N` 32768: colour strings walkers and people share (people about double them).
+- People: `Walker3D.addHuman` looks in `js/walker3d-crew.js`; a new crew member is an appended `walker3d-crew2.js`
+  (and `tests/validate-art.js` `WALKER_FILES`). `CREW_OPS` [700, 400, 200] and `CREW_COLOURS` 6000 there hold the
+  canvas calls and colours. A look's envelope samples about 400 poses at page load (about 27 ms a look).
+- `WALKER_FIXTURE` in `tests/validate-art.js` is the walkers' recorded draw-call hash: re-record it
+  (`--record-walkers`) only when walker art changes on purpose.
+- Animals: `js/beast3d.js` (`CC_N` 8192, `ENV_MAX` 24, `BLOB_MAX` 12 ellipsoids a fur body joins); looks in
+  `js/beast3d-looks.js` and appended `beast3d-looks2.js` ...; `tests/validate-art.js` `BEAST_FILES`, `BEAST_OPS`
+  [450, 320, 170], `BEAST_H_MAX` (tallest animal box), `BEAST_COLOURS` 3000.
+
 ## Still 3D models (the van now; yard props, signs and animals next)
 
 `js/model3d.js` draws models of convex parts; `js/van3d.js` is the van on it; `js/modelsprite.js`

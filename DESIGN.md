@@ -2546,3 +2546,39 @@ the van on the road (a sloped windshield). Answers to the clarifying questions:
   round it +10% (p95 +4%), far +1%, a heavy wave of 30 walkers -0.5% (p95 +4%). Empty yard: within
   -6% to +4% (one p95 +18% walking round it). All inside the owner's bars (25% / 35%).
 - Road: the van's own draw 0.6-0.7 ms against 0.9 ms; the road's frame no slower.
+
+### Stage 2, wave 1 (2026-10-18): the crew's and the dogs' 3D rigs, judgment calls
+
+**People on the walkers' rig (`js/walker3d.js` human mode, the looks in `js/walker3d-crew.js`).**
+- People are registered with `Walker3D.addHuman` into `Walker3D.HUMANS`, never `TYPES` (the walker tests iterate the
+  walkers). Their code lives inside `js/walker3d.js`, since it needs that file's private joints, projection and fit;
+  a walker draws exactly as before (a test hashes every walker draw against a fixture recorded before people joined).
+- Poses: stand, walk (and the run, `st.run`), talk, work (by job: June gardening on her knees with a trowel, Tomas on one
+  knee hammering a nail into a board, Pip writing on a clipboard), sit (on a seat `st.seat` tiles high, or the floor:
+  June knees up, Pip cross-legged), read, cower (hunched, hugging the knees or hands over the head). `headYaw` turns the
+  head (and 15% the shoulders) toward something while the body keeps facing its task.
+- Faces are human: eyes with pupils that blink once a pose loop (never at its ends), brows, a nose, a mouth that opens
+  talking, June's round glasses; no glow, no gore, no claws at any setting. Hair: bun, curly, short. Clothes: June's
+  open cardigan and gardening gloves, Tomas's rolled-sleeve coveralls (the name patch is a red scrawl, not a name) with
+  the red rag, Pip's orange hoodie with the walkie clipped on and the pencil behind the ear. Colours are js/crewart.js's
+  (a test reads them from its source), so the 3D crew match the 2D portraits.
+- Proportions: grown-ups' heads about 1/5.5 of their height, Pip's about 1/4.5. Each look is modelled about a unit
+  tall and drawn `PERSON_H` (0.905 tiles) times `CREW[id].scale`, read from the facts each draw: June 0.81, Tomas 0.905,
+  Pip 0.67 tiles. An unknown crew id draws the stand-in "person" (`Walker3D.humanId`).
+- Props are drawn with the arm that holds them (or as their own part just before both hands for an open book, the ledger
+  on the lap, the walkie in both hands). Working or cowering, June lays her ledger beside her and Tomas his wrench.
+- Sitting, the figure's floor spot is under the seat's middle with the feet forward; a seat higher than the legs reach
+  (Pip on a grown-up's chair) is lowered to what they reach, on tiptoe first.
+- The colour table walkers and people share grew from 16384 to 32768 slots (people about double the colours in use).
+
+**Animals on a four-legged rig (`js/beast3d.js`, the looks in `js/beast3d-looks.js`).**
+- A standalone module in the walkers' style (ink outline, flat fills, the same camera-space light, fog steps, detail
+  0/1/2, the same `cam` contract), since the walkers' helpers are private. Body plans: four legs, or two legs with wings
+  (the hooks are ready for the chickens).
+- The dog keeps the 2D picture's sides: the patch over its right eye, its left ear up and its right ear flopped. Fur
+  bodies are one inked blob (rump, belly, chest, neck, upper legs); scruff tufts show only from the side.
+- Rivet is built from boxes (it reads robot and matches the 3D van); its one side eye became a visor band seen from every
+  side; its lights glow unfogged and cut out halfway into "off".
+- Poses blend by their parameters through standing (as walkers); the tail wags three times a pose loop in every pose, so a
+  pose change never jumps it. Bark lines fly out to both sides when it barks straight at you.
+- Box heights: dog 0.40 tiles, Rivet 0.36.
