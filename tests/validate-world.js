@@ -948,7 +948,36 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   if (crewOn) {
     const hw = W.HOUSE.grid[0].length;
     const yw = W.YARD.grid[0].length;
+    const yh = W.YARD.grid.length;
     const names = new Set();
+    // the 3D crew (js/crew.js): a point in the yard (`at`) or the cabin (`house`), fractions allowed, inside the yard
+    const [hax, hay] = W.HOUSE.at;
+    const fin = (v) => typeof v === "number" && Number.isFinite(v);
+    const inYard = (o) => {
+      const pt = o.at || o.house;
+      if (!Array.isArray(pt) || pt.length !== 2 || !fin(pt[0]) || !fin(pt[1])) return false;
+      const [x, y] = o.at ? pt : [hax + pt[0], hay + pt[1]];
+      return x >= 0 && y >= 0 && x <= yw && y <= yh;
+    };
+    // a post's face: what they turn to there (a point, a YARD plot, a HOUSE note)
+    const FACE_KEYS = ["at", "house", "plot", "note"];
+    const checkFace = (pc, f) => {
+      if (!f || typeof f !== "object") return err(`${pc}: needs a face (what they turn to there: { at | house: [x, y] } or { plot } or { note })`);
+      const keys = Object.keys(f);
+      if (keys.length !== 1 || !FACE_KEYS.includes(keys[0])) return err(`${pc}: face ${JSON.stringify(f)} wants exactly one of ${FACE_KEYS.join(", ")}`);
+      if ((f.at || f.house) && !inYard(f)) err(`${pc}: face ${JSON.stringify(f)} is not a point in the yard`);
+      if ("plot" in f && !(W.YARD.plots || {})[f.plot]) err(`${pc}: face.plot "${f.plot}" is not a YARD plot`);
+      if ("note" in f && !(W.HOUSE.notes || []).some((n) => n.id === f.note)) err(`${pc}: face.note "${f.note}" is not a HOUSE note`);
+    };
+    // a seat: where a sit post's crew member sits (the porch bench, a dining chair, a bed's edge), its kind and way
+    const SEATS = W.CREW_SEATS || {};
+    Object.entries(SEATS).forEach(([k, h]) => { if (!(fin(h) && h > 0 && h <= 0.6)) err(`CREW_SEATS.${k}: a seat's height in tiles, above 0 and at most 0.6 (${h})`); });
+    const checkSeat = (pc, s) => {
+      if (!s || typeof s !== "object") return err(`${pc}: seat must be { house | at, kind, dir }`);
+      if (!!s.at === !!s.house || !inYard(s)) err(`${pc}: seat ${JSON.stringify(s)} needs one point, at (the yard) or house (the cabin), inside the yard`);
+      if (!fin(SEATS[s.kind])) err(`${pc}: seat.kind "${s.kind}" is not a CREW_SEATS key (${Object.keys(SEATS).join(", ")})`);
+      if (!["n", "e", "s", "w"].includes(s.dir)) err(`${pc}: seat.dir "${s.dir}" (n, e, s or w: the way the sitter faces)`);
+    };
     crewIds.forEach((id) => {
       const c = CREW[id];
       const ctx = `CREW ${id}`;
@@ -981,6 +1010,13 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
         if (!POSES.includes(p.pose)) err(`${pc}: pose "${p.pose}" (${POSES.join(", ")})`);
         if (!(typeof p.weight === "number" && p.weight > 0)) err(`${pc}: weight must be a number above 0`);
         checkRoomLevel(pc, p.room, p.level);
+        checkFace(pc, p.face);
+        // every sit post sits on a real seat, never the floor (owner, 2026-10-18); a seat is only for sitting
+        if (p.pose === "sit" && !p.seat) err(`${pc}: a sit post needs a seat (the porch bench, a cabin chair: CREW_SEATS)`);
+        if (p.seat) {
+          if (p.pose !== "sit") err(`${pc}: a seat on a ${p.pose} post (only sit posts sit)`);
+          checkSeat(pc, p.seat);
+        }
       });
     });
     // the rules

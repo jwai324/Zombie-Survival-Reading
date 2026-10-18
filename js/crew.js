@@ -20,6 +20,13 @@
      the bubble's edge (a short window, Huge text) are read on with E first ("Press E to read on"). A talk is
      saved as it opens (syncYard, in the calm), so a wave that closes the bubble loses nothing.
    - The dog once it is home: it follows its leader (the dog quest's giver), shelters, barks at a wave.
+   - In 3D (Walker3D's people, js/walker3d-crew.js; the dog on Beast3D, js/beast3d.js): each is a live figure drawn with
+     the walkers (prop.fig: js/interior.js figStep and figSprite), animated smoothly (crewAnim, crewDogAnim): the walk's
+     steps by the distance walked, the heading turning, the pose easing in and out. At a post they face their task (its
+     `face`) and sit on its `seat` (CREW_SEATS: the porch bench, a dining chair, a bed's edge), getting up before they
+     walk off; talked to, they stand, turn their head to you (and their body, past the head's reach) and talk; in a
+     wave they run to the shelter and cower in it, the dog lying low. Without those modules loaded: today's flat
+     sprites (CREW_ART).
    Facts: js/story-crew.js, js/story-quests.js. State: js/crewstate.js. Art: js/crewart.js. Design: docs/CREW.md. */
 (function (root) {
   "use strict";
@@ -47,6 +54,14 @@
   const BARK_EVERY = 25; // seconds between barks in a wave
   const SIZE_WORDS = { none: "no wave", some: "a small wave", many: "a big wave" }; // Pip's call ({size})
   const TRAIL_MAX = 240; // SCALE: points of the leader's way the dog remembers (a longer yard walks farther between stops)
+  // the 3D crew and dog (live figures: js/interior.js figStep)
+  const DIRS = { n: -Math.PI / 2, e: 0, s: Math.PI / 2, w: Math.PI }; // a seat's way (seat.dir) as a heading
+  const SEAT_NEAR = 0.6; // tiles: this close to one of their seats, a crew member may stand on its solid tile (the porch bench, a bed)
+  const SEAT_AT = 0.05; // tiles: this close to a seat's middle, they sit on it
+  const SEAT_ZB = 0.05; // tiles a sitter is drawn nearer than its chair or bench (a sprite at the same spot: in front of it)
+  const SEAT_ZB_LOW = 0.25; // ... than a bed's edge (a low tile it sits a little way onto: in front of its side, not behind it)
+  const DOG_RUN = [1.2, 1.8]; // the dog's gallop by its speed: none at 1.2 tiles a second, all of it 1.8 faster
+  const DOG_LOOK = 2.5; // tiles: you this close, the dog at rest looks at you (else at its leader)
 
   /** "the office closet", "Rosa's jar of beans": a name in running text (a possessive first word keeps its capital). */
   function inText(name, article) {
@@ -81,31 +96,53 @@
       const R = rules();
       const roster = W().CREW || {};
       this.crew = [];
-      S.crewIds().forEach((id) => {
+      S.crewIds().forEach((id, i) => {
         const def = roster[id];
         if (!def || !(def.posts || []).length) return;
-        const c = { id, def, x: 0, y: 0, post: null, state: "dwell", path: [], t: 0, pose: "stand", f: 0, ft: rand(0, 1), prop: null, facing: Math.PI / 2, job: null, home: null, jobT: rand(0, JOB_EVERY) };
+        const c = { id, def, x: 0, y: 0, post: null, state: "dwell", path: [], t: 0, pose: "stand", f: 0, ft: rand(0, 1), prop: null, facing: Math.PI / 2, job: null, home: null, jobT: rand(0, JOB_EVERY), fig: null };
+        // in 3D: a live figure (Walker3D's people; a crew id with no look of its own is the stand-in), else the sprite
+        c.fig = this.liveFigure ? this.liveFigure("person", id, 101 + i * 37) : null;
         const post = this.crewPickPost(c, false);
-        if (post) {
-          const [tx, ty] = this.crewPostTile(post);
-          c.x = tx + 0.5;
-          c.y = ty + 0.5;
-          c.post = post;
-          c.pose = post.pose || "stand";
-        }
         c.t = rand(2, R.dwell[1]); // they do not all set off at once
-        c.prop = { x: c.x, y: c.y, art: "crew", opts: null, img: null, scale: (def.scale || 1) * this.crewArtScale("crew"), lift: 0, wide: 0.75, crew: id };
+        c.prop = c.fig ? { x: c.x, y: c.y, fig: c.fig, lift: 0, crew: id } : { x: c.x, y: c.y, art: "crew", opts: null, img: null, scale: (def.scale || 1) * this.crewArtScale("crew"), lift: 0, wide: 0.75, crew: id };
+        if (post) this.crewSettle(c, post);
         this.crewLook(c, c.pose, 0);
+        this.crewPlace(c);
         this.crew.push(c);
       });
       this.dog = null;
       if (S.dogHome()) {
         const lead = this.crewDogLeader();
         const at = lead || this.crew[0] || { x: this.player ? this.player.x : 1, y: this.player ? this.player.y : 1 };
-        this.dog = { x: at.x + 0.45, y: at.y + 0.2, pose: "sit", f: 0, ft: 0, left: false, heading: 0, trail: [], prop: null, t: rand(4, 9), barkT: 0, sit: true };
-        this.dog.prop = { x: this.dog.x, y: this.dog.y, art: "crewDog", opts: null, img: null, scale: this.crewArtScale("crewDog"), lift: 0, dog: true };
+        this.dog = { x: at.x + 0.45, y: at.y + 0.2, pose: "sit", f: 0, ft: 0, left: false, heading: 0, trail: [], prop: null, t: rand(4, 9), barkT: 0, sit: true, fig: null };
+        const d = this.dog;
+        // its spot by its leader is on open floor (a leader on the porch bench or a bed's edge: beside them)
+        if (!this.crewPass()(Math.floor(d.x), Math.floor(d.y))) [d.x, d.y] = this.crewDogBeside(at);
+        d.fig = this.liveFigure ? this.liveFigure("beast", "dog", 7) : null;
+        if (d.fig) {
+          d.fig.pose = d.fig.wantPose = "sit";
+          d.fig.heading = Math.atan2(at.y - d.y, at.x - d.x);
+        }
+        d.prop = d.fig ? { x: d.x, y: d.y, fig: d.fig, lift: 0, dog: true } : { x: d.x, y: d.y, art: "crewDog", opts: null, img: null, scale: this.crewArtScale("crewDog"), lift: 0, dog: true };
         this.crewDogLook("sit", 0, false);
       }
+    },
+    /** Put a crew member at a post now (entering the yard), in its pose: on its seat, facing its task. */
+    crewSettle(c, post) {
+      const seat = this.crewSeatOf(post);
+      const [tx, ty] = this.crewPostTile(post);
+      c.x = seat ? seat.x : tx + 0.5;
+      c.y = seat ? seat.y : ty + 0.5;
+      c.post = post;
+      c.pose = post.pose || "stand";
+      const f = c.fig;
+      if (!f) return;
+      const face = this.crewFacePoint(post, c);
+      f.heading = seat ? seat.heading : face ? Math.atan2(face[1] - c.y, face[0] - c.x) : f.heading;
+      f.pose = f.wantPose = seat ? "sit" : this.crewPostPose(post);
+      f.poseW = 1;
+      f.seat = seat ? seat.h : 0;
+      f.zb = seat ? seat.zb : 0;
     },
     /** dressYard wiped the props: put the crew and the dog back (the same prop objects, their pictures kept). A
         build may have gone up across a way planned before it: crewUpdate plans those again (crewReroute). */
@@ -122,7 +159,9 @@
       (this.crew || []).forEach((c) => {
         if ((c.state !== "walk" && c.state !== "run") || !c.path || !c.path.length) return;
         const end = c.path[c.path.length - 1];
-        const path = this.crewPath(c.x, c.y, Math.floor(end[0]), Math.floor(end[1]), end);
+        // (a walk to a post's seat ends on it: planned again the way it was, onto the seat)
+        const toPost = c.state === "walk" && c.post && !c.job;
+        const path = toPost ? (this.crewGoPost(c, c.post) ? c.path : null) : this.crewPathFrom(c, Math.floor(end[0]), Math.floor(end[1]), end);
         if (path) c.path = path;
         else if (c.state === "walk") {
           c.path = [];
@@ -139,9 +178,15 @@
       const A = ZSR.CREW_ART && ZSR.CREW_ART.scale;
       return (A && A[kind]) || { crew: 0.95, crewDog: 0.36, qObj: 0.3 }[kind] || 1;
     },
-    /** The crew member's picture: pose and frame (f exactly 0 or 1: Draw3 keeps one canvas per opts set). */
+    /** The crew member's picture: pose and frame (f exactly 0 or 1: Draw3 keeps one canvas per opts set). A live 3D
+        figure keeps only the names (crewAnim draws the pose). */
     crewLook(c, pose, f) {
       const ff = f ? 1 : 0;
+      if (c.fig) {
+        c.pose = pose;
+        c.f = ff;
+        return;
+      }
       if (c.prop.img && c.pose === pose && c.f === ff) return;
       c.pose = pose;
       c.f = ff;
@@ -151,6 +196,12 @@
     crewDogLook(pose, f, left) {
       const d = this.dog;
       const ff = f ? 1 : 0;
+      if (d.fig) {
+        d.pose = pose;
+        d.f = ff;
+        d.left = !!left;
+        return;
+      }
       if (d.prop.img && d.pose === pose && d.f === ff && d.left === !!left) return;
       d.pose = pose;
       d.f = ff;
@@ -169,6 +220,99 @@
     crewPostOpen(post) {
       if (!post.room) return true;
       return (State().save.rooms[post.room] || 0) >= (post.level != null ? post.level : 1);
+    },
+    /** A post's seat in the yard (post.seat, js/story-crew.js): { x, y } the sitter's spot (the seat's middle), h its
+        height (CREW_SEATS), heading the way the sitter faces, zb how much nearer the sitter is drawn (in front of a
+        chair or the bench; in front of a bed's side, a low tile it sits a little way onto). Null without a seat. */
+    crewSeatOf(post) {
+      const s = post && post.seat;
+      if (!s) return null;
+      const [ax, ay] = W().HOUSE.at;
+      const x = s.at ? s.at[0] : ax + s.house[0];
+      const y = s.at ? s.at[1] : ay + s.house[1];
+      const h = (W().CREW_SEATS || {})[s.kind];
+      const low = this.lowTiles && this.lowTiles[Math.floor(x) + "," + Math.floor(y)];
+      return { x, y, h: h > 0 ? h : 0, heading: DIRS[s.dir] != null ? DIRS[s.dir] : Math.PI / 2, zb: low ? SEAT_ZB_LOW : SEAT_ZB, post };
+    },
+    /** On a seat that stands on a solid tile (the porch bench, a bed's edge), they step off it the way they came: by
+        its post's tile. That tile's middle [x, y], or null (on their feet on open floor). */
+    crewSeatStep(c) {
+      const s = this.crewSeatNear(c);
+      if (!s || this.crewPass()(Math.floor(c.x), Math.floor(c.y))) return null;
+      const [px, py] = this.crewPostTile(s.post);
+      return [px + 0.5, py + 0.5];
+    },
+    /** A walking path for a crew member (crewPath), off their seat first when it stands on a solid tile. */
+    crewPathFrom(c, tx, ty, to) {
+      const off = this.crewSeatStep(c);
+      if (!off) return this.crewPath(c.x, c.y, tx, ty, to);
+      const rest = this.crewPath(off[0], off[1], tx, ty, to);
+      return rest ? [off].concat(rest) : null;
+    },
+    /** Where a post's task is (post.face), a point in the yard [x, y], or null: a yard or cabin point, the nearest point
+        of a yard plot to where they stand (c, else the post's tile), or a cabin note on its wall. */
+    crewFacePoint(post, c) {
+      const f = post && post.face;
+      if (!f) return null;
+      const H = W().HOUSE;
+      const [ax, ay] = H.at;
+      if (f.at) return [f.at[0], f.at[1]];
+      if (f.house) return [ax + f.house[0], ay + f.house[1]];
+      if (f.plot) {
+        const pl = (W().YARD.plots || {})[f.plot];
+        if (!pl) return null;
+        const [tx, ty] = this.crewPostTile(post);
+        const x = c ? c.x : tx + 0.5;
+        const y = c ? c.y : ty + 0.5;
+        return [Math.max(pl.x, Math.min(pl.x + pl.w, x)), Math.max(pl.y, Math.min(pl.y + pl.h, y))];
+      }
+      if (f.note) {
+        const n = (H.notes || []).find((o) => o.id === f.note);
+        if (!n) return null;
+        const side = { n: [0.5, 0], s: [0.5, 1], w: [0, 0.5], e: [1, 0.5] }[n.face] || [0.5, 0.5];
+        return [ax + n.wall[0] + side[0], ay + n.wall[1] + side[1]];
+      }
+      return null;
+    },
+    /** The 3D pose a post's own pose stands for (the posts' poses are the 2D art's: stand, sit, work, read). */
+    crewPostPose(post) {
+      const p = (post && post.pose) || "stand";
+      return p === "sit" || p === "work" || p === "read" ? p : "stand";
+    },
+    /** On (or stepping on or off) one of their own seats: a seat on a solid tile (the porch bench, a bed's edge) is
+        theirs to stand on, so nothing pushes them off it (crewUnstick). */
+    crewOnSeat(c) {
+      return !!this.crewSeatNear(c);
+    },
+    /** Set off for a post: to its tile, or onto its seat (by the seat's own tile when that is open floor, a dining
+        chair; else from the post's tile next to it, onto the porch bench or a bed's edge). False when there is no way. */
+    crewGoPost(c, post) {
+      const seat = this.crewSeatOf(post);
+      const [px, py] = this.crewPostTile(post);
+      if (!seat) return this.crewGo(c, px, py);
+      const sx = Math.floor(seat.x);
+      const sy = Math.floor(seat.y);
+      const [tx, ty] = this.crewPass()(sx, sy) ? [sx, sy] : [px, py];
+      const path = this.crewPathFrom(c, tx, ty);
+      if (!path) return false;
+      const last = path[path.length - 1];
+      if (!last || Math.hypot(last[0] - seat.x, last[1] - seat.y) > 1e-3) path.push([seat.x, seat.y]);
+      c.path = path;
+      return true;
+    },
+    /** Open floor beside a spot (the dog by a leader on the porch bench): the nearest tile middle they can stand on. */
+    crewDogBeside(at) {
+      const pass = this.crewPass();
+      const sx = Math.floor(at.x);
+      const sy = Math.floor(at.y);
+      for (let r = 1; r < 4; r++) {
+        for (const [dx, dy] of N8) {
+          const x = sx + dx * r;
+          const y = sy + dy * r;
+          if (pass(x, y) && this.grid[y][x] !== "O") return [x + 0.5, y + 0.5];
+        }
+      }
+      return [at.x, at.y];
     },
     /** A weighted pick among this crew member's open posts, not one another crew member is at or making for,
         and (when it has a choice) not the one it is at. checkTiles: skip a post whose tile is blocked now. */
@@ -302,7 +446,7 @@
     },
     /** Set off for a point: a path there, or false when there is no way. */
     crewGo(c, tx, ty, to) {
-      const path = this.crewPath(c.x, c.y, tx, ty, to);
+      const path = this.crewPathFrom(c, tx, ty, to);
       if (!path) return false;
       c.path = path;
       return true;
@@ -324,8 +468,10 @@
       }
       return false;
     },
-    /** Walk along the path at `speed` tiles a second; true once at its end. A shut door ahead opens. */
+    /** Walk along the path at `speed` tiles a second; true once at its end. A shut door ahead opens. A live figure
+        still sitting, kneeling or reading gets up first (crewAnim eases its pose out; it sets off once standing). */
     crewMove(c, dt, speed) {
+      if (c.fig && this.figPosed(c.fig)) return false;
       let step = speed * dt;
       let moved = false;
       while (c.path.length && step > 1e-6) {
@@ -413,8 +559,16 @@
       } else this.crewLookout();
       this.crewBubbleLook();
     },
-    /** One crew member: walk, dwell, work, run to the shelter, or wait there. */
+    /** One crew member: what they do (crewAct), then, in 3D, how that looks (crewAnim). */
     crewStep(c, dt, R, pass, wave) {
+      const x0 = c.x;
+      const y0 = c.y;
+      this.crewAct(c, dt, R, pass, wave);
+      this.crewPlace(c);
+      if (c.fig) this.crewAnim(c, dt, x0, y0);
+    },
+    /** What one crew member does this frame: walk, dwell, work, run to the shelter, or wait there. */
+    crewAct(c, dt, R, pass, wave) {
       c.ft -= dt;
       this.crewDoorsBehind(c);
       // the bubble went without crewTalkEnd (the scene stopped with it open): back to what they were doing
@@ -427,7 +581,7 @@
         }
         return this.crewPlace(c);
       }
-      if (c.state !== "shelter" && c.state !== "run" && this.crewUnstick(c, pass)) {
+      if (c.state !== "shelter" && c.state !== "run" && !this.crewOnSeat(c) && this.crewUnstick(c, pass)) {
         c.path = [];
         c.state = "idle";
       }
@@ -498,6 +652,89 @@
       c.prop.x = c.x;
       c.prop.y = c.y;
     },
+    /** How a crew member looks this frame, in 3D (c.fig): what they do turned into what the figure wants (figStep does
+        the rest). Walking: the way they go; running to the shelter: a real run; in it: cowering, turned to its door;
+        working a repair: kneeling, hammering, facing it; talking: standing (up from a seat), the head turned to you and
+        the body too once you are past the head's reach, the mouth going; at a post: its pose, facing its task (`face`),
+        or on its seat (`seat`: its height, its way, drawn in front of it), the head turned to the task. */
+    crewAnim(c, dt, x0, y0) {
+      const f = c.fig;
+      const p = this.player;
+      let pose = "stand";
+      let want = null;
+      let look = null;
+      let run = 0;
+      let job = null;
+      let seat = null;
+      switch (c.state) {
+        case "walk":
+          pose = "walk";
+          break;
+        case "run":
+          pose = "walk";
+          run = 1;
+          break;
+        case "shelter":
+          pose = "cower";
+          look = c.homeFace || null;
+          break;
+        case "work":
+          pose = "work";
+          job = "hammer"; // a fence post, a build, a door or a window: nailed back
+          if (c.job) look = [c.job.x + 0.5, c.job.y + 0.5];
+          break;
+        case "talk":
+          pose = "talk";
+          if (p) look = [p.x, p.y];
+          break;
+        case "dwell": {
+          const post = c.post;
+          if (!post) break;
+          const s = this.crewSeatOf(post);
+          look = this.crewFacePoint(post, c);
+          if (s && Math.hypot(c.x - s.x, c.y - s.y) < SEAT_AT) {
+            seat = s;
+            pose = "sit";
+            want = s.heading;
+          } else pose = s ? "stand" : this.crewPostPose(post);
+          break;
+        }
+        default:
+          break;
+      }
+      // the body faces what it looks at (a post's task, the job, the shelter's door), unless it sits (the seat's way)
+      // or talks (the head turns first: turnTo)
+      if (look && want == null && c.state !== "talk" && c.state !== "walk" && c.state !== "run") want = Math.atan2(look[1] - c.y, look[0] - c.x);
+      f.want = want;
+      f.wantPose = pose;
+      f.wantRun = run;
+      f.lookX = look ? look[0] : null;
+      f.lookY = look ? look[1] : null;
+      f.turnTo = c.state === "talk";
+      f.job = job;
+      // on a seat: its height (kept while they get up from it); on it or by it, drawn in front of it
+      if (seat) f.seat = seat.h;
+      else if (f.pose !== "sit") f.seat = 0;
+      const by = seat || this.crewSeatNear(c);
+      f.zb = by ? by.zb : 0;
+      this.figStep(f, dt, x0, y0, c.x, c.y);
+    },
+    /** The seat of theirs they are on or by (crewOnSeat), or null. */
+    crewSeatNear(c) {
+      for (const post of c.def.posts || []) {
+        const s = this.crewSeatOf(post);
+        if (s && Math.hypot(c.x - s.x, c.y - s.y) < SEAT_NEAR) return s;
+      }
+      return null;
+    },
+    /** The top of a crew member's (or the dog's) head now, in tiles: the 3D figure's own (it sits, kneels, cowers),
+        else the flat sprite's standing head. The bubble's tail and the tutorial's arrow point there. */
+    crewHeadTop(c) {
+      if (c && c.fig && this.figHeadTop) return this.figHeadTop(c.fig);
+      if (c && c === this.dog) return 0.3;
+      const def = c && c.def;
+      return ((def && def.scale) || 1) * 0.86;
+    },
     /** Walking frames: a step every 0.28 s at walking pace (faster when they run). */
     crewWalkFrames(c, k) {
       if (c.ft > 0 && c.pose === "walk") return;
@@ -511,8 +748,7 @@
         const post = this.crewPickPost(c, true, tried);
         if (!post) break;
         tried.push(post);
-        const [tx, ty] = this.crewPostTile(post);
-        if (this.crewGo(c, tx, ty)) {
+        if (this.crewGoPost(c, post)) {
           c.post = post;
           c.state = "walk";
           c.ft = 0;
@@ -555,7 +791,8 @@
       if (!targets.length) return false;
       const pass = this.crewPass();
       const gw = this.gw;
-      const dist = this.crewDist(Math.floor(c.x), Math.floor(c.y), pass);
+      const from = this.crewSeatStep(c) || [c.x, c.y]; // (off a seat on a solid tile by its post's tile)
+      const dist = this.crewDist(Math.floor(from[0]), Math.floor(from[1]), pass);
       let best = null;
       targets.forEach((t) => {
         N8.forEach(([dx, dy]) => {
@@ -684,6 +921,7 @@
           c.t = rand(1, 4);
           c.ft = 0;
           c.home = null;
+          c.homeFace = null;
           c.path = [];
           c.jobT = 0;
         });
@@ -697,10 +935,12 @@
       // the smallest farthest from the door; more crew than tiles share them. SCALE: a bigger crew needs a
       // bigger shelter room (CREW_RULES.shelter), or they stand two to a tile
       const order = this.crew.slice().sort((a, b) => (a.def.scale || 1) - (b.def.scale || 1));
+      const door = this.crewWaveInfo.doors[0];
       order.forEach((c, i) => {
         const t = tiles[i % tiles.length];
         const shared = i >= tiles.length;
         c.home = { x: t.x + (shared ? 0.22 : 0), y: t.y + (shared ? -0.12 : 0) };
+        c.homeFace = door ? [door.x + 0.5, door.y + 0.5] : null; // in there they cower, turned to its door
         c.job = null;
         c.state = "run";
         c.t = SHELTER_LATE;
@@ -805,15 +1045,21 @@
     crewDogStep(dt, R, pass, wave) {
       const d = this.dog;
       const lead = this.crewDogLeader();
+      const x0 = d.x;
+      const y0 = d.y;
       d.ft -= dt;
       d.barkT = Math.max(0, d.barkT - dt);
-      if (!lead) return this.crewDogPlace();
-      if (!pass(Math.floor(d.x), Math.floor(d.y)) && !(d.home && Math.hypot(d.x - d.home.x, d.y - d.home.y) < 0.5)) this.crewDogTo(lead.x + 0.3, lead.y + 0.15);
-      // the leader's footsteps
+      if (!lead) {
+        this.crewDogPlace();
+        if (d.fig) this.crewDogAnim(d, dt, x0, y0, d.pose || "sit", null, false);
+        return;
+      }
+      if (!pass(Math.floor(d.x), Math.floor(d.y)) && !(d.home && Math.hypot(d.x - d.home.x, d.y - d.home.y) < 0.5)) this.crewDogTo(...this.crewDogBy(lead, pass));
+      // the leader's footsteps (never onto a seat on a solid tile: the porch bench, a bed; it waits beside it)
       const last = d.trail[d.trail.length - 1] || [d.x, d.y];
-      if (Math.hypot(lead.x - last[0], lead.y - last[1]) > 0.3) {
+      if (Math.hypot(lead.x - last[0], lead.y - last[1]) > 0.3 && pass(Math.floor(lead.x), Math.floor(lead.y))) {
         d.trail.push([lead.x, lead.y]);
-        if (d.trail.length > TRAIL_MAX) this.crewDogTo(lead.x + 0.3, lead.y + 0.15); // lost the trail: by them again
+        if (d.trail.length > TRAIL_MAX) this.crewDogTo(...this.crewDogBy(lead, pass)); // lost the trail: by them again
       }
       const named = !!State().dogName();
       const sheltered = wave && lead.state === "shelter" && d.home;
@@ -868,6 +1114,40 @@
       const left2 = p ? Math.cos(d.heading) * -Math.sin(p.a) + Math.sin(d.heading) * Math.cos(p.a) < 0 : false;
       this.crewDogLook(pose, d.f, left2);
       this.crewDogPlace();
+      if (d.fig) this.crewDogAnim(d, dt, x0, y0, pose, lead, sheltered);
+    },
+    /** Where the dog is put by its leader: just beside them, or the nearest open floor when that is not (a leader on
+        the porch bench). [x, y] */
+    crewDogBy(lead, pass) {
+      const x = lead.x + 0.3;
+      const y = lead.y + 0.15;
+      return pass(Math.floor(x), Math.floor(y)) ? [x, y] : this.crewDogBeside(lead);
+    },
+    /** How the dog looks this frame, in 3D (d.fig): walking or galloping by its speed (DOG_RUN), barking, sitting or
+        standing at rest turned to its leader, its head on you when you are close (and all of it while you pet it), lying
+        low in the shelter with its tail still; the tail wags harder when you are near. */
+    crewDogAnim(d, dt, x0, y0, pose, lead, sheltered) {
+      const f = d.fig;
+      const p = this.player;
+      const speed = dt > 0 ? Math.hypot(d.x - x0, d.y - y0) / dt : 0;
+      const petted = !!(this.talk && this.talk.id === "dog");
+      const near = p && Math.hypot(p.x - d.x, p.y - d.y) <= DOG_LOOK;
+      const moving = pose === "walk";
+      let look = null;
+      let want = null;
+      if (sheltered) look = lead && lead.homeFace ? lead.homeFace : null; // in the shelter: an eye on its door, as the crew
+      else if (petted || (near && !moving)) look = [p.x, p.y];
+      else if (!moving && lead && Math.hypot(lead.x - d.x, lead.y - d.y) > 0.3) look = [lead.x, lead.y];
+      // at rest it turns to its leader (or you, or the shelter's door); walking, the way it goes
+      if (!moving && !petted && look) want = Math.atan2(look[1] - d.y, look[0] - d.x);
+      f.want = want;
+      f.wantPose = sheltered && pose === "sit" ? "lie" : pose;
+      f.wantRun = moving ? Math.max(0, Math.min(1, (speed - DOG_RUN[0]) / DOG_RUN[1])) : 0;
+      f.wantWag = sheltered ? 0.15 : petted || pose === "bark" ? 1 : near ? 0.8 : 0.5;
+      f.lookX = look ? look[0] : null;
+      f.lookY = look ? look[1] : null;
+      f.turnTo = petted;
+      this.figStep(f, dt, x0, y0, d.x, d.y);
     },
     /** Along the leader's footsteps by `step` tiles (never closer than `gap` behind). True if it moved. */
     crewDogTrail(d, step, gap, lead) {
@@ -1255,6 +1535,23 @@
       const side = this.sideOf(sp.x, sp.y);
       const tail = side < -0.18 ? "left" : side > 0.18 ? "right" : "mid";
       if (el.dataset.tail !== tail) el.dataset.tail = tail;
+      // beside the speaker (a wide screen), the tail points at their head as you see it: up at Tomas standing, down at
+      // Pip on a chair (css/crew.css --tail-top); looked up a few times a second (it reads the bubble's place)
+      if (!(this.time < t.tailT)) {
+        t.tailT = this.time + 0.25;
+        this.crewBubbleTail(el, sp);
+      }
+    },
+    /** Point the bubble's tail at the speaker's head: its height on screen (crewHeadTop) inside the bubble's box. */
+    crewBubbleTail(el, sp) {
+      if (!el.getBoundingClientRect || !el.style || !el.style.setProperty) return;
+      const q = this.project(sp.x, sp.y, this.crewHeadTop(sp));
+      if (!q) return;
+      const r = el.getBoundingClientRect();
+      if (!(r.height > 0)) return;
+      // the tail's tip sits 18% down its 34 px (css/crew.css --th, clip-path); kept on the bubble's side, clear of its corners
+      const y = Math.round(Math.max(12, Math.min(r.height - 40, q.y - r.top - 6)));
+      el.style.setProperty("--tail-top", y + "px");
     },
     /** The box that scrolls when the bubble's words run past its edge: the words (wide screens), the whole
         bubble (Huge text), or null when it all shows. Only once the read panel shows this bubble. */

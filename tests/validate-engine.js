@@ -93,7 +93,8 @@ const PAGE = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m)
 // the fact files: js/layouts.js, js/world.js and every js/story*.js the page loads (a split fact file, story-quests2.js,
 // is run too; tests/validate-world.js reads the same list), then the engine
 const FACT_FILES = ["layouts.js", "world.js"].concat(PAGE.filter((f) => /^story[\w-]*\.js$/.test(f)));
-const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "walker3d-crew.js", "model3d.js", "van3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "perspective.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
+// (the crew are live figures on Walker3D's people, js/walker3d-crew.js, and the dogs on Beast3D, js/beast3d.js)
+const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "walker3d-crew.js", "beast3d.js", "beast3d-looks.js", "model3d.js", "van3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "perspective.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
 const scripts = PAGE.filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -4678,7 +4679,8 @@ function alphaContext(canvas) {
           }
           ok(covered > spans / 10 && reach > 0,`of ${spans} spans down the van's columns it covers ${covered}, ${reach} reach under its sill (want some of each)`);
         }
-        // a wave clawing at its far side, seen from 1.5 tiles off its near side: none drawn, no live redraws
+        // a wave clawing at its far side, seen from 1.5 tiles off its near side: none drawn, no live redraws (the crew,
+        // live figures in the same pool, are out of the scene for this: js/crew.js)
         at(cx, cy - 2, Math.PI / 2);
         I.walkers.length = 0;
         [0, 0.4, 0.9].forEach((dx, i) => {
@@ -4688,8 +4690,11 @@ function alphaContext(canvas) {
           z.pose = "claw";
           I.walkers.push(z);
         });
+        const figs = I.props.filter((pr) => pr.fig && !pr.hidden);
+        figs.forEach((pr) => (pr.hidden = true));
         frame();
         frame();
+        figs.forEach((pr) => (pr.hidden = false));
         ok(I.liveShown === 0 && I.liveDrawn === 0 && lives.length === 3, `wreckers hidden behind the van: ${I.liveShown} of ${lives.length} counted as shown, ${I.liveDrawn} live redraws (want none)`);
       }
       I.walkers.length = 0;
@@ -4848,7 +4853,8 @@ if (errors.length === modelErrors0) console.log(`OK: model sprites: ${modelCheck
    paused, as in the real loop. The yard part: the hold (no wave, no bell, no Pip, no favors, the van waits and June
    says what is next), the steps (done early counts, the dog does not), the practice walker (slow, hurts a little,
    never below half, never at the fence or the cabin, no scrap), the release into the normal first calm, progress
-   kept at once per save slot, a quit and a return, the screen cards once each, the gates, replay, the scene
+   kept at once per save slot, a quit and a return, the talk arrow over a seated crew member's head as drawn, the
+   screen cards once each, the gates, replay, the scene
    boundary, the hooks in the source, and liveness: seeded random histories, then a good player who must get out. */
 {
   const T = ZSR.Tutorial;
@@ -5128,6 +5134,56 @@ if (errors.length === modelErrors0) console.log(`OK: model sprites: ${modelCheck
     I.stop();
     T.enter(null);
     if (I.yardHold || T.isOpen() || open) err("tutorial: quitting left the hold or a card behind");
+
+    // 14b. the talk step's arrow hangs a gap over the crew member's head as drawn: a 3D figure's own head, lower on a
+    // seat (js/crew.js crewHeadTop), not a standing height
+    S.settings.tutorial = ["walk", "bag", "shoot"];
+    S.saveSettings();
+    shown = [];
+    I.enterYard({});
+    T.enter("yard");
+    frames(1);
+    if (shown[shown.length - 1] !== "talk") err(`tutorial: a return to the yard with the talk step next did not show its card (shown ${shown.join(",")})`);
+    else {
+      got("talk");
+      const crew0 = I.crew;
+      const c = crew0.find((m) => m.fig && (m.def.posts || []).some((q) => q.seat && I.crewPostOpen(q)));
+      if (!c) err("tutorial: no 3D crew member with a seat to point the arrow at");
+      else {
+        I.crew = [c]; // (the arrow points at the nearest: this one)
+        try {
+          I.crewSettle(c, c.def.posts.find((q) => q.seat && I.crewPostOpen(q)));
+          Object.assign(c, { state: "dwell", t: 1e6, jobT: 1e6, path: [], job: null });
+          I.crewPlace(c);
+          // a spot 3 tiles off with a clear line to them (the arrow then points straight at them, not along the way)
+          let spot = null;
+          for (let k = 0; k < 16 && !spot; k++) {
+            const a = (k * Math.PI) / 8;
+            const x = c.x + Math.cos(a) * 3;
+            const y = c.y + Math.sin(a) * 3;
+            if (!I.solidForPlayer(x, y) && I.lineClear(x, y, c.x, c.y)) spot = [x, y];
+          }
+          if (!spot) err(`tutorial: no open spot in sight 3 tiles from ${c.id} on the seat`);
+          else {
+            Object.assign(I.player, { x: spot[0], y: spot[1], a: Math.atan2(c.y - spot[1], c.x - spot[0]) });
+            lastArrow = null;
+            frames(0.1);
+            const head = I.crewHeadTop(c);
+            const q = I.project(c.x, c.y, head + 0.3);
+            const box = ZSR.Walker3D.box(ZSR.Walker3D.humanId(c.id));
+            const tall = I.project(c.x, c.y, box.head + 0.3);
+            const y = q && Math.round(Math.max(I.H * 0.18, Math.min(I.H * 0.7, q.y)));
+            if (!(c.fig.pose === "sit" && head < box.head - 0.1)) err(`tutorial: ${c.id} on the seat is not sitting lower (pose ${c.fig.pose}, head top ${head}, standing ${box.head})`);
+            else if (!lastArrow || lastArrow.dir !== "down" || lastArrow.x !== Math.round(q.x) || lastArrow.y !== y) err(`tutorial: the arrow over ${c.id} on the seat is ${JSON.stringify(lastArrow)}, not over the head as drawn (x ${q && Math.round(q.x)}, y ${y})`);
+            else if (!(tall && lastArrow.y > tall.y + 2)) err(`tutorial: the arrow over ${c.id} on the seat (y ${lastArrow.y}) is no lower than over them standing (y ${tall && tall.y})`);
+          }
+        } finally {
+          I.crew = crew0;
+        }
+      }
+    }
+    I.stop();
+    T.enter(null);
 
     // 15. each screen's card once
     shown = [];
@@ -5429,4 +5485,4 @@ if (errors.length) {
   console.log(`\n${errors.length} engine problem(s).`);
   process.exit(1);
 }
-console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, every paint look's decal from the road camera (at least ${(roadDecalLeast * 100).toFixed(1)}% of the van), the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), the breach rule (3/6/12/30 steps, a mend, a corner hole, raiders and wreckers, two holes), wreckers (the builds, the van's floor, provoked, Can't die), wrecked builds and their repairs, a walker reaching you from all ${wreckSpotsTried} wreck spots, and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, replay, 25 seeded histories with no soft-lock), and ${kindsChecked} walker kinds (stats, spawned in front of you in a building, the yard and the river, the scream, downed walkers and blood, heading, gait, the river's and the alarm's kinds, the alarm's cap, a return visit), and ${countsChecked} checks that walkers are never counted (no HUD box, the wave label, the river's toast), the scream's toast, kinds met, and no bite round a corner.`);
+console.log(`OK: engine entered ${entered} buildings and the yard: landmarks, footprints, start, decor, walkers, frames, the M map, exploring kept, guns on the floor, every gun mod and van-gun step visible, every paint look's decal from the road camera (at least ${(roadDecalLeast * 100).toFixed(1)}% of the van), the story notes, keys, stashes and signs in every building, every yard plot's sign, the cabin (every room, note and spot, a raid, a siege, a save), the breach rule (3/6/12/30 steps, a mend, a corner hole, raiders and wreckers, two holes), wreckers (the builds, the van's floor, provoked, Can't die), wrecked builds and their repairs, a walker reaching you from all ${wreckSpotsTried} wreck spots, and River Landing (the pole, its tag, a cast, a bite, a catch, a propped pole, the cap, fish as food), and June's first-run tutorial (the hold, the gate, the practice walker, the cards, the talk arrow over a seated head, replay, 25 seeded histories with no soft-lock), and ${kindsChecked} walker kinds (stats, spawned in front of you in a building, the yard and the river, the scream, downed walkers and blood, heading, gait, the river's and the alarm's kinds, the alarm's cap, a return visit), and ${countsChecked} checks that walkers are never counted (no HUD box, the wave label, the river's toast), the scream's toast, kinds met, and no bite round a corner.`);

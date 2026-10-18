@@ -3,7 +3,8 @@
 
    The bubble is the read panel (#int-read, js/interior.js updatePanel) with the class "talk" and the
    speaker's ("crew-june", "crew-dog" ...). js/crew.js sets --crew (the speaker's color, CREW[id].color)
-   on it and data-tail ("left" | "mid" | "right": where the speaker stands in your view).
+   on it, data-tail ("left" | "mid" | "right": where the speaker stands in your view) and --tail-top (how far
+   down the bubble the speaker's head is, so the tail points at it).
    On a wide screen the bubble stands beside the speaker (who is at the crosshair when it opens), so it
    never hides them: to their right with its tail pointing left at them, or to their left once they are
    right of the middle. On a narrow screen, and at Huge text, it sits low across the screen like the other
@@ -52,10 +53,11 @@
   position: absolute;
   pointer-events: none;
 }
+/* (--tail-top: js/crew.js points the tail at the speaker's head, a 3D figure standing, sitting or cowering) */
 .read-panel.talk::before {
   width: var(--tw);
   height: var(--th);
-  top: 4.2rem;
+  top: var(--tail-top, 4.2rem);
   left: calc(-1 * var(--tw) - var(--ink-w) + 1px);
   background: var(--ink);
   clip-path: polygon(100% 0, 100% 100%, 0 18%);
@@ -63,7 +65,7 @@
 .read-panel.talk::after {
   width: calc(var(--tw) - 1.4 * var(--ink-w));
   height: calc(var(--th) - 2.6 * var(--ink-w));
-  top: calc(4.2rem + 1.2 * var(--ink-w));
+  top: calc(var(--tail-top, 4.2rem) + 1.2 * var(--ink-w));
   left: calc(-1 * var(--tw) + 1.6 * var(--ink-w));
   background: #fff;
   clip-path: polygon(100% 0, 100% 100%, 0 14%);

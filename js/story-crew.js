@@ -17,7 +17,18 @@
      HOUSE.spots entry and the van, not in the shelter, and off the line a player takes to read a
      plot sign or plaque (so a crew member never stands between you and a sign).
      Checked at room levels 0 to 3 and mixes: tests/validate-crew.js.
-     SCALE: posts are hand-placed tiles; moving a plot, the van or a cabin room means re-checking them. */
+     Two more fields per post (the 3D crew, js/crew.js; appended, as every post field is):
+     face: what they turn to at the post, their task: { at: [x, y] } a yard point (tiles, fractions allowed),
+       { house: [hx, hy] } a cabin point, { plot: id } the nearest point of that YARD plot (its beds, its build), or
+       { note: id } that HOUSE note on its wall. Sitting, the body faces the seat's way and the head turns to it as
+       far as it reaches.
+     seat: every "sit" post sits on a real seat, never the floor: { house | at: the seat's middle (the sitter's spot on
+       the floor; the walk ends there), kind: a CREW_SEATS key (its height), dir: "n" | "e" | "s" | "w", the way the
+       sitter faces (away from the chair's back: to the table, the yard, the room) }. The post's own tile is where they
+       step from onto a seat that stands on a solid tile (the porch bench, a bed). Checked with the furniture under it
+       (js/house.js): tests/validate-world.js and tests/validate-crew.js.
+     SCALE: posts are hand-placed tiles; moving a plot, the van or a cabin room means re-checking them (and a moved chair
+     or bench, its seat). */
   W.CREW = {
     june: {
       name: "June",
@@ -26,13 +37,14 @@
       scale: 0.9,
       jobs: [{ job: "heal", stars: 1 }],
       posts: [
-        { id: "porch", house: [7, 1], pose: "sit", weight: 3 }, // on the porch, by the bench
-        { id: "kitchen", house: [14, 7], pose: "stand", weight: 3 }, // at the stove (the work pose is a garden kneel)
-        { id: "ledger", house: [17, 15], pose: "read", weight: 3 }, // in the living room, by the shelf with her ledger
-        { id: "office", house: [3, 3], pose: "read", weight: 2 }, // the base plans at Kate's map desk
-        { id: "lot", at: [13, 16], pose: "stand", weight: 2 }, // looking over the garden plot
-        { id: "garden", at: [13, 18], room: "garden", level: 1, pose: "work", weight: 4 }, // tending her beds
-        { id: "lab", at: [38, 12], room: "lab", level: 1, pose: "work", weight: 2 }, // her herb beds
+        // on the porch bench, looking out over the yard
+        { id: "porch", house: [7, 1], pose: "sit", weight: 3, face: { at: [25.5, 30] }, seat: { house: [6.5, 1.45], kind: "porchBench", dir: "n" } },
+        { id: "kitchen", house: [14, 7], pose: "stand", weight: 3, face: { house: [15.5, 6.5] } }, // at the stove (the work pose is a garden kneel)
+        { id: "ledger", house: [17, 15], pose: "read", weight: 3, face: { house: [16.5, 13.4] } }, // in the living room, by the shelf with her ledger
+        { id: "office", house: [3, 3], pose: "read", weight: 2, face: { house: [2, 1.5] } }, // the base plans at Kate's map desk
+        { id: "lot", at: [13, 16], pose: "stand", weight: 2, face: { plot: "garden" } }, // looking over the garden plot
+        { id: "garden", at: [13, 18], room: "garden", level: 1, pose: "work", weight: 4, face: { plot: "garden" } }, // tending her beds
+        { id: "lab", at: [38, 12], room: "lab", level: 1, pose: "work", weight: 2, face: { plot: "lab" } }, // her herb beds
       ],
     },
     tomas: {
@@ -42,13 +54,14 @@
       scale: 1.0,
       jobs: [{ job: "fence", stars: 0 }, { job: "builds", stars: 0 }, { job: "cabin", stars: 2 }],
       posts: [
-        { id: "van", at: [21, 29], pose: "stand", weight: 4 }, // at the van's hood, off its parking gravel (the work pose kneels to nail a board)
-        { id: "garage", at: [12, 31], pose: "work", weight: 3 }, // by the garage plot
-        { id: "gusRoom", house: [22, 7], pose: "sit", weight: 3 }, // Gus's room, where he sleeps
-        { id: "pingpong", house: [9, 10], pose: "stand", weight: 2 }, // at the ping pong table
-        { id: "fence", at: [47, 40], pose: "stand", weight: 2 }, // checking the east fence
-        { id: "power", at: [17, 12], room: "power", level: 1, pose: "work", weight: 2 }, // the lights and the generator
-        { id: "water", at: [45, 12], room: "water", level: 1, pose: "work", weight: 1 }, // the filter he painted the sign for
+        { id: "van", at: [21, 29], pose: "stand", weight: 4, face: { at: [19.4, 31.5] } }, // at the van's hood (its nose points west), off its parking gravel (the work pose kneels to nail a board)
+        { id: "garage", at: [12, 31], pose: "work", weight: 3, face: { plot: "garage" } }, // by the garage plot
+        // Gus's room, where he sleeps: on the edge of the bed, an eye on Gus's keep-out sign
+        { id: "gusRoom", house: [22, 7], pose: "sit", weight: 3, face: { note: "gusRoom" }, seat: { house: [22.7, 6.88], kind: "bed", dir: "s" } },
+        { id: "pingpong", house: [9, 10], pose: "stand", weight: 2, face: { house: [8, 10.5] } }, // at the ping pong table
+        { id: "fence", at: [47, 40], pose: "stand", weight: 2, face: { at: [50.5, 40.5] } }, // checking the east fence
+        { id: "power", at: [17, 12], room: "power", level: 1, pose: "work", weight: 2, face: { plot: "power" } }, // the lights and the generator
+        { id: "water", at: [45, 12], room: "water", level: 1, pose: "work", weight: 1, face: { plot: "water" } }, // the filter he painted the sign for
       ],
     },
     pip: {
@@ -58,16 +71,30 @@
       scale: 0.74,
       jobs: [{ job: "lookout", stars: 1 }],
       posts: [
-        { id: "radioShelf", house: [13, 1], pose: "sit", weight: 4 }, // at the radio in the dining room, on the floor by the shelf
-        { id: "radioLot", at: [12, 12], pose: "read", weight: 3 }, // the radio plot, with the list of voices
-        { id: "radio", at: [12, 9], room: "radio", level: 1, pose: "work", weight: 3 }, // beside the radio tower
-        { id: "dining", house: [15, 3], pose: "sit", weight: 2 }, // on the floor by the chore chart (the sit pose sits on the floor: the art draws no chair)
-        { id: "finnRoom", house: [21, 17], pose: "read", weight: 2 }, // Finn's treehouse plan
-        { id: "lucyRoom", house: [21, 22], pose: "stand", weight: 1 }, // the drawing of a dog with no name yet
-        { id: "lookout", at: [27, 6], pose: "stand", weight: 2 }, // the back fence, watching the trees
-        { id: "pingpong", house: [7, 12], pose: "stand", weight: 1 }, // the table that leans to the left
+        // at the radio in the dining room: on the dining chair beside the shelf, turned to the radio
+        { id: "radioShelf", house: [13, 1], pose: "sit", weight: 4, face: { house: [15.5, 1.45] }, seat: { house: [15.45, 2.5], kind: "diningChair", dir: "n" } },
+        { id: "radioLot", at: [12, 12], pose: "read", weight: 3, face: { plot: "radio" } }, // the radio plot, with the list of voices
+        { id: "radio", at: [12, 9], room: "radio", level: 1, pose: "work", weight: 3, face: { plot: "radio" } }, // beside the radio tower
+        // by the chore chart: on the dining chair next to it, at the table
+        { id: "dining", house: [15, 3], pose: "sit", weight: 2, face: { house: [14, 3] }, seat: { house: [15.45, 3.5], kind: "diningChair", dir: "w" } },
+        { id: "finnRoom", house: [21, 17], pose: "read", weight: 2, face: { note: "finnRoom" } }, // Finn's treehouse plan
+        { id: "lucyRoom", house: [21, 22], pose: "stand", weight: 1, face: { note: "lucyRoom" } }, // the drawing of a dog with no name yet
+        { id: "lookout", at: [27, 6], pose: "stand", weight: 2, face: { at: [27.5, 3] } }, // the back fence, watching the trees
+        { id: "pingpong", house: [7, 12], pose: "stand", weight: 1, face: { house: [8, 10.5] } }, // the table that leans to the left
       ],
     },
+  };
+
+  /* ---------- The seats the crew sit on (a post's seat.kind) ----------
+     Each one's height in tiles, read off the furniture as it stands in the cabin (js/house.js puts it there, at the
+     prop scale given; js/houseart.js draws it): the top of the seat's front edge over the floor. A sitter's hips rest
+     there (Walker3D people: st.seat), the feet on the floor in front of it.
+     SCALE: one entry per kind of seat. The porch bench becomes a 3D model with a real seat surface in a later stage:
+     its height is this one number (tests/validate-crew.js holds every seat to the furniture under it). */
+  W.CREW_SEATS = {
+    porchBench: 0.154, // "hBench" at scale 0.34: the seat's front rail tops out 29 px over the legs' ends in its 64 px picture
+    diningChair: 0.161, // "hChair" at scale 0.5: the seat's front edge 31 px over the legs' ends in its 96 px picture
+    bed: 0.32, // a bed's mattress (js/house.js bed(): a low tile 0.32 tall), sat on at its edge
   };
 
   /* ---------- The rules the crew lives by (docs/CREW.md) ---------- */
