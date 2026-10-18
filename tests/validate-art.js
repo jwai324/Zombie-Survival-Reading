@@ -24,7 +24,10 @@
      covers every crew member in every pose and frame, the poses and quest object kinds docs/CREW.md
      names, and every crew member, post pose and quest object kind in the facts (js/story-crew.js,
      js/story-quests.js and any other js/story*.js the page loads); an id, pose or kind the art does not know yet
-     draws a stand-in.
+     draws a stand-in;
+   - the van model (js/model3d.js and js/van3d.js, after upgrades.js): every paint look with its gear at several
+     levels, the dents, the roof gun and every level of detail draws cleanly from all round, near and far, within its
+     canvas-call ceilings, the same way twice, its text never mirrored; each look's decal is on both sides and the hood.
    validate-world.js checks the layout data, validate-engine.js what the engine makes of it. */
 "use strict";
 const fs = require("fs");
@@ -1116,6 +1119,200 @@ let roadDraws = 0;
   }
 }
 
+/* ---------- The van model (js/model3d.js, js/van3d.js: loaded after upgrades.js, as the page does) ----------
+   One 3D van everywhere it is seen. Every paint look with the gear at 0, 1, 3, 5 and mixed, the dents, the roof gun and
+   each level of detail, drawn from all round (16 yaws by 3 pitches, the road camera's behind and above among them),
+   near (parts cut by the camera's near plane) and far, on the checking context: no throw, finite numbers and real
+   colours, no images, gradients, read-backs or new canvases, transforms only round its text (inside save and restore,
+   never mirrored), within its canvas-call ceiling at every view, the same calls twice. Each look's decal is on both
+   sides and the hood; a look, a gear level or a dent tier changes its signature, and the same signature is the same
+   built model. validate-engine.js checks every upgrade step shows. */
+// SCALE: most canvas calls the van may make at lod 0 / 1 / 2, with all its gear at 5, the gun and heavy dents, from any
+// side: the road draws it every frame (the owner's lag problem). New gear or a busier look must fit under these
+const VAN_OPS = [1400, 700, 350];
+const VAN_YAWS = 16;
+const VAN_PITCHES = [0.1, 0.5, 0.86]; // radians up from level: the yard's eye, above, the road camera's
+let vanDraws = 0;
+{
+  ["model3d.js", "van3d.js"].forEach((f, i) => {
+    const at = pageScripts.indexOf(f);
+    if (at < 0) err(`index.html does not load js/${f}`);
+    else {
+      if (at < pageScripts.indexOf("upgrades.js")) err(`index.html loads js/${f} before upgrades.js (the van's looks are PAINT_LOOKS)`);
+      if (i && at < pageScripts.indexOf("model3d.js")) err("index.html loads js/van3d.js before js/model3d.js");
+    }
+    load(f);
+  });
+  const M3 = ZSR.Model3D;
+  const V3 = ZSR.Van3D;
+  const LOOKS = (ZSR.Upgrades && ZSR.Upgrades.PAINT_LOOKS) || [];
+  if (!M3 || !V3) err("js/van3d.js does not export ZSR.Van3D (or js/model3d.js ZSR.Model3D)");
+  else {
+    // the interface the yard, the road, the garage and the bench draw it through
+    ["L", "W", "H"].forEach((k) => (finite(V3[k]) && V3[k] > 0) || err(`Van3D.${k} is ${V3[k]}`));
+    ["sig", "mesh", "draw", "dentTier", "dentNow", "lookOf"].forEach((k) => typeof V3[k] === "function" || err(`Van3D.${k} is not a function`));
+    const D3 = V3.DENTS || [];
+    if (!(D3.length === 2 && D3[0] < 1 && D3[1] > 0 && D3[1] < D3[0])) err(`Van3D.DENTS is ${JSON.stringify(D3)} (two health shares, falling)`);
+    else if (V3.dentTier(1) !== 0 || V3.dentTier(D3[0] - 0.01) !== 1 || V3.dentTier(D3[1] - 0.01) !== 2 || V3.dentTier(0) !== 2) err("Van3D.dentTier does not give 0 / 1 / 2 at full health, under DENTS[0] and under DENTS[1]");
+    if (V3.lookOf({ paint: LOOKS.length + 5 }) !== LOOKS[LOOKS.length - 1] || V3.lookOf({}) !== LOOKS[0] || V3.lookOf({ paint: -3 }) !== LOOKS[0]) err("Van3D.lookOf does not keep the paint inside PAINT_LOOKS");
+    const KINDS = new Set(["none", "stripe", "patches", "stencil", "hazard", "flames", "lightning", "drips"]);
+    LOOKS.forEach((l, i) => {
+      if (!KINDS.has(l.decal)) err(`PAINT_LOOKS[${i}] ${l.name}: the van draws no decal "${l.decal}" (js/van3d.js DECALS)`);
+      ["body", "roof", "trim", "bumper", "rims", "decalA", "decalB"].forEach((k) => (typeof l[k] === "string" && COLOR.test(l[k])) || err(`PAINT_LOOKS[${i}] ${l.name}: ${k} is ${l[k]}`));
+    });
+    const NONE = { armor: 0, bumper: 0, engine: 0, damage: 0, fireRate: 0, spread: 0 };
+    const ALL = { armor: 5, bumper: 5, engine: 5, damage: 5, fireRate: 5, spread: 3 };
+    const GEARS = [NONE, { armor: 1, bumper: 1, engine: 1, damage: 1, fireRate: 1, spread: 1 }, { armor: 3, bumper: 3, engine: 3, damage: 3, fireRate: 3, spread: 2 }, ALL, { armor: 4, bumper: 1, engine: 3, damage: 2, fireRate: 5, spread: 1 }, { armor: 2, bumper: 5, engine: 0, damage: 5, fireRate: 0, spread: 3 }];
+    // a camera round the van's middle: yaw 0 behind it, turning to its right; pitch up from level; dist from its middle
+    const camera = (yaw, pitch, dist, lod, near, w, h) => {
+      const t = [0, 0, V3.H / 2];
+      const e = [t[0] + Math.sin(yaw) * Math.cos(pitch) * dist, t[1] - Math.cos(yaw) * Math.cos(pitch) * dist, t[2] + Math.sin(pitch) * dist];
+      const nz = (a) => {
+        const l = Math.hypot(a[0], a[1], a[2]);
+        return [a[0] / l, a[1] / l, a[2] / l];
+      };
+      const f = nz([t[0] - e[0], t[1] - e[1], t[2] - e[2]]);
+      const r = nz([f[1], -f[0], 0]);
+      const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+      const F = h / 2 / Math.tan(0.4);
+      const L = nz([-0.45, -0.3, 0.84]);
+      const view = M3.view({ ink: 1.5, lod, near: near || 0, eye: e, lit: (x, y, z) => 0.62 + 0.55 * Math.max(0, x * L[0] + y * L[1] + z * L[2]) });
+      view.project = (x, y, z) => {
+        const dx = x - e[0];
+        const dy = y - e[1];
+        const dz = z - e[2];
+        const D = dx * f[0] + dy * f[1] + dz * f[2];
+        view.D = D;
+        const s = F / Math.max(D, 1e-6);
+        view.X = w / 2 + (dx * r[0] + dy * r[1] + dz * r[2]) * s;
+        view.Y = h / 2 - (dx * u[0] + dy * u[1] + dz * u[2]) * s;
+        return D > view.near;
+      };
+      return view;
+    };
+    const FORBID = new Set(["drawImage", "createLinearGradient", "createRadialGradient", "createPattern", "getImageData", "putImageData", "set shadowBlur", "set filter", "resetTransform", "setTransform"]);
+    let made = 0;
+    const realCreate = sb.document.createElement;
+    sb.document.createElement = (t) => {
+      made++;
+      return realCreate(t);
+    };
+    const vsig = (ops) => JSON.stringify(ops.map((op) => [op.k, op.args, op.fillStyle, op.strokeStyle, op.lineWidth]));
+    /** Draw the van once on a fresh checking canvas; returns its calls (null after reporting). */
+    const vanDraw = (u, o, view, what) => {
+      const c = element("canvas");
+      c.width = 400;
+      c.height = 300;
+      const ctx = c.getContext("2d");
+      current = what;
+      const before = made;
+      noRead = true;
+      try {
+        V3.draw(ctx, view, u, o);
+      } catch (e) {
+        noRead = false;
+        err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+        return null;
+      }
+      noRead = false;
+      vanDraws++;
+      if (made !== before) err(`${what}: made ${made - before} canvas(es) while drawing`);
+      const ops = c.ops;
+      const lod = view.lod;
+      if (ops.length > VAN_OPS[lod]) err(`${what}: ${ops.length} canvas calls, over the lod ${lod} ceiling of ${VAN_OPS[lod]}`);
+      const bad = ops.find((op) => FORBID.has(op.k));
+      if (bad) err(`${what}: calls ${bad.k} (the van draws straight: no images, gradients or read-backs)`);
+      // transforms only round text: save, transform, fillText, restore; and the text never mirrored
+      let depth = 0;
+      for (let i = 0; i < ops.length; i++) {
+        const k = ops[i].k;
+        if (k === "save") depth++;
+        else if (k === "restore") depth--;
+        else if (k === "transform" || k === "translate" || k === "scale" || k === "rotate") {
+          if (k !== "transform" || depth < 1 || !ops[i + 1] || ops[i + 1].k !== "fillText") err(`${what}: ${k} outside the text's save and restore`);
+          else {
+            const [a, b, cc, d] = ops[i].args;
+            if (!(a * d - b * cc > 0)) err(`${what}: text "${ops[i + 1].args[0]}" drawn mirrored (its map's determinant is ${(a * d - b * cc).toFixed(3)})`);
+          }
+          i++;
+        } else if (k === "fillText" && depth < 1) err(`${what}: text outside save and restore`);
+        if (depth < 0) err(`${what}: restore without save`);
+      }
+      if (depth !== 0) err(`${what}: save and restore do not pair up`);
+      return ops;
+    };
+    const gearName = (g) => `a${g.armor}b${g.bumper}e${g.engine} gun ${g.damage}/${g.fireRate}/${g.spread}`;
+    let worst = [0, 0, 0];
+    // A: the ceilings: every look, all its gear at 5, the gun, heavy dents, each level of detail, from all round (and
+    // from nearly straight above), far and near; a few drawn twice the same. (At lod 1 and 2, from the higher views,
+    // where they see the most: the roof's gear, a side and an end)
+    LOOKS.forEach((look, p) => {
+      for (let lod = 0; lod < 3; lod++) {
+        for (let yi = 0; yi < VAN_YAWS; yi++) {
+          (lod ? VAN_PITCHES.slice(-1) : VAN_PITCHES).concat([1.3]).forEach((pitch, pi) => {
+            const yaw = (yi / VAN_YAWS) * Math.PI * 2;
+            const what = `van ${look.name} all gear 5 lod ${lod} yaw ${yaw.toFixed(2)} pitch ${pitch}`;
+            const u = Object.assign({ paint: p }, ALL);
+            const ops = vanDraw(u, { dent: 2, gun: true }, camera(yaw, pitch, 380, lod, 0, 400, 300), what);
+            if (!ops) return;
+            worst[lod] = Math.max(worst[lod], ops.length);
+            if ((yi + pi) % 7 === 0) {
+              const again = vanDraw(u, { dent: 2, gun: true }, camera(yaw, pitch, 380, lod, 0, 400, 300), what + " (again)");
+              if (again && vsig(again) !== vsig(ops)) err(`${what}: the same van and view drew different calls`);
+            }
+          });
+          // near: the camera inside the van's reach, parts behind its near plane cut off
+          if (yi % 4 === lod) vanDraw(Object.assign({ paint: p }, ALL), { dent: 2, gun: true }, camera((yi / VAN_YAWS) * Math.PI * 2 + 0.3, 0.35, 75, lod, 25, 400, 300), `van ${look.name} all gear 5 lod ${lod} near, yaw ${yi}`);
+        }
+      }
+      // B: every gear set, dent tier, gun or none, at a level of detail by turns, from all round near and far
+      GEARS.forEach((g, gi) => {
+        [0, 1, 2].forEach((dent) => {
+          [false, true].forEach((gun) => {
+            {
+              const k = gi * 18 + dent * 6 + (gun ? 3 : 0) + p;
+              const lod = k % 3;
+              const yaw = ((k * 5 + p * 3) % VAN_YAWS) * ((Math.PI * 2) / VAN_YAWS);
+              const pitch = VAN_PITCHES[k % VAN_PITCHES.length];
+              const near = k % 5 === 0;
+              vanDraw(Object.assign({ paint: p }, g), { dent, gun }, camera(yaw, pitch, near ? 80 : 300, lod, near ? 25 : 0, 320, 240), `van ${look.name} ${gearName(g)} dents ${dent}${gun ? " with the gun" : ""} lod ${lod} yaw ${yaw.toFixed(2)}${near ? " near" : ""}`);
+            }
+          });
+        });
+      });
+    });
+    // C: a look's decal lies on both sides and the hood, in its decal colour; the bare primer's patches are its own
+    const sideOf = (f) => (f.nx > 0.7 ? 1 : f.nx < -0.7 ? -1 : 0);
+    LOOKS.forEach((look, p) => {
+      if (look.decal === "none") return;
+      const m = V3.mesh(Object.assign({ paint: p }, NONE), {});
+      const want = M3.rgb(look.decalA).slice(0, 3).join(",");
+      const has = (pred) => m.parts.some((pt) => ["body", "nose", "low"].includes(pt.name) && pt.faces.some((f) => pred(f) && f.decals.some((d) => d.rgb.slice(0, 3).join(",") === want)));
+      if (!has((f) => sideOf(f) > 0)) err(`van ${look.name}: no ${look.decal} decal (decalA) on its right side`);
+      if (!has((f) => sideOf(f) < 0)) err(`van ${look.name}: no ${look.decal} decal (decalA) on its left side`);
+      if (!has((f) => f.nz > 0.6 && f.cy > 30 && f.cz < 35)) err(`van ${look.name}: no ${look.decal} decal (decalA) on its hood`);
+    });
+    // D: the signature changes with the look, each gear level, the dents and the gun; one signature, one built model
+    const sigs = new Set();
+    let sigCount = 0;
+    LOOKS.forEach((l, p) => {
+      for (const k of ["armor", "bumper", "engine"]) {
+        for (let lv = 0; lv <= 5; lv++) {
+          sigs.add(V3.sig(Object.assign({ paint: p }, NONE, { [k]: lv }), {}));
+          sigCount += lv === 0 && k !== "armor" ? 0 : 1;
+        }
+      }
+    });
+    if (sigs.size !== sigCount) err(`Van3D.sig: ${sigCount} looks and gear levels give only ${sigs.size} signatures`);
+    const s0 = V3.sig(ALL, {});
+    if (V3.sig(ALL, { dent: 1 }) === s0 || V3.sig(ALL, { dent: 2 }) === V3.sig(ALL, { dent: 1 }) || V3.sig(ALL, { gun: true }) === s0) err("Van3D.sig does not change with the dents or the gun");
+    if (V3.sig(Object.assign({}, ALL, { damage: 1 }), { gun: true }) === V3.sig(ALL, { gun: true })) err("Van3D.sig does not change with the gun's upgrades when the gun is on");
+    if (V3.mesh(ALL, { dent: 1 }) !== V3.mesh(ALL, { dent: 1 })) err("Van3D.mesh builds a new model for the same van (it must keep it)");
+    sb.document.createElement = realCreate;
+    console.log(`van model: ${vanDraws} draws checked; the most canvas calls with all its gear at lod 0 / 1 / 2: ${worst.join(" / ")} (ceilings ${VAN_OPS.join(" / ")})`);
+  }
+}
+
 warnings.forEach((w) => console.log("warn  " + w));
 if (errors.length) {
   errors.slice(0, 60).forEach((e) => console.log("ERROR " + e));
@@ -1123,4 +1320,4 @@ if (errors.length) {
   console.log(`\n${errors.length} art problem(s).`);
   process.exit(1);
 }
-console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), ${crewDrawn} crew pictures, ${walkerDraws} walker figures (${W3 ? Object.keys(W3.TYPES).length : 0} types), every call checked.`);
+console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), ${crewDrawn} crew pictures, ${walkerDraws} walker figures (${W3 ? Object.keys(W3.TYPES).length : 0} types), ${vanDraws} van draws, every call checked.`);
