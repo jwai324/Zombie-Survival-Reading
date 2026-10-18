@@ -2213,6 +2213,9 @@ const decalAreas = [];
    (validate-engine.js checks the yard places them). */
 let yardModelDraws = 0;
 {
+  // the yard's 2D art (js/yardart.js): the sprites its models stand in for (the porch's are js/houseart.js, loaded above)
+  if (!pageScripts.includes("yardart.js")) err("index.html does not load js/yardart.js");
+  else load("yardart.js");
   const YM_FILES = pageScripts.filter((f) => /^yardmodels\d*\.js$/.test(f));
   if (!YM_FILES.includes("yardmodels.js")) err("index.html does not load js/yardmodels.js");
   YM_FILES.forEach((f) => {
