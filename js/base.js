@@ -181,6 +181,14 @@
     hooks: {},
     tab: "rooms",
 
+    /** The garage's preview: the van in these upgrades, seen from its front-left (js/game.js showcase, view
+        "garage"), so the paint shop's designs on its sides and hood show; dented as it is now (Van3D.dentNow: the
+        Garage is where it is repaired). Drawn again only when what it shows changes; true if it drew. */
+    garageVan(canvas, upgrades) {
+      const V = ZSR.Van3D;
+      return ZSR.Game.showcase(canvas, upgrades, 0, { view: "garage", dent: V ? V.dentNow() : 0 });
+    },
+
     open(hooks) {
       this.hooks = hooks || this.hooks;
       Tip.init();
@@ -507,7 +515,7 @@
       preview.width = 360;
       preview.height = 200;
       wrap.appendChild(preview);
-      ZSR.Game.showcase(preview, s.upgrades, 0);
+      this.garageVan(preview, s.upgrades);
       // the paint shop sits right under the preview, so trying a look on shows it with the swatch still in view
       const caption = el("p", "small muted garage-cap");
       wrap.appendChild(caption);
@@ -615,7 +623,7 @@
       const show = () => {
         queued = false;
         const p = want == null ? worn : shop[want];
-        ZSR.Game.showcase(preview, Object.assign({}, s.upgrades, { paint: p.i }), 0);
+        this.garageVan(preview, Object.assign({}, s.upgrades, { paint: p.i }));
         say(p);
       };
       const tryOn = (i) => {

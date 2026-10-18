@@ -47,8 +47,13 @@
   const LOT_FRONT = 168;
   // px a world unit of a painted sign's texture (it is never seen much bigger than about 1.6)
   const SIGN_RES = 2;
-  // light from the upper left of the world (the road's shadows fall down and to the right)
-  const LIGHT = [-0.6, -0.8];
+  // light from the upper left of the world (dir: the road's shadows fall down and to the right). A shade is added to a
+  // face's colour: an upright face's is gain x how much it faces dir, plus base; a box's top's is top; a face seen
+  // from under it, under. The road's 3D van is lit by this too (exported: js/perspective.js vanView)
+  const LIGHT = { dir: [-0.6, -0.8], gain: 16, base: -12, top: 6, under: -34 };
+  // the ink's width in px where a unit is s px on the screen (exported: the road's van is inked as the buildings)
+  const INK_W = { a: 0.6, b: 1.7, lo: 0.7, hi: 3.2 };
+  const inkW = (s) => clamp(INK_W.a + s * INK_W.b, INK_W.lo, INK_W.hi);
 
   /* ---------- colours: shaded by how a face is lit, and mixed into the haze far off ---------- */
   const rgbOf = new Map();
@@ -938,7 +943,7 @@
     const f = R.f;
     const wx = f.Rx * nX + f.Nx * nV;
     const wy = f.Ry * nX + f.Ny * nV;
-    return Math.round((wx * LIGHT[0] + wy * LIGHT[1]) * 16 - 12);
+    return Math.round((wx * LIGHT.dir[0] + wy * LIGHT.dir[1]) * LIGHT.gain + LIGHT.base);
   }
 
   /** The decals on a face, through its square-to-screen map; s(a) turns a decal's place along the wall into a share
@@ -1301,7 +1306,7 @@
     }
     if (p.top && R.cZ > z1) {
       quadPath(ctx, q8[4], q8[5], q8[6], q8[7]);
-      fillPath(ctx, col(R, p.top, 6), p.ink);
+      fillPath(ctx, col(R, p.top, LIGHT.top), p.ink);
       if (p.dots && R.lod >= 2) fine(ctx, () => {
         // fruit heaped on a stand: rows of round dots
         homog([q8[4], q8[5], q8[6], q8[7]], H);
@@ -1445,7 +1450,7 @@
     const nZ = ux * vv - uv * vx;
     const toCam = nX * (R.cX - a[0]) + nV * (R.cV - a[1]) + nZ * (R.cZ - a[2]);
     const len = Math.hypot(nX, nV) || 1;
-    const shadeAmt = toCam >= 0 ? (nZ !== 0 && Math.abs(nZ) > len ? 8 : lit(nX / len, nV / len)) : -34;
+    const shadeAmt = toCam >= 0 ? (nZ !== 0 && Math.abs(nZ) > len ? 8 : lit(nX / len, nV / len)) : LIGHT.under;
     quadPath(ctx, q8[0], q8[1], q8[2], q8[3]);
     fillPath(ctx, col(R, p.fill, shadeAmt), p.ink);
     if (p.decals && R.lod >= (toCam >= 0 ? 0 : 1)) {
@@ -2125,6 +2130,9 @@
     NEAR,
     LOT_FRONT,
     TOWER_TOP,
+    // the light and the ink width (inkW(px a unit)) the buildings are drawn in, for the road's van to match them
+    LIGHT,
+    inkW,
     // part of the card's ground squares' key (js/perspective-gl.js): the flat pictures this file stands up are left
     // out of them; a change to what is left out, or to a lot's ground, changes this
     GROUND_KEY: "standing-1",
@@ -2234,7 +2242,7 @@
       const wpx = s * Math.max(b[1] - b[0], b[3] - b[2]);
       R.lod = wpx >= PROP_PX ? 2 : wpx >= DETAIL_PX ? 1 : 0;
       R.fine = clamp((wpx - PROP_PX) / FINE_PX, 0, 1);
-      R.lw = clamp(0.6 + s * 1.7, 0.7, 3.2);
+      R.lw = inkW(s);
       const haze = P.haze(g);
       R.night = !!(g.mods && g.mods.night);
       R.time = g.time || 0;
