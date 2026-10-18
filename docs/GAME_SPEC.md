@@ -427,8 +427,8 @@ every kind.
 - **Paint is a shop of eight looks** (`PAINT_LOOKS` in `js/upgrades.js`): Primer Gray, Matte Black,
   Rust Bucket, Olive Drab, Hazard, Convoy Red, Night Violet (silver lightning bolts) and
   Radioactive (neon green, black toxic drips). Each look is the whole van: body, roof, trim,
-  bumpers, wheel rims, its decal on both sides, the hood, the roof and the ends (so it reads from the
-  road camera too), and the armor plates in a steel shade of the body colour. Primer Gray is free;
+  bumpers, wheel rims, its decal on both sides, the hood, the roof, the back doors (so it reads from
+  the road camera too) and the front (over the bumper, or down over the grille and lamps), and the armor plates in a steel shade of the body colour. Primer Gray is free;
   each other look is bought once (20, 25, 30, 35, 40, 45, 50 scrap, a typing round at the
   workbench) and can then be worn at any time for free. The Garage gates them as it gates every
   upgrade tier: Matte Black and Rust Bucket need no Garage, Olive Drab Garage 1, Hazard Garage 2,

@@ -2563,6 +2563,18 @@ with a test that failed before:
   -6% to +4% (one p95 +18% walking round it). All inside the owner's bars (25% / 35%).
 - Road: the van's own draw 0.6-0.7 ms against 0.9 ms; the road's frame no slower.
 
+**Final review fixes (2026-10-18).**
+- Decal lines are cut at the near plane segment by segment (`js/model3d.js` pathOf), as faces and ink edges already
+  were. Standing against the van's side, a pinstripe or door seam with one end behind your eye vanished whole (in up to a
+  third of headings at arm's length) and popped back as you walked.
+- Every look now has a front part, as the owner asked ("a decal on every side"): the grille, the lamps and the bumper
+  leave almost no paint on the van's front, so the four looks that had none there lay theirs over the bumper (Matte
+  Black's twin stripes, Convoy Red's flames, Night Violet's pair of bolts) or run it down over the grille and lamps
+  (Radioactive's sludge from under the hood's lip), as Olive Drab's number and Hazard's stripes already did.
+- `DEFS.paint`'s `max` and `costs` are read from `PAINT_LOOKS`, so a ninth look is one row.
+- Not measured: with wreckers on the van, each redraw of its yard picture is read back (`getImageData`) for the walkers'
+  health bars; cheap headless, untested on a real GPU. Worth a profile on the owner's PC.
+
 ### Stage 2, wave 1 (2026-10-18): the crew's and the dogs' 3D rigs, judgment calls
 
 **People on the walkers' rig (`js/walker3d.js` human mode, the looks in `js/walker3d-crew.js`).**

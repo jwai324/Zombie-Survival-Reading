@@ -519,9 +519,9 @@ passes one).
 ### Add a paint look
 
 1. Append a row to `PAINT_LOOKS` in `js/upgrades.js` (name, body, roof, trim, bumper, rims, decal,
-   decalA, decalB, cost, tier) and its cost to `DEFS.paint.costs` (`max` is the looks to buy).
-2. A new decal kind: its designs in `js/van3d.js` `DECALS` (both sides, the hood, the roof and the
-   back; validate-art reads the kinds from `Van3D.DECAL_KINDS`), a branch in `js/sprites.js` `decal()`
+   decalA, decalB, cost, tier). `DEFS.paint` reads its `max` and `costs` from the rows.
+2. A new decal kind: its designs in `js/van3d.js` `DECALS` (both sides, the hood, the roof, the
+   back and the front, its front part over the bumper since the grille and lamps leave little paint; validate-art reads the kinds from `Van3D.DECAL_KINDS`), a branch in `js/sprites.js` `decal()`
    (the map icon), a branch in `js/base.js` `paintChip` (the Garage swatch; without one it shows a plain
    band), words in `js/base.js` `DECAL_WORDS`, and the kind in `tests/validate-world.js` `DECALS`.
    The look's name is appended to `tests/validate-world.js` `SAVED_LOOKS` (looks are pinned to their
