@@ -11,7 +11,8 @@
    cfg.scale times the road's zoom; ground past cfg.far fades into haze. In fog the haze is thick and near (FOG: the
    view sees FOG.far, everything standing fading into it from FOG.near); at night it is near black, and everything is
    dark but what the van lights (night: its headlights' beam down its own heading, NIGHT_BEAM, and the gun's lamp).
-   The title screen and the garage's preview are a still scene through this camera (showcase).
+   The title screen and the garage's preview are a still scene through this camera (showcase; the garage's turned
+   round to the van's front-left, lower, so the paint shop's designs on its side and hood show).
    Walkers are the interiors' live 3D figures (js/walker3d.js Walker3D.draw), seen from the camera's own height, each
    in its own pooled canvas redrawn when it looks different under the interiors' governor rows; they move and pose as
    on foot (animate: a heading turning at its look's rate, legs by the ground covered, scream, claw, the hit flash,
@@ -46,18 +47,19 @@
   const VERGE = [40, 140];
   // SCALE: seconds a new walker takes to come out of the weeds (walkers spawn at the edge of the view, cfg.far)
   const FADE_IN = 0.5;
-  /* The van (js/van3d.js) looks as the buildings beside it do (js/perspective-buildings.js; kept in step by hand, its
-     LIGHT and ink rule are its own):
+  /* The van (js/van3d.js) looks as the buildings beside it do (js/perspective-buildings.js: its LIGHT and inkW, read
+     from ZSR.PerspBuild when the van is drawn, as that file loads after this one):
      - light: theirs, from the upper left of the world (dir). An upright face's shade is gain x how much it faces dir,
        plus base; a top's is top, an underside's under; a sloped face's lies between them by how much it faces up or
-       down. There a shade is added to a colour; Model3D multiplies one, so here it is 1 + shade / ref (a mid colour);
-     - ink: theirs at its size, a + b x its px a unit at its middle, between lo and hi px;
+       down. There a shade is added to a colour; Model3D multiplies one, so here it is 1 + shade / VAN_REF (a mid
+       colour). Without that file (a test that leaves it out) the van is lit evenly and inked 1.5 px (NO_BUILD);
+     - ink: theirs at its size (inkW of its px a unit at its middle);
      - haze: theirs, by drawItem's fade (the van is near: it all but never shows);
      - lod by its length on the screen (px): full detail from VAN_LOD_PX[0], no fine decals or small gear from [1],
        under it the body, wheels and plow only (the still scene, drawn once, always has full detail);
      - a hit flashes it toward HURT, up to HURT_MAX (js/sprites.js van's flash). */
-  const VAN_LIGHT = { dir: [-0.6, -0.8], gain: 16, base: -12, top: 6, under: -34, ref: 128 };
-  const VAN_INK = { a: 0.6, b: 1.7, lo: 0.7, hi: 3.2 };
+  const VAN_REF = 128;
+  const NO_BUILD = { LIGHT: { dir: [0, 0], gain: 0, base: 0, top: 0, under: 0 }, inkW: () => 1.5 };
   const VAN_LOD_PX = [140, 60];
   const HURT = [201, 65, 47];
   const HURT_MAX = 0.6;
@@ -185,8 +187,38 @@
   // black within a few frames: the night as it has always looked is this, fully dark there)
   const NIGHT_DARK = "rgb(8,10,20)";
   // the title screen's still scene (showcase): the camera's zoom for a 200 px tall picture, where the van sits up it,
-  // and where its walkers stand ([X right of the road's middle, Y ahead of the van])
-  const SHOW = { zoom: 0.5, vanAt: 0.76, walkers: [[-125, 215], [245, 285]] };
+  // where its walkers stand ([X right of the road's middle, Y ahead of the van]), the wreck (lanes: X in lane widths,
+  // turned rot) and the barrier (X past the road's right edge), and the roadside's plants: n of them from Y0 on, one
+  // every `every` along the road (left and right by turns), out to `out` past its verge (beyond the shoulder)
+  const SHOW = {
+    zoom: 0.5,
+    vanAt: 0.76,
+    walkers: [[-125, 215], [245, 285]],
+    wreck: { lanes: -1.1, Y: 980, rot: 0.5 },
+    barrier: { past: 40, Y: 1500 },
+    plants: { n: 26, Y0: 200, every: 130, out: [520, 520] },
+  };
+  // ... and the garage's (o.view "garage", the paint shop's preview): the camera turned `turn` degrees round the van
+  // from behind it toward its left, so its left side, hood, front and plow show (the decals the paint shop sells),
+  // lower than the road's (pitched down `pitch` degrees, the road's cfg.pitch 30) and narrower (`fov` degrees, the
+  // road's cfg.fov 60: the van is seen from further off, less drawn out toward its near corner), looking `shift` units
+  // to the van's left (room ahead of its nose). It looks back down the road past the van and across its right side,
+  // so what stands is set there: the nearer walker out of the verge off the van's right front (the roof gun swung
+  // round at it, across the picture), the other, the wreck and the barrier down the road behind (Y negative), the
+  // plants back from Y0, further out on the road's right; none nearer the camera than the van's middle and `clear`
+  const SHOW_GARAGE = {
+    turn: 140,
+    pitch: 16,
+    fov: 44,
+    zoom: 0.7,
+    vanAt: 0.57,
+    shift: 20,
+    walkers: [[300, 0], [90, -620]],
+    wreck: { lanes: 1.1, Y: -1150, rot: -0.4 },
+    barrier: { past: 60, Y: -1000 },
+    plants: { n: 34, Y0: 420, every: -110, out: [520, 900] },
+    clear: 120,
+  };
   // without js/interior.js (a test that leaves it out): no governor, every walker every frame at full detail
   const NO_GOVERNOR = { LIVE_LEVELS: [{ near: Infinity, farLod: 0, far: 1, max: Infinity, maxPx: Infinity, scale: 1, lodPx: [0, 0] }], LIVE_START: 0, LIVE_STEP: 1, LIVE_SPARE: 0, LIVE_IDLE: 0, LIVE_SHRINK: Infinity, NEAR_STICK: 1 };
   const normA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
@@ -204,7 +236,6 @@
     cfg: { pitch: 30, fov: 60, vanAt: 0.8, scale: 1.55, far: 3600 },
     VAN_Z,
     GUN_Z,
-    VAN_LIGHT,
     AIM_Z,
     TILE,
     BLOOD_FALL,
@@ -238,13 +269,14 @@
 
     /** The camera for this frame: where it sits, behind the road camera's spot, and how it projects; how far it sees
         (far: cfg.far, or FOG.far in fog) and where the haze starts on the ground (fogG) and on what stands (fog0).
-        g.vanAt, when set, puts the van elsewhere up the screen (the title screen's still scene). */
+        g.vanAt, when set, puts the van elsewhere up the screen (the title screen's still scene); g.pitch and g.fov
+        (degrees) pitch the camera and open its view other than cfg's (the garage's, lower and narrower). */
     setup(g) {
       const c = this.cfg;
-      const th = (c.pitch * Math.PI) / 180;
+      const th = ((g.pitch || c.pitch) * Math.PI) / 180;
       const sn = Math.sin(th);
       const cs = Math.cos(th);
-      const f = g.H / 2 / this.viewTan(g.W, g.H);
+      const f = g.H / 2 / (g.fov ? Math.tan((g.fov * Math.PI) / 360) : this.viewTan(g.W, g.H));
       const v0 = (g.H / 2 - g.H * (g.vanAt || c.vanAt)) / f;
       const bh = (cs + v0 * sn) / (sn - v0 * cs); // how far behind, per unit of height, puts the van at vanAt
       const h = f / (c.scale * g.zoom * (bh * cs + sn));
@@ -1595,9 +1627,9 @@
     },
     /** The view the van is drawn through (js/model3d.js's contract), after setup: the van's own frame (x its right, y
         its heading, z up, road units) into this camera's projection; the camera's eye in that frame; the buildings'
-        light (VAN_LIGHT) on a face whose normal is turned into the world with the van; their ink at its size on the
-        screen, its lod by its length there; the haze by fade, as theirs; the hurt flash as a tint. One object, kept
-        and filled anew each frame; null when the van is behind the camera. */
+        light (PerspBuild.LIGHT) on a face whose normal is turned into the world with the van; their ink (inkW) at its
+        size on the screen, its lod by its length there; the haze by fade, as theirs; the hurt flash as a tint. One
+        object, kept and filled anew each frame; null when the van is behind the camera. */
     vanView(g, fade) {
       const k = this.k;
       const van = g.van;
@@ -1610,8 +1642,8 @@
         // length (C6 .. C11), as project does it
         const C = new Float64Array(12);
         const H = new Float64Array(2); // the van's heading, cos and sin
-        const VL = VAN_LIGHT;
-        v = this.vanV = ZSR.Model3D.view({ C, H, near: 5 });
+        // (light: the buildings' LIGHT, set each time below)
+        v = this.vanV = ZSR.Model3D.view({ C, H, near: 5, light: NO_BUILD.LIGHT });
         v.project = (x, y, z) => {
           const X = C[0] + C[1] * x + C[2] * y;
           const Yb = C[3] + C[4] * x + C[5] * y;
@@ -1631,14 +1663,17 @@
         // wall's shade by its level direction toward the light, a top's or an underside's its own, a sloped face
         // between them by how much it faces up or down
         v.lit = (nx, ny, nz) => {
+          const VL = v.light;
           const wx = -H[1] * nx + H[0] * ny;
           const wy = H[0] * nx + H[1] * ny;
           const lev = Math.sqrt(wx * wx + wy * wy);
           const wall = lev > 1e-6 ? ((wx * VL.dir[0] + wy * VL.dir[1]) / lev) * VL.gain + VL.base : 0;
           const up = Math.min(1, Math.abs(nz));
-          return 1 + (wall * (1 - up) + (nz > 0 ? VL.top : VL.under) * up) / VL.ref;
+          return 1 + (wall * (1 - up) + (nz > 0 ? VL.top : VL.under) * up) / VAN_REF;
         };
       }
+      const B = ZSR.PerspBuild || NO_BUILD;
+      v.light = B.LIGHT;
       const C = v.C;
       const dx = van.x - k.ox;
       const dy = van.y - k.oy;
@@ -1665,7 +1700,7 @@
       // its size on the screen, at its middle: the buildings' ink there, and its lod by its length
       const mid = this.project(van.x, van.y, VAN_Z / 2);
       if (!mid) return null;
-      v.ink = clamp(VAN_INK.a + mid.s * VAN_INK.b, VAN_INK.lo, VAN_INK.hi);
+      v.ink = B.inkW(mid.s);
       const px = mid.s * ((ZSR.Van3D && ZSR.Van3D.L) || van.h);
       v.lod = g.vanLod != null ? g.vanLod : px >= VAN_LOD_PX[0] ? 0 : px >= VAN_LOD_PX[1] ? 1 : 2;
       const haze = this.haze(g);
@@ -2300,47 +2335,85 @@
     /** The title screen's and the garage's still scene (game.js showcase) on `canvas`: the van on a straight road
         through this camera, in the paint and upgrades given (o.upgrades; the same 3D van as the road's, dented by
         o.dent, 0 by default: Van3D.dentTier's), its gun on the nearer walker, o.kinds coming at it (Walker3D figures,
-        as on the road: a screamer screams), a wreck, a barrier and the roadside going into the haze. Drawn only when
-        what it shows changes (the canvas's size, the upgrades, the dents, the kinds, o.seed): the title's loop asks
-        every frame and nearly always finds its picture already there. True if it drew. */
+        as on the road: a screamer screams), a wreck, a barrier and the roadside going into the haze. The title's
+        camera is the road's, behind the van (SHOW); o.view "garage" turns it round to the van's front-left, lower
+        (SHOW_GARAGE: the paint shop's preview, so the sides' and the hood's decals show). Drawn only when what it shows
+        changes (the canvas's size, the view, the upgrades, the dents, the kinds, o.seed): the title's loop asks every
+        frame and nearly always finds its picture already there. True if it drew. */
     showcase(canvas, o) {
-      const key = canvas.width + "x" + canvas.height + "|" + JSON.stringify(o.upgrades || {}) + "|" + (o.dent | 0) + "|" + (o.kinds || []).join(",") + "|" + (o.seed || 0);
+      const garage = o.view === "garage";
+      const key = canvas.width + "x" + canvas.height + "|" + (garage ? "garage" : "road") + "|" + JSON.stringify(o.upgrades || {}) + "|" + (o.dent | 0) + "|" + (o.kinds || []).join(",") + "|" + (o.seed || 0);
       if (canvas._showKey === key) return false;
       canvas._showKey = key;
       const ctx = canvas.getContext("2d");
       const W = canvas.width;
       const H = canvas.height;
       const G = ZSR.Streets.GEOM;
+      const V = garage ? SHOW_GARAGE : SHOW;
       // (the scenery governor's thinning is the drive's: the still scene has every plant)
       const scen = this.scen;
       this.scen = null;
       const D = ZSR.Draw;
       const Art = ZSR.PerspArt;
       const M = ZSR.Walker3D;
-      // the scene: the van at the origin heading up the screen (north), the camera right behind it
+      // the scene: the van at the origin heading up the screen (north), the camera right behind it (the title) or
+      // turned round it toward its left (the garage), looking at its middle
       const th = -Math.PI / 2;
       const van = { x: 0, y: 0, heading: th, w: 66, h: 118, hurt: 0, flash: 0 };
+      const look = garage ? th + (V.turn * Math.PI) / 180 : th;
+      // (the camera looks at a spot `shift` to the van's left on the picture: room ahead of its nose)
+      const sh = V.shift || 0;
       // (the van at full detail: the garage shows off every bit of gear bought, and the picture is drawn once)
-      const sc = { W, H, zoom: SHOW.zoom * Math.min(1, H / 200), vanAt: SHOW.vanAt, cam: { x: 0, y: 0, th }, mods: {}, van, vanDent: o.dent | 0, vanLod: 0, time: 0, upgrades: o.upgrades || {}, dpr: 1, zombies: [], fallen: [] };
+      const sc = { W, H, zoom: V.zoom * Math.min(1, H / 200), vanAt: V.vanAt, pitch: V.pitch, fov: V.fov, cam: { x: Math.sin(look) * sh, y: -Math.cos(look) * sh, th: look }, mods: {}, van, vanDent: o.dent | 0, vanLod: 0, time: 0, upgrades: o.upgrades || {}, dpr: 1, zombies: [], fallen: [] };
       const k = this.setup(sc);
-      const at = (X, Y) => [X, -Y]; // X to the right, Y ahead
+      const at = (X, Y) => [X, -Y]; // X to the right of the road, Y along it ahead of the van
+      const ahead = (x, y) => (x - k.ox) * k.Fx + (y - k.oy) * k.Fy; // how far ahead of the camera's foot (the order)
       const roadX = -ZSR.Streets.laneCenter(0, 2); // the road's middle (the van in our left lane)
+      const vanY = garage ? ahead(van.x, van.y) : 0;
       ctx.save();
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.fillStyle = "#5d5a3e";
       ctx.fillRect(0, 0, W, H);
       const haze = this.haze(sc);
       const skyY = this.sky(ctx, haze, false);
-      // the road: shoulders, asphalt, the middle's two yellow lines and each side's lane dashes, ink at its edges
+      // the road: shoulders, asphalt, the middle's two yellow lines and each side's lane dashes, ink at its edges. The
+      // title looks up it from the picture's foot (y0 ahead) to the haze (y1); the garage's camera looks back down it
+      // past the van, the road running on behind the camera: there each piece is cut to what lies y0 to y1 ahead of it
       const y0 = this.groundY(H) - 40;
       const y1 = k.far;
-      const band = (xa, xb, fill, ya, yb) => this.poly(ctx, [at(xa, ya == null ? y0 : ya), at(xb, ya == null ? y0 : ya), at(xb, yb == null ? y1 : yb), at(xa, yb == null ? y1 : yb)].map((p) => p.concat(0)), fill, 0);
+      const [ra, rb] = garage ? [k.far, -2 * k.far] : [y0, y1];
+      const cut = (P) => {
+        for (const [lim, sgn] of [[y0, 1], [y1, -1]]) {
+          const out = [];
+          for (let i = 0; i < P.length; i++) {
+            const a = P[i];
+            const b = P[(i + 1) % P.length];
+            const da = (ahead(a[0], a[1]) - lim) * sgn;
+            const db = (ahead(b[0], b[1]) - lim) * sgn;
+            if (da >= 0) out.push(a);
+            if (da >= 0 !== db >= 0) {
+              const t = da / (da - db);
+              out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+            }
+          }
+          P = out;
+        }
+        return P;
+      };
+      const band = (xa, xb, fill, ya, yb) => {
+        if (ya == null) ya = ra;
+        if (yb == null) yb = rb;
+        let P = [at(xa, ya), at(xb, ya), at(xb, yb), at(xa, yb)];
+        if (garage) P = cut(P);
+        if (P.length >= 3) this.poly(ctx, P.map((p) => p.concat(0)), fill, 0);
+      };
       band(roadX - G.half - G.shoulder - 4, roadX + G.half + G.shoulder + 4, INK);
       band(roadX - G.half - G.shoulder, roadX + G.half + G.shoulder, "#78736a");
       band(roadX - G.half, roadX + G.half, "#35363b");
       band(roadX - 9, roadX - 3, "#d6b03c");
       band(roadX + 3, roadX + 9, "#d6b03c");
-      for (let y = y0 - (y0 % 160); y < y1; y += 160) for (const x of [roadX - G.lane, roadX + G.lane]) band(x - 3, x + 3, "rgba(230,226,214,0.8)", y, y + 70);
+      const r0 = Math.min(ra, rb);
+      for (let y = r0 - (r0 % 160); y < Math.max(ra, rb); y += 160) for (const x of [roadX - G.lane, roadX + G.lane]) band(x - 3, x + 3, "rgba(230,226,214,0.8)", y, y + 70);
       // the haze over the far road, as the drive's (drawWorldGround)
       const hz = this.project(k.ox + k.Fx * k.fogG, k.oy + k.Fy * k.fogG, 0);
       if (hz && hz.y > 0) {
@@ -2356,25 +2429,28 @@
       const side = G.half + G.shoulder;
       if (Art && Art.sprite) {
         const r = (i) => ((Math.sin(i * 12.9898 + 4.1) * 43758.5453) % 1 + 1) % 1;
-        for (let i = 0; i < 26; i++) {
+        const pl = V.plants;
+        for (let i = 0; i < pl.n; i++) {
           const left = i % 2 === 0;
-          const Y = 200 + i * 130 + r(i) * 90;
-          const X = roadX + (left ? -1 : 1) * (side + 50 + r(i + 40) * 520);
+          const Y = pl.Y0 + i * pl.every + r(i) * 90 * Math.sign(pl.every);
+          const X = roadX + (left ? -1 : 1) * (side + 50 + r(i + 40) * pl.out[left ? 0 : 1]);
           const kind = i % 5 === 0 ? "tree" : i % 5 === 3 ? "dead" : i % 2 ? "bush" : "grass";
           const h = kind === "tree" ? 170 + r(i + 7) * 70 : kind === "dead" ? 150 + r(i + 9) * 50 : kind === "bush" ? 50 + r(i + 3) * 20 : 30 + r(i + 5) * 12;
           const [x, y] = at(X, Y);
-          items.push({ Y, draw: () => this.plant(ctx, { kind, x, y, h, v: i % 4, flip: i % 3 === 0 }, this.fadeAt(Y)) });
+          const A = garage ? ahead(x, y) : Y;
+          if (garage && A < vanY + V.clear) continue; // (nothing stands between the camera and the van)
+          items.push({ Y: A, draw: () => this.plant(ctx, { kind, x, y, h, v: i % 4, flip: i % 3 === 0 }, this.fadeAt(A)) });
         }
       }
-      const [wx, wy] = at(roadX - G.lane * 1.1, 980);
-      items.push({ Y: 980, draw: () => this.car(ctx, { x: wx, y: wy, face: 0, rot: 0.5, color: "#3f4a55" }, 1) });
-      const [bx, by] = at(roadX + G.half + 40, 1500);
-      if (Art) items.push({ Y: 1500, draw: () => this.barrier(ctx, { x: bx, y: by, face: Math.PI / 2, rot: 0.3 }, 1) });
+      const [wx, wy] = at(roadX + G.lane * V.wreck.lanes, V.wreck.Y);
+      items.push({ Y: garage ? ahead(wx, wy) : V.wreck.Y, draw: () => this.car(ctx, { x: wx, y: wy, face: 0, rot: V.wreck.rot, color: "#3f4a55" }, 1) });
+      const [bx, by] = at(roadX + G.half + V.barrier.past, V.barrier.Y);
+      if (Art) items.push({ Y: garage ? ahead(bx, by) : V.barrier.Y, draw: () => this.barrier(ctx, { x: bx, y: by, face: Math.PI / 2, rot: 0.3 }, 1) });
       const T = this.liveTune();
       const row = T.LIVE_LEVELS[0];
       const recs = (canvas._showRecs = canvas._showRecs || []);
       const kinds = o.kinds || [];
-      const spots = SHOW.walkers.map(([X, Y]) => [roadX + X, Y]);
+      const spots = V.walkers.map(([X, Y]) => [roadX + X, Y]);
       const shown = [];
       kinds.slice(0, spots.length).forEach((type, i) => {
         if (!M || !M.TYPES) return;
@@ -2388,7 +2464,7 @@
           return { c, g: c.getContext("2d"), lw: 0, lh: 0 };
         })());
         items.push({
-          Y: spots[i][1],
+          Y: garage ? ahead(x, y) : spots[i][1],
           draw: () => {
             const g2 = this.liveGeo(sc, z, false, row, 1, rec);
             if (!g2) return;
@@ -2405,7 +2481,7 @@
       const my = van.y - Math.sin(th) * van.h * 0.1;
       van.aimW = aimAt ? Math.atan2(aimAt.y - my, aimAt.x - mx) : th - 0.3;
       van.aimDz = -0.05;
-      items.push({ Y: 0, draw: () => this.van(sc, ctx) });
+      items.push({ Y: vanY, draw: () => this.van(sc, ctx) });
       items.sort((a, b) => b.Y - a.Y);
       for (const it of items) {
         ctx.globalAlpha = 1;

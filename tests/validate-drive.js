@@ -1148,12 +1148,15 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
    - Spread Shot at a walker clicked far down the road: every barrel's shot hits it;
    - the title screen and the garage's preview: a still angled scene (the van, Walker3D figures of every kind in turn,
      the first two in the still one), drawn again only when what it shows changes (a new paint job, the two newest
-     too, or new dents), with no exceptions or NaN;
+     too, new dents, the other view), with no exceptions or NaN; the title from behind the van, undented; the garage's
+     (js/base.js Base.garageVan) from its front-left, lower than the title's, seeing its left side, front and hood,
+     the whole van with its top gear and its gun's reach in the picture, dented as the save's van is now;
    - the van on the road is the one 3D van (js/van3d.js), drawn once a frame without its own gun (the road's aimed gun
      stands on its roof: the model's roof is at VAN_Z where the gun's mount is), through the road's own camera (its
      points where Persp.project puts them, seen from the camera's spot), lit by the buildings' light (a wall toward
      the upper left of the world brighter than one away, a top brighter still), its ink and detail by its size, a hit
-     as its tint, the trip's health as its dents, every paint job drawn;
+     as its tint, the trip's health as its dents, every paint job drawn; its light and ink are the buildings' own
+     (PerspBuild.LIGHT and inkW, read as it is drawn: a change there shows on the van);
    - the workbench's van is the same model from its right side (its gun on), standing on the floor line in the old
      picture's spot (its body L px across from x), in the save's paint;
    - the map's van marker (Draw.van, top-down) draws every paint job whole: body, roof, trim, bumpers, rims, decal;
@@ -1521,31 +1524,120 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     kinds.forEach((k) => shown.has(k) || fErr(`the title screen never shows a ${k}`));
     if (!first || first.slice().sort().join() !== kinds.slice(0, 2).sort().join()) fErr(`the title screen's still picture shows ${first && first.join(", ")} (the facts' first two kinds expected)`);
     if (vans !== draws) fErr(`the title screen drew the van ${vans} times in ${draws} pictures`);
-    // the garage: another van's upgrades draw again, the same do not; every new paint job (the two newest too) draws
-    // again, the 3D van in it, and so do new dents
+    // the garage (js/base.js Base.garageVan: showcase's "garage" view): another van's upgrades draw again, the same do
+    // not; every new paint job (the two newest too) draws again, the 3D van in it once, its gun the road's (aimed),
+    // and so do new dents and the other view
     const g = canvasEl("garage");
     g.width = 360;
     g.height = 200;
+    const GV = { view: "garage" };
     where = "garage preview";
-    if (!G.showcase(g, ups, 0) || G.showcase(g, ups, 0) || !G.showcase(g, Object.assign({}, ups, { paint: 1 }), 0)) fErr("the garage's preview is not drawn once per van");
+    vans = 0;
+    if (!G.showcase(g, ups, 0, GV) || G.showcase(g, ups, 0, GV) || !G.showcase(g, Object.assign({}, ups, { paint: 1 }), 0, GV)) fErr("the garage's preview is not drawn once per van");
+    if (vans !== 2) fErr(`the garage's preview drew the van ${vans} times in 2 pictures`);
     const V = ZSR.Van3D;
+    const U = ZSR.Upgrades;
     const vd0 = V.draw;
     let painted = [];
     V.draw = function (c2, view, u, o) {
-      painted.push([u.paint, o.dent, o.gun]);
+      // what it drew, the eye it was seen from (in its frame: x its right, y forward, z up), and the box on the picture
+      // round every corner of the model and of its roof gun's reach (Persp gun: its barrels, a muzzle brake, the drum)
+      const box = [Infinity, Infinity, -Infinity, -Infinity];
+      const put = (x, y, z) => {
+        if (!view.project(x, y, z)) box[0] = -Infinity;
+        box[0] = Math.min(box[0], view.X);
+        box[1] = Math.min(box[1], view.Y);
+        box[2] = Math.max(box[2], view.X);
+        box[3] = Math.max(box[3], view.Y);
+      };
+      for (const pt of V.mesh(u, o).parts) for (const f of pt.faces) for (let i = 0; i < f.n; i++) put(f.p[i * 3], f.p[i * 3 + 1], f.p[i * 3 + 2]);
+      const reach = 26 + (u.damage | 0) * 3 + 6;
+      for (let a = 0; a < 16; a++) for (const dz of [-8, 8]) put(Math.cos((a * Math.PI) / 8) * reach, V.GUN.y + Math.sin((a * Math.PI) / 8) * reach, V.GUN.z + dz);
+      painted.push({ paint: u.paint, dent: o.dent, gun: o.gun, eye: Array.from(view.eye), box });
       return vd0.call(this, c2, view, u, o);
     };
-    const last = ZSR.Upgrades.PAINT_LOOKS.length - 1;
+    // the eye: how far round from behind toward the van's left (degrees: 0 behind, 90 its left, 180 ahead), how high
+    // (degrees over its middle)
+    const turnOf = (e) => (Math.atan2(-e[0], -e[1]) * 180) / Math.PI;
+    const riseOf = (e) => (Math.atan2(e[2] - V.H / 2, Math.hypot(e[0], e[1])) * 180) / Math.PI;
+    const inFrame = (b, c2) => b[0] >= 0 && b[1] >= 0 && b[2] <= c2.width && b[3] <= c2.height;
+    const show = (p) => JSON.stringify(Object.assign({}, p, { eye: p.eye.map((q) => Math.round(q)), box: p.box.map((q) => Math.round(q)) }));
+    const last = U.PAINT_LOOKS.length - 1;
+    const seenFrom = (p, what) => {
+      const turn = turnOf(p.eye);
+      if (!(turn >= 130 && turn <= 160)) fErr(`${what}: the van seen ${turn.toFixed(0)} degrees round from behind (want its front-left, 130 to 160)`);
+      if (!(p.eye[0] < -V.W / 2 && p.eye[1] > V.L / 2 && p.eye[2] > V.H)) fErr(`${what}: the van seen from ${p.eye.map((q) => q.toFixed(0))} (want its left side, front and hood in sight)`);
+      if (!inFrame(p.box, g)) fErr(`${what}: the van and its gun's reach lie ${p.box.map((q) => q.toFixed(0))} on a ${g.width} x ${g.height} picture (want all of it in)`);
+    };
     for (const paint of [1, last - 1, last, 0]) {
       painted = [];
       where = `garage preview, paint ${paint}`;
-      const again = G.showcase(g, Object.assign({}, ups, { paint }), 0);
+      const again = G.showcase(g, Object.assign({}, ups, { paint }), 0, GV);
       if (paint !== 1 && !again) fErr(`the garage's preview did not draw again for paint ${paint}`);
-      if (again && !(painted.length === 1 && painted[0][0] === paint && painted[0][2] === false)) fErr(`the garage's preview drew the 3D van as ${JSON.stringify(painted)} for paint ${paint} (want it once, in that paint, its gun the road's)`);
+      if (again && !(painted.length === 1 && painted[0].paint === paint && painted[0].gun === false && painted[0].dent === 0)) fErr(`the garage's preview drew the 3D van as ${painted.map(show)} for paint ${paint} (want it once, in that paint, undented, its gun the road's)`);
+      if (again && painted.length) seenFrom(painted[0], `the garage's preview in paint ${paint}`);
     }
+    // the biggest van there is (every upgrade at its top) is in the picture too
+    const top = {};
+    Object.keys(U.DEFS).forEach((k) => (top[k] = U.DEFS[k].max));
+    painted = [];
+    where = "garage preview, every upgrade at its top";
+    if (!G.showcase(g, top, 0, GV) || painted.length !== 1) fErr(`the garage's preview of the top van drew ${painted.map(show)}`);
+    else seenFrom(painted[0], "the garage's preview of the top van");
+    const garageEye = painted.length ? painted[0].eye : null;
     painted = [];
     where = "garage preview, dented";
-    if (!P.showcase(g, { upgrades: ups, kinds: kinds.slice(0, 2), seed: 0, dent: 2 }) || !(painted.length === 1 && painted[0][1] === 2)) fErr(`the still scene with dents 2 drew ${JSON.stringify(painted)}`);
+    if (!P.showcase(g, { upgrades: ups, kinds: kinds.slice(0, 2), seed: 0, dent: 2, view: "garage" }) || !(painted.length === 1 && painted[0].dent === 2)) fErr(`the garage's still scene with dents 2 drew ${painted.map(show)}`);
+    // the same canvas from the title's view (the same van, walkers and dents) draws again, from behind the van, higher
+    // than the garage's
+    G.showcase(g, ups, 0, GV);
+    painted = [];
+    where = "the title's view after the garage's";
+    if (!G.showcase(g, ups, 0) || painted.length !== 1) fErr(`the title's view after the garage's on one canvas drew ${painted.map(show)}`);
+    else {
+      const turn = turnOf(painted[0].eye);
+      if (Math.abs(turn) > 10) fErr(`the title's view sees the van ${turn.toFixed(0)} degrees round from behind (want behind it)`);
+      if (garageEye && !(riseOf(garageEye) < riseOf(painted[0].eye))) fErr(`the garage's camera looks down on the van ${riseOf(garageEye).toFixed(0)} degrees, the title's ${riseOf(painted[0].eye).toFixed(0)} (want the garage's lower)`);
+    }
+    // the Garage tab's preview (js/base.js Base.garageVan): dented as the save's van is now (Van3D.dentNow), drawn
+    // again when that changes (a repair); the title shows no dents however hurt the van is
+    {
+      const file = path.join(ROOT, "js/base.js");
+      if (!ZSR.Base && fs.existsSync(file)) vm.runInThisContext(fs.readFileSync(file, "utf8"), { filename: "js/base.js" });
+      const St = ZSR.State;
+      const keep = { trip: St.trip, hp: St.save.vanHp, max: St.vanMaxHp };
+      St.trip = null;
+      St.vanMaxHp = () => 100;
+      const tab = canvasEl("garage tab");
+      tab.width = 360;
+      tab.height = 200;
+      const hurt = V.dentTier(0.4);
+      if (!(hurt > 0)) fErr(`a van at 40% health shows no dents (Van3D.dentTier ${hurt})`);
+      if (!ZSR.Base || typeof ZSR.Base.garageVan !== "function") fErr("no Base.garageVan (js/base.js): the Garage tab's preview");
+      else {
+        for (const [hp, want, again] of [[100, 0, true], [100, 0, false], [40, hurt, true], [40, hurt, false], [100, 0, true]]) {
+          St.save.vanHp = hp;
+          painted = [];
+          where = `the Garage tab's preview at ${hp}% health`;
+          const did = ZSR.Base.garageVan(tab, ups);
+          if (did !== again) fErr(`${where}: ${did ? "drew again with nothing changed" : "did not draw again"}`);
+          if (did && !(painted.length === 1 && painted[0].dent === want)) fErr(`${where}: drew the van ${painted.map(show)} (want dents ${want})`);
+          if (did && painted.length) seenFrom(painted[0], where);
+        }
+      }
+      St.save.vanHp = 40;
+      painted = [];
+      where = "the title with the van hurt";
+      const tc = canvasEl("title, hurt");
+      tc.width = 320;
+      tc.height = 200;
+      if (!G.showcase(tc, ups, 0) || !(painted.length === 1 && painted[0].dent === 0)) fErr(`the title with the save's van at 40% drew ${painted.map(show)} (want it once, undented)`);
+      St.trip = keep.trip;
+      if (keep.hp === undefined) delete St.save.vanHp;
+      else St.save.vanHp = keep.hp;
+      if (keep.max === undefined) delete St.vanMaxHp;
+      else St.vanMaxHp = keep.max;
+    }
     V.draw = vd0;
     M.draw = d0;
     P.van = v0;
@@ -1596,7 +1688,8 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
       const cy = v.y + fx * r.eye[0] + fy * r.eye[1];
       if (Math.hypot(cx - (k.ox - k.Fx * k.b), cy - (k.oy - k.Fy * k.b)) > 1e-6 || Math.abs(r.eye[2] - k.h) > 1e-6) fErr(`the van is seen from ${r.eye.map((q) => q.toFixed(1))} (its frame), not the camera's spot`);
       // lit by the buildings' light: a wall toward it brighter than one away, a top brighter than both, all in range
-      const Ld = P.VAN_LIGHT.dir;
+      const PB = ZSR.PerspBuild;
+      const Ld = PB.LIGHT.dir;
       const toModel = (wx, wy) => [-fy * wx + fx * wy, fx * wx + fy * wy];
       const [ax, ay] = toModel(Ld[0], Ld[1]);
       const toward = view.lit(ax, ay, 0);
@@ -1605,6 +1698,17 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
       if (!(toward > away && top > toward && away > 0.5 && top < 1.25)) fErr(`the van is lit ${away.toFixed(2)} away from the light, ${toward.toFixed(2)} toward it, ${top.toFixed(2)} on top (want away < toward < top, in 0.5 .. 1.25)`);
       vanNote = `3D van lit ${away.toFixed(2)} / ${toward.toFixed(2)} / ${top.toFixed(2)} (away, toward, top), ink ${view.ink.toFixed(1)} px`;
       if (!(view.ink > 0 && view.lod === 0 && view.fog === 0 && view.tint === 0)) fErr(`the van near the camera: ink ${view.ink}, lod ${view.lod}, fog ${view.fog}, tint ${view.tint} (want ink, full detail, no haze, no flash)`);
+      // its light and ink are the buildings' own (PerspBuild.LIGHT, inkW), read as it is drawn: the buildings' ink at
+      // its size, and a change to their light shows on it the next frame (no copy of either kept in js/perspective.js)
+      const mid = P.project(v.x, v.y, P.VAN_Z / 2);
+      if (typeof PB.inkW !== "function") fErr("js/perspective-buildings.js exports no inkW for the van");
+      else if (!mid || Math.abs(view.ink - PB.inkW(mid.s)) > 1e-9) fErr(`the van is inked ${view.ink} px, the buildings ${mid && PB.inkW(mid.s)} px at its size`);
+      const L0 = PB.LIGHT;
+      PB.LIGHT = Object.assign({}, L0, { top: L0.top + 20 });
+      const r2 = one("the van, the buildings' light changed");
+      const top2 = r2 ? r2.view.lit(0, 0, 1) : top;
+      PB.LIGHT = L0;
+      if (!(top2 > top + 0.1)) fErr(`a brighter top for the buildings (LIGHT.top + 20) leaves the van's top lit ${top2.toFixed(3)} (was ${top.toFixed(3)})`);
       // the roof gun stands on the model's roof: the top under its mount is at VAN_Z
       const m = V.mesh(r.u, { dent: 0, gun: false });
       const gy = -0.1 * v.h;
