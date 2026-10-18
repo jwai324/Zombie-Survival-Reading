@@ -104,12 +104,16 @@
     return "#" + ((r << 16) | (g << 8) | b).toString(16).padStart(6, "0");
   }
 
+  /** The paint job's decal (js/upgrades.js PAINT_LOOKS decal, in its decalA and decalB) on the roof panel, w x h
+      round (0, 0), the nose up. SCALE: a new decal kind is a branch here (and in js/van3d.js). */
   function decal(ctx, kind, w, h, look) {
+    const A = (look && look.decalA) || "#ebe6d7";
+    const B = (look && look.decalB) || A;
     ctx.save();
     ctx.lineWidth = 2.5;
     ctx.strokeStyle = INK;
     if (kind === "stripe") {
-      ctx.fillStyle = "rgba(235,230,215,0.9)";
+      ctx.fillStyle = A;
       ctx.fillRect(-6, -h * 0.45, 12, h * 0.9);
       ctx.strokeRect(-6, -h * 0.45, 12, h * 0.9);
     } else if (kind === "hazard") {
@@ -117,7 +121,7 @@
       ctx.beginPath();
       ctx.rect(-w * 0.42, h * 0.18, w * 0.84, h * 0.22);
       ctx.clip();
-      ctx.fillStyle = INK;
+      ctx.fillStyle = A;
       for (let i = -w; i < w; i += 18) {
         ctx.beginPath();
         ctx.moveTo(i, h * 0.18);
@@ -130,28 +134,96 @@
       ctx.restore();
       ctx.strokeRect(-w * 0.42, h * 0.18, w * 0.84, h * 0.22);
     } else if (kind === "stencil") {
-      ctx.fillStyle = "rgba(235,230,215,0.85)";
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = A;
       ctx.font = "700 15px Oswald, Impact, sans-serif";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
       ctx.fillText("B-66", 0, 6);
     } else if (kind === "patches") {
-      ctx.fillStyle = "rgba(60,40,30,0.55)";
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = A;
       [[-14, -18, 12, 9], [10, 4, 10, 14], [-6, 20, 16, 7]].forEach(([x, y, pw, ph]) => {
         rr(ctx, x, y, pw, ph, 3);
         ctx.fill();
       });
+      // fresh rust round two of them
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = B;
+      [[-12, -16, 5, 4], [12, 7, 4, 6]].forEach(([x, y, pw, ph]) => {
+        rr(ctx, x, y, pw, ph, 2);
+        ctx.fill();
+      });
     } else if (kind === "flames") {
+      // licking back from the front of the panel: the flame in decalA, its hot heart in decalB
+      const flame = (k) => {
+        ctx.beginPath();
+        ctx.moveTo(-w * 0.42 * k, -h * 0.05 * k);
+        for (let i = 0; i < 5; i++) {
+          const x = -w * 0.42 * k + (i / 4) * w * 0.84 * k;
+          ctx.lineTo(x + w * 0.1 * k, (-h * 0.4 + (i % 2) * 12) * k);
+          ctx.lineTo(x + w * 0.2 * k, (-h * 0.18 + (i % 2) * 6) * k);
+        }
+        ctx.lineTo(w * 0.42 * k, -h * 0.05 * k);
+        ctx.closePath();
+      };
+      flame(1);
+      fillStroke(ctx, A, 2.5);
+      ctx.save();
+      ctx.translate(0, -h * 0.06);
+      flame(0.62);
+      ctx.fillStyle = B;
+      ctx.fill();
+      ctx.restore();
+    } else if (kind === "lightning") {
+      // two bolts down the panel, each with a shade line down its middle
+      [[-w * 0.2, 1], [w * 0.22, -1]].forEach(([x0, f]) => {
+        const s = f * w * 0.1;
+        ctx.beginPath();
+        ctx.moveTo(x0 + s * 0.6, -h * 0.44);
+        ctx.lineTo(x0 - s * 0.9, -h * 0.02);
+        ctx.lineTo(x0 + s * 0.1, -h * 0.02);
+        ctx.lineTo(x0 - s * 0.7, h * 0.44);
+        ctx.lineTo(x0 + s * 1.1, -h * 0.12);
+        ctx.lineTo(x0 + s * 0.1, -h * 0.12);
+        ctx.lineTo(x0 + s * 1.3, -h * 0.44);
+        ctx.closePath();
+        fillStroke(ctx, A, 2);
+        ctx.strokeStyle = B;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x0 + s * 0.85, -h * 0.4);
+        ctx.lineTo(x0 - s * 0.3, -h * 0.07);
+        ctx.lineTo(x0 - s * 0.35, h * 0.3);
+        ctx.stroke();
+      });
+    } else if (kind === "drips") {
+      // toxic goo along the front of the panel, running back in drips of every length, a glint on the longest
+      const top = -h * 0.46;
+      const band = -h * 0.34;
+      ctx.fillStyle = A;
       ctx.beginPath();
-      ctx.moveTo(-w * 0.42, -h * 0.05);
-      for (let i = 0; i < 5; i++) {
-        const x = -w * 0.42 + (i / 4) * w * 0.84;
-        ctx.lineTo(x + w * 0.1, -h * 0.4 + (i % 2) * 12);
-        ctx.lineTo(x + w * 0.2, -h * 0.18 + (i % 2) * 6);
-      }
-      ctx.lineTo(w * 0.42, -h * 0.05);
-      ctx.closePath();
-      fillStroke(ctx, "#1f1f23", 2.5);
+      ctx.rect(-w * 0.46, top, w * 0.92, band - top);
+      ctx.fill();
+      [[-0.36, 0.38, 3.2], [-0.2, 0.62, 2.6], [-0.05, 0.3, 3], [0.1, 0.78, 2.8], [0.26, 0.45, 3.4], [0.39, 0.25, 2.4]].forEach(([fx, fl, r]) => {
+        const x = fx * w;
+        const y = band + fl * h * 0.7;
+        ctx.beginPath();
+        ctx.moveTo(x - r * 0.7, band - 1);
+        ctx.lineTo(x - r, y);
+        ctx.arc(x, y, r, Math.PI, 0, true);
+        ctx.lineTo(x + r * 0.7, band - 1);
+        ctx.closePath();
+        ctx.fill();
+      });
+      ctx.strokeStyle = B;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(w * 0.1 - 1, band + 2);
+      ctx.lineTo(w * 0.1 - 1, band + 0.78 * h * 0.7 - 2);
+      ctx.moveTo(-w * 0.4, top + 2);
+      ctx.lineTo(w * 0.3, top + 2);
+      ctx.stroke();
     } else if (kind === "chevron") {
       ctx.fillStyle = "rgba(235,230,215,0.85)";
       for (let i = -1; i <= 1; i++) {
@@ -167,13 +239,14 @@
         ctx.stroke();
       }
     }
-    void look;
     ctx.restore();
   }
 
   /**
-   * The Bookmobile from straight above: its paint, decal, windows, roof rack and the hurt flash. The road lays it on the
-   * 3D van's roof (js/perspective.js roof; the roof gun stands on it there, every gun upgrade showing).
+   * The Bookmobile from straight above, the map's van marker (js/map.js; everywhere else the van is the 3D model,
+   * js/van3d.js): its paint job (PAINT_LOOKS: body, roof, the trim round the windshield and on the roof hatch, the
+   * bumpers at each end, the rims' hubs at the wheels' outer sides, the decal on the roof), windows, gear and the
+   * hurt flash. The map adds the roof gun (map.js drawRoofGun).
    * opts: { upgrades, t, hurt (0..1), scale, moving }
    */
   function van(ctx, x, y, opts) {
@@ -192,7 +265,7 @@
     rr(ctx, -w / 2 + 7, -h / 2 + 9, w, h, 8);
     ctx.fill();
 
-    // wheels with tread
+    // wheels with tread, each rim's hub showing at its outer side
     [[-w / 2 - 6, -h * 0.33], [w / 2 - 7, -h * 0.33], [-w / 2 - 6, h * 0.16], [w / 2 - 7, h * 0.16]].forEach(([wx, wy]) => {
       rr(ctx, wx, wy, 13, 26, 3);
       fillStroke(ctx, "#1f2023", 3);
@@ -204,7 +277,14 @@
         ctx.lineTo(wx + 11, wy + i);
         ctx.stroke();
       }
+      rr(ctx, wx < 0 ? wx - 1.5 : wx + 10.5, wy + 8, 4, 10, 1.5);
+      fillStroke(ctx, look.rims, 1.5);
     });
+    // the bumpers, just out from each end
+    rr(ctx, -w / 2 + 5, -h / 2 - 4, w - 10, 10, 2.5);
+    fillStroke(ctx, look.bumper, 2.5);
+    rr(ctx, -w / 2 + 5, h / 2 - 6, w - 10, 10, 2.5);
+    fillStroke(ctx, look.bumper, 2.5);
 
     // ram plow (front = top)
     if (u.bumper > 0) {
@@ -250,14 +330,21 @@
     rr(ctx, w / 2 - 11, -h * 0.1, 8, h * 0.3, 3);
     ctx.fill();
 
-    // windshield (cracked)
+    // windshield (cracked), in its trim
     ctx.beginPath();
     ctx.moveTo(-w * 0.38, -h * 0.3);
     ctx.lineTo(w * 0.38, -h * 0.3);
     ctx.lineTo(w * 0.32, -h * 0.13);
     ctx.lineTo(-w * 0.32, -h * 0.13);
     ctx.closePath();
-    fillStroke(ctx, "#2b3540", 3);
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 9;
+    ctx.strokeStyle = INK;
+    ctx.stroke();
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = look.trim;
+    ctx.stroke();
+    fillStroke(ctx, "#2b3540", 2);
     ctx.strokeStyle = "rgba(255,255,255,0.45)";
     ctx.lineWidth = 1.5;
     ctx.beginPath();
@@ -294,9 +381,9 @@
     ctx.translate(0, h * 0.16);
     decal(ctx, look.decal, w * 0.84, h * 0.52, look);
     ctx.restore();
-    // roof hatch
+    // roof hatch, in the trim
     rr(ctx, -10, h * 0.26, 20, 12, 2);
-    fillStroke(ctx, shade(look.roof, -20), 2.5);
+    fillStroke(ctx, look.trim, 2.5);
 
     // side armor plates
     for (let i = 0; i < u.armor; i++) {

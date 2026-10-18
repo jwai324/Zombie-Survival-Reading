@@ -17,9 +17,10 @@
    on foot (animate: a heading turning at its look's rate, legs by the ground covered, scream, claw, the hit flash,
    each kind's own fall), with the road's shadow or frenzy glow on the ground, health bars and blood in the air.
    They come in from far down the road and
-   out of the overgrowth at the sides (spawn), small at first. The van is a box in the yard van's own faces
-   (Draw3.texture), the top-down art on its roof and a roof gun standing on it. A shot leaves the barrels and drops
-   to chest height (AIM_Z) where the pointer is, so on the screen it flies at the pointer. */
+   out of the overgrowth at the sides (spawn), small at first. The van is the one 3D van seen everywhere (js/van3d.js
+   Van3D on js/model3d.js), through this camera, lit and hazed as the buildings beside it are, with the roof gun
+   standing on it (gun: aimed here). A shot leaves the barrels and drops to chest height (AIM_Z) where the pointer is,
+   so on the screen it flies at the pointer. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -31,7 +32,7 @@
     const f = (v) => Math.max(0, Math.min(255, Math.round(v + amt)));
     return "rgb(" + f(n >> 16) + "," + f((n >> 8) & 255) + "," + f(n & 255) + ")";
   }
-  const VAN_Z = 50; // the van's roof
+  const VAN_Z = 50; // the van's roof (js/van3d.js H: the gun stands on it)
   const GUN_Z = VAN_Z + 9; // the roof gun's barrels
   const AIM_Z = 26; // what a shot drops to where the pointer is: a walker's chest
   // aimed at a walker, Spread Shot's outer barrels cross it this share of its radius off its middle (aim)
@@ -45,7 +46,21 @@
   const VERGE = [40, 140];
   // SCALE: seconds a new walker takes to come out of the weeds (walkers spawn at the edge of the view, cfg.far)
   const FADE_IN = 0.5;
-  const TEX_RES = 3; // the van's faces, drawn sharper than the yard's
+  /* The van (js/van3d.js) looks as the buildings beside it do (js/perspective-buildings.js; kept in step by hand, its
+     LIGHT and ink rule are its own):
+     - light: theirs, from the upper left of the world (dir). An upright face's shade is gain x how much it faces dir,
+       plus base; a top's is top, an underside's under; a sloped face's lies between them by how much it faces up or
+       down. There a shade is added to a colour; Model3D multiplies one, so here it is 1 + shade / ref (a mid colour);
+     - ink: theirs at its size, a + b x its px a unit at its middle, between lo and hi px;
+     - haze: theirs, by drawItem's fade (the van is near: it all but never shows);
+     - lod by its length on the screen (px): full detail from VAN_LOD_PX[0], no fine decals or small gear from [1],
+       under it the body, wheels and plow only (the still scene, drawn once, always has full detail);
+     - a hit flashes it toward HURT, up to HURT_MAX (js/sprites.js van's flash). */
+  const VAN_LIGHT = { dir: [-0.6, -0.8], gain: 16, base: -12, top: 6, under: -34, ref: 128 };
+  const VAN_INK = { a: 0.6, b: 1.7, lo: 0.7, hi: 3.2 };
+  const VAN_LOD_PX = [140, 60];
+  const HURT = [201, 65, 47];
+  const HURT_MAX = 0.6;
   // SCALE: px a world unit: nearer the camera than this, nothing is drawn (the van is about 2); a lower camera or a
   // bigger cfg.scale brings things nearer to it
   const NEAR_PX = 6;
@@ -187,7 +202,9 @@
     // the plants (made a square at a time wherever the view reaches: out to far, no other limit), props and walkers
     // drawn a frame, where walkers come from and PERSP.range / keepUp in js/game.js all grow with it
     cfg: { pitch: 30, fov: 60, vanAt: 0.8, scale: 1.55, far: 3600 },
+    VAN_Z,
     GUN_Z,
+    VAN_LIGHT,
     AIM_Z,
     TILE,
     BLOOD_FALL,
@@ -1534,91 +1551,133 @@
       }
       this.flat(ctx, p.x, p.y, p.z != null ? p.z : 4, () => ZSR.Draw.particle(ctx, p));
     },
-    /** The van as one closed box: walls in the yard van's own faces (cab and body down each side, the doors at the
-        back, the nose at the front), the road's top-down art laid on the roof, every edge where its neighbour's is,
-        and the roof gun standing on top. */
-    van(g, ctx) {
+    /** The van: its shadow on the road, the one 3D van (js/van3d.js Van3D: the save's paint job and gear, dented by
+        the trip's health) through this camera (vanView: lit and hazed as the buildings beside it), then the roof gun
+        standing on its roof, aimed (gun; the model's own gun is left off). fade: how far into the haze it is (drawItem;
+        it is near, so all but always 1): it goes into it by colour, as a building does, never see-through. */
+    van(g, ctx, fade) {
       const D = ZSR.Draw;
-      const T = (kind) => ZSR.Draw3.texture(kind, null, null, TEX_RES);
+      const V = ZSR.Van3D;
       const van = g.van;
       const fx = Math.cos(van.heading);
       const fy = Math.sin(van.heading);
       // the van's own frame, as sprites.js draws it: x to its right, y toward its back
       const L = (lx, ly) => [van.x - fy * lx - fx * ly, van.y + fx * lx - fy * ly];
-      const at = (z, fn) => {
-        const e = 4;
-        const a = L(e, 0);
-        const b = L(0, e);
-        const p0 = this.project(van.x, van.y, z);
-        const pa = this.project(a[0], a[1], z);
-        const pb = this.project(b[0], b[1], z);
-        if (!p0 || !pa || !pb) return;
+      const e = 4;
+      const p0 = this.project(van.x, van.y, 0);
+      const pa = this.project(...L(e, 0), 0);
+      const pb = this.project(...L(0, e), 0);
+      if (p0 && pa && pb) {
         ctx.save();
         ctx.transform((pa.x - p0.x) / e, (pa.y - p0.y) / e, (pb.x - p0.x) / e, (pb.y - p0.y) / e, p0.x, p0.y);
-        fn();
-        ctx.restore();
-      };
-      at(0, () => {
         ctx.fillStyle = "rgba(0,0,0,0.3)";
         D.rr(ctx, -30, -54, 72, 126, 10);
         ctx.fill();
-      });
-      const FL = L(-33, -59);
-      const FR = L(33, -59);
-      const BR = L(33, 59);
-      const BL = L(-33, 59);
-      // each wall as seen from outside, left to right: the nose is on the left of the yard van's side faces
-      // the end faces leave a sliver clear down each side: crop it, so the corners close
-      const END = [2 / 64, 62 / 64];
-      const walls = [
-        [BL, BR, [{ img: T("vanBack"), crop: END }]],
-        [FL, BL, [{ img: T("vanCab") }, { img: T("vanBody") }]],
-        [BR, FR, [{ img: T("vanBodyR"), flip: true }, { img: T("vanCab"), flip: true }]],
-        [FR, FL, [{ img: T("vanFront"), crop: END }]],
-      ];
-      ctx.imageSmoothingQuality = "medium";
-      for (const [left, right, pieces] of walls) if (this.faces(left, right, van.x, van.y)) this.texWall(ctx, left, right, 0, VAN_Z, pieces);
-      this.roof(g, ctx, L);
-      this.poly(ctx, [FL, FR, BR, BL].map((c) => c.concat(VAN_Z)), null, 3);
-      this.gun(g, ctx);
-    },
-    /** The van's roof: the road's top-down van (paint, decal, windows, rack, the hurt flash) drawn into the van's
-        own footprint, then laid on the walls' top edges in strips front to back, so its corners are theirs. */
-    roof(g, ctx, L) {
-      const D = ZSR.Draw;
-      const van = g.van;
-      const u = g.upgrades || ZSR.State.save.upgrades;
-      const looks = ZSR.Upgrades.PAINT_LOOKS;
-      const R = TEX_RES;
-      const c = this.roofCanvas || (this.roofCanvas = document.createElement("canvas"));
-      if (c.width !== 66 * R) {
-        c.width = 66 * R;
-        c.height = 118 * R;
-      }
-      const x = c.getContext("2d");
-      x.setTransform(R, 0, 0, R, 33 * R, 59 * R);
-      x.fillStyle = looks[Math.min(u.paint || 0, looks.length - 1)].body;
-      x.fillRect(-33, -59, 66, 118);
-      D.van(x, 0, 0, { upgrades: u, t: g.time, hurt: van.hurt, scale: 1, moving: !(g.arrive && g.arrive.parked) });
-      const N = 6;
-      const step = 118 / N;
-      for (let j = 0; j < N; j++) {
-        const y0 = -59 + j * step;
-        const a = L(-33, y0);
-        const b = L(33, y0);
-        const d = L(-33, y0 + step);
-        const tl = this.project(a[0], a[1], VAN_Z);
-        const tr = this.project(b[0], b[1], VAN_Z);
-        const bl = this.project(d[0], d[1], VAN_Z);
-        if (!tl || !tr || !bl) return;
-        ctx.save();
-        // (in the picture's own pixels, as texWall)
-        const sw = 66 * R;
-        const sh = step * R;
-        ctx.transform((tr.x - tl.x) / sw, (tr.y - tl.y) / sw, (bl.x - tl.x) / sh, (bl.y - tl.y) / sh, tl.x, tl.y);
-        ctx.drawImage(c, 0, j * sh, sw, sh, 0, 0, sw, j < N - 1 ? sh * 1.04 : sh);
         ctx.restore();
       }
+      const u = g.upgrades || ZSR.State.save.upgrades;
+      if (V) {
+        const view = this.vanView(g, fade == null ? 1 : fade);
+        if (view) {
+          const a = ctx.globalAlpha;
+          ctx.globalAlpha = 1;
+          V.draw(ctx, view, u, { dent: g.vanDent != null ? g.vanDent : V.dentNow(), gun: false });
+          ctx.globalAlpha = a;
+        }
+      } else {
+        // (without js/van3d.js, a test that leaves it out: a plain box in its paint)
+        const look = ZSR.Upgrades.stats(u).look;
+        const c = [L(-33, -59), L(33, -59), L(33, 59), L(-33, 59)];
+        this.boxSides(ctx, c, 0, VAN_Z, () => look.body);
+        this.poly(ctx, c.map((p) => p.concat(VAN_Z)), look.roof, 3);
+      }
+      this.gun(g, ctx);
+    },
+    /** The view the van is drawn through (js/model3d.js's contract), after setup: the van's own frame (x its right, y
+        its heading, z up, road units) into this camera's projection; the camera's eye in that frame; the buildings'
+        light (VAN_LIGHT) on a face whose normal is turned into the world with the van; their ink at its size on the
+        screen, its lod by its length there; the haze by fade, as theirs; the hurt flash as a tint. One object, kept
+        and filled anew each frame; null when the van is behind the camera. */
+    vanView(g, fade) {
+      const k = this.k;
+      const van = g.van;
+      const fx = Math.cos(van.heading);
+      const fy = Math.sin(van.heading);
+      let v = this.vanV;
+      if (!v) {
+        // C: the van's frame into the camera's, X = C0 + C1 x + C2 y to the right and Yb = C3 + C4 x + C5 y ahead of
+        // the camera's foot; then the camera's height, its pitch's cos and sin, the screen's middle and the focal
+        // length (C6 .. C11), as project does it
+        const C = new Float64Array(12);
+        const H = new Float64Array(2); // the van's heading, cos and sin
+        const VL = VAN_LIGHT;
+        v = this.vanV = ZSR.Model3D.view({ C, H, near: 5 });
+        v.project = (x, y, z) => {
+          const X = C[0] + C[1] * x + C[2] * y;
+          const Yb = C[3] + C[4] * x + C[5] * y;
+          const dz = C[6] - z;
+          const d = Yb * C[7] + dz * C[8];
+          v.D = d;
+          if (!(d > v.near)) {
+            v.X = C[9];
+            v.Y = C[10];
+            return false;
+          }
+          v.X = C[9] + (C[11] * X) / d;
+          v.Y = C[10] - (C[11] * (Yb * C[8] - dz * C[7])) / d;
+          return true;
+        };
+        // a face's normal turned into the world (the van's right is (-sin, cos), its heading (cos, sin)): an upright
+        // wall's shade by its level direction toward the light, a top's or an underside's its own, a sloped face
+        // between them by how much it faces up or down
+        v.lit = (nx, ny, nz) => {
+          const wx = -H[1] * nx + H[0] * ny;
+          const wy = H[0] * nx + H[1] * ny;
+          const lev = Math.sqrt(wx * wx + wy * wy);
+          const wall = lev > 1e-6 ? ((wx * VL.dir[0] + wy * VL.dir[1]) / lev) * VL.gain + VL.base : 0;
+          const up = Math.min(1, Math.abs(nz));
+          return 1 + (wall * (1 - up) + (nz > 0 ? VL.top : VL.under) * up) / VL.ref;
+        };
+      }
+      const C = v.C;
+      const dx = van.x - k.ox;
+      const dy = van.y - k.oy;
+      C[0] = dx * k.Rx + dy * k.Ry;
+      C[1] = -fy * k.Rx + fx * k.Ry;
+      C[2] = fx * k.Rx + fy * k.Ry;
+      C[3] = dx * k.Fx + dy * k.Fy + k.b;
+      C[4] = -fy * k.Fx + fx * k.Fy;
+      C[5] = fx * k.Fx + fy * k.Fy;
+      C[6] = k.h;
+      C[7] = k.cs;
+      C[8] = k.sn;
+      C[9] = k.cx;
+      C[10] = k.cy;
+      C[11] = k.f;
+      v.H[0] = fx;
+      v.H[1] = fy;
+      // the eye: the camera stands k.b behind its foot (ox, oy), k.h up
+      const ex = k.ox - k.Fx * k.b - van.x;
+      const ey = k.oy - k.Fy * k.b - van.y;
+      v.eye[0] = -fy * ex + fx * ey;
+      v.eye[1] = fx * ex + fy * ey;
+      v.eye[2] = k.h;
+      // its size on the screen, at its middle: the buildings' ink there, and its lod by its length
+      const mid = this.project(van.x, van.y, VAN_Z / 2);
+      if (!mid) return null;
+      v.ink = clamp(VAN_INK.a + mid.s * VAN_INK.b, VAN_INK.lo, VAN_INK.hi);
+      const px = mid.s * ((ZSR.Van3D && ZSR.Van3D.L) || van.h);
+      v.lod = g.vanLod != null ? g.vanLod : px >= VAN_LOD_PX[0] ? 0 : px >= VAN_LOD_PX[1] ? 1 : 2;
+      const haze = this.haze(g);
+      v.fog = clamp(1 - fade, 0, 1);
+      v.fogR = haze[0];
+      v.fogG = haze[1];
+      v.fogB = haze[2];
+      v.tint = Math.min(HURT_MAX, Math.max(0, van.hurt || 0));
+      v.tintR = HURT[0];
+      v.tintG = HURT[1];
+      v.tintB = HURT[2];
+      return v;
     },
     /** The roof gun standing on the van: a ring and a post, then the barrels along the aim and tipped down toward it,
         a flash at their tips as it fires. Every gun upgrade shows (as on the old top-down van): Spread Shot adds
@@ -2081,7 +2140,7 @@
       else if (o._t === "walker") this.walker(g, ctx, o, fade);
       else if (o._t === "downed") this.downed(g, ctx, o, fade);
       else if (o._t === "flying") this.flying(g, ctx, o);
-      else this.van(g, ctx);
+      else this.van(g, ctx, fade);
     },
     /** Slow frames (a computer without a graphics card) get softer ground layers; a check every 30 frames. */
     pace(ms) {
@@ -2239,12 +2298,13 @@
       ctx.drawImage(L, 0, 0, k.W, k.H);
     },
     /** The title screen's and the garage's still scene (game.js showcase) on `canvas`: the van on a straight road
-        through this camera, in the paint and upgrades given (o.upgrades), its gun on the nearer walker, o.kinds
-        coming at it (Walker3D figures, as on the road: a screamer screams), a wreck, a barrier and the roadside going
-        into the haze. Drawn only when what it shows changes (the canvas's size, the upgrades, the kinds, o.seed): the
-        title's loop asks every frame and nearly always finds its picture already there. True if it drew. */
+        through this camera, in the paint and upgrades given (o.upgrades; the same 3D van as the road's, dented by
+        o.dent, 0 by default: Van3D.dentTier's), its gun on the nearer walker, o.kinds coming at it (Walker3D figures,
+        as on the road: a screamer screams), a wreck, a barrier and the roadside going into the haze. Drawn only when
+        what it shows changes (the canvas's size, the upgrades, the dents, the kinds, o.seed): the title's loop asks
+        every frame and nearly always finds its picture already there. True if it drew. */
     showcase(canvas, o) {
-      const key = canvas.width + "x" + canvas.height + "|" + JSON.stringify(o.upgrades || {}) + "|" + (o.kinds || []).join(",") + "|" + (o.seed || 0);
+      const key = canvas.width + "x" + canvas.height + "|" + JSON.stringify(o.upgrades || {}) + "|" + (o.dent | 0) + "|" + (o.kinds || []).join(",") + "|" + (o.seed || 0);
       if (canvas._showKey === key) return false;
       canvas._showKey = key;
       const ctx = canvas.getContext("2d");
@@ -2260,7 +2320,8 @@
       // the scene: the van at the origin heading up the screen (north), the camera right behind it
       const th = -Math.PI / 2;
       const van = { x: 0, y: 0, heading: th, w: 66, h: 118, hurt: 0, flash: 0 };
-      const sc = { W, H, zoom: SHOW.zoom * Math.min(1, H / 200), vanAt: SHOW.vanAt, cam: { x: 0, y: 0, th }, mods: {}, van, time: 0, upgrades: o.upgrades || {}, dpr: 1, zombies: [], fallen: [] };
+      // (the van at full detail: the garage shows off every bit of gear bought, and the picture is drawn once)
+      const sc = { W, H, zoom: SHOW.zoom * Math.min(1, H / 200), vanAt: SHOW.vanAt, cam: { x: 0, y: 0, th }, mods: {}, van, vanDent: o.dent | 0, vanLod: 0, time: 0, upgrades: o.upgrades || {}, dpr: 1, zombies: [], fallen: [] };
       const k = this.setup(sc);
       const at = (X, Y) => [X, -Y]; // X to the right, Y ahead
       const roadX = -ZSR.Streets.laneCenter(0, 2); // the road's middle (the van in our left lane)
