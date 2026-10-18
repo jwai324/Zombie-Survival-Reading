@@ -11,6 +11,7 @@
    Van3D.mesh(u, o)       the Model3D model (built once per sig and kept)
    Van3D.draw(ctx, view, u, o)   Model3D.draw with it
    Van3D.dentTier(share)  0 .. DENTS.length: how dented it looks at this share of its health
+   Van3D.dentNow()        the same for the van now (a trip's van health on a trip, else the save's)
    u: the upgrades { armor, bumper, engine, paint, damage, fireRate, spread } (missing ones 0)
    o: { dent: 0..2, gun: true to stand the roof gun on it (the road draws its own, aimed: false there) } */
 (function (root) {
@@ -84,6 +85,14 @@
   function dentTier(share) {
     return share < DENTS[1] ? 2 : share < DENTS[0] ? 1 : 0;
   }
+  /** How dented the van looks now: on a trip the trip's van health, else the save's. */
+  function dentNow() {
+    const S = ZSR.State;
+    if (!S || !S.save) return 0;
+    const t = S.trip;
+    const share = t ? t.vanHp / (t.vanMaxHp || 1) : S.vanMaxHp ? S.save.vanHp / (S.vanMaxHp() || 1) : 1;
+    return dentTier(share);
+  }
 
-  ZSR.Van3D = { L, W, H, DENTS, sig, mesh, draw, dentTier, lookOf };
+  ZSR.Van3D = { L, W, H, DENTS, sig, mesh, draw, dentTier, dentNow, lookOf };
 })(typeof window !== "undefined" ? window : globalThis);
