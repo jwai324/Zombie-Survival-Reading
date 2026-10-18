@@ -35,8 +35,9 @@
    awake walkers near it (WORLD.SCREAM); a killed walker leaves `walkers` at once for `fallen` (collapsing, then
    gone after FALL_SECS), and `blood` holds a hit's spray (only with SETTINGS.walkerGore).
    Still 3D models (the parked van; js/modelsprite.js, mixed in after this file) are `models`: castColumns leaves their
-   tiles (modelSee) undrawn, drawScene puts each one on screen as strips with their own depths (modelQueue) and
-   drawSprite hands a strip to modelStripDraw; loadGrid and dropSceneCaches let their canvases go.
+   tiles (modelSee) undrawn, drawScene puts each one on screen as strips with their own depths (modelQueue, before the
+   walkers: a live walker a model hides whole is not drawn, liveVisible) and drawSprite hands a strip to
+   modelStripDraw; loadGrid and dropSceneCaches let their canvases go.
    Everything reads and writes the trip through ZSR.State. */
 (function (root) {
   "use strict";
@@ -2478,6 +2479,9 @@
       const list = [];
       const liveQ = this.liveQ || (this.liveQ = []);
       liveQ.length = 0;
+      // the 3D models (the parked van) first: each on screen as strips with their own depths (js/modelsprite.js), so
+      // a live walker they hide whole is known before the walkers draw (liveVisible)
+      if (this.models && this.models.length) this.modelQueue(list, sc);
       sprites.forEach((s) => {
         const sx = s.x - p.x;
         const sy = s.y - p.y;
@@ -2513,8 +2517,6 @@
       // picture), the longest-waiting first, while this frame's redraws last (liveMax); the rest keep theirs
       this.liveShown = liveQ.length; // (the governor counts only frames with live walkers on screen)
       this.liveDrawn = liveQ.length ? this.liveRenderAll(liveQ) : 0;
-      // the 3D models (the parked van): each on screen as strips with their own depths (js/modelsprite.js)
-      if (this.models && this.models.length) this.modelQueue(list, sc);
       list.sort((a, b) => b.ty - a.ty);
       // Painter's order, far to near, per column. Every draw stays inside its own 2-px column, so the order
       // only matters within a column: each sprite (far to near) first draws, in each of its columns, the
@@ -2585,13 +2587,16 @@
       }
       return { x: z.x, y: z.y, live: z, falling, img: null, im: null, iw: 0, ih: 0, scale, lift: 0, wide: box.w / box.h, boxH: box.h, head: box.head * shrink, barW: box.bar * shrink, hp: falling ? null : z.hp / z.maxHp, dim, fog: 0, rw: 0, rh: 0, lod: 0, liveT: null, liveAge: 0, liveFirst: false };
     },
-    /** Does any column of this sprite show past the opaque faces in front of it (and under an opening's top)? */
+    /** Does any column of this sprite show past the opaque faces in front of it (and under an opening's top), and
+        past the models drawn in front of it this frame (the parked van's real outline: modelCovers)? */
     liveVisible(s) {
       const bottom = s.top + s.sh;
       for (let col = s.c0; col <= s.c1; col++) {
         const clip = this.clipAt(col, s.ty);
         const cap = s.ty > this.capD[col] ? this.capY[col] : -Infinity;
-        if ((clip < bottom ? clip : bottom) > (cap > s.top ? cap : s.top)) return true;
+        const y0 = cap > s.top ? cap : s.top;
+        const y1 = clip < bottom ? clip : bottom;
+        if (y1 > y0 && !(this.modelStripN && this.modelCovers(col, s.ty, y0, y1))) return true;
       }
       return false;
     },
