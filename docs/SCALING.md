@@ -466,9 +466,15 @@ searches and when matters more than how fast one search is.
   canvas calls and colours. A look's envelope samples about 400 poses at page load (about 27 ms a look).
 - `WALKER_FIXTURE` in `tests/validate-art.js` is the walkers' recorded draw-call hash: re-record it
   (`--record-walkers`) only when walker art changes on purpose.
-- Animals: `js/beast3d.js` (`CC_N` 8192, `ENV_MAX` 24, `BLOB_MAX` 12 ellipsoids a fur body joins); looks in
-  `js/beast3d-looks.js` and appended `beast3d-looks2.js` ...; `tests/validate-art.js` `BEAST_FILES`, `BEAST_OPS`
-  [450, 320, 170], `BEAST_H_MAX` (tallest animal box), `BEAST_COLOURS` 3000.
+- Animals: `js/beast3d.js` (`CC_N` 16384, `ENV_MAX` 24, `BLOB_MAX` 12 ellipsoids a fur body joins, `POSE_ENV_STEPS`:
+  how finely a quick loop like the wingbeat is sampled for the fit); looks in `js/beast3d-looks.js` (the dog, Rivet) and
+  `js/beast3d-looks2.js` (the goat, the hen), appended `beast3d-looks3.js` ... next; new poses are appended to `POSES`
+  (old indices never move). `tests/validate-art.js` `BEAST_FILES`, `BEAST_OPS` [450, 320, 170] (the goat uses 393 at
+  detail 0), `BEAST_H_MAX` 0.7 (the goat's box is 0.66), `BEAST_COLOURS` 5000 with `BEAST_RANDOM_DRAWS` 1200 a kind, and
+  a hash fixture of the dog's and Rivet's draws (re-record only when their art changes on purpose).
+- Yard models: `js/yardmodels.js` `YARD_OPS` [500, 260, 120] canvas calls a model may make at each detail (a model may set
+  its own: the two water tanks do); a new prop's model goes in an appended `yardmodels3.js`, registered by its sprite's
+  art name, with every opts set it is placed with in `def.opts` (validate-art draws them all, whole, cracked and wrecked).
 
 ## Still 3D models (the van now; yard props, signs and animals next)
 
