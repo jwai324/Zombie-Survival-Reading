@@ -38,7 +38,7 @@
       jobs: [{ job: "heal", stars: 1 }],
       posts: [
         // on the porch bench, looking out over the yard
-        { id: "porch", house: [7, 1], pose: "sit", weight: 3, face: { at: [25.5, 30] }, seat: { house: [6.5, 1.45], kind: "porchBench", dir: "n" } },
+        { id: "porch", house: [7, 1], pose: "sit", weight: 3, face: { at: [25.5, 30] }, seat: { house: [6.5, 1.87], kind: "porchBench", dir: "n" } },
         { id: "kitchen", house: [14, 7], pose: "stand", weight: 3, face: { house: [15.5, 6.5] } }, // at the stove (the work pose is a garden kneel)
         { id: "ledger", house: [17, 15], pose: "read", weight: 3, face: { house: [16.5, 13.4] } }, // in the living room, by the shelf with her ledger
         { id: "office", house: [3, 3], pose: "read", weight: 2, face: { house: [2, 1.5] } }, // the base plans at Kate's map desk
@@ -88,12 +88,12 @@
 
   /* ---------- The seats the crew sit on (a post's seat.kind) ----------
      Each one's height in tiles, read off the furniture as it stands in the cabin (js/house.js puts it there, at the
-     prop scale given; js/houseart.js draws it): the top of the seat's front edge over the floor. A sitter's hips rest
-     there (Walker3D people: st.seat), the feet on the floor in front of it.
-     SCALE: one entry per kind of seat. The porch bench becomes a 3D model with a real seat surface in a later stage:
-     its height is this one number (tests/validate-crew.js holds every seat to the furniture under it). */
+     prop scale given; js/houseart.js draws it, or its 3D model's seat: js/yardmodels2.js): the top of the seat over the
+     floor. A sitter's hips rest there (Walker3D people: st.seat), the feet on the floor in front of it.
+     SCALE: one entry per kind of seat (tests/validate-crew.js holds every seat to the furniture under it: a 3D one to
+     its model's def.seat x its prop's scale). */
   W.CREW_SEATS = {
-    porchBench: 0.154, // "hBench" at scale 0.34: the seat's front rail tops out 29 px over the legs' ends in its 64 px picture
+    porchBench: 0.17, // "hBench", the porch's 3D bench at scale 0.34: its seat's top 0.5 units up (YardModels def.seat)
     diningChair: 0.161, // "hChair" at scale 0.5: the seat's front edge 31 px over the legs' ends in its 96 px picture
     bed: 0.32, // a bed's mattress (js/house.js bed(): a low tile 0.32 tall), sat on at its edge
   };

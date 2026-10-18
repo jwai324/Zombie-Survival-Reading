@@ -93,8 +93,9 @@ const PAGE = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m)
 // the fact files: js/layouts.js, js/world.js and every js/story*.js the page loads (a split fact file, story-quests2.js,
 // is run too; tests/validate-world.js reads the same list), then the engine
 const FACT_FILES = ["layouts.js", "world.js"].concat(PAGE.filter((f) => /^story[\w-]*\.js$/.test(f)));
-// (the crew are live figures on Walker3D's people, js/walker3d-crew.js, and the dogs on Beast3D, js/beast3d.js)
-const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "walker3d-crew.js", "beast3d.js", "beast3d-looks.js", "model3d.js", "van3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "perspective.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
+// (the crew are live figures on Walker3D's people, js/walker3d-crew.js, and the dogs on Beast3D, js/beast3d.js; the
+// yard's props, signs and the porch stand as 3D models, js/yardmodels*.js: a new yardmodels3.js goes in this list too)
+const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "walker3d-crew.js", "beast3d.js", "beast3d-looks.js", "model3d.js", "van3d.js", "yardmodels.js", "yardmodels1.js", "yardmodels2.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "perspective.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
 const scripts = PAGE.filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -639,7 +640,65 @@ function yardCheck(ctx) {
   const f = Object.keys(I.fence)[0];
   if (!f) err(`${ctx}: no fence segments`);
   else if (I.coverMask[gw * +f.split(",")[1] + +f.split(",")[0]]) err(`${ctx}: the fence stops shots`);
+  yardModelCheck(ctx);
+  const drawn0 = (I.modelStats && I.modelStats.total) || 0;
   renderAround(ctx);
+  if (!(((I.modelStats && I.modelStats.total) || 0) > drawn0)) err(`${ctx}: four frames round the yard drew no 3D model`);
+  I.props.forEach((pr) => pr.model && pr.img && err(`${ctx}: ${pr.art} has a 3D model and was drawn as a sprite too`));
+}
+/** The yard's props as 3D models (js/modelsprite.js modelProps, js/yardmodels*.js): every prop with a turn whose art
+    has a model is drawn as it (an instance in I.models on the prop), its art's model in the prop's look (a build's
+    dmg), at the prop's place, scale and lift, turned to its plot's front (and its own turn: the level-3 radio's second
+    dish to the plot's left) or, on the porch, out of it (north); sorted by its own bounds, the guy wires by the tower's
+    tile (see-through, no shadow), the porch bench by its back; a lot sign stands solid across its front row's middle
+    LOT_SIGN tiles with the wide board. Props with no model (the hens, the goats) have none. */
+function yardModelCheck(ctx) {
+  const YM = ZSR.YardModels;
+  if (!YM || !I.modelProps) return err(`${ctx}: no yard models (js/yardmodels*.js and js/modelsprite.js modelProps)`);
+  const plotAt = (x, y) => Object.values(Y.plots).find((p) => x >= p.x && y >= p.y && x < p.x + p.w && y < p.y + p.h);
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const turnOff = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
+  const at = (m, x, y) => [m.x + (x * m.Rx + y * m.Fx) * m.scale, m.y + (x * m.Ry + y * m.Fy) * m.scale];
+  let bad = 0;
+  const say = (m) => bad++ < 6 && err(`${ctx}: ${m}`);
+  I.props.forEach((p) => {
+    const want = p.art && YM.has(p.art) && p.rot != null;
+    if (!want) return p.model && say(`${p.art} has a 3D model, with no model of its art or no turn`);
+    const m = p.model;
+    const where = `${p.art} at ${p.x.toFixed(2)},${p.y.toFixed(2)}`;
+    if (!m || m.prop !== p || !I.models.includes(m)) return say(`${where} is not drawn as its 3D model`);
+    if (!(near(m.x, p.x) && near(m.y, p.y) && turnOff(m.rot, p.rot) < 1e-9 && near(m.scale, p.scale || 1) && near(m.lift, p.lift || 0))) say(`${where}: its model stands at ${m.x},${m.y} turned ${m.rot}, scale ${m.scale}, lift ${m.lift}`);
+    const look = m.mesh();
+    const dmg = (p.opts && p.opts.dmg) | 0;
+    if (!look || !look.mesh || look.mesh.id !== "y:" + p.art || look.mesh.key.indexOf("|d" + dmg) < 0) say(`${where}: its model is ${look && look.mesh && look.mesh.key} (want ${p.art}'s, damage ${dmg})`);
+    const plot = plotAt(Math.floor(p.x), Math.floor(p.y));
+    const face = plot ? I.plotFront(plot) + (p.turn || 0) : -Math.PI / 2; // (not on a plot: the porch, facing the yard)
+    if (turnOff(p.rot, face) > 1e-9) say(`${where} faces ${p.rot.toFixed(3)}, not ${plot ? "its plot's front" : "out of the porch"} (${face.toFixed(3)})`);
+    // what it sorts by: its own bounds (a thin or lifted thing by itself), the tower's tile, the bench's back
+    const def = YM.def(p.art);
+    const fx = m.foot.map((q) => q[0]);
+    const fy = m.foot.map((q) => q[1]);
+    const box = [Math.min(...fx), Math.min(...fy), Math.max(...fx), Math.max(...fy)];
+    if (def.foot === "tile") {
+      if (!(near(box[0], Math.floor(p.x)) && near(box[1], Math.floor(p.y)) && near(box[2] - box[0], 1) && near(box[3] - box[1], 1) && m.seeThrough && m.shadow === false)) say(`${where} sorts by ${box} (want its tile, see-through, no shadow)`);
+    } else if (def.sortAt) {
+      const [sx, sy] = at(m, def.sortAt[0], def.sortAt[1]);
+      if (!(sx > box[0] && sx < box[2] && sy > box[1] && sy < box[3] && box[2] - box[0] < 0.05)) say(`${where} does not sort by its back (${box})`);
+    } else {
+      const b = look.mesh.bounds;
+      const corners = [[b[0], b[1]], [b[3], b[1]], [b[3], b[4]], [b[0], b[4]]].map(([x, y]) => at(m, x, y));
+      if (!corners.every(([x, y]) => x >= box[0] - 1e-9 && x <= box[2] + 1e-9 && y >= box[1] - 1e-9 && y <= box[3] + 1e-9) || box[2] - box[0] > (b[3] - b[0] + b[4] - b[1]) * m.scale + 0.2) say(`${where} sorts by ${box.map((v) => v.toFixed(2))}, not its own bounds`);
+    }
+  });
+  // the lot signs: solid across the middle tiles of their front row, a board as wide as the model's
+  const SIGN = YM.def("ySign").board;
+  I.props.filter((p) => p.art === "ySign").forEach((p) => {
+    const plot = plotAt(Math.floor(p.x), Math.floor(p.y));
+    const across = plot.face === "e" || plot.face === "w" ? [0, 1] : [1, 0];
+    const n = (p.foot ? Math.max(p.foot[0], p.foot[1]) : 1) >> 1;
+    for (let k = -n; k <= n; k++) if (!I.blockers.has(Math.floor(p.x) + across[0] * k + "," + (Math.floor(p.y) + across[1] * k))) say(`the ${p.opts.t} lot sign does not block its tile ${k} along its row`);
+    if (!(n === 1 && p.opts.w > SIGN.w && p.opts.w <= SIGN.wide && p.opts.w * p.scale <= 3)) say(`the ${p.opts.t} lot sign's board is ${p.opts.w} units across ${2 * n + 1} tiles (want the wide board, inside its foot)`);
+  });
 }
 try {
   if (!Y.plots || !Y.version) err("yard: WORLD.YARD needs plots and a version");
@@ -4262,6 +4321,8 @@ function alphaContext(canvas) {
     const van = I.modelOf("van");
     ok(!!van, "the yard has no van model");
     if (!van) throw new Error("no van model in the yard");
+    // the van alone here: the yard's prop models (the lot signs and stakes) are checked on their own below
+    I.models.forEach((m) => m !== van && (m.hidden = true));
     const vt = I.vanTiles.map(([x, y]) => x + "," + y).sort().join(" ");
     const gridV = [];
     I.grid.forEach((row, y) => row.forEach((ch, x) => ch === "V" && gridV.push(x + "," + y)));
@@ -4761,13 +4822,20 @@ function alphaContext(canvas) {
       const t = I.modelPool.get(van);
       ok(t && Math.max(t.lw, t.lh) <= last.px, `on the governor's last row a picture is ${t && t.lw} x ${t && t.lh} (row px ${last.px})`);
       I.setLiveLevel(lvl0);
-      // looking away: its canvas is kept MODEL_IDLE frames, then goes back to the spares
+      // looking away: a canvas over MODEL_KEEP_PX is kept MODEL_IDLE frames, then goes back to the spares; a smaller
+      // one stays while its model is out of view (turning back to it needs no new picture)
+      const small = t.c.width * t.c.height <= I.MODEL_KEEP_PX;
       p().a += Math.PI;
       for (let i = 0; i < I.MODEL_IDLE; i++) frame();
       ok(I.modelPool.has(van), "the van's canvas went before MODEL_IDLE frames out of view");
       frame();
       frame();
-      ok(!I.modelPool.has(van) && (I.modelSpare || []).length > 0, "the van's canvas was not let go after MODEL_IDLE frames out of view");
+      if (small) ok(I.modelPool.has(van), `the van's small canvas (${t.c.width} x ${t.c.height}) was let go out of view`);
+      // a big one goes
+      t.c.width = 512;
+      t.c.height = 256;
+      for (let i = 0; i < I.MODEL_IDLE + 2; i++) frame();
+      ok(!I.modelPool.has(van) && (I.modelSpare || []).length > 0, "the van's big canvas was not let go after MODEL_IDLE frames out of view");
     }
 
     // a dent tier change draws it again, at once (its sig), and wreckers' claws never refresh the whole scene for it
@@ -4846,6 +4914,263 @@ function alphaContext(canvas) {
   }
 }
 if (errors.length === modelErrors0) console.log(`OK: model sprites: ${modelChecked} checks (the yard's and River Landing's van drawn as one 3D model on its tiles, no V faces; strips side by side at the depths their rays meet it; the screen's projection, turned and after a step; the walls' light; walkers in front, behind and beside sort by column, no health bar through it but one over its outline; walkers it hides whole not drawn, none that shows left out; still and turning draw nothing new; a walk round it redraws in steps with no hole; a grown window redraws it; a Ram Plow's side maps through the body; walls clip or hide it; its tiles still block; the governor's rows; a dent redraws it; its canvases go out of view and with the scene).`);
+
+/* ---------- The yard's props, signs and plaques and the porch's as 3D models (js/modelsprite.js modelProps) ----------
+   (yardCheck above: every prop with a model is drawn as it, placed, turned and sorted right, at every room level and
+   mix, cracked and wrecked.) Here, a full yard: the radio towers' lifted parts stand at their lift, above the eye with
+   no shadow, the second dish turned to the plot's left; a beacon's blink redraws that beacon alone; standing still
+   draws nothing and turning in place draws only a big model's wider view (never a first picture, a step or a fog)
+   once each picture is drawn; a model wholly out of the view is not planned at all; a rebuild (dressYard) keeps every
+   instance and so its picture, and a build cracking redraws its own props only, for their new look; the porch's posts,
+   bell and bench face the yard and the bench's seat is the crew's (CREW_SEATS.porchBench); the props block, cover and
+   path exactly as their sprites did (the lot sign aside: solid across three tiles of its row); the model canvases stay
+   within MODEL_POOL_PX; a model that will not build leaves its props their sprites (and says so once). */
+let ymChecked = 0;
+const ymErrors0 = errors.length;
+{
+  const ok = (cond, msg) => {
+    ymChecked++;
+    if (!cond) err(`yard models: ${msg}`);
+    return cond;
+  };
+  const YM = ZSR.YardModels;
+  const drawWas = I.modelDraw;
+  const planWas = I.modelPlan;
+  let draws = [];
+  let plans = [];
+  try {
+    if (!YM || !I.modelProps) throw new Error("js/yardmodels*.js or js/modelsprite.js modelProps did not load");
+    I.modelDraw = function (pl) {
+      draws.push({ inst: pl.inst, why: pl.why });
+      return drawWas.call(this, pl);
+    };
+    I.modelPlan = function (inst) {
+      plans.push(inst);
+      return planWas.apply(this, arguments);
+    };
+    const p = () => I.player;
+    const at = (x, y, a) => Object.assign(I.player, { x, y, a });
+    const of = (art) => I.models.filter((m) => m.prop && m.prop.art === art);
+    /** Frames until no model redraws (at most n): every picture drawn at its own detail. */
+    const settle = (n) => {
+      for (let i = 0; i < (n || 40); i++) {
+        draws = [];
+        I.render();
+        if (!draws.length) return true;
+      }
+      return false;
+    };
+    /** One full turn in place, `step` radians a frame; the redraws on the way. */
+    const turn = (step) => {
+      const a0 = p().a;
+      const out = [];
+      for (let a = 0; a < Math.PI * 2 - 1e-9; a += step) {
+        p().a = a0 + a;
+        draws = [];
+        I.render();
+        out.push(...draws);
+      }
+      p().a = a0;
+      return out;
+    };
+    setRooms(3);
+    S.save.builds = {};
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    I.walkers.length = 0;
+    const props = I.models.filter((m) => m.prop);
+    ok(props.length >= 30, `a full yard stands ${props.length} prop models (want 30 or more: every build's props, the plaques, the porch)`);
+
+    // the radio towers' lifted parts: at their lift, above your eye, no shadow; the second dish turned to the left
+    const radio = Y.plots.radio;
+    {
+      // somewhere in the yard the whole tower shows from: far enough for its top, in plain sight of it
+      const tx = radio.x + radio.w / 2;
+      const ty = radio.y + radio.h / 2;
+      let spot = null;
+      for (let d = 12; d <= 18 && !spot; d += 1) {
+        for (let k = 0; k < 24 && !spot; k++) {
+          const x = Math.floor(tx + Math.cos((k / 24) * Math.PI * 2) * d) + 0.5;
+          const y = Math.floor(ty + Math.sin((k / 24) * Math.PI * 2) * d) + 0.5;
+          if (x < 0 || y < 0 || x >= I.gw || y >= I.gh || I.solidForPlayer(x, y) || !I.yardInside[Math.floor(y) * I.gw + Math.floor(x)] || !I.lineClear(x, y, tx, ty)) continue;
+          spot = [x, y];
+        }
+      }
+      if (!ok(!!spot, "no spot in the yard to see the whole radio tower from")) throw new Error("no view of the radio tower");
+      at(spot[0], spot[1], Math.atan2(ty - spot[1], tx - spot[0]));
+    }
+    settle();
+    const lifted = ["yWhip", "yDish", "yBeacon"].map(of).flat();
+    ok(lifted.length >= 4, `the level-3 radio tower has ${lifted.length} lifted parts (a whip, two dishes, two beacons)`);
+    lifted.forEach((m) => {
+      const t = I.modelPool.get(m);
+      const b = m.box;
+      ok(m.lift >= 2 && b && Math.abs(b.z0 - (b.b[2] * m.scale + m.lift)) < 1e-9, `${m.prop.art} stands ${m.lift} up, its box from ${b && b.z0}`);
+      ok(!!t && t.lh > 0 && t.hr >= t.lh - 2, `${m.prop.art} at lift ${m.lift} was not drawn above the eye (picture ${t && t.lh} rows, horizon at ${t && t.hr})`);
+      ok(m.lift >= I.SHADOW_LIFT_MAX, `${m.prop.art} casts its shadow`);
+    });
+    const dishes = of("yDish");
+    const front = I.plotFront(radio);
+    ok(dishes.length === 2 && dishes.some((m) => Math.abs(Math.cos(m.rot - front) - 1) < 1e-9) && dishes.some((m) => Math.abs(Math.sin(m.rot - front) - 1) < 1e-9), `the level-3 dishes face ${dishes.map((m) => m.rot.toFixed(3))} (want the plot's front and its left)`);
+    const guys = of("yGuys")[0];
+    ok(!!guys && guys.seeThrough && guys.shadow === false, "the guy wires are not a see-through frame with no shadow");
+
+    // a beacon's blink: that beacon redraws, for its new look, and nothing else does
+    const beacons = of("yBeacon");
+    if (ok(beacons.length === 2, `${beacons.length} beacons on the level-3 tower`)) {
+      const anim = I.yardAnims.filter((a) => a.kind === "blink");
+      ok(anim.length === 2 && beacons.every((m) => anim.some((a) => a.p === m.prop)), "the beacons' props are not the yard's blinking ones");
+      settle();
+      const b0 = beacons[0];
+      const sig0 = b0.mesh().sig;
+      b0.prop.dim = 0.85;
+      draws = [];
+      I.render();
+      ok(b0.mesh().sig !== sig0 && draws.length === 1 && draws[0].inst === b0 && draws[0].why === "sig", `a blink drew ${draws.map((d) => d.inst.prop.art + " (" + d.why + ")").join(", ") || "nothing"} (want that beacon, for its new look)`);
+      b0.prop.dim = 0;
+      draws = [];
+      I.render();
+      ok(draws.length === 1 && draws[0].inst === b0 && b0.mesh().sig === sig0, "lit again, the beacon was not drawn again (alone)");
+    }
+
+    // standing still draws nothing; turning in place draws no new picture once each is drawn (a big model only for the
+    // wider view a turn brings); a model wholly out of the view is not planned
+    at(27.5, 22.5, -Math.PI / 2);
+    I.yardAnims.forEach((a) => a.kind === "blink" && (a.p.dim = 0));
+    turn(0.17);
+    turn(0.17);
+    settle(80);
+    draws = [];
+    for (let i = 0; i < 20; i++) I.render();
+    ok(!draws.length, `standing still in a full yard drew ${draws.length} pictures (${[...new Set(draws.map((d) => d.why))]})`);
+    const turned = turn(0.17);
+    const why = {};
+    turned.forEach((d) => (why[d.why] = (why[d.why] || 0) + 1));
+    ok(turned.every((d) => d.why === "range") && turned.length <= props.length / 4, `a turn in place in a full yard drew ${turned.length} pictures (${JSON.stringify(why)}; want only a big model's wider view)`);
+    // (out of the view: the circle round its box wholly past the view's edge and the margin)
+    plans = [];
+    I.render();
+    const hv = I.halfView() + I.MODEL_MARGIN;
+    const outside = I.models.filter((m) => {
+      if (m.hidden || !m.box) return false;
+      const d = Math.hypot(m.box.mx - p().x, m.box.my - p().y);
+      const off = Math.abs(Math.atan2(Math.sin(Math.atan2(m.box.my - p().y, m.box.mx - p().x) - p().a), Math.cos(Math.atan2(m.box.my - p().y, m.box.mx - p().x) - p().a)));
+      return d > m.box.r * 1.1 && off - Math.asin(Math.min(1, m.box.r / d)) > hv + 0.02;
+    });
+    ok(outside.length > 5 && !outside.some((m) => plans.includes(m)), `${outside.filter((m) => plans.includes(m)).length} of the ${outside.length} models wholly out of the view were planned anyway`);
+    const mem = I.modelMemory();
+    ok(mem.canvases <= I.models.length + 2 && mem.px <= I.MODEL_POOL_PX, `the model canvases after turning round a full yard: ${mem.canvases} of ${mem.mb.toFixed(1)} MB`);
+
+    // a rebuild keeps every instance (and its picture); a build cracking redraws its own props, for their look
+    const before = new Map(props.map((m) => [m.placeKey, m]));
+    I.dressYard();
+    const after = I.models.filter((m) => m.prop);
+    ok(after.length === props.length && after.every((m) => before.get(m.placeKey) === m), `a rebuild made ${after.filter((m) => before.get(m.placeKey) !== m).length} new prop models (want none: the same props, the same instances)`);
+    draws = [];
+    I.render();
+    ok(!draws.length, `a frame after a rebuild drew ${draws.length} pictures`);
+    const g = Y.plots.garage;
+    at(g.x + g.w + 4.5, g.y + g.h / 2, Math.PI);
+    settle(80);
+    I.wreckSpotsBuild();
+    I.phase = I.phase || { kind: "calm" };
+    I.hitBuild("garage", S.buildMax("garage") * 0.55);
+    ok(S.buildDmg("garage") === 1, `the garage at ${S.buildHp("garage")} of ${S.buildMax("garage")} is not cracked`);
+    const garageProps = I.models.filter((m) => m.prop && I.plotFront && Math.floor(m.x) >= g.x && Math.floor(m.x) < g.x + g.w && Math.floor(m.y) >= g.y && Math.floor(m.y) < g.y + g.h);
+    ok(garageProps.length >= 3 && garageProps.every((m) => (m.prop.opts || {}).dmg === 1), "the cracked garage's props do not show its cracks");
+    const redrawn = new Set();
+    const seen = new Set();
+    for (let i = 0; i < 12; i++) {
+      draws = [];
+      I.render();
+      draws.forEach((d) => redrawn.add(d.inst));
+      (I.modelOn || []).forEach((pl) => seen.add(pl.inst));
+    }
+    const missed = garageProps.filter((m) => seen.has(m) && !redrawn.has(m));
+    ok([...redrawn].every((m) => garageProps.includes(m)) && !missed.length && redrawn.size > 0, `a cracked garage redrew ${[...redrawn].map((m) => m.prop.art)} and not ${missed.map((m) => m.prop.art)} (want its own props, every one in view)`);
+    S.save.builds = {};
+
+    // the porch: its posts, bell and bench face out of the porch (north), the bench's seat is the crew's
+    const porch = ["hPost", "hBell", "hBench"].map(of).flat();
+    ok(porch.length === 4 && porch.every((m) => Math.abs(Math.sin(m.rot) + 1) < 1e-9 && I.indoorAt(m.x, m.y)), `the porch has ${porch.length} models (two posts, the bell, the bench), facing ${porch.map((m) => m.rot.toFixed(2))}`);
+    const bench = of("hBench")[0];
+    if (ok(!!bench, "no bench on the porch")) {
+      const seat = YM.def("hBench").seat * bench.scale;
+      ok(Math.abs(seat - W.CREW_SEATS.porchBench) < 1e-9, `the 3D bench's seat is ${seat} tiles up, CREW_SEATS.porchBench ${W.CREW_SEATS.porchBench}`);
+      const b = bench.mesh().mesh.bounds;
+      const back = bench.y - b[1] * bench.scale; // (facing north: its back is south of it)
+      ok(Math.abs(back - Math.ceil(bench.y)) < 0.05 && I.solidAt(bench.x, bench.y), `the bench's back is at ${back.toFixed(3)} (want against the cabin wall at ${Math.ceil(bench.y)})`);
+    }
+
+    // solidity, cover and walking exactly as the sprites' were (the lot signs aside: solid across three tiles)
+    [0, 3].forEach((lv) => {
+      setRooms(lv);
+      I.enterYard({ firstCalm: 999 });
+      I.stop();
+      const withM = [new Set(I.blockers), new Set(I.covers)];
+      const YMwas = ZSR.YardModels;
+      ZSR.YardModels = undefined;
+      I.dressYard();
+      const sprites = [new Set(I.blockers), new Set(I.covers)];
+      ok(!I.models.some((m) => m.prop), `with no yard models, ${I.models.filter((m) => m.prop).length} props were still drawn as models`);
+      ZSR.YardModels = YMwas;
+      I.dressYard();
+      const signTiles = new Set();
+      if (!lv) I.props.filter((pr) => pr.art === "ySign").forEach((pr) => I.blockers.forEach((k) => {
+        const [x, y] = k.split(",").map(Number);
+        if (Math.hypot(x + 0.5 - pr.x, y + 0.5 - pr.y) < 1.2 && !(x === Math.floor(pr.x) && y === Math.floor(pr.y))) signTiles.add(k);
+      }));
+      [0, 1].forEach((i) => {
+        const extra = [...withM[i]].filter((k) => !sprites[i].has(k) && !signTiles.has(k));
+        const lost = [...sprites[i]].filter((k) => !withM[i].has(k));
+        ok(!extra.length && !lost.length, `rooms at ${lv}: the models ${i ? "cover" : "block"} ${extra.length} tiles the sprites did not (${extra.slice(0, 3)}) and ${lost.length} they did (${lost.slice(0, 3)})`);
+      });
+      if (!lv) ok(signTiles.size === 2 * I.props.filter((pr) => pr.art === "ySign").length, `rooms at 0: the lot signs block ${signTiles.size} more tiles than their sprites (want two each)`);
+    });
+
+    // a model that will not build leaves its props their sprites (the yard still goes up, and draws)
+    {
+      const d = YM.def("yStake");
+      const build = d.build;
+      const errWas = sb.console.error;
+      let said = 0;
+      sb.console.error = () => said++;
+      d.build = () => {
+        throw new Error("a broken model");
+      };
+      ZSR.Model3D.define("y:yStake", (B, o) => d.build(B, o));
+      try {
+        setRooms(0);
+        I.enterYard({ firstCalm: 999 });
+        I.stop();
+        const stakes = I.props.filter((pr) => pr.art === "yStake");
+        ok(stakes.length > 0 && stakes.every((pr) => !pr.model) && I.props.some((pr) => pr.art === "ySign" && pr.model), `a broken stake model: ${stakes.filter((pr) => pr.model).length} stakes still drawn as models, or the signs lost theirs`);
+        let threw = null;
+        try {
+          I.render();
+        } catch (e) {
+          threw = e;
+        }
+        ok(!threw && stakes.some((pr) => pr.img), `with the stake's model broken the yard did not draw its stakes as sprites (${threw && threw.message})`);
+        ok(said === 1, `a broken model was reported ${said} times (want once)`);
+      } finally {
+        d.build = build;
+        ZSR.Model3D.define("y:yStake", (B, o) => d.build(B, o));
+        sb.console.error = errWas;
+      }
+    }
+  } catch (e) {
+    err(`yard models: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
+  } finally {
+    I.modelDraw = drawWas;
+    I.modelPlan = planWas;
+    I.walkers.length = 0;
+    S.save.builds = {};
+    S.newGame(S.activeSlot(), "Test");
+    S.trip = null;
+  }
+}
+if (errors.length === ymErrors0) console.log(`OK: yard models: ${ymChecked} checks (the radio towers' lifted parts above the eye, no shadow, the second dish turned; a blink redraws that beacon alone; still draws nothing and a turn in place no new picture in a full yard; out of view is not planned; the canvases stay in budget; a rebuild keeps every model, a crack redraws its build's props only; the porch faces the yard, the bench's seat is the crew's and its back is against the wall; solidity and cover as the sprites', the lot signs across three tiles; a model that will not build leaves its props sprites, said once).`);
 
 /* ---------- June's first-run tutorial (js/tutorial.js) ----------
    Last in the file, so nothing it leaves behind can touch the checks above. The cards go to a stand-in view that

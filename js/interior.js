@@ -2518,6 +2518,7 @@
           sprites.push(this.figSprite(pr));
           return;
         }
+        if (pr.model) return; // drawn as its 3D model (js/modelsprite.js modelProps: the yard's props and the porch's)
         const img = pr.img || (pr.art ? (pr.img = D.sprite(pr.art, pr.opts)) : null); // a named sprite is resolved once
         if (!img || pr.hidden) return;
         const lift = pr.lift || 0;

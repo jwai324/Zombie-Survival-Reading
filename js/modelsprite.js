@@ -1,15 +1,17 @@
 /* Model sprites: still 3D models (js/model3d.js) standing in the first-person view (js/interior.js), mixed into
-   ZSR.Interior the way js/yard.js is. The parked van in the yard and at River Landing now (js/yard.js and js/river.js
-   add it where they read the V tiles); every yard prop, sign and animal later: a mode adds an instance to
-   this.models and the renderer does the rest.
+   ZSR.Interior the way js/yard.js is. The parked van in the yard and at River Landing (js/yard.js and js/river.js add
+   it where they read the V tiles), and every yard prop, sign and plaque and the porch's posts, bell and bench
+   (modelProps: a prop with a turn, `rot`, whose art js/yardmodels.js has, is drawn as that model in place of its
+   sprite): a mode adds an instance to this.models and the renderer does the rest.
 
    An instance (modelAdd, after loadGrid; the list starts empty on every new grid):
-     kind    a name ("van")
+     kind    a name ("van", "prop:ySign")
      x, y    where the model's origin stands, world tiles (the van: the middle of its footprint)
      rot     the way the model's +y (its nose) points, in the world's own angle convention, the player's p.a: 0 east
              (+x), PI / 2 south (+y, down the grid), -PI / 2 north, PI west; a direction is (cos rot, sin rot). Its +x
              (its right) is then (-sin rot, cos rot), its right hand as it faces that way, so it is never mirrored
-     scale   tiles per model unit (the van: 1 / 62.5, the road's units a tile)
+     scale   tiles per model unit (the van: 1 / 62.5, the road's units a tile; a yard prop: its sprite's scale)
+     lift    optional: tiles its foot stands above the floor (a whip on its tower, a vent on a roof); 0 by default
      core    optional: [x0, y0, x1, y1] in model units, the box a moved eye maps the old picture through (modelMap):
              the van's body, W x L, without the plow's wings or the mirrors; without it, its bounding box
      foot    the convex footprint polygon, [[x, y], ...] in world tiles: what sorts it against walkers, props and low
@@ -19,16 +21,29 @@
              wall faces and the floor's special case are gone)
      mesh()  { mesh, sig } for this frame: the Model3D model and a string that changes whenever it looks different
              (the van: Van3D.mesh / Van3D.sig of the save's upgrades, its dents now and the roof gun)
+     shadow  optional: "box" (the default: its box on the ground, soft at the rim), "round" (the ellipse in its box,
+             as the sprites' own shadows were) or false (none: a wire frame). A lifted model casts it at its foot only
+             while that is under SHADOW_LIFT_MAX (a barrel on the pipes); higher up (a whip on its tower), none
+     seeThrough  optional: it hides nothing behind it (a guy wire's frame: walkers and their health bars show through
+             its gaps, and its outline is never read back)
+     prop    optional: the prop it is drawn for (its `hidden` hides the model too)
+     lodPx   optional: its own on-screen heights for detail 0 and 1 (default MODEL_LOD_PX)
+     fog     optional: the share of a wall's fog at its distance it takes (1, the van; a yard prop PROP_FOG, as the
+             sprite it stands in for and the walkers beside it)
 
    THE PICTURE. Each instance on screen has a pooled canvas (modelPool, like the live walkers' pool) holding a picture
    drawn by Model3D.draw from the player's eye (x, y, 0.5 tiles up) looking level at the middle of the model's visible
    angular range: its bounding box's bearings, cut to the view's width +- MODEL_MARGIN, padded by MODEL_PAD. The
    picture camera projects as the screen does, squashed sideways the same way (a tile of floor is STRETCH times
    narrower than a wall is tall), so the model sits on its tiles and matches the walls beside it (walkers are drawn
-   unsquashed; models are not figures): X = axis + Fx tan(a), Y = horizon + Fy (0.5 - z) / depth, Fx = k H / STRETCH,
-   Fy = k H, k <= 1 (the picture's larger side at most the governor row's px: MODEL_MAX_PX on its starting row).
+   unsquashed; models are not figures): X = axis + Fx tan(a), Y = horizon + Fy (0.5 - lift - z) / depth, Fx =
+   k H / STRETCH, Fy = k H, k <= 1 (the picture's larger side at most the governor row's px: MODEL_MAX_PX on its
+   starting row). A lifted model's picture may lie wholly above the horizon (its row past the picture's foot).
    It is lit as the walls are: x-facing faces full, y-facing ones LIGHT_Y (drawFace's 0.12 darker), tops a little
-   brighter, undersides darker; fogged toward black as a wall at its distance (min(fogMax, d fogK)), in steps.
+   brighter, undersides darker; fogged toward black as a wall at its distance (min(fogMax, d fogK)), in steps (a yard
+   prop PROP_FOG of that, as the sprite it stands in for).
+   A model wholly out of the view (the circle round its box past the view's edge and MODEL_MARGIN) is not planned at
+   all: a full yard's props behind you cost a few sums a frame.
 
    ON SCREEN (modelMap). Drawn from the eye it stands at now, the two cameras differ only by yaw, so each screen column
    maps to one picture column and one vertical scale: tan(a_s) = (x - W / 2) STRETCH / H, the world angle w =
@@ -59,16 +74,21 @@
    (MODEL_RENDERS_MAX on the starting row; MODEL_LEVELS, one row per LIVE_LEVELS row: the walkers' governor steps both,
    and the floor's slow-machine step takes one row more); a picture never drawn draws at once (past the cap at the
    coarsest detail, its own detail on its turn); the rest by size on screen and how long they have waited. A canvas
-   not shown for MODEL_IDLE frames goes back to the spares; every one goes on a new grid and on leaving the scene.
+   over MODEL_KEEP_PX not shown for MODEL_IDLE frames goes back to the spares; a smaller one is kept while its model is
+   out of view (turning back to a far prop finds its picture still right), all of them within MODEL_POOL_PX (the
+   longest unused go first); every one goes on a new grid and on leaving the scene. A rebuild of the yard (modelProps)
+   keeps each prop's instance, and so its canvas and picture, when the prop is put up the same.
    this.modelStats: the last frame's models shown, redraws, strips and ms, the redraws so far and why (tests and perf
-   probes).
+   probes); modelMemory(): the canvases and their px.
 
-   WHAT IT HIDES. drawScene queues the models before the walkers. A live walker a model hides whole is not drawn, so it
-   takes none of the live redraws (modelCovers, from liveVisible), and a health bar over a walker hidden behind a model
-   is not drawn (modelHides). Both read the picture's real outline, not its box: per picture column, its opaque runs
-   (modelMask), read back from its pixels the first time either asks after a redraw (about 1 to 2 ms for a 640 px
-   picture; a frame with no walker behind a model reads nothing). So a head seen over the hood or beside the plow's
-   wing keeps its bar, and feet seen under the body between the wheels keep the walker drawn. */
+   WHAT IT HIDES. drawScene queues the models before the walkers. A live walker (or a crew member, the dog) a model
+   hides whole is not drawn, so it takes none of the live redraws (modelCovers, from liveVisible), and a health bar over
+   a walker hidden behind a model is not drawn (modelHides). Both read the picture's real outline, not its box: per
+   picture column, its opaque runs (modelMask), read back from its pixels the first time either asks after a redraw
+   (about 1 to 2 ms for a 640 px picture; a frame with no walker behind a model reads nothing). So a head seen over the
+   hood or beside the plow's wing keeps its bar, and feet seen under the body between the wheels keep the walker drawn.
+   They ask only the strips over the column (modelIndex: by blocks of MODEL_STRIP columns), and never a see-through
+   model's (a tower's guy wires: nothing hides behind its gaps). */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -96,10 +116,18 @@
   const MODEL_LOD_PX = [80, 32]; // SCALE: on-screen height (px) for detail lod 0 / lod 1; shorter: lod 2
   const MODEL_STEP = 64; // SCALE: px a model canvas grows and shrinks in steps of
   const MODEL_SPARE = 2; // SCALE: spare model canvases kept
-  const MODEL_IDLE = 120; // frames a canvas is kept while its model is not drawn (behind you, behind a wall)
+  const MODEL_IDLE = 120; // frames a big canvas is kept while its model is not drawn (behind you, behind a wall)
+  // SCALE: a canvas this small (px) is kept while its model is out of view, so turning back to it needs no new picture
+  // (a far prop's is a few dozen px; about 40 yard props hold at most a few MB); a bigger one goes after MODEL_IDLE frames
+  const MODEL_KEEP_PX = 256 * 256;
+  // SCALE: the most px every model canvas together may hold (4 bytes each): past it the ones out of view longest go
+  // first, small or not (never one shown this frame)
+  const MODEL_POOL_PX = 6 * 1024 * 1024;
   const MODEL_SHRINK = 30; // redraws in a row at under half its canvas before the canvas is made smaller
   const MODEL_SHADOW = [0.34, 0.16]; // the contact shadow's alpha under the model and in its soft rim
   const SHADOW_GROW = [-0.12, 0.06]; // tiles the shadow's two layers reach past the model's box (the darker one: inside)
+  const SHADOW_LIFT_MAX = 0.45; // tiles: a lifted model whose foot is under this (below the eye) casts its shadow there
+  const SHADOW_ROUND_N = 12; // corners of a round shadow (the ellipse in the model's box)
   const MODEL_RENDERS_MAX = 2; // SCALE: model redraws a frame on the governor's starting row (a picture never drawn draws anyway)
   const MODEL_MAX_PX = 640; // SCALE: the larger side of a model's picture on the starting row; nearer, it is scaled up
   // SCALE: the model governor's rows, one per LIVE_LEVELS row (js/interior.js: richest first, the walkers' governor
@@ -129,8 +157,9 @@
   let PIC_NO = 0; // every picture drawn gets the next number (its outline, modelMask, is read for that one picture)
   const LITTLE = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1; // a pixel's bytes as one number: alpha on top
 
-  // the picture camera's state, one at a time (a redraw is one model): the view Model3D gets reads it
-  const CAM = { mx: 0, my: 0, Rx: 0, Ry: 0, Fx: 0, Fy: 0, s: 1, ex: 0, ey: 0, ca: 1, sa: 0, Px: 1, Py: 1, cx: 0, hr: 0, near: MODEL_NEAR, dark: 1 };
+  // the picture camera's state, one at a time (a redraw is one model): the view Model3D gets reads it. lift: the model's
+  // foot over the floor (tiles); eye: the eye's height over the model's foot (tiles)
+  const CAM = { mx: 0, my: 0, Rx: 0, Ry: 0, Fx: 0, Fy: 0, s: 1, ex: 0, ey: 0, ca: 1, sa: 0, Px: 1, Py: 1, cx: 0, hr: 0, near: MODEL_NEAR, dark: 1, eye: 0.5 };
   let VIEW = null;
   function view() {
     if (VIEW) return VIEW;
@@ -144,7 +173,7 @@
         const lat = wy * c.ca - wx * c.sa;
         const dd = d > 1e-6 ? d : 1e-6;
         this.X = c.cx + (c.Px * lat) / dd;
-        this.Y = c.hr + (c.Py * (0.5 - z * c.s)) / dd;
+        this.Y = c.hr + (c.Py * (c.eye - z * c.s)) / dd;
         this.D = d;
         return d > c.near;
       },
@@ -210,6 +239,20 @@
     return true;
   }
 
+  const NONE = []; // (no strips over a column)
+  // a prop's model fogs this share of a wall at its distance, as the sprite it stands in for did (and the walkers and
+  // the crew beside it: drawScene's 0.75); the van fogs as the walls
+  const PROP_FOG = 0.75;
+  const FOOT_MIN = 0.1; // tiles: a prop model's footprint for sorting is at least this across (a stake, a whip)
+  const FOOT_AT = 0.02; // tiles: the footprint of a model that sorts by one point of it (def.sortAt: the porch bench)
+  const MODEL_FAILED = new Set(); // prop arts whose model would not build (said once; their props keep their sprites)
+  /** A prop's place, as modelProps matches a rebuilt prop with the model it had: art, place, turn, size and lift. */
+  const placeKey = (p) => [p.art, p.x, p.y, p.rot, p.scale || 1, p.lift || 0].map((v) => (typeof v === "number" ? Math.round(v * 1000) : v)).join("|");
+  /** A prop model's look this frame (its mesh(), this = the instance): a blinking part dark while the prop is dimmed. */
+  function propLook() {
+    return this.blink && this.prop.dim > 0 ? this.looks[1] : this.looks[0];
+  }
+
   /** The convex polygon P (flat [x, y, ...] world points) cut to depth >= near along (ca, sa) from the eye -> OUT. */
   const CLIP_OUT = new Float64Array(64);
   function clipNear(P, n, ex, ey, ca, sa, near) {
@@ -250,6 +293,9 @@
     MODEL_MAX_PX,
     MODEL_LEVELS,
     MODEL_IDLE,
+    MODEL_KEEP_PX,
+    MODEL_POOL_PX,
+    SHADOW_LIFT_MAX,
     VAN_TILE,
 
     /* ---------- The instances ---------- */
@@ -269,6 +315,7 @@
       inst.Ry = Math.cos(inst.rot);
       inst.Fx = Math.cos(inst.rot);
       inst.Fy = Math.sin(inst.rot);
+      inst.lift = inst.lift || 0;
       inst.box = null; // its bounding box in the world, worked out from the mesh (modelBox) whenever its sig changes
       inst.boxSig = null;
       this.models.push(inst);
@@ -316,6 +363,111 @@
     modelOf(kind) {
       return (this.models || []).find((m) => m.kind === kind) || null;
     },
+    /** Every prop with a turn (`rot`) whose art js/yardmodels.js has is drawn as that model (modelProp) in place of its
+        sprite (drawScene skips a prop with a `model`): the yard's and the porch's, once a rebuild has put them all up
+        (js/yard.js dressYard). A prop put up again the same (art, place, turn, size and lift) keeps its instance and so
+        its picture: a rebuild (a build cracking in a wave, the text size) redraws only what looks different, under the
+        governor (a new look is a new sig). The prop models that are gone let their canvases go. Returns how many. */
+    modelProps() {
+      const YM = ZSR.YardModels;
+      const was = new Map();
+      if (this.models) {
+        this.models = this.models.filter((m) => {
+          if (!m.prop) return true;
+          if (m.placeKey && !was.has(m.placeKey)) was.set(m.placeKey, m);
+          return false;
+        });
+      }
+      let n = 0;
+      if (YM && M3()) {
+        (this.props || []).forEach((p) => {
+          if (p.rot == null || !p.art || !YM.has(p.art)) return;
+          const key = placeKey(p);
+          try {
+            if (this.modelProp(p, was.get(key))) n++;
+            was.delete(key);
+          } catch (e) {
+            // a model that will not build (its art's bug) leaves the prop its sprite, and says so once
+            p.model = null;
+            if (!MODEL_FAILED.has(p.art) && root.console) root.console.error("Model sprites: " + p.art + " stays a sprite: " + e.message);
+            MODEL_FAILED.add(p.art);
+          }
+        });
+      }
+      if (this.modelPool) {
+        was.forEach((m) => {
+          const t = this.modelPool.get(m);
+          if (!t) return;
+          this.modelPool.delete(m);
+          this.modelFree(t);
+        });
+      }
+      return n;
+    },
+    /** Stand one prop as its model (reusing `inst` when it is given): at the prop's place, turned to p.rot, its sprite's
+        scale and lift; its look from p.opts (a build's dmg; a blinking part is on unless the prop is dimmed: the yard's
+        blink sets p.dim); its footprint for sorting its model's own bounds turned and scaled (a thin or lifted thing
+        sorts by itself, not by the tile it blocks), or the tile it stands on (def.foot "tile": a tower's guy wires). The
+        prop keeps blocking what it blocked (addProp); p.model is the instance. */
+    modelProp(p, inst) {
+      const YM = ZSR.YardModels;
+      const def = YM && p.art ? YM.def(p.art) : null;
+      if (!def || !M3()) return null;
+      const opts = p.opts || {};
+      const look = (on) => {
+        const mesh = YM.mesh(p.art, on == null ? opts : Object.assign({}, opts, { on }));
+        return { mesh, sig: mesh.key };
+      };
+      const lit = look(def.blink ? true : null);
+      const s = p.scale || 1;
+      const Rx = -Math.sin(p.rot);
+      const Ry = Math.cos(p.rot);
+      const Fx = Math.cos(p.rot);
+      const Fy = Math.sin(p.rot);
+      let foot;
+      if (def.foot === "tile") {
+        const x0 = Math.floor(p.x);
+        const y0 = Math.floor(p.y);
+        foot = [[x0, y0], [x0 + 1, y0], [x0 + 1, y0 + 1], [x0, y0 + 1]];
+      } else if (def.sortAt) {
+        // it sorts by one point of it, as a sprite did by its middle (the porch bench, by its back: whoever sits on it
+        // goes in front of it from every side)
+        const cx = p.x + (def.sortAt[0] * Rx + def.sortAt[1] * Fx) * s;
+        const cy = p.y + (def.sortAt[0] * Ry + def.sortAt[1] * Fy) * s;
+        const h = FOOT_AT / 2;
+        foot = [[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h], [cx - h, cy + h]];
+      } else {
+        const b = lit.mesh.bounds;
+        const h = FOOT_MIN / 2 / s; // (units: a footprint at least FOOT_MIN tiles across)
+        const ax = Math.min(b[0], -h);
+        const bx = Math.max(b[3], h);
+        const ay = Math.min(b[1], -h);
+        const by = Math.max(b[4], h);
+        foot = [[ax, ay], [bx, ay], [bx, by], [ax, by]].map(([x, y]) => [p.x + (x * Rx + y * Fx) * s, p.y + (x * Ry + y * Fy) * s]);
+      }
+      inst = Object.assign(inst || {}, {
+        kind: "prop:" + p.art,
+        prop: p,
+        placeKey: placeKey(p),
+        x: p.x,
+        y: p.y,
+        rot: p.rot,
+        scale: s,
+        lift: p.lift || 0,
+        core: def.core || null,
+        foot,
+        tiles: null,
+        shadow: def.shadow != null ? def.shadow : "round",
+        fog: PROP_FOG,
+        seeThrough: !!def.seeThrough,
+        lodPx: def.lodPx || null,
+        blink: !!def.blink,
+        looks: [lit, def.blink ? look(false) : lit],
+        mesh: propLook,
+      });
+      p.model = inst;
+      return this.modelAdd(inst);
+    },
     /** An instance's bounding box in the world from its mesh's bounds: the four corners on the ground (flat x, y)
         and its bottom and top (tiles); and the edges of its core box (inst.core, else the bounding box again): the
         stand-in surface a moved eye maps the old picture through (modelMap). Kept until its sig changes. */
@@ -331,7 +483,11 @@
       // would land in the wrong picture columns, and its picture would be drawn again every frame)
       const c = inst.core || [b[0], b[1], b[3], b[4]];
       const core = [[c[0], c[1]], [c[2], c[1]], [c[2], c[3]], [c[0], c[3]]].map(([x, y]) => at(x, y));
-      return { P, z0: b[2] * s, z1: b[5] * s, b, edges: edgesOf(core) };
+      // (a cheap test for the view: the circle round its corners)
+      const mx = (P[0] + P[4]) / 2;
+      const my = (P[1] + P[5]) / 2;
+      const r = Math.max(Math.hypot(P[0] - mx, P[1] - my), Math.hypot(P[2] - mx, P[3] - my));
+      return { P, z0: b[2] * s + inst.lift, z1: b[5] * s + inst.lift, b, edges: edgesOf(core), mx, my, r };
     },
 
     /* ---------- Each frame (drawScene) ---------- */
@@ -358,15 +514,23 @@
       on.length = 0;
       wait.length = 0;
       let drawn = 0;
+      const p = this.player;
+      const reach = hv + MODEL_MARGIN; // the view's half-width and its margin (radians)
       for (let i = 0; i < models.length; i++) {
         const inst = models[i];
-        if (inst.hidden) continue;
+        if (inst.hidden || (inst.prop && inst.prop.hidden)) continue;
         const look = inst.mesh();
         if (!look || !look.mesh) continue;
         if (inst.boxSig !== look.sig || !inst.box) {
           inst.box = this.modelBox(inst, look.mesh);
           inst.boxSig = look.sig;
         }
+        // wholly out of the view (the circle round its box): nothing more to work out (a yard's props behind you)
+        const box = inst.box;
+        const cdx = box.mx - p.x;
+        const cdy = box.my - p.y;
+        const cd = Math.hypot(cdx, cdy);
+        if (cd > box.r * 1.02 && Math.abs(normAngle(Math.atan2(cdy, cdx) - p.a)) - Math.asin(box.r / cd) > reach) continue;
         const pl = this.modelPlan(inst, look, sc, hv, ST, row);
         if (!pl) continue;
         const t = (pl.t = this.modelTarget(inst));
@@ -400,6 +564,7 @@
         if (pl.why && pl.t.drawnAt === frame) stats.why[pl.why] = (stats.why[pl.why] || 0) + 1;
         if (pl.t.lh) strips += this.modelStrips(pl, list, ST);
       }
+      this.modelIndex();
       this.modelSweep();
       stats.shown = on.length;
       stats.drawn = drawn;
@@ -520,8 +685,9 @@
       pl.bot = bot;
       pl.w1 = w1;
       const hpx = (H * (z1 - z0)) / d;
-      pl.lod = hpx >= MODEL_LOD_PX[0] ? 0 : hpx >= MODEL_LOD_PX[1] ? 1 : 2;
-      pl.fog = Math.min(sc.fogMax, d * sc.fogK);
+      const lp = inst.lodPx || MODEL_LOD_PX;
+      pl.lod = hpx >= lp[0] ? 0 : hpx >= lp[1] ? 1 : 2;
+      pl.fog = Math.min(sc.fogMax, d * sc.fogK) * (inst.fog || 1);
       pl.fogStep = Math.round(pl.fog * M3().FOG_STEPS);
       pl.indoor = this.house && this.indoorAt ? this.indoorAt(inst.x, inst.y) : false;
       pl.why = null;
@@ -669,13 +835,14 @@
       cam.hr = hr;
       cam.near = MODEL_NEAR;
       cam.dark = pl.indoor ? LIGHT_INDOOR : 1;
+      cam.eye = 0.5 - inst.lift; // the eye over the model's foot (under it for a whip on its tower)
       const v = view();
       // the eye in model space (which faces show, the parts' order)
       const rx = pl.ex - inst.x;
       const ry = pl.ey - inst.y;
       v.eye[0] = (rx * inst.Rx + ry * inst.Ry) / inst.scale;
       v.eye[1] = (rx * inst.Fx + ry * inst.Fy) / inst.scale;
-      v.eye[2] = 0.5 / inst.scale;
+      v.eye[2] = cam.eye / inst.scale;
       v.near = MODEL_NEAR;
       v.lod = pl.lod;
       v.fog = pl.fog;
@@ -708,22 +875,43 @@
       t.staleAt = 0;
       t.draws = (t.draws || 0) + 1;
     },
-    /** The model's contact shadow on the ground, under everything it draws: its box's footprint, soft at the rim. */
+    /** The model's contact shadow on the ground (or on what a lifted model stands on, while that is under the eye:
+        SHADOW_LIFT_MAX), under everything it draws: its box's footprint ("box": the van) or the ellipse in it ("round":
+        a yard prop, as the sprites' own shadows were), soft at the rim; none for shadow false (a wire frame). */
     modelShadow(g, inst, pl) {
+      if (inst.shadow === false || inst.lift >= SHADOW_LIFT_MAX) return;
       const b = inst.box.b;
-      const P = this.modelShadowPts || (this.modelShadowPts = new Float64Array(8));
+      const round = inst.shadow === "round";
+      const N = round ? SHADOW_ROUND_N : 4;
+      const P = this.modelShadowPts || (this.modelShadowPts = new Float64Array(SHADOW_ROUND_N * 2));
       const c = CAM;
-      // the soft rim first, then the darker middle over it
+      const mx = (b[0] + b[3]) / 2;
+      const my = (b[1] + b[4]) / 2;
+      const hx = (b[3] - b[0]) / 2;
+      const hy = (b[4] - b[1]) / 2;
+      // the soft rim first, then the darker middle over it (pulled in, never past the middle: a small prop's is small)
       [
         [SHADOW_GROW[1], MODEL_SHADOW[1]],
         [SHADOW_GROW[0], MODEL_SHADOW[0]],
       ].forEach(([grow, alpha]) => {
         const g2 = grow / inst.scale; // model units
-        [[b[0] - g2, b[1] - g2], [b[3] + g2, b[1] - g2], [b[3] + g2, b[4] + g2], [b[0] - g2, b[4] + g2]].forEach(([x, y], i) => {
+        const ax = Math.max(hx * 0.4, hx + g2);
+        const ay = Math.max(hy * 0.4, hy + g2);
+        for (let i = 0; i < N; i++) {
+          let x;
+          let y;
+          if (round) {
+            const t = (i / N) * Math.PI * 2;
+            x = mx + Math.cos(t) * ax;
+            y = my + Math.sin(t) * ay;
+          } else {
+            x = mx + (i === 1 || i === 2 ? ax : -ax);
+            y = my + (i >= 2 ? ay : -ay);
+          }
           P[i * 2] = inst.x + (x * inst.Rx + y * inst.Fx) * inst.scale;
           P[i * 2 + 1] = inst.y + (x * inst.Ry + y * inst.Fy) * inst.scale;
-        });
-        const n = clipNear(P, 4, c.ex, c.ey, c.ca, c.sa, MODEL_NEAR);
+        }
+        const n = clipNear(P, N, c.ex, c.ey, c.ca, c.sa, MODEL_NEAR);
         if (n < 3) return;
         g.beginPath();
         for (let i = 0; i < n; i++) {
@@ -731,7 +919,7 @@
           const wy = CLIP_OUT[i * 2 + 1] - c.ey;
           const d = Math.max(MODEL_NEAR, wx * c.ca + wy * c.sa);
           const X = c.cx + (c.Px * (wy * c.ca - wx * c.sa)) / d;
-          const Y = c.hr + (c.Py * 0.5) / d;
+          const Y = c.hr + (c.Py * c.eye) / d;
           if (i) g.lineTo(X, Y);
           else g.moveTo(X, Y);
         }
@@ -876,14 +1064,36 @@
       }
       return k;
     },
+    /** This frame's strips by column block (MODEL_STRIP columns a block: a strip touches one block or two), so
+        modelHides and modelCovers ask only the strips over a column, not every strip of every model in view. A
+        see-through model's strips (a tower's guy wires) are left out: they hide nothing. */
+    modelIndex() {
+      const B = MODEL_STRIP;
+      const nb = Math.ceil(this.cols / B) + 1;
+      const blk = this.modelBlk && this.modelBlk.length === nb ? this.modelBlk : (this.modelBlk = Array.from({ length: nb }, () => []));
+      for (let b = 0; b < nb; b++) blk[b].length = 0;
+      const pool = this.modelStripPool;
+      for (let i = 0; i < this.modelStripN; i++) {
+        const s = pool[i];
+        if (s.model.seeThrough) continue;
+        const b1 = Math.min(nb - 1, Math.floor(s.c1 / B));
+        for (let b = Math.max(0, Math.floor(s.c0 / B)); b <= b1; b++) blk[b].push(i);
+      }
+    },
+    /** The strips over column col this frame (modelIndex), or an empty list. */
+    modelOver(col) {
+      const blk = this.modelBlk;
+      return (blk && blk[Math.floor(col / MODEL_STRIP)]) || NONE;
+    },
     /** Is screen y in column col, at depth d, behind a model drawn this frame (a strip nearer than d whose picture is
         opaque at y there: its real outline, so a head seen over the hood or past the plow's wing is not hidden)?
         drawScene's health bars ask: a walker hidden behind the van shows no bar over it. */
     modelHides(col, d, y) {
       const pool = this.modelStripPool;
       const COL = this.COL;
-      for (let i = 0; i < this.modelStripN; i++) {
-        const s = pool[i];
+      const over = this.modelOver(col);
+      for (let k = 0; k < over.length; k++) {
+        const s = pool[over[k]];
         if (col < s.c0 || col > s.c1 || !(s.ty < d)) continue;
         const t = s.pic;
         // the picture's pixel there: its column from the strip's straight map, its row from the strip's scale
@@ -901,8 +1111,9 @@
     modelCovers(col, d, y0, y1) {
       const pool = this.modelStripPool;
       const COL = this.COL;
-      for (let i = 0; i < this.modelStripN; i++) {
-        const s = pool[i];
+      const over = this.modelOver(col);
+      for (let k = 0; k < over.length; k++) {
+        const s = pool[over[k]];
         if (col < s.c0 || col > s.c1 || !(s.ty < d)) continue;
         const t = s.pic;
         // the picture columns the strip draws there: all inside the picture, and some width (a fold's shows nothing)
@@ -1055,18 +1266,46 @@
       }
       return t;
     },
-    /** A canvas not drawn for MODEL_IDLE frames (or whose model is gone) goes back to the spares. */
+    /** A canvas whose model is gone goes back to the spares, and so does a big one (over MODEL_KEEP_PX) not drawn for
+        MODEL_IDLE frames; a small one stays while its model is out of view (turn back to a far prop and its picture
+        is there, still right while you only turned). Past MODEL_POOL_PX all told, the ones out of view longest go first. */
     modelSweep() {
       const pool = this.modelPool;
       if (!pool || !pool.size) return;
       const now = this.frameNo;
+      const models = this.models || NONE;
+      let px = 0;
+      let idle = null;
       pool.forEach((t, inst) => {
-        if (t.used === now) return;
-        if (now - t.used > MODEL_IDLE || !(this.models || []).includes(inst)) {
+        const size = t.c.width * t.c.height;
+        if (t.used !== now && ((now - t.used > MODEL_IDLE && size > MODEL_KEEP_PX) || !models.includes(inst))) {
           pool.delete(inst);
           this.modelFree(t);
+          return;
         }
+        px += size;
+        if (t.used !== now) (idle || (idle = [])).push([t.used, inst, t, size]);
       });
+      if (px <= MODEL_POOL_PX || !idle) return;
+      idle.sort((a, b) => a[0] - b[0]);
+      for (let i = 0; i < idle.length && px > MODEL_POOL_PX; i++) {
+        pool.delete(idle[i][1]);
+        this.modelFree(idle[i][2]);
+        px -= idle[i][3];
+      }
+    },
+    /** Every model canvas now: how many and their px (the spares too: tests and perf probes). */
+    modelMemory() {
+      let n = 0;
+      let px = 0;
+      const add = (t) => {
+        if (!t.c.width) return;
+        n++;
+        px += t.c.width * t.c.height;
+      };
+      if (this.modelPool) this.modelPool.forEach(add);
+      (this.modelSpare || NONE).forEach(add);
+      return { canvases: n, px, mb: (px * 4) / 1048576 };
     },
     modelFree(t) {
       const spare = this.modelSpare || (this.modelSpare = []);

@@ -99,8 +99,9 @@ Object.assign(globalThis, {
   requestAnimationFrame: () => 0,
   cancelAnimationFrame: noop,
 });
-// (the crew's looks and the animals, js/walker3d-crew.js and js/beast3d.js, load with the walkers as on the page)
-for (const f of ["js/layouts.js", "js/world.js", "js/upgrades.js", "js/streets.js", "js/sprites.js", "js/sprites3d.js", "js/walker3d.js", "js/walker3d-looks.js", "js/walker3d-crew.js", "js/beast3d.js", "js/beast3d-looks.js", "js/model3d.js", "js/van3d.js", "js/landmarks1.js", "js/landmarks2.js", "js/game.js", "js/perspective.js", "js/perspective-buildings.js", "js/perspective-art.js", "js/perspective-gl.js", "js/interior.js", "js/modelsprite.js"]) {
+// (the crew's looks and the animals, js/walker3d-crew.js and js/beast3d.js, load with the walkers as on the page; the
+// yard's 3D props, js/yardmodels*.js, after the van)
+for (const f of ["js/layouts.js", "js/world.js", "js/upgrades.js", "js/streets.js", "js/sprites.js", "js/sprites3d.js", "js/walker3d.js", "js/walker3d-looks.js", "js/walker3d-crew.js", "js/beast3d.js", "js/beast3d-looks.js", "js/model3d.js", "js/van3d.js", "js/yardmodels.js", "js/yardmodels1.js", "js/yardmodels2.js", "js/landmarks1.js", "js/landmarks2.js", "js/game.js", "js/perspective.js", "js/perspective-buildings.js", "js/perspective-art.js", "js/perspective-gl.js", "js/interior.js", "js/modelsprite.js"]) {
   const file = path.join(ROOT, f);
   if (fs.existsSync(file)) vm.runInThisContext(fs.readFileSync(file, "utf8"), { filename: f });
 }

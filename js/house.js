@@ -53,7 +53,8 @@
   /* ---------- Furniture, room by room, in house tiles ----------
      f.low(x0, y0, w, h, def): knee-high solid furniture you can see and shoot over (one def per piece);
      f.prop(x, y, art, o): a sprite, o = { scale (height in tiles, under 1 under the ceiling), lift, solid,
-     cover }. Every room keeps its doorways, its note and what E uses within reach. */
+     cover, rot (a 3D model of its art faces that way: the porch's) }. Every room keeps its doorways, its note and what
+     E uses within reach. */
   const wood = "#8a6a46";
   const desk = () => ({ h: 0.42, tex: { name: "hDeskSide", opts: { c: wood } }, top: "#9a7650" });
   const counter = () => ({ h: 0.48, tex: { name: "hCounter", opts: { c: "#7a8f7a" } }, top: "#d8d2c0" });
@@ -64,10 +65,13 @@
     porch(f) {
       const rail = { h: 0.42, tex: "hPorchRail" }; // see-through: no slab on top
       [6, 7, 9].forEach((x) => f.low(x, 0, 1, 1, rail));
-      f.prop(6.12, 0.12, "hPost", { scale: 0.98 });
-      f.prop(10.88, 0.12, "hPost", { scale: 0.98 });
-      f.prop(10.5, 0.45, "hBell", { scale: 0.95, solid: true, cover: false });
-      f.prop(6.5, 1.45, "hBench", { scale: 0.34, solid: true });
+      // the posts, the bell and the bench are 3D models (js/yardmodels2.js), turned to face out of the porch (north,
+      // rot); the bench's back stands against the cabin wall, June's seat on it (CREW june's porch post)
+      const out = -Math.PI / 2;
+      f.prop(6.12, 0.12, "hPost", { scale: 0.98, rot: out });
+      f.prop(10.88, 0.12, "hPost", { scale: 0.98, rot: out });
+      f.prop(10.5, 0.45, "hBell", { scale: 0.95, solid: true, cover: false, rot: out });
+      f.prop(6.5, 1.86, "hBench", { scale: 0.34, solid: true, rot: out });
     },
     foyer(f) {
       f.prop(6.5, 5.45, "hCoatRack", { scale: 0.9, solid: true, cover: false });
