@@ -10,6 +10,8 @@
              (+x), PI / 2 south (+y, down the grid), -PI / 2 north, PI west; a direction is (cos rot, sin rot). Its +x
              (its right) is then (-sin rot, cos rot), its right hand as it faces that way, so it is never mirrored
      scale   tiles per model unit (the van: 1 / 62.5, the road's units a tile)
+     core    optional: [x0, y0, x1, y1] in model units, the box a moved eye maps the old picture through (modelMap):
+             the van's body, W x L, without the plow's wings or the mirrors; without it, its bounding box
      foot    the convex footprint polygon, [[x, y], ...] in world tiles: what sorts it against walkers, props and low
              runs, and what the walls in front of it clip, column by column
      tiles   grid tiles ([[x, y], ...]) the raycaster leaves for the model to draw (the van's V tiles: still solid and
@@ -33,11 +35,12 @@
    heading + a_s, the picture angle a_p = w - axis, X = axis + Fx tan(a_p), v = (1 / k) cos(a_p) / cos(a_s); picture
    row r goes to screen y = H / 2 + (r - horizon) v. Turning in place keeps that map exact: turning never redraws a
    model drawn whole. Once the eye has moved since the picture was drawn, the ray through a column meets the model's
-   box (the stand-in for its surface) at a point, and that point seen from the old eye gives the column and the two
-   depths the height: exact for whatever lies on the box's sides (a van is mostly its box), where scaling the angles
-   about the model's bearing by d / d0 (and the height by d0 / d) let the van slide on the floor by up to 10 or 20 px
-   between redraws (that scaling stays for an eye inside the box). A face the old picture never saw (edge-on then,
-   turned toward you since) makes the map run backward: it is drawn again ("fold").
+   core box (the stand-in for its surface: the van's body, not the plow's wings past its sides) at a point, and that
+   point seen from the old eye gives the column and the two depths the height: exact for whatever lies on the box's
+   sides (a van is mostly its box), where scaling the angles about the model's bearing by d / d0 (and the height by
+   d0 / d) let the van slide on the floor by up to 10 or 20 px between redraws (that scaling stays for an eye inside
+   the box). A face the old picture never saw (edge-on then, turned toward you since) makes the map run backward: it
+   is drawn again ("fold"), found before the frame's redraws are picked so it never shows as a hole.
    Drawn in strips of at most MODEL_STRIP columns, the map straight across a strip (its two edges exact, v from its
    middle); a strip ends sooner where v drifts by more than MODEL_SEAM_PX over the picture or the map bends (a corner
    of the box), so neighbouring strips meet without a seam. A column a nearer wall cuts, or an opening's top trims,
@@ -51,14 +54,21 @@
    REDRAWS. A picture is drawn again when it was never drawn; its sig changed (paint, gear, dents); the bearing from
    the model to the eye moved more than clamp(MODEL_DRIFT_PX / its half-width on screen, MODEL_ANGLE_MIN,
    MODEL_ANGLE_MAX); the distance changed more than MODEL_DIST; its columns now are not all in the picture; it grew on
-   screen past MODEL_GROW of a fresh picture; a face it never saw shows (MODEL_FOLD_COLS); its fog step or detail
-   changed. The governor: at most the row's `max` redraws a frame (MODEL_RENDERS_MAX on the starting row; MODEL_LEVELS,
-   one row per LIVE_LEVELS row: the walkers' governor steps both, and the floor's slow-machine step takes one row
-   more); a picture never drawn draws at once (past the cap at the coarsest detail, its own detail on its turn); the
-   rest by size on screen and how long they have waited. A canvas not shown for MODEL_IDLE frames goes back to the
-   spares; every one goes on a new grid and on leaving the scene. this.modelStats: the last frame's models shown,
-   redraws, strips and ms, the redraws so far and why (tests and perf probes). A health bar over a walker hidden
-   behind a model is not drawn (modelHides). */
+   screen past MODEL_GROW of a fresh picture (you came nearer, or the window grew); a face it never saw shows
+   (MODEL_FOLD_COLS); its fog step or detail changed. The governor: at most the row's `max` redraws a frame
+   (MODEL_RENDERS_MAX on the starting row; MODEL_LEVELS, one row per LIVE_LEVELS row: the walkers' governor steps both,
+   and the floor's slow-machine step takes one row more); a picture never drawn draws at once (past the cap at the
+   coarsest detail, its own detail on its turn); the rest by size on screen and how long they have waited. A canvas
+   not shown for MODEL_IDLE frames goes back to the spares; every one goes on a new grid and on leaving the scene.
+   this.modelStats: the last frame's models shown, redraws, strips and ms, the redraws so far and why (tests and perf
+   probes).
+
+   WHAT IT HIDES. drawScene queues the models before the walkers. A live walker a model hides whole is not drawn, so it
+   takes none of the live redraws (modelCovers, from liveVisible), and a health bar over a walker hidden behind a model
+   is not drawn (modelHides). Both read the picture's real outline, not its box: per picture column, its opaque runs
+   (modelMask), read back from its pixels the first time either asks after a redraw (about 1 to 2 ms for a 640 px
+   picture; a frame with no walker behind a model reads nothing). So a head seen over the hood or beside the plow's
+   wing keeps its bar, and feet seen under the body between the wheels keep the walker drawn. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -77,6 +87,10 @@
   const MODEL_ANGLE_MAX = (10 * Math.PI) / 180; // SCALE: the owner's "about 10 degrees": the coarsest step round a model
   const MODEL_DIST = 0.04; // the distance may change this share before a redraw (the picture is scaled meanwhile)
   const MODEL_FOLD_COLS = 2; // columns of a face the picture never saw (its map runs backward there) before a redraw
+  const MODEL_OPAQUE = 200; // alpha (of 255) a picture's pixel needs to hide what is behind it (not the contact shadow's ~113)
+  // SCALE: opaque runs kept per picture column (the gun's barrels, the light bar, the body, a mirror): past it the
+  // shortest go, and then hide nothing (a taller model with more parts stacked up may want more)
+  const MODEL_RUNS = 8;
   const MODEL_GROW = 1.15; // a picture shown this much larger than a fresh one would be is drawn again
   const MODEL_NEAR = 0.02; // tiles: Model3D cuts faces nearer than this
   const MODEL_LOD_PX = [80, 32]; // SCALE: on-screen height (px) for detail lod 0 / lod 1; shorter: lod 2
@@ -112,6 +126,8 @@
   // modelMap's answer (no object a column): the picture column a screen column edge shows, and the vertical scale there
   let MAP_X = 0;
   let MAP_V = 1;
+  let PIC_NO = 0; // every picture drawn gets the next number (its outline, modelMask, is read for that one picture)
+  const LITTLE = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1; // a pixel's bytes as one number: alpha on top
 
   // the picture camera's state, one at a time (a redraw is one model): the view Model3D gets reads it
   const CAM = { mx: 0, my: 0, Rx: 0, Ry: 0, Fx: 0, Fy: 0, s: 1, ex: 0, ey: 0, ca: 1, sa: 0, Px: 1, Py: 1, cx: 0, hr: 0, near: MODEL_NEAR, dark: 1 };
@@ -286,6 +302,7 @@
         y: (y0 + y1) / 2,
         rot: x1 - x0 >= y1 - y0 ? Math.PI : -Math.PI / 2,
         scale: 1 / tile,
+        core: [-V.W / 2, -V.L / 2, V.W / 2, V.L / 2], // its body: the plow's wings and the mirrors stick out past it
         foot: [[x0, y0], [x1, y0], [x1, y1], [x0, y1]],
         tiles: tiles.map((t) => [t[0], t[1]]),
         mesh() {
@@ -299,19 +316,22 @@
     modelOf(kind) {
       return (this.models || []).find((m) => m.kind === kind) || null;
     },
-    /** An instance's bounding box in the world from its mesh's bounds: the four corners on the ground (flat x, y),
-        their edges (the stand-in surface a moved eye maps the old picture through: modelMap) and its bottom and top
-        (tiles); kept until its sig changes. */
+    /** An instance's bounding box in the world from its mesh's bounds: the four corners on the ground (flat x, y)
+        and its bottom and top (tiles); and the edges of its core box (inst.core, else the bounding box again): the
+        stand-in surface a moved eye maps the old picture through (modelMap). Kept until its sig changes. */
     modelBox(inst, mesh) {
       const b = mesh.bounds;
       const s = inst.scale;
+      const at = (x, y) => [inst.x + (x * inst.Rx + y * inst.Fx) * s, inst.y + (x * inst.Ry + y * inst.Fy) * s];
       const P = new Float64Array(8);
-      const pts = [[b[0], b[1]], [b[3], b[1]], [b[3], b[4]], [b[0], b[4]]].map(([x, y], i) => {
-        P[i * 2] = inst.x + (x * inst.Rx + y * inst.Fx) * s;
-        P[i * 2 + 1] = inst.y + (x * inst.Ry + y * inst.Fy) * s;
-        return [P[i * 2], P[i * 2 + 1]];
+      [[b[0], b[1]], [b[3], b[1]], [b[3], b[4]], [b[0], b[4]]].forEach(([x, y], i) => {
+        [P[i * 2], P[i * 2 + 1]] = at(x, y);
       });
-      return { P, z0: b[2] * s, z1: b[5] * s, b, edges: edgesOf(pts) };
+      // (a Ram Plow's wings reach past the van's sides: mapped through its bounding box, a side seen from close by
+      // would land in the wrong picture columns, and its picture would be drawn again every frame)
+      const c = inst.core || [b[0], b[1], b[3], b[4]];
+      const core = [[c[0], c[1]], [c[2], c[1]], [c[2], c[3]], [c[0], c[3]]].map(([x, y]) => at(x, y));
+      return { P, z0: b[2] * s, z1: b[5] * s, b, edges: edgesOf(core) };
     },
 
     /* ---------- Each frame (drawScene) ---------- */
@@ -589,11 +609,16 @@
       if (MAP_X < 0) return "range";
       this.modelMap(pl, t, (pl.c1 + 1) * this.COL, ST);
       if (MAP_X > t.lw) return "range";
-      // shown larger than a fresh picture would be (it was drawn small: the governor's px, far off)
-      const shown = (t.lw / t.k) / rel; // its width on screen now (px)
-      const fresh = Math.min(1, this.modelRow().px / Math.max(1, Math.max(shown, (t.lh / t.k) / rel)));
-      if ((t.k * rel) * MODEL_GROW < fresh) return "grow";
-      if (t.foldAt > t.drawnAt) return "fold";
+      // shown larger than a fresh picture would be (it was drawn small: the governor's px, far off; or the window has
+      // grown since: zoom is screen px now per screen px then)
+      const zoom = this.H / (t.H || this.H);
+      const shown = ((t.lw / t.k) * zoom) / rel; // its width on screen now (px)
+      const fresh = Math.min(1, this.modelRow().px / Math.max(1, Math.max(shown, ((t.lh / t.k) * zoom) / rel)));
+      if (((t.k / zoom) * rel) * MODEL_GROW < fresh) return "grow"; // (t.k / zoom * rel: picture px per screen px now)
+      // a face the picture never saw has come into view (its map runs backward): drawn again now, before this
+      // frame's strips would leave a hole where it is (modelStrips' own check is the fallback: a redraw the
+      // governor put off)
+      if (t.foldAt > t.drawnAt || this.modelFolds(pl, t, ST) >= MODEL_FOLD_COLS) return "fold";
       if (t.fogStep !== pl.fogStep) return "fog";
       if (t.lod !== pl.lod) return "lod";
       return null;
@@ -662,6 +687,8 @@
       t.lw = rw;
       t.lh = rh;
       t.k = k;
+      t.H = H; // the screen's height it was drawn for (a window grown since: modelStale's "grow")
+      t.picNo = ++PIC_NO;
       t.Px = Px;
       t.Py = Py;
       t.cx = rw / 2;
@@ -753,6 +780,20 @@
       MAP_X = t.cx + (t.Px * (wy * t.ca - wx * t.sa)) / dp;
       MAP_V = (H * dp) / (t.Py * d);
     },
+    /** How many of the model's column edges now map backward in its picture (by more than half a picture px): a face
+        the picture never saw, edge-on then and turned toward you since. The same pass as modelStrips'. */
+    modelFolds(pl, t, ST) {
+      const cA = Math.max(0, pl.c0 - 1);
+      const cB = Math.min(this.cols - 1, pl.c1 + 1);
+      let mx = -Infinity;
+      let back = 0;
+      for (let e = 0; e <= cB - cA + 1; e++) {
+        this.modelMap(pl, t, (cA + e) * this.COL, ST);
+        if (MAP_X < mx - 0.5) back++;
+        if (MAP_X > mx) mx = MAP_X;
+      }
+      return back;
+    },
     /** The model's strips on screen into `list` (drawScene's painter's list): the picture's columns now, cut where
         a strip would pass MODEL_STRIP columns or its vertical scale would drift; each with the depth its rays meet the
         footprint. Returns how many. */
@@ -782,7 +823,8 @@
         } else EX[e] = MAP_X;
         EV[e] = MAP_V;
       }
-      // a face is in view that the picture never saw (it was edge-on or turned away): draw it again (modelStale)
+      // a face is in view that the picture never saw (it was edge-on or turned away): modelStale draws it again before
+      // this pass, unless the governor put that off; then next frame
       if (back >= MODEL_FOLD_COLS) t.foldAt = this.frameNo;
       const reach = Math.max(t.hr, t.lh - t.hr); // rows from the horizon to the picture's farther edge
       const dirX = Math.cos(p.a);
@@ -834,17 +876,105 @@
       }
       return k;
     },
-    /** Is screen y in column col, at depth d, behind a model drawn this frame (a strip nearer than d whose box rises
-        over y there)? drawScene's health bars ask: a walker hidden behind the van shows no bar over it. */
+    /** Is screen y in column col, at depth d, behind a model drawn this frame (a strip nearer than d whose picture is
+        opaque at y there: its real outline, so a head seen over the hood or past the plow's wing is not hidden)?
+        drawScene's health bars ask: a walker hidden behind the van shows no bar over it. */
     modelHides(col, d, y) {
       const pool = this.modelStripPool;
-      const H = this.H;
+      const COL = this.COL;
       for (let i = 0; i < this.modelStripN; i++) {
         const s = pool[i];
         if (col < s.c0 || col > s.c1 || !(s.ty < d)) continue;
-        if (H / 2 - (H * (s.model.box.z1 - 0.5)) / s.ty <= y) return true;
+        const t = s.pic;
+        // the picture's pixel there: its column from the strip's straight map, its row from the strip's scale
+        const X = Math.floor(s.X0 + (((col + 0.5) * COL - s.x0) * (s.X1 - s.X0)) / (s.x1 - s.x0));
+        const r = Math.floor((y - s.top) / s.v);
+        if (X < 0 || X >= t.lw || r < 0 || r >= t.lh) continue;
+        if (this.modelRunEnd(this.modelMask(t), X, r) >= 0) return true;
       }
       return false;
+    },
+    /** Does a model drawn this frame cover screen rows y0..y1 of column col at depth d (a strip nearer than d whose
+        picture is opaque over all of them there, a picture row to spare each side)? liveVisible asks: a walker the
+        van hides whole (wreckers clawing at its far side) is not drawn, so it takes no live redraw. Never a walker
+        whose head shows over the hood or the windshield, or whose feet show under the body between the wheels. */
+    modelCovers(col, d, y0, y1) {
+      const pool = this.modelStripPool;
+      const COL = this.COL;
+      for (let i = 0; i < this.modelStripN; i++) {
+        const s = pool[i];
+        if (col < s.c0 || col > s.c1 || !(s.ty < d)) continue;
+        const t = s.pic;
+        // the picture columns the strip draws there: all inside the picture, and some width (a fold's shows nothing)
+        const kx = (s.X1 - s.X0) / (s.x1 - s.x0);
+        const u0 = s.X0 + (col * COL - s.x0) * kx;
+        const u1 = u0 + COL * kx;
+        if (!(u0 >= 0 && u1 <= t.lw && u1 - u0 > 1e-3)) continue;
+        const r0 = Math.floor((y0 - s.top) / s.v) - 1;
+        const r1 = Math.ceil((y1 - s.top) / s.v) + 1;
+        if (r0 < 0 || r1 > t.lh) continue;
+        const m = this.modelMask(t);
+        let all = true;
+        for (let X = Math.floor(u0), XE = Math.max(X + 1, Math.ceil(u1)); X < XE && all; X++) all = this.modelRunEnd(m, X, r0) >= r1;
+        if (all) return true;
+      }
+      return false;
+    },
+    /** A picture's outline, read back from its pixels the first time modelHides or modelCovers asks after it was
+        drawn (so a frame with no walker behind a model reads nothing): per picture column, its opaque runs (rows a
+        to b - 1 with alpha over MODEL_OPAQUE: the body from the roof down to its sill, a wheel, a mirror, a barrel),
+        at most MODEL_RUNS of them, the longest kept. Returns t, its runs filled in (t.runs, t.runN). */
+    modelMask(t) {
+      if (t.maskNo === t.picNo) return t;
+      t.maskNo = t.picNo;
+      const lw = t.lw;
+      const lh = t.lh;
+      const K = MODEL_RUNS;
+      if (!t.runs || t.runN.length < lw) {
+        t.runs = new Int16Array(lw * K * 2);
+        t.runN = new Uint8Array(lw);
+      }
+      const runs = t.runs;
+      const runN = t.runN;
+      runN.fill(0, 0, lw);
+      const from = this.modelRunFrom && this.modelRunFrom.length >= lw ? this.modelRunFrom : (this.modelRunFrom = new Int16Array(lw));
+      from.fill(-1, 0, lw);
+      // a run ends: kept in its column's next slot; when they are full, in place of the shortest if it is longer
+      const keep = (X, a, b) => {
+        const o = X * K * 2;
+        let j = runN[X];
+        if (j < K) runN[X] = j + 1;
+        else {
+          j = 0;
+          for (let q = 1; q < K; q++) if (runs[o + q * 2 + 1] - runs[o + q * 2] < runs[o + j * 2 + 1] - runs[o + j * 2]) j = q;
+          if (b - a <= runs[o + j * 2 + 1] - runs[o + j * 2]) return;
+        }
+        runs[o + j * 2] = a;
+        runs[o + j * 2 + 1] = b;
+      };
+      // row by row (the order the pixels lie in), each column's run open since `from`; a pixel at a time as one
+      // number, its alpha the top byte (the bottom one on a big-endian machine)
+      const px = new Uint32Array(t.g.getImageData(0, 0, lw, lh).data.buffer);
+      const lim = LITTLE ? (MODEL_OPAQUE + 1) * 0x1000000 : 0;
+      for (let y = 0, i = 0; y < lh; y++) {
+        for (let X = 0; X < lw; X++, i++) {
+          if (LITTLE ? px[i] >= lim : (px[i] & 255) > MODEL_OPAQUE) {
+            if (from[X] < 0) from[X] = y;
+          } else if (from[X] >= 0) {
+            keep(X, from[X], y);
+            from[X] = -1;
+          }
+        }
+      }
+      for (let X = 0; X < lw; X++) if (from[X] >= 0) keep(X, from[X], lh);
+      return t;
+    },
+    /** Where the opaque run holding row r of picture column X ends (its first clear row below), or -1: r is clear. */
+    modelRunEnd(t, X, r) {
+      const o = X * MODEL_RUNS * 2;
+      const runs = t.runs;
+      for (let j = 0, n = t.runN[X]; j < n; j++) if (r >= runs[o + j * 2] && r < runs[o + j * 2 + 1]) return runs[o + j * 2 + 1];
+      return -1;
     },
     /** One strip of a model (drawSprite's dispatch): runs of whole columns in one draw each, a column a nearer wall
         cuts (or an opening's top trims) on its own; the source columns from the strip's straight map either way, so

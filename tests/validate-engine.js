@@ -4011,19 +4011,166 @@ if (errors.length === liveErrors0) console.log(`OK: live walkers: ${liveChecked}
    the footprint (checked against a ray cast here for synthetic views); a point of the van you see lands on screen
    where the screen's own projection puts it (just drawn, after turning and after a small step without a redraw); it
    is lit as the walls are; a walker in front of, behind and beside it sorts right column by column, and one hidden
-   behind it shows no health bar; standing still and turning draw no new picture while it stays whole in view; a walk
-   round it redraws in steps (at least one per MODEL_ANGLE_MAX, never every frame); a wall between you and it clips
-   it, and a wall that hides it all leaves it undrawn; its tiles still block walking, sight and shots; the model
-   governor has a row per walker row, cheaper down the table, and its last row's px holds; a dent redraws it (no
-   refreshScene); its canvas goes MODEL_IDLE frames out of view, and every one with the scene. */
+   behind it shows no health bar while one seen over its hood or past a Ram Plow's wing does; a walker it hides whole
+   is not drawn (no live redraw) and none that shows is left out, checked pixel by pixel against its picture (its
+   canvas here keeps its alpha: alphaContext); standing still and turning draw no new picture while it stays whole in
+   view; a walk round it redraws in steps (at least one per MODEL_ANGLE_MAX, never every frame) and never shows a hole
+   where a face comes into view; a window grown since draws it again; with a Ram Plow the map goes through its body,
+   so backing along its side does not redraw it every frame; a wall between you and it clips it, and a wall that
+   hides it all leaves it undrawn; its tiles still block walking, sight and shots; the model governor has a row per
+   walker row, cheaper down the table, and its last row's px holds; a dent redraws it (no refreshScene); its canvas
+   goes MODEL_IDLE frames out of view, and every one with the scene. */
 let modelChecked = 0;
 const modelErrors0 = errors.length;
+/** A 2D context for a model's picture that keeps its alpha (the stand-in canvas above draws nothing, and the engine
+    reads the picture's outline back: js/modelsprite.js modelMask). fill() and stroke() of moveTo / lineTo paths,
+    fillRect and clearRect, at the pixel centres, nonzero, source-over; the colours' alpha (rgba, #rrggbbaa) times
+    globalAlpha; a new size clears it, as a canvas's does. getImageData gives the alpha back, alphaAt(X, Y) one pixel's
+    (0..1). Text, images and transforms draw nothing (they sit on faces already drawn). */
+function alphaContext(canvas) {
+  let w = 0;
+  let h = 0;
+  let A = new Float32Array(0);
+  let cov = new Uint8Array(0);
+  let bx0 = 0;
+  let by0 = 0;
+  let bx1 = 0;
+  let by1 = 0;
+  const size = () => {
+    if (canvas.width === w && canvas.height === h) return;
+    w = canvas.width;
+    h = canvas.height;
+    A = new Float32Array(w * h);
+    cov = new Uint8Array(w * h);
+  };
+  const alphaOf = (c) => {
+    const s = String(c).trim();
+    let m = /^rgba\(([^)]*)\)$/i.exec(s);
+    if (m) return Math.max(0, Math.min(1, +m[1].split(",")[3]));
+    m = /^#[0-9a-f]{6}([0-9a-f]{2})$/i.exec(s);
+    return m ? parseInt(m[1], 16) / 255 : 1;
+  };
+  // mark the pixels whose centres the polygons cover (nonzero winding, all of them at once)
+  const mark = (polys) => {
+    let ya = Infinity;
+    let yb = -Infinity;
+    polys.forEach((q) => {
+      for (let i = 1; i < q.length; i += 2) {
+        ya = Math.min(ya, q[i]);
+        yb = Math.max(yb, q[i]);
+      }
+    });
+    const xs = [];
+    for (let r = Math.max(0, Math.ceil(ya - 0.5)), rEnd = Math.min(h - 1, Math.floor(yb - 0.5)); r <= rEnd; r++) {
+      const yc = r + 0.5;
+      xs.length = 0;
+      polys.forEach((q) => {
+        const n = q.length / 2;
+        for (let i = 0; i < n; i++) {
+          const j = (i + 1) % n;
+          const [x0, y0, x1, y1] = [q[i * 2], q[i * 2 + 1], q[j * 2], q[j * 2 + 1]];
+          if (y0 === y1 || yc < Math.min(y0, y1) || yc >= Math.max(y0, y1)) continue;
+          xs.push({ x: x0 + ((yc - y0) * (x1 - x0)) / (y1 - y0), d: y1 > y0 ? 1 : -1 });
+        }
+      });
+      xs.sort((a, b) => a.x - b.x);
+      let wind = 0;
+      for (let k = 0; k < xs.length - 1; k++) {
+        wind += xs[k].d;
+        if (!wind) continue;
+        const c0 = Math.max(0, Math.ceil(xs[k].x - 0.5));
+        const c1 = Math.min(w - 1, Math.ceil(xs[k + 1].x - 0.5) - 1);
+        for (let c = c0; c <= c1; c++) cov[r * w + c] = 1;
+        if (c0 <= c1) [bx0, bx1, by0, by1] = [Math.min(bx0, c0), Math.max(bx1, c1), Math.min(by0, r), Math.max(by1, r)];
+      }
+    }
+  };
+  // one coverage, composited once (a stroke's bands that overlap are not darker where they do)
+  const paint = (polySets, a, erase) => {
+    size();
+    [bx0, by0, bx1, by1] = [Infinity, Infinity, -Infinity, -Infinity];
+    polySets.forEach(mark);
+    for (let r = by0; r <= by1; r++)
+      for (let c = bx0; c <= bx1; c++) {
+        const i = r * w + c;
+        if (!cov[i]) continue;
+        cov[i] = 0;
+        A[i] = erase ? 0 : a + A[i] * (1 - a);
+      }
+  };
+  const rect = (x, y, ww, hh) => [[[x, y, x + ww, y, x + ww, y + hh, x, y + hh]]];
+  let path = [];
+  let sub = null;
+  const ctx = {
+    canvas,
+    keepsAlpha: true,
+    globalAlpha: 1,
+    fillStyle: "#000",
+    strokeStyle: "#000",
+    lineWidth: 1,
+    beginPath() {
+      path = [];
+      sub = null;
+    },
+    moveTo(x, y) {
+      sub = [x, y];
+      path.push(sub);
+    },
+    lineTo(x, y) {
+      if (!sub) this.moveTo(x, y);
+      else sub.push(x, y);
+    },
+    closePath() {
+      if (!sub) return;
+      sub.closed = true;
+      this.moveTo(sub[0], sub[1]);
+    },
+    fill() {
+      paint([path.filter((q) => q.length >= 6)], alphaOf(this.fillStyle) * this.globalAlpha);
+    },
+    stroke() {
+      // each segment a band lineWidth wide, its ends squared off half a width past them
+      const hw = Math.max(0.5, this.lineWidth) / 2;
+      const bands = [];
+      path.forEach((q) => {
+        const n = q.length / 2;
+        for (let i = 0; i < (q.closed ? n : n - 1); i++) {
+          const j = (i + 1) % n;
+          const L = Math.hypot(q[j * 2] - q[i * 2], q[j * 2 + 1] - q[i * 2 + 1]) || 1;
+          const ux = ((q[j * 2] - q[i * 2]) / L) * hw;
+          const uy = ((q[j * 2 + 1] - q[i * 2 + 1]) / L) * hw;
+          bands.push([[q[i * 2] - uy - ux, q[i * 2 + 1] + ux - uy, q[j * 2] - uy + ux, q[j * 2 + 1] + ux + uy, q[j * 2] + uy + ux, q[j * 2 + 1] - ux + uy, q[i * 2] + uy - ux, q[i * 2 + 1] - ux - uy]]);
+        }
+      });
+      paint(bands, alphaOf(this.strokeStyle) * this.globalAlpha);
+    },
+    fillRect(x, y, ww, hh) {
+      paint(rect(x, y, ww, hh), alphaOf(this.fillStyle) * this.globalAlpha);
+    },
+    clearRect(x, y, ww, hh) {
+      paint(rect(x, y, ww, hh), 0, true);
+    },
+    getImageData(x, y, ww, hh) {
+      size();
+      const im = pixels(ww, hh); // (made in the sandbox: the engine reads it)
+      for (let r = 0; r < hh; r++) for (let c = 0; c < ww; c++) im.data[(r * ww + c) * 4 + 3] = Math.round(this.alphaAt(x + c, y + r) * 255);
+      return im;
+    },
+    alphaAt(X, Y) {
+      size();
+      return X >= 0 && Y >= 0 && X < w && Y < h ? A[Y * w + X] : 0;
+    },
+  };
+  return new Proxy(ctx, { get: (o, k) => (k in o ? o[k] : noop) });
+}
 {
   const M3 = ZSR.Model3D;
   const drawWas = M3 && M3.draw;
   const faceWas = I.drawFace;
   const spriteWas = I.drawSprite;
   const refreshWas = I.refreshScene;
+  const targetWas = I.modelTarget;
+  const liveVisibleWas = I.liveVisible;
   const ok = (cond, msg) => {
     modelChecked++;
     if (!cond) err(`model sprites: ${msg}`);
@@ -4032,8 +4179,20 @@ const modelErrors0 = errors.length;
   let lastView = null;
   let vFaces = 0;
   let order = [];
+  let lives = []; // liveVisible's answers this frame: each live walker's sprite on screen and whether it is drawn
   try {
     if (!M3 || !ZSR.Van3D || !I.modelQueue) throw new Error("js/model3d.js, js/van3d.js or js/modelsprite.js did not load");
+    // the van's picture keeps its alpha here: the engine reads its outline back (what it hides)
+    I.modelTarget = function (inst) {
+      const t = targetWas.call(this, inst);
+      if (t.g.keepsAlpha !== true) t.g = alphaContext(t.c);
+      return t;
+    };
+    I.liveVisible = function (s) {
+      const shown = liveVisibleWas.call(this, s);
+      lives.push({ z: s.live, shown, c0: s.c0, c1: s.c1, ty: s.ty, top: s.top, sh: s.sh });
+      return shown;
+    };
     M3.draw = function (ctx, m, view) {
       if (m && m.id === "van") {
         vanDraws++;
@@ -4055,6 +4214,7 @@ const modelErrors0 = errors.length;
     /** One frame; the van's strips left to right (they are drawn far to near). */
     const frame = () => {
       order = [];
+      lives = [];
       I.render();
       return order.filter((o) => o.strip).sort((a, b) => a.c0 - b.c0);
     };
@@ -4249,22 +4409,83 @@ const modelErrors0 = errors.length;
       ok(strips.length > 0 || i > 25, `turning toward the view's edge (${(p().a - a0).toFixed(2)} rad), the van left the screen`);
     }
 
-    // a walk round it, facing it: redraws in steps (at least one per MODEL_ANGLE_MAX), never every frame (2.4 tiles
-    // from its middle: clear of the cabin's wall south of it)
+    // a walk round it, facing it (0.042 tiles a frame): redraws in steps (at least one per MODEL_ANGLE_MAX), never
+    // every frame (2.4 tiles from its middle: clear of the cabin's wall south of it)
     {
       const steps = 360;
       const r = 2.4;
       vanDraws = 0;
+      I.modelStats.why = {};
       let missing = 0;
+      let holes = 0;
       for (let i = 0; i < steps; i++) {
         const t = (i / steps) * Math.PI * 2;
         lookAt(cx + Math.cos(t) * r, cy + Math.sin(t) * r, cx, cy);
         if (!frame().length) missing++;
+        if ((I.modelPool.get(van) || {}).foldAt === I.frameNo) holes++; // (this frame's strips ran backward: modelStrips)
       }
       const least = Math.floor((2 * Math.PI) / I.MODEL_ANGLE_MAX);
       const most = Math.ceil((2 * Math.PI) / I.MODEL_ANGLE_MIN);
       ok(vanDraws >= least && vanDraws <= most && vanDraws < steps / 2, `walking round the van in ${steps} frames, it was drawn ${vanDraws} times (want ${least} to ${most}, never every frame)`);
       ok(!missing, `walking round the van, it was missing from ${missing} frames`);
+      // a face coming round into view is drawn again in the frame it first shows, never a frame later with a hole
+      // where it is (the old picture's map running backward there)
+      ok(!holes && I.modelStats.why.fold > 0, `walking round the van, ${holes} frames showed a hole where a face came into view (${I.modelStats.why.fold || 0} redraws for one)`);
+    }
+    // a window grown since the picture was drawn: it is drawn again for the new size, not shown stretched; a small
+    // resize keeps it
+    {
+      const w0 = sb.innerWidth;
+      const h0 = sb.innerHeight;
+      const sizeTo = (w, h) => {
+        sb.innerWidth = w;
+        sb.innerHeight = h;
+        I.resize();
+      };
+      try {
+        lookAt(cx + 0.3, f.y0 - 2.6, cx, cy);
+        frame();
+        frame();
+        sizeTo(Math.round(w0 * 1.05), Math.round(h0 * 1.05));
+        vanDraws = 0;
+        frame();
+        ok(vanDraws === 0, `a window 5% bigger drew the van again (${JSON.stringify(I.modelStats.why)})`);
+        sizeTo(w0 * 2, h0 * 2);
+        I.modelStats.why = {};
+        vanDraws = 0;
+        frame();
+        const t = I.modelPool.get(van);
+        ok(vanDraws === 1 && I.modelStats.why.grow === 1 && t.H === I.H, `a window twice the size drew the van ${vanDraws} times (${JSON.stringify(I.modelStats.why)}; want once, "grow")`);
+        vanDraws = 0;
+        frame();
+        ok(vanDraws === 0, "the van was drawn again with the window still");
+      } finally {
+        sizeTo(w0, h0);
+      }
+    }
+    // with a Ram Plow (its wings reach past the van's sides) a moved eye still maps the old picture through the van's
+    // body: backing slowly along its side, close by, does not draw it again every frame
+    {
+      const bumper0 = S.save.upgrades.bumper;
+      S.save.upgrades.bumper = ZSR.Upgrades.DEFS.bumper.max;
+      at(f.x0 - 0.1, f.y0 - 0.31, Math.PI);
+      frame();
+      frame();
+      const s = van.scale;
+      const off = van.box.edges.map((e) => (e.c - e.nx * van.x - e.ny * van.y) / Math.hypot(e.nx, e.ny)).sort((a, b) => a - b);
+      const want = [ZSR.Van3D.W / 2, ZSR.Van3D.W / 2, ZSR.Van3D.L / 2, ZSR.Van3D.L / 2].map((v) => v * s).sort((a, b) => a - b);
+      ok(off.every((o, i) => Math.abs(o - want[i]) < 1e-9), `with Ram Plow ${S.save.upgrades.bumper} the van's map goes through a box ${off.map((o) => o.toFixed(3)).join(", ")} tiles from its middle (want its body's ${want.map((o) => o.toFixed(3)).join(", ")})`);
+      vanDraws = 0;
+      I.modelStats.why = {};
+      const n = 100;
+      for (let i = 0; i < n; i++) {
+        p().x += 0.0215;
+        frame();
+      }
+      const range = I.modelStats.why.range || 0;
+      ok(vanDraws <= n * 0.6 && range <= n / 10, `backing along the van's side with Ram Plow ${S.save.upgrades.bumper}, it was drawn ${vanDraws} times in ${n} frames (${JSON.stringify(I.modelStats.why)})`);
+      S.save.upgrades.bumper = bumper0;
+      frame();
     }
 
     // walkers in front of it, behind it and beside it sort right, column by column
@@ -4339,7 +4560,137 @@ const modelErrors0 = errors.length;
         ok(headY > roofY, `the bar test's walker is not hidden behind the van (its head at ${headY.toFixed(1)}, the roof at ${roofY.toFixed(1)})`);
         ok(hidden === 0, `a hurt walker hidden behind the van drew ${hidden} health bars over it`);
         ok(hurt(cx, f.y0 - 1.5) === 1, "a hurt walker in front of the van drew no health bar");
+        // the van's real outline, not its box: a head seen over its low hood keeps its bar (north of it, facing south,
+        // its nose on your right), and so does a walker beside it past a Ram Plow's wing (seen along its side: the
+        // plow widens the box, not the body)
+        at(cx, cy - 3, Math.PI / 2);
+        ok(hurt(cx - 1.23, cy + 1.1) === 1, "a hurt walker whose head shows over the van's hood drew no health bar");
+        const bumper0 = S.save.upgrades.bumper;
+        S.save.upgrades.bumper = ZSR.Upgrades.DEFS.bumper.max;
+        at(f.x1 + 3, cy, Math.PI);
+        ok(hurt(cx - 0.5, f.y1 + 0.55) === 1, `a hurt walker in plain sight beside the van with Ram Plow ${S.save.upgrades.bumper} drew no health bar`);
+        S.save.upgrades.bumper = bumper0;
         I.ctx.fillRect = fillWas;
+      }
+      // a walker the van hides whole is not drawn (wreckers clawing at its far side take none of the live redraws),
+      // and no walker is left out that shows: its head over the hood or the roof, its feet under the body between the
+      // wheels. Every one left out is checked pixel by pixel against the picture the van's strips draw in front of it
+      {
+        const COLS = I.COL;
+        /** The screen pixels of a live walker (liveVisible's sprite) that show past the walls and that no van strip
+            nearer than it covers with an opaque pixel: [all of them, those seen over the van (above it in a picture
+            column the van fills lower down), those seen under it (below it in a column the van fills higher up)]. */
+        const clearOf = (l) => {
+          let all = 0;
+          let over = 0;
+          let under = 0;
+          for (let col = l.c0; col <= l.c1; col++) {
+            const clip = I.clipAt(col, l.ty);
+            const cap = l.ty > I.capD[col] ? I.capY[col] : -Infinity;
+            const y0 = Math.max(cap, l.top);
+            const y1 = Math.min(clip, l.top + l.sh);
+            const near = [];
+            for (let i = 0; i < I.modelStripN; i++) {
+              const st = I.modelStripPool[i];
+              if (col >= st.c0 && col <= st.c1 && st.ty < l.ty) near.push(st);
+            }
+            for (let x = col * COLS; x < (col + 1) * COLS; x++) {
+              // each nearer strip's picture column here, and the screen rows of its opaque pixels
+              const cols = near.map((st) => {
+                const X = Math.floor(st.X0 + ((x + 0.5 - st.x0) * (st.X1 - st.X0)) / (st.x1 - st.x0));
+                let a = Infinity;
+                let b = -Infinity;
+                for (let R = 0; R < st.pic.lh; R++) {
+                  if (!(st.pic.g.alphaAt(X, R) > 200 / 255)) continue;
+                  a = Math.min(a, st.top + R * st.v);
+                  b = Math.max(b, st.top + (R + 1) * st.v);
+                }
+                return { st, X, a, b };
+              });
+              for (let y = Math.ceil(y0 - 0.5); y + 0.5 < y1; y++) {
+                if (cols.some((q) => q.st.pic.g.alphaAt(q.X, Math.floor((y + 0.5 - q.st.top) / q.st.v)) > 200 / 255)) continue;
+                all++;
+                if (cols.some((q) => q.a < q.b && y + 0.5 < q.a)) over++;
+                if (cols.some((q) => q.a < q.b && y + 0.5 > q.b)) under++;
+              }
+            }
+          }
+          return [all, over, under];
+        };
+        let left = 0;
+        let under = 0;
+        let over = 0;
+        // north of it (the open yard), far and near, and from its north-east corner; the spots all behind it
+        for (const [ex, ey] of [[cx, cy - 4.5], [cx, cy - 3], [cx, cy - 2], [cx + 0.5, f.y0 - 1.2], [f.x1 + 2.5, f.y0 - 1.7]]) {
+          for (const dy of [0.35, 0.85, 1.6]) {
+            for (let dx = -1.2; dx <= 1.21; dx += 0.4) {
+              at(ex, ey, Math.atan2(cy - ey, cx - ex));
+              withWalker(cx + dx, f.y1 + dy);
+              const l = lives.find((q) => q.z === I.walkers[0]);
+              if (!l) continue; // (off the screen's edge)
+              const [all, up, down] = clearOf(l);
+              const where = `from ${ex.toFixed(2)},${ey.toFixed(2)} a walker at ${(cx + dx).toFixed(2)},${(f.y1 + dy).toFixed(2)}`;
+              if (!l.shown) {
+                left++;
+                ok(!all && order.every((o) => o.live !== I.walkers[0]), `${where} was left out though ${all} px of it show (${up} over the van, ${down} under it)`);
+              } else {
+                if (down) under++;
+                if (up) over++;
+              }
+            }
+          }
+        }
+        ok(left >= 10 && under > 0 && over > 0, `walkers behind the van: ${left} left out as hidden whole, ${under} drawn with some of them seen under it, ${over} over it (want 10 or more, and some of each)`);
+        // and column by column, every span of rows down each of its columns: one the van covers is all opaque pixels
+        // in its picture (over the roof and the hood, under the sill between the wheels, it never is)
+        {
+          at(cx, cy - 3, Math.PI / 2);
+          I.walkers.length = 0;
+          frame();
+          let spans = 0;
+          let covered = 0;
+          let reach = 0; // spans that run from the body down past its sill (behind them, a walker's feet show)
+          for (let i = 0; i < I.modelStripN; i++) {
+            const st = I.modelStripPool[i];
+            for (let col = st.c0; col <= st.c1; col++) {
+              const ya = Math.floor(st.top) - 4;
+              const yb = Math.ceil(st.top + st.sh) + 4;
+              // each screen row of the column: opaque at both of its pixels?
+              const solid = [];
+              for (let y = ya; y < yb; y++) {
+                solid[y - ya] = [0, 1].every((k) => {
+                  const X = Math.floor(st.X0 + ((col * COLS + k + 0.5 - st.x0) * (st.X1 - st.X0)) / (st.x1 - st.x0));
+                  return st.pic.g.alphaAt(X, Math.floor((y + 0.5 - st.top) / st.v)) > 200 / 255;
+                });
+              }
+              for (const len of [3, 10, 25]) {
+                for (let y0 = ya; y0 + len <= yb; y0 += 2) {
+                  spans++;
+                  const all = solid.slice(y0 - ya, y0 - ya + len).every(Boolean);
+                  const says = I.modelCovers(col, st.ty + 0.5, y0, y0 + len);
+                  if (says) covered++;
+                  if (says && !all) ok(false, `the van says it covers rows ${y0}..${y0 + len} of column ${col}, but its picture is clear in some of them`);
+                  const k = solid.slice(y0 - ya, y0 - ya + len);
+                  if (k.indexOf(true) >= 0 && k.lastIndexOf(true) < len - 1 && y0 > I.H / 2) reach++;
+                }
+              }
+            }
+          }
+          ok(covered > spans / 10 && reach > 0,`of ${spans} spans down the van's columns it covers ${covered}, ${reach} reach under its sill (want some of each)`);
+        }
+        // a wave clawing at its far side, seen from 1.5 tiles off its near side: none drawn, no live redraws
+        at(cx, cy - 2, Math.PI / 2);
+        I.walkers.length = 0;
+        [0, 0.4, 0.9].forEach((dx, i) => {
+          const z = I.makeWalker(kinds[0], cx + dx, f.y1 + 0.5, 1);
+          z.awake = true;
+          z.seed = 7 + i;
+          z.pose = "claw";
+          I.walkers.push(z);
+        });
+        frame();
+        frame();
+        ok(I.liveShown === 0 && I.liveDrawn === 0 && lives.length === 3, `wreckers hidden behind the van: ${I.liveShown} of ${lives.length} counted as shown, ${I.liveDrawn} live redraws (want none)`);
       }
       I.walkers.length = 0;
     }
@@ -4481,13 +4832,15 @@ const modelErrors0 = errors.length;
     I.drawFace = faceWas;
     I.drawSprite = spriteWas;
     I.refreshScene = refreshWas;
+    I.modelTarget = targetWas;
+    I.liveVisible = liveVisibleWas;
     delete I.ctx.drawImage;
     I.walkers.length = 0;
     S.newGame(S.activeSlot(), "Test");
     S.trip = null;
   }
 }
-if (errors.length === modelErrors0) console.log(`OK: model sprites: ${modelChecked} checks (the yard's and River Landing's van drawn as one 3D model on its tiles, no V faces; strips side by side at the depths their rays meet it; the screen's projection, turned and after a step; the walls' light; walkers in front, behind and beside sort by column, no health bar through it; still and turning draw nothing new; a walk round it redraws in steps; walls clip or hide it; its tiles still block; the governor's rows; a dent redraws it; its canvases go out of view and with the scene).`);
+if (errors.length === modelErrors0) console.log(`OK: model sprites: ${modelChecked} checks (the yard's and River Landing's van drawn as one 3D model on its tiles, no V faces; strips side by side at the depths their rays meet it; the screen's projection, turned and after a step; the walls' light; walkers in front, behind and beside sort by column, no health bar through it but one over its outline; walkers it hides whole not drawn, none that shows left out; still and turning draw nothing new; a walk round it redraws in steps with no hole; a grown window redraws it; a Ram Plow's side maps through the body; walls clip or hide it; its tiles still block; the governor's rows; a dent redraws it; its canvases go out of view and with the scene).`);
 
 /* ---------- June's first-run tutorial (js/tutorial.js) ----------
    Last in the file, so nothing it leaves behind can touch the checks above. The cards go to a stand-in view that
