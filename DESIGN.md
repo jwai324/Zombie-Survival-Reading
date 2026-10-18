@@ -2633,8 +2633,10 @@ with a test that failed before:
   of it by 3.0) and wags harder near you. It never follows anyone onto the bench or a bed.
 - Rivet turns to the walker it zaps, flashes when bitten and lies still when off.
 
-**Seats (`CREW_SEATS` in `js/story-crew.js`, read off the furniture: bench 0.154, dining chair 0.161, bed 0.32 tiles).**
-- June: the porch bench at (6.5, 1.45), facing north over the yard. Tomas (Gus's room): the very edge of Gus's bed at
+**Seats (`CREW_SEATS` in `js/story-crew.js`, read off the furniture: bench 0.154 (0.17 once the bench was 3D, stage 3),
+dining chair 0.161, bed 0.32 tiles).**
+- June: the porch bench at (6.5, 1.45) (stage 3 stood the 3D bench against the wall and her seat with it: 1.87), facing
+  north over the yard. Tomas (Gus's room): the very edge of Gus's bed at
   (22.7, 6.99), facing south, his head turned to Gus's keep-out sign (a figure stands on the floor line at its spot: at
   6.88, 0.12 into the bed, he hung 24 px up the bed's side; review, 2026-10-18). Pip: the chair at (15.45, 2.5) facing north to the
   radio (radio shelf), and at the dining post the chair at (15.45, 3.5) facing west to the table.
@@ -2687,3 +2689,36 @@ and sit on the floor at the post, exactly as before 3D.
   screen proportions (not squashed). Every hen and goat looks alike, as in 2D; the seed varies head tilt and tail.
 - New poses appended (the dog's and Rivet's indices unchanged): graze, peck, flap, bleat; a hen's sit settles on her
   belly. The dog and Rivet draw call for call as before (a hash fixture recorded before the change proves it).
+
+### Stage 3, the yard (2026-10-18): judgment calls
+
+**The props, signs, plaques and porch as models (`js/modelsprite.js` modelProps, `js/yard.js`, `js/house.js`).**
+- Every yard prop whose art has a model is drawn as it, turned to its plot's front (and its build's own turn); so are the
+  porch's posts, bell and bench, turned to face the yard. Solidity, cover, paths, wreck spots and E to read are the
+  sprites'. A prop whose model will not build keeps its sprite (logged once).
+- Models sort by their own turned footprint, not the tile they block: the guy wires by their tower's tile (they never hide
+  a walker), the bench by its back (so a sitter is drawn in front of it).
+- A lot sign stands solid across 3 tiles of its lot's front row (a narrower lot: 1); its board is about 2.2 tiles wide,
+  capped to that foot at Large and Huge, and its letters widen up to 1.3 times where the board has room. Plaques stay one
+  tile wide (their row is often taken: a tank's foot and pipes, a floodlight), so long names read at about 60 to 65% of
+  the old billboard's letter height. A trap on one of a lot sign's two new side tiles goes back to stock.
+- Props take 0.75 of the walls' fog, so a far prop is not darker than the building behind it. Round contact shadows sit at
+  foot height; parts lifted 0.45 tiles or more and the guy wires cast none.
+- The lab's level-3 vent moved onto the ridge (the roof's outline cut it); the radio's second level-3 dish faces the plot's
+  left. The tire stack and the spool change detail more gently; wreck debris turns with its plot's front; the office
+  closet's drum stays a sprite.
+- The porch bench stands against the cabin wall (y 1.86), and June's seat moved with it (1.87); `CREW_SEATS.porchBench` is
+  the 3D bench's seat (0.5 units at the porch's scale 0.34: 0.17 tiles), and the crew's test reads it off the model.
+- Pictures: a model out of view costs one circle test and is never drawn; a picture up to 256 x 256 px is kept while out
+  of view, all of them capped at 6M px (24 MB), the longest unused first (peak about 3.1 MB walking). Nothing redraws
+  every frame: standing, only the blinking beacons (about 20 in 600 frames); walking, about 1.5 a frame, under the cap.
+  `Model3D.text` steps by the text's own size (the van's text looks the same), and `MESH_KEEP` is 128.
+
+**The farm's hens and goats as live 3D figures (`js/yard.js` `ANIMALS`, `b.flock`, `yardAnimate`).**
+- Each is a live figure in the walkers' pool (Beast3D's chicken or goat), on its sprite's prop, which stays the fallback.
+- At each spot they rest a while (hens 1.5 to 5 s, goats 2.5 to 7 s; the sprites walked on at once) in one of their own
+  poses, by weight: a goat grazes (6), stands (3) or bleats once (1, 1.5 s); a hen pecks (6), stands (3), settles down
+  (1.5) or flaps once (0.6, 1.4 s). Then they get up and turn to the next spot before they walk to it (never sliding, never
+  sideways: a test fails when either happens), and one standing within 2.5 tiles of you looks at you.
+- Hens walk at 0.45 tiles a second (the sprites' 0.6 read as a scurry on the 3D gait's quick steps); goats at 0.35.
+- The pens' low fences hide most of them from outside, as they hid the sprites.

@@ -28,6 +28,12 @@
   const W = () => ZSR.WORLD;
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  /** One entry of [[item, weight, ...], ...], picked by weight. */
+  const pickWeighted = (list) => {
+    let r = Math.random() * list.reduce((s, e) => s + e[1], 0);
+    for (const e of list) if ((r -= e[1]) < 0) return e;
+    return list[list.length - 1];
+  };
   /** The list in a random order (in place). */
   const shuffle = (list) => {
     for (let i = list.length - 1; i > 0; i--) {
@@ -54,6 +60,16 @@
   const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const CABIN_CUE_SECS = 20; // seconds between "Walkers are waiting in the cabin" while they hold a wave open
   const CABIN_LABEL = " · walkers in the cabin"; // the wave label's tail while walkers stand in the cabin, out of sight
+  // the farm's animals (b.flock): their speed in tiles a second, how long they rest at a spot, and in 3D (a live
+  // Beast3D figure: js/beast3d-looks2.js) their type and what they do at rest: [pose, weight, seconds] (with seconds,
+  // a bleat or a flap, it plays that long and then they stand). Without Beast3D's farm looks they stay the 2D sprites.
+  // SCALE: a new farm animal is a row here and a Beast3D look (with its sprite art for the fallback)
+  const ANIMALS = {
+    yGoat: { type: "goat", speed: 0.35, rest: [2.5, 7], idle: [["graze", 6], ["stand", 3], ["bleat", 1, 1.5]] },
+    yChicken: { type: "chicken", speed: 0.45, rest: [1.5, 5], idle: [["peck", 6], ["stand", 3], ["sit", 1.5], ["flap", 0.6, 1.4]] },
+  };
+  const ANIMAL_TURN = 0.6; // radians: a spot farther round than this, a 3D animal turns to it before it sets off
+  const ANIMAL_LOOK = 2.5; // tiles: you this close, a 3D animal standing at rest looks at you
 
   /** A wall face from yardart's "yWall": material, base color, feature (window, door ...), sign slice, part of a wide feature. */
   const wall = (m, c, f, s, p) => {
@@ -610,20 +626,25 @@
           I.yardAnims.push({ p, kind, t: Math.random() });
           return p;
         },
-        /** n animals pecking and wandering inside a local box [u0, v0, u1, v1] (they stand in a pen or run). */
+        /** n animals pecking and wandering inside a local box [u0, v0, u1, v1] (they stand in a pen or run). In 3D each
+            is a live figure (prop.fig) on its sprite's prop, which stays the fallback. */
         flock(art, n, box, scale) {
           const [u0, v0, u1, v1] = box;
+          const A = ANIMALS[art];
           for (let i = 0; i < n; i++) {
             const U = u0 + ((i + 0.5) / n) * (u1 - u0);
             const V = v0 + (i % 2 ? 0.65 : 0.35) * (v1 - v0);
             const p = this.prop(U, V, art, { f: 0 }, { scale, whole: true }); // the animals are never cracked
-            I.yardAnims.push({ p, kind: "wander", art, at, U, V, box, tU: U, tV: V, t: Math.random() * 2, f: 0, ft: Math.random() });
+            const fig = A && I.liveFigure ? I.liveFigure("beast", A.type, 17 + I.yardAnims.length * 29, Math.random() * Math.PI * 2) : null;
+            if (fig) p.fig = fig;
+            I.yardAnims.push({ p, kind: "wander", art, at, U, V, box, tU: U, tV: V, t: Math.random() * 2, f: 0, ft: Math.random(), rest: true, idle: "stand", oneT: 0 });
           }
         },
       };
     },
 
-    /** Animated props: blinking lights, chickens and goats wandering about their pens. */
+    /** Animated props: blinking lights, chickens and goats wandering about their pens (in 3D live figures, ANIMALS:
+        resting at a spot in a pose of theirs, getting up and turning to the next spot before they walk to it). */
     yardAnimate(dt) {
       const list = this.yardAnims;
       if (!list || !list.length) return;
@@ -636,18 +657,59 @@
           }
           continue;
         }
-        // wander: walk toward a spot in the pen, stop, peck, pick another
-        const sp = a.art === "yGoat" ? 0.35 : 0.6;
+        // wander: rest a while at a spot (pecking, grazing), then walk to another in the pen
+        const A = ANIMALS[a.art] || { speed: 0.6, rest: [1, 3.5], idle: [["stand", 1]] };
+        const fig = a.p.fig;
         const du = a.tU - a.U;
         const dv = a.tV - a.V;
         const d = Math.hypot(du, dv);
+        const x0 = a.p.x;
+        const y0 = a.p.y;
         if (d > 0.04) {
-          a.U += (du / d) * Math.min(d, sp * dt);
-          a.V += (dv / d) * Math.min(d, sp * dt);
+          // in 3D it gets up and turns to the spot before it sets off, so it never slides or walks sideways
+          let go = true;
+          if (fig) {
+            const [tx, ty] = a.at(a.tU, a.tV);
+            fig.want = Math.atan2(ty - y0, tx - x0);
+            fig.wantPose = "walk";
+            const off = Math.abs(Math.atan2(Math.sin(fig.want - fig.heading), Math.cos(fig.want - fig.heading)));
+            go = off < ANIMAL_TURN && !this.figPosed(fig);
+          }
+          if (go) {
+            a.U += (du / d) * Math.min(d, A.speed * dt);
+            a.V += (dv / d) * Math.min(d, A.speed * dt);
+          }
+        } else if (!a.rest) {
+          // there: rest a while, doing one of its things
+          const [pose, , secs] = pickWeighted(A.idle);
+          a.rest = true;
+          a.t = rand(A.rest[0], A.rest[1]);
+          a.idle = pose;
+          a.oneT = secs || 0;
         } else if (a.t <= 0) {
+          a.rest = false;
           a.tU = rand(a.box[0], a.box[2]);
           a.tV = rand(a.box[1], a.box[3]);
-          a.t = rand(1, 3.5);
+        }
+        const [x, y] = a.at(a.U, a.V);
+        a.p.x = x;
+        a.p.y = y;
+        if (fig) {
+          if (a.rest) {
+            // a one-shot (a bleat, a flap) plays once, then it stands; standing, it looks at you when you are near
+            if (a.oneT > 0 && (a.oneT -= dt) <= 0) a.idle = "stand";
+            const p = this.player;
+            const near = a.idle === "stand" && p && Math.hypot(p.x - x, p.y - y) < ANIMAL_LOOK;
+            fig.want = null;
+            fig.wantPose = a.idle;
+            fig.lookX = near ? p.x : null;
+            fig.lookY = near ? p.y : null;
+          } else {
+            fig.lookX = fig.lookY = null;
+          }
+          fig.wantRun = 0;
+          this.figStep(fig, dt, x0, y0, x, y);
+          continue;
         }
         a.ft -= dt;
         if (a.ft <= 0) {
@@ -655,9 +717,6 @@
           a.f = a.f ? 0 : 1;
           a.p.img = D3().sprite(a.art, { f: a.f });
         }
-        const [x, y] = a.at(a.U, a.V);
-        a.p.x = x;
-        a.p.y = y;
       }
     },
 

@@ -462,7 +462,7 @@ searches and when matters more than how fast one search is.
 7. `npm test`. God mode's Spawn walker, the title screen, the alarm, the waves, the river and the road
    pick the new kind up from the table.
 
-## People and animals in 3D (the crew, the dogs)
+## People and animals in 3D (the crew, the dogs, the farm's animals)
 
 - `js/walker3d.js` `CC_N` 32768: colour strings walkers and people share (people about double them).
 - People: `Walker3D.addHuman` looks in `js/walker3d-crew.js`; a new crew member is an appended `walker3d-crew2.js`
@@ -479,8 +479,13 @@ searches and when matters more than how fast one search is.
 - Yard models: `js/yardmodels.js` `YARD_OPS` [500, 260, 120] canvas calls a model may make at each detail (a model may set
   its own: the two water tanks do); a new prop's model goes in an appended `yardmodels3.js`, registered by its sprite's
   art name, with every opts set it is placed with in `def.opts` (validate-art draws them all, whole, cracked and wrecked).
+- The farm's hens and goats are live figures in the walkers' pool (`js/yard.js` `ANIMALS`: speed, rest, what they do at
+  rest; `b.flock` puts them up): a new farm animal is a row there, a Beast3D look in an appended `beast3d-looks3.js` and
+  its sprite art for the fallback. A full farm adds five figures to the pool (three hens, two goats): they count against
+  `LIVE_RENDERS_MAX`, `LIVE_NEAR` and `LIVE_LEVELS` like the crew. The engine tests that load Beast3D list
+  `beast3d-looks2.js` too (validate-engine `WANT`, validate-crew `ENGINE`, validate-drive, validate-scenery).
 
-## Still 3D models (the van now; yard props, signs and animals next)
+## Still 3D models (the van, the yard's props, signs, plaques and porch)
 
 `js/model3d.js` draws models of convex parts; `js/van3d.js` is the van on it; `js/modelsprite.js`
 stands models in the first-person view (`this.models`, one instance each: kind, position, turn,
@@ -488,10 +493,23 @@ scale, footprint, tiles, `mesh()`, and an optional `core`: the model-unit box a 
 picture through; a model with parts sticking out past its body, like the van's plow wings and mirrors,
 passes one).
 
+A prop with a turn (`rot`) whose art `js/yardmodels.js` has is drawn as that model (`Interior.modelProps`, run at the
+end of `dressYard`; a model that will not build leaves its prop the sprite, said once). A new yard prop: its sprite art
+name, a model in an appended `js/yardmodels3.js` with `def.opts` listing every opts set it is placed with (the lot
+sign's board widths at Large and Huge are listed there), and the placer gives it its turn (`plotFrame.prop` does: the
+plot's front plus `o.turn`). A full yard stands about 38 prop models, 11 to 17 in view; a model out of the view costs
+one circle test, and `modelHides` / `modelCovers` ask only the strips over a column (40 to 100 strips a frame standing,
+up to about 470 walking close past builds).
+
 ### `SCALE:` spots for models
 
-- `js/model3d.js` `MAX_V` 64 (corners a face or a decal may have), `MESH_KEEP` 64 (built models
-  kept: every look x gear x dents of the van is one), `COLOURS_MAX` 8192 (colour strings kept).
+- `js/model3d.js` `MAX_V` 64 (corners a face or a decal may have), `MESH_KEEP` 128 (built models
+  kept: every look x gear x dents of the van is one, and every yard model's look and damage), `COLOURS_MAX` 8192 (colour
+  strings kept).
+- `js/modelsprite.js` `MODEL_KEEP_PX` (256 x 256: a picture this small is kept while its model is out of view) and
+  `MODEL_POOL_PX` (6M px, 24 MB: every model picture together; past it the longest unused go). A yard two or three
+  times bigger (100 or more prop models) keeps its far props' small pictures within it.
+- `js/yard.js` `LOT_SIGN_FOOT` 3: a lot sign's solid width in its front row (a narrower lot gets one).
 - `js/modelsprite.js`:
   - `MODEL_MARGIN` 0.16 rad drawn past each side of the view (small turns need no redraw);
   - `MODEL_STRIP` 8 columns a strip spans at most;

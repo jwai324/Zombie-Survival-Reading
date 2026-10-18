@@ -123,7 +123,7 @@ if (!["layouts.js", "world.js", "story-crew.js"].every((f) => FACTS.includes(f))
 const STATE = FACTS.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "xoverstate.js"]);
 // (the crew are drawn on Walker3D's people, js/walker3d-crew.js, and the dogs on Beast3D, js/beast3d.js: their looks too;
 // the yard's props, signs and the porch's bench June sits on are 3D models, js/yardmodels*.js: a new one goes here too)
-const ENGINE = STATE.concat(["audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "walker3d-crew.js", "beast3d.js", "beast3d-looks.js", "model3d.js", "van3d.js", "yardmodels.js", "yardmodels1.js", "yardmodels2.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "houseart.js", "riverart.js", "crewart.js", "crossart.js", "streets.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "robodog.js", "river.js"]);
+const ENGINE = STATE.concat(["audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "walker3d-crew.js", "beast3d.js", "beast3d-looks.js", "beast3d-looks2.js", "model3d.js", "van3d.js", "yardmodels.js", "yardmodels1.js", "yardmodels2.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "houseart.js", "riverart.js", "crewart.js", "crossart.js", "streets.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "robodog.js", "river.js"]);
 
 /** A fresh game in its own sandbox, scripts in the page's order.
     opts: engine (the first-person engine too, with stand-in art and Interior.init), content (the six reading

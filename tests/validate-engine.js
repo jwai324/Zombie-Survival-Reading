@@ -95,7 +95,7 @@ const PAGE = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m)
 const FACT_FILES = ["layouts.js", "world.js"].concat(PAGE.filter((f) => /^story[\w-]*\.js$/.test(f)));
 // (the crew are live figures on Walker3D's people, js/walker3d-crew.js, and the dogs on Beast3D, js/beast3d.js; the
 // yard's props, signs and the porch stand as 3D models, js/yardmodels*.js: a new yardmodels3.js goes in this list too)
-const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "walker3d-crew.js", "beast3d.js", "beast3d-looks.js", "model3d.js", "van3d.js", "yardmodels.js", "yardmodels1.js", "yardmodels2.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "perspective.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
+const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "walker3d-crew.js", "beast3d.js", "beast3d-looks.js", "beast3d-looks2.js", "model3d.js", "van3d.js", "yardmodels.js", "yardmodels1.js", "yardmodels2.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "perspective.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
 const scripts = PAGE.filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -5171,6 +5171,119 @@ const ymErrors0 = errors.length;
   }
 }
 if (errors.length === ymErrors0) console.log(`OK: yard models: ${ymChecked} checks (the radio towers' lifted parts above the eye, no shadow, the second dish turned; a blink redraws that beacon alone; still draws nothing and a turn in place no new picture in a full yard; out of view is not planned; the canvases stay in budget; a rebuild keeps every model, a crack redraws its build's props only; the porch faces the yard, the bench's seat is the crew's and its back is against the wall; solidity and cover as the sprites', the lot signs across three tiles; a model that will not build leaves its props sprites, said once).`);
+
+/* ---------- The farm's hens and goats as live 3D figures (js/yard.js flock, yardAnimate; js/beast3d-looks2.js) ----------
+   At the farm's top level every hen and goat is a live figure (prop.fig: Beast3D's chicken or goat), drawn with the
+   walkers. Through three minutes of the yard they stay in their pens and wander (each one moves); they move only in
+   their walk (never posed, so never sliding) and only the way they face (got up and turned before they set off);
+   they rest in their own poses (a hen pecks, a goat grazes); one standing at rest turns its head to you when you
+   are near; their pictures are drawn when in view and let go when you leave the yard. */
+let faChecked = 0;
+const faErrors0 = errors.length;
+{
+  const ok = (cond, msg) => {
+    faChecked++;
+    if (!cond) err(`farm animals: ${msg}`);
+    return cond;
+  };
+  const TURN = 0.6; // js/yard.js ANIMAL_TURN
+  try {
+    setRooms(3);
+    S.save.builds = {};
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    I.walkers.length = 0;
+    const herd = I.yardAnims.filter((a) => a.kind === "wander");
+    const TYPE = { yChicken: "chicken", yGoat: "goat" };
+    ok(herd.length >= 5 && herd.some((a) => a.art === "yChicken") && herd.some((a) => a.art === "yGoat"), `the farm at its top level keeps ${herd.length} animals (want its hens and goats)`);
+    herd.forEach((a, i) => ok(!!a.p.fig && a.p.fig.live3d === "beast" && a.p.fig.id === TYPE[a.art], `animal ${i} (${a.art}) is not a live 3D ${TYPE[a.art]} (fig ${a.p.fig && a.p.fig.id})`));
+    const figs = herd.map((a) => a.p.fig).filter(Boolean);
+    if (figs.length === herd.length) {
+      const dt = 1 / 30;
+      const seen = new Map(); // type -> poses
+      const moved = herd.map(() => 0);
+      let slid = 0;
+      let sideways = 0;
+      let outside = 0;
+      const firstBad = [];
+      for (let k = 0; k < 30 * 180; k++) {
+        const before = herd.map((a) => [a.p.x, a.p.y]);
+        I.yardAnimate(dt);
+        herd.forEach((a, i) => {
+          const f = a.p.fig;
+          const [u0, v0, u1, v1] = a.box;
+          if (a.U < u0 - 1e-9 || a.U > u1 + 1e-9 || a.V < v0 - 1e-9 || a.V > v1 + 1e-9) outside++;
+          const dx = a.p.x - before[i][0];
+          const dy = a.p.y - before[i][1];
+          const step = Math.hypot(dx, dy);
+          if (!seen.has(f.id)) seen.set(f.id, new Set());
+          seen.get(f.id).add(f.pose);
+          if (step < 1e-9) return;
+          moved[i] += step;
+          if (f.pose !== "walk") {
+            slid++;
+            if (firstBad.length < 3) firstBad.push(`${f.id} moved ${step.toFixed(3)} in its ${f.pose} pose (${f.poseW.toFixed(2)})`);
+          }
+          const off = Math.abs(Math.atan2(Math.sin(Math.atan2(dy, dx) - f.heading), Math.cos(Math.atan2(dy, dx) - f.heading)));
+          if (off > TURN + 0.05) {
+            sideways++;
+            if (firstBad.length < 3) firstBad.push(`${f.id} moved ${off.toFixed(2)} rad off the way it faces`);
+          }
+        });
+      }
+      ok(!outside, `the animals left their pens ${outside} times`);
+      ok(moved.every((m) => m > 0.5), `in three minutes not every animal wandered (tiles walked: ${moved.map((m) => m.toFixed(1))})`);
+      ok(!slid && !sideways, `the animals moved out of their walk ${slid} times and off the way they face ${sideways} times: ${firstBad.join("; ")}`);
+      ok(seen.get("chicken") && seen.get("chicken").has("peck") && seen.get("chicken").has("walk"), `a hen never pecked or walked (poses ${[...(seen.get("chicken") || [])]})`);
+      ok(seen.get("goat") && seen.get("goat").has("graze") && seen.get("goat").has("walk"), `a goat never grazed or walked (poses ${[...(seen.get("goat") || [])]})`);
+
+      // one standing at rest looks at you when you are near (a little round from straight ahead, within its head's reach)
+      const g = herd.find((a) => a.art === "yGoat");
+      Object.assign(g, { rest: true, idle: "stand", oneT: 0, t: 99 });
+      g.tU = g.U;
+      g.tV = g.V;
+      const f = g.p.fig;
+      const side = f.heading + 0.8;
+      Object.assign(I.player, { x: g.p.x + Math.cos(side) * 1.5, y: g.p.y + Math.sin(side) * 1.5 });
+      for (let k = 0; k < 60; k++) I.yardAnimate(dt);
+      ok(f.lookX === I.player.x && f.lookY === I.player.y && f.headYaw > 0.4, `a goat standing at rest with you 1.5 tiles off its side does not turn its head to you (look ${f.lookX}, head ${f.headYaw.toFixed(2)})`);
+      Object.assign(I.player, { x: g.p.x + Math.cos(side) * 4, y: g.p.y + Math.sin(side) * 4 });
+      for (let k = 0; k < 60; k++) I.yardAnimate(dt);
+      ok(f.lookX == null && Math.abs(f.headYaw) < 0.05, `a goat at rest still looks round at you 4 tiles off (head ${f.headYaw.toFixed(2)})`);
+
+      // drawn live in view, let go on leaving
+      const farm = Y.plots.farm;
+      const fx = farm.x + farm.w / 2;
+      const fy = farm.y + farm.h / 2;
+      let spot = null;
+      for (let d = 3; d <= 9 && !spot; d += 1) {
+        for (let k = 0; k < 24 && !spot; k++) {
+          const x = Math.floor(fx + Math.cos((k / 24) * Math.PI * 2) * d) + 0.5;
+          const y = Math.floor(fy + Math.sin((k / 24) * Math.PI * 2) * d) + 0.5;
+          if (x < 0 || y < 0 || x >= I.gw || y >= I.gh || I.solidForPlayer(x, y) || !I.yardInside[Math.floor(y) * I.gw + Math.floor(x)]) continue;
+          if (!herd.some((a) => I.lineClear(x, y, a.p.x, a.p.y))) continue;
+          spot = [x, y];
+        }
+      }
+      if (ok(!!spot, "no spot in the yard to see the farm's animals from")) {
+        const seenA = herd.filter((a) => I.lineClear(spot[0], spot[1], a.p.x, a.p.y));
+        Object.assign(I.player, { x: spot[0], y: spot[1], a: Math.atan2(seenA[0].p.y - spot[1], seenA[0].p.x - spot[0]) });
+        I.render();
+        ok(I.livePool.has(seenA[0].p.fig), `the ${seenA[0].p.fig.id} in plain view has no live picture`);
+        I.stop();
+        ok(I.livePool.size === 0, `leaving the yard kept ${I.livePool.size} live canvases`);
+      }
+    }
+  } catch (e) {
+    err(`farm animals: ${e.stack.split("\n").slice(0, 4).join(" | ")}`);
+  } finally {
+    I.walkers.length = 0;
+    S.save.builds = {};
+    S.newGame(S.activeSlot(), "Test");
+    S.trip = null;
+  }
+}
+if (errors.length === faErrors0) console.log(`OK: farm animals: ${faChecked} checks (the farm's hens and goats are live 3D figures; through three minutes they stay in their pens, wander, move only in their walk and the way they face, rest pecking and grazing; one standing at rest looks at you near and not far; drawn live in view, let go on leaving).`);
 
 /* ---------- June's first-run tutorial (js/tutorial.js) ----------
    Last in the file, so nothing it leaves behind can touch the checks above. The cards go to a stand-in view that

@@ -113,6 +113,13 @@ stars. They go up the moment the room is built. Builds are solid: walkers path a
 and they are cover, and wreckers claw them down (below). Walls levels 0 to 3 change the fence
 (pickets, braced planks, corrugated metal with spikes, concrete blocks with razor wire, each
 with a cracked look).
+The builds' props, the lot signs and plaques, and the porch's posts, bell and bench are 3D models
+seen from every side (2026-10-18): a sign carries its room's name on both faces (Large and Huge text
+still enlarge it), a lot's sign stands across three tiles of its front row, and a build's damage
+shows on its props (grime and cracks, then holes, breakage and the red and white WRECKED tape). The
+farm's hens and goats are live 3D animals: they rest at a spot pecking or grazing (a goat bleats
+now and then, a hen settles down or flaps), get up and turn before they walk on, and one standing
+near you looks at you.
 The cabin's doors (a bar, steel sheets, a security door) and windows (boards, shutters,
 steel plates) have their own levels in the House tab. The van in the
 driveway is the same 3D van as on the road (see "The van"), seen from every side: it shows
@@ -598,14 +605,15 @@ the tile corners, highest a few tiles in from the edge), a doorway seen from out
 the roof over it and the rooms beyond, and from inside, what lies past an opening is
 clipped at the opening's top (the ceiling hides the rest). Floors and ceilings are cast at reduced
 resolution with a texture per tile kind; buildings have a wall style and a light level.
-Landmarks and yard props are sprites; a footprint landmark is spread over its tiles of
-floor (the view is 2 tan(FOV / 2) times taller than wide). Art registers through
+Landmarks are sprites (the yard's props, signs and plaques are 3D models, and the crew, the dogs
+and the farm's animals live 3D figures: see Still 3D models and Walkers); a footprint landmark is
+spread over its tiles of floor (the view is 2 tan(FOV / 2) times taller than wide). Art registers through
 `ZSR.Draw3` (`registerTexture`, `registerSprite`, `registerFloor`).
 
 **Still 3D models** (2026-10-18). `ZSR.Model3D` (`js/model3d.js`) draws a model built of convex
 parts of flat faces with plain canvas 2D calls: each face lit by the caller's light, ink on the
 creases, the silhouette and where parts end, decals and text laid on faces, the parts ordered by
-the planes between them. In the first-person view (`js/modelsprite.js`, the parked van today) a
+the planes between them. In the first-person view (`js/modelsprite.js`: the parked van and the yard's props) a
 model has its own pooled picture, drawn from the player's eye looking at it, squashed sideways as
 the walls and floor are so it sits on its tiles; each screen column maps to one picture column, so
 turning in place never redraws it, and it is drawn again when the eye has moved round it by a step
