@@ -2722,3 +2722,15 @@ and sit on the floor at the post, exactly as before 3D.
   sideways: a test fails when either happens), and one standing within 2.5 tiles of you looks at you.
 - Hens walk at 0.45 tiles a second (the sprites' 0.6 read as a scurry on the 3D gait's quick steps); goats at 0.35.
 - The pens' low fences hide most of them from outside, as they hid the sprites.
+- Their pictures redraw at most 15 times a second (`ANIMAL_EVERY`; their place on screen moves every frame), and Beast3D
+  now reports the box it drew in, so only that is pasted (its pictures are as wide as every pose from every side, 1.4 to
+  1.7 times their height). Measured first, five animals near you redrew 4 pictures a frame and pasted 2.2 ms of mostly
+  clear picture (a canvas just redrawn costs its whole size to paste on a software canvas): +51% render looking over the
+  pens. A walker or a crew member still pastes its whole picture (Walker3D does not report its box yet).
+
+**Measured (headless Chromium without a GPU, every room at its top level, the crew out, medians of 3 interleaved rounds,
+render time against 3f897f8, before the project; mean / median / p95).** Standing +4 / +5 / +5%; turning in place +4 to
++15 / +2 to +19 / +2 to +12% (two runs); walking a lap of the yard past the farm +16 / +18 / +17%; a heavy wave of 30
+walkers +4 / +5 / +4%. Standing at the pens with all five animals within 1 to 4 tiles, the worst view: +23 / +26 / +38%
+(before the two fixes above, +51%). Bars: 25% calm, 35% heavy wave; the pens close up are the one view at the bar, on a
+machine with no GPU (a GPU pastes pictures far more cheaply).

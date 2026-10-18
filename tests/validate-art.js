@@ -1646,6 +1646,9 @@ else {
     c.width = cam.w;
     c.height = cam.h;
     const ctx = c.getContext("2d");
+    // a pooled canvas keeps the line width its last figure left on it: a stroke before the draw sets its own would show
+    // past the box the draw reports (checked below), so the canvas starts with a wide one
+    ctx.lineWidth = 37;
     const st = Object.assign({}, base, o);
     current = what;
     const before = made;
