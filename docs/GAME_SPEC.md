@@ -115,8 +115,9 @@ and they are cover, and wreckers claw them down (below). Walls levels 0 to 3 cha
 with a cracked look).
 The cabin's doors (a bar, steel sheets, a security door) and windows (boards, shutters,
 steel plates) have their own levels in the House tab. The van in the
-driveway shows armor plates, the ram plow, engine gear (rack, exhaust, snorkel, light bar)
-and the paint. The van's roof gun on the road shows Heavier Rounds (longer barrels, a brake
+driveway is the same 3D van as on the road (see "The van"), seen from every side: it shows
+armor plates, the ram plow, engine gear (rack, exhaust, snorkel, light bar), its paint, its
+dents and the roof gun. The van's roof gun on the road shows Heavier Rounds (longer barrels, a brake
 from tier 3), Rate of Fire (vented jacket, drum, cooling fins, a bigger drum, copper at the
 top tier) and Spread Shot (one barrel per round). The gun in your hands shows its own mods
 (see Guns). A light wave comes from two sides, a heavy one from every side.
@@ -247,7 +248,7 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   shows known roads, side streets and places (each one's building, as on the city map, at the end
   of its own short drive), and flags the destination. It never draws the route. It fades while a
   place really in view (in front of the camera, short of the haze) lies under it.
-- The title screen and the garage's preview show the van on the angled road in its paint and every
+- The title screen and the garage's preview show the 3D van on the angled road in its paint and every
   van and gun upgrade, with two walkers coming (on the title, every kind in turn).
 
 ## Buildings: floor plans, landmarks, the map
@@ -407,6 +408,29 @@ every kind.
     limbs with white tips; Draw speed string silencers, a quiver of three, five and a brass
     nocking point; Sight pins a sight ring with one pin, three, five and a stabilizer.
 - The van's turret on the road is a separate gun, upgraded in the Garage tab.
+
+## The van (2026-10-18)
+
+- **One 3D model everywhere.** `ZSR.Van3D` (`js/van3d.js`) on the `ZSR.Model3D` core
+  (`js/model3d.js`): a cargo van with a short hood, a sloped windshield, cab windows, a flat
+  cargo side, a sliding-door seam, two rear doors, a grille with headlights, bumpers, mirrors and
+  wheels. The same model is drawn parked in the yard and at River Landing, on the road, on the
+  title screen, in the Garage's preview and at the workbench; the map icon stays a top-down
+  drawing in the same paint.
+- **Gear by upgrade level** shows from every side and from the road camera: Armor Plating (bolted
+  plates, rivets, window bars and plates), Ram Plow (a plow that grows each level, saw teeth from
+  3, a hazard edge at 5), Engine Tune (roof tray and crate, a stack and ladder, a snorkel and a
+  spare, a light bar that glows at 5). Dents show under 75% and 50% health. The yard's van carries
+  a still roof gun built from the gun upgrades; on the road the aimed roof gun is drawn as before.
+- **Paint is a shop of eight looks** (`PAINT_LOOKS` in `js/upgrades.js`): Primer Gray, Matte Black,
+  Rust Bucket, Olive Drab, Hazard, Convoy Red, Night Violet (silver lightning bolts) and
+  Radioactive (neon green, black toxic drips). Each look is the whole van: body, roof, trim,
+  bumpers, wheel rims, and its decal on both sides, the hood and the ends. Primer Gray is free;
+  each other look is bought once (20, 25, 30, 35, 40, 45, 50 scrap, a typing round at the
+  workbench) and can then be worn at any time for free. The Garage gates them as it gates every
+  upgrade tier: Matte Black and Rust Bucket need no Garage, Olive Drab Garage 1, Hazard Garage 2,
+  Convoy Red, Night Violet and Radioactive Garage 3. The Garage tab's paint card shows all eight
+  as small pictures (worn, wear, buy, Garage needed); pointing at one tries it on in the preview.
 
 ## Reading expansion (2026-10-13)
 
@@ -575,6 +599,19 @@ Landmarks and yard props are sprites; a footprint landmark is spread over its ti
 floor (the view is 2 tan(FOV / 2) times taller than wide). Art registers through
 `ZSR.Draw3` (`registerTexture`, `registerSprite`, `registerFloor`).
 
+**Still 3D models** (2026-10-18). `ZSR.Model3D` (`js/model3d.js`) draws a model built of convex
+parts of flat faces with plain canvas 2D calls: each face lit by the caller's light, ink on the
+creases, the silhouette and where parts end, decals and text laid on faces, the parts ordered by
+the planes between them. In the first-person view (`js/modelsprite.js`, the parked van today) a
+model has its own pooled picture, drawn from the player's eye looking at it, squashed sideways as
+the walls and floor are so it sits on its tiles; each screen column maps to one picture column, so
+turning in place never redraws it, and it is drawn again when the eye has moved round it by a step
+(at most 10 degrees, finer for a big picture), comes nearer or farther, or the model changes. On
+screen it goes up in strips of a few columns, each with the depth where its ray meets the model's
+footprint, so walkers in front of one end and behind the other sort right; walls clip each strip.
+Its tiles stay solid and block sight; only the raycaster stops drawing them. A governor row caps
+the redraws a frame and the picture size on slow machines.
+
 **Walkers are live 3D models** (2026-10-15; owner decision 1). `ZSR.Walker3D` (`js/walker3d.js`,
 the six looks as data in `js/walker3d-looks.js`) draws a jointed figure with plain canvas 2D calls
 (no WebGL, no image assets) in the ink-outline comic style with simple light shading, from any
@@ -626,7 +663,9 @@ never show it.
 ## Save format
 
 `zs.slots` is the slot index (active slot, labels); `zs.save.<n>` holds one base save: day,
-scrap, food, inventory, room levels, van and van-gun upgrades, guns (owned, in hand, mods,
+scrap, food, inventory, room levels, van and van-gun upgrades (`upgrades.paint` is the index of
+the paint look worn and `upgrades.paintOwned` the indexes bought; an older save at paint k owns
+looks 0 to k), guns (owned, in hand, mods,
 where each unfound gun is hidden, and the seed that picks its floor tile), known locations,
 per-location state (items taken, cache opened, stash opened and taken, explored tiles as a
 packed bitset), stash keys found, item tags read, the day log (journal and radio entries by

@@ -2452,3 +2452,79 @@ the van on the road (a sloped windshield). Answers to the clarifying questions:
 | Where does the new 3D van show? | Everywhere: the yard, River Landing, the road, the garage preview, the title screen and the workbench side view. The map icon stays top-down art with the new paints. |
 | Speed? | Small cost, tested: a full yard with the crew out at most 25% slower than today, a heavy wave at most 35% slower, the road no slower; the automatic quality steps stay. |
 | Delivery? | Three stages pushed to this branch (van and paint, then the crew, then the yard props and signs), no pull request until asked, a playable test build at the end. |
+
+### Stage 1 built (2026-10-18): the van and the paint shop, judgment calls
+
+**The 3D core (`js/model3d.js`).**
+- Models are convex parts of flat faces, drawn with plain canvas 2D calls in the comic style: each face
+  lit by the caller's own light, ink on creases (faces meeting at more than 28 degrees), the silhouette
+  and part edges, decals and text laid on faces. No WebGL, no images (as for the walkers).
+- Parts are ordered by the plane between them (worked out once per model), not by distance alone:
+  distance put a wheel over the nose. Only pairs that overlap on screen are compared, then sorted
+  topologically (a far part breaks a cycle). Pairs with no plane fall back to their centres' distance.
+- A face another part covers is kept but never drawn (it still orders the parts).
+
+**The van (`js/van3d.js`).**
+- One model in the road's units (118 long, 66 wide, roof 50), drawn everywhere the van shows. In the
+  yard it sits on its two tiles at 1/62.5 tiles a unit (0.8 tiles to the roof, today's height).
+- Cheap where the road needs it: wheels are flat 10-sided discs over a dark well band; bumpers are
+  bands; mirrors are thin cards (detail 0 only). Detail 1 drops fine marks (pinstripes, rivets,
+  seams, wipers, small gear); detail 2 keeps the body, wheels and plow.
+- Gear steps: Ram Plow grows every level (saw teeth from 3, a hazard edge at 5; sized so level 5
+  does not take over the picture; its tips show past the mirrors from behind from level 1). Engine
+  4 to 5 lights the light bar and adds a second stack. On Convoy Red's pale bumpers the armor-1
+  plates are dark steel so the step shows.
+- Olive Drab's stencil reads "B-66" with a ringed star on the hood and roof; Primer Gray (no decal)
+  gets primer panels so its decal colours are used too.
+- Dents (no gore): tier 1 two hollows a side, a claw scratch each side and one at the back; tier 2
+  adds more hollows, one on the front and the roof, and grime.
+- The yard's van carries a still roof gun built from the gun upgrades, at the road gun's mount
+  (`Van3D.GUN`); the road keeps its own aimed gun.
+
+**The paint shop (`js/state.js`, `js/base.js`).**
+- `upgrades.paint` stays the worn look's index (every reader of `stats(u).look` kept working);
+  `upgrades.paintOwned` lists the looks bought. An old save at paint k owns 0 to k and keeps wearing
+  k; no save version bump (the fill runs when the field is missing). `upgradeSave` now also fills any
+  missing upgrades key.
+- Code that treats every upgrade alike (`canBuyUpgrade("paint")`) points at the first look not owned;
+  `buyUpgrade("paint")` buys and wears it. `Upgrades.buy` never buys paint (it had no callers).
+- The paint card sits full width under the Garage's preview so the preview stays in view while
+  trying looks on; each look is a small side-on picture with its decal, so lightning, drips and
+  flames are told apart at a glance. Locked looks can still be pointed at to try them on.
+- Wearing a look is free and immediate; buying is a typing round like any upgrade.
+- Fixed UI words for the decals (`DECAL_WORDS`), not reading-level text.
+
+**The parked van in the first-person view (`js/modelsprite.js`).**
+- A model is drawn squashed sideways exactly as the walls and floor are, so it sits on its tiles and
+  matches the sheds beside it (walkers stay unsquashed: they are figures).
+- Between redraws the picture is mapped through the model's bounding box from the eye where it is
+  now (each column's ray meets the box; that point seen from the old eye gives the picture column and
+  the height). The first design (angles scaled about the model's bearing) let the van slide on the
+  floor by 8 to 20 px while walking; this keeps visible corners within about 1 px. Turning in place
+  is exact and never redraws.
+- A face the old picture saw edge-on that turns into view forces a redraw ("fold"), or the van would
+  show too narrow at a corner for a few frames.
+- Fog and detail go by the eye's distance to the model, so turning never changes them.
+- The model governor follows the walkers' governor row (and one row more once the floor's slow step
+  fired); model redraws never move the walkers' governor.
+- A soft contact shadow is drawn into the picture. River Landing's van tiles now show the turnout's
+  dirt (they were grass under the old box). A hurt walker's health bar is not drawn through the van.
+
+**The road, the title, the Garage preview, the workbench, the map (`js/perspective.js`, `js/bench.js`,
+`js/sprites.js`).**
+- On the road the van is lit by the road buildings' light (their added shade turned into a brightness,
+  1 + shade / 128) and fades into the haze by colour as they do. The hurt flash is a red tint.
+- Detail by the van's length on screen: full from 140 px, no fine marks from 60 px. The title and the
+  Garage preview always use full detail.
+- The road no longer draws the old top-down roof picture (its exhaust puff never showed anyway); the
+  model costs less a frame than the old textured box did (0.6-0.7 ms against 0.9 ms, headless).
+- The workbench shows the van from its right side, a little toward the nose and from a little above,
+  with the gun as before.
+- The map icon takes each look's decal colours (Convoy Red's flames are now orange and yellow; they
+  were near black), bumpers and hubs.
+
+**Measured (headless Chromium, no GPU, a 4-core container shared with other work, so directions):**
+- Yard, full build, the frame median against the commit before: standing near the van -11%, walking
+  round it +10% (p95 +4%), far +1%, a heavy wave of 30 walkers -0.5% (p95 +4%). Empty yard: within
+  -6% to +4% (one p95 +18% walking round it). All inside the owner's bars (25% / 35%).
+- Road: the van's own draw 0.6-0.7 ms against 0.9 ms; the road's frame no slower.

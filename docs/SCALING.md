@@ -278,6 +278,10 @@ missing. Growth rules:
 - **Room ids are permanent** for the yard too: `save.builds` (each room build's strength left; no key
   = whole, 0 = wrecked) keys on them. `upgradeSave` drops a key for a room with no plot or not built,
   and a value that is not a number from 0 to the build's strength.
+- **Paint looks are append-only.** `upgrades.paint` is the index of the `PAINT_LOOKS` look a save
+  wears and `upgrades.paintOwned` the indexes it bought (an older save at paint k is filled to own 0
+  to k). Reordering or removing a look repaints old vans and changes what they own; add a look at the
+  end (see "Still 3D models" below).
 - **Keep every `z` tile in a layout.** Walker rules name a building's `z` tiles by reading-order index
   (`NOTES[id].walkers`, `z: [1]`), so moving or removing one shifts what a rule points at (validate-world
   R4 checks each anchor still sits in its zone, by the landmark its note names).
@@ -453,6 +457,40 @@ searches and when matters more than how fast one search is.
    A/B in `DESIGN.md` ("Walkers v2").
 7. `npm test`. God mode's Spawn walker, the title screen, the alarm, the waves, the river and the road
    pick the new kind up from the table.
+
+## Still 3D models (the van now; yard props, signs and animals next)
+
+`js/model3d.js` draws models of convex parts; `js/van3d.js` is the van on it; `js/modelsprite.js`
+stands models in the first-person view (`this.models`, one instance each: kind, position, turn,
+scale, footprint, tiles, `mesh()`).
+
+### `SCALE:` spots for models
+
+- `js/model3d.js` `MAX_V` 64 (corners a face or a decal may have), `MESH_KEEP` 64 (built models
+  kept: every look x gear x dents of the van is one), `COLOURS_MAX` 8192 (colour strings kept).
+- `js/modelsprite.js`:
+  - `MODEL_MARGIN` 0.16 rad drawn past each side of the view (small turns need no redraw);
+  - `MODEL_STRIP` 8 columns a strip spans at most;
+  - `MODEL_DRIFT_PX` 12, `MODEL_ANGLE_MIN` 2 and `MODEL_ANGLE_MAX` 10 degrees: the step round a
+    model that redraws it (the owner's "about 10 degrees", finer for a big picture);
+  - `MODEL_LOD_PX` [80, 32] px: on-screen heights for detail 0 and 1;
+  - `MODEL_STEP` 64 px canvas growth, `MODEL_SPARE` 2 spare canvases;
+  - `MODEL_RENDERS_MAX` 2 redraws a frame and `MODEL_MAX_PX` 640 on the governor's starting row;
+    `MODEL_LEVELS` has one row per `LIVE_LEVELS` row (validate-engine checks the counts match). Many
+    models in view (the yard's props) mean more redraws waiting: watch the walk-round redraw count
+    and the `modelStats` probe before raising the cap.
+- `tests/validate-art.js` `VAN_OPS` [1400, 700, 350]: the most canvas calls the van may make at
+  detail 0 / 1 / 2 from any view with all its gear (the road draws it every frame). A new decal or
+  gear piece must fit, or go to detail 0 only.
+
+### Add a paint look
+
+1. Append a row to `PAINT_LOOKS` in `js/upgrades.js` (name, body, roof, trim, bumper, rims, decal,
+   decalA, decalB, cost, tier) and its cost to `DEFS.paint.costs` (`max` is the looks to buy).
+2. A new decal kind: its designs in `js/van3d.js` `DECALS` (both sides, the hood, the roof and the
+   back), a branch in `js/sprites.js` `decal()` (the map icon), words in `js/base.js` `DECAL_WORDS`,
+   and the kind in `tests/validate-world.js` `DECALS`.
+3. The paint card is a row of pictures: past about ten looks it wants a second row or a scroll.
 
 ## The crossover universes
 
