@@ -93,7 +93,7 @@ const PAGE = [...html.matchAll(/<script src="js\/([^"]+)"><\/script>/g)].map((m)
 // the fact files: js/layouts.js, js/world.js and every js/story*.js the page loads (a split fact file, story-quests2.js,
 // is run too; tests/validate-world.js reads the same list), then the engine
 const FACT_FILES = ["layouts.js", "world.js"].concat(PAGE.filter((f) => /^story[\w-]*\.js$/.test(f)));
-const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "perspective.js", "interior.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
+const WANT = FACT_FILES.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "model3d.js", "van3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "riverart.js", "crewart.js", "streets.js", "perspective.js", "interior.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "river.js", "tutorial.js"]).concat(fs.existsSync(path.join(ROOT, "js", "houseart.js")) ? ["houseart.js"] : []);
 const scripts = PAGE.filter((f) => WANT.includes(f) || f.startsWith("content/"));
 for (const f of WANT) if (!scripts.includes(f)) scripts.push(f); // the page order first, then anything it lacks
 scripts.forEach((f) => vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), sb, { filename: "js/" + f }));
@@ -1490,13 +1490,18 @@ let wreckSpotsTried = 0;
       if (S.save.log[S.save.log.length - 1].radio == null) err("wrecked build: the fixed Radio tower brought no broadcast");
       S.trip = null;
     }
-    // the van's dents: its faces change as wreckers claw it down
+    // the van's dents: it looks different as wreckers claw it down (js/van3d.js: its dents by its health, and a dented
+    // van is another model)
     {
       yardWith(0, []);
+      const V3 = ZSR.Van3D;
+      const u = S.save.upgrades;
       S.save.vanHp = S.vanMaxHp();
-      const whole = ZSR.Draw3.texture("vanBody", I.palette);
+      const whole = V3.dentNow();
       S.save.vanHp = Math.round(S.vanMaxHp() * D.vanWreckFloor);
-      if (ZSR.Draw3.texture("vanBody", I.palette) === whole) err("wreckers: the van shows no dents at its floor");
+      const clawed = V3.dentNow();
+      if (whole !== 0) err(`wreckers: the whole van shows dents (tier ${whole})`);
+      if (clawed === whole || V3.sig(u, { dent: clawed }) === V3.sig(u, { dent: whole }) || V3.mesh(u, { dent: clawed }) === V3.mesh(u, { dent: whole })) err("wreckers: the van shows no dents at its floor");
       S.save.vanHp = S.vanMaxHp();
     }
     // an old save: no builds field, or junk in it
@@ -1564,14 +1569,13 @@ let wreckSpotsTried = 0;
 }
 
 /* ---------- Every upgrade step shows on the guns and the van ----------
-   The gun and the van faces are drawn on a tiny rasterizer that keeps, for every pixel, the color painted
-   there last (fills and strokes; text is skipped), and each level is compared with the one below it: a
-   step that changes almost nothing (a part drawn, then covered by the next one) fails. The van's faces
-   must also be painted up to their top row, gear or not: the core shades and inks a face from the tile's
-   top, so an empty band there shows as a hollow box over the roof. */
-function raster(w, h) {
+   The guns and the van (js/van3d.js, the one 3D model drawn everywhere) are drawn on a tiny rasterizer that keeps,
+   for every pixel, the color painted there last (fills and strokes; text is skipped), and each level is compared with
+   the one below it: a step that changes almost nothing (a part drawn, then covered by the next one) fails. */
+/** A w x h rasterizer; shared: a color-id table to share with other rasterizers, so their pixels compare by color. */
+function raster(w, h, shared) {
   const px = new Int32Array(w * h); // 0: nothing painted; else a color id
-  const ids = new Map();
+  const ids = shared || new Map();
   const id = (c) => {
     const k = typeof c === "string" ? c : "gradient";
     if (!ids.has(k)) ids.set(k, ids.size + 1);
@@ -1605,6 +1609,7 @@ function raster(w, h) {
   const c = {
     fillStyle: "#000", strokeStyle: "#000", lineWidth: 1, globalAlpha: 1, font: "", textAlign: "", textBaseline: "", lineJoin: "", lineCap: "",
     px,
+    ids,
     save() {
       stack.push([m.slice(), this.fillStyle, this.strokeStyle, this.lineWidth]);
     },
@@ -1771,35 +1776,85 @@ try {
       if (n < 8) err(`upgrades: the van's gun at ${k} ${lv} looks like ${k} ${lv - 1} (${n} px change; the others at ${o})`);
     }
   }
-  // the van: its five faces, one upgrade at a time from nothing and from the middle
-  const FACES = ["vanCab", "vanBody", "vanBodyR", "vanFront", "vanBack"];
-  let n = 0;
-  const vanAt = (gear) => {
-    Object.assign(S.save.upgrades, gear);
-    return FACES.map((f) => {
-      drawn = null;
-      D.texture(f, { wallStyle: "upgradeCheck" + n++ });
-      return drawn.px;
+  // the van: drawn flat-lit (every face its own color) from five sides: its front from a little above (the hood
+  // showing), behind, its left and right, and the road camera's behind and above. Every armor, ram plow and engine
+  // step, from nothing and from the middle, changes it over the five (and on its own from the road camera, from a side
+  // and from an end: the road shows it from behind every frame, the yard all round); every look differs from every
+  // other by a clear margin; each look's decal color shows from both sides and over the hood; each dent tier shows
+  const V3 = ZSR.Van3D;
+  const M3 = ZSR.Model3D;
+  const RW = 240;
+  const RH = 180;
+  const SIDES = [["front", Math.PI, 0.45], ["back", 0, 0.3], ["left", -Math.PI / 2, 0.2], ["right", Math.PI / 2, 0.2], ["road camera", 0.12, 0.86]];
+  const colors = new Map(); // one color-id table for every van drawn here
+  const vanViews = SIDES.map(([, yaw, pitch]) => {
+    const t = [0, 0, V3.H / 2];
+    const dist = 330;
+    const e = [Math.sin(yaw) * Math.cos(pitch) * dist, -Math.cos(yaw) * Math.cos(pitch) * dist, t[2] + Math.sin(pitch) * dist];
+    const nz = (a) => {
+      const l = Math.hypot(a[0], a[1], a[2]);
+      return [a[0] / l, a[1] / l, a[2] / l];
+    };
+    const f = nz([t[0] - e[0], t[1] - e[1], t[2] - e[2]]);
+    const r = nz([f[1], -f[0], 0]);
+    const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+    const F = RH / 2 / Math.tan(0.4);
+    const view = M3.view({ ink: 1.2, lod: 0, eye: e, lit: () => 1 });
+    view.project = (x, y, z) => {
+      const dx = x - e[0];
+      const dy = y - e[1];
+      const dz = z - e[2];
+      const D = dx * f[0] + dy * f[1] + dz * f[2];
+      view.D = D;
+      view.X = RW / 2 + ((dx * r[0] + dy * r[1] + dz * r[2]) * F) / D;
+      view.Y = RH / 2 - ((dx * u[0] + dy * u[1] + dz * u[2]) * F) / D;
+      return D > 0;
+    };
+    return view;
+  });
+  /** The van drawn from the five sides: their pixels. */
+  const vanAt = (u, o) =>
+    vanViews.map((view) => {
+      const g = raster(RW, RH, colors);
+      V3.draw(g, view, Object.assign({ armor: 0, bumper: 0, engine: 0, paint: 0, damage: 0, fireRate: 0, spread: 0 }, u), o || {});
+      return g.px;
     });
-  };
-  for (const k of ["armor", "bumper", "engine", "paint"]) for (const o of [0, 3]) {
-    const base = { armor: o, bumper: o, engine: o, paint: o };
+  const sum = (a, b, which) => which.reduce((n, i) => n + differ(a[i], b[i]), 0);
+  for (const k of ["armor", "bumper", "engine"]) for (const o of [0, 3]) {
+    const base = { armor: o, bumper: o, engine: o };
     for (let lv = 1; lv <= 5; lv++) {
       const a = vanAt(Object.assign({}, base, { [k]: lv - 1 }));
       const b = vanAt(Object.assign({}, base, { [k]: lv }));
-      const d = a.reduce((sum, f, i) => sum + differ(f, b[i]), 0);
-      if (d < 40) err(`upgrades: the van at ${k} ${lv} looks like ${k} ${lv - 1} (${d} px change over its faces; the others at ${o})`);
+      const all = sum(a, b, [0, 1, 2, 3, 4]);
+      if (all < 40) err(`upgrades: the van at ${k} ${lv} looks like ${k} ${lv - 1} (${all} px change over five sides; the others at ${o})`);
+      [["the road camera", [4]], ["a side", [2, 3]], ["an end", [0, 1]]].forEach(([from, which]) => {
+        const d = sum(a, b, which);
+        if (d < 8) err(`upgrades: from ${from} the van at ${k} ${lv} looks like ${k} ${lv - 1} (${d} px change; the others at ${o})`);
+      });
     }
   }
-  for (const lv of [0, 5]) {
-    vanAt({ armor: lv, bumper: lv, engine: lv, paint: lv }).forEach((f, i) => {
-      for (let y = 0; y < 10; y++) for (let x = 0; x < 64; x++) {
-        if (f[y * 64 + x]) continue;
-        err(`upgrades: ${FACES[i]} (all at ${lv}) is empty at ${x},${y}: its top band must be painted solid`);
-        y = 10;
-        break;
-      }
+  const LOOKS = ZSR.Upgrades.PAINT_LOOKS;
+  const looks = LOOKS.map((l, p) => vanAt({ paint: p }));
+  const painted = (a, b) => a.reduce((n, px, i) => n + px.reduce((m, v, j) => m + (v || b[i][j] ? 1 : 0), 0), 0);
+  for (let p = 0; p < LOOKS.length; p++) {
+    for (let q = p + 1; q < LOOKS.length; q++) {
+      const d = sum(looks[p], looks[q], [0, 1, 2, 3, 4]);
+      const all = painted(looks[p], looks[q]);
+      if (d < all * 0.3) err(`upgrades: the van in ${LOOKS[p].name} looks too like ${LOOKS[q].name} (${d} of ${all} px differ)`);
+    }
+    if (LOOKS[p].decal === "none") continue;
+    // its decal's own color (flat-lit, Model3D paints a color as it is)
+    const c = M3.rgb(LOOKS[p].decalA);
+    const id = colors.get("rgb(" + c[0] + "," + c[1] + "," + c[2] + ")");
+    [["the left", 2], ["the right", 3], ["the front, over the hood", 0]].forEach(([from, i]) => {
+      const n = id ? looks[p][i].reduce((m, v) => m + (v === id ? 1 : 0), 0) : 0;
+      if (n < 12) err(`upgrades: the van in ${LOOKS[p].name} shows its ${LOOKS[p].decal} decal (${LOOKS[p].decalA}) on only ${n} px from ${from}`);
     });
+  }
+  const dents = [0, 1, 2].map((dent) => vanAt({ paint: 3 }, { dent }));
+  for (let t = 1; t <= 2; t++) {
+    const d = sum(dents[t - 1], dents[t], [0, 1, 2, 3, 4]);
+    if (d < 40) err(`upgrades: the van with dents ${t} looks like dents ${t - 1} (${d} px change over five sides)`);
   }
   sb.document.createElement = realCreate;
   Object.assign(S.save.upgrades, { armor: 0, bumper: 0, engine: 0, paint: 0 });

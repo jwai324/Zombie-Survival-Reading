@@ -303,6 +303,7 @@
         let sz = 0;
         let k = 0;
         const edges = new Map();
+        const box = (pt.box = new Float64Array([Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity])); // its reach
         pt.faces.forEach((f, fi) => {
           f.nb = new Int32Array(f.n).fill(-1);
           f.crease = new Uint8Array(f.n);
@@ -314,6 +315,12 @@
             sy += y;
             sz += z;
             k++;
+            box[0] = Math.min(box[0], x);
+            box[1] = Math.min(box[1], y);
+            box[2] = Math.min(box[2], z);
+            box[3] = Math.max(box[3], x);
+            box[4] = Math.max(box[4], y);
+            box[5] = Math.max(box[5], z);
             x0 = Math.min(x0, x);
             y0 = Math.min(y0, y);
             z0 = Math.min(z0, z);
@@ -379,6 +386,10 @@
         front: new Uint8Array(maxF),
         order: new Int32Array(n),
         dist: new Float64Array(n),
+        act: new Int32Array(n), // the parts drawn at this lod
+        need: new Int32Array(n), // how many parts must still be drawn before each (-1: drawn)
+        after: new Uint8Array(n * n), // after[a * n + b]: part a is drawn after part b
+        sbox: new Float64Array(n * 4), // each part's reach on the screen
       };
     }
   }
@@ -469,8 +480,9 @@
     }
     return m;
   }
-  /** The path of P's n points (cut at the near depth when some are behind it); false when none of it is in front. */
-  function pathOf(ctx, view, P, n, close) {
+  /** The path of P's n points (cut at the near depth when some are behind it); false when none of it is in front.
+      fill: the path is only filled (a fill closes it by itself: no closePath call). */
+  function pathOf(ctx, view, P, n, close, fill) {
     const k = projectAll(view, P, n);
     if (!k) return false;
     ctx.beginPath();
@@ -485,14 +497,14 @@
         else ctx.moveTo(SX[i], SY[i]);
         started = true;
       }
-      if (close && k === n) ctx.closePath();
+      if (close && k === n && !fill) ctx.closePath();
       return true;
     }
     const m = clipPoly(view, P, n);
     if (m < 3) return false;
     ctx.moveTo(QX[0], QY[0]);
     for (let i = 1; i < m; i++) ctx.lineTo(QX[i], QY[i]);
-    ctx.closePath();
+    if (!fill) ctx.closePath();
     return true;
   }
   /** Segment a -> b of P cut at the near depth -> SEG; false when all of it is behind. */
@@ -519,7 +531,7 @@
   function decal(ctx, view, f, d, lit) {
     if (d.lod < (view.lod | 0)) return;
     if (d.k === 2) return text(ctx, view, f, d);
-    if (!pathOf(ctx, view, d.p, d.n, d.close)) return;
+    if (!pathOf(ctx, view, d.p, d.n, d.close, d.k === 0 && !(d.ink > 0))) return;
     const c = shadeOf(view, d.rgb, d.glow ? 1 : lit, f.alpha * d.alpha, d.glow);
     if (d.k === 0) {
       ctx.fillStyle = c;
@@ -562,6 +574,13 @@
     ctx.restore();
   }
 
+  /** Is edge i of face f (number fi of its part) inked: where the part ends, at the silhouette or at a crease (drawn
+      by the first of its two faces)? */
+  function inked(f, fi, front, i) {
+    const o = f.nb[i];
+    return o < 0 || front[o] !== 1 || (f.crease[i] && fi < o);
+  }
+
   /** Which of parts a and b the eye sees in front: > 0 a is nearer (drawn later), < 0 b is. */
   function nearer(m, parts, a, b, ex, ey, ez, dist) {
     const k = m.sepF[a * parts.length + b];
@@ -584,24 +603,79 @@
     const ez = eye[2];
     const lod = view.lod | 0;
     nearD = view.near > 0 ? view.near : 1e-3 * m.size;
-    // far to near: by the plane between two parts where there is one, else by their centres' distance less their bias
+    // far to near: each part after every part it is in front of where the two can overlap on the screen (by the plane
+    // between them where there is one, else by their centres' distance less their bias), then the parts go in an order
+    // that keeps all of these (the farthest of those free to go first; a cycle, none free, is broken by the farthest).
+    // One plane's answer says nothing about a third part: a sort that stops at the first part it is in front of (the
+    // far side's wheels) can put it over one it is behind (the body); and two parts apart on the screen have nothing
+    // to settle, but their answers could close a cycle (the stack beside the rack, both on the body)
     const order = m.order;
     const dist = m.dist;
+    const act = m.act;
+    const need = m.need;
+    const after = m.after;
+    const sb = m.sbox;
+    const np = parts.length;
     let n = 0;
-    for (let i = 0; i < parts.length; i++) {
+    for (let i = 0; i < np; i++) {
       const pt = parts[i];
       if (pt.lod < lod) continue;
       const dx = pt.cx - ex;
       const dy = pt.cy - ey;
       const dz = pt.cz - ez;
       dist[i] = Math.sqrt(dx * dx + dy * dy + dz * dz) - pt.bias;
-      // insertion sort (a few dozen parts at most): i goes after every part it is in front of
-      let j = n++;
-      while (j > 0 && nearer(m, parts, i, order[j - 1], ex, ey, ez, dist) < 0) {
-        order[j] = order[j - 1];
-        j--;
+      act[n++] = i;
+      need[i] = 0;
+      // its reach on the screen: its box's corners (all of the screen when one is behind the near plane)
+      const b = pt.box;
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      for (let c = 0; c < 8; c++) {
+        if (!view.project(c & 1 ? b[3] : b[0], c & 2 ? b[4] : b[1], c & 4 ? b[5] : b[2]) || !(view.D > nearD)) {
+          x0 = y0 = -Infinity;
+          x1 = y1 = Infinity;
+          break;
+        }
+        x0 = Math.min(x0, view.X);
+        y0 = Math.min(y0, view.Y);
+        x1 = Math.max(x1, view.X);
+        y1 = Math.max(y1, view.Y);
       }
-      order[j] = i;
+      sb[i * 4] = x0;
+      sb[i * 4 + 1] = y0;
+      sb[i * 4 + 2] = x1;
+      sb[i * 4 + 3] = y1;
+    }
+    for (let x = 0; x < n; x++) {
+      const a = act[x];
+      for (let y = x + 1; y < n; y++) {
+        const b = act[y];
+        if (sb[a * 4] > sb[b * 4 + 2] || sb[b * 4] > sb[a * 4 + 2] || sb[a * 4 + 1] > sb[b * 4 + 3] || sb[b * 4 + 1] > sb[a * 4 + 3]) {
+          after[a * np + b] = 0;
+          after[b * np + a] = 0;
+          continue;
+        }
+        const ab = nearer(m, parts, a, b, ex, ey, ez, dist) > 0 ? 1 : 0;
+        after[a * np + b] = ab;
+        after[b * np + a] = 1 - ab;
+        need[ab ? a : b]++;
+      }
+    }
+    for (let k = 0; k < n; k++) {
+      let best = -1;
+      for (let x = 0; x < n; x++) {
+        const a = act[x];
+        if (need[a] < 0) continue;
+        if (best < 0 || (need[a] === 0 && need[best] > 0) || ((need[a] === 0) === (need[best] === 0) && dist[a] > dist[best])) best = a;
+      }
+      order[k] = best;
+      need[best] = -1;
+      for (let x = 0; x < n; x++) {
+        const a = act[x];
+        if (need[a] > 0 && after[a * np + best]) need[a]--;
+      }
     }
     const front = m.front;
     let drawn = 0;
@@ -617,7 +691,7 @@
       for (let fi = 0; fi < faces.length; fi++) {
         if (!front[fi]) continue;
         const f = faces[fi];
-        if (!pathOf(ctx, view, f.p, f.n, true)) {
+        if (!pathOf(ctx, view, f.p, f.n, true, true)) {
           front[fi] = 2; // in front of the camera's plane only behind the near cut: no ink either
           continue;
         }
@@ -628,23 +702,39 @@
         for (let di = 0; di < f.decals.length; di++) decal(ctx, view, f, f.decals[di], lit);
       }
       if (!(pt.ink > 0) || !(view.ink > 0)) continue;
-      // the part's ink: every edge once, where the part ends, at its silhouette and at its creases
+      // the part's ink: every edge once, where the part ends, at its silhouette and at its creases; a face's inked
+      // edges that follow on round it are one line (from the edge after one that is not inked)
       ctx.beginPath();
       let any = false;
       for (let fi = 0; fi < faces.length; fi++) {
         if (front[fi] !== 1) continue;
         const f = faces[fi];
+        let s0 = 0;
+        for (let i = f.n - 1; i >= 0; i--) {
+          if (!inked(f, fi, front, i)) {
+            s0 = (i + 1) % f.n;
+            break;
+          }
+        }
         let projected = false;
-        for (let i = 0; i < f.n; i++) {
-          const o = f.nb[i];
-          if (!(o < 0 || front[o] !== 1 || (f.crease[i] && fi < o))) continue;
+        let on = false; // the last edge drawn ends where the next starts
+        for (let c = 0; c < f.n; c++) {
+          const i = (s0 + c) % f.n;
+          if (!inked(f, fi, front, i)) {
+            on = false;
+            continue;
+          }
           if (!projected) {
             projectAll(view, f.p, f.n);
             projected = true;
           }
-          if (!clipSeg(view, f.p, i, (i + 1) % f.n)) continue;
-          ctx.moveTo(SEG[0], SEG[1]);
+          if (!clipSeg(view, f.p, i, (i + 1) % f.n)) {
+            on = false;
+            continue;
+          }
+          if (!on || !SIN[i]) ctx.moveTo(SEG[0], SEG[1]);
           ctx.lineTo(SEG[2], SEG[3]);
+          on = !!SIN[(i + 1) % f.n];
           any = true;
         }
       }
