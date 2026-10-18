@@ -132,11 +132,13 @@
       const open = [];
       for (let y = plot.y; y < plot.y + plot.h; y++) for (let x = plot.x; x < plot.x + plot.w; x++) if (!m[y * gw + x] && !(x === px && y === py)) open.push([x, y]);
       if (!open.length) return;
-      // up to three, spread over the plot (the first, the middle and the last open tile)
+      // up to three, spread over the plot (the first, the middle and the last open tile); in 3D each lies turned with
+      // the plot, as its build stood (js/yardmodels2.js yDebris)
       const pick = [...new Set([0, open.length >> 1, open.length - 1])];
+      const rot = this.plotFront ? this.plotFront(plot) : Math.PI / 2;
       pick.forEach((i, n) => {
         const [x, y] = open[i];
-        this.addProp({ x: x + 0.5 + (n - 1) * 0.12, y: y + 0.5, art: "yDebris", opts: { v: n % 3 }, scale: 0.5 });
+        this.addProp({ x: x + 0.5 + (n - 1) * 0.12, y: y + 0.5, art: "yDebris", opts: { v: n % 3 }, scale: 0.5, rot });
       });
     },
 

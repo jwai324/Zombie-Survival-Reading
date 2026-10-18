@@ -121,8 +121,9 @@ const PAGE = [...fs.readFileSync(path.join(ROOT, "index.html"), "utf8").matchAll
 const FACTS = PAGE.filter((f) => f === "layouts.js" || f === "world.js" || /^story[\w-]*\.js$/.test(f));
 if (!["layouts.js", "world.js", "story-crew.js"].every((f) => FACTS.includes(f))) throw new Error("validate-crew: index.html does not load layouts.js, world.js and story-crew.js (" + FACTS.join(", ") + ")");
 const STATE = FACTS.concat(["upgrades.js", "weapons.js", "state.js", "crewstate.js", "xoverstate.js"]);
-// (the crew are drawn on Walker3D's people, js/walker3d-crew.js, and the dogs on Beast3D, js/beast3d.js: their looks too)
-const ENGINE = STATE.concat(["audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "walker3d-crew.js", "beast3d.js", "beast3d-looks.js", "model3d.js", "van3d.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "houseart.js", "riverart.js", "crewart.js", "crossart.js", "streets.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "robodog.js", "river.js"]);
+// (the crew are drawn on Walker3D's people, js/walker3d-crew.js, and the dogs on Beast3D, js/beast3d.js: their looks too;
+// the yard's props, signs and the porch's bench June sits on are 3D models, js/yardmodels*.js: a new one goes here too)
+const ENGINE = STATE.concat(["audio.js", "sprites.js", "sprites3d.js", "walker3d.js", "walker3d-looks.js", "walker3d-crew.js", "beast3d.js", "beast3d-looks.js", "model3d.js", "van3d.js", "yardmodels.js", "yardmodels1.js", "yardmodels2.js", "decor.js", "locks.js", "landmarks1.js", "landmarks2.js", "yardart.js", "houseart.js", "riverart.js", "crewart.js", "crossart.js", "streets.js", "interior.js", "modelsprite.js", "building.js", "yard.js", "house.js", "yardwreck.js", "crew.js", "robodog.js", "river.js"]);
 
 /** A fresh game in its own sandbox, scripts in the page's order.
     opts: engine (the first-person engine too, with stand-in art and Interior.init), content (the six reading
@@ -2885,12 +2886,31 @@ simGroup("yard", "3D: at a post they face its task; a sit post sits on its seat 
         const art = SEAT_ART[post.seat.kind];
         const prop = art && I.props.find((pr) => pr.art === art && Math.hypot(pr.x - seat.x, pr.y - seat.y) < 0.1);
         if (art ? !prop : !(low && Math.abs(low.h - f.seat) < 1e-9)) say(`${c.id}'s ${post.id} seat (${post.seat.kind}) has no ${art || "low tile its height"} under it at ${seat.x},${seat.y}`);
-        // sitting there, drawn just in front of the chair or bench (the sprites' painter's order)
+        // a seat that is a 3D model (the porch bench, js/yardmodels2.js) is as high as its model's seat at its scale, the
+        // seat's spot on it (inside its seat's surface), and the model stands for its sprite
+        const YM = Z.YardModels;
+        const sdef = prop && YM && YM.has(prop.art) ? YM.def(prop.art) : null;
+        if (sdef && sdef.seat != null) {
+          if (Math.abs(sdef.seat * (prop.scale || 1) - SEATS[post.seat.kind]) > 1e-9) say(`${post.seat.kind}'s height ${SEATS[post.seat.kind]} is not the 3D ${prop.art}'s seat (${sdef.seat} units x ${prop.scale})`);
+          if (!prop.model || !I.models.includes(prop.model)) say(`the ${prop.art} under ${c.id}'s ${post.id} seat is not drawn as its 3D model`);
+          else {
+            const m = prop.model;
+            const b = m.mesh().mesh.bounds;
+            const dx = seat.x - m.x;
+            const dy = seat.y - m.y;
+            const mx = (dx * m.Rx + dy * m.Ry) / m.scale; // the seat's spot in the model's own units
+            const my = (dx * m.Fx + dy * m.Fy) / m.scale;
+            if (!(mx > b[0] && mx < b[3] && my > b[1] && my < b[4])) say(`${c.id}'s ${post.id} seat (${seat.x.toFixed(2)},${seat.y.toFixed(2)}) is not on the 3D ${prop.art} (at ${mx.toFixed(2)},${my.toFixed(2)} of its units)`);
+          }
+        }
+        // sitting there, drawn just in front of the chair or bench (the sprites' painter's order; a 3D one's strips over
+        // the sitter's columns all go before the sitter)
         if (prop) {
           const order = [];
           const ds = I.drawSprite;
           I.drawSprite = function (ctx, s) {
-            if (s.live === f || (s.x === prop.x && s.y === prop.y && !s.live)) order.push(s.live === f ? "sitter" : "seat");
+            const isSeat = prop.model ? s.model === prop.model : s.x === prop.x && s.y === prop.y && !s.live;
+            if (s.live === f || isSeat) order.push({ who: s.live === f ? "sitter" : "seat", c0: s.c0, c1: s.c1 });
             return ds.call(this, ctx, s);
           };
           const back = { n: [0, 1], s: [0, -1], e: [-1, 0], w: [1, 0] }; // (seen from in front of it)
@@ -2900,7 +2920,9 @@ simGroup("yard", "3D: at a post they face its task; a sit post sits on its seat 
           if (spot) {
             standAt(g, spot[0], spot[1], seat.x, seat.y);
             I.render();
-            if (!(order.indexOf("seat") >= 0 && order.lastIndexOf("sitter") > order.indexOf("seat"))) say(`${c.id} on the ${post.id} seat is not drawn after (in front of) it: ${order}`);
+            const sitter = order.findIndex((o) => o.who === "sitter");
+            const over = order.filter((o, i) => o.who === "seat" && sitter >= 0 && o.c1 >= order[sitter].c0 && o.c0 <= order[sitter].c1 && i > sitter);
+            if (!(sitter >= 0 && order.some((o) => o.who === "seat") && !over.length)) say(`${c.id} on the ${post.id} seat is not drawn after (in front of) it: ${order.map((o) => o.who)}`);
           }
           I.drawSprite = ds;
         }

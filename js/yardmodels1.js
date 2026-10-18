@@ -9,12 +9,14 @@
    Sizes. The first-person view squashes models sideways as it does the walls (a tile of floor is STRETCH = 1.4 times
    narrower on screen than a wall is tall); the sprites were unsquashed billboards. So where the tile has room a round
    model is WIDE times its sprite's width (about as wide on screen as the sprite was, from every side), and every plan
-   stays inside the tile (or the foot) its prop blocks at the scale the yard gives it (noted at each model). A sign or
-   plaque cannot widen: its board spans its one tile, and its text is fitted to the board (Oswald's measured widths), so
-   a bigger text setting (the yard's SIGN_SCALE) grows the board and its words together.
+   stays inside the tile (or the foot) its prop blocks at the scale the yard gives it (noted at each model). A plaque's
+   board spans its one tile; the lot sign's board (opts.w) spans the three tiles of its foot, as wide on screen as the
+   sprite was. Their text is fitted to the board (Oswald's measured widths), its letters widened (TEXT_WIDE at most)
+   where the board has room, since the view squashes them; a bigger text setting (the yard's SIGN_SCALE) grows the
+   board and its words together.
 
-   Text goes on a letter at a time with a short frame step (see text and label): Model3D maps a text through the face at
-   its anchor, which in prop units bends a long word seen near and slantwise.
+   Text goes on a letter at a time (see label): Model3D maps a text through the face straight from its anchor, which
+   would bend a long word seen near and slantwise; each letter on its own anchor stays in its place.
 
    Damage (opts.dmg, js/yardwreck.js), as the sprites' crackOverlay: every colour is grimed (16% toward dark brown when
    cracked, 40% wrecked: it shows at every detail level), with crack lines (detail 1), a claw gouge (detail 0) and, wrecked,
@@ -25,7 +27,8 @@
    fewer: Model3D inks only creases sharper than CREASE_DEG), hoops, rungs, bolts, labels and letters are decals, small
    fittings are detail 1 or 0 parts. The tire stack and the cable spool, too many round faces for the far details, keep
    a plain core inside them (drawn first by its bias, so the detailed parts always cover it) that stands alone from
-   detail 1. The two water tanks, the yard's biggest builds, say what they need in their own ops. */
+   detail 1, and keep their full detail to half the usual height on screen (lodPx), where the step to the core is a
+   pixel or two. The two water tanks, the yard's biggest builds, say what they need in their own ops. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -83,29 +86,24 @@
   };
   /** The text size (units) that fits str in maxW x maxH (fitText's rule: as tall as fits, narrower when long). */
   const fitSize = (str, maxW, maxH) => Math.max(0.01, Math.min(maxH, maxW / Math.max(0.3, emWidth(str) * FIT)));
-  // Model3D draws a text through the map from its anchor to the points one unit along the face's u and v: in the van's
-  // road units a unit is a speck, in prop units it is the whole sign, and that long step bends a letter seen near and
-  // slantwise. So each text's step is cut to TEXT_STEP units and its size scaled up to match (the same letters, mapped
-  // by the face's slope right at the anchor)
-  const TEXT_STEP = 1 / 64;
-  function text(B, f, a, b, str, size, fill, o) {
-    B.text(f, a, b, str, size, fill, o);
-    const d = f.decals[f.decals.length - 1];
-    d.u = d.u.map((x) => x * TEXT_STEP);
-    d.v = d.v.map((x) => x * TEXT_STEP);
-    d.size = size / TEXT_STEP;
-  }
+  // (Model3D reads a text's map a short step from its anchor, a share of the text's own size, so prop units need no help)
+  const text = (B, f, a, b, str, size, fill, o) => B.text(f, a, b, str, size, fill, o);
+  // the view squashes a sign sideways (STRETCH 1.4) as it does the walls, and Oswald is narrow already: a name's
+  // letters are drawn up to this many times their font's width where the board has the room (never shorter for it)
+  const TEXT_WIDE = 1.3;
   /** A line of capitals centred on (a, b) of face f, at most maxW wide and maxH tall (a cap's height), a letter at a
       time: a whole word is mapped at one anchor, so one as wide as a sign's board, seen close and slantwise, would run
-      past the board's far edge; each letter on its own anchor stays in its place. */
+      past the board's far edge; each letter on its own anchor stays in its place. Its letters are widened (TEXT_WIDE at
+      most) as far as maxW leaves room once their height is fitted. */
   function label(B, f, a, b, str, maxW, maxH, fill, o) {
     const s = String(str);
     const size = fitSize(s, maxW, maxH / CAP);
+    const wide = Math.max(1, Math.min(TEXT_WIDE, maxW / Math.max(1e-6, emWidth(s) * size * FIT)));
     const base = b - (size * CAP) / 2;
-    const to = Object.assign({ align: "center", base: "alphabetic" }, o);
-    let x = a - (emWidth(s) * size) / 2;
+    const to = Object.assign({ align: "center", base: "alphabetic", wide }, o);
+    let x = a - (emWidth(s) * size * wide) / 2;
     for (const c of s) {
-      const w = emOf(c) * size;
+      const w = emOf(c) * size * wide;
       if (c !== " ") text(B, f, x + w / 2, base, c, size, fill, to);
       x += w;
     }
@@ -354,14 +352,15 @@
   const LEVELS = 3; // SCALE: the plaque's stars (yardart's yPlaque draws 3; a room's levels: WORLD.BASE_ROOMS)
 
   /* ---------- The lot sign: a board on two posts with the room's name, big, on both faces ----------
-     Placed at scale 1.2 (times SIGN_SCALE) on the middle of the lot's front row, solid on that tile: its plan stays inside
-     +-0.42 units, so the board is the tile's width (the sprite's was two tiles of floor wide on screen) and a little less
-     tall than the sprite's, to keep it a board; its top is the sprite's. Faces the plot's front (+y): the name reads
-     from the yard and from the lot behind it. */
-  const SIGN = { w: 0.8, z0: 0.56, z1: 0.955, t: 0.05, post: 0.07, postX: 0.27, strip: 0.062 };
-  function signFace(B, f, o) {
-    const W = SIGN.w;
-    const H = SIGN.z1 - SIGN.z0;
+     opts.w: the board's width in units (default SIGN.w, one tile at the sign's usual scale 1.2). The yard stands it at
+     scale 1.2 (times SIGN_SCALE) on the middle of the lot's front row, solid across three tiles of it, its board
+     SIGN.wide units (2.2 tiles: the sprite was two tiles of floor wide on screen) at the normal text size, narrower at
+     Huge so its posts stay on those tiles (js/yard.js LOT_SIGN). Its posts stand SIGN.inset in from the board's ends; a
+     wide board is a little taller (SIGN.wideZ0: its words have the room to read as big as the sprite's). Its top is the
+     sprite's. Faces the plot's front (+y): the name reads from the yard and from the lot behind it. */
+  const SIGN = { w: 0.8, wide: 1.84, z0: 0.56, wideZ0: 0.5, z1: 0.955, t: 0.05, post: 0.07, inset: 0.13, strip: 0.062 };
+  const signW = (o) => Math.max(0.5, Math.min(3, +o.w || SIGN.w));
+  function signFace(B, f, o, W, H) {
     const S = SIGN.strip;
     B.poly(f, [[0, H - S], [W, H - S], [W, H], [0, H]], "#c9a27a", { lod: 2 });
     B.line(f, [[0, H - S], [W, H - S]], INK, 0.75);
@@ -370,22 +369,29 @@
   }
   YM.add("ySign", {
     faces: "front",
-    key: (o) => String(o.t || ""),
-    opts: roomNames().map((t) => ({ t })),
+    board: SIGN, // (the yard sizes the lot's board from it: js/yard.js lotSignBoard)
+    key: (o) => String(o.t || "") + "|" + signW(o),
+    // every name on the lot board the yard puts up at the normal text size; Large and Huge's boards for the longest
+    opts: roomNames()
+      .map((t) => ({ t, w: SIGN.wide }))
+      .concat([1.82, 1.18].map((w) => ({ t: roomNames().reduce((a, b) => (emWidth(b) > emWidth(a) ? b : a)), w }))),
     build(B, o) {
       const g = grimeOf(o.dmg);
       const ht = SIGN.t / 2;
+      const W = signW(o);
+      const z0 = W > SIGN.w ? SIGN.wideZ0 : SIGN.z0;
+      const px = W / 2 - SIGN.inset;
       [-1, 1].forEach((s) => {
         B.part({ name: "post" });
-        B.box(s * SIGN.postX - SIGN.post / 2, -ht, 0, s * SIGN.postX + SIGN.post / 2, ht, SIGN.z0, g(POST), { skip: ["bottom", "top"] });
+        B.box(s * px - SIGN.post / 2, -ht, 0, s * px + SIGN.post / 2, ht, z0, g(POST), { skip: ["bottom", "top"] });
       });
       B.part({ name: "board", ink: 1.4 });
       // (its underside shows: the yard's eye is below it)
-      const b = B.box(-SIGN.w / 2, -ht, SIGN.z0, SIGN.w / 2, ht, SIGN.z1, g(CREAM));
-      signFace(B, b.front, o);
-      signFace(B, b.back, o);
-      const H = SIGN.z1 - SIGN.z0;
-      wear(B, flatSpots(B, [[b.front, 0, 0, SIGN.w, H - SIGN.strip], [b.back, 0, 0, SIGN.w, H - SIGN.strip]]), o.dmg | 0, 31, 1);
+      const b = B.box(-W / 2, -ht, z0, W / 2, ht, SIGN.z1, g(CREAM));
+      const H = SIGN.z1 - z0;
+      signFace(B, b.front, o, W, H);
+      signFace(B, b.back, o, W, H);
+      wear(B, flatSpots(B, [[b.front, 0, 0, W, H - SIGN.strip], [b.back, 0, 0, W, H - SIGN.strip]]), o.dmg | 0, 31, 1);
     },
   });
 
@@ -481,6 +487,9 @@
   YM.add("yTires", {
     key: () => "",
     opts: [{}],
+    // its bulged tires stay to half the usual height on screen: the plain core that stands in for them further off is
+    // a little slimmer, and the step is a pixel or two there
+    lodPx: [40, 20],
     build(B, o) {
       const g = grimeOf(o.dmg);
       const { r: R, h, pinch, n } = TIRE;
@@ -880,6 +889,7 @@
   YM.add("ySpool", {
     key: () => "",
     opts: [{}],
+    lodPx: [40, 20], // (as the tire stack: its flanges and drum stay until the plain core's step is a pixel or two)
     build(B, o) {
       const g = grimeOf(o.dmg);
       const n = 13; // the fewest sides whose edges stay uninked

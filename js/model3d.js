@@ -37,9 +37,14 @@
   const CREASE_DEG = 28; // faces meeting at more than this are inked along their shared edge
   const CREASE_COS = Math.cos((CREASE_DEG * Math.PI) / 180);
   const MAX_V = 64; // SCALE: most corners one face (or a decal) may have; a clipped face gains at most one per cut
-  const MESH_KEEP = 64; // SCALE: built models kept (each look of each model is one)
+  // SCALE: built models kept (each look of each model is one): a full yard's props show about 35 looks whole and up to
+  // about 100 with every build cracked or wrecked (a beacon on and off too), beside the van's looks and gear; one let go
+  // is built again the next time the yard is put up (a fraction of a ms to a few ms each)
+  const MESH_KEEP = 128;
   const COLOURS_MAX = 8192; // SCALE: colour strings kept before the table starts over
   const KEY_EPS = 1e-4; // corners nearer than this (in units) are one corner when faces are matched up edge to edge
+  const TEXT_STEP = 0.25; // a text's map is read this share of its size from its anchor (text: any unit works)
+  const TEXT_PX = 32; // and its letters are set at this many px, scaled to its size
   const INK = [15, 16, 18];
   const TAU = Math.PI * 2;
 
@@ -279,11 +284,13 @@
       return this.poly(f, pts, fill, o);
     }
     /** Text on the face: its baseline's start (or middle / end by o.align) at (a, b), size units tall, in o.font's
-        family and weight (default "700 ... Oswald, Impact, sans-serif"). */
+        family and weight (default "700 ... Oswald, Impact, sans-serif"); o.wide: its letters this many times their
+        font's width (a sign whose view squashes it sideways). */
     text(f, a, b, str, size, fill, o) {
       o = o || {};
       const p = onFace(f, [[a, b]]);
-      f.decals.push({ k: 2, p, n: 1, rgb: rgb(fill), str: String(str), size, family: o.font || "700 SIZEpx Oswald, Impact, sans-serif", align: o.align || "center", base: o.base || "alphabetic", u: f.u, v: f.v, lod: o.lod == null ? 1 : o.lod, alpha: o.alpha == null ? 1 : o.alpha, glow: !!o.glow, ink: 0 });
+      const u = o.wide > 0 && o.wide !== 1 ? f.u.map((x) => x * o.wide) : f.u;
+      f.decals.push({ k: 2, p, n: 1, rgb: rgb(fill), str: String(str), size, family: o.font || "700 SIZEpx Oswald, Impact, sans-serif", align: o.align || "center", base: o.base || "alphabetic", u, v: f.v, lod: o.lod == null ? 1 : o.lod, alpha: o.alpha == null ? 1 : o.alpha, glow: !!o.glow, ink: 0 });
       return this;
     }
     /** The finished model: each part's centre and reach, and which faces meet along which edges. */
@@ -556,7 +563,11 @@
     }
   }
   const INK_RGB = [INK[0], INK[1], INK[2], 1];
-  /** Text on a face through the face's map at the text's anchor (a straight map is close enough on a face this size). */
+  /** Text on a face through the face's map at the text's anchor (a straight map is close enough on a face this size).
+      The map is read off points TEXT_STEP of the text's own size along the face from the anchor, and the letters are
+      set at TEXT_PX px and scaled to size units, so any unit works: the van's road units (a unit a speck) and a yard
+      prop's (a unit the whole prop: a step of one unit would bend a word seen near and slantwise, and a font a fifth
+      of a px tall is no size to set letters at). */
   function text(ctx, view, f, d) {
     const x = d.p[0];
     const y = d.p[1];
@@ -564,17 +575,20 @@
     if (!view.project(x, y, z)) return;
     const ox = view.X;
     const oy = view.Y;
-    if (!view.project(x + d.u[0], y + d.u[1], z + d.u[2])) return;
-    const ax = view.X - ox;
-    const ay = view.Y - oy;
-    if (!view.project(x - d.v[0], y - d.v[1], z - d.v[2])) return;
-    const cx = view.X - ox;
-    const cy = view.Y - oy;
-    // too small to read: no text (a pixel or less a unit)
+    const s = d.size * TEXT_STEP;
+    if (!(s > 0)) return;
+    if (!view.project(x + d.u[0] * s, y + d.u[1] * s, z + d.u[2] * s)) return;
+    const ax = (view.X - ox) / s;
+    const ay = (view.Y - oy) / s;
+    if (!view.project(x - d.v[0] * s, y - d.v[1] * s, z - d.v[2] * s)) return;
+    const cx = (view.X - ox) / s;
+    const cy = (view.Y - oy) / s;
+    // too small to read: no text (its letters under about 3 px)
     if (Math.abs(ax * cy - ay * cx) * d.size * d.size < 9) return;
+    const k = d.size / TEXT_PX; // units per font px
     ctx.save();
-    ctx.transform(ax, ay, cx, cy, ox, oy);
-    ctx.font = d.family.replace("SIZE", String(Math.round(d.size * 100) / 100));
+    ctx.transform(ax * k, ay * k, cx * k, cy * k, ox, oy);
+    ctx.font = d.family.replace("SIZE", String(TEXT_PX));
     ctx.textAlign = d.align;
     ctx.textBaseline = d.base;
     ctx.fillStyle = shadeOf(view, d.rgb, 1, f.alpha * d.alpha, d.glow);

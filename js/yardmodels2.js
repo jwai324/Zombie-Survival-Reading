@@ -474,6 +474,11 @@
      ===================================================================================================== */
   YM.add("yGuys", {
     opts: [{}],
+    // a frame of thin wires round the tower: it sorts by the tower's tile (its box is the whole plot), hides nothing
+    // through its gaps and casts no shadow
+    foot: "tile",
+    seeThrough: true,
+    shadow: false,
     build(B, o) {
       const k = kit(B);
       const dmg = o.dmg | 0;
@@ -1324,6 +1329,9 @@
   YM.add("hBench", {
     opts: [{}],
     seat: SEAT_Z,
+    // it sorts by the middle of its back boards: whoever sits on it goes in front of it from every side (the crew's
+    // zb), and walkers and the crew in front of it on the porch too
+    sortAt: [0, -0.27],
     build(B) {
       const k = kit(B);
       const c = "#8a6a46";
