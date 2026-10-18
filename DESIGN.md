@@ -2598,3 +2598,31 @@ with a test that failed before:
 - Poses blend by their parameters through standing (as walkers); the tail wags three times a pose loop in every pose, so a
   pose change never jumps it. Bark lines fly out to both sides when it barks straight at you.
 - Box heights: dog 0.40 tiles, Rivet 0.36.
+
+### Stage 3, the models (2026-10-18): judgment calls
+
+**The yard's props, signs, plaques and porch (`js/yardmodels.js` contract, `js/yardmodels1.js`, `js/yardmodels2.js`).**
+- 33 models, each a port of its 2D sprite (same parts, colours and comic ink), built in prop units (1 = the sprite's height
+  at scale 1) so the yard's placements stay as they are. A model's +x is its own right, so what a sprite draws on its
+  right sits at -x and the front view matches the sprite.
+- The view squashes the world sideways (1.4); round things are drawn 1.25 to 1.35 times wider than their height gives,
+  so they read round as the sprites did, while every plan stays inside the tile (or foot) its prop blocks.
+- Signs and plaques carry the room's name on both faces, fitted to the board (it grows with the text-size setting);
+  a wrecked plaque wears the red and white WRECKED tape round its board. Damage tints a build's props toward grime (cracked
+  and wrecked) and adds cracks, claw gouges and, wrecked, holes and breakage (a snapped sunflower, slack guy wires, a
+  dish knocked askew, a torn flag, a bent whip, a dark beacon and lamp, a snapped pump handle).
+- The guy wires are three anchors at 120 degrees, two wires each, inside the plot (the sprite's flat fan reached past
+  it). The beacon sits on a short arm off the whip's base; lit it glows at every detail level (it is always small on its
+  tower). The well's roof is a real gabled roof on two posts (the sprite drew it round "because a sprite always faces you").
+- The water tanks, the yard's biggest builds alone on 3x3 plots, set their own canvas-call ceilings (900 and 700 at
+  detail 0); every other model fits the default `YARD_OPS`. The tire stack and the spool keep a plain core drawn at every
+  detail with the bulged parts at full detail only.
+- The porch bench's seat is 0.17 tiles high (at the porch's scale 0.34): June's seat.
+
+**The farm animals (`js/beast3d-looks2.js` on `js/beast3d.js`).**
+- The goat (cream with the brown flank patch, dark horns swept back, a grey beard, side ears the sprite lacks: a 3D head
+  without ears read wrong from the front) and the hen (white, red comb and wattle, yellow beak and legs, folded wings, a
+  tail fan) at the size the yard stands the sprites (goat 0.66 tiles, hen 0.34). Like walkers and unlike props they keep
+  screen proportions (not squashed). Every hen and goat looks alike, as in 2D; the seed varies head tilt and tail.
+- New poses appended (the dog's and Rivet's indices unchanged): graze, peck, flap, bleat; a hen's sit settles on her
+  belly. The dog and Rivet draw call for call as before (a hash fixture recorded before the change proves it).
