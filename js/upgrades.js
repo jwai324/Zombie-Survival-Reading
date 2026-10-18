@@ -69,8 +69,10 @@
       };
     },
 
-    /** Try to buy an upgrade; mutates the run and returns true on success. */
+    /** Try to buy an upgrade; mutates the run and returns true on success. Paint is a shop of looks, not a level
+        (js/state.js buyPaint), so it is never bought here. */
     buy(run, key) {
+      if (key === "paint") return false;
       const level = run.upgrades[key];
       const c = this.cost(key, level);
       if (c == null || run.scrap < c) return false;

@@ -35,11 +35,10 @@
       this.vanLook = null;
     },
     /** What the van looks like now, as far as its dents go: the 3D van's sig (js/van3d.js: paint, gear, dents; the
-        model redraws itself when it changes, js/modelsprite.js), else the old wall face's texture. */
+        model redraws itself when it changes, js/modelsprite.js). */
     vanLookNow() {
       const V = ZSR.Van3D;
-      if (V && this.modelOf && this.modelOf("van")) return V.sig((State().save && State().save.upgrades) || {}, { dent: V.dentNow(), gun: true });
-      return D3() ? D3().texture("vanBody", this.palette) : null;
+      return V ? V.sig((State().save && State().save.upgrades) || {}, { dent: V.dentNow(), gun: true }) : null;
     },
 
     /* ---------- What the save says about a build ---------- */

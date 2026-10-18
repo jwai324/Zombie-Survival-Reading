@@ -3991,7 +3991,8 @@ const modelErrors0 = errors.length;
         t0 = Math.max(t0, Math.min(ta, tb));
         t1 = Math.min(t1, Math.max(ta, tb));
       }
-      return t0 <= t1 && t1 > 0 ? t0 : -1;
+      // (a ray through a box corner meets it at that corner: rounding must not call it a miss)
+      return t0 <= t1 + 1e-9 && t1 > 0 ? t0 : -1;
     };
     /** Strips side by side: each one's columns follow the last one's, none twice. */
     const contiguous = (strips) => strips.every((s, i) => s.c0 <= s.c1 && (!i || s.c0 === strips[i - 1].c1 + 1));
