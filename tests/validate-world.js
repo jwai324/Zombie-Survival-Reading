@@ -1395,5 +1395,44 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   ["footDamageWalker", "footDamageRunner", "footDamageBrute"].forEach((k) => { if (W.SETTINGS[k] != null) err(`SETTINGS.${k}: a bite lives in WALKER_TYPES[].bite now`); });
 }
 
+// the van's paint looks (js/upgrades.js PAINT_LOOKS): a save keeps the index of the look it wears and of each look it
+// bought, so looks are only appended. Every look whole (its colours real #rrggbb, its decal a kind the van is drawn
+// with), names unique, Primer Gray first and free, then each look's price in DEFS.paint.costs order, rising, and its
+// Garage tier one the Garage reaches (the owner's 2026-10-18 eight: the six old looks and two new ones)
+{
+  vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", "upgrades.js"), "utf8"), sb, { filename: "upgrades.js" });
+  const UP = sb.ZSR.Upgrades;
+  const LOOKS = UP.PAINT_LOOKS;
+  // SCALE: a new decal kind is drawn by js/van3d.js and js/sprites.js (and named in js/base.js DECAL_WORDS), then listed here
+  const DECALS = ["none", "stripe", "patches", "stencil", "hazard", "flames", "lightning", "drips"];
+  const COLOURS = ["body", "roof", "trim", "bumper", "rims", "decalA", "decalB"];
+  const topTier = Math.max(...W.BASE_ROOMS.garage.levels.map((l) => l.effect.tierCap || 0));
+  if (!Array.isArray(LOOKS) || LOOKS.length < 8) err(`PAINT_LOOKS: ${LOOKS ? LOOKS.length : 0} looks, want at least the owner's 8`);
+  else {
+    const names = new Set();
+    LOOKS.forEach((l, i) => {
+      const c = `PAINT_LOOKS[${i}] ${l.name}`;
+      if (!l.name || typeof l.name !== "string") err(`PAINT_LOOKS[${i}]: no name`);
+      else if (names.has(l.name.toLowerCase())) err(`${c}: two looks have this name`);
+      names.add(String(l.name).toLowerCase());
+      COLOURS.forEach((k) => { if (!/^#[0-9a-f]{6}$/i.test(l[k] || "")) err(`${c}: ${k} "${l[k]}" must be a #rrggbb colour`); });
+      if (!DECALS.includes(l.decal)) err(`${c}: decal "${l.decal}" is not a kind the van is drawn with (${DECALS.join(", ")})`);
+      if (i === 0) {
+        if (l.cost !== 0 || l.tier !== 0) err(`${c}: the first look is the van's own primer: cost 0 and tier 0 (it is ${l.cost}, ${l.tier})`);
+        return;
+      }
+      if (!Number.isInteger(l.cost) || l.cost <= LOOKS[i - 1].cost) err(`${c}: cost ${l.cost} must be a whole number above the look before it (${LOOKS[i - 1].cost})`);
+      if (UP.DEFS.paint.costs[i - 1] !== l.cost) err(`${c}: cost ${l.cost} is not DEFS.paint.costs[${i - 1}] (${UP.DEFS.paint.costs[i - 1]}); Upgrades.cost("paint", level) reads it there for code that reads every upgrade alike`);
+      if (!Number.isInteger(l.tier) || l.tier < 1 || l.tier > topTier) err(`${c}: tier ${l.tier} must be 1 to ${topTier} (the top Garage level's tierCap)`);
+    });
+    if (UP.DEFS.paint.max !== LOOKS.length - 1 || UP.DEFS.paint.costs.length !== LOOKS.length - 1) err(`DEFS.paint: max ${UP.DEFS.paint.max} and ${UP.DEFS.paint.costs.length} costs, want one for each look past the first (${LOOKS.length - 1})`);
+    ["Night Violet", "Radioactive"].forEach((n) => {
+      const l = LOOKS.find((x) => x.name === n);
+      if (!l) err(`PAINT_LOOKS: the owner's ${n} look is missing`);
+      else if (l.tier !== topTier) err(`PAINT_LOOKS ${n}: tier ${l.tier}, want the top Garage level's (${topTier}; owner, 2026-10-18)`);
+    });
+  }
+}
+
 if (errors.length) { errors.forEach((e) => console.log("ERROR " + e)); process.exit(1); }
 console.log(`OK: world has ${W.LOCATIONS.length} locations, ${Object.keys(W.TEMPLATES).length} layouts (${Object.keys(ART).length} landmark arts, ${Object.keys(DECOR).length} decor kinds), ${Object.keys(W.ITEMS).length} items, ${Object.keys(W.BASE_ROOMS).length} rooms, ${Object.keys(W.CREW || {}).length} crew, ${(W.QUESTS || []).length} crew quests, ${Object.keys(W.WALKER_TYPES || {}).length} walker kinds.`);

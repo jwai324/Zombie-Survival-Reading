@@ -68,6 +68,115 @@
     return node;
   };
 
+  /* ---------- The paint shop's swatches ---------- */
+  // what each decal kind (js/upgrades.js PAINT_LOOKS decal) is called in a swatch's tip
+  // SCALE: a new decal kind wants its words here (without them the tip says "a <kind> decal")
+  const DECAL_WORDS = { none: "no decal", stripe: "a racing stripe", patches: "rust patches", stencil: "army stencils", hazard: "hazard stripes", flames: "flames", lightning: "lightning bolts", drips: "toxic drips" };
+  const decalWords = (kind) => DECAL_WORDS[kind] || "a " + kind + " decal";
+  /** A paint look in small, for its swatch: the van side-on (nose right) in the look's body, roof, trim, bumper, rim
+      and decal colours, its decal roughly as it lies on the van's side. Drawn on a 96 x 54 grid scaled to the canvas;
+      the garage preview shows the look in full. */
+  function paintChip(canvas, look) {
+    const ctx = canvas.getContext("2d");
+    const INK = "#0f1012";
+    const k = canvas.width / 96;
+    const shape = (pts, fill, lw, stroke) => {
+      ctx.beginPath();
+      pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+      if (fill) {
+        ctx.fillStyle = fill;
+        ctx.fill();
+      }
+      if (lw) {
+        ctx.lineWidth = lw;
+        ctx.strokeStyle = stroke || INK;
+        ctx.stroke();
+      }
+    };
+    const disc = (x, y, r, fill, lw) => {
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.lineWidth = lw;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+    };
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.clearRect(0, 0, 96, 54);
+    ctx.lineJoin = "round";
+    // the side: the cargo box, the sloped windshield, the hood, the nose
+    const side = [[5, 11], [57, 11], [69, 24], [88, 27], [91, 31], [91, 43], [5, 43]];
+    ctx.fillStyle = "rgba(0,0,0,.28)";
+    ctx.fillRect(9, 44, 82, 4);
+    shape(side, look.body, 0);
+    ctx.save();
+    shape(side, null, 0);
+    ctx.clip();
+    const A = look.decalA;
+    const B = look.decalB;
+    const d = look.decal;
+    if (d === "stripe") {
+      ctx.fillStyle = A;
+      ctx.fillRect(5, 26, 86, 4);
+      ctx.fillStyle = B;
+      ctx.fillRect(5, 31.5, 86, 1.5);
+    } else if (d === "patches") {
+      [[11, 16, 11, 8], [30, 31, 13, 7], [61, 30, 9, 9]].forEach(([x, y, w, h]) => shape([[x, y + 1], [x + w - 1, y], [x + w, y + h - 1], [x + 1, y + h]], A, 1, B));
+    } else if (d === "stencil") {
+      ctx.fillStyle = A;
+      ctx.font = "700 11px Oswald, Impact, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText("B-66", 27, 29);
+      shape([[47, 22], [49, 26], [53, 26], [50, 29], [51, 33], [47, 31], [43, 33], [44, 29], [41, 26], [45, 26]], B, 0);
+    } else if (d === "hazard") {
+      ctx.fillStyle = B;
+      ctx.fillRect(5, 31, 86, 8);
+      for (let x = 0; x < 100; x += 8) shape([[x, 31], [x + 4, 31], [x - 1, 39], [x - 5, 39]], A, 0);
+    } else if (d === "flames") {
+      shape([[91, 43], [91, 30], [82, 33], [74, 24], [67, 33], [57, 25], [50, 34], [40, 28], [44, 43]], A, 1);
+      shape([[91, 43], [91, 35], [80, 36], [72, 30], [66, 37], [58, 32], [54, 43]], B, 0);
+    } else if (d === "lightning") {
+      shape([[20, 14], [33, 14], [27, 24], [35, 24], [17, 41], [23, 28], [15, 28]], A, 1, B);
+      shape([[64, 26], [71, 26], [67, 31], [72, 31], [61, 40], [65, 33], [60, 33]], A, 1, B);
+    } else if (d === "drips") {
+      ctx.fillStyle = A;
+      ctx.fillRect(5, 13, 52, 3);
+      [[9, 8], [16, 14], [24, 6], [33, 17], [41, 9], [50, 12], [62, 7], [76, 10]].forEach(([x, h]) => {
+        const top = x > 57 ? 24 : 15;
+        ctx.fillStyle = A;
+        ctx.fillRect(x - 1.5, top, 3, h);
+        ctx.beginPath();
+        ctx.arc(x, top + h, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+      });
+      ctx.fillStyle = B;
+      ctx.fillRect(5, 16, 52, 1);
+    }
+    ctx.restore();
+    // the roof, the cab's side window in its trim, the door pillar, the mirror, the bumpers, the ink outline
+    shape([[5, 9], [56, 9], [59, 13], [5, 13]], look.roof, 1.4);
+    shape([[51, 14], [57, 14], [67, 24], [51, 24]], "#8fb3c4", 2, look.trim);
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = look.trim;
+    ctx.beginPath();
+    ctx.moveTo(48.5, 14);
+    ctx.lineTo(48.5, 41);
+    ctx.stroke();
+    shape([[66, 21], [70, 21], [70, 25], [66, 25]], look.trim, 1);
+    shape(side, null, 2.2);
+    shape([[86, 35], [94, 35], [94, 41], [86, 41]], look.bumper, 1.4);
+    shape([[2, 35], [8, 35], [8, 41], [2, 41]], look.bumper, 1.4);
+    // the wheels: tires, and the rims in the look's colour
+    [24, 73].forEach((x) => {
+      disc(x, 43, 7.5, "#1b1c1f", 1.6);
+      disc(x, 43, 3.6, look.rims, 1.1);
+    });
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
   const Base = {
     hooks: {},
     tab: "rooms",
@@ -168,7 +277,7 @@
 
       // tabs
       const tabs = el("div", "tabs");
-      const TABS = [["rooms", "Rooms", "Build the cabin's rooms with items plus scrap. Each build is a typing round at the workbench."], ["garage", "Garage", "Van and van-gun upgrades, and van repair. Upgrades are typing rounds; repairs are instant."], ["weapons", "Weapons", "The guns you carry on foot. Pick one, and mod it with scrap: damage, range, fire rate, accuracy."], ["traps", "Traps & tools", "Craft traps at the workbench, then set them in the yard with T and R. Crowbars pry open jammed locks."], ["house", "House", "The cabin's doors and windows: make them stronger, and fix the broken ones."], ["inventory", "Cargo & stock", "Everything in storage, and what the next builds still need."]];
+      const TABS = [["rooms", "Rooms", "Build the cabin's rooms with items plus scrap. Each build is a typing round at the workbench."], ["garage", "Garage", "Van and van-gun upgrades, the van's paint, and van repair. Upgrades and new paint are typing rounds; wearing paint you own and repairs are instant."], ["weapons", "Weapons", "The guns you carry on foot. Pick one, and mod it with scrap: damage, range, fire rate, accuracy."], ["traps", "Traps & tools", "Craft traps at the workbench, then set them in the yard with T and R. Crowbars pry open jammed locks."], ["house", "House", "The cabin's doors and windows: make them stronger, and fix the broken ones."], ["inventory", "Cargo & stock", "Everything in storage, and what the next builds still need."]];
       TABS.forEach(([k, label, hint]) => {
         const b = tip(el("button", "tab" + (this.tab === k ? " on" : ""), label), "<strong>" + label + "</strong><span class='t-line'>" + hint + "</span>");
         b.addEventListener("click", () => {
@@ -391,13 +500,18 @@
       const cap = fx.tierCap;
       // a wrecked Garage gives nothing until it is fixed (js/yardwreck.js): the built level still shows, and why
       const garageWrecked = S.roomWrecked ? S.roomWrecked("garage") : false;
-      wrap.appendChild(el("p", "small muted", "Garage level " + s.rooms.garage + (garageWrecked ? " (wrecked: fix it to use it)" : "") + ": van and van-gun upgrades up to tier " + cap + ", Spread Shot two tiers lower" + (garageWrecked ? ". Fix the Garage to go higher." : cap < 5 ? ". Build the Garage room to go higher." : ".") + (fx.freeRepair ? " Repairs are free here." : " Repairs cost " + W().SETTINGS.repairMinScrap + " scrap or more, 1 for every " + W().SETTINGS.repairScrapPerHp + " health missing.")));
+      const topCap = Math.max(cap, ...W().BASE_ROOMS.garage.levels.map((l) => l.effect.tierCap || 0)); // the top Garage level's
+      wrap.appendChild(el("p", "small muted", "Garage level " + s.rooms.garage + (garageWrecked ? " (wrecked: fix it to use it)" : "") + ": van and van-gun upgrades and paint up to tier " + cap + ", Spread Shot two tiers lower" + (garageWrecked ? ". Fix the Garage to go higher." : cap < topCap ? ". Build the Garage room to go higher." : ".") + (fx.freeRepair ? " Repairs are free here." : " Repairs cost " + W().SETTINGS.repairMinScrap + " scrap or more, 1 for every " + W().SETTINGS.repairScrapPerHp + " health missing.")));
       const preview = el("canvas");
       preview.id = "garage-van";
       preview.width = 360;
       preview.height = 200;
       wrap.appendChild(preview);
       ZSR.Game.showcase(preview, s.upgrades, 0);
+      // the paint shop sits right under the preview, so trying a look on shows it with the swatch still in view
+      const caption = el("p", "small muted garage-cap");
+      wrap.appendChild(caption);
+      wrap.appendChild(this.paintCard(preview, caption));
       const groups = el("div", "upgrade-groups");
       const vanG = el("div", "upgrade-group");
       vanG.appendChild(el("h3", null, "The van"));
@@ -407,19 +521,19 @@
         armor: (st) => "Van health " + st.maxHp,
         engine: (st) => "Speed x" + st.speed.toFixed(2),
         bumper: (st) => "Ram damage " + st.ram,
-        paint: (st) => st.look.name,
         damage: (st) => "Damage " + st.damage + " per hit",
         fireRate: (st) => st.fireInterval.toFixed(2) + " s between shots",
         spread: (st) => st.bullets + " round" + (st.bullets > 1 ? "s" : "") + " per shot",
       };
       Object.keys(U().DEFS).forEach((key) => {
+        if (key === "paint") return; // a shop of looks, not a ladder: its card is under the preview (paintCard)
         const d = U().DEFS[key];
         const level = s.upgrades[key];
         const can = S.canBuyUpgrade(key);
         const card = el("div", "upgrade" + (can.maxed ? " maxed" : ""));
         card.appendChild(el("div", "icon", d.icon));
         const mid = el("div");
-        mid.appendChild(el("div", "name", esc(d.name) + (key === "paint" ? " <span class='small muted'>(" + esc(U().stats(s.upgrades).look.name) + ")</span>" : "")));
+        mid.appendChild(el("div", "name", esc(d.name)));
         mid.appendChild(el("div", "desc", esc(d.desc)));
         const pips = el("div", "pips");
         for (let i = 0; i < d.max; i++) pips.appendChild(el("span", "pip" + (i < level ? " on" : "")));
@@ -472,6 +586,90 @@
       groups.appendChild(gunG);
       wrap.appendChild(groups);
       return wrap;
+    },
+
+    /** The paint shop (State.paintShop): one swatch button a look, in PAINT_LOOKS order. A look is bought once (its
+        scrap and a typing round at the workbench, within the Garage's tier) and then worn at will for free; buying one
+        wears it. Pointing at a swatch, or focusing it, tries its look on in the garage preview (`preview`, its words in
+        `caption`); leaving puts the worn look back. Swatches that cannot be used now stay focusable (aria-disabled,
+        not disabled) so every look can still be tried on. */
+    paintCard(preview, caption) {
+      const S = State();
+      const s = S.save;
+      const d = U().DEFS.paint;
+      const shop = S.paintShop();
+      const worn = shop.find((p) => p.worn) || shop[0];
+      const owned = shop.filter((p) => p.owned).length;
+      const card = el("div", "upgrade paint-shop");
+      card.appendChild(el("div", "icon", d.icon));
+      const mid = el("div");
+      mid.appendChild(el("div", "name", esc(d.name) + " <span class='small muted'>(" + esc(worn.name) + ")</span>"));
+      mid.appendChild(el("div", "desc", esc(d.desc) + " " + owned + " of " + shop.length + " owned."));
+      card.appendChild(mid);
+      tip(card, "<strong>" + esc(d.name) + " · " + owned + " of " + shop.length + " looks owned</strong><span class='t-line'>" + esc(d.desc) + "</span><span class='t-line'>Each look is the whole van: body, roof, trim, bumpers, wheel rims, and its decal on every side and the hood.</span><span class='t-line'>Point at a look to try it on in the picture above.</span>");
+      // the preview tries a look on: at most one picture a frame (going from one swatch to the next leaves the first
+      // and enters the second in the same frame, so only the second is drawn), the worn look again on leaving
+      const say = (p) => (caption.innerHTML = p.worn ? "The van wears " + esc(p.name) + "." : "Trying on " + esc(p.name) + (p.owned ? " (yours: free to wear)." : " (" + p.cost + " scrap)."));
+      let want = null;
+      let queued = false;
+      const show = () => {
+        queued = false;
+        const p = want == null ? worn : shop[want];
+        ZSR.Game.showcase(preview, Object.assign({}, s.upgrades, { paint: p.i }), 0);
+        say(p);
+      };
+      const tryOn = (i) => {
+        want = i;
+        if (queued) return;
+        queued = true;
+        if (root.requestAnimationFrame) root.requestAnimationFrame(show);
+        else show();
+      };
+      say(worn);
+      const grid = el("div", "paint-swatches");
+      shop.forEach((p) => {
+        // capped by a Garage that is built far enough but wrecked: fixing it is what is needed (as the other cards)
+        const fixFirst = p.capped && p.garageWrecked && (s.rooms.garage || 0) >= p.garageNeeded;
+        const wearable = p.owned && !p.worn;
+        const kind = p.worn ? "worn" : p.owned ? "owned" : p.ok ? "buy" : "locked";
+        const label = p.worn ? "Worn" : p.owned ? "Wear" : p.ok ? "Buy " + p.cost + " scrap" : fixFirst ? "Fix the Garage" : p.capped ? "Garage " + p.garageNeeded + " needed" : "Not enough scrap";
+        const b = el("button", "paint-swatch " + kind);
+        b.type = "button";
+        if (!p.ok && !wearable) b.setAttribute("aria-disabled", "true");
+        const chip = el("canvas");
+        chip.width = 192;
+        chip.height = 108;
+        paintChip(chip, p.look);
+        b.appendChild(chip);
+        b.appendChild(el("span", "pname", esc(p.name)));
+        if (!p.owned && !p.ok) b.appendChild(el("span", "pcost", p.cost + " scrap"));
+        b.appendChild(el("span", "pstate", esc(label)));
+        const what = "<span class='t-line'>" + esc(decalWords(p.look.decal).replace(/^./, (c) => c.toUpperCase())) + (p.look.decal === "none" ? ": bare primer." : " on every side and the hood.") + "</span>";
+        const why = p.worn ? "The van wears it now." : p.owned ? "Yours: wear it for free, any time." : p.ok ? "Buy it at the workbench: a short typing round. The scrap is spent when you finish, and the van wears it at once." : fixFirst ? "Walkers wrecked the Garage. Fix it first: Builds on the Rooms tab, or E at it in the yard." : p.capped ? "Build the Garage room to level " + p.garageNeeded + " first." : "Not enough scrap: " + p.cost + " needed, " + s.scrap + " held.";
+        tip(b, "<strong>" + esc(p.name) + (p.owned ? "" : " · " + p.cost + " scrap") + "</strong>" + what + "<span class='t-line'>" + why + "</span>");
+        b.addEventListener("mouseenter", () => tryOn(p.i));
+        b.addEventListener("focus", () => tryOn(p.i));
+        b.addEventListener("mouseleave", () => tryOn(null));
+        b.addEventListener("blur", () => tryOn(null));
+        b.addEventListener("click", () => {
+          if (wearable) {
+            if (!S.wearPaint(p.i)) return;
+            ZSR.Audio.play("equip");
+            if (this.hooks.onChanged) this.hooks.onChanged("paint");
+            this.render();
+            return;
+          }
+          if (!S.canBuyPaint(p.i).ok) return;
+          this.craft(p.name + " paint", p.cost + " scrap", () => {
+            const ok = S.buyPaint(p.i);
+            if (ok && this.hooks.onChanged) this.hooks.onChanged("paint");
+            return ok;
+          });
+        });
+        grid.appendChild(b);
+      });
+      card.appendChild(grid);
+      return card;
     },
 
     /** On-foot weapons: the ones you hold, their mods, and hints for the ones still out there. */
