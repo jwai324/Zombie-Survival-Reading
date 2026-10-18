@@ -3048,11 +3048,15 @@
       // the pose: from standing or walking straight in; from any other, out of it first (to standing), then in
       const pose = f.wantPose || "stand";
       const base = (q) => q === "stand" || q === "walk";
+      // an animal's one-shot (a bark, a zap: shorter than its loop) starts at its beginning, so its peak shows, and
+      // breaks off at once into a walk (eased out, it would slide along without steps)
+      const oneShot = (q) => beast && !!R.POSE_SECS && R.POSE_SECS[q] < (R.LOOP_SECS || 1.2);
       const step = dt / (beast ? R.POSE_BLEND || 0.2 : FIG_BLEND);
       if (pose === f.pose) f.poseW = Math.min(1, f.poseW + step);
-      else if (base(f.pose) || f.poseW <= step) {
+      else if (base(f.pose) || (pose === "walk" && oneShot(f.pose)) || f.poseW <= step) {
         f.pose = pose;
         f.poseW = base(pose) ? 1 : 0;
+        if (oneShot(pose)) f.poseT = 0;
       } else f.poseW -= step;
       // its loop runs on through every pose (an animal's looping poses share one length: the wag keeps its phase)
       const loop = beast ? (R.POSE_SECS && R.POSE_SECS[f.pose]) || 1.2 : FIG_LOOP;

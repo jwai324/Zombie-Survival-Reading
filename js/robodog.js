@@ -195,7 +195,9 @@
         return;
       }
       r.zapT = R.zapEvery;
-      r.zapPose = MOVE.zapPose;
+      // in 3D the zap holds long enough to ease out of a sit, into the zap and through one zap (Beast3D's timings)
+      const B = r.fig && ZSR.Beast3D;
+      r.zapPose = B && B.POSE_SECS ? Math.max(MOVE.zapPose, 2 * (B.POSE_BLEND || 0.2) + (B.POSE_SECS.zap || 0.3)) : MOVE.zapPose;
       r.zapAt = [best.x, best.y]; // (in 3D it turns to it)
       best.slowT = R.slowSeconds;
       best.slowMul = R.slow;

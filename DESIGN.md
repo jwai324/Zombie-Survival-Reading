@@ -2622,8 +2622,9 @@ with a test that failed before:
 - Rivet turns to the walker it zaps, flashes when bitten and lies still when off.
 
 **Seats (`CREW_SEATS` in `js/story-crew.js`, read off the furniture: bench 0.154, dining chair 0.161, bed 0.32 tiles).**
-- June: the porch bench at (6.5, 1.45), facing north over the yard. Tomas (Gus's room): the edge of Gus's bed at
-  (22.7, 6.88), facing south, his head turned to Gus's keep-out sign. Pip: the chair at (15.45, 2.5) facing north to the
+- June: the porch bench at (6.5, 1.45), facing north over the yard. Tomas (Gus's room): the very edge of Gus's bed at
+  (22.7, 6.99), facing south, his head turned to Gus's keep-out sign (a figure stands on the floor line at its spot: at
+  6.88, 0.12 into the bed, he hung 24 px up the bed's side; review, 2026-10-18). Pip: the chair at (15.45, 2.5) facing north to the
   radio (radio shelf), and at the dining post the chair at (15.45, 3.5) facing west to the table.
 - A sitter is drawn 0.05 tiles in front of a chair or bench and 0.25 in front of a bed's edge, so the seat never covers
   them.
@@ -2640,6 +2641,12 @@ mostly pasting the wider 3D pictures (1.2 to 1.3 times as wide as tall, the flat
 
 **Known.** A crew member up close costs about 14 to 18% more render: the renderers do not report the area they drew, so
 the transparent part of a wide picture is still pasted. In the dining room the table can hide Pip from some angles.
+
+**Review fixes (2026-10-18).** An animal's one-shot pose (a bark, a zap, a bleat: shorter than its loop) starts at its
+loop's beginning and breaks off at once into a walk: the dog no longer slides 1 to 2.4 tiles in its braced bark when a
+wave starts (it barks, then gallops). Rivet's 3D zap holds 0.7 s (out of a sit, into the zap, one zap: Beast3D's own
+timings), so its sparks reach full size (they peaked at 19%). Without the 3D modules the flat crew sprites ignore seats
+and sit on the floor at the post, exactly as before 3D.
 
 ### Stage 3, the models (2026-10-18): judgment calls
 
