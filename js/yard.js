@@ -7,7 +7,8 @@
    Yard legend (WORLD.YARD.grid): T treeline  F fence segment  V the van  P player start
    z walker spawn (outside the fence), and the cabin's own legend (WORLD.HOUSE).
    The plots are WORLD.YARD.plots; the textures and sprites named below are drawn in
-   yardart.js (the van and the gun in sprites3d.js read the upgrades themselves). The crew who live
+   yardart.js (the gun in sprites3d.js reads the upgrades itself; the van is the road's 3D van, Van3D, stood on its
+   tiles by js/modelsprite.js, and redraws itself when its paint, gear or dents change). The crew who live
    here (wandering, the shelter in a wave, their jobs, the talk bubble, the dog) are js/crew.js: this
    file calls crewEnter, crewDress, crewUpdate, crewWave, crewFacing, crewInteract and crewHint.
    June's first-run tutorial (js/tutorial.js) watches the yard from yardUpdate; while it sets this.yardHold the
@@ -383,6 +384,8 @@
         }
       }
       this.fenceMax = fenceHp;
+      // the van on its tiles: one Van3D model, the road's van (js/modelsprite.js); the tiles stay solid and opaque
+      if (this.addVanModel) this.addVanModel(this.vanTiles);
       this.yardInside = this.yardInsideMask(Math.floor(start[0]), Math.floor(start[1]));
       this.makePlayer(start[0], start[1], start[2]);
       this.houseLoad(); // the cabin: its doors, windows and roof (js/house.js)
@@ -438,7 +441,7 @@
       this.crewDress(); // the crew and the dog are props too: back in the scene (js/crew.js)
       if (this.roboDress) this.roboDress();
       this.maskDirty = true;
-      this.refreshScene(); // the van's paint and gear may have changed too
+      this.refreshScene(); // the textures and lookups this rebuild changed (the van redraws itself: js/modelsprite.js)
       this.yardFenceLook(walls);
       this.wreckSpotsBuild(); // where wreckers stand to claw each build and the van (js/yardwreck.js)
     },

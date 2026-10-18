@@ -8,7 +8,8 @@
    death throws the wave away). Under half it shows cracks; at 0 it is wrecked: it gives no room bonus
    (State.effects) until it is fixed for SETTINGS.buildRepairScrap: E at it, the office computer's "Fix all", or
    Tomas's builds job in the calm (js/crew.js). Wreckers leave the van at DEFENSE.vanWreckFloor of its health; its
-   dents show (js/sprites3d.js vanSig). God mode's "Can't die": they claw, nothing gives.
+   dents show (js/van3d.js dentNow: the 3D van's sig changes and it redraws itself). God mode's "Can't die": they
+   claw, nothing gives.
    Per walker: wreck (its role; false for good once provoked), wreckIn (this.time when it first stood inside),
    wreckTarget (a room id or "van"), wreckSpot ({ x, y, tx, ty, aim }: the tile it stands on, and the middle of the
    solid tile it claws: the core claws at a goal's aim once there). */
@@ -31,7 +32,14 @@
     wreckEnter() {
       this.wreckSpots = {};
       this.plotSolid = {};
-      this.vanTex = null;
+      this.vanLook = null;
+    },
+    /** What the van looks like now, as far as its dents go: the 3D van's sig (js/van3d.js: paint, gear, dents; the
+        model redraws itself when it changes, js/modelsprite.js), else the old wall face's texture. */
+    vanLookNow() {
+      const V = ZSR.Van3D;
+      if (V && this.modelOf && this.modelOf("van")) return V.sig((State().save && State().save.upgrades) || {}, { dent: V.dentNow(), gun: true });
+      return D3() ? D3().texture("vanBody", this.palette) : null;
     },
 
     /* ---------- What the save says about a build ---------- */
@@ -93,7 +101,7 @@
         this.wreckSpots[room] = this.spotsAround(solid);
       });
       this.wreckSpots.van = this.spotsAround(this.vanTiles || []);
-      this.vanTex = D3() ? D3().texture("vanBody", this.palette) : null; // its look now (the dents change it: hitVan)
+      this.vanLook = this.vanLookNow(); // its look now (the dents change it: hitVan)
     },
     /** One spot per open tile inside the fence beside any of `tiles`, aimed at the first of them it touches. */
     spotsAround(tiles) {
@@ -277,10 +285,12 @@
         this.toast("They are wrecking the van!", 3);
         Audio().play("crunch");
       }
-      const tex = D3() ? D3().texture("vanBody", this.palette) : null;
-      if (tex !== this.vanTex) {
-        if (this.vanTex) this.refreshScene(); // a new dent: the van's faces are drawn again
-        this.vanTex = tex;
+      const look = this.vanLookNow();
+      if (look !== this.vanLook) {
+        // a new dent: the 3D van draws itself again (its sig changed); a van drawn as wall faces (no Model3D loaded)
+        // needs its textures fetched again
+        if (this.vanLook && !(this.modelOf && this.modelOf("van"))) this.refreshScene();
+        this.vanLook = look;
       }
       return S.save.vanHp > f;
     },
