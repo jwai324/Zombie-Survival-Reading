@@ -435,6 +435,7 @@
     cancelAnimationFrame(titleRaf);
     const loop = () => {
       if ($("screen-title").classList.contains("hidden")) return;
+      // with no save, a van with some gear wearing Olive Drab (paint: the look worn, an index into PAINT_LOOKS)
       Game.showcase(c, State.save ? State.save.upgrades : { armor: 2, engine: 1, bumper: 2, paint: 3, damage: 2, fireRate: 0, spread: 1 }, (performance.now() - t0) / 1000);
       titleRaf = requestAnimationFrame(loop);
     };

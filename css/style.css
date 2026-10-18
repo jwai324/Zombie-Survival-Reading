@@ -212,6 +212,24 @@ kbd { font-family: var(--font-body); font-weight: 700; background: var(--paper-3
 .upgrade .desc { font-size: .88rem; color: var(--muted); font-weight: 500; }
 .upgrade .btn { font-size: .95rem; padding: .5rem .6rem; white-space: nowrap; }
 .upgrade.maxed .btn { background: var(--olive); }
+/* The paint shop (js/base.js paintCard), right under the garage preview: one swatch button a look (the van side-on in
+   its colours, its name, what it costs or that it is worn); pointing at one or focusing it tries it on in the preview.
+   A swatch that cannot be used now is aria-disabled, not disabled, so it can still be tried on. */
+.garage-cap { text-align: center; margin: -.3rem 0 .4rem; }
+.upgrade.paint-shop { grid-template-columns: 3rem 1fr; margin-top: 0; }
+.paint-swatches { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(5.6rem, 1fr)); gap: .45rem; }
+.paint-swatch { display: flex; flex-direction: column; align-items: stretch; gap: .15rem; padding: .3rem .3rem .35rem; background: var(--paper); color: var(--ink); border: .15rem solid var(--ink); box-shadow: .15rem .15rem 0 var(--ink); font-family: var(--font-body); text-align: center; cursor: pointer; transition: transform .08s, box-shadow .08s; }
+.paint-swatch canvas { width: 100%; height: auto; aspect-ratio: 16 / 9; display: block; background: #b7bda8; border: .1rem solid var(--ink); }
+.paint-swatch:hover, .paint-swatch:focus-visible { transform: translate(-1px,-1px); box-shadow: .25rem .25rem 0 var(--ink); outline: .19rem solid var(--amber-2); outline-offset: 0; }
+.paint-swatch .pname { font-family: var(--font-head); font-weight: 700; font-size: .82rem; letter-spacing: .04em; text-transform: uppercase; line-height: 1.15; }
+.paint-swatch .pcost { font-size: .75rem; font-weight: 700; color: var(--muted); }
+.paint-swatch .pstate { margin-top: auto; font-family: var(--font-head); font-weight: 700; font-size: .78rem; letter-spacing: .05em; text-transform: uppercase; border: .1rem solid var(--ink); padding: .08rem .2rem; background: var(--paper-3); }
+.paint-swatch.worn { background: #dfe6c8; }
+.paint-swatch.worn .pstate { background: var(--olive); }
+.paint-swatch.owned .pstate { background: var(--amber-2); }
+.paint-swatch.buy .pstate { background: var(--amber); }
+.paint-swatch.locked { cursor: not-allowed; }
+.paint-swatch.locked .pstate { background: var(--paper-2); color: var(--muted); }
 
 /* Backpack and notes */
 .backpack-panel, .note-panel { max-width: 50rem; }
@@ -379,6 +397,11 @@ button[data-tip] { cursor: pointer; }
 :root[data-size="huge"] .slot .sum { display: none; }
 :root[data-size="huge"] .rooms, :root[data-size="huge"] .upgrade-groups, :root[data-size="huge"] .upgrade { grid-template-columns: 1fr; }
 :root[data-size="huge"] .upgrade .btn, :root[data-size="huge"] .btn { white-space: normal; max-width: 100%; }
+/* the paint shop at Huge: the letters stay one inch; each swatch is a row, its van picture small beside the words */
+:root[data-size="huge"] .paint-swatches { grid-template-columns: 1fr; gap: .15rem; }
+:root[data-size="huge"] .paint-swatch { display: grid; grid-template-columns: 1.6rem 1fr; align-items: center; gap: 0 .2rem; padding: .08rem .15rem; border-width: .08rem; box-shadow: .08rem .08rem 0 var(--ink); text-align: left; }
+:root[data-size="huge"] .paint-swatch canvas { grid-row: span 3; border-width: .04rem; }
+:root[data-size="huge"] .paint-swatch .pname, :root[data-size="huge"] .paint-swatch .pcost, :root[data-size="huge"] .paint-swatch .pstate { font-size: 1rem; border-width: .06rem; }
 :root[data-size="huge"] .btn-row, :root[data-size="huge"] .slot .acts, :root[data-size="huge"] .kits .row, :root[data-size="huge"] .fence-row { justify-content: flex-start; }
 :root[data-size="huge"] .logo { font-size: 1.6rem; }
 /* the crew card at Huge: the letters stay one inch; the portrait, the stars and the dog shrink so the words fit */

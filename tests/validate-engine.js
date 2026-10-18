@@ -2161,6 +2161,154 @@ try {
   err(`regen: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
 }
 
+/* ---------- The van's paint shop (js/state.js paintShop, buyPaint, wearPaint; the Garage tab, js/base.js) ----------
+   A fresh save owns Primer Gray and wears it; a save from the paint ladder (paint k, no paintOwned) owns every look up
+   to k and keeps wearing k; a look needs its Garage tier and its scrap, and buying it spends the scrap, owns it and
+   wears it; only an owned look can be worn, for free; the worn look comes back from a save and a load; the Garage tab
+   draws every look as a swatch, tries one on in the preview, and buys and wears from it. On a slot of its own, so the
+   save the tests share is left as it was. */
+try {
+  const LOOKS = ZSR.Upgrades.PAINT_LOOKS;
+  const last = LOOKS.length - 1;
+  const GL = W.BASE_ROOMS.garage.levels;
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  const keep = { slot: S.activeSlot(), save: S.save, settings: S.settings };
+  const slot = keep.slot === 4 ? 3 : 4;
+  S.newGame(slot, "Paint");
+  const u = () => S.save.upgrades;
+  if (u().paint !== 0 || !same(u().paintOwned, [0])) err(`paint: a fresh save wears ${u().paint} and owns ${JSON.stringify(u().paintOwned)}; want Primer Gray (0), owning [0]`);
+  // old saves: the ladder becomes the looks bought; junk is dropped; a worn look past the last is the last
+  const load = (up) => {
+    const old = JSON.parse(JSON.stringify(S.save));
+    old.upgrades = up;
+    sb.localStorage.setItem("zs.save." + slot, JSON.stringify(old));
+    return S.loadSave(slot).upgrades;
+  };
+  let got = load({ armor: 1, engine: 0, bumper: 0, paint: 3, damage: 0, fireRate: 0, spread: 0 });
+  if (got.paint !== 3 || !same(got.paintOwned, [0, 1, 2, 3])) err(`paint: an old save at paint 3 loads wearing ${got.paint}, owning ${JSON.stringify(got.paintOwned)}; want 3, [0,1,2,3]`);
+  got = load({ armor: 1, paint: last + 4, paintOwned: [2, 2, -1, 99, "3", 1.5, null] });
+  if (got.paint !== last || !same(got.paintOwned, [0, 2, last])) err(`paint: a save wearing ${last + 4} with junk owned loads wearing ${got.paint}, owning ${JSON.stringify(got.paintOwned)}; want ${last}, [0,2,${last}]`);
+  if (got.spread !== 0 || got.engine !== 0 || got.armor !== 1) err(`paint: an old save's missing upgrades did not start at 0 (${JSON.stringify(got)})`);
+  got = load({ armor: 2 });
+  if (got.paint !== 0 || !same(got.paintOwned, [0])) err(`paint: a save with no paint loads wearing ${got.paint}, owning ${JSON.stringify(got.paintOwned)}; want 0, [0]`);
+  // the gate: with no Garage only tiers up to 2; the owner's two new looks need the top Garage level (2026-10-18)
+  Object.keys(W.BASE_ROOMS).forEach((k) => (S.save.rooms[k] = 0));
+  S.save.builds = {};
+  S.save.scrap = 1000;
+  const shop = S.paintShop();
+  if (shop.length !== LOOKS.length) err(`paint: the shop has ${shop.length} looks, want ${LOOKS.length}`);
+  shop.forEach((p) => {
+    if (p.name !== LOOKS[p.i].name || p.cost !== LOOKS[p.i].cost) err(`paint: shop entry ${p.i} is ${p.name} at ${p.cost}, not PAINT_LOOKS' ${LOOKS[p.i].name} at ${LOOKS[p.i].cost}`);
+    if (!p.owned && p.capped !== p.tier > S.effects().tierCap) err(`paint: ${p.name} (tier ${p.tier}) capped is ${p.capped} with no Garage`);
+  });
+  ["Night Violet", "Radioactive"].forEach((n) => {
+    const i = LOOKS.findIndex((l) => l.name === n);
+    const c = S.canBuyPaint(i);
+    if (i < 0 || !c.capped || c.ok || c.garageNeeded !== GL.length) err(`paint: ${n} with no Garage: capped ${c.capped}, ok ${c.ok}, Garage ${c.garageNeeded} needed; want capped until Garage level ${GL.length}`);
+  });
+  const violet = LOOKS.findIndex((l) => l.name === "Night Violet");
+  const toxic = LOOKS.findIndex((l) => l.name === "Radioactive");
+  if (S.buyPaint(violet) || S.save.scrap !== 1000 || S.paintOwned().includes(violet)) err("paint: a look was bought past the Garage's tier");
+  S.save.rooms.garage = GL.length;
+  if (!S.canBuyPaint(violet).ok || !S.buyPaint(violet)) err("paint: Night Violet cannot be bought with the top Garage and scrap enough");
+  else if (S.save.scrap !== 1000 - LOOKS[violet].cost || !S.paintOwned().includes(violet) || u().paint !== violet) err(`paint: buying Night Violet left ${S.save.scrap} scrap (want ${1000 - LOOKS[violet].cost}), owning ${JSON.stringify(u().paintOwned)}, wearing ${u().paint}`);
+  if (S.canBuyPaint(violet).ok || S.buyPaint(violet)) err("paint: a look already owned can be bought again");
+  // a wrecked Garage gives nothing until fixed: its looks wait, and the shop says the Garage is wrecked
+  S.save.builds = { garage: 0 };
+  const wr = S.canBuyPaint(toxic);
+  if (wr.ok || !wr.capped || !wr.garageWrecked || wr.garageNeeded !== GL.length) err(`paint: Radioactive with the Garage wrecked: ok ${wr.ok}, capped ${wr.capped}, garageWrecked ${wr.garageWrecked}, Garage ${wr.garageNeeded} needed`);
+  S.save.builds = {};
+  // not enough scrap
+  S.save.scrap = LOOKS[toxic].cost - 1;
+  const poor = S.canBuyPaint(toxic);
+  if (poor.ok || poor.short !== 1 || S.buyPaint(toxic) || S.save.scrap !== LOOKS[toxic].cost - 1) err(`paint: Radioactive with 1 scrap short: ok ${poor.ok}, short ${poor.short}, scrap now ${S.save.scrap}`);
+  // wearing: only an owned look, and free
+  if (S.wearPaint(toxic) || u().paint !== violet) err("paint: a look not owned was worn");
+  if (S.wearPaint(last + 1) || S.wearPaint(-1) || S.wearPaint("1") || u().paint !== violet) err("paint: an index that is not a look was worn");
+  const scrap = S.save.scrap;
+  if (!S.wearPaint(0) || u().paint !== 0 || S.save.scrap !== scrap) err(`paint: wearing Primer Gray (owned) failed or cost scrap (wearing ${u().paint}, scrap ${S.save.scrap} from ${scrap})`);
+  if (!S.wearPaint(violet) || ZSR.Upgrades.stats(u()).look.name !== "Night Violet") err("paint: wearing Night Violet again does not give the van its look");
+  // the worn look and the looks owned come back from the disk
+  const owned = JSON.stringify(u().paintOwned);
+  got = S.loadSave(slot).upgrades;
+  if (got.paint !== violet || JSON.stringify(got.paintOwned) !== owned) err(`paint: after a save and a load the van wears ${got.paint}, owning ${JSON.stringify(got.paintOwned)}; want ${violet}, ${owned}`);
+  // any code that reads every upgrade alike: paint's next tier is the first look not owned; maxed once all are owned
+  S.save.scrap = 1000;
+  const g = S.canBuyUpgrade("paint");
+  if (!g.ok || g.look !== 1 || g.cost !== LOOKS[1].cost || ZSR.Upgrades.cost("paint", g.level) !== g.cost) err(`paint: canBuyUpgrade("paint") gave ${JSON.stringify(g)}; want look 1 at ${LOOKS[1].cost}`);
+  if (!S.buyUpgrade("paint") || u().paint !== 1 || !S.paintOwned().includes(1)) err("paint: buyUpgrade(\"paint\") did not buy and wear the next look");
+  while (S.canBuyUpgrade("paint").ok) S.buyUpgrade("paint");
+  const all = S.canBuyUpgrade("paint");
+  if (!all.maxed || all.ok || S.paintOwned().length !== LOOKS.length || S.buyUpgrade("paint")) err(`paint: with every look owned canBuyUpgrade("paint") gave ${JSON.stringify(all)}, owning ${S.paintOwned().length} of ${LOOKS.length}`);
+  // the Garage tab: every look a swatch, tried on in the preview, bought and worn from it
+  S.save.upgrades.paint = 0;
+  S.save.upgrades.paintOwned = [0, violet];
+  S.save.scrap = 1000;
+  S.commit();
+  vm.runInContext(fs.readFileSync(path.join(ROOT, "js", "base.js"), "utf8"), sb, { filename: "js/base.js" });
+  const B = ZSR.Base;
+  const made = [];
+  const shows = [];
+  const was = { create: sb.document.createElement, game: ZSR.Game, raf: sb.requestAnimationFrame };
+  sb.document.createElement = (t) => {
+    const e = was.create(t);
+    e.kids = [];
+    e.on = {};
+    e.appendChild = (c) => (e.kids.push(c), c);
+    e.addEventListener = (type, fn) => (e.on[type] = fn);
+    made.push(e);
+    return e;
+  };
+  ZSR.Game = { showcase: (canvas, up) => shows.push(up.paint) };
+  sb.requestAnimationFrame = (f) => (f(), 1);
+  try {
+    B.hooks = {};
+    B.tab = "garage";
+    const swatches = () => made.filter((e) => /\bpaint-swatch\b/.test(e.className || ""));
+    const text = (e) => [e.innerHTML || ""].concat((e.kids || []).map(text)).join(" ");
+    B.garage();
+    let sw = swatches();
+    if (sw.length !== LOOKS.length) err(`paint: the Garage tab draws ${sw.length} paint swatches, want ${LOOKS.length}`);
+    sw.forEach((e, i) => { if (!text(e).includes(LOOKS[i].name)) err(`paint: swatch ${i} does not name ${LOOKS[i].name}`); });
+    const word = (i) => text(sw[i]);
+    if (!/\bWorn\b/.test(word(0)) || !/\bWear\b/.test(word(violet)) || !word(1).includes("Buy " + LOOKS[1].cost + " scrap")) err(`paint: the swatches say ${word(0)} | ${word(violet)} | ${word(1)}; want Worn, Wear, Buy ${LOOKS[1].cost} scrap`);
+    shows.length = 0;
+    sw[toxic].on.mouseenter();
+    sw[toxic].on.mouseleave();
+    sw[3].on.focus();
+    if (!same(shows, [toxic, 0, 3])) err(`paint: trying looks on drew the preview in ${JSON.stringify(shows)}; want ${JSON.stringify([toxic, 0, 3])}`);
+    sw[violet].on.click(); // owned: worn at once, free
+    if (u().paint !== violet || S.save.scrap !== 1000) err(`paint: clicking an owned swatch wears ${u().paint} with ${S.save.scrap} scrap; want ${violet}, 1000`);
+    made.length = 0;
+    B.garage();
+    sw = swatches();
+    sw[2].on.click(); // bought (no workbench loaded here: the menu builds straight away) and worn
+    if (u().paint !== 2 || !S.paintOwned().includes(2) || S.save.scrap !== 1000 - LOOKS[2].cost) err(`paint: clicking a swatch to buy ${LOOKS[2].name} left it wearing ${u().paint}, owning ${JSON.stringify(u().paintOwned)}, ${S.save.scrap} scrap`);
+    S.save.rooms.garage = 0; // the top tiers wait for the Garage again: their swatches can be tried on, not bought
+    const locked = S.paintShop().find((p) => !p.owned && !p.ok);
+    if (!locked) err("paint: with no Garage every look can be bought (no locked swatch to check)");
+    else {
+      const before = JSON.stringify(u());
+      made.length = 0;
+      B.garage();
+      swatches()[locked.i].on.click();
+      if (JSON.stringify(u()) !== before) err(`paint: clicking ${locked.name}, which cannot be bought now, changed the van's paint`);
+    }
+  } finally {
+    sb.document.createElement = was.create;
+    if (was.game) ZSR.Game = was.game;
+    else delete ZSR.Game; // the engine's tests run without the road (js/tutorial.js asks for ZSR.Game)
+    sb.requestAnimationFrame = was.raf;
+  }
+  S.deleteSlot(slot);
+  S.setActiveSlot(keep.slot);
+  S.save = keep.save;
+  S.settings = keep.settings;
+  S.trip = null;
+} catch (e) {
+  err(`paint: ${e.stack.split("\n").slice(0, 3).join(" | ")}`);
+}
+
 /* ---------- Each save keeps its own settings ---------- */
 try {
   const a = S.activeSlot();

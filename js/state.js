@@ -99,7 +99,8 @@
       food: W().SETTINGS.startFood,
       inventory: {},
       rooms,
-      upgrades: { armor: 0, engine: 0, bumper: 0, paint: 0, damage: 0, fireRate: 0, spread: 0 },
+      // paint: the look the van wears (js/upgrades.js PAINT_LOOKS index); paintOwned: the looks bought (paintLists)
+      upgrades: { armor: 0, engine: 0, bumper: 0, paint: 0, paintOwned: [0], damage: 0, fireRate: 0, spread: 0 },
       weapons: ZSR.Weapons.fresh(W().LOCATIONS), // { owned, equipped, mods: {id: {damage, range, rate, aim}}, where: {id: locId}, seed }
       vanHp: 100,
       known: W().LOCATIONS.filter((l) => l.known).map((l) => l.id),
@@ -143,6 +144,21 @@
     if (!(lvl > 0) || !Y || !Y.plots || !Y.plots[room]) return 0;
     const hp = W().DEFENSE.buildHp || [];
     return hp[Math.min(lvl, hp.length - 1)] || 0;
+  }
+  /** The paint shop's two fields of an upgrades object `u`, made sound (js/upgrades.js PAINT_LOOKS; u is not changed):
+      { worn, owned }. worn: u.paint as a whole look index, past the last look the last one. owned: u.paintOwned's look
+      indexes (anything that is not a look dropped), with Primer Gray (0) and the worn look, once each, in order.
+      `ladder`: a save from before the paint shop (no paintOwned) climbed the paint ladder, so at paint k it bought every
+      look up to k: it owns 0 .. k. */
+  function paintLists(u, ladder) {
+    const n = ZSR.Upgrades.PAINT_LOOKS.length;
+    const p = Math.floor(Number(u && u.paint));
+    const worn = p > 0 ? Math.min(p, n - 1) : 0;
+    const list = u && Array.isArray(u.paintOwned) ? u.paintOwned : [];
+    const have = new Set([0, worn]);
+    if (ladder && !(u && Array.isArray(u.paintOwned))) for (let i = 1; i < worn; i++) have.add(i);
+    list.forEach((i) => Number.isInteger(i) && i >= 0 && i < n && have.add(i));
+    return { worn, owned: [...have].sort((a, b) => a - b) };
   }
   /** Fill in anything an older save lacks, so every field the game reads exists.
    *  SCALE: this only fills missing fields. As the city grows, old saves never learn of new places: `known` is
@@ -189,6 +205,15 @@
     Object.keys(fresh.house).forEach((k) => {
       if (s.house[k] == null) s.house[k] = fresh.house[k];
     });
+    // the van's upgrades: every key a fresh save has (an upgrade added later starts at 0), then the paint shop's two
+    // fields (an old save's paint ladder becomes the looks it bought, and it keeps wearing its top one)
+    if (!s.upgrades || typeof s.upgrades !== "object" || Array.isArray(s.upgrades)) s.upgrades = {};
+    const paint = paintLists(s.upgrades, true);
+    Object.keys(fresh.upgrades).forEach((k) => {
+      if (s.upgrades[k] == null) s.upgrades[k] = fresh.upgrades[k];
+    });
+    s.upgrades.paint = paint.worn;
+    s.upgrades.paintOwned = paint.owned;
     if (State.crewUpgrade) State.crewUpgrade(s); // the crew's fields, one per crew member (a member added later too)
     if (State.xoverUpgrade) State.xoverUpgrade(s); // the crossover universes' progress (a universe added later too)
     // the builds' health: only built rooms with a plot, a finite number from 0 up to that level's strength
@@ -917,7 +942,17 @@
       const d = ZSR.Upgrades.DEFS[key];
       return Math.min(d.max, key === "spread" ? Math.max(1, cap - 2) : cap);
     },
+    /** One upgrade's next tier: { ok, cost, capped, maxed, garageNeeded, level, garageWrecked }. Paint is a shop, not a
+        ladder (paintShop below): for any caller that reads every upgrade alike, its next tier is the first look not
+        owned yet, in PAINT_LOOKS order (`look`: its index; `level`: the one before it, so Upgrades.cost("paint",
+        level) is its price), and it is maxed once every look is owned. */
     canBuyUpgrade(key) {
+      if (key === "paint") {
+        const shop = this.paintShop();
+        const next = shop.find((p) => !p.owned);
+        if (!next) return { ok: false, cost: null, capped: false, maxed: true, garageNeeded: 0, level: shop.length - 1, garageWrecked: this.roomWrecked("garage") };
+        return { ok: next.ok, cost: next.cost, capped: next.capped, maxed: false, garageNeeded: next.garageNeeded, level: next.i - 1, garageWrecked: next.garageWrecked, look: next.i };
+      }
       const d = ZSR.Upgrades.DEFS[key];
       const level = this.save.upgrades[key];
       const cost = ZSR.Upgrades.cost(key, level);
@@ -933,9 +968,67 @@
     buyUpgrade(key) {
       const c = this.canBuyUpgrade(key);
       if (!c.ok) return false;
+      if (key === "paint") return this.buyPaint(c.look); // the next look not owned, bought and worn
       this.save.scrap -= c.cost;
       this.save.upgrades[key] += 1;
       if (key === "armor") this.save.vanHp = Math.min(this.vanMaxHp(), this.save.vanHp + 30);
+      this.commit();
+      return true;
+    },
+
+    /* ---------- The van's paint shop (js/upgrades.js PAINT_LOOKS; the Garage tab, js/base.js) ----------
+       Each look past Primer Gray is bought once, for its scrap and a typing round, when the Garage allows its tier
+       (as canBuyUpgrade: tierCap is 2 with no Garage, 3 to 5 by its level, and a wrecked Garage gives nothing); then
+       any look owned is worn at will, for free. save.upgrades.paint is the look worn, so every reader of
+       Upgrades.stats(u).look and Van3D keeps working; save.upgrades.paintOwned the looks bought (paintLists). */
+    /** The looks bought, in order (always Primer Gray and the look worn). */
+    paintOwned() {
+      return paintLists(this.save.upgrades).owned;
+    },
+    /** Every look, in PAINT_LOOKS order: { i, name, look (the PAINT_LOOKS row), owned, worn, cost, tier, ok (can be
+        bought now), capped (the Garage is too low for its tier), garageNeeded (the Garage level that allows it, when
+        capped), garageWrecked (the Garage is wrecked, as canBuyUpgrade says it: a capped look with the Garage built to
+        garageNeeded waits only for the fix), short (scrap still missing, 0 when there is enough) }. Owned looks are
+        never capped or short. */
+    paintShop() {
+      const looks = ZSR.Upgrades.PAINT_LOOKS;
+      const { worn, owned } = paintLists(this.save.upgrades);
+      const cap = this.effects().tierCap;
+      const garageLevels = W().BASE_ROOMS.garage.levels;
+      const garageWrecked = this.roomWrecked("garage");
+      return looks.map((look, i) => {
+        const have = owned.includes(i);
+        const tier = look.tier || 0;
+        const cost = look.cost || 0;
+        const capped = !have && tier > cap;
+        const needIdx = garageLevels.findIndex((l) => (l.effect.tierCap || 0) >= tier);
+        const garageNeeded = capped ? (needIdx < 0 ? garageLevels.length : needIdx + 1) : 0;
+        const short = have ? 0 : Math.max(0, cost - this.save.scrap);
+        return { i, name: look.name, look, owned: have, worn: i === worn, cost, tier, ok: !have && !capped && !short, capped, garageNeeded, garageWrecked, short };
+      });
+    },
+    /** Look i in the shop (paintShop's entry), or a look that cannot be bought for an index that is not a look. */
+    canBuyPaint(i) {
+      const p = Number.isInteger(i) ? this.paintShop()[i] : null;
+      return p || { i, ok: false, owned: false, worn: false, cost: null, capped: false, garageNeeded: 0, garageWrecked: false, short: 0 };
+    },
+    /** Buy look i: its scrap is spent, it is owned, and the van wears it. */
+    buyPaint(i) {
+      const c = this.canBuyPaint(i);
+      if (!c.ok) return false;
+      const u = this.save.upgrades;
+      this.save.scrap -= c.cost;
+      u.paintOwned = paintLists({ paint: i, paintOwned: this.paintOwned().concat([i]) }).owned;
+      u.paint = i;
+      this.commit();
+      return true;
+    },
+    /** Wear look i, one already owned (free). */
+    wearPaint(i) {
+      if (!Number.isInteger(i) || !this.paintOwned().includes(i)) return false;
+      const u = this.save.upgrades;
+      u.paintOwned = this.paintOwned();
+      u.paint = i;
       this.commit();
       return true;
     },
