@@ -54,7 +54,30 @@
    depends only on the type, the camera and whether it is walking or attacking (an envelope of all its poses
    worked out once in addType), never on the moment of the swing, so an attacker does not pulse in size.
    The model keeps screen proportions: the engine squashes the floor sideways by STRETCH, but a walker with real
-   proportions squashed the same way looks about 30% too thin, so it is not squashed (DESIGN.md). */
+   proportions squashed the same way looks about 30% too thin, so it is not squashed (DESIGN.md).
+
+   People (the crew) on the same rig: Walker3D.addHuman(id, def) (js/walker3d-crew.js: june, tomas, pip and the
+   stand-in "person"; humanId(id) gives the stand-in for a crew id with no look, which draw() would draw as a walker).
+   They live in HUMANS, not TYPES; draw(), box() and stride() take their ids, with the same cam contract and the same
+   promises (no transforms or images, inside the region, the same calls twice, nothing allocated but a missed colour
+   string). In tiles like a walker: each is drawn PERSON_H x CREW[id].scale tall (the facts, when loaded, else the
+   look's own scale): box(id).h is that standing height, box(id).w room for every pose at any yaw, stride(id, run)
+   tiles a cycle. A walker's own fields (claw, bite, fall, hit, gore) do nothing to a person. st for a person:
+     yaw, gait, move, seed, lod, fog   as a walker's
+     run      0..1 the walk goes over to a real run (both feet off the ground between strides, arms pumping)
+     pose     HUMAN_POSES: "stand" | "walk" (the two are the base: move decides) | "talk" | "work" | "sit" | "read" |
+              "cower"; unknown: stand
+     poseT    0..1 the pose's own loop, closing on itself (breathing and a blink; the mouth and nods talking; the dig,
+              the hammer's swing or the writing; a page turned reading; a tremble cowering). The engine runs it at about
+              one loop every 3 to 4 s (the hammer strikes once a loop)
+     poseW    0..1 from the base (standing or walking: 0) into the pose, as a walker's: ramp it after a pose change
+     seat     tiles: the seat's height sitting (0: the floor). Sitting, the origin (the figure's spot on the floor) is
+              under the seat's middle, the feet forward of it; a seat too tall for the legs is brought down to the
+              highest they reach, on tiptoe
+     job      HUMAN_JOBS: "garden" (kneeling at a bed, digging with a trowel, a seedling tray beside) | "hammer" (on
+              one knee nailing a board on the floor) | "clipboard" (standing, writing); missing: the look's own
+     headYaw  rad, the head turned from the body in st.yaw's sense (the head is drawn at yaw + headYaw): -yaw looks
+              straight at the camera; clamped to HEAD_YAW_MAX, the shoulders taking a little of it */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -229,8 +252,9 @@
   /* ---------- Colours: rgb arrays in, strings out, from a fixed table (a miss builds one string) ---------- */
   // SCALE: colour-string table slots (a power of two). Every type x variant x light level x fog step x hit flash is one
   // colour; more types and variants mean more of them. A miss only builds one string (garbage), so keep it a few
-  // times the colours a busy scene uses (about 4,000 with the six types and every fog step).
-  const CC_N = 16384;
+  // times the colours a busy scene uses (about 4,000 with the six types and every fog step, and about as many again
+  // for the crew's looks and their props: 32768 since the crew joined the rig, 2026-10-18).
+  const CC_N = 32768;
   const CC_SHIFT = 32 - Math.log2(CC_N);
   const ccKey = new Float64Array(CC_N).fill(-1);
   const ccStr = new Array(CC_N).fill("");
@@ -2070,7 +2094,7 @@
     tpSet(9, TR[4] + nx * e2, TR[5] + ny * e2);
     tpSet(10, TR[2] + nx * e1, TR[3] + ny * e1);
     tpSet(11, h0x + nx * eR, h0y + ny * eR);
-    TPN = LOD === 2 ? 0 : 7;
+    TPN = LOD === 2 || HUM ? 0 : 7;
     const jag = (V.jag || 0.03) * RG[PXS] * k3;
     for (let k = 1; k <= TPN; k++) {
       const t = k / (TPN + 1);
@@ -2102,7 +2126,8 @@
       G.fillStyle = col(BLACK, 1, 0.24);
       G.fill();
     }
-    torsoDecals();
+    if (HUM) torsoDecalsH();
+    else torsoDecals();
   }
   function torsoDecals() {
     if (LOD === 2) return;
@@ -3323,6 +3348,8 @@
     return !(s && s.walkerGore === false);
   }
   function draw(ctx, type, st, cam) {
+    const hu = HUMANS[type];
+    if (hu) return drawHuman(ctx, hu, st, cam);
     const t = TYPES[type] || TYPES.walker;
     RESULT.face = false;
     RESULT.parts = 0;
@@ -3573,6 +3600,8 @@
       screen (2 r 1.1 / STRETCH, r from WORLD.WALKER_TYPES when the facts are loaded). Reused objects. */
   const FOV = 1.22; // js/interior.js's FOV (tests/validate-art.js holds the two equal; the engine's own wins when exported)
   function box(type, falling) {
+    const hu = HUMANS[type];
+    if (hu) return humanBox(hu);
     const t = TYPES[type] || TYPES.walker;
     if (!t) return { h: 0.92, w: 1, head: 0.9, bar: 0.5 };
     const wt = ZSR.WORLD && ZSR.WORLD.WALKER_TYPES;
@@ -3589,10 +3618,2721 @@
   /** Tiles walked per gait cycle (feet stay planted when the engine advances gait by distance / stride); run (0..1,
       optional): running, as st.run draws it. */
   function stride(type, run) {
+    const hu = HUMANS[type];
+    if (hu) {
+      const r = clamp01(run);
+      return (hu.gait.stride + (HUMAN_RUN.stride - hu.gait.stride) * r) * (humanH(hu) / hu.h);
+    }
     const t = TYPES[type] || TYPES.walker;
     const s = t && t.gait.stride > 0 ? t.gait.stride : 0.9;
     const r = clamp01(run);
     return r > 0 ? s + (RUN_GAIT.stride - s) * r : s;
+  }
+
+  /* ---------- People: the crew on the walkers' rig ----------
+     Walker3D.addHuman(id, def) adds a person (js/walker3d-crew.js: June, Tomas, Pip and the plain stand-in "person").
+     People live in HUMANS, never in TYPES (every walker path and test reads TYPES), and draw(), box() and stride() take
+     their ids. Everything only a person does runs in drawHuman and the functions below it, or behind HUM in the two
+     shared drawing functions that need it (drawTorso's hem and decals), so a walker draws exactly as it did
+     (tests/validate-art.js holds the walkers' calls to a fixture recorded before people joined the rig).
+     A person is modelled with natural proportions for its age at about 1 unit tall (the look's own h, its standing
+     top with the hair) and drawn PERSON_H x CREW[id].scale tiles tall (the facts, read each draw; the look's own scale
+     when they are not loaded), so box(), stride(), cam and st.seat are all in tiles, as for a walker. */
+  const HUMAN_POSES = ["stand", "walk", "talk", "work", "sit", "read", "cower"];
+  const HO_TALK = 2;
+  const HO_WORK = 3;
+  const HO_SIT = 4;
+  const HO_READ = 5;
+  const HO_COWER = 6;
+  const HUMAN_JOBS = ["garden", "hammer", "clipboard"];
+  const JOB_GARDEN = 0;
+  const JOB_HAMMER = 1;
+  const HUMANS = {};
+  // tiles: a crew member at CREW[id].scale 1, a grown-up (js/crewart.js: the standing head's top PERSON_TOP, 122 units
+  // of the 256 px "crew" canvas at 2 px a unit, drawn 0.95 tiles tall: 0.905)
+  const PERSON_H = 0.905;
+  const HEAD_YAW_MAX = 1.1; // rad: st.headYaw is clamped to this; the shoulders take 15% of it, the neck the rest
+  // st.run: the sprint a person's walk goes over to, field by field (a real run: long strides, both feet off the ground
+  // between them, a forward lean, arms pumping)
+  const HUMAN_RUN = { stride: 1.35, duty: 0.36, lift: 0.19, crouch: 0.05, lean: 0.2, bob: 0.03 };
+  let HUM = false; // drawing a person (drawTorso checks it)
+
+  // A pose's numbers (model units, rad), worked out for the base (standing or walking) and for the pose, then blended
+  // by poseW, so a pose change never jumps
+  const O_PX = 0; // pelvis x, y, z
+  const O_PTW = 3; // pelvis twist
+  const O_PRL = 4; // pelvis roll
+  const O_LEAN = 5; // torso lean forward
+  const O_TTW = 6; // torso twist
+  const O_TRL = 7; // torso roll
+  const O_HP = 8; // head pitch (+ down), yaw, roll (9, 10)
+  const O_SHR = 11; // shoulders up
+  const O_CHR = 12; // chest up (a breath)
+  const O_JAW = 13; // mouth open 0..1
+  const O_GAZE = 14; // eyes cast down 0..1
+  const O_FOOT = 15; // each foot, 8: ankle x, y, z; toe pitch; toe out; the knee's pole in the pelvis frame (r, u, f)
+  // each arm, 12: where the hand goes (0: from the shoulder in the torso frame, out / up / forward; 1: a model point;
+  // 2: from the head's middle in the head frame, out / up / forward), its 3 numbers, palm, curl, spread, wrist, the
+  // elbow's pole (out, back, down), in the hoodie's pocket 0..1
+  const O_ARM = 31;
+  const NPO = 55;
+  const BO = new Float64Array(NPO); // the base
+  const PO = new Float64Array(NPO); // the pose
+  const FO = new Float64Array(NPO); // blended
+
+  // per-draw numbers for people (as RG: never closure variables)
+  const HB = new Float64Array(16);
+  const HB_POSE = 0; // the pose whose props show (the base below poseW 0.5)
+  const HB_CF = 1; // on a chair (1) or the floor (0)
+  const HB_SWING = 2; // the hammer: 0 on the nail .. 1 raised
+  const HB_HIT = 3; // the hammer's strike flash 0..1
+  const HB_TURN = 4; // a page turning 0..1
+  const HB_DIG = 5; // the trowel's dig angle
+  const HB_BLINK = 6; // 1: eyes shut this moment
+  const HB_RUN = 7; // st.run
+  const HB_MOVE = 8; // walking 0..1 (0 in a pose)
+  const HB_HY = 9; // the head's turn asked for (clamped)
+  const HB_CAMX = 10; // the camera, model space (11, 12)
+  const HB_PEN = 13; // the pencil's line on the clipboard
+  const HB_GAIT = 14; // the walk cycle's phase
+  // the props in view: per hand (0 left, 1 right) the thing held, the thing held in front in both hands (and whether
+  // the hands go over it), the things on the floor (bits) and what is worn
+  const PR_NONE = 0;
+  const PR_LEDGER = 1; // closed, under the arm
+  const PR_LEDGER_OPEN = 2;
+  const PR_WRENCH = 3;
+  const PR_TROWEL = 4;
+  const PR_HAMMER = 5;
+  const PR_MANUAL = 6;
+  const PR_CLIPBOARD = 7;
+  const PR_PENCIL = 8;
+  const PR_NOTEBOOK = 9;
+  const PR_WALKIE = 10;
+  const PR_LEDGER_LAP = 11; // closed, lying on the lap
+  const HELD = new Int8Array(2);
+  let FRONT = PR_NONE;
+  let FRONT_OVER = false; // the front prop is drawn over the hands (a clipboard written on), else under them (a book)
+  let GND = 0;
+  const G_SOIL = 1; // a dug bed with a seedling, and the seedling tray beside it
+  const G_BOARD = 2; // a board with a nail started in it
+  const G_WRENCH = 4; // the wrench put down
+  const G_LEDGER = 8; // the ledger put down
+  let WALKIE_ON = false; // clipped on the chest
+  let EAR_PENCIL = false;
+  // prop geometry (model): each hand's tool: grip point, along, across, the flat side's normal (0..11 left, 12..23 right);
+  // the front prop: centre, right, up, normal, half width, half height (24..37); the floor things: board / bed centre
+  // (38, 39), the bed (40, 41), the tray (42, 43), the put-down wrench (44, 45), the put-down ledger (46, 47), the nail (48..50)
+  const PG = new Float64Array(56);
+  // colours of the things people carry (rgb, the light and fog put in at col)
+  const PROP_COL = {
+    ledger: [44, 112, 72], page: [244, 236, 214], label: [239, 226, 184], steel: [196, 202, 209], steelDark: [74, 79, 87],
+    wood: [164, 109, 58], board: [180, 138, 90], redHandle: [192, 85, 58], manual: [224, 168, 30], notebook: [242, 193, 46],
+    clip: [176, 121, 63], sheet: [251, 248, 240], writing: [40, 50, 70], pencil: [242, 193, 46], eraser: [233, 138, 160],
+    lead: [239, 210, 168], walkie: [43, 45, 49], walkieFace: [242, 193, 46], ledOn: [124, 240, 122], ledOff: [224, 74, 58],
+    rag: [210, 53, 43], soil: [90, 61, 39], soilLight: [122, 86, 54], clod: [62, 42, 27], leaf: [122, 168, 64],
+    leaf2: [140, 188, 74], stem: [63, 106, 42], tray: [58, 52, 50], spark: [242, 193, 46], white: [251, 248, 240],
+    lens: [210, 232, 250], gear: [70, 80, 100],
+  };
+
+  /** A person's height (tiles): PERSON_H x CREW[id].scale from the facts when loaded, else the look's own scale. */
+  function humanH(t) {
+    const w = ZSR.WORLD;
+    const c = w && w.CREW && w.CREW[t.id];
+    const s = c && +c.scale > 0 ? +c.scale : t.scale;
+    return s * PERSON_H;
+  }
+  /** The id to draw a crew member by: their own look, or the stand-in "person" for a crew id with no look yet (an
+      unknown id given to draw() would draw a walker). */
+  function humanId(id) {
+    return HUMANS[id] ? id : "person";
+  }
+
+  /* ---------- A person's pose: st -> joints ---------- */
+  function armPut(A, i, kind, a, b, c, palm, curl, spread, wrist, eo, eb, ed) {
+    const o = O_ARM + i * 12;
+    A[o] = kind;
+    A[o + 1] = a;
+    A[o + 2] = b;
+    A[o + 3] = c;
+    A[o + 4] = palm;
+    A[o + 5] = curl;
+    A[o + 6] = spread;
+    A[o + 7] = wrist;
+    A[o + 8] = eo;
+    A[o + 9] = eb;
+    A[o + 10] = ed;
+  }
+  /** Blend arm i of A (torso kind) toward these by w. */
+  function armMix(A, i, w, a, b, c, palm, curl, spread, wrist, eo, eb, ed) {
+    if (w <= 0) return;
+    const o = O_ARM + i * 12;
+    const k = clamp01(w);
+    A[o + 1] += (a - A[o + 1]) * k;
+    A[o + 2] += (b - A[o + 2]) * k;
+    A[o + 3] += (c - A[o + 3]) * k;
+    A[o + 4] += (palm - A[o + 4]) * k;
+    A[o + 5] += (curl - A[o + 5]) * k;
+    A[o + 6] += (spread - A[o + 6]) * k;
+    A[o + 7] += (wrist - A[o + 7]) * k;
+    A[o + 8] += (eo - A[o + 8]) * k;
+    A[o + 9] += (eb - A[o + 9]) * k;
+    A[o + 10] += (ed - A[o + 10]) * k;
+  }
+  function footPut(A, i, x, y, z, fp, to, kr, ku, kf) {
+    const o = O_FOOT + i * 8;
+    A[o] = x;
+    A[o + 1] = y;
+    A[o + 2] = z;
+    A[o + 3] = fp;
+    A[o + 4] = to;
+    A[o + 5] = kr;
+    A[o + 6] = ku;
+    A[o + 7] = kf;
+  }
+  /** The mouth while talking (pose loop pT): opening and closing nine times a loop, in phrases. */
+  const talkMouth = (pT) => Math.max(0, Math.sin(TAU * pT * 9)) * (0.6 + 0.4 * Math.sin(TAU * pT * 2));
+
+  /** Fill J (and the frames, palms, jaw) for person t in state st; K tiles a model unit. Every input is sanitised:
+      a missing or non-numeric field acts as its default. */
+  function solveHuman(t, st, K) {
+    const b = t.build;
+    const g = t.gait;
+    const L = b.upper + b.fore;
+    const hipH = b.ankle + b.shin + b.thigh;
+    let pose = HUMAN_POSES.indexOf(st.pose);
+    if (pose < 0) pose = 0;
+    const pw = st.poseW == null || !Number.isFinite(+st.poseW) ? 1 : clamp01(+st.poseW);
+    const posed = pose >= HO_TALK ? pw : 0;
+    const m = (Number.isFinite(+st.move) ? clamp01(+st.move) : 0) * (1 - posed);
+    const run = clamp01(+st.run);
+    const pT = clamp01(+st.poseT);
+    const ph = frac(Number.isFinite(+st.gait) ? +st.gait : 0);
+    const A = TAU * ph;
+    let job = HUMAN_JOBS.indexOf(st.job);
+    if (job < 0) job = V.jobI;
+    const seat = Number.isFinite(+st.seat) && +st.seat > 0 ? Math.min(+st.seat / K, t.seatMax) : 0;
+    const hy0 = Number.isFinite(+st.headYaw) ? +st.headYaw : 0;
+    HB[HB_HY] = hy0 > HEAD_YAW_MAX ? HEAD_YAW_MAX : hy0 < -HEAD_YAW_MAX ? -HEAD_YAW_MAX : hy0;
+    HB[HB_POSE] = posed >= 0.5 ? pose : 0;
+    HB[HB_CF] = smooth((seat - 0.03) / 0.12);
+    HB[HB_RUN] = run;
+    HB[HB_MOVE] = m;
+    HB[HB_GAIT] = ph;
+    HB[HB_SWING] = 0;
+    HB[HB_HIT] = 0;
+    HB[HB_TURN] = 0;
+    // a blink once a loop of the pose, at a moment of its own (the seed's), never at its ends (a pose held at poseT 0
+    // must not hold its eyes shut)
+    const bq = pT - 0.1 - 0.75 * rnd(70);
+    HB[HB_BLINK] = bq >= 0 && bq < 0.035 ? 1 : 0;
+
+    // ---- the base: standing (weight on the left leg, breathing, a small sway) or walking, or running (st.run)
+    const stride = g.stride + (HUMAN_RUN.stride - g.stride) * run;
+    const duty = g.duty + (HUMAN_RUN.duty - g.duty) * run;
+    const lift = g.lift + (HUMAN_RUN.lift - g.lift) * run;
+    // knees soft while walking, all but straight standing (the legs reach the floor either way)
+    const crouch = g.crouch * (0.3 + 0.7 * m) + (HUMAN_RUN.crouch - g.crouch) * run * m;
+    const lean = g.lean + (HUMAN_RUN.lean - g.lean) * run;
+    const bobG = g.bob + (HUMAN_RUN.bob - g.bob) * run;
+    const still = 1 - m;
+    const breath = Math.sin(TAU * pT);
+    const S = stride * duty * m;
+    const q1 = frac(ph + 0.5);
+    for (let i = 0; i < 2; i++) {
+      const s = i ? 1 : -1;
+      footPath(i ? q1 : ph, S, lift * m, duty, 0);
+      footPut(BO, i, s * (b.footW + 0.006 * still), b.ankle + RG[FY], RG[FZ] + still * (i ? 0.028 : -0.004), RG[FP], s * (g.toeOut + 0.08 * still), s * 0.06, 0, 1);
+    }
+    const bob = bobG * m * (0.5 + 0.5 * Math.cos(2 * A));
+    BO[O_PX] = g.sway * Math.sin(A) * m + still * (-0.012 + 0.004 * Math.sin(TAU * pT + 1.3));
+    BO[O_PX + 1] = hipH * (1 - crouch) - bob - still * 0.004 * (1 + breath);
+    BO[O_PX + 2] = 0;
+    BO[O_PTW] = -0.6 * g.twist * Math.sin(A) * m;
+    BO[O_PRL] = -0.5 * g.roll * Math.sin(A) * m - 0.022 * still;
+    BO[O_LEAN] = lean * (0.4 + 0.6 * m) + lean * 0.15 * Math.cos(2 * A) * m + still * (0.012 * breath);
+    BO[O_TTW] = g.twist * Math.sin(A) * m;
+    BO[O_TRL] = g.roll * Math.sin(A) * m + 0.03 * still;
+    BO[O_HP] = -BO[O_LEAN] * 0.8 + 0.03 * still;
+    BO[O_HP + 1] = still * 0.07 * Math.sin(TAU * pT + (SEED & 7));
+    BO[O_HP + 2] = still * 0.03 * Math.sin(TAU * pT * 2 + 0.5) + (g.headTilt || 0);
+    BO[O_SHR] = 0;
+    BO[O_CHR] = still * 0.004 * breath;
+    BO[O_JAW] = 0;
+    BO[O_GAZE] = 0;
+    // arms: swinging with the legs (the left arm with the right leg); pumping in a run; then the look's own hold
+    const pump = run * m;
+    for (let i = 0; i < 2; i++) {
+      const s = i ? 1 : -1;
+      const opp = s < 0 ? 0 : PI;
+      const sw = Math.sin(A + opp) * m * g.armSwing;
+      armPut(BO, i, 0, (0.06 + 0.015 * still) * L, (-0.93 + 0.06 * Math.max(0, sw)) * L, (0.06 + 0.3 * sw) * L, 1, 0.5, 0.3, 0.05, 0.3, 0.6, 0.45);
+      BO[O_ARM + i * 12 + 11] = 0;
+      if (pump > 0) {
+        const a = Math.sin(A + opp);
+        armMix(BO, i, pump, 0.1 * L, (-0.44 + 0.14 * a) * L, (0.08 + 0.34 * a) * L, 1, 1.05, 0.6, 0, 0.3, 0.9, 0.15);
+      }
+      const hold = V.hold;
+      if (hold === "ledger" && i === V.holdSide) armPut(BO, i, 0, 0.02 * L, -0.6 * L, 0.24 * L, 1, 1.0, 0.5, 0.25, 0.12, 1.0, 0.6);
+      else if (hold === "tool" && i === V.holdSide) {
+        BO[O_ARM + i * 12 + 5] = 1.05;
+        BO[O_ARM + i * 12 + 7] = 0.08;
+      } else if (hold === "pocket") {
+        // both hands in the hoodie's front pocket, standing; out to swing as they walk
+        const pk = still * (1 - pump);
+        armMix(BO, i, pk, 0.035 - b.shW, -b.torso * 0.8, b.waist[1] + 0.022, 1, 0.6, 0.4, 0.1, 1, 0.25, 0.3);
+        BO[O_ARM + i * 12 + 11] = pk;
+      }
+    }
+
+    // ---- the pose, blended in by poseW
+    if (posed > 0) {
+      PO.set(BO);
+      if (pose === HO_TALK) {
+        PO[O_HP] += -0.04 + 0.07 * Math.sin(TAU * pT * 3);
+        PO[O_HP + 2] += 0.05 * Math.sin(TAU * pT * 2);
+        PO[O_TTW] += 0.05 * Math.sin(TAU * pT * 2);
+        PO[O_JAW] = talkMouth(pT);
+      } else if (pose === HO_WORK) poseWork(b, job, pT);
+      else if (pose === HO_SIT) poseSit(b, seat, pT, breath);
+      else if (pose === HO_READ) {
+        PO[O_LEAN] = 0.06 + 0.01 * breath;
+        PO[O_HP] = 0.45;
+        PO[O_HP + 1] = 0.03 * Math.sin(TAU * pT * 2);
+        PO[O_HP + 2] = 0.04;
+        PO[O_GAZE] = 0.85;
+        // a page turns near the end of each loop
+        HB[HB_TURN] = pT > 0.8 && pT < 0.96 ? smooth((pT - 0.8) / 0.16) : 0;
+      } else if (pose === HO_COWER) {
+        const tr = Math.sin(TAU * pT * 19);
+        for (let i = 0; i < 2; i++) {
+          const s = i ? 1 : -1;
+          footPut(PO, i, s * b.footW * 1.6, b.ankle, 0, 0, s * 0.35, s * 0.35, 0.3, 1);
+        }
+        PO[O_PX] = 0.003 * tr;
+        PO[O_PX + 1] = b.ankle + b.shin * 0.62;
+        PO[O_PX + 2] = -b.thigh * 0.42;
+        PO[O_PTW] = 0;
+        PO[O_PRL] = 0;
+        PO[O_LEAN] = 0.85;
+        PO[O_TTW] = 0;
+        PO[O_TRL] = 0.02 * Math.sin(TAU * pT * 23);
+        PO[O_SHR] = 0.03;
+        PO[O_CHR] = 0.004 * Math.sin(TAU * pT * 3);
+        PO[O_HP] = 0.5;
+        PO[O_HP + 1] = 0.035 * Math.sin(TAU * pT * 17);
+        PO[O_HP + 2] = 0;
+        PO[O_GAZE] = 0.3;
+      }
+      for (let k = 0; k < O_ARM; k++) FO[k] = BO[k] + (PO[k] - BO[k]) * posed;
+    } else for (let k = 0; k < O_ARM; k++) FO[k] = BO[k];
+
+    // ---- the skeleton from the blended numbers
+    frameSet(PF, null);
+    rot(PF, 2, 0, FO[O_PTW]);
+    rot(PF, 1, 0, FO[O_PRL]);
+    // the feet stay planted: a hip too far from its ankle for the leg (a straight leg as the hips sway) lowers the
+    // pelvis just enough, rather than the leg lifting its foot
+    let lower = 0;
+    const reach = (b.thigh + b.shin) * 0.995;
+    for (let i = 0; i < 2; i++) {
+      const s = i ? 1 : -1;
+      const o = O_FOOT + i * 8;
+      const dx = FO[O_PX] + PF[0] * s * b.hipW - FO[o];
+      const dz = FO[O_PX + 2] + PF[2] * s * b.hipW - FO[o + 2];
+      const dy = FO[O_PX + 1] + PF[1] * s * b.hipW - FO[o + 1];
+      const most = Math.sqrt(Math.max(0, reach * reach - dx * dx - dz * dz));
+      if (dy > most) lower = Math.max(lower, dy - most);
+    }
+    FO[O_PX + 1] -= lower;
+    setJ(PEL, FO[O_PX], FO[O_PX + 1], FO[O_PX + 2]);
+    frameSet(TF, null);
+    rot(TF, 2, 0, FO[O_TTW] + 0.15 * HB[HB_HY]);
+    rot(TF, 1, 2, FO[O_LEAN]);
+    rot(TF, 1, 0, FO[O_TRL]);
+    offJ(CHE, PEL, TF, 0, b.torso + FO[O_CHR], 0);
+    for (let i = 0; i < 2; i++) {
+      const s = i ? 1 : -1;
+      offJ(SH[i], CHE, TF, s * b.shW, FO[O_SHR], 0);
+      offJ(HI[i], PEL, PF, s * b.hipW, 0, 0);
+    }
+    for (let i = 0; i < 2; i++) {
+      const o = O_FOOT + i * 8;
+      const ax = FO[o];
+      const ay = FO[o + 1];
+      const az = FO[o + 2];
+      setJ(AN[i], ax, ay, az);
+      const to = FO[o + 4];
+      const cp = Math.cos(FO[o + 3]);
+      setJ(TO[i], ax + Math.sin(to) * b.foot * cp, ay - b.ankle * 0.55 + Math.sin(FO[o + 3]) * b.foot, az + Math.cos(to) * b.foot * cp);
+      const kx = PF[0] * FO[o + 5] + PF[3] * FO[o + 6] + PF[6] * FO[o + 7];
+      const ky = PF[1] * FO[o + 5] + PF[4] * FO[o + 6] + PF[7] * FO[o + 7];
+      const kz = PF[2] * FO[o + 5] + PF[5] * FO[o + 6] + PF[8] * FO[o + 7];
+      ik(HI[i], KN[i], AN[i], b.thigh, b.shin, kx, ky, kz);
+      KF[i * 3] = kx;
+      KF[i * 3 + 1] = 0;
+      KF[i * 3 + 2] = kz;
+    }
+    offJ(NEC, CHE, TF, 0, b.neck, g.headFwd);
+    frameSet(HF, TF);
+    rot(HF, 2, 0, HB[HB_HY] * 0.85 + FO[O_HP + 1]);
+    rot(HF, 1, 2, FO[O_HP]);
+    rot(HF, 1, 0, FO[O_HP + 2]);
+    offJ(HED, NEC, HF, 0, b.head[1] * 0.78, -b.head[2] * 0.1);
+    RG[JAW] = FO[O_JAW];
+    RG[LYING] = 0;
+    RG[POOL] = 0;
+
+    // ---- arms (after the legs and the head: a pose may hold the knees, the head or what the other hand holds)
+    choseProps(job);
+    placeFront(b, pose, job, 0);
+    for (let i = 0; i < 2; i++) {
+      const s = i ? 1 : -1;
+      const o = O_ARM + i * 12;
+      for (let k = 0; k < 12; k++) FO[o + k] = BO[o + k];
+      if (posed > 0) {
+        for (let k = 0; k < 12; k++) PO[o + k] = BO[o + k];
+        poseArm(b, pose, job, i, pT, L);
+        // a model point or a point on the head, as torso offsets from this shoulder
+        if (PO[o] !== 0) {
+          let x = PO[o + 1];
+          let y = PO[o + 2];
+          let z = PO[o + 3];
+          if (PO[o] === 2) {
+            const h = HED * 3;
+            const ra = s * PO[o + 1];
+            const ua = PO[o + 2];
+            const fa = PO[o + 3];
+            x = J[h] + HF[0] * ra + HF[3] * ua + HF[6] * fa;
+            y = J[h + 1] + HF[1] * ra + HF[4] * ua + HF[7] * fa;
+            z = J[h + 2] + HF[2] * ra + HF[5] * ua + HF[8] * fa;
+          }
+          const so = SH[i] * 3;
+          const dx = x - J[so];
+          const dy = y - J[so + 1];
+          const dz = z - J[so + 2];
+          PO[o] = 0;
+          PO[o + 1] = s * (dx * TF[0] + dy * TF[1] + dz * TF[2]);
+          PO[o + 2] = dx * TF[3] + dy * TF[4] + dz * TF[5];
+          PO[o + 3] = dx * TF[6] + dy * TF[7] + dz * TF[8];
+        }
+        for (let k = 1; k < 12; k++) FO[o + k] = BO[o + k] + (PO[o + k] - BO[o + k]) * posed;
+      }
+      const ha = HA[i] * 3;
+      const sh = SH[i] * 3;
+      for (let k = 0; k < 3; k++) J[ha + k] = J[sh + k] + TF[k] * s * FO[o + 1] + TF[3 + k] * FO[o + 2] + TF[6 + k] * FO[o + 3];
+      const ex = TF[0] * s * FO[o + 8] - TF[6] * FO[o + 9] - TF[3] * FO[o + 10];
+      const ey = TF[1] * s * FO[o + 8] - TF[7] * FO[o + 9] - TF[4] * FO[o + 10];
+      const ez = TF[2] * s * FO[o + 8] - TF[8] * FO[o + 9] - TF[5] * FO[o + 10];
+      ik(SH[i], EL[i], HA[i], b.upper, b.fore, ex, ey, ez);
+      const pa = FO[o + 4] < 0 ? 0 : FO[o + 4] > 2 ? 2 : FO[o + 4];
+      const w0 = pa < 1 ? 1 - pa : 0;
+      const w2 = pa > 1 ? pa - 1 : 0;
+      const w1 = 1 - w0 - w2;
+      const pp = i * 3;
+      PALM[pp] = w0 * (TF[6] - TF[3] * 0.25) + w1 * (-TF[0] * s - TF[6] * 0.3) - w2 * TF[3];
+      PALM[pp + 1] = w0 * (TF[7] - TF[4] * 0.25) + w1 * (-TF[1] * s - TF[7] * 0.3) - w2 * TF[4];
+      PALM[pp + 2] = w0 * (TF[8] - TF[5] * 0.25) + w1 * (-TF[2] * s - TF[8] * 0.3) - w2 * TF[5];
+      CURL[i] = FO[o + 5];
+      SPREAD[i] = FO[o + 6];
+      WRIST[i] = FO[o + 7];
+      // the clipboard follows the hand that holds it; the writing hand comes after it
+      if (i === 0) placeFront(b, pose, job, 1);
+    }
+    placeProps(b);
+
+    // reach round each joint (the fit): a hand holding a tool reaches as far as the tool
+    const rl = (b.rThigh + b.rShin) / 2;
+    JR[PEL] = Math.max(b.waist[0], b.rThigh * 1.6);
+    JR[CHE] = Math.max(b.chest[0], b.shW * 0.7 + b.rUpper);
+    JR[NEC] = b.rNeck;
+    JR[HED] = Math.max(b.head[0], b.head[1], b.head[2]) * t.headReach;
+    for (let i = 0; i < 2; i++) {
+      JR[SH[i]] = b.rUpper * 1.4;
+      JR[EL[i]] = b.rFore * 1.2;
+      JR[HA[i]] = b.hand * 1.6 + (HELD[i] ? t.toolReach : 0);
+      JR[HI[i]] = rl;
+      JR[KN[i]] = rl;
+      JR[AN[i]] = b.rFoot * 1.1;
+      JR[TO[i]] = b.rFoot;
+    }
+  }
+
+  // where the things on the floor lie (model units for a grown-up's build; scaled by the build's hip height): the bed
+  // and the tray (garden), the board and its nail (hammer), a wrench and the ledger put down
+  const BED_X = 0.07;
+  const BED_Z = 0.36;
+  const BOARD_X = -0.07;
+  const BOARD_Z = 0.22;
+  const NAIL_DX = 0.04; // the nail, from the board's middle along it
+  const NAIL_UP = 0.04; // how far the nail stands out of the board
+  const BOARD_T = 0.022; // the board's thickness
+  const HAMMER_LEN = 0.12; // grip to the head's middle
+  const HAMMER_HEAD = 0.014; // the head's half thickness (its face rests on the nail)
+  /** Scale for the floor things and the hands that reach them: the build's hip height against a grown-up's. */
+  const sizeOf = (b) => (b.ankle + b.shin + b.thigh) / 0.52;
+
+  /** Work (PO): by job. Positions are model points (the hands reach the floor, wherever the torso leans). */
+  function poseWork(b, job, pT) {
+    const sc = sizeOf(b);
+    PO[O_PTW] = 0;
+    PO[O_PRL] = 0;
+    PO[O_TRL] = 0;
+    PO[O_SHR] = 0;
+    PO[O_CHR] = 0.003 * Math.sin(TAU * pT * 2);
+    if (job === JOB_GARDEN) {
+      // kneeling on both knees at a bed, sitting back a little toward the heels, leaning over it
+      const kr = b.rShin * 0.75;
+      const kz = 0.05 * sc;
+      const al = 1.0;
+      for (let i = 0; i < 2; i++) {
+        const s = i ? 1 : -1;
+        footPut(PO, i, s * b.footW * 1.15, b.ankle * 0.85, kz - b.shin * 0.97, -2.75, s * 0.12, s * 0.12, 0, 1);
+      }
+      PO[O_PX] = 0;
+      PO[O_PX + 1] = kr + b.thigh * Math.cos(al);
+      PO[O_PX + 2] = kz - b.thigh * Math.sin(al);
+      PO[O_LEAN] = 0.82;
+      PO[O_TTW] = 0.12;
+      PO[O_HP] = 0.12;
+      PO[O_HP + 1] = 0.08;
+      PO[O_HP + 2] = 0.05;
+      PO[O_GAZE] = 0.7;
+      HB[HB_DIG] = TAU * pT * 2;
+    } else if (job === JOB_HAMMER) {
+      // down on the left knee, the right foot planted out to the side, hammering a nail into a board on the floor
+      const kr = b.rShin * 0.8;
+      const kz = 0.02 * sc;
+      const al = 0.6;
+      footPut(PO, 0, -b.footW * 1.1, b.ankle * 0.85, kz - b.shin * 0.97, -2.75, -0.12, -0.1, 0, 1);
+      footPut(PO, 1, b.footW * 2.6, b.ankle, 0.08 * sc, 0, 0.3, 0.25, 0.5, 1);
+      PO[O_PX] = 0.01;
+      PO[O_PX + 1] = kr + b.thigh * Math.cos(al);
+      PO[O_PX + 2] = kz - b.thigh * Math.sin(al);
+      PO[O_LEAN] = 0.95;
+      PO[O_TTW] = -0.08;
+      PO[O_HP] = 0.1;
+      PO[O_HP + 1] = -0.1;
+      PO[O_HP + 2] = 0;
+      PO[O_GAZE] = 0.8;
+      // the swing: up slowly, down fast onto the nail, a rest on it
+      let sw;
+      if (pT < 0.62) sw = smooth(pT / 0.62);
+      else if (pT < 0.74) {
+        const q = (pT - 0.62) / 0.12;
+        sw = 1 - q * q;
+      } else sw = 0.05 * Math.sin((PI * (pT - 0.74)) / 0.26);
+      HB[HB_SWING] = sw;
+      HB[HB_HIT] = pT >= 0.74 && pT < 0.84 ? 1 - (pT - 0.74) / 0.1 : 0;
+    } else {
+      // standing, the clipboard held up in the left hand, writing on it, head bowed to it
+      PO[O_LEAN] = 0.05;
+      PO[O_TTW] = 0.05;
+      PO[O_HP] = 0.42;
+      PO[O_HP + 1] = 0.05 * Math.sin(TAU * pT);
+      PO[O_HP + 2] = 0.06;
+      PO[O_GAZE] = 0.85;
+      HB[HB_PEN] = pT;
+    }
+  }
+  /** Sitting (PO) on a seat `seat` model units high (0 the floor): the pelvis over the seat's middle (the origin), the
+      feet on the floor (on a chair under the knees, thighs level; a seat too tall for the legs, the shins slant; a low
+      seat or the floor, knees up; Pip on the floor, cross-legged). */
+  function poseSit(b, seat, pT, breath) {
+    const cf = HB[HB_CF];
+    const cross = V.floorSit === "cross" ? 1 - cf : 0;
+    const py = seat + b.rThigh * 1.15;
+    PO[O_PX] = 0;
+    PO[O_PX + 1] = py;
+    PO[O_PX + 2] = 0;
+    PO[O_PTW] = 0;
+    PO[O_PRL] = 0;
+    // a seat taller than the shins: up on the toes first (the heels lift), then the thighs slope down to the knees
+    const over0 = py - b.ankle - b.shin * 0.97;
+    const tip = over0 > 0 ? Math.min(over0, b.foot * 0.6) : 0;
+    const ay = b.ankle + tip;
+    const over = over0 - tip;
+    const zA = over > 0 ? Math.sqrt(Math.max(0, b.thigh * b.thigh - over * over)) * 0.98 : b.thigh * (0.8 + 0.15 * cf);
+    // the toes' pitch that keeps them on the floor
+    const sp = (b.ankle - ay) / b.foot;
+    const fp = tip > 0 ? Math.asin(sp < -1 ? -1 : sp > 1 ? 1 : sp) : 0;
+    for (let i = 0; i < 2; i++) {
+      const s = i ? 1 : -1;
+      const o = O_FOOT + i * 8;
+      footPut(PO, i, s * b.footW * 1.3, ay, zA, fp, s * 0.1, s * 0.08, 0.5, 1);
+      if (cross > 0) {
+        // the foot tucked under the other knee, turned on its side
+        PO[o] += (-s * b.thigh * 0.32 - PO[o]) * cross;
+        PO[o + 1] += (b.ankle * 0.8 - PO[o + 1]) * cross;
+        PO[o + 2] += (b.thigh * 0.5 - PO[o + 2]) * cross;
+        PO[o + 4] += (-s * 1.4 - PO[o + 4]) * cross;
+        PO[o + 5] += (s * 1 - PO[o + 5]) * cross;
+        PO[o + 6] += (0.2 - PO[o + 6]) * cross;
+        PO[o + 7] += (0.3 - PO[o + 7]) * cross;
+      }
+    }
+    const walkie = V.lap === "walkie";
+    PO[O_LEAN] = -0.06 * cf + (0.16 * (1 - cross) + 0.06 * cross) * (1 - cf) + 0.01 * breath;
+    PO[O_TTW] = 0;
+    PO[O_TRL] = 0;
+    PO[O_SHR] = 0;
+    PO[O_CHR] = 0.004 * breath;
+    PO[O_HP] = walkie ? 0.18 : 0.08;
+    PO[O_HP + 1] = 0.06 * Math.sin(TAU * pT);
+    PO[O_HP + 2] = walkie ? 0.14 : 0.03;
+    PO[O_GAZE] = walkie ? 0.5 : 0.15;
+  }
+  /** Arm i's place in the pose (PO), once the legs, the head and (for the writing hand) the clipboard are placed. */
+  function poseArm(b, pose, job, i, pT, L) {
+    const s = i ? 1 : -1;
+    const o = O_ARM + i * 12;
+    const sc = sizeOf(b);
+    if (pose === HO_TALK) {
+      if (i !== V.gesture) return;
+      // the free hand talks: up in front, palm half up, moving with the words
+      armPut(PO, i, 0, 0.13 * L, (-0.47 + 0.07 * Math.sin(TAU * pT * 2)) * L, (0.44 + 0.06 * Math.sin(TAU * pT * 3 + 1)) * L, 0.55, 0.25, 1, -0.15, 0.6, 0.45, 0.6);
+      PO[o + 11] = 0;
+    } else if (pose === HO_READ) {
+      // both hands at the open book's sides, just behind its pages
+      armPut(PO, i, 1, PG[24] + PG[27] * s * PG[36] * 0.9 - PG[33] * 0.012 - PG[30] * PG[37] * 0.2, PG[25] + PG[28] * s * PG[36] * 0.9 - PG[34] * 0.012 - PG[31] * PG[37] * 0.2, PG[26] + PG[29] * s * PG[36] * 0.9 - PG[35] * 0.012 - PG[32] * PG[37] * 0.2, 1, 0.8, 0.6, 0.15, 0.7, 0.45, 0.5);
+      PO[o + 11] = 0;
+    } else if (pose === HO_WORK) {
+      PO[o + 11] = 0;
+      if (job === JOB_GARDEN) {
+        if (i) {
+          // the trowel hand digs: down into the bed and up again, twice a loop
+          const ph = HB[HB_DIG];
+          armPut(PO, i, 1, BED_X * sc, (0.14 + 0.03 * Math.cos(ph)) * sc, (0.26 + 0.035 * Math.sin(ph)) * sc, 1, 1.1, 0.4, 0.35, 0.5, 0.3, 0.4);
+        } else armPut(PO, i, 1, -0.1 * sc, (0.09 + 0.006 * Math.sin(TAU * pT)) * sc, 0.22 * sc, 2, 0.3, 1, 0.3, 0.6, 0.2, 0.3);
+      } else if (job === JOB_HAMMER) {
+        if (i) {
+          // the hammer hand: on its arc from the strike (the head's face on the nail) up to over the shoulder
+          const sw = HB[HB_SWING];
+          const th = -0.3 + 2.7 * sw;
+          let dx = -0.25;
+          let dy = Math.sin(th);
+          let dz = Math.cos(th);
+          const dl = hyp3(dx, dy, dz);
+          dx /= dl;
+          dy /= dl;
+          dz /= dl;
+          const nx = (BOARD_X + NAIL_DX) * sc;
+          const ny = (BOARD_T + NAIL_UP) * sc + HAMMER_HEAD;
+          const nz = BOARD_Z * sc;
+          const L0 = HAMMER_LEN * sc;
+          // the strike: the grip a handle's length back from the head's middle (on the nail)
+          const sx = nx - dx * L0;
+          const sy = ny - dy * L0;
+          const sz = nz - dz * L0;
+          // raised: up in front of the shoulder, the elbow bent (from the shoulder as solved)
+          const so = SH[i] * 3;
+          const rx = J[so] - 0.02 * sc;
+          const ry = J[so + 1] + 0.1 * sc;
+          const rz = J[so + 2] + 0.13 * sc;
+          const k = smooth(sw);
+          armPut(PO, i, 1, sx + (rx - sx) * k, sy + (ry - sy) * k + 0.04 * sc * Math.sin(PI * sw), sz + (rz - sz) * k, 1, 1.12, 0.5, 0, 0.8, 0.4, 0.2);
+        } else armPut(PO, i, 1, (BOARD_X - 0.02) * sc, (BOARD_T + 0.06) * sc, (BOARD_Z - 0.03) * sc, 2, 0.4, 1, 0.3, 0.5, 0.3, 0.3);
+      } else if (i === 0) {
+        // the clipboard held up in front, gripped by its left edge
+        armPut(PO, i, 0, -0.07 * L, -0.48 * L, 0.5 * L, 1, 0.95, 0.5, 0.15, 0.4, 0.5, 0.5);
+      } else {
+        // writing: along a line of the list, back, down a line (four a loop), the pencil's tip on the sheet
+        const line = Math.min(3, Math.floor(pT * 4));
+        const q = pT * 4 - line;
+        const back = smooth((q - 0.8) / 0.2);
+        const u = q < 0.8 ? q / 0.8 : 1 - back;
+        const v = line + (line < 3 ? back : -3 * back);
+        const hw = PG[36];
+        const hh = PG[37];
+        const ax = (-0.6 + 1.1 * u) * hw;
+        const ay = (0.45 - 0.25 * v) * hh + 0.012 * hh * Math.sin(TAU * pT * 48);
+        HB[HB_PEN] = v;
+        // the pencil leans back toward the writer, its tip on the sheet
+        const tx = PG[24] + PG[27] * ax + PG[30] * ay;
+        const ty = PG[25] + PG[28] * ax + PG[31] * ay;
+        const tz = PG[26] + PG[29] * ax + PG[32] * ay;
+        const pl = 0.06 * sc;
+        armPut(PO, i, 1, tx + (PG[33] * 0.8 - PG[30] * 0.45 + PG[27] * 0.35) * pl, ty + (PG[34] * 0.8 - PG[31] * 0.45 + PG[28] * 0.35) * pl, tz + (PG[35] * 0.8 - PG[32] * 0.45 + PG[29] * 0.35) * pl, 2, 1.0, 0.5, 0.3, 0.6, 0.6, 0.4);
+        PG[50] = tx;
+        PG[51] = ty;
+        PG[52] = tz;
+      }
+    } else if (pose === HO_SIT) {
+      PO[o + 11] = 0;
+      const cf = HB[HB_CF];
+      const lap = V.lap;
+      // on a chair: the lap's middle (between the hips and the knees, on top of the thighs)
+      const k0 = KN[0] * 3;
+      const k1 = KN[1] * 3;
+      const kx = (J[k0] + J[k1]) / 2;
+      const ky = (J[k0 + 1] + J[k1 + 1]) / 2;
+      const kz = (J[k0 + 2] + J[k1 + 2]) / 2;
+      const lx = (J[PEL * 3] + kx) / 2;
+      const ly = (J[PEL * 3 + 1] + ky) / 2 + b.rThigh * 1.05;
+      const lz = (J[PEL * 3 + 2] + kz) / 2;
+      let x;
+      let y;
+      let z;
+      let palm;
+      let curl;
+      if (lap === "walkie") {
+        // the walkie-talkie held up in both hands, listening
+        x = PG[24] + PG[27] * s * 0.026 * sc - PG[33] * 0.006;
+        y = PG[25] + PG[28] * s * 0.026 * sc - PG[34] * 0.006;
+        z = PG[26] + PG[29] * s * 0.026 * sc - PG[35] * 0.006;
+        armPut(PO, i, 1, x, y, z, 1, 0.95, 0.4, 0.1, 0.6, 0.5, 0.5);
+        return;
+      }
+      if (lap === "wrench" && i) {
+        // on a chair the forearm on the thigh, the hand past the knee, the wrench hanging; on the floor the same
+        // hand hangs over the knee
+        x = J[k1] + 0.006;
+        y = J[k1 + 1] + b.rShin * 0.7 + 0.022 * sc;
+        z = J[k1 + 2] + 0.03 * sc + (1 - cf) * b.rShin;
+        palm = 1;
+        curl = 1.05;
+      } else if (cf > 0.5 || lap === "wrench") {
+        // a hand on the lap (on the ledger lying there)
+        x = lx + s * 0.05 * sc;
+        y = ly + (lap === "ledger" ? 0.028 : 0.018) * sc;
+        z = lz + 0.025 * sc + (1 - cf) * (kz - lz);
+        palm = 2;
+        curl = 0.35;
+      } else {
+        // on the floor, knees up: arms round the knees, the hands clasped in front of them
+        x = kx + s * 0.03 * sc;
+        y = ky - 0.035 * sc;
+        z = kz + b.rShin * 1.3;
+        palm = 1;
+        curl = 0.8;
+      }
+      armPut(PO, i, 1, x, y, z, palm, curl, 0.6, 0.2, 0.9, 0.2, 0.4);
+    } else if (pose === HO_COWER) {
+      PO[o + 11] = 0;
+      if (V.cower === "cover") {
+        // hands over the back of the head, elbows forward
+        const rx = b.head[0];
+        const ry = b.head[1];
+        const rz = b.head[2];
+        armPut(PO, i, 2, rx * 0.55, ry * 0.75, -rz * 0.35, 2, 0.45, 0.9, 0.2, 0.8, -0.6, -0.3);
+      } else {
+        // arms hugging the knees
+        const k0 = KN[0] * 3;
+        const k1 = KN[1] * 3;
+        armPut(PO, i, 1, (J[k0] + J[k1]) / 2 + s * 0.035 * sc, (J[k0 + 1] + J[k1 + 1]) / 2 - 0.045 * sc, (J[k0 + 2] + J[k1 + 2]) / 2 + b.rShin * 1.25, 1, 0.85, 0.6, 0.1, 1, 0.1, 0.1);
+      }
+    }
+  }
+  /** Set the prop in front (PG 24..37: centre, right, up, normal toward the holder or up, half width and height) for
+      pose `pose` from the torso, the lap or the left hand (stage 1: after the left arm). */
+  function placeFront(b, pose, job, stage) {
+    const sc = sizeOf(b);
+    const L = b.upper + b.fore;
+    let cx;
+    let cy;
+    let cz;
+    let rx = TF[0];
+    let ry = TF[1];
+    let rz = TF[2];
+    let ux;
+    let uy;
+    let uz;
+    let hw;
+    let hh;
+    if (pose === HO_READ && stage === 0) {
+      const bk = V.book === "notebook" ? 0 : 1;
+      hw = (bk ? 0.1 : 0.085) * sc;
+      hh = (bk ? 0.072 : 0.065) * sc;
+      const c = CHE * 3;
+      const f = b.chest[1] + 0.42 * L;
+      cx = J[c] - TF[3] * 0.5 * L + TF[6] * f;
+      cy = J[c + 1] - TF[4] * 0.5 * L + TF[7] * f;
+      cz = J[c + 2] - TF[5] * 0.5 * L + TF[8] * f;
+      ux = TF[6] * 0.6 + TF[3] * 0.8;
+      uy = TF[7] * 0.6 + TF[4] * 0.8;
+      uz = TF[8] * 0.6 + TF[5] * 0.8;
+    } else if (pose === HO_WORK && job !== JOB_GARDEN && job !== JOB_HAMMER && stage === 1) {
+      // the clipboard: its left edge in the left hand, tipped up toward the face
+      hw = 0.064 * sc;
+      hh = 0.084 * sc;
+      ux = TF[6] * 0.72 + TF[3] * 0.69;
+      uy = TF[7] * 0.72 + TF[4] * 0.69;
+      uz = TF[8] * 0.72 + TF[5] * 0.69;
+      const h = HA[0] * 3;
+      cx = J[h] + rx * hw * 0.85 + ux * 0.01;
+      cy = J[h + 1] + ry * hw * 0.85 + uy * 0.01;
+      cz = J[h + 2] + rz * hw * 0.85 + uz * 0.01;
+    } else if (pose === HO_SIT && stage === 0) {
+      if (V.lap === "walkie") {
+        hw = 0.02 * sc;
+        hh = 0.034 * sc;
+        const c = CHE * 3;
+        const f = b.chest[1] + 0.07 * sc;
+        const u = -b.torso * 0.36;
+        cx = J[c] + TF[3] * u + TF[6] * f;
+        cy = J[c + 1] + TF[4] * u + TF[7] * f;
+        cz = J[c + 2] + TF[5] * u + TF[8] * f;
+        // upright, its face turned out a little
+        ux = TF[3] * 0.94 - TF[6] * 0.34;
+        uy = TF[4] * 0.94 - TF[7] * 0.34;
+        uz = TF[5] * 0.94 - TF[8] * 0.34;
+        // (the normal, up x right, then faces the holder; flipped below so the speaker faces out)
+      } else {
+        // the ledger lying closed on the lap
+        hw = 0.075 * sc;
+        hh = 0.055 * sc;
+        const k0 = KN[0] * 3;
+        const k1 = KN[1] * 3;
+        cx = (J[PEL * 3] + (J[k0] + J[k1]) / 2) / 2;
+        cy = (J[PEL * 3 + 1] + (J[k0 + 1] + J[k1 + 1]) / 2) / 2 + b.rThigh * 1.05 + 0.008;
+        cz = (J[PEL * 3 + 2] + (J[k0 + 2] + J[k1 + 2]) / 2) / 2 + 0.02 * sc;
+        rx = PF[0];
+        ry = 0;
+        rz = PF[2];
+        ux = -rz;
+        uy = 0;
+        uz = rx;
+      }
+    } else return;
+    PG[24] = cx;
+    PG[25] = cy;
+    PG[26] = cz;
+    PG[27] = rx;
+    PG[28] = ry;
+    PG[29] = rz;
+    PG[30] = ux;
+    PG[31] = uy;
+    PG[32] = uz;
+    // the normal: up x right (toward the holder's face for a book or a clipboard; up for a book lying on the lap)
+    let nx = uy * rz - uz * ry;
+    let ny = uz * rx - ux * rz;
+    let nz = ux * ry - uy * rx;
+    if (pose === HO_SIT && V.lap === "walkie") {
+      nx = -nx;
+      ny = -ny;
+      nz = -nz;
+    }
+    const nl = hyp3(nx, ny, nz) || 1;
+    PG[33] = nx / nl;
+    PG[34] = ny / nl;
+    PG[35] = nz / nl;
+    PG[36] = hw;
+    PG[37] = hh;
+  }
+  /** The tools in the hands (PG 0..23: grip, along, across, the flat side's normal) and the things on the floor. */
+  function placeProps(b) {
+    const sc = sizeOf(b);
+    for (let i = 0; i < 2; i++) {
+      const k = HELD[i];
+      if (!k) continue;
+      const o = i * 12;
+      if (k === PR_LEDGER) {
+        // closed, against the body under this arm, its cover turned out and a little forward (so it reads from the
+        // front as from the side); the arm over it
+        const s = i ? 1 : -1;
+        const L = b.upper + b.fore;
+        const c = CHE * 3;
+        const r = s * (b.chest[0] * 0.92 + 0.008 * sc);
+        const u = -0.45 * L;
+        const f = 0.045 * sc;
+        PG[o] = J[c] + TF[0] * r + TF[3] * u + TF[6] * f;
+        PG[o + 1] = J[c + 1] + TF[1] * r + TF[4] * u + TF[7] * f;
+        PG[o + 2] = J[c + 2] + TF[2] * r + TF[5] * u + TF[8] * f;
+        const ca = 0.77;
+        const sa = 0.64;
+        for (let q = 0; q < 3; q++) {
+          PG[o + 3 + q] = TF[6 + q] * ca - TF[q] * s * sa; // along: its width
+          PG[o + 6 + q] = TF[3 + q]; // across: its height
+          PG[o + 9 + q] = TF[q] * s * ca + TF[6 + q] * sa; // its cover's normal, out
+        }
+        continue;
+      }
+      // the grip: the palm's middle, from the model alone (handFrame's size reads the last projection, which belongs
+      // to the draw before this one while the pose is solved)
+      handFrame(i);
+      const h = HA[i] * 3;
+      const po = 0.38 * b.hand;
+      HPC[0] = J[h] + HFV[0] * po;
+      HPC[1] = J[h + 1] + HFV[1] * po;
+      HPC[2] = J[h + 2] + HFV[2] * po;
+      PG[o] = HPC[0];
+      PG[o + 1] = HPC[1];
+      PG[o + 2] = HPC[2];
+      let dx;
+      let dy;
+      let dz;
+      if (k === PR_HAMMER) {
+        const th = -0.3 + 2.7 * HB[HB_SWING];
+        dx = -0.25;
+        dy = Math.sin(th);
+        dz = Math.cos(th);
+      } else if (k === PR_TROWEL) {
+        const ph = HB[HB_DIG];
+        dx = -0.1;
+        dy = -0.8 - 0.15 * Math.cos(ph);
+        dz = 0.55 + 0.2 * Math.sin(ph);
+      } else if (k === PR_PENCIL) {
+        dx = PG[50] - HPC[0];
+        dy = PG[51] - HPC[1];
+        dz = PG[52] - HPC[2];
+        if (HB[HB_POSE] !== HO_WORK) {
+          dx = HFV[0];
+          dy = HFV[1];
+          dz = HFV[2];
+        }
+      } else if (HB[HB_POSE] === HO_SIT) {
+        // the wrench hanging from the hand
+        dx = 0;
+        dy = -1;
+        dz = 0.1;
+      } else {
+        // a wrench carried down by the side: along the forearm, tipped forward
+        const e = EL[i] * 3;
+        const h = HA[i] * 3;
+        dx = J[h] - J[e] + TF[6] * 0.08;
+        dy = J[h + 1] - J[e + 1] + TF[7] * 0.08;
+        dz = J[h + 2] - J[e + 2] + TF[8] * 0.08;
+      }
+      const dl = hyp3(dx, dy, dz) || 1;
+      dx /= dl;
+      dy /= dl;
+      dz /= dl;
+      PG[o + 3] = dx;
+      PG[o + 4] = dy;
+      PG[o + 5] = dz;
+      // across: square to it, as level as it can be (the hammer's head runs along its swing)
+      let ax;
+      let ay;
+      let az;
+      if (k === PR_HAMMER) {
+        const th = -0.3 + 2.7 * HB[HB_SWING];
+        ax = 0;
+        ay = Math.cos(th);
+        az = -Math.sin(th);
+      } else {
+        // the flat side toward the camera: across = along x (toward the camera)
+        ax = dy * RG[TCZ];
+        ay = dz * RG[TCX] - dx * RG[TCZ];
+        az = -dy * RG[TCX];
+        if (hyp3(ax, ay, az) < 0.2) {
+          ax = 1;
+          ay = 0;
+          az = 0;
+        }
+      }
+      const pd = ax * dx + ay * dy + az * dz;
+      ax -= pd * dx;
+      ay -= pd * dy;
+      az -= pd * dz;
+      const al = hyp3(ax, ay, az) || 1;
+      PG[o + 6] = ax / al;
+      PG[o + 7] = ay / al;
+      PG[o + 8] = az / al;
+      PG[o + 9] = dy * PG[o + 8] - dz * PG[o + 7];
+      PG[o + 10] = dz * PG[o + 6] - dx * PG[o + 8];
+      PG[o + 11] = dx * PG[o + 7] - dy * PG[o + 6];
+    }
+    // the floor things
+    PG[38] = BOARD_X * sc;
+    PG[39] = BOARD_Z * sc;
+    PG[40] = BED_X * sc;
+    PG[41] = (BED_Z + 0.02) * sc;
+    PG[42] = -0.2 * sc;
+    PG[43] = 0.3 * sc;
+    PG[44] = 0.24 * sc;
+    PG[45] = HB[HB_POSE] === HO_WORK ? -0.06 * sc : 0.12 * sc;
+    PG[46] = -0.24 * sc;
+    PG[47] = HB[HB_POSE] === HO_WORK ? 0.0 : 0.08 * sc;
+    PG[48] = (BOARD_X + NAIL_DX) * sc;
+    PG[49] = BOARD_Z * sc;
+  }
+
+  /** What shows in the hands, in front and on the floor for the pose whose props show (HB_POSE: the asked pose from
+      poseW 0.5, else standing), and what is worn. */
+  function choseProps(job) {
+    const pp = HB[HB_POSE];
+    HELD[0] = PR_NONE;
+    HELD[1] = PR_NONE;
+    FRONT = PR_NONE;
+    FRONT_OVER = false;
+    GND = 0;
+    WALKIE_ON = !!V.walkie;
+    EAR_PENCIL = !!V.earPencil;
+    const hold = V.hold;
+    const hs = V.holdSide;
+    if (pp <= HO_TALK) {
+      if (hold === "ledger") HELD[hs] = PR_LEDGER;
+      else if (hold === "tool") HELD[hs] = PR_WRENCH;
+    } else if (pp === HO_WORK) {
+      if (job === JOB_GARDEN) {
+        HELD[1] = PR_TROWEL;
+        GND = G_SOIL;
+      } else if (job === JOB_HAMMER) {
+        HELD[1] = PR_HAMMER;
+        GND = G_BOARD;
+      } else {
+        FRONT = PR_CLIPBOARD;
+        FRONT_OVER = true;
+        HELD[1] = PR_PENCIL;
+        EAR_PENCIL = false;
+      }
+      // what they carry is put down beside them
+      if (hold === "tool") GND |= G_WRENCH;
+      else if (hold === "ledger") GND |= G_LEDGER;
+    } else if (pp === HO_SIT) {
+      const lap = V.lap;
+      if (lap === "ledger") {
+        if (HB[HB_CF] > 0.5) FRONT = PR_LEDGER_LAP;
+        else GND = G_LEDGER;
+      } else if (lap === "wrench") HELD[1] = PR_WRENCH;
+      else if (lap === "walkie") {
+        FRONT = PR_WALKIE;
+        WALKIE_ON = false;
+      }
+    } else if (pp === HO_READ) FRONT = V.book === "manual" ? PR_MANUAL : V.book === "notebook" ? PR_NOTEBOOK : PR_LEDGER_OPEN;
+    else if (pp === HO_COWER) {
+      if (hold === "ledger") GND = G_LEDGER;
+      else if (hold === "tool") GND = G_WRENCH;
+    }
+  }
+
+  /* ---------- A person drawn ---------- */
+  const PT_WORN = 8; // the rag in the back pocket
+  const PT_POCKET = 9; // the hoodie's pocket again over the wrists (hands in it)
+  const PT_FRONT = 10; // the prop held in front in both hands
+  const NPH = 11;
+  const hKey = new Float64Array(NPH);
+  const hOrd = new Int32Array(NPH);
+  function drawHuman(ctx, t, st, cam) {
+    RESULT.face = false;
+    RESULT.parts = 0;
+    if (!ctx || !st || !cam) return RESULT;
+    T = t;
+    G = ctx;
+    HUM = true;
+    SEED = st.seed | 0;
+    V = t.looks[(SEED >>> 0) % t.looks.length];
+    const K = humanH(t) / t.h;
+    RG[CW] = Math.max(1, +cam.w || 1);
+    RG[CH] = Math.max(1, +cam.h || 1);
+    RG[W2] = RG[CW] / 2;
+    FLR[1] = +cam.floor > 0 ? Math.min(+cam.floor, RG[CH] * 0.6) : 0;
+    FLR[0] = RG[CH] - FLR[1];
+    SHADOW = cam.shadow !== false;
+    // cam is in tiles; the model in its own units (K tiles each)
+    RG[PXS] = +cam.px > 0 ? +cam.px * K : FLR[0] / t.h;
+    RG[DIST] = (+cam.dist > 0.05 ? +cam.dist : 0.05) / K;
+    RG[EYE] = (cam.eye == null || !Number.isFinite(+cam.eye) ? 0.5 : Math.max(0.05, +cam.eye)) / K;
+    const yaw = +st.yaw || 0;
+    RG[CYAW] = Math.cos(yaw);
+    RG[SYAW] = Math.sin(yaw);
+    RG[TCX] = -RG[SYAW];
+    RG[TCZ] = RG[CYAW];
+    HB[HB_CAMX] = RG[TCX] * RG[DIST];
+    HB[HB_CAMX + 1] = RG[EYE];
+    HB[HB_CAMX + 2] = RG[TCZ] * RG[DIST];
+    LOD = st.lod === 1 || st.lod === 2 ? st.lod : 0;
+    RG[FOGK] = 1 - Math.round(Math.min(0.9, Math.max(0, +st.fog || 0)) * FOG_STEPS) / FOG_STEPS;
+    RG[FLASH] = 0;
+    GORE = false;
+    RUNNING = false;
+    INKS = col(INK, 1, 1);
+    FACE = false;
+    solveHuman(t, st, K);
+    RG[PSC] = 1;
+    RG[OUT] = Math.max(0.7, Math.min(3.2, RG[PXS] * 0.0105));
+    fit();
+    RG[OUT] = Math.max(0.7, Math.min(3.2, RG[PXS] * RG[FIT] * 0.0105));
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.globalAlpha = 1;
+    drawGround();
+    if (GND) drawFloorThings();
+    // parts, far to near (the walkers' keys), and the person's own: the rag, the pocket over the wrists, the prop held
+    // in front (under the hands holding it, or over the hand writing on it)
+    hKey[PT_LEG0] = md3(HI[0], KN[0], AN[0]) + 0.16;
+    hKey[PT_LEG1] = md3(HI[1], KN[1], AN[1]) + 0.16;
+    hKey[PT_TORSO] = (jDepth(PEL) + jDepth(CHE)) / 2 + 0.01;
+    // (the trousers' seat always under the top: leaning forward, seen from behind, it would cover the hem)
+    hKey[PT_PELVIS] = hKey[PT_TORSO] + 0.02;
+    hKey[PT_ARM0] = md3(SH[0], EL[0], HA[0]) - 0.01;
+    hKey[PT_ARM1] = md3(SH[1], EL[1], HA[1]) - 0.01;
+    FACEDOWN = false;
+    HEADBACK = facing(HF[6], HF[8]) < 0 && jDepth(HED) > jDepth(CHE);
+    hKey[PT_HEAD] = HEADBACK ? jDepth(HED) : Math.min(jDepth(HED) - 0.12, hKey[PT_TORSO] - 0.001);
+    hKey[PT_HAIR] = 0;
+    ARMPAIR = LOD > 0 && hKey[PT_ARM0] < hKey[PT_TORSO] === hKey[PT_ARM1] < hKey[PT_TORSO];
+    if (ARMPAIR) hKey[PT_ARM0] = Math.min(hKey[PT_ARM0], hKey[PT_ARM1]);
+    LEGPAIR = LOD === 2 || (LOD === 1 && Math.abs(RG[CYAW]) > 0.7);
+    if (LEGPAIR) hKey[PT_LEG0] = Math.max(hKey[PT_LEG0], hKey[PT_LEG1]);
+    const pock = Math.max(FO[O_ARM + 11], FO[O_ARM + 23]) > 0.5 && V.top === "hoodie" && torsoFacing(0, 0.2) > 0.2;
+    if (pock) hKey[PT_POCKET] = Math.min(hKey[PT_ARM0], ARMPAIR ? hKey[PT_ARM0] : hKey[PT_ARM1]) - 0.002;
+    if (V.rag && LOD < 2) {
+      ragAt();
+      hKey[PT_WORN] = depth(RG[SFX], RG[SFZ]);
+    }
+    if (FRONT) {
+      const fd = depth(PG[24], PG[26]);
+      const k0 = hKey[PT_ARM0];
+      const k1 = ARMPAIR ? k0 : hKey[PT_ARM1];
+      // seen from behind it is behind the body; else just before both hands (they hold it), or after them
+      if (fd > hKey[PT_TORSO]) hKey[PT_FRONT] = fd;
+      else if (FRONT_OVER) hKey[PT_FRONT] = Math.min(k0, k1) - 0.002;
+      else hKey[PT_FRONT] = (Math.abs(k0 - k1) > 0.06 ? Math.min(k0, k1) : Math.max(k0, k1)) + 0.002;
+    }
+    let n = 0;
+    for (let p = 0; p < NPH; p++) {
+      if (p === PT_HAIR) continue;
+      if (p === PT_PELVIS && (V.hem > 0.14 || LOD === 2)) continue;
+      if ((p === PT_ARM1 && ARMPAIR) || (p === PT_LEG1 && LEGPAIR)) continue;
+      if ((p === PT_WORN && !(V.rag && LOD < 2)) || (p === PT_POCKET && !pock) || (p === PT_FRONT && !FRONT)) continue;
+      let i = n++;
+      while (i > 0 && hKey[hOrd[i - 1]] < hKey[p]) {
+        hOrd[i] = hOrd[i - 1];
+        i--;
+      }
+      hOrd[i] = p;
+    }
+    for (let i = 0; i < n; i++) drawPartH(hOrd[i]);
+    RESULT.face = FACE;
+    RESULT.parts = n;
+    G = null;
+    HUM = false;
+    return RESULT;
+  }
+  function drawPartH(p) {
+    switch (p) {
+      case PT_LEG0:
+        return drawLeg(0);
+      case PT_LEG1:
+        return drawLeg(1);
+      case PT_PELVIS:
+        return drawPelvis();
+      case PT_TORSO:
+        return drawTorsoH();
+      case PT_ARM0:
+        return drawArmH(0);
+      case PT_ARM1:
+        return drawArmH(1);
+      case PT_HEAD:
+        return drawHeadH();
+      case PT_WORN:
+        return drawRag();
+      case PT_POCKET:
+        return pocketPath(true);
+      default:
+        return drawFront();
+    }
+  }
+  /** How much the torso's surface at (th, v) faces the camera (torsoPoint without keeping the point). */
+  const torsoFacing = (th, v) => torsoPoint(th, v, 0);
+
+  /* ---------- A person's arms: sleeves (long, or rolled to the elbow), hands (no claws: fingers, or a glove), and the
+     tool in the hand drawn with its arm (before it when the tool is farther than the hand, else after) ---------- */
+  function drawArmH(i) {
+    if (LOD > 0) return drawArmsLowH(ARMPAIR ? 3 : 1 << i);
+    const b = T.build;
+    const sh = SH[i];
+    const el = EL[i];
+    const ha = HA[i];
+    const k = S[el * 3 + 2];
+    const wu = b.rUpper * 2 * RG[PXS] * k;
+    const wf = b.rFore * 2 * RG[PXS] * k;
+    const rolled = V.sleeve === "rolled";
+    const inPocket = FO[O_ARM + i * 12 + 11] > 0.5;
+    const toolFar = HELD[i] && toolDepth(i) > jDepth(ha);
+    if (toolFar) drawTool(i);
+    const handFar = depth(J[ha * 3], J[ha * 3 + 2]) > depth(J[el * 3], J[el * 3 + 2]);
+    if (handFar && !inPocket) drawHandH(i);
+    // ink, then the sleeve (and a bare forearm under a rolled sleeve)
+    G.strokeStyle = INKS;
+    G.lineWidth = wu + RG[OUT] * 2;
+    segJ(sh, el);
+    G.lineWidth = wf + RG[OUT] * 2;
+    segJ(el, ha);
+    G.strokeStyle = col(V.sleeveCol || V.shirt, 1, 1);
+    G.lineWidth = wu;
+    segJ(sh, el);
+    G.strokeStyle = rolled ? col(V.skin, 1, 1) : col(V.sleeveCol || V.shirt, 1, 1);
+    G.lineWidth = wf;
+    segJ(el, ha);
+    shadeSide(S[sh * 3], S[sh * 3 + 1], S[ha * 3], S[ha * 3 + 1]);
+    G.strokeStyle = col(BLACK, 1, 0.18);
+    G.lineWidth = wf * 0.45;
+    G.beginPath();
+    mt(S[sh * 3] + RG[NX] * wu * 0.28, S[sh * 3 + 1] + RG[NY] * wu * 0.28);
+    lt(S[el * 3] + RG[NX] * wf * 0.28, S[el * 3 + 1] + RG[NY] * wf * 0.28);
+    lt(S[ha * 3] + RG[NX] * wf * 0.28, S[ha * 3 + 1] + RG[NY] * wf * 0.28);
+    G.stroke();
+    if (rolled) {
+      // the rolled sleeve: a fat cuff of cloth just under the elbow
+      const x0 = S[el * 3];
+      const y0 = S[el * 3 + 1];
+      const x1 = x0 + (S[ha * 3] - x0) * 0.16;
+      const y1 = y0 + (S[ha * 3 + 1] - y0) * 0.16;
+      G.lineCap = "butt";
+      G.strokeStyle = INKS;
+      G.lineWidth = wu * 1.25 + RG[OUT] * 2;
+      seg(x0 + (x0 - x1) * 0.4, y0 + (y0 - y1) * 0.4, x1, y1);
+      G.strokeStyle = col(V.sleeveCol || V.shirt, 1.12, 1);
+      G.lineWidth = wu * 1.25;
+      seg(x0 + (x0 - x1) * 0.3, y0 + (y0 - y1) * 0.3, x1 - (x1 - x0) * 0.1, y1 - (y1 - y0) * 0.1);
+      G.lineCap = "round";
+    } else if (!inPocket) {
+      // the cuff at the wrist (a hoodie's ribbed one, darker)
+      const x0 = S[el * 3] + (S[ha * 3] - S[el * 3]) * 0.8;
+      const y0 = S[el * 3 + 1] + (S[ha * 3 + 1] - S[el * 3 + 1]) * 0.8;
+      G.strokeStyle = INKS;
+      G.lineWidth = wf * 1.18 + RG[OUT] * 2;
+      seg(x0, y0, S[ha * 3], S[ha * 3 + 1]);
+      G.strokeStyle = col(V.cuff || V.sleeveCol || V.shirt, 0.82, 1);
+      G.lineWidth = wf * 1.18;
+      seg(x0, y0, S[ha * 3], S[ha * 3 + 1]);
+    }
+    if (!handFar && !inPocket) drawHandH(i);
+    if (HELD[i] && !toolFar) drawTool(i);
+  }
+  /** A person's hand up close: the walkers' fingers with the look's nails (or a glove), and a glove's cuff. */
+  function drawHandH(i) {
+    drawHand(i);
+    if (V.glove) {
+      const el = EL[i] * 3;
+      const ha = HA[i] * 3;
+      const k = S[ha + 2];
+      const w = T.build.rFore * 2.5 * RG[PXS] * k;
+      const x0 = S[ha] + (S[el] - S[ha]) * 0.12;
+      const y0 = S[ha + 1] + (S[el + 1] - S[ha + 1]) * 0.12;
+      G.lineCap = "butt";
+      G.strokeStyle = INKS;
+      G.lineWidth = w + RG[OUT] * 2;
+      seg(x0, y0, S[ha], S[ha + 1]);
+      G.strokeStyle = col(V.glove, 0.85, 1);
+      G.lineWidth = w;
+      seg(x0, y0, S[ha], S[ha + 1]);
+      G.lineCap = "round";
+    }
+  }
+  /** Arms far away (lod 1 and 2): one ink and one cloth stroke for the arms in mask, the bare forearms of rolled
+      sleeves, then (lod 1) mittens with no claws; the tools in those hands at their depth. */
+  function drawArmsLowH(mask) {
+    const b = T.build;
+    let k = 0;
+    for (let i = 0; i < 2; i++) if (mask & (1 << i)) k = Math.max(k, S[EL[i] * 3 + 2]);
+    const ww = (b.rUpper + b.rFore) * RG[PXS] * k;
+    for (let i = 0; i < 2; i++) if (mask & (1 << i) && HELD[i] && toolDepth(i) > jDepth(HA[i])) drawTool(i);
+    G.beginPath();
+    for (let i = 0; i < 2; i++) {
+      if (!(mask & (1 << i))) continue;
+      mt(S[SH[i] * 3], S[SH[i] * 3 + 1]);
+      lt(S[EL[i] * 3], S[EL[i] * 3 + 1]);
+      lt(S[HA[i] * 3], S[HA[i] * 3 + 1]);
+    }
+    G.strokeStyle = INKS;
+    G.lineWidth = ww + RG[OUT] * 2;
+    G.stroke();
+    G.strokeStyle = col(V.sleeveCol || V.shirt, 1, 1);
+    G.lineWidth = ww;
+    G.stroke();
+    if (V.sleeve === "rolled") {
+      G.beginPath();
+      for (let i = 0; i < 2; i++) {
+        if (!(mask & (1 << i))) continue;
+        const el = EL[i] * 3;
+        const ha = HA[i] * 3;
+        mt(S[el] + (S[ha] - S[el]) * 0.18, S[el + 1] + (S[ha + 1] - S[el + 1]) * 0.18);
+        lt(S[ha], S[ha + 1]);
+      }
+      G.strokeStyle = col(V.skin, 1, 1);
+      G.lineWidth = ww * 0.85;
+      G.stroke();
+    }
+    if (LOD === 1) {
+      G.beginPath();
+      let any = false;
+      for (let i = 0; i < 2; i++) {
+        if (!(mask & (1 << i)) || FO[O_ARM + i * 12 + 11] > 0.5) continue;
+        handFrame(i);
+        mitten();
+        ellSub(0);
+        any = true;
+      }
+      if (any) {
+        G.fillStyle = col(V.handSkin || V.skin, 1, 1);
+        G.fill();
+        G.strokeStyle = INKS;
+        G.lineWidth = Math.max(0.8, RG[OUT]);
+        G.stroke();
+      }
+    }
+    for (let i = 0; i < 2; i++) if (mask & (1 << i) && HELD[i] && !(toolDepth(i) > jDepth(HA[i]))) drawTool(i);
+  }
+  /** The depth of the middle of the tool in hand i. */
+  function toolDepth(i) {
+    const o = i * 12;
+    if (HELD[i] === PR_LEDGER) return Infinity; // tucked under the arm: always behind it
+    const l = toolLen(HELD[i]) * 0.5;
+    return depth(PG[o] + PG[o + 3] * l, PG[o + 2] + PG[o + 5] * l);
+  }
+  /** How far a tool reaches past the grip (model units at a grown-up's size). */
+  function toolLen(k) {
+    const sc = sizeOf(T.build);
+    return (k === PR_WRENCH ? 0.13 : k === PR_TROWEL ? 0.12 : k === PR_HAMMER ? HAMMER_LEN + 0.03 : k === PR_PENCIL ? 0.05 : 0.08) * sc;
+  }
+
+  /* ---------- A person's torso: the walkers' tube with a straight hem, and their clothes on it ---------- */
+  function drawTorsoH() {
+    // the hood (down) bunched behind the neck: behind the torso from the front, over its back from behind
+    const hood = V.top === "hoodie" && LOD < 2;
+    const hb = hood && hoodRoll() > jDepth(CHE);
+    if (hb) hoodDraw();
+    drawTorso();
+    if (hood && !hb) hoodDraw();
+  }
+  /** The hood lying down behind the neck as EX.. (an ellipsoid on the torso frame); returns its depth. */
+  function hoodRoll() {
+    const b = T.build;
+    const c = CHE * 3;
+    const u = b.rise * 0.5;
+    const f = -b.chest[1] * 0.75;
+    const x = J[c] + TF[3] * u + TF[6] * f;
+    const y = J[c + 1] + TF[4] * u + TF[7] * f;
+    const z = J[c + 2] + TF[5] * u + TF[8] * f;
+    const ra = b.shW * 0.72;
+    const rb = b.rNeck * 1.5;
+    const rc = b.chest[1] * 0.55;
+    ellipsoid(x, y, z, TF[0] * ra, TF[1] * ra, TF[2] * ra, TF[3] * rb, TF[4] * rb, TF[5] * rb, TF[6] * rc, TF[7] * rc, TF[8] * rc, 0);
+    return depth(x, z);
+  }
+  function hoodDraw() {
+    hoodRoll();
+    ellInk(col(V.shirt, 0.82, 1));
+    if (LOD === 0) crescent(0.2, 0.35);
+  }
+  /** The clothes on a person's torso (drawTorso calls this in place of the walkers' grime, rips and smears). */
+  function torsoDecalsH() {
+    if (LOD === 2) return;
+    const top = V.top;
+    const lw = Math.max(0.7, RG[OUT] * 0.8);
+    if (top === "cardigan") {
+      // open down the front: the shirt between its edges, wider at the neck (a V), the button bands, buttons, pockets
+      if (torsoPoint(0, 0.5, 0) > 0.05) {
+        G.beginPath();
+        for (let k = 0; k <= 4; k++) {
+          const v = 1.05 - k * 0.27;
+          torsoPoint(-(0.16 + 0.17 * Math.max(0, v - 0.35)), v, 0.002);
+          if (k) lt(RG[QX], RG[QY]);
+          else mt(RG[QX], RG[QY]);
+        }
+        for (let k = 4; k >= 0; k--) {
+          const v = 1.05 - k * 0.27;
+          torsoPoint(0.16 + 0.17 * Math.max(0, v - 0.35), v, 0.002);
+          lt(RG[QX], RG[QY]);
+        }
+        G.closePath();
+        G.fillStyle = col(V.under, 1, 1);
+        G.fill();
+        // the band down each edge
+        G.beginPath();
+        for (let s = -1; s <= 1; s += 2) {
+          for (let k = 0; k <= 4; k++) {
+            const v = 1.05 - k * 0.27;
+            torsoPoint(s * (0.17 + 0.17 * Math.max(0, v - 0.35)), v, 0.003);
+            if (k) lt(RG[QX], RG[QY]);
+            else mt(RG[QX], RG[QY]);
+          }
+        }
+        G.strokeStyle = col(V.shirt, 1.3, 1);
+        G.lineWidth = Math.max(1, 0.018 * RG[PXS] * RG[QK]);
+        G.stroke();
+        G.strokeStyle = col(INK, 1, 0.7);
+        G.lineWidth = lw * 0.8;
+        G.stroke();
+        if (LOD === 0) {
+          // buttons down her left band; the shirt's collar points
+          G.beginPath();
+          for (let k = 0; k < 3; k++) {
+            const v = 0.68 - k * 0.24;
+            torsoPoint(-(0.2 + 0.17 * Math.max(0, v - 0.35)), v, 0.004);
+            elSub(RG[QX], RG[QY], 0.007 * RG[PXS] * RG[QK], 0.007 * RG[PXS] * RG[QK], 0);
+          }
+          G.fillStyle = col(V.button || PROP_COL.label, 1, 1);
+          G.fill();
+          G.beginPath();
+          for (let s = -1; s <= 1; s += 2) {
+            torsoPoint(s * 0.05, 1.08, 0.004);
+            mt(RG[QX], RG[QY]);
+            torsoPoint(s * 0.3, 1.04, 0.004);
+            lt(RG[QX], RG[QY]);
+            torsoPoint(s * 0.17, 0.86, 0.004);
+            lt(RG[QX], RG[QY]);
+            G.closePath();
+          }
+          G.fillStyle = col(V.under, 1.12, 1);
+          G.fill();
+          G.strokeStyle = INKS;
+          G.lineWidth = lw * 0.8;
+          G.stroke();
+        }
+      }
+      if (LOD === 0) patchPockets(0.95, 0.06, 0.3, 0.22);
+      hemBand(0.85);
+    } else if (top === "coveralls") {
+      // one piece: the collar's points, the zip down the front, a chest pocket with a pen, a name patch, the waist
+      // seam, grease smudges
+      if (torsoPoint(0, 0.6, 0) > 0.1) {
+        G.beginPath();
+        torsoPoint(0, 1.0, 0.003);
+        mt(RG[QX], RG[QY]);
+        torsoPoint(0, -0.1, 0.003);
+        lt(RG[QX], RG[QY]);
+        G.strokeStyle = col(INK, 1, 0.65);
+        G.lineWidth = lw;
+        G.stroke();
+        G.beginPath();
+        for (let s = -1; s <= 1; s += 2) {
+          torsoPoint(s * 0.06, 1.1, 0.004);
+          mt(RG[QX], RG[QY]);
+          torsoPoint(s * 0.42, 1.05, 0.004);
+          lt(RG[QX], RG[QY]);
+          torsoPoint(s * 0.12, 0.8, 0.004);
+          lt(RG[QX], RG[QY]);
+          G.closePath();
+        }
+        G.fillStyle = col(V.shirt, 1.25, 1);
+        G.fill();
+        G.strokeStyle = INKS;
+        G.lineWidth = lw;
+        G.stroke();
+        if (LOD === 0) {
+          // the T-shirt in the open collar
+          G.beginPath();
+          torsoPoint(-0.06, 1.08, 0.003);
+          mt(RG[QX], RG[QY]);
+          torsoPoint(0.06, 1.08, 0.003);
+          lt(RG[QX], RG[QY]);
+          torsoPoint(0, 0.88, 0.003);
+          lt(RG[QX], RG[QY]);
+          G.closePath();
+          G.fillStyle = col(V.under, 1, 1);
+          G.fill();
+        }
+      }
+      if (LOD === 0) {
+        if (torsoPoint(-0.5, 0.75, 0) > 0.15) {
+          // the chest pocket on his left, a red pen in it
+          G.beginPath();
+          torsoPoint(-0.68, 0.84, 0.004);
+          mt(RG[QX], RG[QY]);
+          torsoPoint(-0.32, 0.84, 0.004);
+          lt(RG[QX], RG[QY]);
+          torsoPoint(-0.33, 0.6, 0.004);
+          lt(RG[QX], RG[QY]);
+          torsoPoint(-0.67, 0.6, 0.004);
+          lt(RG[QX], RG[QY]);
+          G.closePath();
+          G.fillStyle = col(V.shirt, 0.9, 1);
+          G.fill();
+          G.strokeStyle = col(INK, 1, 0.75);
+          G.lineWidth = lw * 0.8;
+          G.stroke();
+          G.beginPath();
+          torsoPoint(-0.42, 0.78, 0.006);
+          mt(RG[QX], RG[QY]);
+          torsoPoint(-0.43, 0.92, 0.006);
+          lt(RG[QX], RG[QY]);
+          G.strokeStyle = col(PROP_COL.rag, 1, 1);
+          G.lineWidth = Math.max(0.8, 0.012 * RG[PXS] * RG[QK]);
+          G.stroke();
+        }
+        if (torsoPoint(0.5, 0.74, 0.004) > 0.2) {
+          // a name patch, a red scrawl on it (no real name)
+          const x = RG[QX];
+          const y = RG[QY];
+          const r = 0.035 * RG[PXS] * RG[QK];
+          G.beginPath();
+          elSub(x, y, r, r * 0.62, 0);
+          G.fillStyle = col(PROP_COL.white, 0.95, 1);
+          G.fill();
+          G.strokeStyle = col(INK, 1, 0.7);
+          G.lineWidth = lw * 0.7;
+          G.stroke();
+          G.beginPath();
+          mt(x - r * 0.6, y + r * 0.1);
+          lt(x - r * 0.2, y - r * 0.2);
+          lt(x + r * 0.15, y + r * 0.15);
+          lt(x + r * 0.55, y - r * 0.15);
+          G.strokeStyle = col(PROP_COL.rag, 1, 1);
+          G.lineWidth = Math.max(0.6, r * 0.18);
+          G.stroke();
+        }
+        // grease smudges, a few, where the seed puts them
+        G.beginPath();
+        let any = false;
+        for (let n = 0; n < 4; n++) {
+          const th = (rnd(100 + n) - 0.5) * 2.4;
+          const v = 0.1 + 0.8 * rnd(110 + n);
+          const f = torsoPoint(th, v, 0.002);
+          if (f < 0.3) continue;
+          const r = (0.012 + 0.012 * rnd(120 + n)) * RG[PXS] * RG[QK];
+          elSub(RG[QX], RG[QY], r, r * (0.45 + 0.4 * f), rnd(130 + n) * 3);
+          any = true;
+        }
+        if (any) {
+          G.fillStyle = col(V.grease || INK, 1, 0.3);
+          G.fill();
+        }
+      }
+      waistSeam();
+    } else if (top === "hoodie") {
+      pocketPath(false);
+      if (LOD === 0 && torsoPoint(0, 0.85, 0) > 0.3) {
+        // drawstrings
+        G.beginPath();
+        for (let s = -1; s <= 1; s += 2) {
+          torsoPoint(s * 0.15, 1.04, 0.004);
+          mt(RG[QX], RG[QY]);
+          torsoPoint(s * 0.17, 0.66, 0.004);
+          lt(RG[QX], RG[QY]);
+        }
+        G.strokeStyle = col(V.string || PROP_COL.white, 0.95, 1);
+        G.lineWidth = Math.max(0.8, RG[OUT] * 0.85);
+        G.stroke();
+      }
+      hemBand(0.8);
+    } else if (LOD === 0) {
+      // a plain work shirt: a button line and two pockets
+      if (torsoPoint(0, 0.5, 0) > 0.15) {
+        G.beginPath();
+        torsoPoint(0, 1.02, 0.003);
+        mt(RG[QX], RG[QY]);
+        torsoPoint(0, 0.0, 0.003);
+        lt(RG[QX], RG[QY]);
+        G.strokeStyle = col(INK, 1, 0.5);
+        G.lineWidth = lw * 0.8;
+        G.stroke();
+      }
+      patchPockets(0.92, 0.6, 0.85, 0.2);
+    }
+    if (WALKIE_ON) clippedWalkie();
+  }
+  /** Two patch pockets (their outlines), a shade lm darker, from height v0 to v1, at th0 either side of the front. */
+  function patchPockets(lm, v0, v1, th0) {
+    for (let s = -1; s <= 1; s += 2) {
+      const c = s * (th0 + 0.62);
+      if (torsoPoint(c, (v0 + v1) / 2, 0) < 0.2) continue;
+      G.beginPath();
+      torsoPoint(c - 0.2, v1, 0.003);
+      mt(RG[QX], RG[QY]);
+      torsoPoint(c + 0.2, v1, 0.003);
+      lt(RG[QX], RG[QY]);
+      torsoPoint(c + 0.19, v0, 0.003);
+      lt(RG[QX], RG[QY]);
+      torsoPoint(c - 0.19, v0, 0.003);
+      lt(RG[QX], RG[QY]);
+      G.closePath();
+      G.fillStyle = col(V.shirt, lm, 1);
+      G.fill();
+      G.strokeStyle = col(INK, 1, 0.6);
+      G.lineWidth = Math.max(0.6, RG[OUT] * 0.7);
+      G.stroke();
+    }
+  }
+  /** A knitted band round the hem (the side facing the camera), a shade lm darker. */
+  function hemBand(lm) {
+    G.beginPath();
+    let started = false;
+    for (let k = 0; k <= 12; k++) {
+      const th = -PI + (k / 12) * TAU;
+      const f = torsoPoint(th, -V.hem / T.build.torso - 0.06, 0.003);
+      if (f > 0.05) {
+        if (started) lt(RG[QX], RG[QY]);
+        else mt(RG[QX], RG[QY]);
+        started = true;
+      } else if (started) break;
+    }
+    if (!started) return;
+    G.strokeStyle = col(V.shirt, lm, 1);
+    G.lineWidth = Math.max(1, 0.02 * RG[PXS] * RG[QK]);
+    G.stroke();
+  }
+  /** The coveralls' seam round the waist. */
+  function waistSeam() {
+    G.beginPath();
+    let started = false;
+    for (let k = 0; k <= 12; k++) {
+      const th = -PI + (k / 12) * TAU;
+      const f = torsoPoint(th, 0.06, 0.003);
+      if (f > 0.05) {
+        if (started) lt(RG[QX], RG[QY]);
+        else mt(RG[QX], RG[QY]);
+        started = true;
+      } else if (started) break;
+    }
+    if (!started) return;
+    G.strokeStyle = col(V.shirt, 0.7, 1);
+    G.lineWidth = Math.max(0.9, 0.012 * RG[PXS] * RG[QK]);
+    G.stroke();
+  }
+  /** The hoodie's front pocket (over: drawn again over the wrists, hands in it: only its outline and opening). */
+  function pocketPath(over) {
+    if (torsoPoint(0, 0.2, 0) < 0.2) return;
+    G.beginPath();
+    torsoPoint(-0.62, -0.02, 0.006);
+    mt(RG[QX], RG[QY]);
+    torsoPoint(-0.45, 0.36, 0.006);
+    lt(RG[QX], RG[QY]);
+    torsoPoint(0.45, 0.36, 0.006);
+    lt(RG[QX], RG[QY]);
+    torsoPoint(0.62, -0.02, 0.006);
+    lt(RG[QX], RG[QY]);
+    G.closePath();
+    G.fillStyle = col(V.shirt, over ? 0.97 : 0.92, 1);
+    G.fill();
+    G.strokeStyle = col(INK, 1, 0.75);
+    G.lineWidth = Math.max(0.8, RG[OUT] * 0.9);
+    G.stroke();
+    if (LOD === 0) {
+      // the openings at its sides, shadowed
+      G.beginPath();
+      for (let s = -1; s <= 1; s += 2) {
+        torsoPoint(s * 0.45, 0.34, 0.007);
+        mt(RG[QX], RG[QY]);
+        torsoPoint(s * 0.6, 0.03, 0.007);
+        lt(RG[QX], RG[QY]);
+      }
+      G.strokeStyle = col(V.shirt, 0.55, 1);
+      G.lineWidth = Math.max(1, 0.012 * RG[PXS] * RG[QK]);
+      G.stroke();
+    }
+  }
+  /** The walkie-talkie clipped on the left of the chest. */
+  function clippedWalkie() {
+    const f = torsoPoint(-0.55, 0.62, 0.012);
+    if (f < 0.05) return;
+    const sc = sizeOf(T.build);
+    // its axes: up the torso, round it, out of it
+    const th = -0.55;
+    const nx = TF[0] * Math.sin(th) + TF[6] * Math.cos(th);
+    const ny = TF[1] * Math.sin(th) + TF[7] * Math.cos(th);
+    const nz = TF[2] * Math.sin(th) + TF[8] * Math.cos(th);
+    walkieAt(RG[SFX], RG[SFY], RG[SFZ], TF[3], TF[4], TF[5], ny * TF[5] - nz * TF[4], nz * TF[3] - nx * TF[5], nx * TF[4] - ny * TF[3], nx, ny, nz, 0.017 * sc, 0.03 * sc, false);
+  }
+  /** The red rag hanging from the left back pocket (its top's middle in SFX..). */
+  function ragAt() {
+    const b = T.build;
+    const p = PEL * 3;
+    const r = -b.hipW * 1.15;
+    const f = -b.waist[1] * 1.02;
+    const u = -0.02;
+    RG[SFX] = J[p] + PF[0] * r + PF[3] * u + PF[6] * f;
+    RG[SFY] = J[p + 1] + PF[1] * r + PF[4] * u + PF[7] * f;
+    RG[SFZ] = J[p + 2] + PF[2] * r + PF[5] * u + PF[8] * f;
+  }
+  const RAG = [-1, 0, 1, 0, 1.15, 0.55, 0.75, 1, 0.3, 0.8, -0.2, 1.05, -0.85, 0.5];
+  function drawRag() {
+    ragAt();
+    const sc = sizeOf(T.build);
+    const w = 0.028 * sc;
+    const hgt = 0.11 * sc;
+    // it swings a little with the stride
+    const sw = HB[HB_MOVE] * Math.sin(TAU * HB[HB_GAIT]) * (0.6 + 0.6 * HB[HB_RUN]);
+    const x0 = RG[SFX];
+    const y0 = RG[SFY];
+    const z0 = RG[SFZ];
+    G.beginPath();
+    for (let k = 0; k < RAG.length; k += 2) {
+      const a = RAG[k] * w;
+      const d = RAG[k + 1] * hgt;
+      proj(x0 + PF[0] * a - PF[6] * (0.006 + d * sw * 0.3), y0 - d, z0 + PF[2] * a - PF[8] * (0.006 + d * sw * 0.3), 0);
+      if (k) lt(RG[QX], RG[QY]);
+      else mt(RG[QX], RG[QY]);
+    }
+    G.closePath();
+    G.fillStyle = col(PROP_COL.rag, 1, 1);
+    G.fill();
+    G.strokeStyle = INKS;
+    G.lineWidth = Math.max(0.8, RG[OUT] * 1.1);
+    G.stroke();
+    if (LOD === 0) {
+      proj(x0 - PF[0] * w * 0.2, y0 - hgt * 0.1, z0 - PF[2] * w * 0.2, 0);
+      G.beginPath();
+      mt(RG[QX], RG[QY]);
+      proj(x0 + PF[0] * w * 0.1 - PF[6] * 0.006, y0 - hgt * 0.85, z0 + PF[2] * w * 0.1 - PF[8] * 0.006, 0);
+      lt(RG[QX], RG[QY]);
+      G.strokeStyle = col(BLACK, 1, 0.25);
+      G.lineWidth = Math.max(0.7, RG[OUT] * 0.7);
+      G.stroke();
+    }
+  }
+
+  /* ---------- A person's head: a chin, the skull, hair (short, a bun, curls), ears, a human face ---------- */
+  function drawHeadH() {
+    const b = T.build;
+    const look = V;
+    const rx = b.head[0];
+    const ry = b.head[1];
+    const rz = b.head[2];
+    const o = HED * 3;
+    const ff = facing(HF[6], HF[8]);
+    const skin = look.skin;
+    const k = S[HED * 3 + 2];
+    // the neck, then the chin under the skull's front
+    proj(J[o] - HF[3] * ry * 0.55 - HF[6] * rz * 0.15, J[o + 1] - HF[4] * ry * 0.55 - HF[7] * rz * 0.15, J[o + 2] - HF[5] * ry * 0.55 - HF[8] * rz * 0.15, 0);
+    const nkx = RG[QX];
+    const nky = RG[QY];
+    proj(J[CHE * 3] + TF[3] * 0.01, J[CHE * 3 + 1] + TF[4] * 0.01, J[CHE * 3 + 2] + TF[5] * 0.01, 0);
+    const wn = b.rNeck * 2 * RG[PXS] * k;
+    G.beginPath();
+    mt(RG[QX], RG[QY]);
+    lt(nkx, nky);
+    if (LOD < 2) {
+      G.strokeStyle = INKS;
+      G.lineWidth = wn + RG[OUT] * 2;
+      G.stroke();
+    }
+    G.strokeStyle = col(skin, 0.84, 1);
+    G.lineWidth = wn;
+    G.stroke();
+    const bun = look.hairStyle === "bun" && LOD < 2;
+    const bunFar = bun && bunDepth() > jDepth(HED);
+    if (bunFar) bunDraw();
+    if (LOD < 2 && ff > -0.3) {
+      const jb = b.jaw;
+      const jo = RG[JAW];
+      ellF(HF, HED, 0, -ry * (0.56 + 0.06 * jo), rz * 0.22, jb[0], jb[1] * (1 + 0.1 * jo), jb[2]);
+      if (LOD === 0) ellInk(col(skin, 0.97, 1));
+      else {
+        ellPath(0);
+        G.fillStyle = col(skin, 0.97, 1);
+        G.fill();
+      }
+    }
+    ellF(HF, HED, 0, 0, 0, rx, ry, rz);
+    ellInk(col(skin, 1, 1));
+    if (LOD === 0) crescent(0.18, 0.2);
+    hairCap(rx, ry, rz);
+    if (look.hairStyle === "curly") curls(rx, ry, rz);
+    if (bun && !bunFar) bunDraw();
+    if (LOD === 0 && look.ears) {
+      for (let s = -1; s <= 1; s += 2) {
+        const f = faceDecal(s * rx * 0.97, -ry * 0.1, -rz * 0.04, rz * 0.19, ry * 0.25, s, 0, 0.1);
+        if (f < -0.3) continue;
+        ellInk(col(skin, 0.86, 1));
+      }
+    }
+    FACE = false;
+    if (ff > -0.25) drawFaceH(rx, ry, rz);
+    if (EAR_PENCIL && LOD < 2) earPencil(rx, ry, rz);
+  }
+  /** June's bun, up on the back of her crown, as EX..; returns its depth. */
+  function bunDepth() {
+    const b = T.build;
+    const o = HED * 3;
+    const u = b.head[1] * 0.95;
+    const f = -b.head[2] * 0.4;
+    return depth(J[o] + HF[3] * u + HF[6] * f, J[o + 2] + HF[5] * u + HF[8] * f);
+  }
+  function bunDraw() {
+    const b = T.build;
+    const rx = b.head[0];
+    const ry = b.head[1];
+    const rz = b.head[2];
+    ellF(HF, HED, 0, ry * 0.95, -rz * 0.4, rx * 0.46, ry * 0.36, rz * 0.44);
+    ellInk(col(V.hair, 1, 1));
+    if (LOD === 0) {
+      // the twist of the bun: two curved strands
+      const x = RG[EX];
+      const y = RG[EY];
+      const a = RG[ERA];
+      const bb = RG[ERB];
+      const o = RG[ERO];
+      G.beginPath();
+      ellA(x, y, a * 0.62, bb * 0.55, o, 3.6, 5.6, false);
+      G.moveTo(clx(x + a * 0.5 * Math.cos(o + 0.6)), cly(y + bb * 0.5 * Math.sin(o + 0.6)));
+      ellA(x, y, a * 0.5, bb * 0.36, o, 0.6, 2.6, false);
+      G.strokeStyle = col(V.hairShade || V.hair, 1, 0.9);
+      G.lineWidth = Math.max(0.7, RG[OUT] * 0.7);
+      G.stroke();
+    }
+  }
+  // curls over a curly head: head-local directions (azimuth from the front, + its right; elevation) and size
+  const CURLS = [-0.75, 0.42, 0.85, -0.38, 0.5, 1, 0, 0.55, 1.05, 0.38, 0.5, 1, 0.75, 0.42, 0.85, -0.5, 1.05, 1, 0.5, 1.05, 1, 0, 1.38, 1.05, -1.35, 0.55, 0.95, 1.35, 0.55, 0.95, -1.95, 0.75, 1, 1.95, 0.75, 1, -2.55, 0.5, 0.95, 2.55, 0.5, 0.95, 3.14, 0.62, 1, 3.14, 1.05, 1, -2.4, 1.05, 1, 2.4, 1.05, 1];
+  /** Tomas's curls: round bumps over the hair's cap, the ones that face the camera (or sit on its outline), inked as
+      one shape. */
+  function curls(rx, ry, rz) {
+    const g = (V.hairGrow || 1.08) * 1.02;
+    const o = HED * 3;
+    const r0 = rx * 0.3 * RG[PXS];
+    G.beginPath();
+    let any = false;
+    for (let k = 0; k < CURLS.length; k += 3) {
+      const az = CURLS[k];
+      const el = CURLS[k + 1];
+      const dx = Math.sin(az) * Math.cos(el);
+      const dy = Math.sin(el);
+      const dz = Math.cos(az) * Math.cos(el);
+      const f = facing(HF[0] * dx + HF[3] * dy + HF[6] * dz, HF[2] * dx + HF[5] * dy + HF[8] * dz);
+      if (f < -0.3) continue;
+      const lx = dx * rx * g;
+      const ly = ry * 0.04 + dy * ry * g;
+      const lz = -rz * 0.04 + dz * rz * g;
+      proj(J[o] + HF[0] * lx + HF[3] * ly + HF[6] * lz, J[o + 1] + HF[1] * lx + HF[4] * ly + HF[7] * lz, J[o + 2] + HF[2] * lx + HF[5] * ly + HF[8] * lz, 0);
+      const r = r0 * CURLS[k + 2] * RG[QK];
+      elSub(RG[QX], RG[QY], r, r, 0);
+      any = true;
+    }
+    if (!any) return;
+    G.strokeStyle = INKS;
+    G.lineWidth = RG[OUT] * (LOD === 2 ? 1.2 : 2.6);
+    if (LOD < 2) G.stroke();
+    G.fillStyle = col(V.hair, 1, 1);
+    G.fill();
+    if (LOD === 0) {
+      // a glint on every other curl
+      G.beginPath();
+      for (let k = 0; k < CURLS.length; k += 6) {
+        const az = CURLS[k];
+        const el = CURLS[k + 1];
+        const dx = Math.sin(az) * Math.cos(el);
+        const dy = Math.sin(el);
+        const dz = Math.cos(az) * Math.cos(el);
+        if (facing(HF[0] * dx + HF[3] * dy + HF[6] * dz, HF[2] * dx + HF[5] * dy + HF[8] * dz) < 0.1) continue;
+        const lx = dx * rx * g;
+        const ly = ry * 0.04 + dy * ry * g;
+        const lz = -rz * 0.04 + dz * rz * g;
+        proj(J[o] + HF[0] * lx + HF[3] * ly + HF[6] * lz, J[o + 1] + HF[1] * lx + HF[4] * ly + HF[7] * lz, J[o + 2] + HF[2] * lx + HF[5] * ly + HF[8] * lz, 0);
+        const r = r0 * CURLS[k + 2] * RG[QK] * 0.55;
+        G.moveTo(clx(RG[QX] + r * Math.cos(3.5)), cly(RG[QY] + r * Math.sin(3.5)));
+        ellA(RG[QX], RG[QY], r, r, 0, 3.5, 4.9, false);
+      }
+      G.strokeStyle = col(V.hairShade || V.hair, 1.3, 0.9);
+      G.lineWidth = Math.max(0.6, RG[OUT] * 0.6);
+      G.stroke();
+    }
+  }
+  /** Pip's pencil tucked behind the left ear. */
+  function earPencil(rx, ry, rz) {
+    if (facing(-HF[0] - HF[6] * 0.2, -HF[2] - HF[8] * 0.2) < -0.2) return;
+    const o = HED * 3;
+    const sc = sizeOf(T.build);
+    const ax = -rx * 1.0;
+    const ay = ry * 0.32;
+    const az = rz * 0.22;
+    const bx = -rx * 1.02;
+    const by = -ry * 0.1;
+    const bz = -rz * 0.5;
+    const x0 = J[o] + HF[0] * ax + HF[3] * ay + HF[6] * az;
+    const y0 = J[o + 1] + HF[1] * ax + HF[4] * ay + HF[7] * az;
+    const z0 = J[o + 2] + HF[2] * ax + HF[5] * ay + HF[8] * az;
+    const x1 = J[o] + HF[0] * bx + HF[3] * by + HF[6] * bz;
+    const y1 = J[o + 1] + HF[1] * bx + HF[4] * by + HF[7] * bz;
+    const z1 = J[o + 2] + HF[2] * bx + HF[5] * by + HF[8] * bz;
+    pencilRod(x0, y0, z0, x1, y1, z1, 0.008 * sc);
+  }
+  /** A pencil from its point end (x0..) to its eraser (x1..): ink, yellow, the sharpened wood and lead, the eraser. */
+  function pencilRod(x0, y0, z0, x1, y1, z1, r) {
+    proj(x0, y0, z0, 0);
+    const ax = RG[QX];
+    const ay = RG[QY];
+    const w = Math.max(1, r * 2 * RG[PXS] * RG[QK]);
+    proj(x1, y1, z1, 0);
+    const bx = RG[QX];
+    const by = RG[QY];
+    G.strokeStyle = INKS;
+    G.lineWidth = w + RG[OUT] * 1.6;
+    seg(ax, ay, bx, by);
+    G.strokeStyle = col(PROP_COL.pencil, 1, 1);
+    G.lineWidth = w;
+    seg(ax + (bx - ax) * 0.18, ay + (by - ay) * 0.18, bx + (ax - bx) * 0.12, by + (ay - by) * 0.12);
+    G.strokeStyle = col(PROP_COL.eraser, 1, 1);
+    seg(bx + (ax - bx) * 0.1, by + (ay - by) * 0.1, bx, by);
+    if (LOD === 0) {
+      G.strokeStyle = col(PROP_COL.lead, 1, 1);
+      G.lineWidth = w * 0.7;
+      seg(ax + (bx - ax) * 0.17, ay + (by - ay) * 0.17, ax + (bx - ax) * 0.05, ay + (by - ay) * 0.05);
+      G.strokeStyle = col(INK, 1, 1);
+      G.lineWidth = w * 0.45;
+      seg(ax + (bx - ax) * 0.05, ay + (by - ay) * 0.05, ax, ay);
+    }
+  }
+  /** A human face: eyes (whites, iris, pupil, a glint; shut for a blink), brows, a nose, a mouth (closed, open to talk),
+      cheeks; June's round glasses, Tomas's grease on a cheek. No glow, no teeth, no hollows. */
+  function drawFaceH(rx, ry, rz) {
+    const look = V;
+    const skin = look.skin;
+    const kid = look.kid ? 1 : 0;
+    const es = look.eyeSize || 1;
+    // eyes: both worked out first, then drawn in one fill per layer
+    let n = 0;
+    const eu = ry * (0.1 + 0.04 * kid);
+    for (let s = -1; s <= 1; s += 2) {
+      const ex = s * rx * 0.38;
+      if (faceDecal(ex, eu, rz * 0.86, rx * 0.19 * es, ry * 0.15 * es, s * 0.42, 0.12, 0.9) < 0.04) continue;
+      const o = n * EYE_N;
+      EYEP[o] = RG[EX];
+      EYEP[o + 1] = RG[EY];
+      EYEP[o + 2] = RG[ERA];
+      EYEP[o + 3] = RG[ERB];
+      EYEP[o + 4] = RG[ERO];
+      EYEP[o + 5] = s;
+      EYEP[o + 6] = RG[QK];
+      // the brow's ends and middle
+      headPt(ex - s * rx * 0.22, eu + ry * (0.3 + 0.04 * kid), rz * 0.86);
+      EYEP[o + 7] = RG[QX];
+      EYEP[o + 8] = RG[QY];
+      headPt(ex, eu + ry * (0.38 + 0.04 * kid), rz * 0.88);
+      EYEP[o + 9] = RG[QX];
+      EYEP[o + 10] = RG[QY];
+      headPt(ex + s * rx * 0.24, eu + ry * (0.31 + 0.04 * kid), rz * 0.8);
+      EYEP[o + 11] = RG[QX];
+      EYEP[o + 12] = RG[QY];
+      n++;
+    }
+    // cheeks: a little colour
+    if (LOD === 0 && look.blush) {
+      G.beginPath();
+      let any = false;
+      for (let s = -1; s <= 1; s += 2) {
+        if (faceDecal(s * rx * 0.55, -ry * 0.26, rz * 0.78, rx * 0.17, ry * 0.11, s * 0.55, -0.1, 0.83) < 0.2) continue;
+        ellSub(0);
+        any = true;
+      }
+      if (any) {
+        G.fillStyle = col(look.blush, 1, 0.3);
+        G.fill();
+      }
+    }
+    const shut = HB[HB_BLINK] > 0.5;
+    const gaze = FO[O_GAZE];
+    if (n) {
+      if (LOD === 2) {
+        G.beginPath();
+        for (let e = 0; e < n; e++) eyeSub(e, 0.45, 0.5, 0, 0.1);
+        G.fillStyle = col(INK, 1, 1);
+        G.fill();
+      } else if (shut) {
+        // shut for a blink: the lid's line
+        G.beginPath();
+        for (let e = 0; e < n; e++) {
+          const o = e * EYE_N;
+          ellA(EYEP[o], EYEP[o + 1] - EYEP[o + 3] * 0.2, EYEP[o + 2], EYEP[o + 3] * 0.55, EYEP[o + 4], 0.25, PI - 0.25, false);
+        }
+        G.strokeStyle = INKS;
+        G.lineWidth = Math.max(0.8, RG[OUT] * 0.9);
+        G.stroke();
+      } else {
+        G.beginPath();
+        for (let e = 0; e < n; e++) eyeSub(e, 1, 1, 0, 0);
+        G.fillStyle = col(PROP_COL.white, 1, 1);
+        G.fill();
+        if (LOD === 0) {
+          G.strokeStyle = col(INK, 1, 0.6);
+          G.lineWidth = Math.max(0.5, RG[OUT] * 0.5);
+          G.stroke();
+        }
+        // the iris (cast down to a book or a job), the pupil, a glint
+        const dy = 0.12 + 0.3 * gaze;
+        G.beginPath();
+        for (let e = 0; e < n; e++) eyeSub(e, 0.62, 0.72, 0, dy);
+        G.fillStyle = col(look.iris, 1, 1);
+        G.fill();
+        G.beginPath();
+        for (let e = 0; e < n; e++) eyeSub(e, 0.32, 0.38, 0, dy);
+        G.fillStyle = col(INK, 1, 1);
+        G.fill();
+        if (LOD === 0) {
+          G.beginPath();
+          for (let e = 0; e < n; e++) eyeSub(e, 0.15, 0.17, -0.2, dy - 0.25);
+          G.fillStyle = col(WHITE, 1, 0.95);
+          G.fill();
+          // the upper lid, heavier, lower when looking down
+          G.beginPath();
+          for (let e = 0; e < n; e++) {
+            const o = e * EYE_N;
+            ellA(EYEP[o], EYEP[o + 1], EYEP[o + 2], EYEP[o + 3], EYEP[o + 4], PI * 1.05, PI * 1.95, false);
+          }
+          G.strokeStyle = INKS;
+          G.lineWidth = Math.max(0.8, RG[OUT] * 0.95);
+          G.stroke();
+          if (gaze > 0.3) {
+            G.beginPath();
+            for (let e = 0; e < n; e++) eyeSub(e, 1.02, 0.34 * gaze, 0, -0.72);
+            G.fillStyle = col(skin, 0.94, 1);
+            G.fill();
+          }
+        }
+      }
+      if (LOD < 2) {
+        // brows
+        G.beginPath();
+        for (let e = 0; e < n; e++) {
+          const o = e * EYE_N + 7;
+          mt(EYEP[o], EYEP[o + 1]);
+          qt(EYEP[o + 2], EYEP[o + 3], EYEP[o + 4], EYEP[o + 5]);
+        }
+        G.strokeStyle = col(look.brow || INK, 1, 0.95);
+        G.lineWidth = Math.max(0.8, ry * (look.browW || 0.07) * RG[PXS] * EYEP[6]);
+        G.stroke();
+      }
+    }
+    FACE = n > 0;
+    if (LOD === 2) return;
+    // the nose: a small bump, shaded underneath
+    if (LOD === 0) {
+      const fn = faceDecal(0, -ry * 0.16, rz * 0.98, rx * 0.11, ry * 0.11, 0, -0.1, 1);
+      if (fn > 0.05) {
+        ellF(HF, HED, 0, -ry * 0.14, rz * 0.9, rx * 0.11, ry * 0.15, rz * 0.16);
+        ellPath(0);
+        G.fillStyle = col(skin, 1.04, 1);
+        G.fill();
+        G.beginPath();
+        ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], 0.2, PI - 0.2, false);
+        G.strokeStyle = col(INK, 1, 0.5);
+        G.lineWidth = Math.max(0.6, RG[OUT] * 0.6);
+        G.stroke();
+      }
+    }
+    // the mouth: a smile's line, or open to talk
+    const fm = facing(HF[6] - HF[3] * 0.3, HF[8] - HF[5] * 0.3);
+    if (fm > -0.05) {
+      const jo = RG[JAW];
+      const mu = -ry * (0.5 - 0.04 * kid);
+      const mw = rx * 0.3;
+      if (jo > 0.12) {
+        ellF(HF, HED, 0, mu - ry * 0.04 * jo, rz * 0.82, mw * 0.8, ry * (0.04 + 0.11 * jo), rz * 0.2);
+        G.beginPath();
+        ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], 0, TAU);
+        G.fillStyle = col(look.mouth || [90, 38, 32], 1, 1);
+        G.fill();
+        if (LOD === 0) {
+          G.strokeStyle = col(INK, 1, 0.8);
+          G.lineWidth = Math.max(0.6, RG[OUT] * 0.6);
+          G.stroke();
+          G.beginPath();
+          ellA(RG[EX], RG[EY] + RG[ERB] * 0.4, RG[ERA] * 0.55, RG[ERB] * 0.4, RG[ERO], 0, TAU);
+          G.fillStyle = col(look.tongue || [216, 106, 106], 1, 1);
+          G.fill();
+        }
+      } else {
+        const sm = look.smile == null ? 1 : look.smile;
+        headPt(-mw, mu + ry * 0.05 * sm, rz * 0.84);
+        const x0 = RG[QX];
+        const y0 = RG[QY];
+        headPt(0, mu - ry * 0.07 * sm, rz * 0.96);
+        const x1 = RG[QX];
+        const y1 = RG[QY];
+        headPt(mw, mu + ry * 0.05 * sm, rz * 0.84);
+        G.beginPath();
+        mt(x0, y0);
+        qt(x1 * 2 - (x0 + RG[QX]) / 2, y1 * 2 - (y0 + RG[QY]) / 2, RG[QX], RG[QY]);
+        G.strokeStyle = col(look.lip || INK, 1, 1);
+        G.lineWidth = Math.max(0.8, ry * 0.05 * RG[PXS] * RG[QK]);
+        G.stroke();
+      }
+    }
+    if (look.glasses) glasses(rx, ry, rz, eu);
+    if (LOD === 0 && look.smudge) {
+      // a swipe of grease up on one cheekbone: two thin finger streaks
+      if (faceDecal(rx * 0.6, -ry * 0.12, rz * 0.75, 0, 0, 0.6, 0, 0.8) > 0.2) {
+        G.beginPath();
+        for (let k = 0; k < 2; k++) {
+          headPt(rx * (0.42 + 0.03 * k), -ry * (0.16 + 0.12 * k), rz * 0.86);
+          mt(RG[QX], RG[QY]);
+          headPt(rx * (0.72 + 0.02 * k), -ry * (0.06 + 0.12 * k), rz * 0.72);
+          lt(RG[QX], RG[QY]);
+        }
+        G.strokeStyle = col(look.grease || INK, 1, 0.38);
+        G.lineWidth = Math.max(0.7, ry * 0.045 * RG[PXS] * RG[QK]);
+        G.stroke();
+      }
+    }
+  }
+  /** Round glasses: a rim round each eye (a pale tint and a glint up close), the bridge, the arms back to the ears. */
+  function glasses(rx, ry, rz, eu) {
+    let n = 0;
+    const lr = rx * 0.27;
+    for (let s = -1; s <= 1; s += 2) {
+      const ex = s * rx * 0.38;
+      if (faceDecal(ex, eu, rz * 0.98, lr, lr * 1.0, s * 0.35, 0.1, 0.93) < -0.05) continue;
+      const o = n * EYE_N;
+      EYEP[o] = RG[EX];
+      EYEP[o + 1] = RG[EY];
+      EYEP[o + 2] = RG[ERA];
+      EYEP[o + 3] = RG[ERB];
+      EYEP[o + 4] = RG[ERO];
+      EYEP[o + 5] = s;
+      n++;
+    }
+    if (LOD === 0 && n) {
+      G.beginPath();
+      for (let e = 0; e < n; e++) eyeSub(e, 1, 1, 0, 0);
+      G.fillStyle = col(PROP_COL.lens, 1, 0.22);
+      G.fill();
+    }
+    G.beginPath();
+    for (let e = 0; e < n; e++) eyeSub(e, 1, 1, 0, 0);
+    // the bridge over the nose and each arm back to its ear (the arm on the far side is behind the head)
+    headPt(-rx * 0.12, eu + ry * 0.02, rz * 1.0);
+    mt(RG[QX], RG[QY]);
+    headPt(0, eu + ry * 0.07, rz * 1.04);
+    lt(RG[QX], RG[QY]);
+    headPt(rx * 0.12, eu + ry * 0.02, rz * 1.0);
+    lt(RG[QX], RG[QY]);
+    for (let s = -1; s <= 1; s += 2) {
+      if (facing(HF[0] * s, HF[2] * s) < -0.15) continue;
+      headPt(s * rx * 0.64, eu + ry * 0.02, rz * 0.82);
+      mt(RG[QX], RG[QY]);
+      headPt(s * rx * 1.0, eu, -rz * 0.1);
+      lt(RG[QX], RG[QY]);
+    }
+    G.strokeStyle = col(V.rim || INK, 1, 1);
+    G.lineWidth = Math.max(0.8, RG[OUT] * (LOD === 0 ? 1.05 : 0.9));
+    G.stroke();
+    if (LOD === 0 && n) {
+      G.beginPath();
+      for (let e = 0; e < n; e++) {
+        const o = e * EYE_N;
+        G.moveTo(clx(EYEP[o] + EYEP[o + 2] * 0.62 * Math.cos(3.7)), cly(EYEP[o + 1] + EYEP[o + 3] * 0.62 * Math.sin(3.7)));
+        ellA(EYEP[o], EYEP[o + 1], EYEP[o + 2] * 0.62, EYEP[o + 3] * 0.62, EYEP[o + 4], 3.7, 4.6, false);
+      }
+      G.strokeStyle = col(WHITE, 1, 0.75);
+      G.lineWidth = Math.max(0.6, RG[OUT] * 0.6);
+      G.stroke();
+    }
+  }
+
+  /* ---------- The things people hold and put down: solids of a few flat faces, in the same ink and light ---------- */
+  const LZ = -0.4 / LN; // the light's z in camera space (toward the viewer)
+  /** The light on a face with model normal (nx, ny, nz): 0.8 (away from the light) .. 1.2, in five steps (a face's
+      light is a colour of its own: in fine steps every prop would fill the colour table as it turns). */
+  function litN(nx, ny, nz) {
+    const cx = -(nx * RG[CYAW] + nz * RG[SYAW]);
+    const cz = nx * RG[SYAW] - nz * RG[CYAW];
+    const d = cx * LX + ny * LY + cz * LZ;
+    return 0.8 + Math.round(4 * (d > 0 ? d : 0)) * 0.1;
+  }
+  /** Does a face at (x, y, z) with normal (nx, ny, nz) face the camera? (the camera's point, not just its way, so the
+      top of a thing on the floor shows from a camera above it) */
+  const seen = (x, y, z, nx, ny, nz) => nx * (HB[HB_CAMX] - x) + ny * (HB[HB_CAMX + 1] - y) + nz * (HB[HB_CAMX + 2] - z) > 0;
+  /** A flat four-cornered face, centre c, half axes a and b (model), as a closed path. */
+  function quadPath(cx, cy, cz, ax, ay, az, bx, by, bz) {
+    G.beginPath();
+    proj(cx - ax - bx, cy - ay - by, cz - az - bz, 0);
+    mt(RG[QX], RG[QY]);
+    proj(cx + ax - bx, cy + ay - by, cz + az - bz, 0);
+    lt(RG[QX], RG[QY]);
+    proj(cx + ax + bx, cy + ay + by, cz + az + bz, 0);
+    lt(RG[QX], RG[QY]);
+    proj(cx - ax + bx, cy - ay + by, cz - az + bz, 0);
+    lt(RG[QX], RG[QY]);
+    G.closePath();
+  }
+  function fillInk(fill, lw) {
+    G.fillStyle = fill;
+    G.fill();
+    if (lw > 0) {
+      G.strokeStyle = INKS;
+      G.lineWidth = lw;
+      G.stroke();
+    }
+  }
+  const BOXC = new Float64Array(4 * 3); // a box's face colours: +a, -a, +-b, +-g
+  /** A box: centre c, half axes a, b, g (model, square to each other); each face that shows, lit by its normal, in
+      BOXC's colour for it (0 +a, 1 -a, 2 either b, 3 either g), inked. */
+  function box3(cx, cy, cz, ax, ay, az, bx, by, bz, gx, gy, gz) {
+    const lw = LOD === 2 ? 0 : Math.max(0.7, RG[OUT] * 0.9);
+    for (let f = 0; f < 6; f++) {
+      const s = f & 1 ? -1 : 1;
+      const k = f >> 1;
+      const nx = (k === 0 ? ax : k === 1 ? bx : gx) * s;
+      const ny = (k === 0 ? ay : k === 1 ? by : gy) * s;
+      const nz = (k === 0 ? az : k === 1 ? bz : gz) * s;
+      const fx = cx + nx;
+      const fy = cy + ny;
+      const fz = cz + nz;
+      if (!seen(fx, fy, fz, nx, ny, nz)) continue;
+      const nl = hyp3(nx, ny, nz) || 1;
+      const ci = (k === 0 ? (s > 0 ? 0 : 1) : k === 1 ? 2 : 3) * 3;
+      const lit = litN(nx / nl, ny / nl, nz / nl);
+      if (k === 0) quadPath(fx, fy, fz, bx, by, bz, gx, gy, gz);
+      else if (k === 1) quadPath(fx, fy, fz, ax, ay, az, gx, gy, gz);
+      else quadPath(fx, fy, fz, ax, ay, az, bx, by, bz);
+      G.fillStyle = cstrL(BOXC, ci, lit);
+      G.fill();
+      if (lw) {
+        G.strokeStyle = INKS;
+        G.lineWidth = lw;
+        G.stroke();
+      }
+    }
+  }
+  /** Colour from a colour buffer (rgb at i) with light m. */
+  function cstrL(B, i, m) {
+    RGBT[0] = B[i];
+    RGBT[1] = B[i + 1];
+    RGBT[2] = B[i + 2];
+    return col(RGBT, m, 1);
+  }
+  const RGBT = [0, 0, 0];
+  function boxCol(f, c) {
+    BOXC[f * 3] = c[0];
+    BOXC[f * 3 + 1] = c[1];
+    BOXC[f * 3 + 2] = c[2];
+  }
+  /** A rod from (x0..) to (x1..), r thick (model), ink then colour c (light m). */
+  function rod3(x0, y0, z0, x1, y1, z1, r, c, m) {
+    proj(x0, y0, z0, 0);
+    const ax = RG[QX];
+    const ay = RG[QY];
+    const k0 = RG[QK];
+    proj(x1, y1, z1, 0);
+    const w = Math.max(0.8, r * (k0 + RG[QK]) * RG[PXS]);
+    if (LOD < 2) {
+      G.strokeStyle = INKS;
+      G.lineWidth = w + RG[OUT] * 1.6;
+      seg(ax, ay, RG[QX], RG[QY]);
+    }
+    G.strokeStyle = col(c, m, 1);
+    G.lineWidth = w;
+    seg(ax, ay, RG[QX], RG[QY]);
+  }
+  /** A flat disc: centre, two half axes (model), filled c and inked (an ellipse on its plane). */
+  function disc3(cx, cy, cz, ax, ay, az, bx, by, bz, c, m) {
+    ellipsoid(cx, cy, cz, ax, ay, az, bx, by, bz, 0, 0, 0, 0);
+    if (LOD === 2) {
+      ellPath(0);
+      G.fillStyle = col(c, m, 1);
+      G.fill();
+    } else ellInk(col(c, m, 1));
+  }
+
+  /** The tool in hand i (PG: grip, along, across, flat normal), or the closed ledger under that arm. */
+  function drawTool(i) {
+    const k = HELD[i];
+    const o = i * 12;
+    const gx = PG[o];
+    const gy = PG[o + 1];
+    const gz = PG[o + 2];
+    const dx = PG[o + 3];
+    const dy = PG[o + 4];
+    const dz = PG[o + 5];
+    const sx = PG[o + 6];
+    const sy = PG[o + 7];
+    const sz = PG[o + 8];
+    const sc = sizeOf(T.build);
+    if (k === PR_LEDGER) return ledgerBox(gx, gy, gz, dx, dy, dz, sx, sy, sz, PG[o + 9], PG[o + 10], PG[o + 11], 0.06 * sc, 0.08 * sc, 0.012 * sc);
+    if (k === PR_WRENCH) return wrenchAt(gx, gy, gz, dx, dy, dz, sx, sy, sz, 0.13 * sc);
+    if (k === PR_PENCIL) return pencilRod(gx + dx * 0.05 * sc, gy + dy * 0.05 * sc, gz + dz * 0.05 * sc, gx - dx * 0.022 * sc, gy - dy * 0.022 * sc, gz - dz * 0.022 * sc, 0.007 * sc);
+    if (k === PR_TROWEL) {
+      // a red wooden handle in the fist, a steel neck, a pointed scoop (dirt on it as it comes up)
+      rod3(gx - dx * 0.025 * sc, gy - dy * 0.025 * sc, gz - dz * 0.025 * sc, gx + dx * 0.03 * sc, gy + dy * 0.03 * sc, gz + dz * 0.03 * sc, 0.011 * sc, PROP_COL.redHandle, 1);
+      const b0 = 0.035 * sc;
+      const bl = 0.075 * sc;
+      const bw = 0.02 * sc;
+      rod3(gx + dx * 0.028 * sc, gy + dy * 0.028 * sc, gz + dz * 0.028 * sc, gx + dx * b0, gy + dy * b0, gz + dz * b0, 0.004 * sc, PROP_COL.steel, 0.9);
+      G.beginPath();
+      proj(gx + dx * b0, gy + dy * b0, gz + dz * b0, 0);
+      mt(RG[QX], RG[QY]);
+      proj(gx + dx * (b0 + bl * 0.35) + sx * bw, gy + dy * (b0 + bl * 0.35) + sy * bw, gz + dz * (b0 + bl * 0.35) + sz * bw, 0);
+      lt(RG[QX], RG[QY]);
+      proj(gx + dx * (b0 + bl), gy + dy * (b0 + bl), gz + dz * (b0 + bl), 0);
+      lt(RG[QX], RG[QY]);
+      proj(gx + dx * (b0 + bl * 0.35) - sx * bw, gy + dy * (b0 + bl * 0.35) - sy * bw, gz + dz * (b0 + bl * 0.35) - sz * bw, 0);
+      lt(RG[QX], RG[QY]);
+      G.closePath();
+      fillInk(col(PROP_COL.steel, litN(PG[o + 9], PG[o + 10], PG[o + 11]), 1), LOD === 2 ? 0 : Math.max(0.7, RG[OUT]));
+      if (LOD === 0 && Math.sin(HB[HB_DIG]) < 0) {
+        // a scoop of soil on the way up
+        const c = b0 + bl * 0.45;
+        disc3(gx + dx * c, gy + dy * c, gz + dz * c, dx * bl * 0.25, dy * bl * 0.25, dz * bl * 0.25, sx * bw * 0.7, sy * bw * 0.7, sz * bw * 0.7, PROP_COL.soil, 1);
+      }
+      return;
+    }
+    if (k === PR_HAMMER) {
+      // a wooden handle, a steel head across its end (the face down onto the nail, the claw behind)
+      const L0 = HAMMER_LEN * sc;
+      rod3(gx - dx * 0.03 * sc, gy - dy * 0.03 * sc, gz - dz * 0.03 * sc, gx + dx * L0, gy + dy * L0, gz + dz * L0, 0.009 * sc, PROP_COL.wood, 1);
+      const hl = 0.036 * sc;
+      const hw = HAMMER_HEAD;
+      const hx = gx + dx * L0;
+      const hy = gy + dy * L0;
+      const hz = gz + dz * L0;
+      boxCol(0, PROP_COL.steelDark);
+      boxCol(1, PROP_COL.steelDark);
+      boxCol(2, PROP_COL.steel);
+      boxCol(3, PROP_COL.steel);
+      box3(hx - sx * hl * 0.2, hy - sy * hl * 0.2, hz - sz * hl * 0.2, dx * hw, dy * hw, dz * hw, sx * hl, sy * hl, sz * hl, PG[o + 9] * hw, PG[o + 10] * hw, PG[o + 11] * hw);
+      if (LOD === 0 && HB[HB_HIT] > 0) {
+        // the strike: short yellow lines out round the nail's head
+        const nx = PG[48];
+        const ny = (BOARD_T + NAIL_UP) * sc;
+        const nz = PG[49];
+        proj(nx, ny, nz, 0);
+        const cx = RG[QX];
+        const cy = RG[QY];
+        const r = 0.03 * sc * RG[PXS] * RG[QK];
+        G.beginPath();
+        for (let q = 0; q < 6; q++) {
+          const a = (q < 3 ? -0.55 + q * 0.45 : PI + 0.55 - (q - 3) * 0.45) - PI / 2;
+          mt(cx + Math.cos(a) * r, cy + Math.sin(a) * r * 0.8);
+          lt(cx + Math.cos(a) * r * 1.9, cy + Math.sin(a) * r * 1.5);
+        }
+        G.strokeStyle = col(PROP_COL.spark, 1, Math.ceil(HB[HB_HIT] * 4) / 4);
+        G.lineWidth = Math.max(1, r * 0.25);
+        G.stroke();
+      }
+    }
+  }
+  /** A combination wrench: grip at g, along d, flat across s: the bar, a ring at the grip end, the open jaw at the far end. */
+  function wrenchAt(gx, gy, gz, dx, dy, dz, sx, sy, sz, len) {
+    const r = len * 0.06;
+    rod3(gx - dx * len * 0.12, gy - dy * len * 0.12, gz - dz * len * 0.12, gx + dx * len, gy + dy * len, gz + dz * len, r * 0.75, PROP_COL.steel, 1);
+    const jr = len * 0.17;
+    const ex = gx + dx * (len + jr * 0.5);
+    const ey = gy + dy * (len + jr * 0.5);
+    const ez = gz + dz * (len + jr * 0.5);
+    disc3(ex, ey, ez, dx * jr, dy * jr, dz * jr, sx * jr, sy * jr, sz * jr, PROP_COL.steel, 1);
+    if (LOD === 0) {
+      // the jaw's opening, and the ring's hole
+      ellipsoid(ex + dx * jr * 0.45, ey + dy * jr * 0.45, ez + dz * jr * 0.45, dx * jr * 0.55, dy * jr * 0.55, dz * jr * 0.55, sx * jr * 0.42, sy * jr * 0.42, sz * jr * 0.42, 0, 0, 0, 0);
+      G.beginPath();
+      ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], 0, TAU);
+      G.fillStyle = col(PROP_COL.steelDark, 1, 1);
+      G.fill();
+    }
+    if (LOD < 2) {
+      const rr = len * 0.12;
+      const rx = gx - dx * len * 0.16;
+      const ry = gy - dy * len * 0.16;
+      const rz = gz - dz * len * 0.16;
+      disc3(rx, ry, rz, dx * rr, dy * rr, dz * rr, sx * rr, sy * rr, sz * rr, PROP_COL.steel, 1);
+      if (LOD === 0) {
+        ellipsoid(rx, ry, rz, dx * rr * 0.45, dy * rr * 0.45, dz * rr * 0.45, sx * rr * 0.45, sy * rr * 0.45, sz * rr * 0.45, 0, 0, 0, 0);
+        G.beginPath();
+        ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], 0, TAU);
+        G.fillStyle = col(PROP_COL.steelDark, 1, 1);
+        G.fill();
+      }
+    }
+  }
+  /** The green ledger, closed: centre c, its width along w, its height along h, its covers' normal n; half sizes. */
+  function ledgerBox(cx, cy, cz, wx, wy, wz, hx, hy, hz, nx, ny, nz, hw, hh, ht) {
+    boxCol(0, PROP_COL.page); // the fore edge
+    boxCol(1, PROP_COL.ledger); // the spine
+    boxCol(2, PROP_COL.page);
+    boxCol(3, PROP_COL.ledger);
+    box3(cx, cy, cz, wx * hw, wy * hw, wz * hw, hx * hh, hy * hh, hz * hh, nx * ht, ny * ht, nz * ht);
+    if (LOD === 0) {
+      // the label on the front cover (whichever cover shows)
+      const s = seen(cx + nx * ht, cy + ny * ht, cz + nz * ht, nx, ny, nz) ? 1 : -1;
+      const fx = cx + nx * ht * s * 1.08;
+      const fy = cy + ny * ht * s * 1.08;
+      const fz = cz + nz * ht * s * 1.08;
+      quadPath(fx + hx * hh * 0.25, fy + hy * hh * 0.25, fz + hz * hh * 0.25, wx * hw * 0.55, wy * hw * 0.55, wz * hw * 0.55, hx * hh * 0.18, hy * hh * 0.18, hz * hh * 0.18);
+      fillInk(col(PROP_COL.label, 1, 1), Math.max(0.6, RG[OUT] * 0.6));
+    }
+  }
+  /** The walkie-talkie: centre, up, right, its face's normal (model, unit), half width and height; lit: its light on. */
+  function walkieAt(cx, cy, cz, ux, uy, uz, rx, ry, rz, nx, ny, nz, hw, hh, lit) {
+    const ht = hw * 0.55;
+    boxCol(0, PROP_COL.walkie);
+    boxCol(1, PROP_COL.walkie);
+    boxCol(2, PROP_COL.walkie);
+    boxCol(3, PROP_COL.walkie);
+    box3(cx, cy, cz, rx * hw, ry * hw, rz * hw, ux * hh, uy * hh, uz * hh, nx * ht, ny * ht, nz * ht);
+    if (LOD === 2) return;
+    // the antenna, then the yellow speaker face and the light
+    rod3(cx + rx * hw * 0.55 + ux * hh, cy + ry * hw * 0.55 + uy * hh, cz + rz * hw * 0.55 + uz * hh, cx + rx * hw * 0.55 + ux * hh * 1.6, cy + ry * hw * 0.55 + uy * hh * 1.6, cz + rz * hw * 0.55 + uz * hh * 1.6, hw * 0.28, PROP_COL.walkie, 1);
+    if (seen(cx + nx * ht, cy + ny * ht, cz + nz * ht, nx, ny, nz)) {
+      const fx = cx + nx * ht * 1.05;
+      const fy = cy + ny * ht * 1.05;
+      const fz = cz + nz * ht * 1.05;
+      quadPath(fx - ux * hh * 0.25, fy - uy * hh * 0.25, fz - uz * hh * 0.25, rx * hw * 0.68, ry * hw * 0.68, rz * hw * 0.68, ux * hh * 0.42, uy * hh * 0.42, uz * hh * 0.42);
+      fillInk(col(PROP_COL.walkieFace, 1, 1), LOD === 0 ? Math.max(0.5, RG[OUT] * 0.5) : 0);
+      if (LOD === 0) {
+        proj(fx - rx * hw * 0.45 + ux * hh * 0.62, fy - ry * hw * 0.45 + uy * hh * 0.62, fz - rz * hw * 0.45 + uz * hh * 0.62, 0);
+        G.beginPath();
+        const r = Math.max(0.6, hw * 0.2 * RG[PXS] * RG[QK]);
+        elSub(RG[QX], RG[QY], r, r, 0);
+        G.fillStyle = col(lit ? PROP_COL.ledOn : PROP_COL.ledOff, 1.1, 1);
+        G.fill();
+      }
+    }
+  }
+  /** The prop held in front (PG 24..37): an open book, the clipboard, the walkie in both hands, the ledger on the lap. */
+  function drawFront() {
+    const cx = PG[24];
+    const cy = PG[25];
+    const cz = PG[26];
+    const rx = PG[27];
+    const ry = PG[28];
+    const rz = PG[29];
+    const ux = PG[30];
+    const uy = PG[31];
+    const uz = PG[32];
+    const nx = PG[33];
+    const ny = PG[34];
+    const nz = PG[35];
+    const hw = PG[36];
+    const hh = PG[37];
+    const sc = sizeOf(T.build);
+    if (FRONT === PR_WALKIE) return walkieAt(cx, cy, cz, ux, uy, uz, rx, ry, rz, nx, ny, nz, hw, hh, true);
+    if (FRONT === PR_LEDGER_LAP) return ledgerBox(cx, cy, cz, rx, ry, rz, ux, uy, uz, nx, ny, nz, hw, hh, 0.012 * sc);
+    const lw = LOD === 2 ? 0 : Math.max(0.7, RG[OUT] * 0.9);
+    const facingUp = seen(cx, cy, cz, nx, ny, nz);
+    if (FRONT === PR_CLIPBOARD) {
+      // the board; the sheet with its list and the steel clip on the side that faces the writer
+      quadPath(cx - nx * 0.004, cy - ny * 0.004, cz - nz * 0.004, rx * hw, ry * hw, rz * hw, ux * hh, uy * hh, uz * hh);
+      fillInk(col(PROP_COL.clip, litN(facingUp ? nx : -nx, facingUp ? ny : -ny, facingUp ? nz : -nz), 1), lw);
+      if (!facingUp || LOD === 2) return;
+      quadPath(cx - ux * hh * 0.06, cy - uy * hh * 0.06, cz - uz * hh * 0.06, rx * hw * 0.84, ry * hw * 0.84, rz * hw * 0.84, ux * hh * 0.82, uy * hh * 0.82, uz * hh * 0.82);
+      fillInk(col(PROP_COL.sheet, 1, 1), LOD === 0 ? lw * 0.6 : 0);
+      if (LOD === 0) {
+        // the list: a dot and a line each, the lines written so far
+        const done = HB[HB_PEN];
+        G.beginPath();
+        for (let q = 0; q < 5; q++) {
+          const v = 0.45 - 0.25 * q;
+          const len = q < done ? 1 : q < done + 1 ? 0.3 + 0.7 * frac(done) : 0.25;
+          proj(cx + rx * hw * -0.55 + ux * hh * v, cy + ry * hw * -0.55 + uy * hh * v, cz + rz * hw * -0.55 + uz * hh * v, 0);
+          mt(RG[QX], RG[QY]);
+          proj(cx + rx * hw * (-0.55 + 1.1 * len) + ux * hh * v, cy + ry * hw * (-0.55 + 1.1 * len) + uy * hh * v, cz + rz * hw * (-0.55 + 1.1 * len) + uz * hh * v, 0);
+          lt(RG[QX], RG[QY]);
+        }
+        G.strokeStyle = col(PROP_COL.writing, 1, 0.7);
+        G.lineWidth = Math.max(0.5, 0.004 * sc * RG[PXS] * RG[QK]);
+        G.stroke();
+      }
+      quadPath(cx + ux * hh * 0.93, cy + uy * hh * 0.93, cz + uz * hh * 0.93, rx * hw * 0.32, ry * hw * 0.32, rz * hw * 0.32, ux * hh * 0.1, uy * hh * 0.1, uz * hh * 0.1);
+      fillInk(col(PROP_COL.steel, 1.05, 1), lw * 0.8);
+      return;
+    }
+    // an open book: the cover behind; from the reader's side the two pages bowed up from the spine, lines of writing
+    // (a picture on the manual), a page turning now and then
+    const cover = FRONT === PR_MANUAL ? PROP_COL.manual : FRONT === PR_NOTEBOOK ? PROP_COL.notebook : PROP_COL.ledger;
+    quadPath(cx - nx * 0.006 * sc, cy - ny * 0.006 * sc, cz - nz * 0.006 * sc, rx * hw * 1.05, ry * hw * 1.05, rz * hw * 1.05, ux * hh * 1.07, uy * hh * 1.07, uz * hh * 1.07);
+    fillInk(col(cover, facingUp ? 1 : litN(-nx, -ny, -nz), 1), lw);
+    if (!facingUp) return;
+    const bow = 0.012 * sc;
+    for (let s = -1; s <= 1; s += 2) {
+      // a page: from the spine out to its edge, raised at the edge
+      G.beginPath();
+      proj(cx + ux * hh, cy + uy * hh, cz + uz * hh, 0);
+      mt(RG[QX], RG[QY]);
+      proj(cx + rx * hw * s + ux * hh + nx * bow, cy + ry * hw * s + uy * hh + ny * bow, cz + rz * hw * s + uz * hh + nz * bow, 0);
+      lt(RG[QX], RG[QY]);
+      proj(cx + rx * hw * s - ux * hh + nx * bow, cy + ry * hw * s - uy * hh + ny * bow, cz + rz * hw * s - uz * hh + nz * bow, 0);
+      lt(RG[QX], RG[QY]);
+      proj(cx - ux * hh, cy - uy * hh, cz - uz * hh, 0);
+      lt(RG[QX], RG[QY]);
+      G.closePath();
+      fillInk(col(PROP_COL.page, 1, 1), LOD === 0 ? lw * 0.8 : lw * 0.6);
+    }
+    if (LOD === 0) {
+      G.beginPath();
+      for (let s = -1; s <= 1; s += 2) {
+        for (let q = 0; q < 4; q++) {
+          if (FRONT === PR_MANUAL && s > 0 && q < 3) continue;
+          const v = 0.6 - q * 0.36;
+          const a0 = s * 0.18;
+          const a1 = s * (0.5 + 0.3 * rnd(600 + q + (s > 0 ? 5 : 0)));
+          proj(cx + rx * hw * a0 + ux * hh * v + nx * bow * 0.4, cy + ry * hw * a0 + uy * hh * v + ny * bow * 0.4, cz + rz * hw * a0 + uz * hh * v + nz * bow * 0.4, 0);
+          mt(RG[QX], RG[QY]);
+          proj(cx + rx * hw * a1 + ux * hh * v + nx * bow * 0.9, cy + ry * hw * a1 + uy * hh * v + ny * bow * 0.9, cz + rz * hw * a1 + uz * hh * v + nz * bow * 0.9, 0);
+          lt(RG[QX], RG[QY]);
+        }
+      }
+      G.strokeStyle = col(PROP_COL.writing, 1, 0.55);
+      G.lineWidth = Math.max(0.5, 0.004 * sc * RG[PXS] * RG[QK]);
+      G.stroke();
+      if (FRONT === PR_MANUAL) {
+        // a gear on the right page
+        proj(cx + rx * hw * 0.5 + ux * hh * 0.2 + nx * bow * 0.6, cy + ry * hw * 0.5 + uy * hh * 0.2 + ny * bow * 0.6, cz + rz * hw * 0.5 + uz * hh * 0.2 + nz * bow * 0.6, 0);
+        const r = hh * 0.32 * RG[PXS] * RG[QK];
+        G.beginPath();
+        elSub(RG[QX], RG[QY], r, r * 0.8, 0);
+        G.strokeStyle = col(PROP_COL.gear, 1, 0.8);
+        G.lineWidth = Math.max(0.6, r * 0.25);
+        G.stroke();
+      }
+      if (FRONT === PR_NOTEBOOK) {
+        // the spiral down the spine
+        G.beginPath();
+        for (let q = 0; q < 5; q++) {
+          const v = -0.8 + q * 0.4;
+          proj(cx + ux * hh * v + nx * bow * 0.8, cy + uy * hh * v + ny * bow * 0.8, cz + uz * hh * v + nz * bow * 0.8, 0);
+          const r = hh * 0.1 * RG[PXS] * RG[QK];
+          elSub(RG[QX], RG[QY], r * 1.2, r * 0.7, 0);
+        }
+        G.strokeStyle = col(PROP_COL.steel, 0.9, 1);
+        G.lineWidth = Math.max(0.6, RG[OUT] * 0.7);
+        G.stroke();
+      }
+    }
+    // the spine's crease
+    if (LOD < 2) {
+      G.beginPath();
+      proj(cx + ux * hh, cy + uy * hh, cz + uz * hh, 0);
+      mt(RG[QX], RG[QY]);
+      proj(cx - ux * hh, cy - uy * hh, cz - uz * hh, 0);
+      lt(RG[QX], RG[QY]);
+      G.strokeStyle = col(INK, 1, 0.5);
+      G.lineWidth = Math.max(0.6, RG[OUT] * 0.7);
+      G.stroke();
+    }
+    const turn = HB[HB_TURN];
+    if (turn > 0 && LOD < 2) {
+      // a page lifting off the right side, over the spine, down on the left
+      const a = PI * turn;
+      const ox = rx * Math.cos(a) + nx * Math.sin(a) * 0.9;
+      const oy = ry * Math.cos(a) + ny * Math.sin(a) * 0.9;
+      const oz = rz * Math.cos(a) + nz * Math.sin(a) * 0.9;
+      G.beginPath();
+      proj(cx + ux * hh, cy + uy * hh, cz + uz * hh, 0);
+      mt(RG[QX], RG[QY]);
+      proj(cx + ox * hw + ux * hh + nx * bow, cy + oy * hw + uy * hh + ny * bow, cz + oz * hw + uz * hh + nz * bow, 0);
+      lt(RG[QX], RG[QY]);
+      proj(cx + ox * hw - ux * hh + nx * bow, cy + oy * hw - uy * hh + ny * bow, cz + oz * hw - uz * hh + nz * bow, 0);
+      lt(RG[QX], RG[QY]);
+      proj(cx - ux * hh, cy - uy * hh, cz - uz * hh, 0);
+      lt(RG[QX], RG[QY]);
+      G.closePath();
+      fillInk(col(PROP_COL.white, 1, 1), lw * 0.8);
+    }
+  }
+  /** The things on the floor: the dug bed with a seedling and the tray of seedlings, the board with its nail, the
+      wrench or the ledger put down. Drawn first: the person kneels over them. */
+  function drawFloorThings() {
+    const sc = sizeOf(T.build);
+    const lw = LOD === 2 ? 0 : Math.max(0.7, RG[OUT] * 0.9);
+    if (GND & G_SOIL) {
+      // the bed: dug soil, a little heap, clods; one seedling planted
+      groundEll(PG[40], PG[41], 1, 0, 0.15 * sc, 0.1 * sc);
+      G.beginPath();
+      ellA(RG[EX], RG[EY], RG[ERA], RG[ERB], RG[ERO], 0, TAU);
+      fillInk(col(PROP_COL.soil, 1, 1), lw);
+      if (LOD < 2) {
+        disc3(PG[40] + 0.03 * sc, 0.012 * sc, PG[41] - 0.01 * sc, 0.06 * sc, 0, 0, 0, 0.018 * sc, 0.012 * sc, PROP_COL.soilLight, 1);
+        seedling(PG[40] - 0.09 * sc, PG[41] - 0.02 * sc, 1.1 * sc);
+      }
+      // the tray: a shallow box of seedlings
+      boxCol(0, PROP_COL.tray);
+      boxCol(1, PROP_COL.tray);
+      boxCol(2, PROP_COL.soil);
+      boxCol(3, PROP_COL.tray);
+      box3(PG[42], 0.016 * sc, PG[43], 0.08 * sc, 0, 0, 0, 0.016 * sc, 0, 0, 0, 0.05 * sc);
+      if (LOD < 2) for (let q = 0; q < 3; q++) seedling(PG[42] + (q - 1) * 0.05 * sc, PG[43] + (q === 1 ? 0.012 : -0.01) * sc, 0.9 * sc, 0.032 * sc);
+    }
+    if (GND & G_BOARD) {
+      boxCol(0, PROP_COL.board);
+      boxCol(1, PROP_COL.board);
+      boxCol(2, PROP_COL.board);
+      boxCol(3, PROP_COL.board);
+      box3(PG[38], BOARD_T * 0.5 * sc, PG[39], 0.2 * sc, 0, 0, 0, BOARD_T * 0.5 * sc, 0, 0, 0, 0.05 * sc);
+      if (LOD < 2) {
+        // the nail standing in it, its head
+        const nx = PG[48];
+        const nz = PG[49];
+        rod3(nx, BOARD_T * sc, nz, nx, (BOARD_T + NAIL_UP) * sc, nz, 0.0035 * sc, PROP_COL.steel, 0.9);
+        disc3(nx, (BOARD_T + NAIL_UP) * sc, nz, 0.008 * sc, 0, 0, 0, 0, 0.008 * sc, PROP_COL.steel, 1.1);
+      }
+    }
+    if (GND & G_WRENCH) wrenchAt(PG[44], 0.006 * sc, PG[45], 0.92, 0, 0.39, 0, 1, 0, 0.11 * sc);
+    if (GND & G_LEDGER) ledgerBox(PG[46], 0.012 * sc, PG[47], 0.6, 0, 0.8, -0.8, 0, 0.6, 0, 1, 0, 0.06 * sc, 0.08 * sc, 0.012 * sc);
+  }
+  /** A seedling standing at (x, z) on the floor (y0 its foot, default 0): a stem and two leaves. */
+  function seedling(x, z, k, y0) {
+    const y = y0 || 0;
+    rod3(x, y, z, x + 0.003 * k, y + 0.05 * k, z, 0.004 * k, PROP_COL.stem, 1);
+    if (LOD === 2) return;
+    disc3(x - 0.018 * k, y + 0.05 * k, z, 0.02 * k, 0.006 * k, 0, 0, 0.004 * k, 0.008 * k, PROP_COL.leaf, 1);
+    disc3(x + 0.02 * k, y + 0.058 * k, z, 0.02 * k, -0.006 * k, 0, 0, 0.004 * k, 0.008 * k, PROP_COL.leaf2, 1);
+  }
+
+  /* ---------- People's looks ---------- */
+  const HUMAN_COLOR_KEYS = ["skin", "handSkin", "shirt", "sleeveCol", "cuff", "under", "pants", "legs", "shoe", "sole", "hair", "hairShade", "iris", "brow", "lip", "blush", "mouth", "tongue", "nail", "glove", "grease", "string", "button", "rim"];
+  const HUMAN_DEFAULTS = {
+    skin: [214, 164, 124],
+    shirt: [125, 133, 142],
+    under: [217, 214, 207],
+    pants: [75, 80, 88],
+    shoe: [58, 46, 38],
+    sole: [29, 25, 21],
+    hair: [74, 58, 46],
+    iris: [74, 58, 42],
+    brow: [58, 46, 38],
+    lip: [154, 80, 64],
+    nail: [232, 196, 180],
+    top: "shirt",
+    hem: 0.05,
+    sleeve: "long",
+    hairStyle: "short",
+    hairGrow: 1.1,
+    hairFront: 0.5,
+    hairBack: -0.45,
+    hairJag: 0.45,
+    spiky: false,
+    ears: true,
+    hold: "none",
+    holdSide: 1,
+    gesture: 1,
+    job: "hammer",
+    lap: "none",
+    book: "ledger",
+    floorSit: "knees",
+    cower: "hug",
+  };
+  /** Add (or replace) a person's look. def: { scale, r, build, gait, look, variants }; js/walker3d-crew.js has every
+      field. The look's h (its standing top, model units) and w (room for every pose at any yaw) are worked out here
+      from an envelope of all its poses, as for a walker; box() scales them to tiles. */
+  function addHuman(id, def) {
+    if (TYPES[id]) throw new Error(`Walker3D.addHuman: "${id}" is a walker type`);
+    const t = {
+      id,
+      human: true,
+      scale: def.scale > 0 ? def.scale : 1,
+      r: def.r > 0 ? def.r : 0.25,
+      fall: "crumple",
+      build: Object.assign({ finger: 0.85, pool: 0, shadow: 0.19, rise: 0.035 }, def.build),
+      gait: Object.assign({ stride: 0.82, duty: 0.6, lift: 0.04, crouch: 0.025, lean: 0.04, bob: 0.012, sway: 0.012, twist: 0.08, roll: 0.03, armSwing: 1, headFwd: 0.012, headTilt: 0, toeOut: 0.08, turnRate: 5 }, def.gait),
+      looks: [],
+    };
+    const base = Object.assign({}, HUMAN_DEFAULTS, def.look);
+    const variants = def.variants && def.variants.length ? def.variants : [{}];
+    t.looks = variants.map((v) => {
+      const L = Object.assign({}, base, v);
+      HUMAN_COLOR_KEYS.forEach((k) => {
+        if (L[k] != null) L[k] = hexRgb(L[k]);
+      });
+      L.jobI = Math.max(0, HUMAN_JOBS.indexOf(L.job));
+      return L;
+    });
+    // how far round the head its hair reaches (a bun sits up on the crown), and how far past the hand a tool reaches
+    const hb = t.build.head;
+    t.headReach = (t.looks.some((L) => L.hairStyle === "bun") ? 1.42 : t.looks.some((L) => L.hairStyle === "curly") ? 1.3 : 1.18) * 1;
+    t.toolReach = 0.15 * ((t.build.ankle + t.build.shin + t.build.thigh) / 0.52);
+    const b = t.build;
+    // the highest a seat may be: the feet still reach the floor (the shins slant forward past it)
+    t.seatMax = b.ankle + b.shin * 0.97 + b.thigh * 0.8 - b.rThigh * 1.15;
+    t.h = 1;
+    t.w = 1;
+    t.box = { h: 1, w: 1, head: 1, bar: 0.5 };
+    HUMANS[id] = t;
+    const keepT = T;
+    const keepV = V;
+    const keepH = HUM;
+    T = t;
+    HUM = true;
+    buildEnvHuman(t);
+    // standing still: its top (the box's height) and the head's top
+    V = t.looks[0];
+    SEED = 0;
+    const st = { yaw: 0, gait: 0, move: 0, pose: "stand", poseT: 0, poseW: 1, seed: 0 };
+    solveHuman(t, st, 1);
+    t.headTop = J[HED * 3 + 1] + hb[1] * (V.hairStyle === "bun" ? 1.3 : 1.12);
+    t.h = t.env.top.reduce((a, v) => Math.max(a, v), 0);
+    t.headTop = Math.min(t.h, t.headTop);
+    // (as wide again as the ink's margin and the perspective of a camera a few tiles off take, as the walkers' boxes)
+    t.w = 2 * t.env.rh * 1.1;
+    T = keepT;
+    V = keepV;
+    HUM = keepH;
+  }
+  /** The envelope of every pose (see fit), in the look's own units: standing, walking and running, talking, every job,
+      sitting from the floor to the highest seat, reading, cowering, the head turned either way; every look variant. */
+  // SCALE: the envelope's bins (how far out from the feet, ENV_BIN model units each): a look reaching past
+  // ENV_BINS x ENV_BIN (2 units, twice a person's height) keeps its outermost points in the last bin
+  const ENV_BIN = 0.004;
+  const ENV_BINS = 500;
+  const ENV_TOP = new Float64Array(ENV_BINS);
+  function buildEnvHuman(t) {
+    // the highest point at each distance out from the feet (binned, so a look's thousands of samples sort as a few
+    // hundred), and the farthest reach
+    ENV_TOP.fill(-Infinity);
+    let rh = 0;
+    const put = (rho, top) => {
+      if (rho > rh) rh = rho;
+      const k = Math.min(ENV_BINS - 1, Math.floor(rho / ENV_BIN));
+      if (top > ENV_TOP[k]) ENV_TOP[k] = top;
+    };
+    const st = { yaw: 0, gait: 0, move: 0, run: 0, pose: "stand", poseT: 0, poseW: 1, seed: 0, seat: 0, job: null, headYaw: 0 };
+    let turn = 0;
+    const take = () => {
+      // (the head turned each way in turn: it twists the shoulders a little)
+      st.headYaw = ((turn++ % 3) - 1) * HEAD_YAW_MAX;
+      solveHuman(t, st, 1);
+      for (let j = 0; j < NJ; j++) put(hyp2(J[j * 3], J[j * 3 + 2]) + JR[j], J[j * 3 + 1] + JR[j]);
+      // the things in front and on the floor
+      if (FRONT) put(hyp2(PG[24], PG[26]) + Math.max(PG[36], PG[37]) * 1.1, PG[25] + PG[37]);
+      if (GND) {
+        const sc = sizeOf(t.build);
+        put(Math.max(GND & G_SOIL ? Math.max(hyp2(PG[40], PG[41]) + 0.16 * sc, hyp2(PG[42], PG[43]) + 0.1 * sc) : 0, GND & G_BOARD ? hyp2(Math.abs(PG[38]) + 0.2 * sc, PG[39] + 0.05 * sc) : 0, GND & G_WRENCH ? hyp2(PG[44], PG[45]) + 0.13 * sc : 0, GND & G_LEDGER ? hyp2(PG[46], PG[47]) + 0.1 * sc : 0), 0.12 * sc);
+      }
+    };
+    // SCALE: runs once per look as the page loads (about as long as a walker kind's envelope, some 400 poses; the
+    // first look longer while the code warms)
+    const seats = [];
+    for (let s = 0; s < t.seatMax; s += 0.06) seats.push(s);
+    seats.push(t.seatMax);
+    for (let seed = 0; seed < t.looks.length; seed++) {
+      V = t.looks[seed];
+      SEED = seed;
+      st.seed = seed;
+      for (let i = 0; i <= 8; i++) {
+        st.pose = "stand";
+        st.poseT = i / 8;
+        take();
+      }
+      [0.5, 1].forEach((move) => {
+        [0, 1].forEach((run) => {
+          for (let i = 0; i < 16; i++) {
+            st.pose = "walk";
+            st.move = move;
+            st.run = run;
+            st.gait = i / 16;
+            take();
+          }
+        });
+      });
+      st.move = 0;
+      st.run = 0;
+      ["talk", "work", "sit", "read", "cower"].forEach((pose) => {
+        (pose === "work" ? HUMAN_JOBS : [null]).forEach((job) => {
+          (pose === "sit" ? seats : [0]).forEach((seat) => {
+            [0.5, 1].forEach((pw) => {
+              for (let i = 0; i < 12; i++) {
+                st.pose = pose;
+                st.job = job;
+                st.seat = seat;
+                st.poseW = pw;
+                st.poseT = i / 12;
+                take();
+              }
+            });
+          });
+        });
+      });
+      st.poseW = 1;
+      st.job = null;
+      st.seat = 0;
+    }
+    const pts = [];
+    for (let k = 0; k < ENV_BINS; k++) if (ENV_TOP[k] > -Infinity) pts.push([(k + 1) * ENV_BIN, ENV_TOP[k]]);
+    t.env = frontier(pts, rh);
+    t.envRun = null;
+    t.wRun = 0;
+  }
+  /** A person's box (tiles, reused): h its standing height (PERSON_H x CREW[id].scale), w room for every pose at any
+      yaw, head the head's top, bar a health bar's width as a walker's (people have none; kept sane). */
+  function humanBox(t) {
+    const K = humanH(t) / t.h;
+    const o = t.box;
+    o.h = t.h * K;
+    o.w = t.w * K;
+    o.head = t.headTop * K;
+    const I = ZSR.Interior;
+    const fov = I && +I.FOV > 0 ? +I.FOV : FOV;
+    o.bar = (2 * t.r * 1.1) / (2 * Math.tan(fov / 2));
+    return o;
   }
 
   /* ---------- Blood spray sprites (cached by Draw3, so fog through D.dim is fine) ---------- */
@@ -3664,6 +6404,14 @@
     POSES,
     TYPES,
     addType,
+    HUMANS,
+    HUMAN_POSES,
+    HUMAN_JOBS,
+    PERSON_H,
+    HEAD_YAW_MAX,
+    addHuman,
+    humanId,
+    humanH: (id) => (HUMANS[id] ? humanH(HUMANS[id]) : 0),
     gore,
     box,
     stride,

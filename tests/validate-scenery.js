@@ -99,7 +99,7 @@ Object.assign(globalThis, {
   requestAnimationFrame: () => 0,
   cancelAnimationFrame: noop,
 });
-for (const f of ["js/layouts.js", "js/world.js", "js/upgrades.js", "js/streets.js", "js/sprites.js", "js/sprites3d.js", "js/walker3d.js", "js/walker3d-looks.js", "js/model3d.js", "js/van3d.js", "js/landmarks1.js", "js/landmarks2.js", "js/game.js", "js/perspective.js", "js/perspective-buildings.js", "js/perspective-art.js", "js/perspective-gl.js", "js/interior.js"]) {
+for (const f of ["js/layouts.js", "js/world.js", "js/upgrades.js", "js/streets.js", "js/sprites.js", "js/sprites3d.js", "js/walker3d.js", "js/walker3d-looks.js", "js/walker3d-crew.js", "js/model3d.js", "js/van3d.js", "js/landmarks1.js", "js/landmarks2.js", "js/game.js", "js/perspective.js", "js/perspective-buildings.js", "js/perspective-art.js", "js/perspective-gl.js", "js/interior.js"]) {
   const file = path.join(ROOT, f);
   if (fs.existsSync(file)) vm.runInThisContext(fs.readFileSync(file, "utf8"), { filename: f });
 }

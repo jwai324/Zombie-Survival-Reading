@@ -18,7 +18,14 @@
      with gore off; fog darkens all but the eyes; its boxes, strides and blood sprites are sane; seen from above as
      the angled road camera sees them (cam.floor, cam.shadow: eyes 5 to 9 tiles, 2 to 70 tiles off) the same
      promises hold, every pose at full size, the ankles where that camera puts them, no shadow of its own; and the
-     two options left off draw exactly as without them;
+     two options left off draw exactly as without them; the walkers' calls hash to the fixture recorded before people
+     joined the rig (a walker must draw exactly as it did);
+   - the crew in 3D (js/walker3d-crew.js, people on the walkers' rig: Walker3D.addHuman): every crew id in the facts
+     has a look, its scale the facts' and its colours js/crewart.js's; an unknown crew id draws the stand-in; every
+     pose, job, seat, side, level of detail and run draws cleanly on the checking context (no transforms, images or
+     new canvases, inside its region, its lowest point on the floor line, within CREW_OPS, the same calls twice), at
+     the same size in every pose; no glow and no blood colour; fog darkens everything; poses blend in and their loops
+     close without a jump; bad fields draw as their defaults; box() and stride() are sane;
    - the crew's art (js/crewart.js, loaded by the page after sprites3d.js): every sprite ZSR.CREW_ART
      lists is registered and draws cleanly, at its size, with every opts set listed for it; the list
      covers every crew member in every pose and frame, the poses and quest object kinds docs/CREW.md
@@ -39,10 +46,19 @@ const ART_FILES = ["decor.js", "landmarks1.js", "landmarks2.js"]; // SCALE: add 
 const HOUSE_FILE = "houseart.js";
 const CREW_FILE = "crewart.js";
 const CREW_SPRITES = ["crew", "crewDog", "crewFace", "qObj"]; // the names js/crew.js, js/building.js and the crew card draw
-const WALKER_FILES = ["walker3d.js", "walker3d-looks.js"]; // SCALE: the walker module, then its looks; add walker3d-looks2.js ... here as types grow
+// SCALE: the walker module, its looks, then the crew's looks; add walker3d-looks2.js / walker3d-crew2.js ... here as they grow
+const WALKER_FILES = ["walker3d.js", "walker3d-looks.js", "walker3d-crew.js"];
 const WALKER_OPS = [600, 350, 160]; // SCALE: most canvas calls one walker may make at lod 0 / 1 / 2 (each one is drawn every frame it changes)
+// SCALE: most canvas calls one crew member may make at lod 0 / 1 / 2, with the props of the busiest pose (June kneeling
+// at her bed with the tray and the ledger put down, Tomas hammering); a busier look or prop must fit under these
+const CREW_OPS = [700, 400, 200];
+// The walkers' calls before people joined the rig (2026-10-18): walkerCallsHash below over every type, pose, side and
+// level of detail, falls, runs and the road's camera. A walker's art changed on purpose: run
+// `node tests/validate-art.js --record-walkers` and paste the numbers it prints here.
+const WALKER_FIXTURE = { draws: 1788, calls: 451176, sha1: "f0097c7dc0b929b352a8f7ed3019651250aa7f92" };
 const WALKER_H_MAX = 1.3; // SCALE: tallest walker box, tiles (the engine caps it at 0.98 under a ceiling)
-const WALKER_COLOURS = 6000; // SCALE: most colour strings random walker draws may use (Walker3D's colour table, CC_N, holds 16384)
+const WALKER_COLOURS = 6000; // SCALE: most colour strings random walker draws may use (Walker3D's colour table, CC_N, holds 32768)
+const CREW_COLOURS = 6000; // SCALE: the same for random draws of the crew's looks (they share that table with the walkers)
 // docs/CREW.md's own lists: the post poses (plus "walk", between posts) and the quest object kinds. The art
 // must cover them even before a fact uses one (validate-world.js holds the facts to the same kinds).
 const CREW_POSES = ["stand", "sit", "work", "read", "walk"];
@@ -52,6 +68,73 @@ const errors = [];
 const warnings = [];
 const err = (m) => errors.push(m);
 const warn = (m) => warnings.push(m);
+
+/** Every walker type, pose, side and level of detail (two looks each), falls, runs, the road's camera and a fogged far
+    one, drawn on a context that hashes each call and each style set (numbers to 1/1000): { draws, calls, sha1 }.
+    WALKER_FIXTURE holds what the walkers drew before people joined the rig. Uses only Walker3D.draw and TYPES (not
+    box(), which reads the facts), and passes gore, so it is the same in any sandbox. */
+function walkerCallsHash(W3) {
+  const PI = Math.PI;
+  const hash = require("crypto").createHash("sha1");
+  let draws = 0;
+  let calls = 0;
+  const r = (v) => (typeof v === "number" ? Math.round(v * 1000) / 1000 : v);
+  const fns = {};
+  const ctx = new Proxy(
+    {},
+    {
+      get(o, k) {
+        return (
+          fns[k] ||
+          (fns[k] = (...a) => {
+            calls++;
+            hash.update(k + "(" + a.map(r).join(",") + ")");
+          })
+        );
+      },
+      set(o, k, v) {
+        hash.update(k + "=" + r(v) + ";");
+        return true;
+      },
+    }
+  );
+  const one = (type, st, cam) => {
+    hash.update("|" + type + "|");
+    W3.draw(ctx, type, Object.assign({ yaw: 0, gait: 0.3, move: 1, pose: "walk", poseT: 0.5, claw: 0.3, hit: 0, fall: 0, fallDir: PI, seed: 0, lod: 0, fog: 0, gore: true }, st), cam);
+    draws++;
+  };
+  const camOf = (t, falling, h, extra) => {
+    const T = W3.TYPES[t];
+    const w = falling ? Math.max(T.w, 2 * T.h + 0.2) : T.w;
+    return Object.assign({ w: Math.ceil((w * h) / T.h), h, px: h / T.h, dist: 2.2, eye: 0.5 }, extra);
+  };
+  Object.keys(W3.TYPES).forEach((type) => {
+    for (let seed = 0; seed < 2; seed++) {
+      W3.POSES.forEach((pose, pi) => {
+        for (let k = 0; k < 8; k++) {
+          for (let lod = 0; lod < 3; lod++) {
+            one(type, { pose, seed, lod, yaw: (k * PI) / 4 - PI + 0.1, move: pose === "walk" ? 1 : 0.3, poseT: (k + pi) / 9, claw: k / 8, poseW: k === 3 ? 0.4 : 1, gait: k / 8 }, camOf(type, false, 160));
+          }
+        }
+      });
+    }
+    [0.35, 0.8, 1].forEach((fall) => {
+      [0, PI / 2, PI].forEach((fallDir) => {
+        [0, 2.4].forEach((yaw, yi) => {
+          [true, false].forEach((gore) => one(type, { fall, fallDir, yaw, gore, lod: yi, seed: 3 }, camOf(type, true, 140)));
+        });
+      });
+    });
+    [0.5, 1].forEach((run) => {
+      for (let g = 0; g < 5; g++) {
+        [1, -2].forEach((yaw, yi) => one(type, { run, gait: 0.1 + g * 0.2, yaw, lod: yi * 2, gore: g % 2 === 0 }, camOf(type, false, 90, { floor: 30, shadow: false, eye: 7, dist: 12, h: 120 })));
+      }
+    });
+    one(type, { hit: 1, fog: 0.45, yaw: 0.5, pose: "bite", poseT: 0.4 }, camOf(type, false, 200, { dist: 0.85 }));
+    one(type, { fog: 0.8, yaw: -0.5, pose: "idle", poseT: 0.2, lod: 1 }, { w: 60, h: 80, dist: 25, eye: 0.5 });
+  });
+  return { draws, calls, sha1: hash.digest("hex") };
+}
 
 /* ---------- A 2D context that records and checks every call ---------- */
 let current = "(loading)"; // what is being drawn, for the messages
@@ -191,7 +274,7 @@ WALKER_FILES.forEach((f, i) => {
   else {
     if (at < pageScripts.indexOf("sprites3d.js")) err(`index.html loads js/${f} before sprites3d.js`);
     if (pageScripts.includes("interior.js") && at > pageScripts.indexOf("interior.js")) err(`index.html loads js/${f} after interior.js (the engine reads Walker3D)`);
-    if (i && at < pageScripts.indexOf(WALKER_FILES[0])) err(`index.html loads js/${f} before js/${WALKER_FILES[0]}`);
+    if (i && at < pageScripts.indexOf(WALKER_FILES[i - 1])) err(`index.html loads js/${f} before js/${WALKER_FILES[i - 1]}`);
   }
 });
 
@@ -617,8 +700,9 @@ else {
     made++;
     return realCreate(t);
   };
-  /** Draw one figure on a fresh checking canvas; returns { ops, res } or null (after reporting). */
-  function drawOne(type, o, cam, what) {
+  /** Draw one figure on a fresh checking canvas; returns { ops, res } or null (after reporting). ceil: the call
+      ceilings by lod (WALKER_OPS unless given). */
+  function drawOne(type, o, cam, what, ceil) {
     const c = element("canvas");
     c.width = cam.w;
     c.height = cam.h;
@@ -643,7 +727,8 @@ else {
     const lod = st.lod;
     const min = lod === 2 ? 10 : 20;
     if (ops.length < min) err(`${what}: only ${ops.length} canvas calls`);
-    if (ops.length > WALKER_OPS[lod]) err(`${what}: ${ops.length} canvas calls, over the lod ${lod} ceiling of ${WALKER_OPS[lod]}`);
+    const ceiling = (ceil || WALKER_OPS)[lod === 1 || lod === 2 ? lod : 0];
+    if (ops.length > ceiling) err(`${what}: ${ops.length} canvas calls, over the lod ${lod} ceiling of ${ceiling}`);
     const bad = ops.find((op) => FORBID.has(op.k));
     if (bad) err(`${what}: calls ${bad.k} (walkers draw straight, with no transforms, images, gradients or read-backs)`);
     // inside the region (a camera nearer than a tile may push a reaching hand past it)
@@ -1073,6 +1158,311 @@ else {
     });
   });
   console.log(`walkers from above: ${roadCams} road-camera draws checked; ${same} draws with the options off match the plain ones`);
+  // T: the walkers draw exactly as before people joined the rig (every person-only path is gated)
+  {
+    const got = walkerCallsHash(W3);
+    if (process.argv.includes("--record-walkers")) console.log(`walker fixture: ${JSON.stringify(got)}`);
+    else if (got.draws !== WALKER_FIXTURE.draws || got.calls !== WALKER_FIXTURE.calls || got.sha1 !== WALKER_FIXTURE.sha1) err(`walkers: ${got.draws} draws make ${got.calls} calls hashing ${got.sha1}, not the fixture's ${WALKER_FIXTURE.calls} calls ${WALKER_FIXTURE.sha1} (a walker draws differently: if on purpose, re-record with --record-walkers)`);
+  }
+
+  /* ---------- The crew in 3D (js/walker3d-crew.js: people on the walkers' rig) ---------- */
+  const H3 = W3.HUMANS || {};
+  const people = Object.keys(H3);
+  let crewDraws = 0;
+  if (typeof W3.addHuman !== "function" || !people.length) err("js/walker3d.js has no people (Walker3D.addHuman, HUMANS: the crew's looks are js/walker3d-crew.js)");
+  else {
+    const HPOSES = ["stand", "walk", "talk", "work", "sit", "read", "cower"];
+    if (JSON.stringify(W3.HUMAN_POSES) !== JSON.stringify(HPOSES)) err(`Walker3D.HUMAN_POSES is ${JSON.stringify(W3.HUMAN_POSES)}, not ${JSON.stringify(HPOSES)} (the engine's contract)`);
+    if (JSON.stringify(W3.HUMAN_JOBS) !== JSON.stringify(["garden", "hammer", "clipboard"])) err(`Walker3D.HUMAN_JOBS is ${JSON.stringify(W3.HUMAN_JOBS)}`);
+    people.forEach((id) => W3.TYPES[id] && err(`person "${id}" is also a walker type (people live in HUMANS only)`));
+    if (!H3.person) err('Walker3D.HUMANS has no stand-in "person" (drawn for a crew id with no look yet)');
+    if (W3.humanId("zz-new") !== "person" || W3.humanId(people[0]) !== people[0]) err("Walker3D.humanId does not give the stand-in for an unknown id and the id itself for a known one");
+    // the facts: every crew member has a look, at the facts' scale; the look's colours are the 2D portrait's (js/crewart.js)
+    const csb = { console };
+    csb.globalThis = csb;
+    csb.window = csb;
+    vm.createContext(csb);
+    pageScripts.filter((f) => /^(layouts|world|story[\w-]*)\.js$/.test(f)).forEach((f) => {
+      try {
+        vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), csb, { filename: "js/" + f });
+      } catch (e) {
+        warn(`could not load js/${f} to check the crew's 3D looks against the facts: ${String(e.message).split("\n")[0]}`);
+      }
+    });
+    const CW = (csb.ZSR && csb.ZSR.WORLD && csb.ZSR.WORLD.CREW) || {};
+    if (!Object.keys(CW).length) warn("no WORLD.CREW in the facts to check the crew's 3D looks against");
+    const art2d = fs.readFileSync(path.join(ROOT, "js", CREW_FILE), "utf8");
+    const hex = (c) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
+    Object.keys(CW).forEach((id) => {
+      const t = H3[id];
+      if (!t) return err(`crew member "${id}" (WORLD.CREW) has no 3D look (Walker3D.addHuman in js/walker3d-crew.js)`);
+      if (Math.abs(t.scale - CW[id].scale) > 1e-9) err(`crew ${id}: its 3D look's scale ${t.scale} is not CREW.${id}.scale ${CW[id].scale} (the facts win on the page, the look's own in a test)`);
+      // js/crewart.js's PEOPLE.<id>: skin, hair, its top (the 3D look's shirt) and trousers
+      const m = new RegExp(`\\n    ${id}: \\{([\\s\\S]*?)\\n    \\}`).exec(art2d);
+      if (!m) return warn(`could not find ${id} in js/${CREW_FILE}'s PEOPLE to compare its colours`);
+      [["skin", "skin"], ["hair", "hair"], ["top", "shirt"], ["pants", "pants"]].forEach(([k2, k3]) => {
+        const c = new RegExp(`\\b${k2}: "(#[0-9a-f]{6})"`, "i").exec(m[1]);
+        const L = t.looks[0];
+        if (c && L[k3] && hex(L[k3]) !== c[1].toLowerCase()) err(`crew ${id}: its 3D ${k3} ${hex(L[k3])} is not the portrait's ${k2} ${c[1]} (js/${CREW_FILE})`);
+      });
+    });
+    // boxes and strides: in tiles, standing at PERSON_H x the scale, the same object each call; a run outstrides a walk
+    people.forEach((id) => {
+      const b = W3.box(id);
+      const what = `Walker3D.box("${id}")`;
+      if (!b || !["h", "w", "head", "bar"].every((k) => finite(b[k]) && b[k] > 0)) return err(`${what} is ${JSON.stringify(b)}`);
+      const want = W3.PERSON_H * ((CW[id] && CW[id].scale) || H3[id].scale);
+      if (Math.abs(b.h - want) > 1e-6 && !(ZSR.WORLD && ZSR.WORLD.CREW)) err(`${what}.h ${b.h} is not PERSON_H x its scale (${want.toFixed(4)})`);
+      if (b.head > b.h + 1e-9 || b.head < 0.9 * b.h) err(`${what}.head ${b.head} is not just under its height ${b.h}`);
+      if (b !== W3.box(id)) err(`${what} makes a new object each call`);
+      if (b.h > 0.98) err(`${what}.h ${b.h} is over the 0.98 ceiling cap (a crew member must stand in the cabin unshrunk)`);
+      const s0 = W3.stride(id);
+      const s1 = W3.stride(id, 1);
+      if (!(finite(s0) && s0 > 0 && finite(s1) && s1 > s0)) err(`Walker3D.stride("${id}") is ${s0}, running ${s1} (a run must stride further)`);
+    });
+    const hcam = (id, h, dist) => {
+      const b = W3.box(id);
+      const px = h / b.h;
+      return { w: Math.ceil(b.w * px), h, px, dist: dist || 3, eye: 0.5 };
+    };
+    const hbase = { yaw: 0, gait: 0.3, move: 0, pose: "stand", poseT: 0.3, poseW: 1, seed: 0, lod: 0, fog: 0, run: 0, seat: 0, headYaw: 0, gore: true, claw: 0, hit: 0, fall: 0 };
+    const drawH = (id, o, cam, what) => {
+      const r = drawOne(id, Object.assign({}, hbase, o), cam, what, CREW_OPS);
+      if (r) crewDraws++;
+      return r;
+    };
+    // the colours a person must never use: the walkers' eye glow and blood, at any light and fog (people are drawn
+    // through the same colour function, so only an exact walker colour or a deep blood red would give one away)
+    const banned = new Set();
+    Object.keys(W3.TYPES).forEach((t) => W3.TYPES[t].looks.forEach((L) => ["glow", "eye", "blood", "flesh"].forEach((k) => L[k] && banned.add(L[k].slice(0, 3).join(",")))));
+    const badColour = (ops) => {
+      for (const op of ops) {
+        if (op.k !== "fill" && op.k !== "stroke") continue;
+        const c = parse(op.k === "fill" ? op.fillStyle : op.strokeStyle);
+        if (!c) continue;
+        if (banned.has(c.slice(0, 3).join(","))) return `${op.k} ${c.join(",")} (a walker's glow or blood)`;
+        if (c[0] > 60 && c[1] < 0.2 * c[0] && c[2] < 0.2 * c[0]) return `${op.k} ${c.join(",")} (a blood red)`;
+      }
+      return null;
+    };
+    // A: every pose (each job, a seat on the floor and a chair's), from 8 sides, at every level of detail, walking and
+    // running: clean, inside, on the floor, under the ceilings, no glow or blood; every other one drawn twice the same
+    people.forEach((id) => {
+      HPOSES.forEach((pose) => {
+        const jobs = pose === "work" ? W3.HUMAN_JOBS : [null];
+        const seats = pose === "sit" ? [0, 0.3] : [0];
+        const runs = pose === "walk" ? [0, 1] : [0];
+        jobs.forEach((job) => {
+          seats.forEach((seat) => {
+            runs.forEach((run) => {
+              for (let k = 0; k < 8; k++) {
+                for (let lod = 0; lod < 3; lod++) {
+                  const yaw = (k * PI) / 4 - PI;
+                  const o = { pose, job, seat, run, lod, yaw, move: pose === "walk" ? 1 : 0, gait: k / 8, poseT: (k + 0.5) / 8, seed: k, headYaw: (k % 3) - 1 };
+                  const cam = hcam(id, 240);
+                  const what = `person ${id} ${pose}${job ? " " + job : ""}${pose === "sit" ? " seat " + seat : ""}${run ? " running" : ""} yaw ${yaw.toFixed(2)} lod ${lod}`;
+                  const r = drawH(id, o, cam, what);
+                  if (!r) continue;
+                  const low = lowest(r.ops);
+                  // its lowest point on the floor line (a run's both-feet-off moment a little over it; nothing under it:
+                  // drawOne holds every call inside the region). Sitting, the origin is under the seat: seen from
+                  // behind, the feet are farther than it and show higher (F holds them to the floor in the model)
+                  if (!(pose === "sit" && Math.cos(yaw) < 0.1) && low < cam.h - (run ? 0.06 : 0.03) * cam.h) err(`${what}: its lowest point is at ${low.toFixed(1)}, over the floor line ${cam.h}`);
+                  const bad = badColour(r.ops);
+                  if (bad) err(`${what}: paints ${bad}`);
+                  if (k === 4 && pose !== "work" && pose !== "cower" && lod < 2 && !r.res.face) err(`${what}: facing the camera, draw() says no face`);
+                  if (lod === 0 && (k & 1) === 0) {
+                    const again = drawH(id, o, cam, what + " (again)");
+                    if (again && sig(again.ops) !== sig(r.ops)) err(`${what}: the same inputs drew different calls`);
+                  }
+                }
+              }
+            });
+          });
+        });
+      });
+    });
+    // an unknown crew id draws the stand-in, a person (never a walker)
+    const stand = drawH(W3.humanId("zz-new"), {}, hcam("person", 200), "person for an unknown crew id");
+    const plain = drawH("person", {}, hcam("person", 200), "the stand-in person");
+    if (stand && plain && sig(stand.ops) !== sig(plain.ops)) err("an unknown crew id (Walker3D.humanId) does not draw the stand-in person");
+    // B: tiny to large regions, near and far; fog darkens every colour (no glow), and changes nothing else
+    people.forEach((id) => {
+      [[14, 18], [80, 110], [380, 500]].forEach(([w, h]) => {
+        [0.6, 2, 25].forEach((dist) => {
+          const b = W3.box(id);
+          const cam = { w, h, px: h / b.h, dist, eye: 0.5 };
+          const what = `person ${id} in ${w} x ${h} at ${dist} tiles`;
+          const clear = drawH(id, { yaw: 0.6, pose: "read", fog: 0 }, cam, what + " fog 0");
+          const fog = drawH(id, { yaw: 0.6, pose: "read", fog: 0.9 }, cam, what + " fog 0.9");
+          if (!clear || !fog) return;
+          if (clear.ops.length !== fog.ops.length) return err(`${what}: fog changed what is drawn (${clear.ops.length} vs ${fog.ops.length} calls)`);
+          for (let i = 0; i < clear.ops.length; i++) {
+            const k = clear.ops[i].k;
+            if (k !== "fill" && k !== "stroke") continue;
+            const a = parse(k === "fill" ? clear.ops[i].fillStyle : clear.ops[i].strokeStyle);
+            const z = parse(k === "fill" ? fog.ops[i].fillStyle : fog.ops[i].strokeStyle);
+            if (!a || !z || a[0] + a[1] + a[2] < 30) continue;
+            if (z[0] + z[1] + z[2] > (a[0] + a[1] + a[2]) * 0.5) return err(`${what}: fog 0.9 left ${k} ${a.join(",")} at ${z.join(",")} (nothing on a person glows)`);
+          }
+        });
+      });
+    });
+    // B2: their colours converge as the walkers' do (M): random poses, sides, fog and details use a bounded set of colour
+    // strings, and the last third of the draws adds almost none (light and fog come in steps, a prop face's light too)
+    {
+      const colours = new Set();
+      let late = 0;
+      let addLate = 0;
+      const grab = new Proxy({}, { get: () => noop, set: (o, k, v) => ((k === "fillStyle" || k === "strokeStyle") && !colours.has(v) && (colours.add(v), (late += addLate)), true) });
+      let seedR = 11;
+      const rr = () => (seedR = (seedR * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+      for (let i = 0; i < 3000; i++) {
+        if (i === 2000) addLate = 1;
+        const id = people[i % people.length];
+        W3.draw(grab, id, Object.assign({}, hbase, { yaw: rr() * 6.3 - 3.15, gait: rr(), fog: rr() * 0.9, pose: HPOSES[i % HPOSES.length], job: W3.HUMAN_JOBS[i % 3], seat: rr() * 0.3, poseT: rr(), move: 1, run: rr(), lod: i % 3, seed: i % 5, headYaw: rr() * 2 - 1 }), hcam(id, 120));
+      }
+      if (colours.size > CREW_COLOURS) err(`the crew: ${colours.size} different colour strings in 3000 random draws (over ${CREW_COLOURS})`);
+      if (late > colours.size * 0.05) err(`the crew: the last 1000 of 3000 random draws still made ${late} new colours (of ${colours.size}): light or fog is not stepped`);
+    }
+    const PBH = W3.probe();
+    const quietH = (id, o, cam) => W3.draw(quiet, id, Object.assign({}, hbase, o), cam);
+    const jointsOf = () => Array.from(PBH.j);
+    const jump = (a, b) => {
+      let d = 0;
+      for (let j = 0; j < a.length; j += 3) d = Math.max(d, Math.hypot(a[j] - b[j], a[j + 1] - b[j + 1], a[j + 2] - b[j + 2]));
+      return d;
+    };
+    people.forEach((id) => {
+      const cam = hcam(id, 200);
+      const hgt = H3[id].h; // the joints are in the look's own units, about 1 tall
+      // C: a pose blends in from standing without a jump: poseW 0 is standing exactly, and no joint moves more than
+      // 6% of the height between 1/40 steps of poseW
+      quietH(id, { pose: "stand", poseT: 0.3 }, cam);
+      const standJ = jointsOf();
+      ["talk", "work", "sit", "read", "cower"].forEach((pose) => {
+        (pose === "work" ? W3.HUMAN_JOBS : [null]).forEach((job) => {
+          [0, 0.3].forEach((seat) => {
+            if (seat && pose !== "sit") return;
+            let prev = null;
+            let worst = 0;
+            for (let i = 0; i <= 40; i++) {
+              quietH(id, { pose, job, seat, poseW: i / 40, poseT: 0.3, yaw: 0.7 }, cam);
+              const now = jointsOf();
+              if (i === 0 && jump(now, standJ) > 1e-9) err(`person ${id}: ${pose}${job ? " " + job : ""} at poseW 0 is not standing (a joint is ${jump(now, standJ).toFixed(4)} off): the pose would jump in`);
+              if (prev) worst = Math.max(worst, jump(now, prev));
+              prev = now;
+            }
+            if (worst > 0.06 * hgt) err(`person ${id}: ${pose}${job ? " " + job : ""}${pose === "sit" ? " seat " + seat : ""} blending in moves a joint ${(worst / hgt * 100).toFixed(1)}% of its height in one 1/40 step of poseW: a jump`);
+          });
+        });
+      });
+      // D: each pose's loop (poseT) closes on itself and runs without a jump (sampled finely: the hammer's strike is
+      // fast, about an eighth of its loop, but it does not jump), the feet staying on the floor; the walk and the
+      // run's cycles too
+      ["stand", "talk", "work", "sit", "read", "cower"].forEach((pose) => {
+        (pose === "work" ? W3.HUMAN_JOBS : [null]).forEach((job) => {
+          quietH(id, { pose, job, poseT: 0, seat: 0.3 }, cam);
+          const j0 = jointsOf();
+          quietH(id, { pose, job, poseT: 1, seat: 0.3 }, cam);
+          if (jump(jointsOf(), j0) > 1e-6) err(`person ${id}: ${pose}${job ? " " + job : ""} at poseT 1 is not where it starts (its loop would jump)`);
+          let prev = j0;
+          let worst = 0;
+          let toeUp = 0;
+          for (let i = 1; i <= 400; i++) {
+            quietH(id, { pose, job, poseT: i / 400, seat: 0.3 }, cam);
+            const now = jointsOf();
+            worst = Math.max(worst, jump(now, prev));
+            if (pose !== "sit") toeUp = Math.max(toeUp, Math.min(now[13 * 3 + 1], now[17 * 3 + 1]));
+            prev = now;
+          }
+          if (worst > 0.05 * hgt) err(`person ${id}: ${pose}${job ? " " + job : ""} moves a joint ${(worst / hgt * 100).toFixed(1)}% of its height in one 1/400 of its loop: a jump`);
+          if (toeUp > H3[id].build.ankle + 0.002) err(`person ${id}: ${pose}${job ? " " + job : ""} lifts both feet off the floor during its loop (the lower toe ${toeUp.toFixed(3)} up)`);
+        });
+      });
+      [0, 1].forEach((run) => {
+        quietH(id, { pose: "walk", move: 1, run, gait: 0 }, cam);
+        let prev = jointsOf();
+        const j0 = prev;
+        let worst = 0;
+        for (let i = 1; i <= 100; i++) {
+          quietH(id, { pose: "walk", move: 1, run, gait: i / 100 }, cam);
+          const now = jointsOf();
+          worst = Math.max(worst, jump(now, prev));
+          prev = now;
+        }
+        if (jump(prev, j0) > 1e-6) err(`person ${id}: its ${run ? "run" : "walk"} cycle does not close`);
+        if (worst > 0.06 * hgt) err(`person ${id}: ${run ? "running" : "walking"} moves a joint ${(worst / hgt * 100).toFixed(1)}% of its height in 1/100 of a cycle: a snap`);
+      });
+      // E: the same size in every pose (an envelope of them all): the fit never moves with the pose, and in a region
+      // its box gives it is drawn all but full size (the ink's margin and a camera's perspective over its eye take a
+      // few percent, as for a walker)
+      let lo = Infinity;
+      let hi = 0;
+      HPOSES.forEach((pose) => {
+        (pose === "work" ? W3.HUMAN_JOBS : [null]).forEach((job) => {
+          [0, 0.15, 0.3, 0.6].forEach((seat) => {
+            [0, 1].forEach((run) => {
+              for (let i = 0; i < 6; i++) {
+                quietH(id, { pose, job, seat, run, move: pose === "walk" ? 1 : 0, poseT: i / 6, gait: i / 6, yaw: i, headYaw: i - 3 }, cam);
+                lo = Math.min(lo, W3.probe().fit);
+                hi = Math.max(hi, W3.probe().fit);
+              }
+            });
+          });
+        });
+      });
+      if (lo < 0.95) err(`person ${id}: drawn at ${(lo * 100).toFixed(1)}% in a region its box gives (its box must hold every pose)`);
+      if (hi / lo - 1 > 0.01) err(`person ${id}: its size changes ${((hi / lo - 1) * 100).toFixed(1)}% with the pose`);
+      // F: sitting: the hips at the seat (the seat in tiles), the feet on the floor; a seat too tall for the legs is
+      // brought down to the highest they reach
+      const K = W3.box(id).h / H3[id].h;
+      const b = H3[id].build;
+      [0, 0.1, 0.2, 0.3].forEach((seat) => {
+        quietH(id, { pose: "sit", seat, yaw: 1.2 }, cam);
+        const hipY = PBH.j[1];
+        const want = Math.min(seat / K, H3[id].seatMax) + b.rThigh * 1.15;
+        if (Math.abs(hipY - want) > 1e-6) err(`person ${id} sitting on a seat ${seat} tiles high: the hips at ${(hipY * K).toFixed(3)} tiles, not ${(want * K).toFixed(3)}`);
+        const toe = Math.min(PBH.j[13 * 3 + 1], PBH.j[17 * 3 + 1]);
+        if (toe > b.ankle + 0.002) err(`person ${id} sitting on a seat ${seat} tiles high: the feet are off the floor (a toe at ${toe.toFixed(3)})`);
+      });
+      // G: the head turns from the body (headYaw), clamped: turned to the camera from a body facing away a quarter
+      // turn, the face shows; past the clamp it draws as at the clamp
+      const r = W3.draw(quiet, id, Object.assign({}, hbase, { pose: "talk", yaw: 1.0, headYaw: -1.0 }), cam);
+      if (!r.face) err(`person ${id}: its head turned to the camera (headYaw -1 at yaw 1) shows no face`);
+      const a = drawH(id, { pose: "talk", yaw: 0.5, headYaw: 3 }, cam, `person ${id} headYaw 3`);
+      const c = drawH(id, { pose: "talk", yaw: 0.5, headYaw: W3.HEAD_YAW_MAX }, cam, `person ${id} headYaw at the clamp`);
+      if (a && c && sig(a.ops) !== sig(c.ops)) err(`person ${id}: headYaw 3 does not draw as at the clamp (${W3.HEAD_YAW_MAX})`);
+      // G2: the eyes blink once in a pose's loop, and never at its ends (a pose held at poseT 0 or 1 keeps them open);
+      // the mouth opens and shuts as they talk
+      const whites = (o) => {
+        let w = false;
+        let fill = "";
+        const g = new Proxy({}, { get: (x, k) => (k === "fill" ? () => (w = w || fill === "rgb(251,248,240)") : noop), set: (x, k, v) => ((k === "fillStyle" && (fill = v)), true) });
+        W3.draw(g, id, Object.assign({}, hbase, o), cam);
+        return w;
+      };
+      for (let seed = 0; seed < 12; seed++) {
+        [0, 1].forEach((poseT) => whites({ pose: "stand", poseT, seed }) || err(`person ${id} seed ${seed}: its eyes are shut at poseT ${poseT} (a pose held there would never open them)`));
+        let shut = 0;
+        for (let i = 0; i < 100; i++) if (!whites({ pose: "talk", poseT: i / 100, seed })) shut++;
+        if (shut < 1 || shut > 8) err(`person ${id} seed ${seed}: eyes shut for ${shut} of 100 steps of a loop (a blink is a moment once a loop)`);
+      }
+      // H: missing or broken fields draw as their defaults; the walkers' own fields do nothing harmful
+      [{ pose: "dance" }, { pose: undefined }, { seat: NaN }, { seat: -2 }, { seat: 40, pose: "sit" }, { headYaw: Infinity }, { headYaw: NaN }, { job: "juggle", pose: "work" }, { job: 3, pose: "work" }, { poseW: NaN, pose: "read" }, { poseT: NaN, pose: "talk" }, { run: NaN, pose: "walk", move: 1 }, { move: undefined, pose: "walk" }, { gait: Infinity, pose: "walk", move: 1 }, { yaw: NaN }, { fog: NaN }, { seed: -5 }, { lod: 7 }, { pose: "bite", claw: 5, hit: 1, fall: 1, fallDir: 2 }, { pose: "claw", claw: NaN, fall: 0.5 }].forEach((o) =>
+        drawH(id, o, hcam(id, 200), `person ${id} with ${JSON.stringify(o, (k, v) => (typeof v === "number" && !Number.isFinite(v) ? String(v) : v === undefined ? "undefined" : v))}`)
+      );
+    });
+    // I: drawing people leaves no state behind: a walker drawn after a person draws as it did before it
+    {
+      const camW = camFor("walker", false, 200);
+      const before = drawOne("walker", { yaw: 0.4, pose: "claw", claw: 0.3, seed: 2 }, camW, "walker before a person");
+      drawH("june", { pose: "read", lod: 0, yaw: 2 }, hcam("june", 200), "june between two walkers");
+      const after = drawOne("walker", { yaw: 0.4, pose: "claw", claw: 0.3, seed: 2 }, camW, "walker after a person");
+      if (before && after && sig(before.ops) !== sig(after.ops)) err("a walker drawn after a person draws differently (a person left state behind)");
+    }
+    console.log(`the crew in 3D: ${people.length} looks (${people.join(", ")}), ${crewDraws} figures checked`);
+  }
   // the health bar's width uses the engine's field of view: the same number in both files
   const fovM = /const FOV = ([\d.]+)/.exec(fs.readFileSync(path.join(ROOT, "js", "interior.js"), "utf8"));
   if (!fovM) warn("could not find js/interior.js's FOV to check Walker3D.FOV against");
