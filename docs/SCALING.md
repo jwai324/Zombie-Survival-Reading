@@ -474,7 +474,9 @@ searches and when matters more than how fast one search is.
 
 `js/model3d.js` draws models of convex parts; `js/van3d.js` is the van on it; `js/modelsprite.js`
 stands models in the first-person view (`this.models`, one instance each: kind, position, turn,
-scale, footprint, tiles, `mesh()`).
+scale, footprint, tiles, `mesh()`, and an optional `core`: the model-unit box a moved eye maps the old
+picture through; a model with parts sticking out past its body, like the van's plow wings and mirrors,
+passes one).
 
 ### `SCALE:` spots for models
 
@@ -490,20 +492,30 @@ scale, footprint, tiles, `mesh()`).
   - `MODEL_RENDERS_MAX` 2 redraws a frame and `MODEL_MAX_PX` 640 on the governor's starting row;
     `MODEL_LEVELS` has one row per `LIVE_LEVELS` row (validate-engine checks the counts match). Many
     models in view (the yard's props) mean more redraws waiting: watch the walk-round redraw count
-    and the `modelStats` probe before raising the cap.
+    and the `modelStats` probe before raising the cap;
+  - `MODEL_RUNS` 8 opaque runs kept per picture column and `MODEL_OPAQUE` 200 (the alpha that hides
+    what is behind; the contact shadow's does not): the picture's outline, read back once per redrawn
+    picture and only when a walker stands behind it, for its health bar and to skip drawing a walker
+    the model hides. A model with more parts stacked in one column may want more runs.
 - `tests/validate-art.js` `VAN_OPS` [1450, 700, 350]: the most canvas calls the van may make at
   detail 0 / 1 / 2 from any view with all its gear (the road draws it every frame; Convoy Red from above
-  is at 1441). A new decal or gear piece must fit, or go to detail 0 only. `VAN_DECAL_AREA` (the
-  smallest decal area on the roof and the back doors) and validate-engine's `ROAD_DECAL` (the share of
-  the van a look's decal must cover from the road camera) hold every look readable from behind.
+  is at 1447, 6 of them the gun's middle barrel's root). A new decal or gear piece must fit, or go to
+  detail 0 only. `VAN_DECAL_AREA` (the smallest decal area on the roof and the back doors) and
+  validate-engine's `ROAD_DECAL` 1.5% (the share of the van a look's decal must cover from the road
+  camera, bare and under full armor) and `ROAD_DECAL_TOP` 1% (with every upgrade at its top: Olive Drab
+  is least at 1.1%) hold every look readable from behind. The upgrade tests read every bound from
+  `Upgrades.DEFS[k].max`, so a new level that draws nothing new fails.
 
 ### Add a paint look
 
 1. Append a row to `PAINT_LOOKS` in `js/upgrades.js` (name, body, roof, trim, bumper, rims, decal,
    decalA, decalB, cost, tier) and its cost to `DEFS.paint.costs` (`max` is the looks to buy).
 2. A new decal kind: its designs in `js/van3d.js` `DECALS` (both sides, the hood, the roof and the
-   back), a branch in `js/sprites.js` `decal()` (the map icon), words in `js/base.js` `DECAL_WORDS`,
-   and the kind in `tests/validate-world.js` `DECALS`.
+   back; validate-art reads the kinds from `Van3D.DECAL_KINDS`), a branch in `js/sprites.js` `decal()`
+   (the map icon), a branch in `js/base.js` `paintChip` (the Garage swatch; without one it shows a plain
+   band), words in `js/base.js` `DECAL_WORDS`, and the kind in `tests/validate-world.js` `DECALS`.
+   The look's name is appended to `tests/validate-world.js` `SAVED_LOOKS` (looks are pinned to their
+   index: any price is allowed, but never insert or reorder).
 3. The paint card is a row of pictures: past about ten looks it wants a second row or a scroll.
 
 ## The crossover universes

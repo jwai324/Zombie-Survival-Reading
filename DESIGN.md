@@ -2460,8 +2460,10 @@ the van on the road (a sloped windshield). Answers to the clarifying questions:
   lit by the caller's own light, ink on creases (faces meeting at more than 28 degrees), the silhouette
   and part edges, decals and text laid on faces. No WebGL, no images (as for the walkers).
 - Parts are ordered by the plane between them (worked out once per model), not by distance alone:
-  distance put a wheel over the nose. Only pairs that overlap on screen are compared, then sorted
-  topologically (a far part breaks a cycle). Pairs with no plane fall back to their centres' distance.
+  distance put a wheel over the nose. Only pairs that overlap on screen are compared (a part's box is
+  cut at the near plane, never taken as the whole screen), then sorted topologically; a cycle is broken at
+  the part on it that waits on the fewest (the farthest of those). Both were needed beside the van's cab,
+  where the gun drew over the body. Pairs with no plane fall back to their centres' distance.
 - A face another part covers is kept but never drawn (it still orders the parts).
 
 **The van (`js/van3d.js`).**
@@ -2540,6 +2542,20 @@ the van on the road (a sloped windshield). Answers to the clarifying questions:
   van's dents (repairing redraws it). The title keeps its view, pixel for pixel.
 - The road's light and ink rule live once, in `js/perspective-buildings.js` (`PerspBuild.LIGHT`,
   `inkW`); the van reads them (an even light if they are not loaded).
+
+**Review fixes (2026-10-18).** A five-angle review with an adversarial check of each finding confirmed 16; all fixed
+with a test that failed before:
+- Armor 5's roof plates are laid under the paint job, so each look's roof design shows over them (Night Violet's bolts
+  had gone under steel). The road check holds every look at 1.5% under full armor and 1% with every upgrade at its top.
+- The roof gun's undersides and the drum's inner end are drawn (the yard's eye is below the gun): only faces that really
+  sit against another part are hidden; a ray-cast test enforces it. The mirror glint stays inside the mirror.
+- `Van3D.sig` names each gun level (two guns could share a model past level 9); every upgrade test reads its top level
+  from `Upgrades.DEFS`, and the looks' save order is pinned by name (any price may be appended).
+- The parked van: a hurt walker's health bar is hidden only where the van's picture really covers its head (its opaque
+  runs per column, read back once per picture and only when a walker stands behind it), and a walker the van wholly
+  hides is not drawn (it took live redraws); a window resize redraws a picture that grew; a plowed van maps between
+  redraws through its body, not its plow wings (it redrew every frame creeping along it); a face turning into view
+  redraws that frame (it showed as a gap for one).
 
 **Measured (headless Chromium, no GPU, a 4-core container shared with other work, so directions):**
 - Yard, full build, the frame median against the commit before: standing near the van -11%, walking
