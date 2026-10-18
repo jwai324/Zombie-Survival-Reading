@@ -26,6 +26,11 @@
      new canvases, inside its region, its lowest point on the floor line, within CREW_OPS, the same calls twice), at
      the same size in every pose; no glow and no blood colour; fog darkens everything; poses blend in and their loops
      close without a jump; bad fields draw as their defaults; box() and stride() are sane;
+   - the animals (js/beast3d.js and its looks, loaded right after the walkers' looks): the stray dog and Rivet in every
+     pose they have, from every side, at every detail, trotting and galloping, cleanly inside their regions with their
+     feet on the floor line, within their call ceilings, the same way twice; fog darkens all but a robot's lights and a
+     shut-down robot has none; poses ease in without a jump, the gait and the pose loops are smooth; the size never
+     follows the pose; a two-legged winged stand-in draws through the same rig;
    - the crew's art (js/crewart.js, loaded by the page after sprites3d.js): every sprite ZSR.CREW_ART
      lists is registered and draws cleanly, at its size, with every opts set listed for it; the list
      covers every crew member in every pose and frame, the poses and quest object kinds docs/CREW.md
@@ -1470,6 +1475,446 @@ else {
   sb.document.createElement = realCreate;
 }
 
+/* ---------- Animals in 3D (js/beast3d.js + js/beast3d-looks.js): the stray dog and Rivet, live in their regions ----------
+   Loaded as the page loads them: after the walkers' looks (after js/walker3d-crew.js when there is one) and before
+   js/interior.js. Every type in every pose it has (and one it lacks, which draws "stand"), from 8 sides, at every level
+   of detail, walking, galloping and wagging, on the checking context: no throw, finite numbers, real colours, no
+   transforms, images, gradients, read-backs or new canvases, inside its region, its feet on the floor line, within its
+   canvas-call ceiling (BEAST_OPS), the same calls twice and with another animal drawn between; fog darkens all but a
+   robot's lights, in steps; a shut-down robot has no lights; poses ease in and out without a jump, the gait and the
+   pose loops are smooth and wrap; the size never follows the pose; tiny to large regions, near and far, and seen from
+   above (cam.floor, cam.shadow) hold the same promises, the two options left off change nothing; the colour table
+   converges; a two-legged winged stand-in (stage 3's chickens) draws cleanly through the same rig. */
+const BEAST_FILES = ["beast3d.js", "beast3d-looks.js"]; // SCALE: the animal module, then its looks; add beast3d-looks2.js ... here as kinds grow
+// SCALE: most canvas calls one animal may make at lod 0 / 1 / 2 (a crew yard draws the dog and Rivet beside the crew
+// and the walkers, each redrawn when it changes). Today's most: see the line this section prints
+const BEAST_OPS = [450, 320, 170];
+const BEAST_H_MAX = 0.6; // SCALE: tallest animal box, tiles (a goat stands taller than the dog)
+const BEAST_COLOURS = 3000; // SCALE: most colour strings random animal draws may use (Beast3D's colour table, CC_N, holds 8192)
+let beastDraws = 0;
+{
+  const at0 = pageScripts.indexOf("walker3d-crew.js") >= 0 ? pageScripts.indexOf("walker3d-crew.js") : pageScripts.indexOf("walker3d-looks.js");
+  BEAST_FILES.forEach((f, i) => {
+    if (!fs.existsSync(path.join(ROOT, "js", f))) return err(`js/${f} is missing`);
+    const at = pageScripts.indexOf(f);
+    if (at < 0) err(`index.html does not load js/${f}`);
+    else {
+      if (at < at0) err(`index.html loads js/${f} before js/${pageScripts[at0]} (the animals load right after the walkers' looks)`);
+      if (pageScripts.includes("interior.js") && at > pageScripts.indexOf("interior.js")) err(`index.html loads js/${f} after interior.js (the engine reads Beast3D)`);
+      if (i && at < pageScripts.indexOf(BEAST_FILES[0])) err(`index.html loads js/${f} before js/${BEAST_FILES[0]}`);
+    }
+    load(f);
+  });
+}
+const B3 = ZSR.Beast3D;
+if (!B3) err("js/beast3d.js does not export ZSR.Beast3D");
+else {
+  const PI = Math.PI;
+  const POSES = ["stand", "walk", "sit", "lie", "bark", "zap", "off"];
+  if (JSON.stringify(B3.POSES) !== JSON.stringify(POSES)) err(`Beast3D.POSES is ${JSON.stringify(B3.POSES)}, not ${JSON.stringify(POSES)} (the engine relies on the list)`);
+  ["addType", "draw", "box", "stride", "probe"].forEach((k) => typeof B3[k] === "function" || err(`Beast3D.${k} is not a function`));
+  POSES.forEach((p) => (finite(B3.POSE_SECS && B3.POSE_SECS[p]) && B3.POSE_SECS[p] > 0) || err(`Beast3D.POSE_SECS.${p} is ${B3.POSE_SECS && B3.POSE_SECS[p]}`));
+  ["POSE_BLEND", "FOG_STEPS", "HEAD_YAW_MAX"].forEach((k) => (finite(B3[k]) && B3[k] > 0) || err(`Beast3D.${k} is ${B3[k]}`));
+  // the kinds the game has, with the poses docs/CREW.md and docs/UNIVERSES.md give them
+  const WANT = { dog: ["stand", "walk", "sit", "lie", "bark"], robodog: ["stand", "walk", "sit", "zap", "off"] };
+  Object.entries(WANT).forEach(([id, poses]) => {
+    const t = B3.TYPES[id];
+    if (!t) return err(`Beast3D has no "${id}" (js/beast3d-looks.js)`);
+    poses.forEach((p) => t.poses.includes(p) || err(`Beast3D "${id}" lacks the pose "${p}"`));
+  });
+  const types = Object.keys(B3.TYPES);
+  // boxes and strides: finite, sane, the same object each call (the engine calls them every frame)
+  types.concat(["zz-new"]).forEach((t) => {
+    const b = B3.box(t);
+    const what = `Beast3D.box("${t}")`;
+    if (!b || !["h", "w", "head", "bar"].every((k) => finite(b[k]) && b[k] > 0)) return err(`${what} is ${JSON.stringify(b)}`);
+    if (b.h > BEAST_H_MAX) err(`${what}.h is ${b.h}: over ${BEAST_H_MAX} tiles`);
+    if (b.head > b.h + 1e-9) err(`${what}.head ${b.head} is over its height ${b.h}`);
+    if (b.w < b.bar) err(`${what}.w ${b.w} is narrower than its bar ${b.bar}`);
+    if (b !== B3.box(t)) err(`${what} makes a new object each call`);
+    const s0 = B3.stride(t);
+    const s1 = B3.stride(t, 1);
+    if (!(finite(s0) && s0 > 0 && finite(s1) && s1 >= s0)) err(`Beast3D.stride("${t}") is ${s0}, galloping ${s1}`);
+    if (B3.stride(t, NaN) !== s0) err(`Beast3D.stride("${t}", NaN) is not its walking stride`);
+  });
+  // the dog stands as tall as its 2D art (CREW_ART.scale.crewDog: its back about 0.2 tiles, a grown-up's knee)
+  const FORBID = new Set(["translate", "scale", "rotate", "setTransform", "transform", "drawImage", "resetTransform", "set shadowBlur", "set filter", "createLinearGradient", "createRadialGradient", "createPattern", "getImageData", "putImageData"]);
+  const parse = (c) => {
+    const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/.exec(typeof c === "string" ? c : "");
+    return m ? [+m[1], +m[2], +m[3], m[4] == null ? 1 : +m[4]] : null;
+  };
+  const base = { yaw: 0, gait: 0.3, move: 0, run: 0, pose: "stand", poseT: 0.3, poseW: 1, wag: 0.5, headYaw: 0, seed: 0, lod: 0, fog: 0 };
+  let made = 0;
+  const realCreate = sb.document.createElement;
+  sb.document.createElement = (t) => {
+    made++;
+    return realCreate(t);
+  };
+  const SHADOW_FILL = "rgba(0,0,0,0.3)";
+  /** The lowest point the figure draws (not its ground shadow): stroke ends with their width, ellipses' bottoms. */
+  const lowestDrawn = (ops) => {
+    let y = -Infinity;
+    let pending = [];
+    ops.forEach((op) => {
+      const a = op.args;
+      if (op.k === "beginPath") pending = [];
+      else if (op.k === "moveTo" || op.k === "lineTo") pending.push(a[1]);
+      else if (op.k === "quadraticCurveTo") pending.push(a[3]);
+      else if (op.k === "ellipse") pending.push(a[1] + Math.hypot(a[2] * Math.sin(a[4]), a[3] * Math.cos(a[4])));
+      else if (op.k === "fill" && op.fillStyle !== SHADOW_FILL) pending.forEach((v) => (y = Math.max(y, v)));
+      else if (op.k === "stroke") pending.forEach((v) => (y = Math.max(y, v + (op.lineWidth || 0) / 2)));
+    });
+    return y;
+  };
+  const sig = (ops) => JSON.stringify(ops.map((op) => [op.k, op.args, op.fillStyle, op.strokeStyle, op.lineWidth, op.globalAlpha]));
+  const worst = [0, 0, 0];
+  /** Draw one animal on a fresh checking canvas; returns { ops, res } or null (after reporting). */
+  function drawBeast(type, o, cam, what) {
+    const c = element("canvas");
+    c.width = cam.w;
+    c.height = cam.h;
+    const ctx = c.getContext("2d");
+    const st = Object.assign({}, base, o);
+    current = what;
+    const before = made;
+    noRead = true;
+    let res;
+    try {
+      res = B3.draw(ctx, type, st, cam);
+    } catch (e) {
+      noRead = false;
+      err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+      return null;
+    }
+    noRead = false;
+    beastDraws++;
+    if (made !== before) err(`${what}: made ${made - before} canvas(es) while drawing`);
+    if (!res || !finite(res.parts) || res.parts < 3) err(`${what}: draw() returned ${JSON.stringify(res)}, not { parts }`);
+    const ops = c.ops;
+    const lod = st.lod === 1 || st.lod === 2 ? st.lod : 0;
+    worst[lod] = Math.max(worst[lod], ops.length);
+    if (ops.length < (lod === 2 ? 12 : 30)) err(`${what}: only ${ops.length} canvas calls`);
+    if (ops.length > BEAST_OPS[lod]) err(`${what}: ${ops.length} canvas calls, over the lod ${lod} ceiling of ${BEAST_OPS[lod]}`);
+    const bad = ops.find((op) => FORBID.has(op.k));
+    if (bad) err(`${what}: calls ${bad.k} (animals draw straight, with no transforms, images, gradients or read-backs)`);
+    let worstOut = null;
+    const out = (x, y, r, lw, k, ry) => {
+      const m = 2 + lw / 2;
+      const rh = ry == null ? r : ry;
+      if (x - r < -m || x + r > cam.w + m || y - rh < -m || y + rh > cam.h + m) worstOut = worstOut || `${k} at ${x.toFixed(1)}, ${y.toFixed(1)} (r ${r.toFixed(1)}, ${rh.toFixed(1)}) outside ${cam.w} x ${cam.h}`;
+    };
+    ops.forEach((op) => {
+      const a = op.args;
+      if (op.k === "moveTo" || op.k === "lineTo") out(a[0], a[1], 0, op.lineWidth, op.k);
+      else if (op.k === "quadraticCurveTo") {
+        out(a[0], a[1], 0, op.lineWidth, op.k);
+        out(a[2], a[3], 0, op.lineWidth, op.k);
+      } else if (op.k === "ellipse") {
+        const c2 = Math.cos(a[4]);
+        const s2 = Math.sin(a[4]);
+        out(a[0], a[1], Math.hypot(a[2] * c2, a[3] * s2), op.lineWidth, op.k, Math.hypot(a[2] * s2, a[3] * c2));
+      }
+    });
+    if (worstOut) err(`${what}: draws outside its region: ${worstOut}`);
+    return { ops, res };
+  }
+  const camFor = (type, h, dist) => {
+    const b = B3.box(type);
+    const px = h / b.h;
+    return { w: Math.ceil(b.w * px), h, px, dist: dist || 3, eye: 0.5 };
+  };
+  // A: every pose it has and one it lacks, 8 sides, every level of detail, wagging or not; walking at a trot and a
+  // gallop; its feet on the floor line; the same calls twice
+  types.forEach((type) => {
+    const t = B3.TYPES[type];
+    const lacks = POSES.find((p) => !t.poses.includes(p));
+    const poses = t.poses.concat(lacks ? [lacks] : []);
+    for (let seed = 0; seed < Math.max(1, t.looks.length); seed++) {
+      poses.forEach((pose) => {
+        [0, 1].forEach((run) => {
+          if (run && pose !== "walk") return;
+          for (let k = 0; k < 8; k++) {
+            for (let lod = 0; lod < 3; lod++) {
+              const yaw = (k * PI) / 4 - PI;
+              const o = { pose, yaw, lod, seed, run, wag: (k + lod) % 2, move: pose === "walk" ? 1 : 0, headYaw: ((k % 3) - 1) * 0.6 };
+              const cam = camFor(type, 220);
+              const what = `animal ${type} ${pose}${run ? " galloping" : ""}${t.poses.includes(pose) ? "" : " (it lacks it)"} yaw ${yaw.toFixed(2)} lod ${lod} seed ${seed}`;
+              const r = drawBeast(type, o, cam, what);
+              if (!r) continue;
+              const low = lowestDrawn(r.ops);
+              // (galloping, every paw may be off the ground at once)
+              if (!run && (low < 0.94 * cam.h || low > cam.h + 3.5)) err(`${what}: its lowest point is at ${low.toFixed(1)} of ${cam.h} (its feet must stand on the floor line)`);
+              if (lod === 0 && (k & 1) === 0) {
+                const again = drawBeast(type, o, cam, what + " (again)");
+                if (again && sig(again.ops) !== sig(r.ops)) err(`${what}: the same inputs drew different calls`);
+              }
+            }
+          }
+        });
+      });
+    }
+  });
+  // B: tiny to large regions, near and far cameras, clear and fogged: fog darkens everything but a robot's lights, and
+  // a shut-down robot has no lights (every colour fogs)
+  types.forEach((type) => {
+    B3.TYPES[type].poses.forEach((pose) => {
+      [[12, 9], [90, 70], [420, 330]].forEach(([w, h], wi) => {
+        [0.4, 2, 25].forEach((dist) => {
+          const b = B3.box(type);
+          const cam = { w, h, px: h / b.h, dist, eye: 0.5 };
+          const what = `animal ${type} ${pose} in ${w} x ${h} at ${dist} tiles`;
+          const o = { yaw: 0.6 + wi, pose, move: pose === "walk" ? 1 : 0, poseT: 0.3, lod: wi === 2 ? 0 : wi };
+          const clear = drawBeast(type, Object.assign({ fog: 0 }, o), cam, what + " fog 0");
+          const fog = drawBeast(type, Object.assign({ fog: 0.9 }, o), cam, what + " fog 0.9");
+          if (!clear || !fog) return;
+          if (clear.ops.length !== fog.ops.length) return err(`${what}: fog changed what is drawn (${clear.ops.length} vs ${fog.ops.length} calls)`);
+          let darker = 0;
+          let colored = 0;
+          for (let i = 0; i < clear.ops.length; i++) {
+            const k = clear.ops[i].k;
+            if (k !== "fill" && k !== "stroke") continue;
+            const a = parse(k === "fill" ? clear.ops[i].fillStyle : clear.ops[i].strokeStyle);
+            const z = parse(k === "fill" ? fog.ops[i].fillStyle : fog.ops[i].strokeStyle);
+            if (!a || !z || (a[0] + a[1] + a[2] === 0 && a[3] < 1)) continue; // (the ground shadow is black already)
+            colored++;
+            if (z[0] > a[0] + 1 || z[1] > a[1] + 1 || z[2] > a[2] + 1) return err(`${what}: fog 0.9 made ${k} ${a.join(",")} lighter (${z.join(",")})`);
+            if (z[0] + z[1] + z[2] < (a[0] + a[1] + a[2]) * 0.5) darker++;
+          }
+          if (darker < colored * 0.7) err(`${what}: fog 0.9 darkened only ${darker} of ${colored} colours`);
+          if (pose === "off" && darker < colored) err(`${what}: shut down, ${colored - darker} of its colours still glow through the fog (its lights must be dark)`);
+        });
+      });
+    });
+  });
+  const noop = () => {};
+  const quiet = new Proxy({}, { get: () => noop, set: () => true });
+  const PB = B3.probe();
+  const stQ = (o) => Object.assign({}, base, o);
+  if (!PB || !PB.j || !PB.s) err("Beast3D.probe() does not give the joints (j) and their projections (s)");
+  else {
+    const nj = PB.j.length / 3;
+    const jointsOf = () => Array.from(PB.j);
+    const maxMove = (a, b2) => {
+      let m = 0;
+      for (let j = 0; j < nj; j++) m = Math.max(m, Math.hypot(a[j * 3] - b2[j * 3], a[j * 3 + 1] - b2[j * 3 + 1], a[j * 3 + 2] - b2[j * 3 + 2]));
+      return m;
+    };
+    types.forEach((type) => {
+      const t = B3.TYPES[type];
+      const cam = camFor(type, 200);
+      // C: a pose at poseW 0 is standing exactly (a pose change starts where it stood); then through poseW 0..1 in 40
+      // steps no joint jumps (at most 4% of its body length a step: the whole move in about 25 steps)
+      const len = t.build.len;
+      t.poses.forEach((pose) => {
+        if (pose === "stand" || pose === "walk") return;
+        [0, 0.8].forEach((move) => {
+          B3.draw(quiet, type, stQ({ pose: "stand", move, gait: 0.4, poseT: 0.25, yaw: 0.7 }), cam);
+          const stand = jointsOf();
+          B3.draw(quiet, type, stQ({ pose, move, gait: 0.4, poseT: 0.25, yaw: 0.7, poseW: 0 }), cam);
+          const d0 = maxMove(stand, jointsOf());
+          if (d0 > 1e-9) err(`animal ${type}: ${pose} at poseW 0 is not standing (a joint is ${d0.toFixed(4)} tiles off): the pose would jump in`);
+          let prev = stand;
+          let most = 0;
+          for (let i = 1; i <= 40; i++) {
+            B3.draw(quiet, type, stQ({ pose, move, gait: 0.4, poseT: 0.25, yaw: 0.7, poseW: i / 40 }), cam);
+            const now = jointsOf();
+            most = Math.max(most, maxMove(prev, now));
+            prev = now;
+          }
+          if (most > len * 0.12) err(`animal ${type}: easing into ${pose}${move ? " from a walk" : ""}, a joint jumps ${most.toFixed(4)} tiles in one of 40 steps (more than ${(len * 0.12).toFixed(4)})`);
+        });
+      });
+      // D: smooth gait cycles (trotting and galloping) and pose loops: through 200 steps no paw, head or tail tip
+      // jumps more than 4 x its usual step (+ a little); a loop's end meets its start
+      const LIMBS = { "fore left paw": 9 + 3, "fore right paw": 9 + 7, "hind left paw": 9 + 11, "hind right paw": 9 + 15, head: 3, "tail tip": 7 };
+      const cycles = [{ field: "gait", o: { pose: "walk", move: 1 } }, { field: "gait", o: { pose: "walk", move: 1, run: 1 } }].concat(t.poses.filter((p) => p !== "walk").map((p) => ({ field: "poseT", o: { pose: p, wag: 1 } })));
+      cycles.forEach(({ field, o }) => {
+        [PI / 2, 0.4].forEach((yaw) => {
+          const steps = {};
+          let prev = null;
+          let first = null;
+          for (let i = 0; i <= 200; i++) {
+            B3.draw(quiet, type, stQ(Object.assign({ yaw, [field]: i / 200, gait: field === "gait" ? i / 200 : 0.3, poseT: field === "poseT" ? i / 200 : 0.3 }, o)), cam);
+            const now = Array.from(PB.s);
+            if (!first) first = now;
+            if (prev) Object.entries(LIMBS).forEach(([n, j]) => (steps[n] = steps[n] || []).push(Math.hypot(now[j * 3] - prev[j * 3], now[j * 3 + 1] - prev[j * 3 + 1])));
+            prev = now;
+          }
+          const what = `animal ${type} ${o.pose}${o.run ? " galloping" : ""} through its ${field === "gait" ? "gait" : "loop"} yaw ${yaw.toFixed(2)}`;
+          Object.entries(steps).forEach(([n, a]) => {
+            const sorted = a.slice().sort((x, y) => x - y);
+            const med = sorted[sorted.length >> 1];
+            const max = sorted[sorted.length - 1];
+            if (max > 4 * med + 1.5) err(`${what}: its ${n} jumps ${max.toFixed(1)} px in one step (its usual step is ${med.toFixed(2)} px at 200 px tall): a snap`);
+          });
+          // (bark and zap are one-shots: the engine loops them, so their ends meet too)
+          Object.entries(LIMBS).forEach(([n, j]) => {
+            const d = Math.hypot(prev[j * 3] - first[j * 3], prev[j * 3 + 1] - first[j * 3 + 1]);
+            if (d > 1.5) err(`${what}: its ${n} ends the loop ${d.toFixed(1)} px from where it began (the loop must wrap)`);
+          });
+        });
+      });
+      // E: the size never follows the pose: at 1 tile the fit is the same sitting, lying, barking, zapping, walking and
+      // galloping, the head turned either way
+      [0, 0.5, PI / 2, -2.4].forEach((yaw) => {
+        let lo = Infinity;
+        let hi = 0;
+        const b = B3.box(type);
+        const camN = { w: Math.ceil((b.w * 300) / b.h), h: 300, px: 300 / b.h, dist: 1, eye: 0.5 };
+        t.poses.forEach((pose) => {
+          for (let i = 0; i <= 12; i++) {
+            [1, 0.5].forEach((poseW) => {
+              B3.draw(quiet, type, stQ({ yaw, pose, poseT: i / 12, gait: i / 12, move: pose === "walk" ? 1 : 0, poseW, headYaw: ((i % 3) - 1) * 2 }), camN);
+              const f = B3.probe().fit;
+              lo = Math.min(lo, f);
+              hi = Math.max(hi, f);
+            });
+          }
+        });
+        if (hi / lo - 1 > 0.03) err(`animal ${type} yaw ${yaw.toFixed(2)} at 1 tile: its size changes ${((hi / lo - 1) * 100).toFixed(1)}% with the pose (fit ${lo.toFixed(3)}..${hi.toFixed(3)}): it would pulse`);
+      });
+      // F: headYaw past its limit is the limit; fog comes in steps
+      B3.draw(quiet, type, stQ({ headYaw: 10 }), cam);
+      const far = jointsOf();
+      B3.draw(quiet, type, stQ({ headYaw: B3.HEAD_YAW_MAX }), cam);
+      if (maxMove(far, jointsOf()) > 1e-9) err(`animal ${type}: headYaw 10 turns the head past HEAD_YAW_MAX`);
+      const f1 = drawBeast(type, { fog: 0.3 }, cam, `animal ${type} fog 0.3`);
+      const f2 = drawBeast(type, { fog: 0.3 + 0.2 / B3.FOG_STEPS }, cam, `animal ${type} fog a little more`);
+      if (f1 && f2 && sig(f1.ops) !== sig(f2.ops)) err(`animal ${type}: fog 0.3 and a little more draw differently (fog must come in steps of 1 / FOG_STEPS)`);
+    });
+    // G: a robot's lights: zapping they glow through the fog; shut down they are out
+    const R = B3.TYPES.robodog;
+    if (R) {
+      const cam = camFor("robodog", 200);
+      const glowing = (o) => {
+        const a = drawBeast("robodog", Object.assign({ fog: 0 }, o), cam, `animal robodog ${o.pose} lights (clear)`);
+        const z = drawBeast("robodog", Object.assign({ fog: 0.9 }, o), cam, `animal robodog ${o.pose} lights (fogged)`);
+        if (!a || !z) return -1;
+        let n = 0;
+        a.ops.forEach((op, i) => {
+          if (op.k !== "fill" && op.k !== "stroke") return;
+          const s1 = op.k === "fill" ? op.fillStyle : op.strokeStyle;
+          const s2 = op.k === "fill" ? z.ops[i].fillStyle : z.ops[i].strokeStyle;
+          const c1 = parse(s1);
+          if (c1 && s1 === s2 && c1[0] + c1[1] + c1[2] > 150) n++;
+        });
+        return n;
+      };
+      if (glowing({ pose: "zap", poseT: 0.5, yaw: 0.5 }) < 3) err("animal robodog zapping: its visor, antenna and spark do not glow through the fog");
+      if (glowing({ pose: "stand", yaw: 0.5 }) < 1) err("animal robodog standing: its visor does not glow through the fog");
+      [0, PI / 2, PI, -0.7].forEach((yaw) => {
+        if (glowing({ pose: "off", yaw }) !== 0) err(`animal robodog shut down (yaw ${yaw.toFixed(2)}): it still draws a light`);
+        B3.draw(quiet, "robodog", stQ({ pose: "off", yaw }), cam);
+        if (B3.probe().lit) err("animal robodog shut down: probe().lit says its lights are on");
+      });
+    }
+    // H: missing or broken inputs draw as their defaults (the checking context errs on any non-finite number)
+    [{ move: undefined }, { move: NaN }, { gait: NaN }, { gait: Infinity }, { run: NaN }, { poseT: NaN, pose: "bark" }, { poseW: NaN, pose: "sit" }, { wag: NaN }, { headYaw: NaN }, { headYaw: -Infinity }, { yaw: NaN }, { fog: NaN }, { seed: -5 }, { lod: 7 }, { pose: "dance" }, { pose: undefined }, { hit: 1 }].forEach((o) =>
+      types.forEach((type) => drawBeast(type, o, camFor(type, 160), `animal ${type} with ${JSON.stringify(o, (k, v) => (typeof v === "number" && !Number.isFinite(v) ? String(v) : v === undefined ? "undefined" : v))}`))
+    );
+    drawBeast("zz-new", {}, camFor("dog", 160), "animal of an unknown type (draws a dog)");
+    // I: the same inputs draw the same with another animal drawn between (no state leaks between draws)
+    types.forEach((a, k) => {
+      const other = types[(k + 1) % types.length];
+      const sa = { yaw: 0.7, gait: 0.37, pose: "walk", move: 1, poseT: 0.6, seed: 3, lod: k % 3, fog: 0.2, headYaw: 0.4 };
+      const cam = camFor(a, 180);
+      const one = drawBeast(a, sa, cam, `animal ${a} (determinism, first)`);
+      drawBeast(other, { yaw: -2, pose: B3.TYPES[other].poses[2], poseT: 0.4, poseW: 0.6, seed: 8, lod: (k + 1) % 3, fog: 0.7, run: 0.5, move: 1 }, camFor(other, 120, 1.2), `animal ${other} (determinism, between)`);
+      const two = drawBeast(a, sa, cam, `animal ${a} (determinism, again)`);
+      if (one && two && sig(one.ops) !== sig(two.ops)) err(`animal ${a}: drawing a ${other} in between changed how the same ${a} draws`);
+    });
+    // J: the colour table converges: random continuous inputs use a bounded set of colour strings (a bite's flash only on
+    // Rivet, now and then: the dog is never hurt)
+    const colours = new Set();
+    let late = 0;
+    let addLate = 0;
+    const grab = new Proxy({}, { get: () => noop, set: (o, k, v) => ((k === "fillStyle" || k === "strokeStyle") && !colours.has(v) && (colours.add(v), (late += addLate)), true) });
+    let seedR = 11;
+    const rr = () => (seedR = (seedR * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    for (let i = 0; i < 2400; i++) {
+      if (i === 1600) addLate = 1;
+      const type = types[i % types.length];
+      const ps = B3.TYPES[type].poses;
+      B3.draw(grab, type, stQ({ yaw: rr() * 6.3 - 3.15, gait: rr(), poseT: rr(), poseW: rr(), fog: rr() * 0.9, pose: ps[i % ps.length], move: rr(), run: i % 4 ? 0 : rr(), wag: rr(), headYaw: rr() * 2 - 1, lod: i % 3, hit: type === "robodog" && i % 21 === 1 ? 1 : 0 }), camFor(type, 120));
+    }
+    if (colours.size > BEAST_COLOURS) err(`animals: ${colours.size} colour strings in 2400 random draws (over ${BEAST_COLOURS})`);
+    if (late > colours.size * 0.05) err(`animals: the last 800 of 2400 random draws still made ${late} new colours (of ${colours.size}): light or fog is not stepped`);
+  }
+  // K: seen from above (the road's angled camera, should an animal ever ride along there): room under the feet
+  // (cam.floor) and no shadow of its own; and the two options left off draw exactly as without them
+  types.forEach((type) => {
+    const t = B3.TYPES[type];
+    [5, 8].forEach((eye) => {
+      [[3, 80], [12, 40], [40, 12]].forEach(([dist, px]) => {
+        const b = B3.box(type);
+        const pad = 2 + Math.max(0.7, Math.min(3.2, px * 0.0105));
+        const up = Math.ceil(b.h * px * 1.6 + pad);
+        const fl = Math.min(Math.ceil(eye * (dist / Math.max(0.3, dist - t.envRun.rh) - 1) * px + pad + 2), Math.floor(up * 1.5));
+        const cam = { w: Math.ceil(t.wRun * px * 1.1 + 2 * pad), h: up + fl, px, dist, eye, floor: fl, shadow: false };
+        t.poses.forEach((pose, i) => {
+          const what = `animal ${type} from above (eye ${eye}, ${dist} tiles) ${pose}`;
+          const r = drawBeast(type, { pose, yaw: i * 1.3, lod: i % 3, move: pose === "walk" ? 1 : 0, run: i % 2 }, cam, what);
+          if (r && r.ops.some((op) => op.k === "fill" && op.fillStyle === SHADOW_FILL)) err(`${what}: drew its own contact shadow with cam.shadow false`);
+        });
+      });
+    });
+    [[0.5, 1.2, 200], [0.5, 3, 120], [0.5, 25, 16]].forEach(([eye, dist, h], ci) => {
+      t.poses.forEach((pose, i) => {
+        const b = B3.box(type);
+        const cam = { w: Math.ceil((b.w * h) / b.h), h, px: h / b.h, dist, eye };
+        const st = { pose, yaw: 0.7 - ci, lod: (i + ci) % 3, poseT: 0.3, move: pose === "walk" ? 1 : 0, fog: ci * 0.2 };
+        const plain = drawBeast(type, st, cam, `animal ${type} ${pose} (no options)`);
+        [{ floor: 0 }, { shadow: true }].forEach((opt) => {
+          const r = drawBeast(type, st, Object.assign({}, cam, opt), `animal ${type} ${pose} with ${JSON.stringify(opt)}`);
+          if (plain && r && sig(r.ops) !== sig(plain.ops)) err(`animal ${type} ${pose}: cam ${JSON.stringify(opt)} draws differently from no option`);
+        });
+        const r0 = drawBeast(type, Object.assign({}, st, { run: 0 }), cam, `animal ${type} ${pose} with st.run 0`);
+        if (plain && r0 && sig(r0.ops) !== sig(plain.ops)) err(`animal ${type} ${pose}: st.run 0 draws differently from no run`);
+      });
+    });
+  });
+  // L: the two-legged plan (stage 3's chickens): a stand-in bird, two legs under its body and two wings, draws
+  // cleanly through the same rig in every pose, from every side, at every detail (registered here only, in the test)
+  B3.addType("zz-bird", {
+    plan: "biped",
+    skin: "fur",
+    h: 0.3,
+    w: 0.36,
+    r: 0.12,
+    poses: ["stand", "walk", "sit", "lie"],
+    build: {
+      len: 0.07, hipH: 0.12, shH: 0.14, hipFwd: 0.035, hindZ: 0.035,
+      body: [[0.1, 0, 0.045, 0.045, 0.06], [0.8, 0.005, 0.04, 0.045, 0.045]],
+      neck: [0.04, 0.018], neckAng: 1.3,
+      head: [0.022, 0.024, 0.024], headUp: 0.012, headFwd: 0.006, headPitch: 0,
+      snout: [0.02, 0.008, 0.007, -0.004, 0.018],
+      hipW: 0.018, shW: 0.02, footW: 0.018, hind: [0.045, 0.045], fore: [0.03, 0.03], pastern: [0.01, 0.03], hindAng: 0.2,
+      legR: [0.01, 0.006, 0.016, 0.006, 0.005], paw: [0.012, 0.004, 0.016], pawR: 0.004,
+      tail: [0.04, 0.012, 0.01], tailAt: [0.02, -0.02], tailUp: 0.9,
+      sitH: 0.05, sitNeck: 1.3, lieH: 0.05, lieNeck: 1.2, shadow: [0.05, 0.06],
+      wing: { x: 0.04, u: 0.005, f: -0.01, len: 0.06, r: 0.018 },
+    },
+    gait: { stride: 0.18, duty: 0.6, lift: 0.03, phase: [0, 0, 0, 0.5] },
+    look: { fur: "#f2efe6", shade: "#cfc8b8", light: "#ffffff", eye: "#120d0a", wing: "#e8e2d4", beak: "#e0a030", legCol: "#e3b23c" },
+  });
+  if (!B3.TYPES["zz-bird"] || B3.TYPES["zz-bird"].plan !== "biped") err("Beast3D.addType does not keep a two-legged plan");
+  else {
+    POSES.forEach((pose) => {
+      for (let k = 0; k < 8; k++) {
+        for (let lod = 0; lod < 3; lod++) {
+          const what = `animal stand-in bird (biped) ${pose} yaw ${(k * 0.785).toFixed(2)} lod ${lod}`;
+          drawBeast("zz-bird", { pose, yaw: k * 0.785, lod, move: pose === "walk" ? 1 : 0, wag: 1 }, camFor("zz-bird", 160), what);
+        }
+      }
+    });
+    if (B3.probe().j.length / 3 < 29) err("Beast3D.probe(): the joints lack the wing slots");
+    delete B3.TYPES["zz-bird"];
+  }
+  sb.document.createElement = realCreate;
+  const h = types.map((t) => `${t} ${B3.box(t).h} (head ${B3.box(t).head.toFixed(3)})`).join(", ");
+  console.log(`animals in 3D: ${beastDraws} draws checked; the most canvas calls at lod 0 / 1 / 2: ${worst.join(" / ")} (ceilings ${BEAST_OPS.join(" / ")}); box heights, tiles: ${h}`);
+}
+
 /* ---------- The road's flying bits (js/sprites.js) ----------
    The road's walkers are the 3D figures above, seen through the angled camera (tests/validate-drive.js draws them on
    the road, and the title screen's still scene); the old top-down walkers went with the flat camera (2026-10-17).
@@ -1765,4 +2210,4 @@ if (errors.length) {
   console.log(`\n${errors.length} art problem(s).`);
   process.exit(1);
 }
-console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), ${crewDrawn} crew pictures, ${walkerDraws} walker figures (${W3 ? Object.keys(W3.TYPES).length : 0} types), ${vanDraws} van draws, every call checked.`);
+console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), ${crewDrawn} crew pictures, ${walkerDraws} walker figures (${W3 ? Object.keys(W3.TYPES).length : 0} types), ${beastDraws} animal draws (${B3 ? Object.keys(B3.TYPES).length : 0} kinds), ${vanDraws} van draws, every call checked.`);
