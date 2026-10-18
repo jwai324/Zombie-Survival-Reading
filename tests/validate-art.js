@@ -2203,6 +2203,153 @@ const decalAreas = [];
   }
 }
 
+/* ---------- The yard's models (js/yardmodels.js and its parts: yardmodels1.js, yardmodels2.js ...) ----------
+   Every prop, sign and plaque with a 3D model (YardModels.add) is a sprite the yard or the porch already places (its
+   2D art stays registered), and draws cleanly in every opts set it lists, whole, cracked and wrecked (and a blinking
+   part on and off), from all round at the yard's eye (level, a little above and below) near and far, at every level of
+   detail, on the checking context: no throw, finite numbers, real colours, no images, gradients or read-backs, no new
+   canvases, transforms only round its text (never mirrored), within its canvas-call ceiling, the same calls twice; its
+   foot stands on the ground (z 0) and it stands up (some height above). js/modelsprite.js draws them in the yard
+   (validate-engine.js checks the yard places them). */
+let yardModelDraws = 0;
+{
+  const YM_FILES = pageScripts.filter((f) => /^yardmodels\d*\.js$/.test(f));
+  if (!YM_FILES.includes("yardmodels.js")) err("index.html does not load js/yardmodels.js");
+  YM_FILES.forEach((f) => {
+    if (pageScripts.indexOf(f) < pageScripts.indexOf("model3d.js")) err(`index.html loads js/${f} before js/model3d.js`);
+    if (f !== "yardmodels.js" && pageScripts.indexOf(f) < pageScripts.indexOf("yardmodels.js")) err(`index.html loads js/${f} before js/yardmodels.js`);
+    load(f);
+  });
+  const YM = ZSR.YardModels;
+  const M3 = ZSR.Model3D;
+  if (!YM || !M3) err("js/yardmodels.js does not export ZSR.YardModels");
+  else {
+    const FORBID = new Set(["drawImage", "createLinearGradient", "createRadialGradient", "createPattern", "getImageData", "putImageData", "set shadowBlur", "set filter", "resetTransform", "setTransform"]);
+    const camera = (yaw, pitch, dist, lod, mid, w, h) => {
+      const t = [0, 0, mid];
+      const e = [Math.sin(yaw) * Math.cos(pitch) * dist, -Math.cos(yaw) * Math.cos(pitch) * dist, mid + Math.sin(pitch) * dist];
+      const nz = (a) => {
+        const l = Math.hypot(a[0], a[1], a[2]);
+        return [a[0] / l, a[1] / l, a[2] / l];
+      };
+      const f = nz([t[0] - e[0], t[1] - e[1], t[2] - e[2]]);
+      const r = nz([f[1], -f[0], 0]);
+      const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+      const F = h / 2 / Math.tan(0.6);
+      const view = M3.view({ ink: 1.5, lod, near: dist * 0.02, eye: e, lit: (x, y, z) => x * x + 0.88 * y * y + z * z * (z > 0 ? 1.08 : 0.62) });
+      view.project = (x, y, z) => {
+        const dx = x - e[0];
+        const dy = y - e[1];
+        const dz = z - e[2];
+        const D = dx * f[0] + dy * f[1] + dz * f[2];
+        view.D = D;
+        const s = F / Math.max(D, 1e-6);
+        view.X = w / 2 + (dx * r[0] + dy * r[1] + dz * r[2]) * s;
+        view.Y = h / 2 - (dx * u[0] + dy * u[1] + dz * u[2]) * s;
+        return D > view.near;
+      };
+      return view;
+    };
+    let made = 0;
+    const realCreate = sb.document.createElement;
+    sb.document.createElement = (t) => {
+      made++;
+      return realCreate(t);
+    };
+    const sigOf = (ops) => JSON.stringify(ops.map((op) => [op.k, op.args, op.fillStyle, op.strokeStyle, op.lineWidth]));
+    const draw = (mesh, view, what, ceil) => {
+      const c = element("canvas");
+      c.width = 320;
+      c.height = 320;
+      const ctx = c.getContext("2d");
+      current = what;
+      const before = made;
+      noRead = true;
+      try {
+        M3.draw(ctx, mesh, view);
+      } catch (e) {
+        noRead = false;
+        err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+        return null;
+      }
+      noRead = false;
+      yardModelDraws++;
+      if (made !== before) err(`${what}: made ${made - before} canvas(es) while drawing`);
+      const ops = c.ops;
+      if (ops.length > ceil) err(`${what}: ${ops.length} canvas calls, over its ceiling of ${ceil}`);
+      const bad = ops.find((op) => FORBID.has(op.k));
+      if (bad) err(`${what}: calls ${bad.k} (a model draws straight: no images, gradients or read-backs)`);
+      let depth = 0;
+      for (let i = 0; i < ops.length; i++) {
+        const k = ops[i].k;
+        if (k === "save") depth++;
+        else if (k === "restore") depth--;
+        else if (k === "transform" || k === "translate" || k === "scale" || k === "rotate") {
+          if (k !== "transform" || depth < 1 || !ops[i + 1] || ops[i + 1].k !== "fillText") err(`${what}: ${k} outside its text's save and restore`);
+          else {
+            const [a, b, cc, d] = ops[i].args;
+            if (!(a * d - b * cc > 0)) err(`${what}: text "${ops[i + 1].args[0]}" drawn mirrored`);
+          }
+          i++;
+        } else if (k === "fillText" && depth < 1) err(`${what}: text outside save and restore`);
+        if (depth < 0) err(`${what}: restore without save`);
+      }
+      if (depth !== 0) err(`${what}: save and restore do not pair up`);
+      return ops;
+    };
+    const YAWS = 8;
+    const worst = {};
+    YM.ARTS.forEach((art) => {
+      const d = YM.def(art);
+      if (!D.hasSprite(art)) err(`yard model ${art}: no sprite of that name is registered (a model stands in for a sprite the yard places)`);
+      if (!Array.isArray(d.opts) || !d.opts.length) err(`yard model ${art}: lists no opts sets to test`);
+      const ceil = Array.isArray(d.ops) && d.ops.length === 3 ? d.ops : YM.YARD_OPS;
+      worst[art] = [0, 0, 0];
+      (d.opts || [{}]).forEach((o0, oi) => {
+        [0, 1, 2].forEach((dmg) => {
+          [undefined, true, false].forEach((on) => {
+            if (on !== undefined && !d.blink) return;
+            const o = Object.assign({}, o0, { dmg }, on === undefined ? {} : { on });
+            const name = `yard model ${art} ${JSON.stringify(o)}`;
+            let mesh;
+            try {
+              mesh = YM.mesh(art, o);
+            } catch (e) {
+              err(`${name}: building it threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+              return;
+            }
+            if (YM.mesh(art, o) !== mesh) err(`${name}: a second build for the same opts (it must be kept)`);
+            const b = mesh.bounds;
+            if (!(b.every(Number.isFinite) && Math.abs(b[2]) < 0.02 && b[5] > 0.05)) err(`${name}: its bounds ${b.map((v) => v.toFixed(3)).join(", ")} (its foot on the ground at z 0, standing up)`);
+            const mid = (b[2] + b[5]) / 2;
+            const size = Math.max(b[3] - b[0], b[4] - b[1], b[5] - b[2]);
+            for (let lod = 0; lod < 3; lod++) {
+              for (let yi = 0; yi < YAWS; yi++) {
+                if ((yi + oi + dmg) % (lod ? 2 : 1)) continue;
+                [-0.15, 0.05, 0.4].forEach((pitch, pi) => {
+                  const yaw = (yi / YAWS) * Math.PI * 2 + 0.2;
+                  const what = `${name} lod ${lod} yaw ${yaw.toFixed(2)} pitch ${pitch}`;
+                  const ops = draw(mesh, camera(yaw, pitch, size * 2.6, lod, mid, 320, 320), what, ceil[lod]);
+                  if (!ops) return;
+                  worst[art][lod] = Math.max(worst[art][lod], ops.length);
+                  if ((yi + pi) % 5 === 0) {
+                    const again = draw(mesh, camera(yaw, pitch, size * 2.6, lod, mid, 320, 320), what + " (again)", ceil[lod]);
+                    if (again && sigOf(again) !== sigOf(ops)) err(`${what}: the same model and view drew different calls`);
+                  }
+                });
+              }
+              // near: the yard's eye beside it, parts behind the near plane cut off
+              draw(mesh, camera(lod * 2.1 + 0.4, 0.05, size * 0.7, lod, mid, 320, 320), `${name} lod ${lod} near`, ceil[lod]);
+            }
+          });
+        });
+      });
+    });
+    sb.document.createElement = realCreate;
+    console.log(`yard models: ${YM.ARTS.length} kinds, ${yardModelDraws} draws checked` + (YM.ARTS.length ? `; the most calls at lod 0 / 1 / 2: ${YM.ARTS.map((a) => a + " " + worst[a].join("/")).join(", ")}` : ""));
+  }
+}
+
 warnings.forEach((w) => console.log("warn  " + w));
 if (errors.length) {
   errors.slice(0, 60).forEach((e) => console.log("ERROR " + e));
@@ -2210,4 +2357,4 @@ if (errors.length) {
   console.log(`\n${errors.length} art problem(s).`);
   process.exit(1);
 }
-console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), ${crewDrawn} crew pictures, ${walkerDraws} walker figures (${W3 ? Object.keys(W3.TYPES).length : 0} types), ${beastDraws} animal draws (${B3 ? Object.keys(B3.TYPES).length : 0} kinds), ${vanDraws} van draws, every call checked.`);
+console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), ${crewDrawn} crew pictures, ${walkerDraws} walker figures (${W3 ? Object.keys(W3.TYPES).length : 0} types), ${beastDraws} animal draws (${B3 ? Object.keys(B3.TYPES).length : 0} kinds), ${vanDraws} van draws, ${yardModelDraws} yard model draws, every call checked.`);
