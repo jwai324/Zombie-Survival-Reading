@@ -56,8 +56,9 @@
       posts: [
         { id: "van", at: [21, 29], pose: "stand", weight: 4, face: { at: [19.4, 31.5] } }, // at the van's hood (its nose points west), off its parking gravel (the work pose kneels to nail a board)
         { id: "garage", at: [12, 31], pose: "work", weight: 3, face: { plot: "garage" } }, // by the garage plot
-        // Gus's room, where he sleeps: on the edge of the bed, an eye on Gus's keep-out sign
-        { id: "gusRoom", house: [22, 7], pose: "sit", weight: 3, face: { note: "gusRoom" }, seat: { house: [22.7, 6.88], kind: "bed", dir: "s" } },
+        // Gus's room, where he sleeps: on the edge of the bed, an eye on Gus's keep-out sign. The seat is the bed's very
+        // edge (its tile ends at 7): a figure stands on the floor line at its spot, so one further in hangs up the bed's side
+        { id: "gusRoom", house: [22, 7], pose: "sit", weight: 3, face: { note: "gusRoom" }, seat: { house: [22.7, 6.99], kind: "bed", dir: "s" } },
         { id: "pingpong", house: [9, 10], pose: "stand", weight: 2, face: { house: [8, 10.5] } }, // at the ping pong table
         { id: "fence", at: [47, 40], pose: "stand", weight: 2, face: { at: [50.5, 40.5] } }, // checking the east fence
         { id: "power", at: [17, 12], room: "power", level: 1, pose: "work", weight: 2, face: { plot: "power" } }, // the lights and the generator

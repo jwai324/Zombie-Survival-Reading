@@ -2563,6 +2563,18 @@ with a test that failed before:
   -6% to +4% (one p95 +18% walking round it). All inside the owner's bars (25% / 35%).
 - Road: the van's own draw 0.6-0.7 ms against 0.9 ms; the road's frame no slower.
 
+**Final review fixes (2026-10-18).**
+- Decal lines are cut at the near plane segment by segment (`js/model3d.js` pathOf), as faces and ink edges already
+  were. Standing against the van's side, a pinstripe or door seam with one end behind your eye vanished whole (in up to a
+  third of headings at arm's length) and popped back as you walked.
+- Every look now has a front part, as the owner asked ("a decal on every side"): the grille, the lamps and the bumper
+  leave almost no paint on the van's front, so the four looks that had none there lay theirs over the bumper (Matte
+  Black's twin stripes, Convoy Red's flames, Night Violet's pair of bolts) or run it down over the grille and lamps
+  (Radioactive's sludge from under the hood's lip), as Olive Drab's number and Hazard's stripes already did.
+- `DEFS.paint`'s `max` and `costs` are read from `PAINT_LOOKS`, so a ninth look is one row.
+- Not measured: with wreckers on the van, each redraw of its yard picture is read back (`getImageData`) for the walkers'
+  health bars; cheap headless, untested on a real GPU. Worth a profile on the owner's PC.
+
 ### Stage 2, wave 1 (2026-10-18): the crew's and the dogs' 3D rigs, judgment calls
 
 **People on the walkers' rig (`js/walker3d.js` human mode, the looks in `js/walker3d-crew.js`).**
@@ -2598,6 +2610,55 @@ with a test that failed before:
 - Poses blend by their parameters through standing (as walkers); the tail wags three times a pose loop in every pose, so a
   pose change never jumps it. Bark lines fly out to both sides when it barks straight at you.
 - Box heights: dog 0.40 tiles, Rivet 0.36.
+
+### Stage 2, wave 2 (2026-10-18): the crew, the dog and Rivet in the yard and the cabin, judgment calls
+
+**One pool with the walkers (`js/interior.js` live figures; owners `js/crew.js`, `js/robodog.js`, `js/building.js`).**
+- A prop with a `fig` record (`liveFigure`) is drawn as a live walker is: the same canvas pool, redraw cap and near
+  places, freed when its prop leaves the scene or is hidden, all of them when you leave. The governor now counts frames
+  with only the crew on screen, not only walkers. Without Walker3D's people or Beast3D loaded, the crew and dogs keep
+  their flat sprites (a test drops those files and plays on).
+- Smooth by default: the heading turns at the look's turn rate, steps follow the distance walked, a pose eases out of
+  the old one before into the new one (0.45 s to sit, kneel or get up), a pose loop is 3.5 s, the head turns at 5 rad/s.
+  Far figures redraw their idle loop in fewer steps (posts scene: 1.07 to 0.74 redraws a frame).
+- Animals get room under their feet for near paws (at most 1.4 times their height); people use the walkers' sizing.
+
+**What they do.**
+- Every post has a `face` (the task: a bed, a plot, a note on the wall). Talked to, the head turns to you first; past its
+  reach (0.95 rad) the body turns too, in the talk pose; afterwards they go back to the task. A seated crew member stands
+  up to talk (the seated pose has no talking mouth) and sits back down after.
+- Waves: the crew run to the shelter and cower facing its door; the dog gallops after them and lies low facing it.
+- Every repair job uses the hammer kneel.
+- The dog looks at you within 2.5 tiles and turns all the way round when petted; it gallops from 1.2 tiles a second (all
+  of it by 3.0) and wags harder near you. It never follows anyone onto the bench or a bed.
+- Rivet turns to the walker it zaps, flashes when bitten and lies still when off.
+
+**Seats (`CREW_SEATS` in `js/story-crew.js`, read off the furniture: bench 0.154, dining chair 0.161, bed 0.32 tiles).**
+- June: the porch bench at (6.5, 1.45), facing north over the yard. Tomas (Gus's room): the very edge of Gus's bed at
+  (22.7, 6.99), facing south, his head turned to Gus's keep-out sign (a figure stands on the floor line at its spot: at
+  6.88, 0.12 into the bed, he hung 24 px up the bed's side; review, 2026-10-18). Pip: the chair at (15.45, 2.5) facing north to the
+  radio (radio shelf), and at the dining post the chair at (15.45, 3.5) facing west to the table.
+- A sitter is drawn 0.05 tiles in front of a chair or bench and 0.25 in front of a bed's edge, so the seat never covers
+  them.
+- Pip's radio chair is 1 tile from the radio, inside the 1.5 tiles posts keep from the cabin's spots (the post's own tile
+  passes). Kept: Pip at the radio is the story, and from the south E goes to the radio by design; you talk to Pip from
+  the side (tested).
+- The speech bubble's tail (`--tail-top`) and the tutorial's arrow point at the figure's real head (`crewHeadTop`), lower
+  when seated.
+
+**Measured (headless Chromium, no GPU, 1280 x 720, every room at its top level, medians of 3 interleaved runs, render
+time against 3f897f8).** Crew at their posts in view +9% (p95 +3%); Tomas 1.6 tiles away at the van +14% (p95 +18%);
+the crew wandering −2%; a heavy wave on day 20 (about 20 walkers) +2%. Bars: 25% calm, 35% heavy wave. What is left is
+mostly pasting the wider 3D pictures (1.2 to 1.3 times as wide as tall, the flat sprite 0.75).
+
+**Known.** A crew member up close costs about 14 to 18% more render: the renderers do not report the area they drew, so
+the transparent part of a wide picture is still pasted. In the dining room the table can hide Pip from some angles.
+
+**Review fixes (2026-10-18).** An animal's one-shot pose (a bark, a zap, a bleat: shorter than its loop) starts at its
+loop's beginning and breaks off at once into a walk: the dog no longer slides 1 to 2.4 tiles in its braced bark when a
+wave starts (it barks, then gallops). Rivet's 3D zap holds 0.7 s (out of a sit, into the zap, one zap: Beast3D's own
+timings), so its sparks reach full size (they peaked at 19%). Without the 3D modules the flat crew sprites ignore seats
+and sit on the floor at the post, exactly as before 3D.
 
 ### Stage 3, the models (2026-10-18): judgment calls
 

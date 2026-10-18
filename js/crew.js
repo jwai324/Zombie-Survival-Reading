@@ -62,6 +62,7 @@
   const SEAT_ZB_LOW = 0.25; // ... than a bed's edge (a low tile it sits a little way onto: in front of its side, not behind it)
   const DOG_RUN = [1.2, 1.8]; // the dog's gallop by its speed: none at 1.2 tiles a second, all of it 1.8 faster
   const DOG_LOOK = 2.5; // tiles: you this close, the dog at rest looks at you (else at its leader)
+  const DOG_BARK_RUN = 0.3; // tiles a second: a dog barking while it moves faster than this (a wave's start) runs instead (the bark's pose takes no steps)
 
   /** "the office closet", "Rosa's jar of beans": a name in running text (a possessive first word keeps its capital). */
   function inText(name, article) {
@@ -129,7 +130,7 @@
     },
     /** Put a crew member at a post now (entering the yard), in its pose: on its seat, facing its task. */
     crewSettle(c, post) {
-      const seat = this.crewSeatOf(post);
+      const seat = c.fig ? this.crewSeatOf(post) : null; // (the flat sprites sit on the floor at the post, as before 3D)
       const [tx, ty] = this.crewPostTile(post);
       c.x = seat ? seat.x : tx + 0.5;
       c.y = seat ? seat.y : ty + 0.5;
@@ -287,7 +288,7 @@
     /** Set off for a post: to its tile, or onto its seat (by the seat's own tile when that is open floor, a dining
         chair; else from the post's tile next to it, onto the porch bench or a bed's edge). False when there is no way. */
     crewGoPost(c, post) {
-      const seat = this.crewSeatOf(post);
+      const seat = c.fig ? this.crewSeatOf(post) : null; // (the flat sprites: to the post's tile, as before 3D)
       const [px, py] = this.crewPostTile(post);
       if (!seat) return this.crewGo(c, px, py);
       const sx = Math.floor(seat.x);
@@ -721,6 +722,7 @@
     },
     /** The seat of theirs they are on or by (crewOnSeat), or null. */
     crewSeatNear(c) {
+      if (!c.fig) return null; // the flat sprites never sit on a seat
       for (const post of c.def.posts || []) {
         const s = this.crewSeatOf(post);
         if (s && Math.hypot(c.x - s.x, c.y - s.y) < SEAT_NEAR) return s;
@@ -1130,6 +1132,7 @@
       const f = d.fig;
       const p = this.player;
       const speed = dt > 0 ? Math.hypot(d.x - x0, d.y - y0) / dt : 0;
+      if (pose === "bark" && speed > DOG_BARK_RUN) pose = "walk";
       const petted = !!(this.talk && this.talk.id === "dog");
       const near = p && Math.hypot(p.x - d.x, p.y - d.y) <= DOG_LOOK;
       const moving = pose === "walk";

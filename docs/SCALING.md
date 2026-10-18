@@ -143,6 +143,10 @@ looks different. A near full-detail figure costs 2-4 ms on a software canvas (ab
 - A heavy yard wave has no cap (`DEFENSE.manyCount`: 7 + day + waves held). A heavy wave of 30 measured
   1.05x the old sprites' render time because most of it is far away (lod 2); dozens near you at once
   through one breach is the case to watch.
+- The crew, the dog and Rivet are live figures in the same pool (`prop.fig`, `js/interior.js` `figSprite`): they
+  count against `LIVE_RENDERS_MAX`, `LIVE_NEAR` and `LIVE_LEVELS` with the walkers, and the governor counts frames
+  with only the crew on screen. A crew member up close costs about 14 to 18% more render (a wide 3D picture); a much
+  bigger crew wants the drawn area reported so the transparent part is not pasted.
 - `FALLEN_MAX` (24) and `BLOOD_MAX` (200) in `js/interior.js`, `ROAD_FALLEN_MAX` (24) and
   `ROAD_PARTICLE_CAP` (400) in `js/game.js` cap the downed and the blood; past them the oldest go (the
   road skips a hit's blood instead).
@@ -515,9 +519,9 @@ passes one).
 ### Add a paint look
 
 1. Append a row to `PAINT_LOOKS` in `js/upgrades.js` (name, body, roof, trim, bumper, rims, decal,
-   decalA, decalB, cost, tier) and its cost to `DEFS.paint.costs` (`max` is the looks to buy).
-2. A new decal kind: its designs in `js/van3d.js` `DECALS` (both sides, the hood, the roof and the
-   back; validate-art reads the kinds from `Van3D.DECAL_KINDS`), a branch in `js/sprites.js` `decal()`
+   decalA, decalB, cost, tier). `DEFS.paint` reads its `max` and `costs` from the rows.
+2. A new decal kind: its designs in `js/van3d.js` `DECALS` (both sides, the hood, the roof, the
+   back and the front, its front part over the bumper since the grille and lamps leave little paint; validate-art reads the kinds from `Van3D.DECAL_KINDS`), a branch in `js/sprites.js` `decal()`
    (the map icon), a branch in `js/base.js` `paintChip` (the Garage swatch; without one it shows a plain
    band), words in `js/base.js` `DECAL_WORDS`, and the kind in `tests/validate-world.js` `DECALS`.
    The look's name is appended to `tests/validate-world.js` `SAVED_LOOKS` (looks are pinned to their
@@ -557,7 +561,10 @@ quests or errands need facts and words, not engine changes, within these limits.
 - **A new item** needs `one` and `many` count forms in `WORLD.ITEMS` (`tests/validate-crew.js`
   checks), used for rewards and the build tip.
 - **The yard.** Posts are hand-placed tiles: moving a plot, the van or a cabin room means
-  rechecking them (`npm test` does).
+  rechecking them (`npm test` does). Every post has a `face` and every sit post a `seat` (appended fields): moving a
+  chair, the porch bench or a bed means moving its seat, and `CREW_SEATS` (`js/story-crew.js`, one height per kind of
+  seat) must match the furniture (validate-world and validate-crew hold every seat to what stands under it). A new kind
+  of seat is an entry in `CREW_SEATS` and in `SEAT_ART` (`tests/validate-crew.js`).
 - `SCALE:` spots: `CREW_RULES.stars` (one entry per star), `requestsPerCrew` (one errand slot in the
   save), the `crew.read` list, the dog's trail lengths (`js/crew.js`, `js/building.js`), the walker
   look-ahead for Pip's tip (`js/crewstate.js`), `QUESTS_PER_PLACE`, and the How it works paragraph

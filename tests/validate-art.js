@@ -2561,6 +2561,34 @@ const decalAreas = [];
       });
       for (const v of over.values()) err(v);
     }
+    // H: an open decal line partly behind the near plane is cut there segment by segment (js/model3d.js pathOf): against
+    // the van's side a pinstripe or a door seam with one end behind the eye still shows the part in front of it, and a
+    // line that goes behind and comes back is two runs
+    {
+      M3.define("test:nearLine", (B) => {
+        B.part();
+        const f = B.face([[0, 0, 0], [100, 0, 0], [100, 0, 100], [0, 0, 100]], "#888888");
+        B.line(f, [[60, 40], [40, 45], [60, 55]], "#ff0000", 2, { lod: 0 });
+      });
+      const e = [50, -30, 50];
+      const v = M3.view({ eye: new Float64Array(e), lod: 0, near: 1 });
+      v.project = (x, y, z) => {
+        const D = x - e[0];
+        v.D = D;
+        v.X = 320 + ((y - e[1]) * 300) / Math.max(D, 1e-6);
+        v.Y = 240 - ((z - e[2]) * 300) / Math.max(D, 1e-6);
+        return D > v.near;
+      };
+      const calls = [];
+      const rec = new Proxy({}, { get: (o, k) => (k in o ? o[k] : (...a) => calls.push([k, a])), set: (o, k, val) => (calls.push([k + "=", [val]]), true) });
+      M3.draw(rec, M3.mesh("test:nearLine", {}, "test"), v);
+      const at = calls.findIndex(([k, a]) => k === "strokeStyle=" && /255,\s*0,\s*0/.test(String(a[0])));
+      const from = at < 0 ? 0 : calls.map((c) => c[0]).lastIndexOf("beginPath", at);
+      const path = at < 0 ? [] : calls.slice(from, at).filter(([k]) => k === "moveTo" || k === "lineTo").map(([k, a]) => k[0] + Math.round(a[0]) + "," + Math.round(a[1]));
+      // in front of the plane (x past 51): from (60, 40) to where it crosses at (51, 42.25), then from (51, 50.5) to (60, 55)
+      const want = ["m1220,540", "l9320,2565", "m9320,90", "l1220,90"];
+      if (path.join(" ") !== want.join(" ")) err(`a decal line that goes behind the near plane and comes back is stroked as "${path.join(" ") || "nothing"}", not cut at the plane into two runs ("${want.join(" ")}"): js/model3d.js pathOf`);
+    }
     sb.document.createElement = realCreate;
     console.log(`van model: ${vanDraws} draws checked; the most canvas calls with all its gear at lod 0 / 1 / 2: ${worst.join(" / ")} (ceilings ${VAN_OPS.join(" / ")})`);
     console.log(`van decals on the roof / the back doors at lod 1, sq units: ${decalAreas.join(", ")}`);

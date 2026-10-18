@@ -698,7 +698,8 @@
   }
 
   /* ---------- The paint jobs' decals (PAINT_LOOKS decal: their kinds) ----------
-     Each is on both sides, the hood, the roof and the back doors. The road's camera sees the van from behind and above
+     Each is on both sides, the hood, the roof, the back doors and the front (where the grille, the lamps and the bumper
+     leave no paint showing, its part goes over the bumper or runs down over them). The road's camera sees the van from behind and above
      (the roof and the back doors, the sides hardly at all), so every design has a roof and a back part big enough to
      read there at lod 1 (the road draws the van at lod 0 or 1): on the roof round the rack and the gun's ring as well
      as under them (RACK), on the back doors below their windows and up their outer edges, where the armor plates and
@@ -731,6 +732,11 @@
         k.line("roof", [[s * 27, YT - 1], [s * 27, ROOF.y1 - 0.4]], B, 1.6);
         k.line("back", [[s * 26.8, BUMP.z1], [s * 26.8, 60]], B, 1.6);
       }
+      // the twin stripes on down the front, over the bumper (a fitting; the grille's surround stands between them and the
+      // hood's lip)
+      return () => {
+        for (const s of [1, -1]) k.poly("front", rect(s * 4, BUMP.z0, s * 11, BUMP.z1), A, { ink: 0.5 });
+      };
     },
     // rust: blooms round the wheel arches and along the sill, on the doors and the hood; on the roof one each side of the
     // gun's ring, one ahead of it and a big one where a rack would stand; on the back each door's foot and up a corner
@@ -838,6 +844,15 @@
       const cin = corner.map(([x, z]) => [21 + (x - 21) * 0.8, foot + (z - foot) * squash]);
       for (const P of [corner, mirror(corner)]) k.poly("back", P, A);
       for (const P of [cin, mirror(cin)]) k.poly("back", P, B, { lod: 0 });
+      // the front bumper: tongues licking out from its middle to each end (the right half's; the left mirrored), the
+      // inner flames low in them; over the bumper (a fitting)
+      const lick = [[0, BUMP.z0 + 0.4], [32.4, BUMP.z0 + 0.4], [32.6, BUMP.z1 - 0.4], [28.6, BUMP.z0 + 2.2], [26.8, BUMP.z1 - 0.3], [21.8, BUMP.z0 + 2], [19.6, BUMP.z1 - 0.5], [14.6, BUMP.z0 + 1.9], [12.6, BUMP.z1 - 0.8], [7.6, BUMP.z0 + 1.8], [5.4, BUMP.z1 - 1.1], [0, BUMP.z0 + 1.9]];
+      const both = lick.concat(mirror(lick).reverse().slice(1, -1));
+      const low = both.map(([x, z]) => [x * 0.9, BUMP.z0 + 0.4 + (z - BUMP.z0 - 0.4) * 0.55]);
+      return () => {
+        k.poly("front", both, A, { ink: 0.7 });
+        k.poly("front", low, B, { lod: 0 });
+      };
     },
     // silver lightning: a bolt down each side sweeping back, one back over the hood, a pair down the roof (one each side
     // of the gun) and a pair on the rear doors; each over its shade
@@ -869,6 +884,14 @@
         k.poly("back", shift(P, 0.8, -0.8), B, { lod: 0 });
         k.poly("back", P, A, { ink: 0.6 });
       }
+      // the front bumper: a bolt out to each end from its middle, over its shade (over the bumper: a fitting)
+      const front = bolt(1.5, (BUMP.z0 + BUMP.z1) / 2, 1, 0, 29, 5);
+      return () => {
+        for (const P of [front, mirror(front)]) {
+          k.poly("front", shift(P, 0.8, -0.8), B, { lod: 0 });
+          k.poly("front", P, A, { ink: 0.6 });
+        }
+      };
     },
     // radioactive: black sludge running down from the roofline over the sides and back, from the cowl down the hood,
     // pooled along the roof's edges and over its back bevel; the trefoil on each sliding door and on the roof, a splat on
@@ -890,8 +913,12 @@
       k.poly("roof", trefoil(-17.5, 9, 9.5, 2.9), A);
       k.poly("roof", blob(13, -45, 8.5, 6.8, 9, rng(7)), A, { ink: 0.4 });
       k.poly("side", trefoil(-7, 33, 8.4, 2.6), A, { lod: 0 });
-      // down the back doors from the roof's bevel, over their windows too (laid after the fittings)
-      return () => k.poly("back", drips(-30.8, 30.8, 47.6, 3.6, [[-17, 4.4, 11], [-1.5, 4.2, 18], [13, 4.6, 8.5], [28, 3.6, 12]]), A, { ink: 0.4 });
+      // down the back doors from the roof's bevel, over their windows too, and down the front from under the hood's lip,
+      // over the grille and the lamps (laid after the fittings)
+      return () => {
+        k.poly("back", drips(-30.8, 30.8, 47.6, 3.6, [[-17, 4.4, 11], [-1.5, 4.2, 18], [13, 4.6, 8.5], [28, 3.6, 12]]), A, { ink: 0.4 });
+        k.poly("front", drips(-HW + 0.3, HW - 0.3, WELL - 0.1, 1.8, [[-24, 3.2, 6.5], [-8.5, 3, 9], [7, 3.4, 5.5], [22.5, 3, 8]]), A, { ink: 0.4 });
+      };
     },
   };
 

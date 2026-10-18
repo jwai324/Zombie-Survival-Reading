@@ -501,6 +501,22 @@
     const k = projectAll(view, P, n);
     if (!k) return false;
     ctx.beginPath();
+    if (!close && k < n) {
+      // an open line partly behind: each segment cut at the near depth (clipSeg), a new run where it comes back
+      let drawn = false;
+      let at = false; // the pen is at point i, in front
+      for (let i = 0; i + 1 < n; i++) {
+        if (!clipSeg(view, P, i, i + 1)) {
+          at = false;
+          continue;
+        }
+        if (!at) ctx.moveTo(SEG[0], SEG[1]);
+        ctx.lineTo(SEG[2], SEG[3]);
+        at = !!SIN[i + 1];
+        drawn = true;
+      }
+      return drawn;
+    }
     if (k === n || !close) {
       let started = false;
       for (let i = 0; i < n; i++) {
