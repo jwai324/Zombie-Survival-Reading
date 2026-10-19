@@ -18,13 +18,32 @@
      with gore off; fog darkens all but the eyes; its boxes, strides and blood sprites are sane; seen from above as
      the angled road camera sees them (cam.floor, cam.shadow: eyes 5 to 9 tiles, 2 to 70 tiles off) the same
      promises hold, every pose at full size, the ankles where that camera puts them, no shadow of its own; and the
-     two options left off draw exactly as without them;
+     two options left off draw exactly as without them; the walkers' calls hash to the fixture recorded before people
+     joined the rig (a walker must draw exactly as it did);
+   - the crew in 3D (js/walker3d-crew.js, people on the walkers' rig: Walker3D.addHuman): every crew id in the facts
+     has a look, its scale the facts' and its colours js/crewart.js's; an unknown crew id draws the stand-in; every
+     pose, job, seat, side, level of detail and run draws cleanly on the checking context (no transforms, images or
+     new canvases, inside its region, its lowest point on the floor line, within CREW_OPS, the same calls twice), at
+     the same size in every pose; no glow and no blood colour; fog darkens everything; poses blend in and their loops
+     close without a jump; bad fields draw as their defaults; box() and stride() are sane;
+   - the animals (js/beast3d.js and its looks, loaded right after the walkers' looks): the stray dog, Rivet, the goat
+     and the hen in every pose they have, from every side, at every detail, trotting and galloping, cleanly inside their
+     regions with their feet on the floor line, within their call ceilings, the same way twice; fog darkens all but a
+     robot's lights and a shut-down robot has none; poses ease in without a jump, the gait and the pose loops are
+     smooth; the size never follows the pose; a two-legged winged stand-in draws through the same rig; the dog's and
+     Rivet's calls hash to the fixture recorded before the farm's animals joined the rig; the goat and the hen stand as
+     tall as their 2D art, and graze, peck, flap, sit, lie and bleat as those poses say;
    - the crew's art (js/crewart.js, loaded by the page after sprites3d.js): every sprite ZSR.CREW_ART
      lists is registered and draws cleanly, at its size, with every opts set listed for it; the list
      covers every crew member in every pose and frame, the poses and quest object kinds docs/CREW.md
      names, and every crew member, post pose and quest object kind in the facts (js/story-crew.js,
      js/story-quests.js and any other js/story*.js the page loads); an id, pose or kind the art does not know yet
-     draws a stand-in.
+     draws a stand-in;
+   - the van model (js/model3d.js and js/van3d.js, after upgrades.js): every paint look with its gear at several
+     levels, the dents, the roof gun and every level of detail draws cleanly from all round, near and far, within its
+     canvas-call ceilings, the same way twice, its text never mirrored; each look's decal is on both sides and the hood,
+     and on the roof and the back doors at lod 1 (what the road's camera sees), with its gear on and off; its parts in
+     the order the yard's eye sees them from beside it, no hidden face showing, every decal inside its face.
    validate-world.js checks the layout data, validate-engine.js what the engine makes of it. */
 "use strict";
 const fs = require("fs");
@@ -35,10 +54,22 @@ const ART_FILES = ["decor.js", "landmarks1.js", "landmarks2.js"]; // SCALE: add 
 const HOUSE_FILE = "houseart.js";
 const CREW_FILE = "crewart.js";
 const CREW_SPRITES = ["crew", "crewDog", "crewFace", "qObj"]; // the names js/crew.js, js/building.js and the crew card draw
-const WALKER_FILES = ["walker3d.js", "walker3d-looks.js"]; // SCALE: the walker module, then its looks; add walker3d-looks2.js ... here as types grow
+// SCALE: the walker module, its looks, then the crew's looks; add walker3d-looks2.js / walker3d-crew2.js ... here as they grow
+const WALKER_FILES = ["walker3d.js", "walker3d-looks.js", "walker3d-crew.js"];
 const WALKER_OPS = [600, 350, 160]; // SCALE: most canvas calls one walker may make at lod 0 / 1 / 2 (each one is drawn every frame it changes)
+// SCALE: most canvas calls one crew member may make at lod 0 / 1 / 2, with the props of the busiest pose (June kneeling
+// at her bed with the tray and the ledger put down, Tomas hammering); a busier look or prop must fit under these
+const CREW_OPS = [700, 400, 200];
+// The walkers' calls before people joined the rig (2026-10-18): walkerCallsHash below over every type, pose, side and
+// level of detail, falls, runs and the road's camera. A walker's art changed on purpose: run
+// `node tests/validate-art.js --record-walkers` and paste the numbers it prints here.
+const WALKER_FIXTURE = { draws: 1788, calls: 451176, sha1: "f0097c7dc0b929b352a8f7ed3019651250aa7f92" };
+// The stray dog's and Rivet's calls before the farm's goats and chickens joined the rig (2026-10-18): beastCallsHash
+// below. One of them changed on purpose: run `node tests/validate-art.js --record-beasts` and paste the numbers here.
+const BEAST_FIXTURE = { draws: 394, calls: 94385, sha1: "c209e2d8dbd842e447bd834b7547b67c5c8d23fa" };
 const WALKER_H_MAX = 1.3; // SCALE: tallest walker box, tiles (the engine caps it at 0.98 under a ceiling)
-const WALKER_COLOURS = 6000; // SCALE: most colour strings random walker draws may use (Walker3D's colour table, CC_N, holds 16384)
+const WALKER_COLOURS = 6000; // SCALE: most colour strings random walker draws may use (Walker3D's colour table, CC_N, holds 32768)
+const CREW_COLOURS = 6000; // SCALE: the same for random draws of the crew's looks (they share that table with the walkers)
 // docs/CREW.md's own lists: the post poses (plus "walk", between posts) and the quest object kinds. The art
 // must cover them even before a fact uses one (validate-world.js holds the facts to the same kinds).
 const CREW_POSES = ["stand", "sit", "work", "read", "walk"];
@@ -48,6 +79,130 @@ const errors = [];
 const warnings = [];
 const err = (m) => errors.push(m);
 const warn = (m) => warnings.push(m);
+
+/** Every walker type, pose, side and level of detail (two looks each), falls, runs, the road's camera and a fogged far
+    one, drawn on a context that hashes each call and each style set (numbers to 1/1000): { draws, calls, sha1 }.
+    WALKER_FIXTURE holds what the walkers drew before people joined the rig. Uses only Walker3D.draw and TYPES (not
+    box(), which reads the facts), and passes gore, so it is the same in any sandbox. */
+function walkerCallsHash(W3) {
+  const PI = Math.PI;
+  const hash = require("crypto").createHash("sha1");
+  let draws = 0;
+  let calls = 0;
+  const r = (v) => (typeof v === "number" ? Math.round(v * 1000) / 1000 : v);
+  const fns = {};
+  const ctx = new Proxy(
+    {},
+    {
+      get(o, k) {
+        return (
+          fns[k] ||
+          (fns[k] = (...a) => {
+            calls++;
+            hash.update(k + "(" + a.map(r).join(",") + ")");
+          })
+        );
+      },
+      set(o, k, v) {
+        hash.update(k + "=" + r(v) + ";");
+        return true;
+      },
+    }
+  );
+  const one = (type, st, cam) => {
+    hash.update("|" + type + "|");
+    W3.draw(ctx, type, Object.assign({ yaw: 0, gait: 0.3, move: 1, pose: "walk", poseT: 0.5, claw: 0.3, hit: 0, fall: 0, fallDir: PI, seed: 0, lod: 0, fog: 0, gore: true }, st), cam);
+    draws++;
+  };
+  const camOf = (t, falling, h, extra) => {
+    const T = W3.TYPES[t];
+    const w = falling ? Math.max(T.w, 2 * T.h + 0.2) : T.w;
+    return Object.assign({ w: Math.ceil((w * h) / T.h), h, px: h / T.h, dist: 2.2, eye: 0.5 }, extra);
+  };
+  Object.keys(W3.TYPES).forEach((type) => {
+    for (let seed = 0; seed < 2; seed++) {
+      W3.POSES.forEach((pose, pi) => {
+        for (let k = 0; k < 8; k++) {
+          for (let lod = 0; lod < 3; lod++) {
+            one(type, { pose, seed, lod, yaw: (k * PI) / 4 - PI + 0.1, move: pose === "walk" ? 1 : 0.3, poseT: (k + pi) / 9, claw: k / 8, poseW: k === 3 ? 0.4 : 1, gait: k / 8 }, camOf(type, false, 160));
+          }
+        }
+      });
+    }
+    [0.35, 0.8, 1].forEach((fall) => {
+      [0, PI / 2, PI].forEach((fallDir) => {
+        [0, 2.4].forEach((yaw, yi) => {
+          [true, false].forEach((gore) => one(type, { fall, fallDir, yaw, gore, lod: yi, seed: 3 }, camOf(type, true, 140)));
+        });
+      });
+    });
+    [0.5, 1].forEach((run) => {
+      for (let g = 0; g < 5; g++) {
+        [1, -2].forEach((yaw, yi) => one(type, { run, gait: 0.1 + g * 0.2, yaw, lod: yi * 2, gore: g % 2 === 0 }, camOf(type, false, 90, { floor: 30, shadow: false, eye: 7, dist: 12, h: 120 })));
+      }
+    });
+    one(type, { hit: 1, fog: 0.45, yaw: 0.5, pose: "bite", poseT: 0.4 }, camOf(type, false, 200, { dist: 0.85 }));
+    one(type, { fog: 0.8, yaw: -0.5, pose: "idle", poseT: 0.2, lod: 1 }, { w: 60, h: 80, dist: 25, eye: 0.5 });
+  });
+  return { draws, calls, sha1: hash.digest("hex") };
+}
+
+/** The stray dog and Rivet (js/beast3d-looks.js) in every pose of the first rig's list (ones a type lacks draw
+    "stand"), 8 sides, every level of detail, trotting and galloping, wagging, the head turned, easing into poses, hit,
+    fogged, tiny and large regions, near and far, and seen from above (cam.floor, cam.shadow), drawn on a context that
+    hashes each call and each style set (numbers to 1/1000): { draws, calls, sha1 }. BEAST_FIXTURE holds what they
+    drew before the farm's animals joined the rig. Uses only Beast3D.draw, so it is the same in any sandbox. */
+function beastCallsHash(B3) {
+  const PI = Math.PI;
+  const hash = require("crypto").createHash("sha1");
+  let draws = 0;
+  let calls = 0;
+  const r = (v) => (typeof v === "number" ? Math.round(v * 1000) / 1000 : v);
+  const fns = {};
+  const ctx = new Proxy(
+    {},
+    {
+      get(o, k) {
+        return (
+          fns[k] ||
+          (fns[k] = (...a) => {
+            calls++;
+            hash.update(k + "(" + a.map(r).join(",") + ")");
+          })
+        );
+      },
+      set(o, k, v) {
+        hash.update(k + "=" + r(v) + ";");
+        return true;
+      },
+    }
+  );
+  const one = (type, st, cam) => {
+    hash.update("|" + type + "|");
+    B3.draw(ctx, type, Object.assign({ yaw: 0, gait: 0.3, move: 0, run: 0, pose: "stand", poseT: 0.3, poseW: 1, wag: 0.5, headYaw: 0, seed: 0, lod: 0, fog: 0 }, st), cam);
+    draws++;
+  };
+  // (the first rig's poses, fixed here: the list grows with the farm's animals, and these two must not change)
+  const POSES0 = ["stand", "walk", "sit", "lie", "bark", "zap", "off"];
+  const camOf = (h, extra) => Object.assign({ w: Math.round(h * 1.6), h, px: h / 0.4, dist: 2.2, eye: 0.5 }, extra);
+  ["dog", "robodog"].forEach((type) => {
+    POSES0.forEach((pose, pi) => {
+      for (let k = 0; k < 8; k++) {
+        for (let lod = 0; lod < 3; lod++) {
+          one(type, { pose, lod, yaw: (k * PI) / 4 - PI + 0.1, move: pose === "walk" ? 1 : 0.3, poseT: (k + pi) / 9, poseW: k === 3 ? 0.4 : 1, gait: k / 8, wag: (k % 3) / 2, headYaw: ((k % 3) - 1) * 0.7 }, camOf(160));
+        }
+      }
+    });
+    [0.5, 1].forEach((run) => {
+      for (let g = 0; g < 6; g++) [0.6, -2].forEach((yaw, yi) => one(type, { pose: "walk", move: 1, run, gait: 0.05 + g * 0.17, yaw, lod: yi * (g % 3) }, camOf(150)));
+    });
+    one(type, { hit: 1, fog: 0.45, yaw: 0.5, pose: "zap", poseT: 0.5 }, camOf(200, { dist: 0.6 }));
+    one(type, { fog: 0.8, yaw: -0.5, pose: "bark", poseT: 0.2, lod: 1 }, { w: 60, h: 40, dist: 25, eye: 0.5 });
+    one(type, { yaw: 2.2, pose: "sit", lod: 2 }, { w: 12, h: 9, px: 22, dist: 6, eye: 0.5 });
+    [5, 8].forEach((eye) => one(type, { yaw: 0.9 * eye, pose: "walk", move: 1, run: 0.5, gait: 0.4 }, { w: 90, h: 140, px: 60, dist: 9, eye, floor: 50, shadow: false }));
+  });
+  return { draws, calls, sha1: hash.digest("hex") };
+}
 
 /* ---------- A 2D context that records and checks every call ---------- */
 let current = "(loading)"; // what is being drawn, for the messages
@@ -187,7 +342,7 @@ WALKER_FILES.forEach((f, i) => {
   else {
     if (at < pageScripts.indexOf("sprites3d.js")) err(`index.html loads js/${f} before sprites3d.js`);
     if (pageScripts.includes("interior.js") && at > pageScripts.indexOf("interior.js")) err(`index.html loads js/${f} after interior.js (the engine reads Walker3D)`);
-    if (i && at < pageScripts.indexOf(WALKER_FILES[0])) err(`index.html loads js/${f} before js/${WALKER_FILES[0]}`);
+    if (i && at < pageScripts.indexOf(WALKER_FILES[i - 1])) err(`index.html loads js/${f} before js/${WALKER_FILES[i - 1]}`);
   }
 });
 
@@ -613,8 +768,9 @@ else {
     made++;
     return realCreate(t);
   };
-  /** Draw one figure on a fresh checking canvas; returns { ops, res } or null (after reporting). */
-  function drawOne(type, o, cam, what) {
+  /** Draw one figure on a fresh checking canvas; returns { ops, res } or null (after reporting). ceil: the call
+      ceilings by lod (WALKER_OPS unless given). */
+  function drawOne(type, o, cam, what, ceil) {
     const c = element("canvas");
     c.width = cam.w;
     c.height = cam.h;
@@ -639,7 +795,8 @@ else {
     const lod = st.lod;
     const min = lod === 2 ? 10 : 20;
     if (ops.length < min) err(`${what}: only ${ops.length} canvas calls`);
-    if (ops.length > WALKER_OPS[lod]) err(`${what}: ${ops.length} canvas calls, over the lod ${lod} ceiling of ${WALKER_OPS[lod]}`);
+    const ceiling = (ceil || WALKER_OPS)[lod === 1 || lod === 2 ? lod : 0];
+    if (ops.length > ceiling) err(`${what}: ${ops.length} canvas calls, over the lod ${lod} ceiling of ${ceiling}`);
     const bad = ops.find((op) => FORBID.has(op.k));
     if (bad) err(`${what}: calls ${bad.k} (walkers draw straight, with no transforms, images, gradients or read-backs)`);
     // inside the region (a camera nearer than a tile may push a reaching hand past it)
@@ -1069,11 +1226,875 @@ else {
     });
   });
   console.log(`walkers from above: ${roadCams} road-camera draws checked; ${same} draws with the options off match the plain ones`);
+  // T: the walkers draw exactly as before people joined the rig (every person-only path is gated)
+  {
+    const got = walkerCallsHash(W3);
+    if (process.argv.includes("--record-walkers")) console.log(`walker fixture: ${JSON.stringify(got)}`);
+    else if (got.draws !== WALKER_FIXTURE.draws || got.calls !== WALKER_FIXTURE.calls || got.sha1 !== WALKER_FIXTURE.sha1) err(`walkers: ${got.draws} draws make ${got.calls} calls hashing ${got.sha1}, not the fixture's ${WALKER_FIXTURE.calls} calls ${WALKER_FIXTURE.sha1} (a walker draws differently: if on purpose, re-record with --record-walkers)`);
+  }
+
+  /* ---------- The crew in 3D (js/walker3d-crew.js: people on the walkers' rig) ---------- */
+  const H3 = W3.HUMANS || {};
+  const people = Object.keys(H3);
+  let crewDraws = 0;
+  if (typeof W3.addHuman !== "function" || !people.length) err("js/walker3d.js has no people (Walker3D.addHuman, HUMANS: the crew's looks are js/walker3d-crew.js)");
+  else {
+    const HPOSES = ["stand", "walk", "talk", "work", "sit", "read", "cower"];
+    if (JSON.stringify(W3.HUMAN_POSES) !== JSON.stringify(HPOSES)) err(`Walker3D.HUMAN_POSES is ${JSON.stringify(W3.HUMAN_POSES)}, not ${JSON.stringify(HPOSES)} (the engine's contract)`);
+    if (JSON.stringify(W3.HUMAN_JOBS) !== JSON.stringify(["garden", "hammer", "clipboard"])) err(`Walker3D.HUMAN_JOBS is ${JSON.stringify(W3.HUMAN_JOBS)}`);
+    people.forEach((id) => W3.TYPES[id] && err(`person "${id}" is also a walker type (people live in HUMANS only)`));
+    if (!H3.person) err('Walker3D.HUMANS has no stand-in "person" (drawn for a crew id with no look yet)');
+    if (W3.humanId("zz-new") !== "person" || W3.humanId(people[0]) !== people[0]) err("Walker3D.humanId does not give the stand-in for an unknown id and the id itself for a known one");
+    // the facts: every crew member has a look, at the facts' scale; the look's colours are the 2D portrait's (js/crewart.js)
+    const csb = { console };
+    csb.globalThis = csb;
+    csb.window = csb;
+    vm.createContext(csb);
+    pageScripts.filter((f) => /^(layouts|world|story[\w-]*)\.js$/.test(f)).forEach((f) => {
+      try {
+        vm.runInContext(fs.readFileSync(path.join(ROOT, "js", f), "utf8"), csb, { filename: "js/" + f });
+      } catch (e) {
+        warn(`could not load js/${f} to check the crew's 3D looks against the facts: ${String(e.message).split("\n")[0]}`);
+      }
+    });
+    const CW = (csb.ZSR && csb.ZSR.WORLD && csb.ZSR.WORLD.CREW) || {};
+    if (!Object.keys(CW).length) warn("no WORLD.CREW in the facts to check the crew's 3D looks against");
+    const art2d = fs.readFileSync(path.join(ROOT, "js", CREW_FILE), "utf8");
+    const hex = (c) => "#" + c.map((v) => v.toString(16).padStart(2, "0")).join("");
+    Object.keys(CW).forEach((id) => {
+      const t = H3[id];
+      if (!t) return err(`crew member "${id}" (WORLD.CREW) has no 3D look (Walker3D.addHuman in js/walker3d-crew.js)`);
+      if (Math.abs(t.scale - CW[id].scale) > 1e-9) err(`crew ${id}: its 3D look's scale ${t.scale} is not CREW.${id}.scale ${CW[id].scale} (the facts win on the page, the look's own in a test)`);
+      // js/crewart.js's PEOPLE.<id>: skin, hair, its top (the 3D look's shirt) and trousers
+      const m = new RegExp(`\\n    ${id}: \\{([\\s\\S]*?)\\n    \\}`).exec(art2d);
+      if (!m) return warn(`could not find ${id} in js/${CREW_FILE}'s PEOPLE to compare its colours`);
+      [["skin", "skin"], ["hair", "hair"], ["top", "shirt"], ["pants", "pants"]].forEach(([k2, k3]) => {
+        const c = new RegExp(`\\b${k2}: "(#[0-9a-f]{6})"`, "i").exec(m[1]);
+        const L = t.looks[0];
+        if (c && L[k3] && hex(L[k3]) !== c[1].toLowerCase()) err(`crew ${id}: its 3D ${k3} ${hex(L[k3])} is not the portrait's ${k2} ${c[1]} (js/${CREW_FILE})`);
+      });
+    });
+    // boxes and strides: in tiles, standing at PERSON_H x the scale, the same object each call; a run outstrides a walk
+    people.forEach((id) => {
+      const b = W3.box(id);
+      const what = `Walker3D.box("${id}")`;
+      if (!b || !["h", "w", "head", "bar"].every((k) => finite(b[k]) && b[k] > 0)) return err(`${what} is ${JSON.stringify(b)}`);
+      const want = W3.PERSON_H * ((CW[id] && CW[id].scale) || H3[id].scale);
+      if (Math.abs(b.h - want) > 1e-6 && !(ZSR.WORLD && ZSR.WORLD.CREW)) err(`${what}.h ${b.h} is not PERSON_H x its scale (${want.toFixed(4)})`);
+      if (b.head > b.h + 1e-9 || b.head < 0.9 * b.h) err(`${what}.head ${b.head} is not just under its height ${b.h}`);
+      if (b !== W3.box(id)) err(`${what} makes a new object each call`);
+      if (b.h > 0.98) err(`${what}.h ${b.h} is over the 0.98 ceiling cap (a crew member must stand in the cabin unshrunk)`);
+      const s0 = W3.stride(id);
+      const s1 = W3.stride(id, 1);
+      if (!(finite(s0) && s0 > 0 && finite(s1) && s1 > s0)) err(`Walker3D.stride("${id}") is ${s0}, running ${s1} (a run must stride further)`);
+    });
+    const hcam = (id, h, dist) => {
+      const b = W3.box(id);
+      const px = h / b.h;
+      return { w: Math.ceil(b.w * px), h, px, dist: dist || 3, eye: 0.5 };
+    };
+    const hbase = { yaw: 0, gait: 0.3, move: 0, pose: "stand", poseT: 0.3, poseW: 1, seed: 0, lod: 0, fog: 0, run: 0, seat: 0, headYaw: 0, gore: true, claw: 0, hit: 0, fall: 0 };
+    const drawH = (id, o, cam, what) => {
+      const r = drawOne(id, Object.assign({}, hbase, o), cam, what, CREW_OPS);
+      if (r) crewDraws++;
+      return r;
+    };
+    // the colours a person must never use: the walkers' eye glow and blood, at any light and fog (people are drawn
+    // through the same colour function, so only an exact walker colour or a deep blood red would give one away)
+    const banned = new Set();
+    Object.keys(W3.TYPES).forEach((t) => W3.TYPES[t].looks.forEach((L) => ["glow", "eye", "blood", "flesh"].forEach((k) => L[k] && banned.add(L[k].slice(0, 3).join(",")))));
+    const badColour = (ops) => {
+      for (const op of ops) {
+        if (op.k !== "fill" && op.k !== "stroke") continue;
+        const c = parse(op.k === "fill" ? op.fillStyle : op.strokeStyle);
+        if (!c) continue;
+        if (banned.has(c.slice(0, 3).join(","))) return `${op.k} ${c.join(",")} (a walker's glow or blood)`;
+        if (c[0] > 60 && c[1] < 0.2 * c[0] && c[2] < 0.2 * c[0]) return `${op.k} ${c.join(",")} (a blood red)`;
+      }
+      return null;
+    };
+    // A: every pose (each job, a seat on the floor and a chair's), from 8 sides, at every level of detail, walking and
+    // running: clean, inside, on the floor, under the ceilings, no glow or blood; every other one drawn twice the same
+    people.forEach((id) => {
+      HPOSES.forEach((pose) => {
+        const jobs = pose === "work" ? W3.HUMAN_JOBS : [null];
+        const seats = pose === "sit" ? [0, 0.3] : [0];
+        const runs = pose === "walk" ? [0, 1] : [0];
+        jobs.forEach((job) => {
+          seats.forEach((seat) => {
+            runs.forEach((run) => {
+              for (let k = 0; k < 8; k++) {
+                for (let lod = 0; lod < 3; lod++) {
+                  const yaw = (k * PI) / 4 - PI;
+                  const o = { pose, job, seat, run, lod, yaw, move: pose === "walk" ? 1 : 0, gait: k / 8, poseT: (k + 0.5) / 8, seed: k, headYaw: (k % 3) - 1 };
+                  const cam = hcam(id, 240);
+                  const what = `person ${id} ${pose}${job ? " " + job : ""}${pose === "sit" ? " seat " + seat : ""}${run ? " running" : ""} yaw ${yaw.toFixed(2)} lod ${lod}`;
+                  const r = drawH(id, o, cam, what);
+                  if (!r) continue;
+                  const low = lowest(r.ops);
+                  // its lowest point on the floor line (a run's both-feet-off moment a little over it; nothing under it:
+                  // drawOne holds every call inside the region). Sitting, the origin is under the seat: seen from
+                  // behind, the feet are farther than it and show higher (F holds them to the floor in the model)
+                  if (!(pose === "sit" && Math.cos(yaw) < 0.1) && low < cam.h - (run ? 0.06 : 0.03) * cam.h) err(`${what}: its lowest point is at ${low.toFixed(1)}, over the floor line ${cam.h}`);
+                  const bad = badColour(r.ops);
+                  if (bad) err(`${what}: paints ${bad}`);
+                  if (k === 4 && pose !== "work" && pose !== "cower" && lod < 2 && !r.res.face) err(`${what}: facing the camera, draw() says no face`);
+                  if (lod === 0 && (k & 1) === 0) {
+                    const again = drawH(id, o, cam, what + " (again)");
+                    if (again && sig(again.ops) !== sig(r.ops)) err(`${what}: the same inputs drew different calls`);
+                  }
+                }
+              }
+            });
+          });
+        });
+      });
+    });
+    // an unknown crew id draws the stand-in, a person (never a walker)
+    const stand = drawH(W3.humanId("zz-new"), {}, hcam("person", 200), "person for an unknown crew id");
+    const plain = drawH("person", {}, hcam("person", 200), "the stand-in person");
+    if (stand && plain && sig(stand.ops) !== sig(plain.ops)) err("an unknown crew id (Walker3D.humanId) does not draw the stand-in person");
+    // B: tiny to large regions, near and far; fog darkens every colour (no glow), and changes nothing else
+    people.forEach((id) => {
+      [[14, 18], [80, 110], [380, 500]].forEach(([w, h]) => {
+        [0.6, 2, 25].forEach((dist) => {
+          const b = W3.box(id);
+          const cam = { w, h, px: h / b.h, dist, eye: 0.5 };
+          const what = `person ${id} in ${w} x ${h} at ${dist} tiles`;
+          const clear = drawH(id, { yaw: 0.6, pose: "read", fog: 0 }, cam, what + " fog 0");
+          const fog = drawH(id, { yaw: 0.6, pose: "read", fog: 0.9 }, cam, what + " fog 0.9");
+          if (!clear || !fog) return;
+          if (clear.ops.length !== fog.ops.length) return err(`${what}: fog changed what is drawn (${clear.ops.length} vs ${fog.ops.length} calls)`);
+          for (let i = 0; i < clear.ops.length; i++) {
+            const k = clear.ops[i].k;
+            if (k !== "fill" && k !== "stroke") continue;
+            const a = parse(k === "fill" ? clear.ops[i].fillStyle : clear.ops[i].strokeStyle);
+            const z = parse(k === "fill" ? fog.ops[i].fillStyle : fog.ops[i].strokeStyle);
+            if (!a || !z || a[0] + a[1] + a[2] < 30) continue;
+            if (z[0] + z[1] + z[2] > (a[0] + a[1] + a[2]) * 0.5) return err(`${what}: fog 0.9 left ${k} ${a.join(",")} at ${z.join(",")} (nothing on a person glows)`);
+          }
+        });
+      });
+    });
+    // B2: their colours converge as the walkers' do (M): random poses, sides, fog and details use a bounded set of colour
+    // strings, and the last third of the draws adds almost none (light and fog come in steps, a prop face's light too)
+    {
+      const colours = new Set();
+      let late = 0;
+      let addLate = 0;
+      const grab = new Proxy({}, { get: () => noop, set: (o, k, v) => ((k === "fillStyle" || k === "strokeStyle") && !colours.has(v) && (colours.add(v), (late += addLate)), true) });
+      let seedR = 11;
+      const rr = () => (seedR = (seedR * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+      for (let i = 0; i < 3000; i++) {
+        if (i === 2000) addLate = 1;
+        const id = people[i % people.length];
+        W3.draw(grab, id, Object.assign({}, hbase, { yaw: rr() * 6.3 - 3.15, gait: rr(), fog: rr() * 0.9, pose: HPOSES[i % HPOSES.length], job: W3.HUMAN_JOBS[i % 3], seat: rr() * 0.3, poseT: rr(), move: 1, run: rr(), lod: i % 3, seed: i % 5, headYaw: rr() * 2 - 1 }), hcam(id, 120));
+      }
+      if (colours.size > CREW_COLOURS) err(`the crew: ${colours.size} different colour strings in 3000 random draws (over ${CREW_COLOURS})`);
+      if (late > colours.size * 0.05) err(`the crew: the last 1000 of 3000 random draws still made ${late} new colours (of ${colours.size}): light or fog is not stepped`);
+    }
+    const PBH = W3.probe();
+    const quietH = (id, o, cam) => W3.draw(quiet, id, Object.assign({}, hbase, o), cam);
+    const jointsOf = () => Array.from(PBH.j);
+    const jump = (a, b) => {
+      let d = 0;
+      for (let j = 0; j < a.length; j += 3) d = Math.max(d, Math.hypot(a[j] - b[j], a[j + 1] - b[j + 1], a[j + 2] - b[j + 2]));
+      return d;
+    };
+    people.forEach((id) => {
+      const cam = hcam(id, 200);
+      const hgt = H3[id].h; // the joints are in the look's own units, about 1 tall
+      // C: a pose blends in from standing without a jump: poseW 0 is standing exactly, and no joint moves more than
+      // 6% of the height between 1/40 steps of poseW
+      quietH(id, { pose: "stand", poseT: 0.3 }, cam);
+      const standJ = jointsOf();
+      ["talk", "work", "sit", "read", "cower"].forEach((pose) => {
+        (pose === "work" ? W3.HUMAN_JOBS : [null]).forEach((job) => {
+          [0, 0.3].forEach((seat) => {
+            if (seat && pose !== "sit") return;
+            let prev = null;
+            let worst = 0;
+            for (let i = 0; i <= 40; i++) {
+              quietH(id, { pose, job, seat, poseW: i / 40, poseT: 0.3, yaw: 0.7 }, cam);
+              const now = jointsOf();
+              if (i === 0 && jump(now, standJ) > 1e-9) err(`person ${id}: ${pose}${job ? " " + job : ""} at poseW 0 is not standing (a joint is ${jump(now, standJ).toFixed(4)} off): the pose would jump in`);
+              if (prev) worst = Math.max(worst, jump(now, prev));
+              prev = now;
+            }
+            if (worst > 0.06 * hgt) err(`person ${id}: ${pose}${job ? " " + job : ""}${pose === "sit" ? " seat " + seat : ""} blending in moves a joint ${(worst / hgt * 100).toFixed(1)}% of its height in one 1/40 step of poseW: a jump`);
+          });
+        });
+      });
+      // D: each pose's loop (poseT) closes on itself and runs without a jump (sampled finely: the hammer's strike is
+      // fast, about an eighth of its loop, but it does not jump), the feet staying on the floor; the walk and the
+      // run's cycles too
+      ["stand", "talk", "work", "sit", "read", "cower"].forEach((pose) => {
+        (pose === "work" ? W3.HUMAN_JOBS : [null]).forEach((job) => {
+          quietH(id, { pose, job, poseT: 0, seat: 0.3 }, cam);
+          const j0 = jointsOf();
+          quietH(id, { pose, job, poseT: 1, seat: 0.3 }, cam);
+          if (jump(jointsOf(), j0) > 1e-6) err(`person ${id}: ${pose}${job ? " " + job : ""} at poseT 1 is not where it starts (its loop would jump)`);
+          let prev = j0;
+          let worst = 0;
+          let toeUp = 0;
+          for (let i = 1; i <= 400; i++) {
+            quietH(id, { pose, job, poseT: i / 400, seat: 0.3 }, cam);
+            const now = jointsOf();
+            worst = Math.max(worst, jump(now, prev));
+            if (pose !== "sit") toeUp = Math.max(toeUp, Math.min(now[13 * 3 + 1], now[17 * 3 + 1]));
+            prev = now;
+          }
+          if (worst > 0.05 * hgt) err(`person ${id}: ${pose}${job ? " " + job : ""} moves a joint ${(worst / hgt * 100).toFixed(1)}% of its height in one 1/400 of its loop: a jump`);
+          if (toeUp > H3[id].build.ankle + 0.002) err(`person ${id}: ${pose}${job ? " " + job : ""} lifts both feet off the floor during its loop (the lower toe ${toeUp.toFixed(3)} up)`);
+        });
+      });
+      [0, 1].forEach((run) => {
+        quietH(id, { pose: "walk", move: 1, run, gait: 0 }, cam);
+        let prev = jointsOf();
+        const j0 = prev;
+        let worst = 0;
+        for (let i = 1; i <= 100; i++) {
+          quietH(id, { pose: "walk", move: 1, run, gait: i / 100 }, cam);
+          const now = jointsOf();
+          worst = Math.max(worst, jump(now, prev));
+          prev = now;
+        }
+        if (jump(prev, j0) > 1e-6) err(`person ${id}: its ${run ? "run" : "walk"} cycle does not close`);
+        if (worst > 0.06 * hgt) err(`person ${id}: ${run ? "running" : "walking"} moves a joint ${(worst / hgt * 100).toFixed(1)}% of its height in 1/100 of a cycle: a snap`);
+      });
+      // E: the same size in every pose (an envelope of them all): the fit never moves with the pose, and in a region
+      // its box gives it is drawn all but full size (the ink's margin and a camera's perspective over its eye take a
+      // few percent, as for a walker)
+      let lo = Infinity;
+      let hi = 0;
+      HPOSES.forEach((pose) => {
+        (pose === "work" ? W3.HUMAN_JOBS : [null]).forEach((job) => {
+          [0, 0.15, 0.3, 0.6].forEach((seat) => {
+            [0, 1].forEach((run) => {
+              for (let i = 0; i < 6; i++) {
+                quietH(id, { pose, job, seat, run, move: pose === "walk" ? 1 : 0, poseT: i / 6, gait: i / 6, yaw: i, headYaw: i - 3 }, cam);
+                lo = Math.min(lo, W3.probe().fit);
+                hi = Math.max(hi, W3.probe().fit);
+              }
+            });
+          });
+        });
+      });
+      if (lo < 0.95) err(`person ${id}: drawn at ${(lo * 100).toFixed(1)}% in a region its box gives (its box must hold every pose)`);
+      if (hi / lo - 1 > 0.01) err(`person ${id}: its size changes ${((hi / lo - 1) * 100).toFixed(1)}% with the pose`);
+      // F: sitting: the hips at the seat (the seat in tiles), the feet on the floor; a seat too tall for the legs is
+      // brought down to the highest they reach
+      const K = W3.box(id).h / H3[id].h;
+      const b = H3[id].build;
+      [0, 0.1, 0.2, 0.3].forEach((seat) => {
+        quietH(id, { pose: "sit", seat, yaw: 1.2 }, cam);
+        const hipY = PBH.j[1];
+        const want = Math.min(seat / K, H3[id].seatMax) + b.rThigh * 1.15;
+        if (Math.abs(hipY - want) > 1e-6) err(`person ${id} sitting on a seat ${seat} tiles high: the hips at ${(hipY * K).toFixed(3)} tiles, not ${(want * K).toFixed(3)}`);
+        const toe = Math.min(PBH.j[13 * 3 + 1], PBH.j[17 * 3 + 1]);
+        if (toe > b.ankle + 0.002) err(`person ${id} sitting on a seat ${seat} tiles high: the feet are off the floor (a toe at ${toe.toFixed(3)})`);
+      });
+      // G: the head turns from the body (headYaw), clamped: turned to the camera from a body facing away a quarter
+      // turn, the face shows; past the clamp it draws as at the clamp
+      const r = W3.draw(quiet, id, Object.assign({}, hbase, { pose: "talk", yaw: 1.0, headYaw: -1.0 }), cam);
+      if (!r.face) err(`person ${id}: its head turned to the camera (headYaw -1 at yaw 1) shows no face`);
+      const a = drawH(id, { pose: "talk", yaw: 0.5, headYaw: 3 }, cam, `person ${id} headYaw 3`);
+      const c = drawH(id, { pose: "talk", yaw: 0.5, headYaw: W3.HEAD_YAW_MAX }, cam, `person ${id} headYaw at the clamp`);
+      if (a && c && sig(a.ops) !== sig(c.ops)) err(`person ${id}: headYaw 3 does not draw as at the clamp (${W3.HEAD_YAW_MAX})`);
+      // G2: the eyes blink once in a pose's loop, and never at its ends (a pose held at poseT 0 or 1 keeps them open);
+      // the mouth opens and shuts as they talk
+      const whites = (o) => {
+        let w = false;
+        let fill = "";
+        const g = new Proxy({}, { get: (x, k) => (k === "fill" ? () => (w = w || fill === "rgb(251,248,240)") : noop), set: (x, k, v) => ((k === "fillStyle" && (fill = v)), true) });
+        W3.draw(g, id, Object.assign({}, hbase, o), cam);
+        return w;
+      };
+      for (let seed = 0; seed < 12; seed++) {
+        [0, 1].forEach((poseT) => whites({ pose: "stand", poseT, seed }) || err(`person ${id} seed ${seed}: its eyes are shut at poseT ${poseT} (a pose held there would never open them)`));
+        let shut = 0;
+        for (let i = 0; i < 100; i++) if (!whites({ pose: "talk", poseT: i / 100, seed })) shut++;
+        if (shut < 1 || shut > 8) err(`person ${id} seed ${seed}: eyes shut for ${shut} of 100 steps of a loop (a blink is a moment once a loop)`);
+      }
+      // H: missing or broken fields draw as their defaults; the walkers' own fields do nothing harmful
+      [{ pose: "dance" }, { pose: undefined }, { seat: NaN }, { seat: -2 }, { seat: 40, pose: "sit" }, { headYaw: Infinity }, { headYaw: NaN }, { job: "juggle", pose: "work" }, { job: 3, pose: "work" }, { poseW: NaN, pose: "read" }, { poseT: NaN, pose: "talk" }, { run: NaN, pose: "walk", move: 1 }, { move: undefined, pose: "walk" }, { gait: Infinity, pose: "walk", move: 1 }, { yaw: NaN }, { fog: NaN }, { seed: -5 }, { lod: 7 }, { pose: "bite", claw: 5, hit: 1, fall: 1, fallDir: 2 }, { pose: "claw", claw: NaN, fall: 0.5 }].forEach((o) =>
+        drawH(id, o, hcam(id, 200), `person ${id} with ${JSON.stringify(o, (k, v) => (typeof v === "number" && !Number.isFinite(v) ? String(v) : v === undefined ? "undefined" : v))}`)
+      );
+    });
+    // I: drawing people leaves no state behind: a walker drawn after a person draws as it did before it
+    {
+      const camW = camFor("walker", false, 200);
+      const before = drawOne("walker", { yaw: 0.4, pose: "claw", claw: 0.3, seed: 2 }, camW, "walker before a person");
+      drawH("june", { pose: "read", lod: 0, yaw: 2 }, hcam("june", 200), "june between two walkers");
+      const after = drawOne("walker", { yaw: 0.4, pose: "claw", claw: 0.3, seed: 2 }, camW, "walker after a person");
+      if (before && after && sig(before.ops) !== sig(after.ops)) err("a walker drawn after a person draws differently (a person left state behind)");
+    }
+    console.log(`the crew in 3D: ${people.length} looks (${people.join(", ")}), ${crewDraws} figures checked`);
+  }
   // the health bar's width uses the engine's field of view: the same number in both files
   const fovM = /const FOV = ([\d.]+)/.exec(fs.readFileSync(path.join(ROOT, "js", "interior.js"), "utf8"));
   if (!fovM) warn("could not find js/interior.js's FOV to check Walker3D.FOV against");
   else if (Math.abs(+fovM[1] - W3.FOV) > 1e-9) err(`Walker3D.FOV ${W3.FOV} is not js/interior.js's FOV ${fovM[1]} (the health bar's width comes from it)`);
   sb.document.createElement = realCreate;
+}
+
+/* ---------- Animals in 3D (js/beast3d.js + its looks): the stray dog, Rivet, the goat and the hen, live in their regions ---
+   Loaded as the page loads them: after the walkers' looks (after js/walker3d-crew.js when there is one) and before
+   js/interior.js. Every type in every pose it has (and one it lacks, which draws "stand"), from 8 sides, at every level
+   of detail, walking, galloping and wagging, on the checking context: no throw, finite numbers, real colours, no
+   transforms, images, gradients, read-backs or new canvases, inside its region, its feet on the floor line, within its
+   canvas-call ceiling (BEAST_OPS), the same calls twice and with another animal drawn between; fog darkens all but a
+   robot's lights, in steps; a shut-down robot has no lights; poses ease in and out without a jump, the gait and the
+   pose loops are smooth and wrap; the size never follows the pose; tiny to large regions, near and far, and seen from
+   above (cam.floor, cam.shadow) hold the same promises, the two options left off change nothing; the colour table
+   converges; a two-legged winged stand-in draws cleanly through the same rig; the dog and Rivet draw exactly as before
+   the farm's animals joined (BEAST_FIXTURE); the goat and the hen stand as tall as their 2D art and their own poses
+   (graze, peck, flap, a hen's sit, a goat's folded lie, the head-bob, the bleat) do what they say on the joints. */
+// SCALE: the animal module, then its looks (the dogs, then the farm's goats and hens); add beast3d-looks3.js ... here
+const BEAST_FILES = ["beast3d.js", "beast3d-looks.js", "beast3d-looks2.js"];
+// SCALE: most canvas calls one animal may make at lod 0 / 1 / 2 (a crew yard draws the dog and Rivet beside the crew
+// and the walkers, a full farm two goats and three hens, each redrawn when it changes). Today's most: see the line
+// this section prints
+const BEAST_OPS = [450, 320, 170];
+const BEAST_H_MAX = 0.7; // SCALE: tallest animal box, tiles (a goat's horns stand 0.6 tiles up, as the 2D goat's do)
+// SCALE: most colour strings random animal draws may use (Beast3D's colour table, CC_N, holds 16384; the four kinds use
+// about 2,950), and the random draws each kind gets for it (the two dogs had 1,200 each)
+const BEAST_COLOURS = 5000;
+const BEAST_RANDOM_DRAWS = 1200;
+let beastDraws = 0;
+{
+  const at0 = pageScripts.indexOf("walker3d-crew.js") >= 0 ? pageScripts.indexOf("walker3d-crew.js") : pageScripts.indexOf("walker3d-looks.js");
+  BEAST_FILES.forEach((f, i) => {
+    if (!fs.existsSync(path.join(ROOT, "js", f))) return err(`js/${f} is missing`);
+    const at = pageScripts.indexOf(f);
+    if (at < 0) err(`index.html does not load js/${f}`);
+    else {
+      if (at < at0) err(`index.html loads js/${f} before js/${pageScripts[at0]} (the animals load right after the walkers' looks)`);
+      if (pageScripts.includes("interior.js") && at > pageScripts.indexOf("interior.js")) err(`index.html loads js/${f} after interior.js (the engine reads Beast3D)`);
+      if (i && at < pageScripts.indexOf(BEAST_FILES[0])) err(`index.html loads js/${f} before js/${BEAST_FILES[0]}`);
+    }
+    load(f);
+  });
+}
+const B3 = ZSR.Beast3D;
+if (!B3) err("js/beast3d.js does not export ZSR.Beast3D");
+else {
+  const PI = Math.PI;
+  // (appended, never reordered: the farm's four came after the dogs' seven)
+  const POSES = ["stand", "walk", "sit", "lie", "bark", "zap", "off", "graze", "peck", "flap", "bleat"];
+  if (JSON.stringify(B3.POSES) !== JSON.stringify(POSES)) err(`Beast3D.POSES is ${JSON.stringify(B3.POSES)}, not ${JSON.stringify(POSES)} (the engine relies on the list)`);
+  ["addType", "draw", "box", "stride", "probe"].forEach((k) => typeof B3[k] === "function" || err(`Beast3D.${k} is not a function`));
+  POSES.forEach((p) => (finite(B3.POSE_SECS && B3.POSE_SECS[p]) && B3.POSE_SECS[p] > 0) || err(`Beast3D.POSE_SECS.${p} is ${B3.POSE_SECS && B3.POSE_SECS[p]}`));
+  ["POSE_BLEND", "FOG_STEPS", "HEAD_YAW_MAX"].forEach((k) => (finite(B3[k]) && B3[k] > 0) || err(`Beast3D.${k} is ${B3[k]}`));
+  // the kinds the game has, with the poses docs/CREW.md and docs/UNIVERSES.md give them, and the farm's (the 2D art's
+  // wander: walking, pecking and grazing; and what a goat and a hen do besides)
+  const WANT = { dog: ["stand", "walk", "sit", "lie", "bark"], robodog: ["stand", "walk", "sit", "zap", "off"], goat: ["stand", "walk", "graze", "lie", "bleat"], chicken: ["stand", "walk", "peck", "flap", "sit"] };
+  Object.entries(WANT).forEach(([id, poses]) => {
+    const t = B3.TYPES[id];
+    if (!t) return err(`Beast3D has no "${id}" (js/beast3d-looks.js, js/beast3d-looks2.js)`);
+    poses.forEach((p) => t.poses.includes(p) || err(`Beast3D "${id}" lacks the pose "${p}"`));
+  });
+  const types = Object.keys(B3.TYPES);
+  // boxes and strides: finite, sane, the same object each call (the engine calls them every frame)
+  types.concat(["zz-new"]).forEach((t) => {
+    const b = B3.box(t);
+    const what = `Beast3D.box("${t}")`;
+    if (!b || !["h", "w", "head", "bar"].every((k) => finite(b[k]) && b[k] > 0)) return err(`${what} is ${JSON.stringify(b)}`);
+    if (b.h > BEAST_H_MAX) err(`${what}.h is ${b.h}: over ${BEAST_H_MAX} tiles`);
+    if (b.head > b.h + 1e-9) err(`${what}.head ${b.head} is over its height ${b.h}`);
+    if (b.w < b.bar) err(`${what}.w ${b.w} is narrower than its bar ${b.bar}`);
+    if (b !== B3.box(t)) err(`${what} makes a new object each call`);
+    const s0 = B3.stride(t);
+    const s1 = B3.stride(t, 1);
+    if (!(finite(s0) && s0 > 0 && finite(s1) && s1 >= s0)) err(`Beast3D.stride("${t}") is ${s0}, galloping ${s1}`);
+    if (B3.stride(t, NaN) !== s0) err(`Beast3D.stride("${t}", NaN) is not its walking stride`);
+  });
+  // the dog stands as tall as its 2D art (CREW_ART.scale.crewDog: its back about 0.2 tiles, a grown-up's knee)
+  const FORBID = new Set(["translate", "scale", "rotate", "setTransform", "transform", "drawImage", "resetTransform", "set shadowBlur", "set filter", "createLinearGradient", "createRadialGradient", "createPattern", "getImageData", "putImageData"]);
+  const parse = (c) => {
+    const m = /rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)\s*(?:,\s*([\d.]+)\s*)?\)/.exec(typeof c === "string" ? c : "");
+    return m ? [+m[1], +m[2], +m[3], m[4] == null ? 1 : +m[4]] : null;
+  };
+  const base = { yaw: 0, gait: 0.3, move: 0, run: 0, pose: "stand", poseT: 0.3, poseW: 1, wag: 0.5, headYaw: 0, seed: 0, lod: 0, fog: 0 };
+  let made = 0;
+  const realCreate = sb.document.createElement;
+  sb.document.createElement = (t) => {
+    made++;
+    return realCreate(t);
+  };
+  const SHADOW_FILL = "rgba(0,0,0,0.3)";
+  /** The lowest point the figure draws (not its ground shadow): stroke ends with their width, ellipses' bottoms. */
+  const lowestDrawn = (ops) => {
+    let y = -Infinity;
+    let pending = [];
+    ops.forEach((op) => {
+      const a = op.args;
+      if (op.k === "beginPath") pending = [];
+      else if (op.k === "moveTo" || op.k === "lineTo") pending.push(a[1]);
+      else if (op.k === "quadraticCurveTo") pending.push(a[3]);
+      else if (op.k === "ellipse") pending.push(a[1] + Math.hypot(a[2] * Math.sin(a[4]), a[3] * Math.cos(a[4])));
+      else if (op.k === "fill" && op.fillStyle !== SHADOW_FILL) pending.forEach((v) => (y = Math.max(y, v)));
+      else if (op.k === "stroke") pending.forEach((v) => (y = Math.max(y, v + (op.lineWidth || 0) / 2)));
+    });
+    return y;
+  };
+  const sig = (ops) => JSON.stringify(ops.map((op) => [op.k, op.args, op.fillStyle, op.strokeStyle, op.lineWidth, op.globalAlpha]));
+  const worst = [0, 0, 0];
+  /** Draw one animal on a fresh checking canvas; returns { ops, res } or null (after reporting). */
+  function drawBeast(type, o, cam, what) {
+    const c = element("canvas");
+    c.width = cam.w;
+    c.height = cam.h;
+    const ctx = c.getContext("2d");
+    // a pooled canvas keeps the line width its last figure left on it: a stroke before the draw sets its own would show
+    // past the box the draw reports (checked below), so the canvas starts with a wide one
+    ctx.lineWidth = 37;
+    const st = Object.assign({}, base, o);
+    current = what;
+    const before = made;
+    noRead = true;
+    let res;
+    try {
+      res = B3.draw(ctx, type, st, cam);
+    } catch (e) {
+      noRead = false;
+      err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+      return null;
+    }
+    noRead = false;
+    beastDraws++;
+    if (made !== before) err(`${what}: made ${made - before} canvas(es) while drawing`);
+    if (!res || !finite(res.parts) || res.parts < 3) err(`${what}: draw() returned ${JSON.stringify(res)}, not { parts }`);
+    const ops = c.ops;
+    const lod = st.lod === 1 || st.lod === 2 ? st.lod : 0;
+    worst[lod] = Math.max(worst[lod], ops.length);
+    if (ops.length < (lod === 2 ? 12 : 30)) err(`${what}: only ${ops.length} canvas calls`);
+    if (ops.length > BEAST_OPS[lod]) err(`${what}: ${ops.length} canvas calls, over the lod ${lod} ceiling of ${BEAST_OPS[lod]}`);
+    const bad = ops.find((op) => FORBID.has(op.k));
+    if (bad) err(`${what}: calls ${bad.k} (animals draw straight, with no transforms, images, gradients or read-backs)`);
+    let worstOut = null;
+    const out = (x, y, r, lw, k, ry) => {
+      const m = 2 + lw / 2;
+      const rh = ry == null ? r : ry;
+      if (x - r < -m || x + r > cam.w + m || y - rh < -m || y + rh > cam.h + m) worstOut = worstOut || `${k} at ${x.toFixed(1)}, ${y.toFixed(1)} (r ${r.toFixed(1)}, ${rh.toFixed(1)}) outside ${cam.w} x ${cam.h}`;
+    };
+    ops.forEach((op) => {
+      const a = op.args;
+      if (op.k === "moveTo" || op.k === "lineTo") out(a[0], a[1], 0, op.lineWidth, op.k);
+      else if (op.k === "quadraticCurveTo") {
+        out(a[0], a[1], 0, op.lineWidth, op.k);
+        out(a[2], a[3], 0, op.lineWidth, op.k);
+      } else if (op.k === "ellipse") {
+        const c2 = Math.cos(a[4]);
+        const s2 = Math.sin(a[4]);
+        out(a[0], a[1], Math.hypot(a[2] * c2, a[3] * s2), op.lineWidth, op.k, Math.hypot(a[2] * s2, a[3] * c2));
+      }
+    });
+    if (worstOut) err(`${what}: draws outside its region: ${worstOut}`);
+    // the box it says it drew in (res x0, y0, x1, y1: the engine pastes only that, js/interior.js drawSprite) holds all
+    // it drew: every point of a filled path, a stroked one's with half its width, each within the region
+    {
+      let x0 = Infinity;
+      let y0 = Infinity;
+      let x1 = -Infinity;
+      let y1 = -Infinity;
+      let pend = [];
+      const take = (m) =>
+        pend.forEach(([a0, b0, a1, b1]) => {
+          x0 = Math.min(x0, a0 - m);
+          y0 = Math.min(y0, b0 - m);
+          x1 = Math.max(x1, a1 + m);
+          y1 = Math.max(y1, b1 + m);
+        });
+      ops.forEach((op) => {
+        const a = op.args;
+        if (op.k === "beginPath") pend = [];
+        else if (op.k === "moveTo" || op.k === "lineTo") pend.push([a[0], a[1], a[0], a[1]]);
+        else if (op.k === "quadraticCurveTo") pend.push([a[0], a[1], a[0], a[1]], [a[2], a[3], a[2], a[3]]);
+        else if (op.k === "ellipse") {
+          const c2 = Math.cos(a[4]);
+          const s2 = Math.sin(a[4]);
+          const ex = Math.hypot(a[2] * c2, a[3] * s2);
+          const ey = Math.hypot(a[2] * s2, a[3] * c2);
+          pend.push([a[0] - ex, a[1] - ey, a[0] + ex, a[1] + ey]);
+        } else if (op.k === "fill") take(0);
+        else if (op.k === "stroke") take((op.lineWidth || 0) / 2);
+      });
+      const cl = (v, hi) => Math.max(0, Math.min(hi, v));
+      if (x1 >= x0 && res && !(res.x0 <= cl(x0, cam.w) + 1e-6 && res.y0 <= cl(y0, cam.h) + 1e-6 && res.x1 >= cl(x1, cam.w) - 1e-6 && res.y1 >= cl(y1, cam.h) - 1e-6))
+        err(`${what}: says it drew in ${res.x0},${res.y0} .. ${res.x1},${res.y1} but drew ${x0.toFixed(1)},${y0.toFixed(1)} .. ${x1.toFixed(1)},${y1.toFixed(1)} (the engine pastes only its box)`);
+    }
+    return { ops, res };
+  }
+  const camFor = (type, h, dist) => {
+    const b = B3.box(type);
+    const px = h / b.h;
+    return { w: Math.ceil(b.w * px), h, px, dist: dist || 3, eye: 0.5 };
+  };
+  // A: every pose it has and one it lacks, 8 sides, every level of detail, wagging or not; walking at a trot and a
+  // gallop; its feet on the floor line; the same calls twice
+  types.forEach((type) => {
+    const t = B3.TYPES[type];
+    const lacks = POSES.find((p) => !t.poses.includes(p));
+    const poses = t.poses.concat(lacks ? [lacks] : []);
+    for (let seed = 0; seed < Math.max(1, t.looks.length); seed++) {
+      poses.forEach((pose) => {
+        [0, 1].forEach((run) => {
+          if (run && pose !== "walk") return;
+          for (let k = 0; k < 8; k++) {
+            for (let lod = 0; lod < 3; lod++) {
+              const yaw = (k * PI) / 4 - PI;
+              const o = { pose, yaw, lod, seed, run, wag: (k + lod) % 2, move: pose === "walk" ? 1 : 0, headYaw: ((k % 3) - 1) * 0.6 };
+              const cam = camFor(type, 220);
+              const what = `animal ${type} ${pose}${run ? " galloping" : ""}${t.poses.includes(pose) ? "" : " (it lacks it)"} yaw ${yaw.toFixed(2)} lod ${lod} seed ${seed}`;
+              const r = drawBeast(type, o, cam, what);
+              if (!r) continue;
+              const low = lowestDrawn(r.ops);
+              // (galloping, every paw may be off the ground at once)
+              if (!run && (low < 0.94 * cam.h || low > cam.h + 3.5)) err(`${what}: its lowest point is at ${low.toFixed(1)} of ${cam.h} (its feet must stand on the floor line)`);
+              if (lod === 0 && (k & 1) === 0) {
+                const again = drawBeast(type, o, cam, what + " (again)");
+                if (again && sig(again.ops) !== sig(r.ops)) err(`${what}: the same inputs drew different calls`);
+              }
+            }
+          }
+        });
+      });
+    }
+  });
+  // B: tiny to large regions, near and far cameras, clear and fogged: fog darkens everything but a robot's lights, and
+  // a shut-down robot has no lights (every colour fogs)
+  types.forEach((type) => {
+    B3.TYPES[type].poses.forEach((pose) => {
+      [[12, 9], [90, 70], [420, 330]].forEach(([w, h], wi) => {
+        [0.4, 2, 25].forEach((dist) => {
+          const b = B3.box(type);
+          const cam = { w, h, px: h / b.h, dist, eye: 0.5 };
+          const what = `animal ${type} ${pose} in ${w} x ${h} at ${dist} tiles`;
+          const o = { yaw: 0.6 + wi, pose, move: pose === "walk" ? 1 : 0, poseT: 0.3, lod: wi === 2 ? 0 : wi };
+          const clear = drawBeast(type, Object.assign({ fog: 0 }, o), cam, what + " fog 0");
+          const fog = drawBeast(type, Object.assign({ fog: 0.9 }, o), cam, what + " fog 0.9");
+          if (!clear || !fog) return;
+          if (clear.ops.length !== fog.ops.length) return err(`${what}: fog changed what is drawn (${clear.ops.length} vs ${fog.ops.length} calls)`);
+          let darker = 0;
+          let colored = 0;
+          for (let i = 0; i < clear.ops.length; i++) {
+            const k = clear.ops[i].k;
+            if (k !== "fill" && k !== "stroke") continue;
+            const a = parse(k === "fill" ? clear.ops[i].fillStyle : clear.ops[i].strokeStyle);
+            const z = parse(k === "fill" ? fog.ops[i].fillStyle : fog.ops[i].strokeStyle);
+            if (!a || !z || (a[0] + a[1] + a[2] === 0 && a[3] < 1)) continue; // (the ground shadow is black already)
+            colored++;
+            if (z[0] > a[0] + 1 || z[1] > a[1] + 1 || z[2] > a[2] + 1) return err(`${what}: fog 0.9 made ${k} ${a.join(",")} lighter (${z.join(",")})`);
+            if (z[0] + z[1] + z[2] < (a[0] + a[1] + a[2]) * 0.5) darker++;
+          }
+          if (darker < colored * 0.7) err(`${what}: fog 0.9 darkened only ${darker} of ${colored} colours`);
+          if (pose === "off" && darker < colored) err(`${what}: shut down, ${colored - darker} of its colours still glow through the fog (its lights must be dark)`);
+        });
+      });
+    });
+  });
+  const noop = () => {};
+  const quiet = new Proxy({}, { get: () => noop, set: () => true });
+  const PB = B3.probe();
+  const stQ = (o) => Object.assign({}, base, o);
+  if (!PB || !PB.j || !PB.s) err("Beast3D.probe() does not give the joints (j) and their projections (s)");
+  else {
+    const nj = PB.j.length / 3;
+    const jointsOf = () => Array.from(PB.j);
+    const maxMove = (a, b2) => {
+      let m = 0;
+      for (let j = 0; j < nj; j++) m = Math.max(m, Math.hypot(a[j * 3] - b2[j * 3], a[j * 3 + 1] - b2[j * 3 + 1], a[j * 3 + 2] - b2[j * 3 + 2]));
+      return m;
+    };
+    types.forEach((type) => {
+      const t = B3.TYPES[type];
+      const cam = camFor(type, 200);
+      // C: a pose at poseW 0 is standing exactly (a pose change starts where it stood); then through poseW 0..1 in 40
+      // steps no joint jumps (at most 4% of its body length a step: the whole move in about 25 steps)
+      const len = t.build.len;
+      t.poses.forEach((pose) => {
+        if (pose === "stand" || pose === "walk") return;
+        [0, 0.8].forEach((move) => {
+          B3.draw(quiet, type, stQ({ pose: "stand", move, gait: 0.4, poseT: 0.25, yaw: 0.7 }), cam);
+          const stand = jointsOf();
+          B3.draw(quiet, type, stQ({ pose, move, gait: 0.4, poseT: 0.25, yaw: 0.7, poseW: 0 }), cam);
+          const d0 = maxMove(stand, jointsOf());
+          if (d0 > 1e-9) err(`animal ${type}: ${pose} at poseW 0 is not standing (a joint is ${d0.toFixed(4)} tiles off): the pose would jump in`);
+          let prev = stand;
+          let most = 0;
+          for (let i = 1; i <= 40; i++) {
+            B3.draw(quiet, type, stQ({ pose, move, gait: 0.4, poseT: 0.25, yaw: 0.7, poseW: i / 40 }), cam);
+            const now = jointsOf();
+            most = Math.max(most, maxMove(prev, now));
+            prev = now;
+          }
+          if (most > len * 0.12) err(`animal ${type}: easing into ${pose}${move ? " from a walk" : ""}, a joint jumps ${most.toFixed(4)} tiles in one of 40 steps (more than ${(len * 0.12).toFixed(4)})`);
+        });
+      });
+      // D: smooth gait cycles (trotting and galloping) and pose loops: through 200 steps no paw, head or tail tip
+      // jumps more than 4 x its usual step (+ a little); a loop's end meets its start
+      const LIMBS = { "fore left paw": 9 + 3, "fore right paw": 9 + 7, "hind left paw": 9 + 11, "hind right paw": 9 + 15, head: 3, "tail tip": 7 };
+      const cycles = [{ field: "gait", o: { pose: "walk", move: 1 } }, { field: "gait", o: { pose: "walk", move: 1, run: 1 } }].concat(t.poses.filter((p) => p !== "walk").map((p) => ({ field: "poseT", o: { pose: p, wag: 1 } })));
+      cycles.forEach(({ field, o }) => {
+        [PI / 2, 0.4].forEach((yaw) => {
+          const steps = {};
+          let prev = null;
+          let first = null;
+          for (let i = 0; i <= 200; i++) {
+            B3.draw(quiet, type, stQ(Object.assign({ yaw, [field]: i / 200, gait: field === "gait" ? i / 200 : 0.3, poseT: field === "poseT" ? i / 200 : 0.3 }, o)), cam);
+            const now = Array.from(PB.s);
+            if (!first) first = now;
+            if (prev) Object.entries(LIMBS).forEach(([n, j]) => (steps[n] = steps[n] || []).push(Math.hypot(now[j * 3] - prev[j * 3], now[j * 3 + 1] - prev[j * 3 + 1])));
+            prev = now;
+          }
+          const what = `animal ${type} ${o.pose}${o.run ? " galloping" : ""} through its ${field === "gait" ? "gait" : "loop"} yaw ${yaw.toFixed(2)}`;
+          Object.entries(steps).forEach(([n, a]) => {
+            const sorted = a.slice().sort((x, y) => x - y);
+            const med = sorted[sorted.length >> 1];
+            const max = sorted[sorted.length - 1];
+            if (max > 4 * med + 1.5) err(`${what}: its ${n} jumps ${max.toFixed(1)} px in one step (its usual step is ${med.toFixed(2)} px at 200 px tall): a snap`);
+          });
+          // (bark and zap are one-shots: the engine loops them, so their ends meet too)
+          Object.entries(LIMBS).forEach(([n, j]) => {
+            const d = Math.hypot(prev[j * 3] - first[j * 3], prev[j * 3 + 1] - first[j * 3 + 1]);
+            if (d > 1.5) err(`${what}: its ${n} ends the loop ${d.toFixed(1)} px from where it began (the loop must wrap)`);
+          });
+        });
+      });
+      // E: the size never follows the pose: at 1 tile the fit is the same sitting, lying, barking, zapping, walking and
+      // galloping, the head turned either way
+      [0, 0.5, PI / 2, -2.4].forEach((yaw) => {
+        let lo = Infinity;
+        let hi = 0;
+        const b = B3.box(type);
+        const camN = { w: Math.ceil((b.w * 300) / b.h), h: 300, px: 300 / b.h, dist: 1, eye: 0.5 };
+        t.poses.forEach((pose) => {
+          for (let i = 0; i <= 12; i++) {
+            [1, 0.5].forEach((poseW) => {
+              B3.draw(quiet, type, stQ({ yaw, pose, poseT: i / 12, gait: i / 12, move: pose === "walk" ? 1 : 0, poseW, headYaw: ((i % 3) - 1) * 2 }), camN);
+              const f = B3.probe().fit;
+              lo = Math.min(lo, f);
+              hi = Math.max(hi, f);
+            });
+          }
+        });
+        if (hi / lo - 1 > 0.03) err(`animal ${type} yaw ${yaw.toFixed(2)} at 1 tile: its size changes ${((hi / lo - 1) * 100).toFixed(1)}% with the pose (fit ${lo.toFixed(3)}..${hi.toFixed(3)}): it would pulse`);
+      });
+      // F: headYaw past its limit is the limit; fog comes in steps
+      B3.draw(quiet, type, stQ({ headYaw: 10 }), cam);
+      const far = jointsOf();
+      B3.draw(quiet, type, stQ({ headYaw: B3.HEAD_YAW_MAX }), cam);
+      if (maxMove(far, jointsOf()) > 1e-9) err(`animal ${type}: headYaw 10 turns the head past HEAD_YAW_MAX`);
+      const f1 = drawBeast(type, { fog: 0.3 }, cam, `animal ${type} fog 0.3`);
+      const f2 = drawBeast(type, { fog: 0.3 + 0.2 / B3.FOG_STEPS }, cam, `animal ${type} fog a little more`);
+      if (f1 && f2 && sig(f1.ops) !== sig(f2.ops)) err(`animal ${type}: fog 0.3 and a little more draw differently (fog must come in steps of 1 / FOG_STEPS)`);
+    });
+    // G: a robot's lights: zapping they glow through the fog; shut down they are out
+    const R = B3.TYPES.robodog;
+    if (R) {
+      const cam = camFor("robodog", 200);
+      const glowing = (o) => {
+        const a = drawBeast("robodog", Object.assign({ fog: 0 }, o), cam, `animal robodog ${o.pose} lights (clear)`);
+        const z = drawBeast("robodog", Object.assign({ fog: 0.9 }, o), cam, `animal robodog ${o.pose} lights (fogged)`);
+        if (!a || !z) return -1;
+        let n = 0;
+        a.ops.forEach((op, i) => {
+          if (op.k !== "fill" && op.k !== "stroke") return;
+          const s1 = op.k === "fill" ? op.fillStyle : op.strokeStyle;
+          const s2 = op.k === "fill" ? z.ops[i].fillStyle : z.ops[i].strokeStyle;
+          const c1 = parse(s1);
+          if (c1 && s1 === s2 && c1[0] + c1[1] + c1[2] > 150) n++;
+        });
+        return n;
+      };
+      if (glowing({ pose: "zap", poseT: 0.5, yaw: 0.5 }) < 3) err("animal robodog zapping: its visor, antenna and spark do not glow through the fog");
+      if (glowing({ pose: "stand", yaw: 0.5 }) < 1) err("animal robodog standing: its visor does not glow through the fog");
+      [0, PI / 2, PI, -0.7].forEach((yaw) => {
+        if (glowing({ pose: "off", yaw }) !== 0) err(`animal robodog shut down (yaw ${yaw.toFixed(2)}): it still draws a light`);
+        B3.draw(quiet, "robodog", stQ({ pose: "off", yaw }), cam);
+        if (B3.probe().lit) err("animal robodog shut down: probe().lit says its lights are on");
+      });
+    }
+    // H: missing or broken inputs draw as their defaults (the checking context errs on any non-finite number)
+    [{ move: undefined }, { move: NaN }, { gait: NaN }, { gait: Infinity }, { run: NaN }, { poseT: NaN, pose: "bark" }, { poseW: NaN, pose: "sit" }, { wag: NaN }, { headYaw: NaN }, { headYaw: -Infinity }, { yaw: NaN }, { fog: NaN }, { seed: -5 }, { lod: 7 }, { pose: "dance" }, { pose: undefined }, { hit: 1 }].forEach((o) =>
+      types.forEach((type) => drawBeast(type, o, camFor(type, 160), `animal ${type} with ${JSON.stringify(o, (k, v) => (typeof v === "number" && !Number.isFinite(v) ? String(v) : v === undefined ? "undefined" : v))}`))
+    );
+    drawBeast("zz-new", {}, camFor("dog", 160), "animal of an unknown type (draws a dog)");
+    // I: the same inputs draw the same with another animal drawn between (no state leaks between draws)
+    types.forEach((a, k) => {
+      const other = types[(k + 1) % types.length];
+      const sa = { yaw: 0.7, gait: 0.37, pose: "walk", move: 1, poseT: 0.6, seed: 3, lod: k % 3, fog: 0.2, headYaw: 0.4 };
+      const cam = camFor(a, 180);
+      const one = drawBeast(a, sa, cam, `animal ${a} (determinism, first)`);
+      drawBeast(other, { yaw: -2, pose: B3.TYPES[other].poses[2], poseT: 0.4, poseW: 0.6, seed: 8, lod: (k + 1) % 3, fog: 0.7, run: 0.5, move: 1 }, camFor(other, 120, 1.2), `animal ${other} (determinism, between)`);
+      const two = drawBeast(a, sa, cam, `animal ${a} (determinism, again)`);
+      if (one && two && sig(one.ops) !== sig(two.ops)) err(`animal ${a}: drawing a ${other} in between changed how the same ${a} draws`);
+    });
+    // J: the colour table converges: random continuous inputs use a bounded set of colour strings (a bite's flash only on
+    // Rivet, now and then: the dog is never hurt). Each kind gets as many draws as each of the two dogs had alone
+    const colours = new Set();
+    let late = 0;
+    let addLate = 0;
+    const grab = new Proxy({}, { get: () => noop, set: (o, k, v) => ((k === "fillStyle" || k === "strokeStyle") && !colours.has(v) && (colours.add(v), (late += addLate)), true) });
+    let seedR = 11;
+    const rr = () => (seedR = (seedR * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+    const nJ = BEAST_RANDOM_DRAWS * types.length;
+    for (let i = 0; i < nJ; i++) {
+      if (i === Math.round((nJ * 2) / 3)) addLate = 1;
+      const type = types[i % types.length];
+      const ps = B3.TYPES[type].poses;
+      B3.draw(grab, type, stQ({ yaw: rr() * 6.3 - 3.15, gait: rr(), poseT: rr(), poseW: rr(), fog: rr() * 0.9, pose: ps[i % ps.length], move: rr(), run: i % 4 ? 0 : rr(), wag: rr(), headYaw: rr() * 2 - 1, lod: i % 3, hit: type === "robodog" && i % 21 === 1 ? 1 : 0 }), camFor(type, 120));
+    }
+    if (colours.size > BEAST_COLOURS) err(`animals: ${colours.size} colour strings in ${nJ} random draws (over ${BEAST_COLOURS})`);
+    if (late > colours.size * 0.05) err(`animals: the last ${nJ - Math.round((nJ * 2) / 3)} of ${nJ} random draws still made ${late} new colours (of ${colours.size}): light or fog is not stepped`);
+  }
+  // K: seen from above (the road's angled camera, should an animal ever ride along there): room under the feet
+  // (cam.floor) and no shadow of its own; and the two options left off draw exactly as without them
+  types.forEach((type) => {
+    const t = B3.TYPES[type];
+    [5, 8].forEach((eye) => {
+      [[3, 80], [12, 40], [40, 12]].forEach(([dist, px]) => {
+        const b = B3.box(type);
+        const pad = 2 + Math.max(0.7, Math.min(3.2, px * 0.0105));
+        const up = Math.ceil(b.h * px * 1.6 + pad);
+        const fl = Math.min(Math.ceil(eye * (dist / Math.max(0.3, dist - t.envRun.rh) - 1) * px + pad + 2), Math.floor(up * 1.5));
+        const cam = { w: Math.ceil(t.wRun * px * 1.1 + 2 * pad), h: up + fl, px, dist, eye, floor: fl, shadow: false };
+        t.poses.forEach((pose, i) => {
+          const what = `animal ${type} from above (eye ${eye}, ${dist} tiles) ${pose}`;
+          const r = drawBeast(type, { pose, yaw: i * 1.3, lod: i % 3, move: pose === "walk" ? 1 : 0, run: i % 2 }, cam, what);
+          if (r && r.ops.some((op) => op.k === "fill" && op.fillStyle === SHADOW_FILL)) err(`${what}: drew its own contact shadow with cam.shadow false`);
+        });
+      });
+    });
+    [[0.5, 1.2, 200], [0.5, 3, 120], [0.5, 25, 16]].forEach(([eye, dist, h], ci) => {
+      t.poses.forEach((pose, i) => {
+        const b = B3.box(type);
+        const cam = { w: Math.ceil((b.w * h) / b.h), h, px: h / b.h, dist, eye };
+        const st = { pose, yaw: 0.7 - ci, lod: (i + ci) % 3, poseT: 0.3, move: pose === "walk" ? 1 : 0, fog: ci * 0.2 };
+        const plain = drawBeast(type, st, cam, `animal ${type} ${pose} (no options)`);
+        [{ floor: 0 }, { shadow: true }].forEach((opt) => {
+          const r = drawBeast(type, st, Object.assign({}, cam, opt), `animal ${type} ${pose} with ${JSON.stringify(opt)}`);
+          if (plain && r && sig(r.ops) !== sig(plain.ops)) err(`animal ${type} ${pose}: cam ${JSON.stringify(opt)} draws differently from no option`);
+        });
+        const r0 = drawBeast(type, Object.assign({}, st, { run: 0 }), cam, `animal ${type} ${pose} with st.run 0`);
+        if (plain && r0 && sig(r0.ops) !== sig(plain.ops)) err(`animal ${type} ${pose}: st.run 0 draws differently from no run`);
+      });
+    });
+  });
+  // L: the two-legged plan (stage 3's chickens): a stand-in bird, two legs under its body and two wings, draws
+  // cleanly through the same rig in every pose, from every side, at every detail (registered here only, in the test)
+  B3.addType("zz-bird", {
+    plan: "biped",
+    skin: "fur",
+    h: 0.3,
+    w: 0.36,
+    r: 0.12,
+    poses: ["stand", "walk", "sit", "lie"],
+    build: {
+      len: 0.07, hipH: 0.12, shH: 0.14, hipFwd: 0.035, hindZ: 0.035,
+      body: [[0.1, 0, 0.045, 0.045, 0.06], [0.8, 0.005, 0.04, 0.045, 0.045]],
+      neck: [0.04, 0.018], neckAng: 1.3,
+      head: [0.022, 0.024, 0.024], headUp: 0.012, headFwd: 0.006, headPitch: 0,
+      snout: [0.02, 0.008, 0.007, -0.004, 0.018],
+      hipW: 0.018, shW: 0.02, footW: 0.018, hind: [0.045, 0.045], fore: [0.03, 0.03], pastern: [0.01, 0.03], hindAng: 0.2,
+      legR: [0.01, 0.006, 0.016, 0.006, 0.005], paw: [0.012, 0.004, 0.016], pawR: 0.004,
+      tail: [0.04, 0.012, 0.01], tailAt: [0.02, -0.02], tailUp: 0.9,
+      sitH: 0.05, sitNeck: 1.3, lieH: 0.05, lieNeck: 1.2, shadow: [0.05, 0.06],
+      wing: { x: 0.04, u: 0.005, f: -0.01, len: 0.06, r: 0.018 },
+    },
+    gait: { stride: 0.18, duty: 0.6, lift: 0.03, phase: [0, 0, 0, 0.5] },
+    look: { fur: "#f2efe6", shade: "#cfc8b8", light: "#ffffff", eye: "#120d0a", wing: "#e8e2d4", beak: "#e0a030", legCol: "#e3b23c" },
+  });
+  if (!B3.TYPES["zz-bird"] || B3.TYPES["zz-bird"].plan !== "biped") err("Beast3D.addType does not keep a two-legged plan");
+  else {
+    POSES.forEach((pose) => {
+      for (let k = 0; k < 8; k++) {
+        for (let lod = 0; lod < 3; lod++) {
+          const what = `animal stand-in bird (biped) ${pose} yaw ${(k * 0.785).toFixed(2)} lod ${lod}`;
+          drawBeast("zz-bird", { pose, yaw: k * 0.785, lod, move: pose === "walk" ? 1 : 0, wag: 1 }, camFor("zz-bird", 160), what);
+        }
+      }
+    });
+    if (B3.probe().j.length / 3 < 29) err("Beast3D.probe(): the joints lack the wing slots");
+    delete B3.TYPES["zz-bird"];
+  }
+  sb.document.createElement = realCreate;
+  // M: the stray dog and Rivet draw exactly as before the farm's animals joined the rig
+  {
+    const got = beastCallsHash(B3);
+    if (process.argv.includes("--record-beasts")) console.log(`beast fixture: ${JSON.stringify(got)}`);
+    else if (got.draws !== BEAST_FIXTURE.draws || got.calls !== BEAST_FIXTURE.calls || got.sha1 !== BEAST_FIXTURE.sha1) err(`animals: the dog and Rivet's ${got.draws} draws make ${got.calls} calls hashing ${got.sha1}, not the fixture's ${BEAST_FIXTURE.calls} calls ${BEAST_FIXTURE.sha1} (one of them draws differently: if on purpose, re-record with --record-beasts)`);
+  }
+  // N: the farm's animals stand as tall as their 2D art does in the yard (js/yardart.js yGoat at scale 0.7: horns' tips
+  // 0.59 tiles up; yChicken at 0.3: comb 0.26), and their poses do what they say, on the joints (probe): a grazing goat's
+  // muzzle is in the grass and a pecking hen's beak on the ground at the bottom of a peck, with every foot still down (the
+  // body never lifted off them); a flapping hen's wings are out at her sides, folded they lie along them; a sitting hen
+  // is down on her belly; a goat lying has its forelegs folded under it; a walking hen bobs her head; a bleat lifts it
+  const PBJ = B3.probe().j;
+  const jy = (j) => PBJ[j * 3 + 1];
+  const LJn = (l, k) => 9 + l * 4 + k;
+  const SNT = 8;
+  const HRN = 32;
+  const farmCam = (type) => camFor(type, 200);
+  const farm = (type, o) => B3.draw(quiet, type, stQ(Object.assign({ yaw: 0.9 }, o)), farmCam(type));
+  const feetDown = (type, what) => {
+    const t = B3.TYPES[type];
+    const legs = t.plan === "biped" ? [2, 3] : [0, 1, 2, 3];
+    legs.forEach((l) => Math.abs(jy(LJn(l, 3)) - t.build.pawR) > 1e-6 && err(`animal ${type} ${what}: its foot ${l} is ${jy(LJn(l, 3)).toFixed(4)} up, not on the ground (${t.build.pawR}): the pose lifted the body`));
+  };
+  [["goat", 0.55, 0.62], ["chicken", 0.24, 0.28]].forEach(([type, lo, hi]) => {
+    if (!B3.TYPES[type]) return;
+    farm(type, { pose: "stand", headYaw: 0 });
+    const top = Math.max(jy(HRN), jy(HRN + 1));
+    if (top < lo || top > hi) err(`animal ${type} standing: its ${type === "goat" ? "horns' tips are" : "comb's crest is"} ${top.toFixed(3)} tiles up, not ${lo}..${hi} as its 2D art stands in the yard`);
+  });
+  if (B3.TYPES.goat) {
+    const g = B3.TYPES.goat.build;
+    for (let i = 0; i < 8; i++) {
+      farm("goat", { pose: "graze", poseT: i / 8, headYaw: ((i % 3) - 1) * 0.8 });
+      const y = jy(SNT);
+      if (y < g.snout[2] - 1e-6 || y > g.snout[2] + g.head[1] * 0.45) err(`animal goat grazing (poseT ${i / 8}): its muzzle is ${y.toFixed(3)} tiles up, not in the grass (${g.snout[2]}..${(g.snout[2] + g.head[1] * 0.45).toFixed(3)})`);
+      feetDown("goat", `grazing (poseT ${i / 8})`);
+    }
+    farm("goat", { pose: "lie", poseT: 0.3 });
+    [0, 1].forEach((l) => PBJ[LJn(l, 2) * 3 + 2] > PBJ[LJn(l, 3) * 3 + 2] || err(`animal goat lying: its foreleg ${l}'s knee is not ahead of its hoof (folded under its chest)`));
+    farm("goat", { pose: "stand", poseT: 0.4 });
+    const y0 = jy(SNT);
+    farm("goat", { pose: "bleat", poseT: 0.4 });
+    if (jy(SNT) < y0 + 0.02) err(`animal goat bleating: its muzzle is ${jy(SNT).toFixed(3)} tiles up, not lifted over standing (${y0.toFixed(3)})`);
+    feetDown("goat", "bleating");
+  }
+  if (B3.TYPES.chicken) {
+    const c = B3.TYPES.chicken.build;
+    // (the bottom of each of the two pecks a loop)
+    [0.09, 0.59].forEach((pT) => {
+      farm("chicken", { pose: "peck", poseT: pT });
+      const y = jy(SNT);
+      if (y < c.snout[2] - 1e-6 || y > c.snout[2] + 0.008) err(`animal chicken pecking (poseT ${pT}): her beak is ${y.toFixed(4)} tiles up, not on the ground (${c.snout[2]})`);
+      feetDown("chicken", `pecking (poseT ${pT})`);
+    });
+    for (let i = 0; i < 10; i++) {
+      farm("chicken", { pose: "flap", poseT: i / 10, yaw: 0 });
+      [26, 28].forEach((j) => Math.abs(PBJ[j * 3]) < c.wing.x + c.wing.len * 0.3 && err(`animal chicken flapping (poseT ${i / 10}): a wing's tip is ${Math.abs(PBJ[j * 3]).toFixed(3)} tiles out, not spread`));
+      feetDown("chicken", `flapping (poseT ${i / 10})`);
+    }
+    farm("chicken", { pose: "stand", yaw: 0 });
+    [26, 28].forEach((j) => Math.abs(PBJ[j * 3]) > c.wing.x + 0.01 && err(`animal chicken standing: a wing's tip is ${Math.abs(PBJ[j * 3]).toFixed(3)} tiles out, not folded along her side`));
+    farm("chicken", { pose: "sit", poseT: 0.3 });
+    if (jy(0) > B3.TYPES.chicken.bellyHip + 0.005) err(`animal chicken sitting: her hips are ${jy(0).toFixed(3)} tiles up, not down on her belly (${B3.TYPES.chicken.bellyHip})`);
+    let zlo = Infinity;
+    let zhi = -Infinity;
+    for (let i = 0; i < 20; i++) {
+      farm("chicken", { pose: "walk", move: 1, gait: i / 20, yaw: 0 });
+      const dz = PBJ[3 * 3 + 2] - PBJ[1 * 3 + 2];
+      zlo = Math.min(zlo, dz);
+      zhi = Math.max(zhi, dz);
+    }
+    if (zhi - zlo < B3.TYPES.chicken.gait.headBob) err(`animal chicken walking: her head moves ${(zhi - zlo).toFixed(4)} tiles along her body through a step, not bobbing (${B3.TYPES.chicken.gait.headBob})`);
+  }
+  const h = types.map((t) => `${t} ${B3.box(t).h} (head ${B3.box(t).head.toFixed(3)})`).join(", ");
+  console.log(`animals in 3D: ${beastDraws} draws checked; the most canvas calls at lod 0 / 1 / 2: ${worst.join(" / ")} (ceilings ${BEAST_OPS.join(" / ")}); box heights, tiles: ${h}`);
 }
 
 /* ---------- The road's flying bits (js/sprites.js) ----------
@@ -1116,6 +2137,650 @@ let roadDraws = 0;
   }
 }
 
+/* ---------- The van model (js/model3d.js, js/van3d.js: loaded after upgrades.js, as the page does) ----------
+   One 3D van everywhere it is seen. Every paint look with the gear at 0, 1, 3, its top (Upgrades.DEFS max) and mixed,
+   the dents, the roof gun and each level of detail, drawn from all round (16 yaws by 3 pitches, the road camera's
+   behind and above among them), near (parts cut by the camera's near plane) and far, on the checking context: no
+   throw, finite numbers and real colours, no images, gradients, read-backs or new canvases, transforms only round its
+   text (inside save and restore, never mirrored), within its canvas-call ceiling at every view, the same calls twice.
+   Each look's decal is on both sides and the hood, and on the roof and the back doors at lod 1, bare and with all its
+   gear (what the road's camera sees: validate-engine.js checks it shows there); a look, a gear level (two-digit ones
+   too) or a dent tier changes its signature, and the same signature is the same built model. Seen from beside it at
+   the yard's eye, its parts are drawn in the order the eye sees them (a ray cast through the model); no hidden face
+   shows from the yard's eye or from above; every decal lies inside its face. validate-engine.js checks every upgrade
+   step shows. */
+// SCALE: most canvas calls the van may make at lod 0 / 1 / 2, with all its gear at its top (Upgrades.DEFS max), the gun
+// and heavy dents, from any side: the road draws it every frame (the owner's lag problem). New gear or a busier look
+// must fit under these. lod 0
+// rose from 1400 to 1450 (2026-10-18) for each paint job's roof and back designs (every look must read from the road's
+// camera): Convoy Red's flames make 1447 from nearly straight above, the other looks at most 1399 (the roof under the
+// rack and the back glass under the Armor 3 plates are left out to make room; 6 of those are the gun's middle barrel's
+// root, drawn since it shows at lod 1, where its jacket is not, and the road draws no gun). Timed through the road's camera in
+// Chromium the van drew about 10 to 15% slower than before on average over the looks, about 0.6 ms with all its gear
+const VAN_OPS = [1450, 700, 350];
+const VAN_YAWS = 16;
+const VAN_PITCHES = [0.1, 0.5, 0.86]; // radians up from level: the yard's eye, above, the road camera's
+// SCALE: least area (square model units) of a look's decal on the roof, and on the back doors, at lod 1, bare and with
+// all its gear (the roof under the rack left out): about an 8 x 8 patch, a dozen pixels across on the road
+const VAN_DECAL_AREA = 60;
+let vanDraws = 0;
+const decalAreas = [];
+{
+  ["model3d.js", "van3d.js"].forEach((f, i) => {
+    const at = pageScripts.indexOf(f);
+    if (at < 0) err(`index.html does not load js/${f}`);
+    else {
+      if (at < pageScripts.indexOf("upgrades.js")) err(`index.html loads js/${f} before upgrades.js (the van's looks are PAINT_LOOKS)`);
+      if (i && at < pageScripts.indexOf("model3d.js")) err("index.html loads js/van3d.js before js/model3d.js");
+    }
+    load(f);
+  });
+  const M3 = ZSR.Model3D;
+  const V3 = ZSR.Van3D;
+  const LOOKS = (ZSR.Upgrades && ZSR.Upgrades.PAINT_LOOKS) || [];
+  if (!M3 || !V3) err("js/van3d.js does not export ZSR.Van3D (or js/model3d.js ZSR.Model3D)");
+  else {
+    // the interface the yard, the road, the garage and the bench draw it through
+    ["L", "W", "H"].forEach((k) => (finite(V3[k]) && V3[k] > 0) || err(`Van3D.${k} is ${V3[k]}`));
+    ["sig", "mesh", "draw", "dentTier", "dentNow", "lookOf"].forEach((k) => typeof V3[k] === "function" || err(`Van3D.${k} is not a function`));
+    const D3 = V3.DENTS || [];
+    if (!(D3.length === 2 && D3[0] < 1 && D3[1] > 0 && D3[1] < D3[0])) err(`Van3D.DENTS is ${JSON.stringify(D3)} (two health shares, falling)`);
+    else if (V3.dentTier(1) !== 0 || V3.dentTier(D3[0] - 0.01) !== 1 || V3.dentTier(D3[1] - 0.01) !== 2 || V3.dentTier(0) !== 2) err("Van3D.dentTier does not give 0 / 1 / 2 at full health, under DENTS[0] and under DENTS[1]");
+    if (V3.lookOf({ paint: LOOKS.length + 5 }) !== LOOKS[LOOKS.length - 1] || V3.lookOf({}) !== LOOKS[0] || V3.lookOf({ paint: -3 }) !== LOOKS[0]) err("Van3D.lookOf does not keep the paint inside PAINT_LOOKS");
+    // (the decal kinds it has designs for: js/van3d.js DECALS)
+    if (!Array.isArray(V3.DECAL_KINDS) || !V3.DECAL_KINDS.includes("none")) err(`Van3D.DECAL_KINDS is ${JSON.stringify(V3.DECAL_KINDS)} (DECALS' kinds, the bare primer's "none" among them)`);
+    const KINDS = new Set(V3.DECAL_KINDS || []);
+    LOOKS.forEach((l, i) => {
+      if (!KINDS.has(l.decal)) err(`PAINT_LOOKS[${i}] ${l.name}: the van draws no decal "${l.decal}" (js/van3d.js DECALS)`);
+      ["body", "roof", "trim", "bumper", "rims", "decalA", "decalB"].forEach((k) => (typeof l[k] === "string" && COLOR.test(l[k])) || err(`PAINT_LOOKS[${i}] ${l.name}: ${k} is ${l[k]}`));
+    });
+    const GEAR_KEYS = ["armor", "bumper", "engine", "damage", "fireRate", "spread"];
+    const DEFS = (ZSR.Upgrades && ZSR.Upgrades.DEFS) || {};
+    const NONE = { armor: 0, bumper: 0, engine: 0, damage: 0, fireRate: 0, spread: 0 };
+    // every gear upgrade at its top (Upgrades.DEFS max: a level added there is drawn and checked here)
+    const ALL = {};
+    GEAR_KEYS.forEach((k) => (ALL[k] = DEFS[k] ? DEFS[k].max : 5));
+    const GEARS = [NONE, { armor: 1, bumper: 1, engine: 1, damage: 1, fireRate: 1, spread: 1 }, { armor: 3, bumper: 3, engine: 3, damage: 3, fireRate: 3, spread: 2 }, ALL, { armor: 4, bumper: 1, engine: 3, damage: 2, fireRate: 5, spread: 1 }, { armor: 2, bumper: 5, engine: 0, damage: 5, fireRate: 0, spread: 3 }];
+    // a camera round the van's middle: yaw 0 behind it, turning to its right; pitch up from level; dist from its middle
+    const camera = (yaw, pitch, dist, lod, near, w, h) => {
+      const t = [0, 0, V3.H / 2];
+      const e = [t[0] + Math.sin(yaw) * Math.cos(pitch) * dist, t[1] - Math.cos(yaw) * Math.cos(pitch) * dist, t[2] + Math.sin(pitch) * dist];
+      const nz = (a) => {
+        const l = Math.hypot(a[0], a[1], a[2]);
+        return [a[0] / l, a[1] / l, a[2] / l];
+      };
+      const f = nz([t[0] - e[0], t[1] - e[1], t[2] - e[2]]);
+      const r = nz([f[1], -f[0], 0]);
+      const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+      const F = h / 2 / Math.tan(0.4);
+      const L = nz([-0.45, -0.3, 0.84]);
+      const view = M3.view({ ink: 1.5, lod, near: near || 0, eye: e, lit: (x, y, z) => 0.62 + 0.55 * Math.max(0, x * L[0] + y * L[1] + z * L[2]) });
+      view.project = (x, y, z) => {
+        const dx = x - e[0];
+        const dy = y - e[1];
+        const dz = z - e[2];
+        const D = dx * f[0] + dy * f[1] + dz * f[2];
+        view.D = D;
+        const s = F / Math.max(D, 1e-6);
+        view.X = w / 2 + (dx * r[0] + dy * r[1] + dz * r[2]) * s;
+        view.Y = h / 2 - (dx * u[0] + dy * u[1] + dz * u[2]) * s;
+        return D > view.near;
+      };
+      return view;
+    };
+    const FORBID = new Set(["drawImage", "createLinearGradient", "createRadialGradient", "createPattern", "getImageData", "putImageData", "set shadowBlur", "set filter", "resetTransform", "setTransform"]);
+    let made = 0;
+    const realCreate = sb.document.createElement;
+    sb.document.createElement = (t) => {
+      made++;
+      return realCreate(t);
+    };
+    const vsig = (ops) => JSON.stringify(ops.map((op) => [op.k, op.args, op.fillStyle, op.strokeStyle, op.lineWidth]));
+    /** Draw the van once on a fresh checking canvas; returns its calls (null after reporting). */
+    const vanDraw = (u, o, view, what) => {
+      const c = element("canvas");
+      c.width = 400;
+      c.height = 300;
+      const ctx = c.getContext("2d");
+      current = what;
+      const before = made;
+      noRead = true;
+      try {
+        V3.draw(ctx, view, u, o);
+      } catch (e) {
+        noRead = false;
+        err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+        return null;
+      }
+      noRead = false;
+      vanDraws++;
+      if (made !== before) err(`${what}: made ${made - before} canvas(es) while drawing`);
+      const ops = c.ops;
+      const lod = view.lod;
+      if (ops.length > VAN_OPS[lod]) err(`${what}: ${ops.length} canvas calls, over the lod ${lod} ceiling of ${VAN_OPS[lod]}`);
+      const bad = ops.find((op) => FORBID.has(op.k));
+      if (bad) err(`${what}: calls ${bad.k} (the van draws straight: no images, gradients or read-backs)`);
+      // transforms only round text: save, transform, fillText, restore; and the text never mirrored
+      let depth = 0;
+      for (let i = 0; i < ops.length; i++) {
+        const k = ops[i].k;
+        if (k === "save") depth++;
+        else if (k === "restore") depth--;
+        else if (k === "transform" || k === "translate" || k === "scale" || k === "rotate") {
+          if (k !== "transform" || depth < 1 || !ops[i + 1] || ops[i + 1].k !== "fillText") err(`${what}: ${k} outside the text's save and restore`);
+          else {
+            const [a, b, cc, d] = ops[i].args;
+            if (!(a * d - b * cc > 0)) err(`${what}: text "${ops[i + 1].args[0]}" drawn mirrored (its map's determinant is ${(a * d - b * cc).toFixed(3)})`);
+          }
+          i++;
+        } else if (k === "fillText" && depth < 1) err(`${what}: text outside save and restore`);
+        if (depth < 0) err(`${what}: restore without save`);
+      }
+      if (depth !== 0) err(`${what}: save and restore do not pair up`);
+      return ops;
+    };
+    const gearName = (g) => `a${g.armor}b${g.bumper}e${g.engine} gun ${g.damage}/${g.fireRate}/${g.spread}`;
+    let worst = [0, 0, 0];
+    // A: the ceilings: every look, all its gear at its top, the gun, heavy dents, each level of detail, from all round
+    // (and from nearly straight above), far and near; a few drawn twice the same. (At lod 1 and 2, from the higher views,
+    // where they see the most: the roof's gear, a side and an end)
+    LOOKS.forEach((look, p) => {
+      for (let lod = 0; lod < 3; lod++) {
+        for (let yi = 0; yi < VAN_YAWS; yi++) {
+          (lod ? VAN_PITCHES.slice(-1) : VAN_PITCHES).concat([1.3]).forEach((pitch, pi) => {
+            const yaw = (yi / VAN_YAWS) * Math.PI * 2;
+            const what = `van ${look.name} all gear at the top lod ${lod} yaw ${yaw.toFixed(2)} pitch ${pitch}`;
+            const u = Object.assign({ paint: p }, ALL);
+            const ops = vanDraw(u, { dent: 2, gun: true }, camera(yaw, pitch, 380, lod, 0, 400, 300), what);
+            if (!ops) return;
+            worst[lod] = Math.max(worst[lod], ops.length);
+            if ((yi + pi) % 7 === 0) {
+              const again = vanDraw(u, { dent: 2, gun: true }, camera(yaw, pitch, 380, lod, 0, 400, 300), what + " (again)");
+              if (again && vsig(again) !== vsig(ops)) err(`${what}: the same van and view drew different calls`);
+            }
+          });
+          // near: the camera inside the van's reach, parts behind its near plane cut off
+          if (yi % 4 === lod) vanDraw(Object.assign({ paint: p }, ALL), { dent: 2, gun: true }, camera((yi / VAN_YAWS) * Math.PI * 2 + 0.3, 0.35, 75, lod, 25, 400, 300), `van ${look.name} all gear at the top lod ${lod} near, yaw ${yi}`);
+        }
+      }
+      // B: every gear set, dent tier, gun or none, at a level of detail by turns, from all round near and far
+      GEARS.forEach((g, gi) => {
+        [0, 1, 2].forEach((dent) => {
+          [false, true].forEach((gun) => {
+            {
+              const k = gi * 18 + dent * 6 + (gun ? 3 : 0) + p;
+              const lod = k % 3;
+              const yaw = ((k * 5 + p * 3) % VAN_YAWS) * ((Math.PI * 2) / VAN_YAWS);
+              const pitch = VAN_PITCHES[k % VAN_PITCHES.length];
+              const near = k % 5 === 0;
+              vanDraw(Object.assign({ paint: p }, g), { dent, gun }, camera(yaw, pitch, near ? 80 : 300, lod, near ? 25 : 0, 320, 240), `van ${look.name} ${gearName(g)} dents ${dent}${gun ? " with the gun" : ""} lod ${lod} yaw ${yaw.toFixed(2)}${near ? " near" : ""}`);
+            }
+          });
+        });
+      });
+    });
+    // C: a look's decal lies on both sides and the hood, in its decal colour; and on the roof and the back doors at
+    // lod 1 (the road's camera, behind and above, sees those two: it draws the van at lod 0 or 1), at least
+    // VAN_DECAL_AREA square units of it on each. The bare primer's patches are its own (either of its colours)
+    const sideOf = (f) => (f.nx > 0.7 ? 1 : f.nx < -0.7 ? -1 : 0);
+    const roofOf = (f) => f.nz > 0.6 && f.cz > V3.H - 5;
+    const backOf = (f) => f.ny < -0.9;
+    /** A decal's area (square model units): its outline's, as laid on its face (text: about a quarter of each letter's
+        square is ink). */
+    const areaOf = (d) => {
+      if (d.k === 2) return d.str.length * d.size * d.size * 0.25;
+      let x = 0;
+      let y = 0;
+      let z = 0;
+      for (let i = 0; i < d.n; i++) {
+        const j = (i + 1) % d.n;
+        const [ax, ay, az] = [d.p[i * 3], d.p[i * 3 + 1], d.p[i * 3 + 2]];
+        const [bx, by, bz] = [d.p[j * 3], d.p[j * 3 + 1], d.p[j * 3 + 2]];
+        x += ay * bz - az * by;
+        y += az * bx - ax * bz;
+        z += ax * by - ay * bx;
+      }
+      return Math.hypot(x, y, z) / 2;
+    };
+    LOOKS.forEach((look, p) => {
+      for (const gear of [NONE, ALL]) {
+        const m = V3.mesh(Object.assign({ paint: p }, gear), {});
+        const want = new Set((look.decal === "none" ? [look.decalA, look.decalB] : [look.decalA]).map((c) => M3.rgb(c).slice(0, 3).join(",")));
+        const mine = (d) => want.has(d.rgb.slice(0, 3).join(","));
+        const body = (fn) => m.parts.filter((pt) => ["body", "nose", "low"].includes(pt.name)).forEach((pt) => pt.faces.forEach(fn));
+        const has = (pred) => {
+          let yes = false;
+          body((f) => (yes = yes || (pred(f) && f.decals.some(mine))));
+          return yes;
+        };
+        // (the area of its outlines and text there, at lod 1)
+        const area = (pred) => {
+          let a = 0;
+          body((f) => pred(f) && f.decals.forEach((d) => d.k !== 1 && d.lod >= 1 && mine(d) && (a += areaOf(d))));
+          return a;
+        };
+        const what = `van ${look.name}${gear === ALL ? " with all its gear" : ""}`;
+        const name = look.decal === "none" ? "primer patches" : `${look.decal} decal (decalA)`;
+        if (gear === NONE) {
+          if (look.decal !== "none" && !has((f) => sideOf(f) > 0)) err(`${what}: no ${name} on its right side`);
+          if (look.decal !== "none" && !has((f) => sideOf(f) < 0)) err(`${what}: no ${name} on its left side`);
+          if (look.decal !== "none" && !has((f) => f.nz > 0.6 && f.cy > 30 && f.cz < 35)) err(`${what}: no ${name} on its hood`);
+        }
+        // (with all the gear: the roof under the rack is left out, so what is round it must still be there)
+        const roof = area(roofOf);
+        const back = area(backOf);
+        if (roof < VAN_DECAL_AREA) err(`${what}: only ${roof.toFixed(0)} sq units of its ${name} on its roof at lod 1 (want ${VAN_DECAL_AREA}: the road's camera sees the roof)`);
+        if (back < VAN_DECAL_AREA) err(`${what}: only ${back.toFixed(0)} sq units of its ${name} on its back doors at lod 1 (want ${VAN_DECAL_AREA}: the road's camera sees them)`);
+        decalAreas.push(`${look.name}${gear === ALL ? "+gear" : ""} ${roof.toFixed(0)}/${back.toFixed(0)}`);
+      }
+    });
+    // D: the signature changes with the look, each gear and gun level up to its top (Upgrades.DEFS max), the dents and
+    // the gun; and past the top, for a bigger game: two-digit levels never run together (damage 1 and fire rate 12 is
+    // not damage 11 and fire rate 2). One signature, one built model
+    const sigOf = new Map(); // each van (its upgrades and options, as JSON) -> its signature
+    const addSig = (u, o) => sigOf.set(JSON.stringify([u, o]), V3.sig(u, o));
+    LOOKS.forEach((l, p) => {
+      for (const k of GEAR_KEYS) {
+        const gun = !["armor", "bumper", "engine"].includes(k);
+        for (let lv = 0; lv <= ALL[k]; lv++) addSig(Object.assign({ paint: p }, NONE, { [k]: lv }), { gun });
+      }
+    });
+    const BIG = [0, 1, 2, 10, 11, 12];
+    for (const a of BIG) for (const b of BIG) for (const c of BIG) {
+      addSig(Object.assign({ paint: 0 }, NONE, { damage: a, fireRate: b, spread: c }), { gun: true });
+      addSig(Object.assign({ paint: 0 }, NONE, { armor: a, bumper: b, engine: c }), { gun: false });
+    }
+    const vanOfSig = new Map();
+    for (const [van, s] of sigOf) {
+      if (vanOfSig.has(s)) {
+        err(`Van3D.sig: ${vanOfSig.get(s)} and ${van} have the same signature "${s}" (one would be drawn with the other's built model)`);
+        break;
+      }
+      vanOfSig.set(s, van);
+    }
+    const s0 = V3.sig(ALL, {});
+    if (V3.sig(ALL, { dent: 1 }) === s0 || V3.sig(ALL, { dent: 2 }) === V3.sig(ALL, { dent: 1 }) || V3.sig(ALL, { gun: true }) === s0) err("Van3D.sig does not change with the dents or the gun");
+    if (V3.sig(Object.assign({}, ALL, { damage: 1 }), { gun: true }) === V3.sig(ALL, { gun: true })) err("Van3D.sig does not change with the gun's upgrades when the gun is on");
+    if (V3.mesh(ALL, { dent: 1 }) !== V3.mesh(ALL, { dent: 1 })) err("Van3D.mesh builds a new model for the same van (it must keep it)");
+
+    // E, F and G read the built model's faces. A face's corner i; how far a point in a face's plane is inside its
+    // outline (units; < 0 outside); where the ray eye + t d meets a face inside its outline grown by margin units (t,
+    // else Infinity); how far a screen point is inside a screen outline (px, either winding)
+    const cornerOf = (f, i) => [f.p[i * 3], f.p[i * 3 + 1], f.p[i * 3 + 2]];
+    const inFace = (f, q) => {
+      let m = Infinity;
+      for (let i = 0; i < f.n; i++) {
+        const a = cornerOf(f, i);
+        const b = cornerOf(f, (i + 1) % f.n);
+        const [ex, ey, ez] = [b[0] - a[0], b[1] - a[1], b[2] - a[2]];
+        const [wx, wy, wz] = [q[0] - a[0], q[1] - a[1], q[2] - a[2]];
+        m = Math.min(m, ((ey * wz - ez * wy) * f.nx + (ez * wx - ex * wz) * f.ny + (ex * wy - ey * wx) * f.nz) / Math.hypot(ex, ey, ez));
+      }
+      return m;
+    };
+    const rayHit = (f, e, d, margin) => {
+      const den = f.nx * d[0] + f.ny * d[1] + f.nz * d[2];
+      if (Math.abs(den) < 1e-12) return Infinity;
+      const t = (f.nx * (f.p[0] - e[0]) + f.ny * (f.p[1] - e[1]) + f.nz * (f.p[2] - e[2])) / den;
+      if (!(t > 1e-9)) return Infinity;
+      return inFace(f, [e[0] + d[0] * t, e[1] + d[1] * t, e[2] + d[2] * t]) >= -margin ? t : Infinity;
+    };
+    const inScreen = (S, x, y) => {
+      let area = 0;
+      for (let i = 0; i < S.length; i++) area += S[i][0] * S[(i + 1) % S.length][1] - S[(i + 1) % S.length][0] * S[i][1];
+      if (Math.abs(area) < 1e-9) return -1;
+      let m = Infinity;
+      for (let i = 0; i < S.length; i++) {
+        const [ax, ay] = S[i];
+        const [bx, by] = S[(i + 1) % S.length];
+        m = Math.min(m, (Math.sign(area) * ((bx - ax) * (y - ay) - (by - ay) * (x - ax))) / (Math.hypot(bx - ax, by - ay) || 1));
+      }
+      return m;
+    };
+    /** Points spread over a face: its middle, and each of us of the way out to every corner. */
+    const pointsOn = (f, us) => {
+      const out = [[f.cx, f.cy, f.cz]];
+      for (const u of us) for (let i = 0; i < f.n; i++) {
+        const c = cornerOf(f, i);
+        out.push([f.cx + (c[0] - f.cx) * u, f.cy + (c[1] - f.cy) * u, f.cz + (c[2] - f.cz) * u]);
+      }
+      return out;
+    };
+    const facesEye = (f, e) => f.nx * (e[0] - f.cx) + f.ny * (e[1] - f.cy) + f.nz * (e[2] - f.cz) > 0;
+    // the yard's camera (js/modelsprite.js): the eye 0.5 tiles up, looking level (here at the van's middle), its near
+    // cut MODEL_NEAR 0.02 tiles; VAN_TILE road units a tile; a 640 x 576 picture, as the yard draws the van up close
+    const TILE = 62.5;
+    const yardView = (ex, ey, lod) => {
+      const e = [ex, ey, 0.5 * TILE];
+      const l = Math.hypot(ex, ey);
+      const [fx, fy] = [-ex / l, -ey / l];
+      const view = M3.view({ ink: 1.5, lod, near: 0.02 * TILE, eye: e, lit: () => 1 });
+      view.project = (x, y, z) => {
+        const dx = x - e[0];
+        const dy = y - e[1];
+        const D = dx * fx + dy * fy;
+        view.D = D;
+        const s = 384 / Math.max(D, 1e-6);
+        view.X = 320 + (dx * fy - dy * fx) * s;
+        view.Y = 288 - (z - e[2]) * s;
+        return D > view.near;
+      };
+      return view;
+    };
+
+    // E: the parts' order from beside the van, as the yard's eye sees it under its roof, 0.3 to 1 tile off its sides
+    // along its length (there the near plane cuts the nose, the plow and the parts' boxes): where a part drawn later
+    // covers a point of the screen the part nearest there covers, that is the nearest part (the eye's ray through the
+    // point, cast against every face, meets it first). With Ram Plow 1 the plow's box crossed the near plane and was
+    // taken as all of the screen, and the roof gun went over the cab door's side, the plow over the nose
+    /** After a draw of model m: what is drawn over a nearer part ([later, nearer] part names, one a point). */
+    const orderFaults = (m, view) => {
+      const e = view.eye;
+      const act = m.parts.map((pt, i) => i).filter((i) => m.parts[i].lod >= view.lod);
+      const rank = new Map(act.map((_, k) => [m.order[k], k]));
+      const drawn = [];
+      for (const pi of act)
+        for (const f of m.parts[pi].faces) {
+          if (f.hide || !facesEye(f, e)) continue;
+          const S = [];
+          for (let i = 0; i < f.n && view.project(...cornerOf(f, i)); i++) S.push([view.X, view.Y]);
+          if (S.length === f.n) drawn.push({ pi, f, S }); // (a face the near plane cuts is left out)
+        }
+      const faults = [];
+      for (const { f } of drawn) {
+        for (const P of pointsOn(f, [0.5, 0.85])) {
+          const d = [P[0] - e[0], P[1] - e[1], P[2] - e[2]];
+          let best = Infinity;
+          let bp = -1;
+          let bf = null;
+          for (const qi of act) for (const g of m.parts[qi].faces) {
+            const t = rayHit(g, e, d, 0);
+            if (t < best) [best, bp, bf] = [t, qi, g];
+          }
+          if (!bf || bf.hide) continue; // (F's)
+          view.project(...P);
+          const [X, Y] = [view.X, view.Y];
+          if (!drawn.some((o) => o.pi === bp && inScreen(o.S, X, Y) > 1)) continue;
+          let top = -1;
+          for (const o of drawn) if (o.pi !== bp && rank.get(o.pi) > rank.get(bp) && (top < 0 || rank.get(o.pi) > rank.get(top)) && inScreen(o.S, X, Y) > 1) top = o.pi;
+          if (top < 0) continue;
+          const tt = Math.min(...m.parts[top].faces.map((g) => rayHit(g, e, d, 0)));
+          if (tt > best * 1.002) faults.push([m.parts[top].name, m.parts[bp].name]);
+        }
+      }
+      return faults;
+    };
+    {
+      const eyes = [[57.6, 40.3], [50.6, 40]]; // (beside the cab door, 0.4 and 0.3 tiles out)
+      for (const s of [1, -1]) for (const off of [0.3, 0.5, 1]) for (let y = -70; y <= 80; y += 10) eyes.push([s * (V3.W / 2 + off * TILE), y]);
+      for (const [name, g] of [["Ram Plow 1", { bumper: 1 }], ["all its gear", ALL]]) {
+        const u = Object.assign({ paint: 1 }, NONE, g);
+        const o = { dent: 0, gun: true };
+        const m = V3.mesh(u, o);
+        for (const lod of [0, 1]) {
+          let first = null;
+          let n = 0;
+          for (const [ex, ey] of eyes) {
+            const view = yardView(ex, ey, lod);
+            if (!vanDraw(u, o, view, `van with ${name} and the gun from the yard's eye at (${ex}, ${ey}) lod ${lod}`)) continue;
+            const f = orderFaults(m, view);
+            if (f.length && !first) first = `(${ex.toFixed(1)}, ${ey}): the ${f[0][0]} drawn over the nearer ${f[0][1]}`;
+            n += f.length;
+          }
+          if (n) err(`van with ${name} and the gun, from the yard's eye beside it at lod ${lod}: ${n} points of a part drawn over a nearer one (js/model3d.js draw's order), first at ${first}`);
+        }
+      }
+    }
+
+    // F: a hidden face (Builder face o.hide: never drawn) never shows. From the yard's eye all round the van, 0.3 to 8
+    // tiles off it, and from above all round (the road's, the garage's and the bench's cameras), where a hidden face
+    // faces the eye the eye's ray to it meets another face first (a seam under HIDE_SEAM units, a sliver seen edge on, is
+    // let pass), at every level of detail. The gun's undersides were hidden once, and the yard saw through the barrels
+    const HIDE_SEAM = 0.4;
+    {
+      const eyesF = [];
+      for (const off of [0.3, 0.6, 1, 2, 4, 8]) for (let a = 0; a < 24; a++) {
+        const [c, s] = [Math.cos((a / 24) * Math.PI * 2), Math.sin((a / 24) * Math.PI * 2)];
+        const k = Math.min(V3.W / 2 / Math.abs(c || 1e-9), V3.L / 2 / Math.abs(s || 1e-9));
+        eyesF.push([c * (k + off * TILE), s * (k + off * TILE), 0.5 * TILE]);
+      }
+      for (const pitch of [0.15, 0.5, 0.86, 1.2]) for (let y = 0; y < 16; y++) {
+        const yaw = (y / 16) * Math.PI * 2;
+        eyesF.push([Math.sin(yaw) * Math.cos(pitch) * 430, -Math.cos(yaw) * Math.cos(pitch) * 430, V3.H / 2 + Math.sin(pitch) * 430]);
+      }
+      const early = { armor: 1, bumper: 1, engine: 2, damage: 1, fireRate: 2, spread: 1 };
+      const mid = { armor: 3, bumper: 3, engine: 3, damage: 3, fireRate: 4, spread: 2 };
+      for (const g of [NONE, early, mid, ALL]) {
+        const m = V3.mesh(Object.assign({ paint: 1 }, g), { dent: 0, gun: true });
+        for (let lod = 0; lod < 3; lod++) {
+          const act = m.parts.filter((pt) => pt.lod >= lod);
+          const shows = new Map(); // a hidden face that shows -> how many eyes see it
+          for (const e of eyesF)
+            for (const pt of act)
+              pt.faces.forEach((h, hi) => {
+                if (!h.hide || !facesEye(h, e)) return;
+                const seen = pointsOn(h, [0.5, 0.9]).some((P) => {
+                  const d = [P[0] - e[0], P[1] - e[1], P[2] - e[2]]; // (t = 1 at the hidden face)
+                  for (const q of act) for (const g2 of q.faces) if (g2 !== h && rayHit(g2, e, d, HIDE_SEAM) <= 1 + 1e-3) return false;
+                  return true;
+                });
+                const key = `${pt.name}'s face ${hi} (facing ${[h.nx, h.ny, h.nz].map((v) => v.toFixed(2)).join(", ")})`;
+                if (seen) shows.set(key, (shows.get(key) || 0) + 1);
+              });
+          for (const [key, n] of shows) err(`van ${gearName(g)} with the gun at lod ${lod}: ${key} is hidden (never drawn) but nothing covers it from ${n} of ${eyesF.length} eyes: a hole`);
+        }
+      }
+    }
+
+    // G: every decal lies on its face, inside its outline (Builder decals are not cut to their face: a design laid
+    // with B.poly straight onto a gear part's face must fit it, else k.on cuts it), every look with its gear off, in the
+    // middle and at the top, dented and not
+    {
+      const over = new Map();
+      LOOKS.forEach((look, p) => {
+        for (const g of [NONE, GEARS[2], ALL]) for (const dent of [0, 2]) {
+          const m = V3.mesh(Object.assign({ paint: p }, g), { dent, gun: true });
+          for (const pt of m.parts)
+            pt.faces.forEach((f, fi) => {
+              for (const d of f.decals) {
+                if (d.k === 2) continue; // (text: its anchor only)
+                let out = 0;
+                for (let i = 0; i < d.n; i++) {
+                  const q = cornerOf(d, i);
+                  out = Math.max(out, Math.abs(f.nx * (q[0] - f.p[0]) + f.ny * (q[1] - f.p[1]) + f.nz * (q[2] - f.p[2])), -inFace(f, q));
+                }
+                const key = `the ${d.rgb.slice(0, 3).join(",")} ${d.k ? "line" : "polygon"} on ${pt.name}'s face ${fi}`;
+                if (out > 0.01 && !over.has(key)) over.set(key, `van ${look.name} ${gearName(g)} dents ${dent}: ${key} reaches ${out.toFixed(2)} units off its face`);
+              }
+            });
+        }
+      });
+      for (const v of over.values()) err(v);
+    }
+    // H: an open decal line partly behind the near plane is cut there segment by segment (js/model3d.js pathOf): against
+    // the van's side a pinstripe or a door seam with one end behind the eye still shows the part in front of it, and a
+    // line that goes behind and comes back is two runs
+    {
+      M3.define("test:nearLine", (B) => {
+        B.part();
+        const f = B.face([[0, 0, 0], [100, 0, 0], [100, 0, 100], [0, 0, 100]], "#888888");
+        B.line(f, [[60, 40], [40, 45], [60, 55]], "#ff0000", 2, { lod: 0 });
+      });
+      const e = [50, -30, 50];
+      const v = M3.view({ eye: new Float64Array(e), lod: 0, near: 1 });
+      v.project = (x, y, z) => {
+        const D = x - e[0];
+        v.D = D;
+        v.X = 320 + ((y - e[1]) * 300) / Math.max(D, 1e-6);
+        v.Y = 240 - ((z - e[2]) * 300) / Math.max(D, 1e-6);
+        return D > v.near;
+      };
+      const calls = [];
+      const rec = new Proxy({}, { get: (o, k) => (k in o ? o[k] : (...a) => calls.push([k, a])), set: (o, k, val) => (calls.push([k + "=", [val]]), true) });
+      M3.draw(rec, M3.mesh("test:nearLine", {}, "test"), v);
+      const at = calls.findIndex(([k, a]) => k === "strokeStyle=" && /255,\s*0,\s*0/.test(String(a[0])));
+      const from = at < 0 ? 0 : calls.map((c) => c[0]).lastIndexOf("beginPath", at);
+      const path = at < 0 ? [] : calls.slice(from, at).filter(([k]) => k === "moveTo" || k === "lineTo").map(([k, a]) => k[0] + Math.round(a[0]) + "," + Math.round(a[1]));
+      // in front of the plane (x past 51): from (60, 40) to where it crosses at (51, 42.25), then from (51, 50.5) to (60, 55)
+      const want = ["m1220,540", "l9320,2565", "m9320,90", "l1220,90"];
+      if (path.join(" ") !== want.join(" ")) err(`a decal line that goes behind the near plane and comes back is stroked as "${path.join(" ") || "nothing"}", not cut at the plane into two runs ("${want.join(" ")}"): js/model3d.js pathOf`);
+    }
+    sb.document.createElement = realCreate;
+    console.log(`van model: ${vanDraws} draws checked; the most canvas calls with all its gear at lod 0 / 1 / 2: ${worst.join(" / ")} (ceilings ${VAN_OPS.join(" / ")})`);
+    console.log(`van decals on the roof / the back doors at lod 1, sq units: ${decalAreas.join(", ")}`);
+  }
+}
+
+/* ---------- The yard's models (js/yardmodels.js and its parts: yardmodels1.js, yardmodels2.js ...) ----------
+   Every prop, sign and plaque with a 3D model (YardModels.add) is a sprite the yard or the porch already places (its
+   2D art stays registered), and draws cleanly in every opts set it lists, whole, cracked and wrecked (and a blinking
+   part on and off), from all round at the yard's eye (level, a little above and below) near and far, at every level of
+   detail, on the checking context: no throw, finite numbers, real colours, no images, gradients or read-backs, no new
+   canvases, transforms only round its text (never mirrored), within its canvas-call ceiling, the same calls twice; its
+   foot stands on the ground (z 0) and it stands up (some height above). js/modelsprite.js draws them in the yard
+   (validate-engine.js checks the yard places them). */
+let yardModelDraws = 0;
+{
+  // the yard's sprites the models stand in for (the porch's are js/houseart.js, loaded above)
+  if (!pageScripts.includes("yardart.js")) err("index.html does not load js/yardart.js");
+  else if (!ZSR.YardArt) load("yardart.js");
+  const YM_FILES = pageScripts.filter((f) => /^yardmodels\d*\.js$/.test(f));
+  if (!YM_FILES.includes("yardmodels.js")) err("index.html does not load js/yardmodels.js");
+  YM_FILES.forEach((f) => {
+    if (pageScripts.indexOf(f) < pageScripts.indexOf("model3d.js")) err(`index.html loads js/${f} before js/model3d.js`);
+    if (f !== "yardmodels.js" && pageScripts.indexOf(f) < pageScripts.indexOf("yardmodels.js")) err(`index.html loads js/${f} before js/yardmodels.js`);
+    load(f);
+  });
+  const YM = ZSR.YardModels;
+  const M3 = ZSR.Model3D;
+  if (!YM || !M3) err("js/yardmodels.js does not export ZSR.YardModels");
+  else {
+    const FORBID = new Set(["drawImage", "createLinearGradient", "createRadialGradient", "createPattern", "getImageData", "putImageData", "set shadowBlur", "set filter", "resetTransform", "setTransform"]);
+    const camera = (yaw, pitch, dist, lod, mid, w, h) => {
+      const t = [0, 0, mid];
+      const e = [Math.sin(yaw) * Math.cos(pitch) * dist, -Math.cos(yaw) * Math.cos(pitch) * dist, mid + Math.sin(pitch) * dist];
+      const nz = (a) => {
+        const l = Math.hypot(a[0], a[1], a[2]);
+        return [a[0] / l, a[1] / l, a[2] / l];
+      };
+      const f = nz([t[0] - e[0], t[1] - e[1], t[2] - e[2]]);
+      const r = nz([f[1], -f[0], 0]);
+      const u = [r[1] * f[2] - r[2] * f[1], r[2] * f[0] - r[0] * f[2], r[0] * f[1] - r[1] * f[0]];
+      const F = h / 2 / Math.tan(0.6);
+      const view = M3.view({ ink: 1.5, lod, near: dist * 0.02, eye: e, lit: (x, y, z) => x * x + 0.88 * y * y + z * z * (z > 0 ? 1.08 : 0.62) });
+      view.project = (x, y, z) => {
+        const dx = x - e[0];
+        const dy = y - e[1];
+        const dz = z - e[2];
+        const D = dx * f[0] + dy * f[1] + dz * f[2];
+        view.D = D;
+        const s = F / Math.max(D, 1e-6);
+        view.X = w / 2 + (dx * r[0] + dy * r[1] + dz * r[2]) * s;
+        view.Y = h / 2 - (dx * u[0] + dy * u[1] + dz * u[2]) * s;
+        return D > view.near;
+      };
+      return view;
+    };
+    let made = 0;
+    const realCreate = sb.document.createElement;
+    sb.document.createElement = (t) => {
+      made++;
+      return realCreate(t);
+    };
+    const sigOf = (ops) => JSON.stringify(ops.map((op) => [op.k, op.args, op.fillStyle, op.strokeStyle, op.lineWidth]));
+    const draw = (mesh, view, what, ceil) => {
+      const c = element("canvas");
+      c.width = 320;
+      c.height = 320;
+      const ctx = c.getContext("2d");
+      current = what;
+      const before = made;
+      noRead = true;
+      try {
+        M3.draw(ctx, mesh, view);
+      } catch (e) {
+        noRead = false;
+        err(`${what}: threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+        return null;
+      }
+      noRead = false;
+      yardModelDraws++;
+      if (made !== before) err(`${what}: made ${made - before} canvas(es) while drawing`);
+      const ops = c.ops;
+      if (ops.length > ceil) err(`${what}: ${ops.length} canvas calls, over its ceiling of ${ceil}`);
+      const bad = ops.find((op) => FORBID.has(op.k));
+      if (bad) err(`${what}: calls ${bad.k} (a model draws straight: no images, gradients or read-backs)`);
+      let depth = 0;
+      for (let i = 0; i < ops.length; i++) {
+        const k = ops[i].k;
+        if (k === "save") depth++;
+        else if (k === "restore") depth--;
+        else if (k === "transform" || k === "translate" || k === "scale" || k === "rotate") {
+          if (k !== "transform" || depth < 1 || !ops[i + 1] || ops[i + 1].k !== "fillText") err(`${what}: ${k} outside its text's save and restore`);
+          else {
+            const [a, b, cc, d] = ops[i].args;
+            if (!(a * d - b * cc > 0)) err(`${what}: text "${ops[i + 1].args[0]}" drawn mirrored`);
+          }
+          i++;
+        } else if (k === "fillText" && depth < 1) err(`${what}: text outside save and restore`);
+        if (depth < 0) err(`${what}: restore without save`);
+      }
+      if (depth !== 0) err(`${what}: save and restore do not pair up`);
+      return ops;
+    };
+    const YAWS = 8;
+    const worst = {};
+    YM.ARTS.forEach((art) => {
+      const d = YM.def(art);
+      if (!D.hasSprite(art)) err(`yard model ${art}: no sprite of that name is registered (a model stands in for a sprite the yard places)`);
+      if (!Array.isArray(d.opts) || !d.opts.length) err(`yard model ${art}: lists no opts sets to test`);
+      const ceil = Array.isArray(d.ops) && d.ops.length === 3 ? d.ops : YM.YARD_OPS;
+      worst[art] = [0, 0, 0];
+      (d.opts || [{}]).forEach((o0, oi) => {
+        [0, 1, 2].forEach((dmg) => {
+          [undefined, true, false].forEach((on) => {
+            if (on !== undefined && !d.blink) return;
+            const o = Object.assign({}, o0, { dmg }, on === undefined ? {} : { on });
+            const name = `yard model ${art} ${JSON.stringify(o)}`;
+            let mesh;
+            try {
+              mesh = YM.mesh(art, o);
+            } catch (e) {
+              err(`${name}: building it threw ${e.stack.split("\n").slice(0, 2).join(" | ")}`);
+              return;
+            }
+            if (YM.mesh(art, o) !== mesh) err(`${name}: a second build for the same opts (it must be kept)`);
+            const b = mesh.bounds;
+            if (!(b.every(Number.isFinite) && Math.abs(b[2]) < 0.02 && b[5] > 0.05)) err(`${name}: its bounds ${b.map((v) => v.toFixed(3)).join(", ")} (its foot on the ground at z 0, standing up)`);
+            const mid = (b[2] + b[5]) / 2;
+            const size = Math.max(b[3] - b[0], b[4] - b[1], b[5] - b[2]);
+            for (let lod = 0; lod < 3; lod++) {
+              for (let yi = 0; yi < YAWS; yi++) {
+                if ((yi + oi + dmg) % (lod ? 2 : 1)) continue;
+                [-0.15, 0.05, 0.4].forEach((pitch, pi) => {
+                  const yaw = (yi / YAWS) * Math.PI * 2 + 0.2;
+                  const what = `${name} lod ${lod} yaw ${yaw.toFixed(2)} pitch ${pitch}`;
+                  const ops = draw(mesh, camera(yaw, pitch, size * 2.6, lod, mid, 320, 320), what, ceil[lod]);
+                  if (!ops) return;
+                  worst[art][lod] = Math.max(worst[art][lod], ops.length);
+                  if ((yi + pi) % 5 === 0) {
+                    const again = draw(mesh, camera(yaw, pitch, size * 2.6, lod, mid, 320, 320), what + " (again)", ceil[lod]);
+                    if (again && sigOf(again) !== sigOf(ops)) err(`${what}: the same model and view drew different calls`);
+                  }
+                });
+              }
+              // near: the yard's eye beside it, parts behind the near plane cut off
+              draw(mesh, camera(lod * 2.1 + 0.4, 0.05, size * 0.7, lod, mid, 320, 320), `${name} lod ${lod} near`, ceil[lod]);
+            }
+          });
+        });
+      });
+    });
+    sb.document.createElement = realCreate;
+    console.log(`yard models: ${YM.ARTS.length} kinds, ${yardModelDraws} draws checked` + (YM.ARTS.length ? `; the most calls at lod 0 / 1 / 2: ${YM.ARTS.map((a) => a + " " + worst[a].join("/")).join(", ")}` : ""));
+  }
+}
+
 warnings.forEach((w) => console.log("warn  " + w));
 if (errors.length) {
   errors.slice(0, 60).forEach((e) => console.log("ERROR " + e));
@@ -1123,4 +2788,4 @@ if (errors.length) {
   console.log(`\n${errors.length} art problem(s).`);
   process.exit(1);
 }
-console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), ${crewDrawn} crew pictures, ${walkerDraws} walker figures (${W3 ? Object.keys(W3.TYPES).length : 0} types), every call checked.`);
+console.log(`OK: art for ${Object.keys(DECOR).length} decor keys and ${Object.keys(ART).length} landmark keys (${faces} faces, ${sprites} sprites drawn), ${guns} guns in hand, ${houseDrawn} house pictures (${Object.keys((HOUSE && HOUSE.textures) || {}).length} textures, ${Object.keys((HOUSE && HOUSE.sprites) || {}).length} sprites, ${((HOUSE && HOUSE.floors) || []).length} floors), ${crewDrawn} crew pictures, ${walkerDraws} walker figures (${W3 ? Object.keys(W3.TYPES).length : 0} types), ${beastDraws} animal draws (${B3 ? Object.keys(B3.TYPES).length : 0} kinds), ${vanDraws} van draws, ${yardModelDraws} yard model draws, every call checked.`);

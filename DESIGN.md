@@ -2428,3 +2428,317 @@ not the owner's numbers:
 - **Check on the owner's PC.** If the FPS meter shows `pixels 50%` and frames still over 36 ms, the next step is a
   cheaper frame (fewer squares kept sharp, cheaper walkers), not more rows.
 - **50% looks soft** on a 1080p screen. It is the floor; the owner may prefer 65%.
+
+## Owner decisions: a 3D yard, crew and van (2026-10-18)
+
+The owner asked for every building and sign in the yard to be 3D with views from every side, the crew to
+be 3D like the walkers, eight paint options for the van, and a yard van with more angles that looks like
+the van on the road (a sloped windshield). Answers to the clarifying questions:
+
+| Question | Owner's answer |
+|----------|----------------|
+| How do yard props become 3D? | Live 3D models in the comic style, drawn from the player's real angle like the walkers, redrawn only when that angle changes by a step (about 10 degrees), so standing still costs nothing. Not pre-drawn fixed views. |
+| Which props? | Every billboard prop in the yard: signs and plaques, the big build props (tanks, towers, dishes, the well, drums, flags, lamps, the scarecrow ...), the porch props (bell, bench, posts), and the chickens and goats. |
+| The building shells (sheds, huts, garage, cabin)? | Left as they are: they are already raycast boxes that show every side. |
+| A sign from behind? | Text on both sides (it is a reading game). |
+| Which characters? | June, Tomas and Pip, the stray dog and Rivet the robot dog. This reverses "The crew stay flat 2D" (Walkers v2, 2026-10-15). |
+| How are the crew built? | On the walkers' skeleton: the same ink style and light, human faces (no glowing eyes, no gore), child proportions for Pip, today's outfits and props. |
+| How do the crew move? | Smooth animation; they face their task and turn to face the player when talked to; a real run to the shelter and a hunched pose there; they sit on the porch bench and the cabin chairs instead of the floor. |
+| Portraits (crew card, tutorial card)? | Stay the 2D comic portraits. |
+| How do the 8 paint options work? | Buy each paint style once; the player can switch only among the ones bought. |
+| Which 8? | Keep the 6 (Primer Gray, Matte Black, Rust Bucket, Olive Drab, Hazard, Convoy Red) and add a purple and a neon green: **Night Violet** (silver lightning bolts) and **Radioactive** (black toxic drips). |
+| What does a look change? | The full look: body, roof, trim and bumper, wheel rims, and the decal on every side and the hood. |
+| Price and gate? | Today's prices (20 to 40 scrap and a typing round) and the Garage gate stay. The two new looks need the top Garage level (as Convoy Red does), at 45 and 50 scrap. |
+| Where does the new 3D van show? | Everywhere: the yard, River Landing, the road, the garage preview, the title screen and the workbench side view. The map icon stays top-down art with the new paints. |
+| Speed? | Small cost, tested: a full yard with the crew out at most 25% slower than today, a heavy wave at most 35% slower, the road no slower; the automatic quality steps stay. |
+| Delivery? | Three stages pushed to this branch (van and paint, then the crew, then the yard props and signs), no pull request until asked, a playable test build at the end. |
+
+### Stage 1 built (2026-10-18): the van and the paint shop, judgment calls
+
+**The 3D core (`js/model3d.js`).**
+- Models are convex parts of flat faces, drawn with plain canvas 2D calls in the comic style: each face
+  lit by the caller's own light, ink on creases (faces meeting at more than 28 degrees), the silhouette
+  and part edges, decals and text laid on faces. No WebGL, no images (as for the walkers).
+- Parts are ordered by the plane between them (worked out once per model), not by distance alone:
+  distance put a wheel over the nose. Only pairs that overlap on screen are compared (a part's box is
+  cut at the near plane, never taken as the whole screen), then sorted topologically; a cycle is broken at
+  the part on it that waits on the fewest (the farthest of those). Both were needed beside the van's cab,
+  where the gun drew over the body. Pairs with no plane fall back to their centres' distance.
+- A face another part covers is kept but never drawn (it still orders the parts).
+
+**The van (`js/van3d.js`).**
+- One model in the road's units (118 long, 66 wide, roof 50), drawn everywhere the van shows. In the
+  yard it sits on its two tiles at 1/62.5 tiles a unit (0.8 tiles to the roof, today's height).
+- Cheap where the road needs it: wheels are flat 10-sided discs over a dark well band; bumpers are
+  bands; mirrors are thin cards (detail 0 only). Detail 1 drops fine marks (pinstripes, rivets,
+  seams, wipers, small gear); detail 2 keeps the body, wheels and plow.
+- Gear steps: Ram Plow grows every level (saw teeth from 3, a hazard edge at 5; sized so level 5
+  does not take over the picture; its tips show past the mirrors from behind from level 1). Engine
+  4 to 5 lights the light bar and adds a second stack. On Convoy Red's pale bumpers the armor-1
+  plates are dark steel so the step shows.
+- Olive Drab's stencil reads "B-66" with a ringed star on the hood and roof; Primer Gray (no decal)
+  gets primer panels so its decal colours are used too.
+- Dents (no gore): tier 1 two hollows a side, a claw scratch each side and one at the back; tier 2
+  adds more hollows, one on the front and the roof, and grime.
+- The yard's van carries a still roof gun built from the gun upgrades, at the road gun's mount
+  (`Van3D.GUN`); the road keeps its own aimed gun.
+
+**The paint shop (`js/state.js`, `js/base.js`).**
+- `upgrades.paint` stays the worn look's index (every reader of `stats(u).look` kept working);
+  `upgrades.paintOwned` lists the looks bought. An old save at paint k owns 0 to k and keeps wearing
+  k; no save version bump (the fill runs when the field is missing). `upgradeSave` now also fills any
+  missing upgrades key.
+- Code that treats every upgrade alike (`canBuyUpgrade("paint")`) points at the first look not owned;
+  `buyUpgrade("paint")` buys and wears it. `Upgrades.buy` never buys paint (it had no callers).
+- The paint card sits full width under the Garage's preview so the preview stays in view while
+  trying looks on; each look is a small side-on picture with its decal, so lightning, drips and
+  flames are told apart at a glance. Locked looks can still be pointed at to try them on.
+- Wearing a look is free and immediate; buying is a typing round like any upgrade.
+- Fixed UI words for the decals (`DECAL_WORDS`), not reading-level text.
+
+**The parked van in the first-person view (`js/modelsprite.js`).**
+- A model is drawn squashed sideways exactly as the walls and floor are, so it sits on its tiles and
+  matches the sheds beside it (walkers stay unsquashed: they are figures).
+- Between redraws the picture is mapped through the model's bounding box from the eye where it is
+  now (each column's ray meets the box; that point seen from the old eye gives the picture column and
+  the height). The first design (angles scaled about the model's bearing) let the van slide on the
+  floor by 8 to 20 px while walking; this keeps visible corners within about 1 px. Turning in place
+  is exact and never redraws.
+- A face the old picture saw edge-on that turns into view forces a redraw ("fold"), or the van would
+  show too narrow at a corner for a few frames.
+- Fog and detail go by the eye's distance to the model, so turning never changes them.
+- The model governor follows the walkers' governor row (and one row more once the floor's slow step
+  fired); model redraws never move the walkers' governor.
+- A soft contact shadow is drawn into the picture. River Landing's van tiles now show the turnout's
+  dirt (they were grass under the old box). A hurt walker's health bar is not drawn through the van.
+
+**The road, the title, the Garage preview, the workbench, the map (`js/perspective.js`, `js/bench.js`,
+`js/sprites.js`).**
+- On the road the van is lit by the road buildings' light (their added shade turned into a brightness,
+  1 + shade / 128) and fades into the haze by colour as they do. The hurt flash is a red tint.
+- Detail by the van's length on screen: full from 140 px, no fine marks from 60 px. The title and the
+  Garage preview always use full detail.
+- The road no longer draws the old top-down roof picture (its exhaust puff never showed anyway); the
+  model costs less a frame than the old textured box did (0.6-0.7 ms against 0.9 ms, headless).
+- The workbench shows the van from its right side, a little toward the nose and from a little above,
+  with the gun as before.
+- The map icon takes each look's decal colours (Convoy Red's flames are now orange and yellow; they
+  were near black), bumpers and hubs.
+
+**Polish after the first look (2026-10-18).**
+- From the road camera (behind and above) the looks differed mostly by body colour: every look now has a
+  design on the roof and on the back doors at detail 1 (Hazard bands and chevrons, Convoy Red flames off
+  the windshield and up the back corners, Night Violet a pair of bolts each side of the gun, Radioactive
+  sludge rails, a trefoil and drips over the back windows, Rust patches, Olive stars and B-66, Matte Black
+  pinstripes, Primer panels). Decals wholly under the roof rack are skipped. A design may lay a piece over
+  the fittings (the front bumper's hazard band and B-66 showed under the bumper before). `VAN_OPS` at
+  detail 0 rose from 1400 to 1450 (Convoy Red seen from straight above: 1441).
+- Armor plates take the paint: steel mixed 55% toward the body colour and 12% darker, with their ink,
+  bolts and shade (bars over windows and the grille stay bare steel). Under full armor the van still
+  wears its look; before, Armor 4-5 hid most of it under grey steel.
+- The Garage's preview looks at the van from the front-left (140 degrees round from behind, pitched
+  16 degrees, a narrower 44-degree view so the plow is not twice the tail's size), in the same road
+  scene, with the road's aimed roof gun (the model's still gun reads as boxes from the front). It shows the
+  van's dents (repairing redraws it). The title keeps its view, pixel for pixel.
+- The road's light and ink rule live once, in `js/perspective-buildings.js` (`PerspBuild.LIGHT`,
+  `inkW`); the van reads them (an even light if they are not loaded).
+
+**Review fixes (2026-10-18).** A five-angle review with an adversarial check of each finding confirmed 16; all fixed
+with a test that failed before:
+- Armor 5's roof plates are laid under the paint job, so each look's roof design shows over them (Night Violet's bolts
+  had gone under steel). The road check holds every look at 1.5% under full armor and 1% with every upgrade at its top.
+- The roof gun's undersides and the drum's inner end are drawn (the yard's eye is below the gun): only faces that really
+  sit against another part are hidden; a ray-cast test enforces it. The mirror glint stays inside the mirror.
+- `Van3D.sig` names each gun level (two guns could share a model past level 9); every upgrade test reads its top level
+  from `Upgrades.DEFS`, and the looks' save order is pinned by name (any price may be appended).
+- The parked van: a hurt walker's health bar is hidden only where the van's picture really covers its head (its opaque
+  runs per column, read back once per picture and only when a walker stands behind it), and a walker the van wholly
+  hides is not drawn (it took live redraws); a window resize redraws a picture that grew; a plowed van maps between
+  redraws through its body, not its plow wings (it redrew every frame creeping along it); a face turning into view
+  redraws that frame (it showed as a gap for one).
+
+**Measured (headless Chromium, no GPU, a 4-core container shared with other work, so directions):**
+- Yard, full build, the frame median against the commit before: standing near the van -11%, walking
+  round it +10% (p95 +4%), far +1%, a heavy wave of 30 walkers -0.5% (p95 +4%). Empty yard: within
+  -6% to +4% (one p95 +18% walking round it). All inside the owner's bars (25% / 35%).
+- Road: the van's own draw 0.6-0.7 ms against 0.9 ms; the road's frame no slower.
+
+**Final review fixes (2026-10-18).**
+- Decal lines are cut at the near plane segment by segment (`js/model3d.js` pathOf), as faces and ink edges already
+  were. Standing against the van's side, a pinstripe or door seam with one end behind your eye vanished whole (in up to a
+  third of headings at arm's length) and popped back as you walked.
+- Every look now has a front part, as the owner asked ("a decal on every side"): the grille, the lamps and the bumper
+  leave almost no paint on the van's front, so the four looks that had none there lay theirs over the bumper (Matte
+  Black's twin stripes, Convoy Red's flames, Night Violet's pair of bolts) or run it down over the grille and lamps
+  (Radioactive's sludge from under the hood's lip), as Olive Drab's number and Hazard's stripes already did.
+- `DEFS.paint`'s `max` and `costs` are read from `PAINT_LOOKS`, so a ninth look is one row.
+- Not measured: with wreckers on the van, each redraw of its yard picture is read back (`getImageData`) for the walkers'
+  health bars; cheap headless, untested on a real GPU. Worth a profile on the owner's PC.
+
+### Stage 2, wave 1 (2026-10-18): the crew's and the dogs' 3D rigs, judgment calls
+
+**People on the walkers' rig (`js/walker3d.js` human mode, the looks in `js/walker3d-crew.js`).**
+- People are registered with `Walker3D.addHuman` into `Walker3D.HUMANS`, never `TYPES` (the walker tests iterate the
+  walkers). Their code lives inside `js/walker3d.js`, since it needs that file's private joints, projection and fit;
+  a walker draws exactly as before (a test hashes every walker draw against a fixture recorded before people joined).
+- Poses: stand, walk (and the run, `st.run`), talk, work (by job: June gardening on her knees with a trowel, Tomas on one
+  knee hammering a nail into a board, Pip writing on a clipboard), sit (on a seat `st.seat` tiles high, or the floor:
+  June knees up, Pip cross-legged), read, cower (hunched, hugging the knees or hands over the head). `headYaw` turns the
+  head (and 15% the shoulders) toward something while the body keeps facing its task.
+- Faces are human: eyes with pupils that blink once a pose loop (never at its ends), brows, a nose, a mouth that opens
+  talking, June's round glasses; no glow, no gore, no claws at any setting. Hair: bun, curly, short. Clothes: June's
+  open cardigan and gardening gloves, Tomas's rolled-sleeve coveralls (the name patch is a red scrawl, not a name) with
+  the red rag, Pip's orange hoodie with the walkie clipped on and the pencil behind the ear. Colours are js/crewart.js's
+  (a test reads them from its source), so the 3D crew match the 2D portraits.
+- Proportions: grown-ups' heads about 1/5.5 of their height, Pip's about 1/4.5. Each look is modelled about a unit
+  tall and drawn `PERSON_H` (0.905 tiles) times `CREW[id].scale`, read from the facts each draw: June 0.81, Tomas 0.905,
+  Pip 0.67 tiles. An unknown crew id draws the stand-in "person" (`Walker3D.humanId`).
+- Props are drawn with the arm that holds them (or as their own part just before both hands for an open book, the ledger
+  on the lap, the walkie in both hands). Working or cowering, June lays her ledger beside her and Tomas his wrench.
+- Sitting, the figure's floor spot is under the seat's middle with the feet forward; a seat higher than the legs reach
+  (Pip on a grown-up's chair) is lowered to what they reach, on tiptoe first.
+- The colour table walkers and people share grew from 16384 to 32768 slots (people about double the colours in use).
+
+**Animals on a four-legged rig (`js/beast3d.js`, the looks in `js/beast3d-looks.js`).**
+- A standalone module in the walkers' style (ink outline, flat fills, the same camera-space light, fog steps, detail
+  0/1/2, the same `cam` contract), since the walkers' helpers are private. Body plans: four legs, or two legs with wings
+  (the hooks are ready for the chickens).
+- The dog keeps the 2D picture's sides: the patch over its right eye, its left ear up and its right ear flopped. Fur
+  bodies are one inked blob (rump, belly, chest, neck, upper legs); scruff tufts show only from the side.
+- Rivet is built from boxes (it reads robot and matches the 3D van); its one side eye became a visor band seen from every
+  side; its lights glow unfogged and cut out halfway into "off".
+- Poses blend by their parameters through standing (as walkers); the tail wags three times a pose loop in every pose, so a
+  pose change never jumps it. Bark lines fly out to both sides when it barks straight at you.
+- Box heights: dog 0.40 tiles, Rivet 0.36.
+
+### Stage 2, wave 2 (2026-10-18): the crew, the dog and Rivet in the yard and the cabin, judgment calls
+
+**One pool with the walkers (`js/interior.js` live figures; owners `js/crew.js`, `js/robodog.js`, `js/building.js`).**
+- A prop with a `fig` record (`liveFigure`) is drawn as a live walker is: the same canvas pool, redraw cap and near
+  places, freed when its prop leaves the scene or is hidden, all of them when you leave. The governor now counts frames
+  with only the crew on screen, not only walkers. Without Walker3D's people or Beast3D loaded, the crew and dogs keep
+  their flat sprites (a test drops those files and plays on).
+- Smooth by default: the heading turns at the look's turn rate, steps follow the distance walked, a pose eases out of
+  the old one before into the new one (0.45 s to sit, kneel or get up), a pose loop is 3.5 s, the head turns at 5 rad/s.
+  Far figures redraw their idle loop in fewer steps (posts scene: 1.07 to 0.74 redraws a frame).
+- Animals get room under their feet for near paws (at most 1.4 times their height); people use the walkers' sizing.
+
+**What they do.**
+- Every post has a `face` (the task: a bed, a plot, a note on the wall). Talked to, the head turns to you first; past its
+  reach (0.95 rad) the body turns too, in the talk pose; afterwards they go back to the task. A seated crew member stands
+  up to talk (the seated pose has no talking mouth) and sits back down after.
+- Waves: the crew run to the shelter and cower facing its door; the dog gallops after them and lies low facing it.
+- Every repair job uses the hammer kneel.
+- The dog looks at you within 2.5 tiles and turns all the way round when petted; it gallops from 1.2 tiles a second (all
+  of it by 3.0) and wags harder near you. It never follows anyone onto the bench or a bed.
+- Rivet turns to the walker it zaps, flashes when bitten and lies still when off.
+
+**Seats (`CREW_SEATS` in `js/story-crew.js`, read off the furniture: bench 0.154 (0.17 once the bench was 3D, stage 3),
+dining chair 0.161, bed 0.32 tiles).**
+- June: the porch bench at (6.5, 1.45) (stage 3 stood the 3D bench against the wall and her seat with it: 1.87), facing
+  north over the yard. Tomas (Gus's room): the very edge of Gus's bed at
+  (22.7, 6.99), facing south, his head turned to Gus's keep-out sign (a figure stands on the floor line at its spot: at
+  6.88, 0.12 into the bed, he hung 24 px up the bed's side; review, 2026-10-18). Pip: the chair at (15.45, 2.5) facing north to the
+  radio (radio shelf), and at the dining post the chair at (15.45, 3.5) facing west to the table.
+- A sitter is drawn 0.05 tiles in front of a chair or bench and 0.25 in front of a bed's edge, so the seat never covers
+  them.
+- Pip's radio chair is 1 tile from the radio, inside the 1.5 tiles posts keep from the cabin's spots (the post's own tile
+  passes). Kept: Pip at the radio is the story, and from the south E goes to the radio by design; you talk to Pip from
+  the side (tested).
+- The speech bubble's tail (`--tail-top`) and the tutorial's arrow point at the figure's real head (`crewHeadTop`), lower
+  when seated.
+
+**Measured (headless Chromium, no GPU, 1280 x 720, every room at its top level, medians of 3 interleaved runs, render
+time against 3f897f8).** Crew at their posts in view +9% (p95 +3%); Tomas 1.6 tiles away at the van +14% (p95 +18%);
+the crew wandering −2%; a heavy wave on day 20 (about 20 walkers) +2%. Bars: 25% calm, 35% heavy wave. What is left is
+mostly pasting the wider 3D pictures (1.2 to 1.3 times as wide as tall, the flat sprite 0.75).
+
+**Known.** A crew member up close costs about 14 to 18% more render: the renderers do not report the area they drew, so
+the transparent part of a wide picture is still pasted. In the dining room the table can hide Pip from some angles.
+
+**Review fixes (2026-10-18).** An animal's one-shot pose (a bark, a zap, a bleat: shorter than its loop) starts at its
+loop's beginning and breaks off at once into a walk: the dog no longer slides 1 to 2.4 tiles in its braced bark when a
+wave starts (it barks, then gallops). Rivet's 3D zap holds 0.7 s (out of a sit, into the zap, one zap: Beast3D's own
+timings), so its sparks reach full size (they peaked at 19%). Without the 3D modules the flat crew sprites ignore seats
+and sit on the floor at the post, exactly as before 3D.
+
+### Stage 3, the models (2026-10-18): judgment calls
+
+**The yard's props, signs, plaques and porch (`js/yardmodels.js` contract, `js/yardmodels1.js`, `js/yardmodels2.js`).**
+- 33 models, each a port of its 2D sprite (same parts, colours and comic ink), built in prop units (1 = the sprite's height
+  at scale 1) so the yard's placements stay as they are. A model's +x is its own right, so what a sprite draws on its
+  right sits at -x and the front view matches the sprite.
+- The view squashes the world sideways (1.4); round things are drawn 1.25 to 1.35 times wider than their height gives,
+  so they read round as the sprites did, while every plan stays inside the tile (or foot) its prop blocks.
+- Signs and plaques carry the room's name on both faces, fitted to the board (it grows with the text-size setting);
+  a wrecked plaque wears the red and white WRECKED tape round its board. Damage tints a build's props toward grime (cracked
+  and wrecked) and adds cracks, claw gouges and, wrecked, holes and breakage (a snapped sunflower, slack guy wires, a
+  dish knocked askew, a torn flag, a bent whip, a dark beacon and lamp, a snapped pump handle).
+- The guy wires are three anchors at 120 degrees, two wires each, inside the plot (the sprite's flat fan reached past
+  it). The beacon sits on a short arm off the whip's base; lit it glows at every detail level (it is always small on its
+  tower). The well's roof is a real gabled roof on two posts (the sprite drew it round "because a sprite always faces you").
+- The water tanks, the yard's biggest builds alone on 3x3 plots, set their own canvas-call ceilings (900 and 700 at
+  detail 0); every other model fits the default `YARD_OPS`. The tire stack and the spool keep a plain core drawn at every
+  detail with the bulged parts at full detail only.
+- The porch bench's seat is 0.17 tiles high (at the porch's scale 0.34): June's seat.
+
+**The farm animals (`js/beast3d-looks2.js` on `js/beast3d.js`).**
+- The goat (cream with the brown flank patch, dark horns swept back, a grey beard, side ears the sprite lacks: a 3D head
+  without ears read wrong from the front) and the hen (white, red comb and wattle, yellow beak and legs, folded wings, a
+  tail fan) at the size the yard stands the sprites (goat 0.66 tiles, hen 0.34). Like walkers and unlike props they keep
+  screen proportions (not squashed). Every hen and goat looks alike, as in 2D; the seed varies head tilt and tail.
+- New poses appended (the dog's and Rivet's indices unchanged): graze, peck, flap, bleat; a hen's sit settles on her
+  belly. The dog and Rivet draw call for call as before (a hash fixture recorded before the change proves it).
+
+### Stage 3, the yard (2026-10-18): judgment calls
+
+**The props, signs, plaques and porch as models (`js/modelsprite.js` modelProps, `js/yard.js`, `js/house.js`).**
+- Every yard prop whose art has a model is drawn as it, turned to its plot's front (and its build's own turn); so are the
+  porch's posts, bell and bench, turned to face the yard. Solidity, cover, paths, wreck spots and E to read are the
+  sprites'. A prop whose model will not build keeps its sprite (logged once).
+- Models sort by their own turned footprint, not the tile they block: the guy wires by their tower's tile (they never hide
+  a walker), the bench by its back (so a sitter is drawn in front of it).
+- A lot sign stands solid across 3 tiles of its lot's front row (a narrower lot: 1); its board is about 2.2 tiles wide,
+  capped to that foot at Large and Huge, and its letters widen up to 1.3 times where the board has room. Plaques stay one
+  tile wide (their row is often taken: a tank's foot and pipes, a floodlight), so long names read at about 60 to 65% of
+  the old billboard's letter height. A trap on one of a lot sign's two new side tiles goes back to stock.
+- Props take 0.75 of the walls' fog, so a far prop is not darker than the building behind it. Round contact shadows sit at
+  foot height; parts lifted 0.45 tiles or more and the guy wires cast none.
+- The lab's level-3 vent moved onto the ridge (the roof's outline cut it); the radio's second level-3 dish faces the plot's
+  left. The tire stack and the spool change detail more gently; wreck debris turns with its plot's front; the office
+  closet's drum stays a sprite.
+- The porch bench stands against the cabin wall (y 1.86), and June's seat moved with it (1.87); `CREW_SEATS.porchBench` is
+  the 3D bench's seat (0.5 units at the porch's scale 0.34: 0.17 tiles), and the crew's test reads it off the model.
+- Pictures: a model out of view costs one circle test and is never drawn; a picture up to 256 x 256 px is kept while out
+  of view, all of them capped at 6M px (24 MB), the longest unused first (peak about 3.1 MB walking). Nothing redraws
+  every frame: standing, only the blinking beacons (about 20 in 600 frames); walking, about 1.5 a frame, under the cap.
+  `Model3D.text` steps by the text's own size (the van's text looks the same), and `MESH_KEEP` is 128.
+
+**Review fixes (2026-10-19).** Standing on a prop you can walk onto (a stake, the guy wires, books, a can, debris) with
+its middle behind you, the picture's map wrapped its two angles apart and every column fell off the picture: the prop
+vanished and redrew every frame (in a quarter to a third of facings). The angle is now wrapped as one, and a test stands
+on every such prop facing four ways. The canvas sweep builds its oldest-first list only when over budget (it was every
+frame). Every lot sign width the yard can put up (each text size on each plot) must be one the sign model is checked at
+(the widths were typed in by hand).
+
+**The farm's hens and goats as live 3D figures (`js/yard.js` `ANIMALS`, `b.flock`, `yardAnimate`).**
+- Each is a live figure in the walkers' pool (Beast3D's chicken or goat), on its sprite's prop, which stays the fallback.
+- At each spot they rest a while (hens 1.5 to 5 s, goats 2.5 to 7 s; the sprites walked on at once) in one of their own
+  poses, by weight: a goat grazes (6), stands (3) or bleats once (1: the bleat's own 1.1 s less its ease back out, so it
+  never starts over); a hen pecks (6), stands (3), settles down (1.5) or flaps (0.6, 1.4 s). Then they get up, turn to
+  the next spot (only once standing) and walk to it (never sliding, never sideways, never turning while sitting, grazing
+  or pecking: a test fails when any of these happens), and one standing within 2.5 tiles of you looks at you.
+- Hens walk at 0.45 tiles a second (the sprites' 0.6 read as a scurry on the 3D gait's quick steps); goats at 0.35.
+- The pens' low fences hide most of them from outside, as they hid the sprites.
+- Their pictures redraw at most 15 times a second (`ANIMAL_EVERY`; their place on screen moves every frame), and Beast3D
+  now reports the box it drew in, so only that is pasted (its pictures are as wide as every pose from every side, 1.4 to
+  1.7 times their height). Measured first, five animals near you redrew 4 pictures a frame and pasted 2.2 ms of mostly
+  clear picture (a canvas just redrawn costs its whole size to paste on a software canvas): +51% render looking over the
+  pens. A walker or a crew member still pastes its whole picture (Walker3D does not report its box yet).
+
+**Measured (headless Chromium without a GPU, every room at its top level, the crew out, medians of 3 interleaved rounds,
+render time against 3f897f8, before the project; mean / median / p95).** Standing +4 / +5 / +5%; turning in place +4 to
++15 / +2 to +19 / +2 to +12% (two runs); walking a lap of the yard past the farm +16 / +18 / +17%; a heavy wave of 30
+walkers +4 / +5 / +4%. Standing at the pens with all five animals within 1 to 4 tiles, the worst view: +23 / +26 / +38%
+(before the two fixes above, +51%). Bars: 25% calm, 35% heavy wave; the pens close up are the one view at the bar, on a
+machine with no GPU (a GPU pastes pictures far more cheaply).

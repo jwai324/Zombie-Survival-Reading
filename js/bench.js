@@ -1,4 +1,5 @@
-/* The workbench scene: a procedural comic garage drawn behind the typing game.
+/* The workbench scene: a procedural comic garage drawn behind the typing game, the van beside the bench (the one 3D
+   van, js/van3d.js, from its side in the player's paint and gear).
    Flat fills, heavy ink, halftone, one warm work lamp. The caller sizes the
    canvas (opts.dpr for device pixels) and calls draw again on resize. */
 (function (root) {
@@ -217,76 +218,62 @@
     box(ctx, cx + 24 * s, cy - 4 * s, 12 * s, 8 * s, "#2b2d31", 2, 2);
   }
 
-  /* ---------- The van, side-on, in the player's paint and plating ---------- */
-  function sideVan(ctx, x, y, L, u, look) {
-    const hb = L * 0.42;
-    const wh = L * 0.085;
-    const s = L / 440;
-    ctx.save();
-    ctx.translate(x, y);
-    oval(ctx, L * 0.5, 0, L * 0.56, wh * 0.55, "rgba(0,0,0,.4)");
-    poly(ctx, [[0, -hb], [L * 0.66, -hb], [L * 0.78, -hb * 0.62], [L * 0.97, -hb * 0.6], [L, -hb * 0.5], [L, -wh * 0.7], [0, -wh * 0.7]], look.body, 4);
-    path(ctx, [[L * 0.78, -hb * 0.62], [L * 0.97, -hb * 0.6], [L, -hb * 0.5], [L, -hb * 0.38], [L * 0.78, -hb * 0.4]], true);
-    ctx.fillStyle = "rgba(0,0,0,.15)";
-    ctx.fill();
-    box(ctx, -2, -hb - 8 * s, L * 0.66 + 2, 10 * s, look.roof, 3, 3);
-    Dr().rr(ctx, L * 0.05, -hb * 0.35, L * 0.1, hb * 0.25, 4);
-    ctx.fillStyle = "rgba(0,0,0,.16)";
-    ctx.fill();
-    const d = look.decal;
-    if (d === "stripe") box(ctx, L * 0.02, -hb * 0.56, L * 0.6, 10 * s, "rgba(235,230,215,.9)", 2.5, 2);
-    else if (d === "hazard") {
-      ctx.save();
-      ctx.beginPath();
-      ctx.rect(L * 0.02, -hb * 0.6, L * 0.58, 16 * s);
-      ctx.clip();
-      for (let i = 0; i < L * 0.6; i += 18 * s) poly(ctx, [[L * 0.02 + i, -hb * 0.6], [L * 0.02 + i + 9 * s, -hb * 0.6], [L * 0.02 + i - 4 * s, -hb * 0.6 + 16 * s], [L * 0.02 + i - 13 * s, -hb * 0.6 + 16 * s]], INK, 0.5);
-      ctx.restore();
-    } else if (d === "flames") {
-      const pts = [[L * 0.02, -wh * 0.7]];
-      for (let i = 0; i <= 6; i++) pts.push([L * 0.02 + (i / 6) * L * 0.6, -wh * 0.7 - (i % 2 ? hb * 0.42 : hb * 0.18)]);
-      poly(ctx, pts.concat([[L * 0.62, -wh * 0.7]]), "#1f1f23", 2.5);
-    } else if (d === "patches") [[L * 0.08, -hb * 0.7, L * 0.12, hb * 0.14], [L * 0.3, -hb * 0.4, L * 0.1, hb * 0.2], [L * 0.48, -hb * 0.6, L * 0.14, hb * 0.1]].forEach((p) => box(ctx, p[0], p[1], p[2], p[3], "rgba(60,40,30,.6)", 2, 3));
-    else if (d === "stencil") {
-      ctx.fillStyle = "rgba(235,230,215,.85)";
-      ctx.font = "700 " + Math.round(hb * 0.3) + "px Oswald, Impact, sans-serif";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText("B-66", L * 0.3, -hb * 0.5);
+  /* ---------- The van, side-on: the one 3D van (js/van3d.js) in the player's paint and gear ----------
+     Seen from its right side, a little ahead of it and above (SIDE: yaw toward its nose and pitch down, radians;
+     dist, road units, far enough off that the perspective is mild), so its nose points right as the bench always
+     showed it, with its hood, roof and gun just showing. Lit by the work lamp up and ahead of it: a side face full,
+     its top brighter, its ends a little darker (sideLit). Drawn once a picture (Bench.draw), so at full detail. */
+  const SIDE = { yaw: 0.2, pitch: 0.12, dist: 900 };
+  function sideLit(nx, ny, nz) {
+    return 0.86 + 0.14 * Math.abs(nx) + 0.04 * ny + 0.24 * Math.max(0, nz) - 0.26 * Math.max(0, -nz);
+  }
+  /** The van standing on the floor line y, its body from x to x + L (px; its plow and gear reach past that as on
+      the road), its gun on its roof, dent (Van3D.dentTier's) dents on it. */
+  function sideVan(ctx, x, y, L, u, dent) {
+    const V = ZSR.Van3D;
+    const M = ZSR.Model3D;
+    if (!V || !M) return;
+    oval(ctx, x + L * 0.5, y, L * 0.56, L * 0.047, "rgba(0,0,0,.4)");
+    // the camera: the eye off the van's right side, looking at its middle
+    const cy = Math.cos(SIDE.pitch);
+    const e = [cy * Math.cos(SIDE.yaw), cy * Math.sin(SIDE.yaw), Math.sin(SIDE.pitch)];
+    const eye = [e[0] * SIDE.dist, e[1] * SIDE.dist, V.H / 2 + e[2] * SIDE.dist];
+    const fw = [-e[0], -e[1], -e[2]];
+    const rl = Math.hypot(fw[1], fw[0]) || 1;
+    const rt = [fw[1] / rl, -fw[0] / rl, 0]; // the screen's right: forward x up
+    const up = [rt[1] * fw[2] - rt[2] * fw[1], rt[2] * fw[0] - rt[0] * fw[2], rt[0] * fw[1] - rt[1] * fw[0]];
+    const T = { F: 1, ox: 0, oy: 0 };
+    const view = M.view({ eye, lod: 0, near: 1, lit: sideLit });
+    view.project = (px, py, pz) => {
+      const qx = px - eye[0];
+      const qy = py - eye[1];
+      const qz = pz - eye[2];
+      const d = qx * fw[0] + qy * fw[1] + qz * fw[2];
+      view.D = d;
+      if (!(d > view.near)) {
+        view.X = T.ox;
+        view.Y = T.oy;
+        return false;
+      }
+      view.X = T.ox + (T.F * (qx * rt[0] + qy * rt[1] + qz * rt[2])) / d;
+      view.Y = T.oy - (T.F * (qx * up[0] + qy * up[1] + qz * up[2])) / d;
+      return true;
+    };
+    // fit its body's box: L px from its tail's corner to its nose's, the lowest of its near corners on the floor line
+    let x0 = Infinity;
+    let x1 = -Infinity;
+    let y1 = -Infinity;
+    for (let c = 0; c < 8; c++) {
+      view.project(c & 1 ? V.W / 2 : -V.W / 2, c & 2 ? V.L / 2 : -V.L / 2, c & 4 ? V.H : 0);
+      x0 = Math.min(x0, view.X);
+      x1 = Math.max(x1, view.X);
+      y1 = Math.max(y1, view.Y);
     }
-    line(ctx, [[L * 0.5, -hb + 6 * s], [L * 0.5, -wh * 0.9]], INK, 3);
-    line(ctx, [[L * 0.24, -hb + 6 * s], [L * 0.24, -wh * 0.9]], INK, 2.5);
-    box(ctx, L * 0.44, -hb * 0.5, 14 * s, 5 * s, "#2f3136", 2, 2);
-    box(ctx, L * 0.53, -hb + 7 * s, L * 0.11, hb * 0.3, "#2b3540", 3, 3);
-    poly(ctx, [[L * 0.665, -hb + 5 * s], [L * 0.775, -hb * 0.64], [L * 0.72, -hb * 0.64], [L * 0.625, -hb + 5 * s]], "#2b3540", 3);
-    line(ctx, [[L * 0.55, -hb + 12 * s], [L * 0.6, -hb * 0.85]], "rgba(255,255,255,.45)", 1.5);
-    if (u.armor >= 2) for (let i = 0; i < 4; i++) line(ctx, [[L * (0.54 + i * 0.027), -hb + 7 * s], [L * (0.54 + i * 0.027), -hb * 0.7]], "rgba(230,225,210,.5)", 1);
-    for (let i = 0; i < u.armor; i++) {
-      box(ctx, L * (0.04 + i * 0.09), -hb * 0.86, L * 0.07, hb * 0.26, "#6e7278", 2.5, 2);
-      Dr().circle(ctx, L * (0.075 + i * 0.09), -hb * 0.82, 1.8 * s, INK, 1);
-      Dr().circle(ctx, L * (0.075 + i * 0.09), -hb * 0.64, 1.8 * s, INK, 1);
-    }
-    if (u.engine >= 1) {
-      box(ctx, L * 0.04, -hb - 20 * s, L * 0.5, 9 * s, "#3b3d44", 2.5, 2);
-      [L * 0.08, L * 0.46].forEach((px) => box(ctx, px, -hb - 36 * s, 10 * s, 16 * s, "#3b3d44", 2.5, 1));
-      if (u.engine >= 2) box(ctx, L * 0.12, -hb - 42 * s, 30 * s, 22 * s, "#5f6b3c", 2.5, 3);
-      if (u.engine >= 4) box(ctx, L * 0.84, -hb * 0.58, 18 * s, 8 * s, "#2b2d31", 2.5, 2);
-    }
-    if (u.bumper > 0) {
-      const pw = L * 0.07 + u.bumper * 3 * s;
-      poly(ctx, [[L - 2, -hb * 0.5], [L + pw, -hb * 0.34], [L + pw, -wh * 0.6], [L - 2, -wh * 0.6]], "#6e7278", 3);
-      if (u.bumper >= 3) for (let i = 0; i < 3; i++) poly(ctx, [[L + pw - 2, -hb * 0.3 + i * hb * 0.08], [L + pw + 12 * s, -hb * 0.27 + i * hb * 0.08], [L + pw - 2, -hb * 0.24 + i * hb * 0.08]], "#9ea3aa", 2.5);
-    }
-    Dr().circle(ctx, L * 0.32, -hb - 9 * s, 12 * s, "#2f3136", 3);
-    box(ctx, L * 0.32, -hb - 13 * s, (26 + (u.damage || 0) * 3) * s, 7 * s, "#3b3d44", 2.5, 2);
-    Dr().circle(ctx, L * 0.97, -hb * 0.44, 7 * s, "#e9d58a", 2.5);
-    box(ctx, 2, -hb * 0.5, 6 * s, 14 * s, "#b3261e", 2, 1);
-    [L * 0.2, L * 0.8].forEach((wx) => {
-      Dr().circle(ctx, wx, -wh, wh, "#1f2023", 4);
-      Dr().circle(ctx, wx, -wh, wh * 0.45, "#4a4b50", 2.5);
-      Dr().circle(ctx, wx, -wh, wh * 0.12, INK, 1);
-    });
-    ctx.restore();
+    T.F = L / Math.max(1e-6, x1 - x0);
+    T.ox = x - x0 * T.F;
+    T.oy = y - y1 * T.F;
+    view.ink = Math.max(1.2, (3 * L) / 440);
+    V.draw(ctx, view, u, { dent, gun: true });
   }
 
   ZSR.Bench = {
@@ -305,7 +292,9 @@
       pegboard(ctx, W * 0.45, H * 0.17, W * 0.42, horizon - H * 0.17 - 26 * s, s);
       lamp(ctx, W * 0.67, H * 0.13, W, H, s);
       bench(ctx, W * 0.36, H * 0.66, W * 0.62, H, s);
-      sideVan(ctx, W * 0.03, H * 0.93, Math.min(W * 0.38, H * 0.62), u, ZSR.Upgrades.stats(u).look);
+      // (as dented as the save's van is: o.dent, else Van3D.dentNow's)
+      const V = ZSR.Van3D;
+      sideVan(ctx, W * 0.03, H * 0.93, Math.min(W * 0.38, H * 0.62), u, o.dent != null ? o.dent | 0 : V ? V.dentNow() : 0);
       const pool = ctx.createRadialGradient(W * 0.67, H * 0.66, 0, W * 0.67, H * 0.66, W * 0.32);
       pool.addColorStop(0, "rgba(255,214,120,.22)");
       pool.addColorStop(1, "rgba(255,214,120,0)");

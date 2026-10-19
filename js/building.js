@@ -75,6 +75,7 @@
     stepT: 0.16, // seconds a walk frame shows
     idleT: 0.8, // seconds a sitting (breathing) frame shows
     aim: 0.4, // half its width (tiles) that counts as right under the crosshair (E prefers it there)
+    gallop: [1.2, 1.8], // in 3D, its gallop by its speed: none at 1.2 tiles a second, all of it 1.8 faster (as at home)
   };
   // SCALE: points of your way the dog remembers while it cannot see you (spacing 0.25: 40 tiles of corridor);
   // a building with longer ways out of its sight just has it catch up at once past this
@@ -953,18 +954,28 @@
         this.makeTripDog(x, y, null, true);
       }
     },
-    /** The dog's state in this building: waiting on its quest's spot (def), or following you. Its prop is not solid. */
+    /** The dog's state in this building: waiting on its quest's spot (def), or following you. Its prop is not solid. In
+        3D (js/beast3d.js) it is a live figure, Beast3D's "dog" (prop.fig: tripDogAnim). */
     makeTripDog(x, y, def, follow) {
       const p = this.player;
-      const d = { x, y, def, follow, pose: null, f: 0, ft: Math.random() * DOG.idleT, left: false, moving: false, spd: 0, stuck: 0, trail: [], seen: p ? [p.x, p.y] : null, prop: null };
-      d.prop = this.addProp({ x, y, img: null, scale: artScale("crewDog"), lift: 0 });
+      const d = { x, y, def, follow, pose: null, f: 0, ft: Math.random() * DOG.idleT, left: false, moving: false, spd: 0, stuck: 0, trail: [], seen: p ? [p.x, p.y] : null, prop: null, fig: null };
+      d.fig = this.liveFigure ? this.liveFigure("beast", "dog", 7, p ? Math.atan2(p.y - y, p.x - x) : 0) : null;
+      if (d.fig) d.fig.pose = d.fig.wantPose = "sit";
+      d.prop = this.addProp(d.fig ? { x, y, fig: d.fig, lift: 0 } : { x, y, img: null, scale: artScale("crewDog"), lift: 0 });
       this.tripDog = d;
       this.dogLook(d, "sit", 0, false);
       return d;
     },
-    /** Its picture: pose and frame (f exactly 0 or 1, and `left` only when true: Draw3 keeps one canvas per opts set). */
+    /** Its picture: pose and frame (f exactly 0 or 1, and `left` only when true: Draw3 keeps one canvas per opts set). A
+        live 3D figure keeps the names only (tripDogAnim draws the pose). */
     dogLook(d, pose, f, left) {
       const ff = f ? 1 : 0;
+      if (d.fig) {
+        d.pose = pose;
+        d.f = ff;
+        d.left = !!left;
+        return;
+      }
       if (d.prop.img && d.pose === pose && d.f === ff && d.left === !!left) return;
       d.pose = pose;
       d.f = ff;
@@ -1038,6 +1049,7 @@
           d.ft = 0;
           this.dogLook(d, "sit", d.f ? 0 : 1, d.left);
         }
+        if (d.fig) this.tripDogAnim(d, dt, d.x, d.y, "sit");
         return;
       }
       if (!S.trip || !S.trip.dog) return this.dropTripDog(); // given up from the backpack: it trots off
@@ -1125,6 +1137,24 @@
       this.dogLook(d, pose, f, left);
       d.prop.x = d.x;
       d.prop.y = d.y;
+      if (d.fig) this.tripDogAnim(d, dt, x0, y0, pose);
+    },
+    /** How the dog looks this frame, in 3D (d.fig): walking or galloping by its speed (DOG.gallop: keeping up with you
+        it gallops), sitting or standing turned to you when you are in sight (its head on you, the tail going), else as
+        it was. */
+    tripDogAnim(d, dt, x0, y0, pose) {
+      const f = d.fig;
+      const p = this.player;
+      const speed = dt > 0 ? Math.hypot(d.x - x0, d.y - y0) / dt : 0;
+      const moving = pose === "walk";
+      const see = p && Math.hypot(p.x - d.x, p.y - d.y) <= DOG.far && this.lineClear(d.x, d.y, p.x, p.y);
+      f.want = !moving && see ? Math.atan2(p.y - d.y, p.x - d.x) : null;
+      f.wantPose = pose;
+      f.wantRun = moving ? Math.max(0, Math.min(1, (speed - DOG.gallop[0]) / DOG.gallop[1])) : 0;
+      f.wantWag = see ? (d.follow ? 0.8 : 0.6) : 0.4;
+      f.lookX = see ? p.x : null;
+      f.lookY = see ? p.y : null;
+      this.figStep(f, dt, x0, y0, d.x, d.y);
     },
     /** The dog leaves the scene (its quest was given up): its picture goes. */
     dropTripDog() {

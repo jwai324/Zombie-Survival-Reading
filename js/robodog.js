@@ -7,7 +7,10 @@
    purpose: they chase you, and bite it only when it is in their reach and you are not.
    Hooks: js/yard.js (enterYard, dressYard, yardUpdate, the wave's end) and js/building.js (on entry, buildingUpdate)
    call roboEnter, roboDress, roboUpdate and roboHomeWords. Art: "roboDog" and "zapSpark" (js/crossart.js). It walks
-   by the following dog's rules (dogSpot, dogBlocked, dogClear in js/building.js), with the player's solid tiles. */
+   by the following dog's rules (dogSpot, dogBlocked, dogClear in js/building.js), with the player's solid tiles.
+   In 3D (js/beast3d.js loaded) it is a live figure, Beast3D's "robodog", drawn with the walkers (prop.fig, js/interior.js
+   figStep): it trots and gallops by its speed, sits turned to you, turns to the walker it zaps, flashes when bitten and
+   powers down ("off"); its spark stays a flat sprite. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -31,6 +34,8 @@
     spark: 0.25, // seconds the spark stays on the walker it hit
   };
   const BITE_PAD = 0.2; // tiles past a walker's reach that still reach Rivet (its body)
+  const RUN = [1.2, 1.8]; // in 3D, its gallop by its speed: none at 1.2 tiles a second, all of it 1.8 faster
+  const HIT_FLASH = 0.15; // seconds a bite's flash shows on it (3D)
   const scale = (k) => (ZSR.CROSS_ART && ZSR.CROSS_ART.scale && ZSR.CROSS_ART.scale[k]) || { roboDog: 0.34, zapSpark: 0.32 }[k];
   const ROBO = () => Object.assign({ name: "Rivet", hp: 60, zapEvery: 1.8, zapRange: 4.5, zapDamage: 6, slow: 0.5, slowSeconds: 1.6, repairScrap: 20 }, W().ROBO || {});
   const on = (mode) => mode === "yard" || mode === "building";
@@ -65,17 +70,26 @@
       const p = this.player;
       if (!p) return null;
       const [x, y] = this.dogSpot ? this.dogSpot() : [p.x, p.y];
-      const r = { x, y, pose: null, f: 0, ft: 0, left: false, moving: false, stuck: 0, zapT: ROBO().zapEvery, zapPose: 0, sparkT: 0, prop: null, spark: null };
-      r.prop = this.addProp({ x, y, img: null, scale: scale("roboDog"), lift: 0, robo: true });
+      const r = { x, y, pose: null, f: 0, ft: 0, left: false, moving: false, stuck: 0, zapT: ROBO().zapEvery, zapPose: 0, sparkT: 0, zapAt: null, prop: null, spark: null, fig: null };
+      r.fig = this.liveFigure ? this.liveFigure("beast", "robodog", 11, Math.atan2(p.y - y, p.x - x)) : null;
+      r.prop = this.addProp(r.fig ? { x, y, fig: r.fig, lift: 0, robo: true } : { x, y, img: null, scale: scale("roboDog"), lift: 0, robo: true });
       r.spark = this.addProp({ x, y, img: D3() ? D3().sprite("zapSpark", {}) : null, scale: scale("zapSpark"), lift: 0.45, hidden: true });
       this.robo = r;
       this.roboLook(S.roboOn() ? "sit" : "off", 0, false);
+      if (r.fig) r.fig.pose = r.fig.wantPose = r.pose; // (as it was left: no easing into it)
       return r;
     },
-    /** Its picture (f exactly 0 or 1; left only when true: one cached canvas per opts set). */
+    /** Its picture (f exactly 0 or 1; left only when true: one cached canvas per opts set). A live 3D figure keeps the
+        names only (roboAnim draws the pose). */
     roboLook(pose, f, left) {
       const r = this.robo;
       const ff = f ? 1 : 0;
+      if (r.fig) {
+        r.pose = pose;
+        r.f = ff;
+        r.left = !!left;
+        return;
+      }
       if (r.prop.img && r.pose === pose && r.f === ff && r.left === !!left) return;
       r.pose = pose;
       r.f = ff;
@@ -90,16 +104,17 @@
       r.ft += dt;
       r.sparkT = Math.max(0, r.sparkT - dt);
       r.spark.hidden = r.sparkT <= 0;
+      const p = this.player;
+      const x0 = r.x;
+      const y0 = r.y;
       if (!S.roboOn()) {
         // shut down: it lies where it fell (at home, until Tomas fixes it)
         this.roboLook("off", 0, r.left);
         r.prop.x = r.x;
         r.prop.y = r.y;
+        if (r.fig) this.roboAnim(r, dt, x0, y0);
         return;
       }
-      const p = this.player;
-      const x0 = r.x;
-      const y0 = r.y;
       const dist = Math.hypot(p.x - r.x, p.y - r.y);
       const clear = this.dogClear ? this.dogClear(r.x, r.y, p.x, p.y) : true;
       if (!r.moving && dist > MOVE.start) r.moving = true;
@@ -141,6 +156,23 @@
       this.roboLook(pose, f, left);
       r.prop.x = r.x;
       r.prop.y = r.y;
+      if (r.fig) this.roboAnim(r, dt, x0, y0);
+    },
+    /** How Rivet looks this frame, in 3D (r.fig): its pose (roboLook's name), a trot or a gallop by its speed (RUN),
+        turned to the walker it zaps, else at rest to you (its head on you while you are near); shut down, still. */
+    roboAnim(r, dt, x0, y0) {
+      const f = r.fig;
+      const p = this.player;
+      const speed = dt > 0 ? Math.hypot(r.x - x0, r.y - y0) / dt : 0;
+      const pose = r.pose || "sit";
+      const at = pose === "zap" && r.zapAt ? r.zapAt : pose !== "off" && pose !== "walk" && p ? [p.x, p.y] : null;
+      f.want = at ? Math.atan2(at[1] - r.y, at[0] - r.x) : null;
+      f.wantPose = pose;
+      f.wantRun = pose === "walk" ? Math.max(0, Math.min(1, (speed - RUN[0]) / RUN[1])) : 0;
+      f.wantWag = pose === "off" ? 0 : 0.6;
+      f.lookX = at ? at[0] : null;
+      f.lookY = at ? at[1] : null;
+      this.figStep(f, dt, x0, y0, r.x, r.y);
     },
     /** Zap the nearest awake walker within range, in a clear line (never the tutorial's practice walker): a little
         harm (the kill counts as yours), and it slows for a while (stepWalker reads slowT and slowMul). */
@@ -163,7 +195,10 @@
         return;
       }
       r.zapT = R.zapEvery;
-      r.zapPose = MOVE.zapPose;
+      // in 3D the zap holds long enough to ease out of a sit, into the zap and through one zap (Beast3D's timings)
+      const B = r.fig && ZSR.Beast3D;
+      r.zapPose = B && B.POSE_SECS ? Math.max(MOVE.zapPose, 2 * (B.POSE_BLEND || 0.2) + (B.POSE_SECS.zap || 0.3)) : MOVE.zapPose;
+      r.zapAt = [best.x, best.y]; // (in 3D it turns to it)
       best.slowT = R.slowSeconds;
       best.slowMul = R.slow;
       this.hurtWalker(best, R.zapDamage, r);
@@ -184,6 +219,7 @@
         if (Math.hypot(z.x - p.x, z.y - p.y) < reach) return; // it is biting you
         z.cool = 1.1;
         z.biteT = 0.35;
+        if (r.fig) r.fig.hit = HIT_FLASH; // (in 3D a bite's flash)
         if (S.cheat && S.cheat("noDie")) return; // god mode: nothing gives
         if (S.roboBite(z.dmg || 10)) {
           this.roboLook("off", 0, r.left);

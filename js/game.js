@@ -2404,14 +2404,16 @@
     },
 
     /** The title screen's picture (js/main.js, its loop asks every frame) and the garage's preview of the van
-        (js/base.js, once): the van in these upgrades on the angled road, two walkers coming, taking turns through
-        every kind in the facts every SHOWCASE_SECS (the still preview, t 0: the first two). A still scene through the
-        road's camera (js/perspective.js showcase), drawn again only when what it shows changes. */
-    showcase(canvas, upgrades, t) {
+        (js/base.js garageVan: as the tab opens and as a look is tried on): the van in these upgrades on the angled
+        road, two walkers coming, taking turns through every kind in the facts every SHOWCASE_SECS (the still preview,
+        t 0: the first two). A still scene through the road's camera (js/perspective.js showcase), drawn again only
+        when what it shows changes. o (the garage's): view ("garage": the camera turned round to the van's front-left)
+        and dent (its dents now, Van3D.dentNow). */
+    showcase(canvas, upgrades, t, o) {
       const ids = Object.keys(World().WALKER_TYPES);
       const turn = Math.floor((t || 0) / SHOWCASE_SECS);
       const kinds = [ids[turn % ids.length], ids[(turn + 1) % ids.length]];
-      return ZSR.Persp.showcase(canvas, { upgrades, kinds, seed: turn });
+      return ZSR.Persp.showcase(canvas, { upgrades, kinds, seed: turn, view: o && o.view, dent: o && o.dent });
     },
 
     DIFF,

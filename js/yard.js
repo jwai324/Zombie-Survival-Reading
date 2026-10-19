@@ -7,7 +7,10 @@
    Yard legend (WORLD.YARD.grid): T treeline  F fence segment  V the van  P player start
    z walker spawn (outside the fence), and the cabin's own legend (WORLD.HOUSE).
    The plots are WORLD.YARD.plots; the textures and sprites named below are drawn in
-   yardart.js (the van and the gun in sprites3d.js read the upgrades themselves). The crew who live
+   yardart.js (the gun in sprites3d.js reads the upgrades itself; the van is the road's 3D van, Van3D, stood on its
+   tiles by js/modelsprite.js, and redraws itself when its paint, gear or dents change). Every prop, sign and plaque
+   whose art has a 3D model (js/yardmodels.js) is drawn as it, turned with its plot (modelProps, after dressYard put
+   them up); a blinking beacon is its model on and off (the prop's dim). The crew who live
    here (wandering, the shelter in a wave, their jobs, the talk bubble, the dog) are js/crew.js: this
    file calls crewEnter, crewDress, crewUpdate, crewWave, crewFacing, crewInteract and crewHint.
    June's first-run tutorial (js/tutorial.js) watches the yard from yardUpdate; while it sets this.yardHold the
@@ -25,6 +28,12 @@
   const W = () => ZSR.WORLD;
   const rand = (a, b) => a + Math.random() * (b - a);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  /** One entry of [[item, weight, ...], ...], picked by weight. */
+  const pickWeighted = (list) => {
+    let r = Math.random() * list.reduce((s, e) => s + e[1], 0);
+    for (const e of list) if ((r -= e[1]) < 0) return e;
+    return list[list.length - 1];
+  };
   /** The list in a random order (in place). */
   const shuffle = (list) => {
     for (let i = list.length - 1; i > 0; i--) {
@@ -38,12 +47,35 @@
   // name signs and plaques grow with the text size setting like all text the player must read (building.js
   // does the same), so Large and Huge can still read them from the cabin door
   const SIGN_SCALE = { normal: 1, large: 1.3, huge: 2 };
+  // SCALE: the lot sign stands solid across this many tiles of its lot's front row (odd; a narrower lot: one), its
+  // board as wide as the 3D sign's own (js/yardmodels1.js ySign board.wide) and never past its foot less
+  // LOT_SIGN_MARGIN tiles (so at Huge its posts still stand on it): the names read as big as the old sprite's
+  const LOT_SIGN_FOOT = 3;
+  const LOT_SIGN_MARGIN = 0.15;
+  const LOT_SIGN_SCALE = 1.2; // the lot sign's prop scale at the normal text size (SIGN_SCALE grows it)
   const OPP = { n: "s", s: "n", e: "w", w: "e" };
+  // the way a plot's front faces (the world's angles: 0 east, PI / 2 south): its props' 3D models face it (js/yardmodels.js)
+  const FRONT = { e: 0, s: Math.PI / 2, w: Math.PI, n: -Math.PI / 2 };
   const LEFT = { s: "w", n: "e", e: "s", w: "n" }; // your left hand as you face a plot's front from outside
   const SIDE_BIT = { n: 1, e: 2, s: 4, w: 8 };
   const N4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
   const CABIN_CUE_SECS = 20; // seconds between "Walkers are waiting in the cabin" while they hold a wave open
   const CABIN_LABEL = " · walkers in the cabin"; // the wave label's tail while walkers stand in the cabin, out of sight
+  // the farm's animals (b.flock): their speed in tiles a second, how long they rest at a spot, and in 3D (a live
+  // Beast3D figure: js/beast3d-looks2.js) their type and what they do at rest: [pose, weight, seconds]. A one-shot
+  // (Beast3D's pose shorter than its loop: the bleat) plays once and then they stand; a looping pose given seconds (the
+  // flap) plays that long. Without Beast3D's farm looks they stay the 2D sprites.
+  // SCALE: a new farm animal is a row here and a Beast3D look (with its sprite art for the fallback)
+  const ANIMALS = {
+    yGoat: { type: "goat", speed: 0.35, rest: [2.5, 7], idle: [["graze", 6], ["stand", 3], ["bleat", 1]] },
+    yChicken: { type: "chicken", speed: 0.45, rest: [1.5, 5], idle: [["peck", 6], ["stand", 3], ["sit", 1.5], ["flap", 0.6, 1.4]] },
+  };
+  const ANIMAL_TURN = 0.6; // radians: a spot farther round than this, a 3D animal turns to it before it sets off
+  // SCALE: frames: a 3D animal's picture is redrawn at most this often (15 a second at 60; its place on screen moves
+  // every frame). Five of them near you redrew 4 pictures a frame, half again the yard's render time on a software
+  // canvas; a bigger farm may want it higher
+  const ANIMAL_EVERY = 4;
+  const ANIMAL_LOOK = 2.5; // tiles: you this close, a 3D animal standing at rest looks at you
 
   /** A wall face from yardart's "yWall": material, base color, feature (window, door ...), sign slice, part of a wide feature. */
   const wall = (m, c, f, s, p) => {
@@ -62,7 +94,8 @@
      front, v from the front row (0) to the back (b.D - 1). b.box (opaque, with an optional gabled
      roof), b.low (see-through and solid, shoot-over), b.prop (sprites; solid ones block their tile)
      and b.floor. Every level leaves room to walk around it, and its front-left tile for the name plaque
-     unless it moves the plaque (b.plaque = [U, V]). */
+     unless it moves the plaque (b.plaque = [U, V]). A prop whose art has a 3D model (js/yardmodels.js) is drawn
+     as it, facing the plot's front (its `turn`, radians, turns it from there: toward the plot's left at PI / 2). */
   const BUILDS = {
     garage: [
       // a lean-to tool shed, a workbench and a stack of tires
@@ -201,7 +234,7 @@
         b.low(1, 1, 1, 1, { h: 5.2, tex: { name: "yTower", opts: { n: 7 } } });
         b.prop(1.5, 1.5, "yGuys", null, { scale: 5.2 });
         b.prop(1.5, 0.95, "yDish", null, { scale: 0.7, lift: 2.1 });
-        b.prop(0.95, 1.5, "yDish", null, { scale: 0.55, lift: 3.5 });
+        b.prop(0.95, 1.5, "yDish", null, { scale: 0.55, lift: 3.5, turn: Math.PI / 2 }); // (on the tower's left face, facing out)
         b.prop(1.5, 1.5, "yWhip", null, { scale: 1.3, lift: 5.2 });
         b.anim(b.prop(1.5, 1.5, "yBeacon", null, { scale: 0.3, lift: 5.15 }), "blink");
         b.anim(b.prop(1.5, 0.92, "yBeacon", null, { scale: 0.24, lift: 2.9 }), "blink");
@@ -341,13 +374,19 @@
           face: (iu, iv, side) => (side === "front" ? (iu === 1 ? wall("metal", M, "door", { t: "LAB", i: 0, n: 1, lit: 1 }) : wall("metal", M, "winLab")) : side === "back" ? wall("metal", M) : null),
           roof: { ridge: 1.45, tex: "yRoofMetal", gable: "yGableMetal" },
         });
-        b.prop(2.8, 1.8, "yVent", null, { scale: 0.6, lift: 1.25 });
+        // on the roof's ridge (1.45 there; its pipe's foot 1.43 at its sides): what stands on a roof shows above the
+        // roof's outline, and the ridge is where a vent shows whole from the yard and from behind
+        b.prop(2.8, 2.0, "yVent", null, { scale: 0.6, lift: 1.43 });
         b.prop(3.5, 0.5, "yLamp", null, { scale: 1.6, solid: true, cover: false });
       },
     ],
   };
 
   Object.assign(ZSR.Interior, {
+    ANIMALS, // (the farm's animals and how far round a spot turns them first, and the signs' sizes by the text size:
+    ANIMAL_TURN, // read by tests/validate-engine.js)
+    SIGN_SCALE,
+    LOT_SIGN_SCALE,
     enterYard(opts) {
       const S = State();
       const Y = W().YARD;
@@ -383,6 +422,8 @@
         }
       }
       this.fenceMax = fenceHp;
+      // the van on its tiles: one Van3D model, the road's van (js/modelsprite.js); the tiles stay solid and opaque
+      if (this.addVanModel) this.addVanModel(this.vanTiles);
       this.yardInside = this.yardInsideMask(Math.floor(start[0]), Math.floor(start[1]));
       this.makePlayer(start[0], start[1], start[2]);
       this.houseLoad(); // the cabin: its doors, windows and roof (js/house.js)
@@ -437,8 +478,10 @@
       Object.entries(Y.plots).forEach(([room, plot]) => this.buildPlot(room, plot, (S.save.rooms[room] || 0) | 0));
       this.crewDress(); // the crew and the dog are props too: back in the scene (js/crew.js)
       if (this.roboDress) this.roboDress();
+      // every prop and sign with a 3D model stands as it, the porch's too; one put up the same keeps its picture
+      if (this.modelProps) this.modelProps();
       this.maskDirty = true;
-      this.refreshScene(); // the van's paint and gear may have changed too
+      this.refreshScene(); // the textures and lookups this rebuild changed (the van redraws itself: js/modelsprite.js)
       this.yardFenceLook(walls);
       this.wreckSpotsBuild(); // where wreckers stand to claw each build and the van (js/yardwreck.js)
     },
@@ -477,7 +520,11 @@
         }
         // stakes at the front corners only: the back ones are hardly seen, and every sprite costs a little each frame
         [[0.14, 0.14], [b.W - 0.14, 0.14]].forEach(([U, V]) => b.prop(U, V, "yStake", null, { scale: 0.3 }));
-        const sign = b.prop(Math.floor(b.W / 2) + 0.5, 0.5, "ySign", { t: name.toUpperCase() }, { scale: 1.2 * k, solid: true });
+        // the sign: in 3D a wide board on two posts across the middle of the front row (LOT_SIGN_FOOT tiles, solid), as
+        // the sprite's was wide on screen; the sprite alone (no model) blocks its one tile as it always did
+        const scale = LOT_SIGN_SCALE * k;
+        const board = this.lotSignBoard(scale, b.W);
+        const sign = b.prop(Math.floor(b.W / 2) + 0.5, 0.5, "ySign", Object.assign({ t: name.toUpperCase() }, board ? { w: board.w } : null), { scale, solid: true, foot: board ? [board.foot, 1] : undefined });
         this.lots.push({ room, x: sign.x, y: sign.y });
         return;
       }
@@ -493,10 +540,26 @@
       if (b.dmg === 2) this.wreckDebris(room, plot, plaque);
     },
 
+    /** The lot sign's 3D board at this scale on a lot W tiles wide: { foot: the tiles it stands across (LOT_SIGN_FOOT, or
+        one on a narrower lot), w: its board's width in units (the model's own, never past its foot less LOT_SIGN_MARGIN:
+        at Huge its posts still stand on it) }, or null without the sign's model (the sprite stands on its one tile). */
+    lotSignBoard(scale, W) {
+      const YM = ZSR.YardModels;
+      const d = YM && YM.def("ySign");
+      const wide = d && d.board && d.board.wide;
+      if (!wide) return null;
+      const foot = W >= LOT_SIGN_FOOT ? LOT_SIGN_FOOT : 1;
+      return { foot, w: Math.floor(Math.min(wide, (foot - LOT_SIGN_MARGIN) / scale) * 100) / 100 };
+    },
+    /** The way a plot's front faces, as a world angle (0 east, PI / 2 south): its props' 3D models face it. */
+    plotFront(plot) {
+      return FRONT[plot.face] != null ? FRONT[plot.face] : FRONT.s;
+    },
     /** A plot's local frame (see BUILDS): u left to right as you face its front, v from the front row back. */
     plotFrame(room, plot) {
       const I = this;
       const { x, y, w, h, face } = plot;
+      const front = this.plotFront(plot);
       const side = face === "e" || face === "w";
       const Wl = side ? h : w;
       const Dl = side ? w : h;
@@ -554,12 +617,13 @@
           for (let v = v0; v < v0 + vd; v++) for (let u = u0; u < u0 + uw; u++) I.addLow(...tile(u, v), def);
           return def;
         },
-        /** A sprite at continuous local (U, V); o: { scale, lift, solid, foot: [w, d] in local tiles, cover, wide }. */
+        /** A sprite at continuous local (U, V); o: { scale, lift, solid, foot: [w, d] in local tiles, cover, wide, turn }.
+            Its turn (`rot`) is the plot's front's, and o.turn more: a 3D model of its art faces that way. */
         prop(U, V, art, opts, o) {
           const [px, py] = at(U, V);
           const foot = o && o.foot ? (side ? [o.foot[1], o.foot[0]] : o.foot) : undefined;
           const sopts = this.dmg && !(o && o.whole) ? Object.assign({}, opts, { dmg: this.dmg }) : opts;
-          const p = Object.assign({ x: px, y: py, art, opts: sopts || undefined }, o || {}, { foot });
+          const p = Object.assign({ x: px, y: py, art, opts: sopts || undefined }, o || {}, { foot, rot: front + ((o && o.turn) || 0) });
           if (!p.foot) delete p.foot;
           return I.addProp(p);
         },
@@ -572,20 +636,28 @@
           I.yardAnims.push({ p, kind, t: Math.random() });
           return p;
         },
-        /** n animals pecking and wandering inside a local box [u0, v0, u1, v1] (they stand in a pen or run). */
+        /** n animals pecking and wandering inside a local box [u0, v0, u1, v1] (they stand in a pen or run). In 3D each
+            is a live figure (prop.fig) on its sprite's prop, which stays the fallback. */
         flock(art, n, box, scale) {
           const [u0, v0, u1, v1] = box;
+          const A = ANIMALS[art];
           for (let i = 0; i < n; i++) {
             const U = u0 + ((i + 0.5) / n) * (u1 - u0);
             const V = v0 + (i % 2 ? 0.65 : 0.35) * (v1 - v0);
             const p = this.prop(U, V, art, { f: 0 }, { scale, whole: true }); // the animals are never cracked
-            I.yardAnims.push({ p, kind: "wander", art, at, U, V, box, tU: U, tV: V, t: Math.random() * 2, f: 0, ft: Math.random() });
+            const fig = A && I.liveFigure ? I.liveFigure("beast", A.type, 17 + I.yardAnims.length * 29, Math.random() * Math.PI * 2) : null;
+            if (fig) {
+              fig.every = ANIMAL_EVERY;
+              p.fig = fig;
+            }
+            I.yardAnims.push({ p, kind: "wander", art, at, U, V, box, tU: U, tV: V, t: Math.random() * 2, f: 0, ft: Math.random(), rest: true, idle: "stand", oneT: 0 });
           }
         },
       };
     },
 
-    /** Animated props: blinking lights, chickens and goats wandering about their pens. */
+    /** Animated props: blinking lights, chickens and goats wandering about their pens (in 3D live figures, ANIMALS:
+        resting at a spot in a pose of theirs, getting up and turning to the next spot before they walk to it). */
     yardAnimate(dt) {
       const list = this.yardAnims;
       if (!list || !list.length) return;
@@ -598,18 +670,68 @@
           }
           continue;
         }
-        // wander: walk toward a spot in the pen, stop, peck, pick another
-        const sp = a.art === "yGoat" ? 0.35 : 0.6;
+        // wander: rest a while at a spot (pecking, grazing), then walk to another in the pen
+        const A = ANIMALS[a.art] || { speed: 0.6, rest: [1, 3.5], idle: [["stand", 1]] };
+        const fig = a.p.fig;
         const du = a.tU - a.U;
         const dv = a.tV - a.V;
         const d = Math.hypot(du, dv);
+        const x0 = a.p.x;
+        const y0 = a.p.y;
         if (d > 0.04) {
-          a.U += (du / d) * Math.min(d, sp * dt);
-          a.V += (dv / d) * Math.min(d, sp * dt);
+          // in 3D it gets up and turns to the spot before it sets off, so it never slides or walks sideways
+          let go = true;
+          if (fig) {
+            fig.wantPose = "walk";
+            if (this.figPosed(fig)) {
+              // up first (sitting, grazing, pecking): the turn comes once it stands
+              fig.want = null;
+              go = false;
+            } else {
+              const [tx, ty] = a.at(a.tU, a.tV);
+              fig.want = Math.atan2(ty - y0, tx - x0);
+              go = Math.abs(Math.atan2(Math.sin(fig.want - fig.heading), Math.cos(fig.want - fig.heading))) < ANIMAL_TURN;
+            }
+          }
+          if (go) {
+            a.U += (du / d) * Math.min(d, A.speed * dt);
+            a.V += (dv / d) * Math.min(d, A.speed * dt);
+          }
+        } else if (!a.rest) {
+          // there: rest a while, doing one of its things
+          const [pose, , secs] = pickWeighted(A.idle);
+          a.rest = true;
+          a.t = rand(A.rest[0], A.rest[1]);
+          a.idle = pose;
+          // a one-shot plays once: its own length, less the ease back out (held longer, its loop starts it over)
+          const B = fig && this.figRenderer(fig);
+          const once = B && B.POSE_SECS && B.POSE_SECS[pose] < (B.LOOP_SECS || 1.2);
+          a.oneT = once ? Math.max(0.1, B.POSE_SECS[pose] - (B.POSE_BLEND || 0.2)) : secs || 0;
+          if (fig) fig.vx = fig.vy = 0; // it stops where it stands: no turn left over from the walk while it settles
         } else if (a.t <= 0) {
+          a.rest = false;
           a.tU = rand(a.box[0], a.box[2]);
           a.tV = rand(a.box[1], a.box[3]);
-          a.t = rand(1, 3.5);
+        }
+        const [x, y] = a.at(a.U, a.V);
+        a.p.x = x;
+        a.p.y = y;
+        if (fig) {
+          if (a.rest) {
+            // a one-shot (a bleat, a flap) plays once, then it stands; standing, it looks at you when you are near
+            if (a.oneT > 0 && (a.oneT -= dt) <= 0) a.idle = "stand";
+            const p = this.player;
+            const near = a.idle === "stand" && p && Math.hypot(p.x - x, p.y - y) < ANIMAL_LOOK;
+            fig.want = null;
+            fig.wantPose = a.idle;
+            fig.lookX = near ? p.x : null;
+            fig.lookY = near ? p.y : null;
+          } else {
+            fig.lookX = fig.lookY = null;
+          }
+          fig.wantRun = 0;
+          this.figStep(fig, dt, x0, y0, x, y);
+          continue;
         }
         a.ft -= dt;
         if (a.ft <= 0) {
@@ -617,9 +739,6 @@
           a.f = a.f ? 0 : 1;
           a.p.img = D3().sprite(a.art, { f: a.f });
         }
-        const [x, y] = a.at(a.U, a.V);
-        a.p.x = x;
-        a.p.y = y;
       }
     },
 

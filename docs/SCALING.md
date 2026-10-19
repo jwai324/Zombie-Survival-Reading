@@ -143,6 +143,10 @@ looks different. A near full-detail figure costs 2-4 ms on a software canvas (ab
 - A heavy yard wave has no cap (`DEFENSE.manyCount`: 7 + day + waves held). A heavy wave of 30 measured
   1.05x the old sprites' render time because most of it is far away (lod 2); dozens near you at once
   through one breach is the case to watch.
+- The crew, the dog and Rivet are live figures in the same pool (`prop.fig`, `js/interior.js` `figSprite`): they
+  count against `LIVE_RENDERS_MAX`, `LIVE_NEAR` and `LIVE_LEVELS` with the walkers, and the governor counts frames
+  with only the crew on screen. A crew member up close costs about 14 to 18% more render (a wide 3D picture); a much
+  bigger crew wants the drawn area reported so the transparent part is not pasted.
 - `FALLEN_MAX` (24) and `BLOOD_MAX` (200) in `js/interior.js`, `ROAD_FALLEN_MAX` (24) and
   `ROAD_PARTICLE_CAP` (400) in `js/game.js` cap the downed and the blood; past them the oldest go (the
   road skips a hit's blood instead).
@@ -278,6 +282,10 @@ missing. Growth rules:
 - **Room ids are permanent** for the yard too: `save.builds` (each room build's strength left; no key
   = whole, 0 = wrecked) keys on them. `upgradeSave` drops a key for a room with no plot or not built,
   and a value that is not a number from 0 to the build's strength.
+- **Paint looks are append-only.** `upgrades.paint` is the index of the `PAINT_LOOKS` look a save
+  wears and `upgrades.paintOwned` the indexes it bought (an older save at paint k is filled to own 0
+  to k). Reordering or removing a look repaints old vans and changes what they own; add a look at the
+  end (see "Still 3D models" below).
 - **Keep every `z` tile in a layout.** Walker rules name a building's `z` tiles by reading-order index
   (`NOTES[id].walkers`, `z: [1]`), so moving or removing one shifts what a rule points at (validate-world
   R4 checks each anchor still sits in its zone, by the landmark its note names).
@@ -454,6 +462,93 @@ searches and when matters more than how fast one search is.
 7. `npm test`. God mode's Spawn walker, the title screen, the alarm, the waves, the river and the road
    pick the new kind up from the table.
 
+## People and animals in 3D (the crew, the dogs, the farm's animals)
+
+- `js/walker3d.js` `CC_N` 32768: colour strings walkers and people share (people about double them).
+- People: `Walker3D.addHuman` looks in `js/walker3d-crew.js`; a new crew member is an appended `walker3d-crew2.js`
+  (and `tests/validate-art.js` `WALKER_FILES`). `CREW_OPS` [700, 400, 200] and `CREW_COLOURS` 6000 there hold the
+  canvas calls and colours. A look's envelope samples about 400 poses at page load (about 27 ms a look).
+- `WALKER_FIXTURE` in `tests/validate-art.js` is the walkers' recorded draw-call hash: re-record it
+  (`--record-walkers`) only when walker art changes on purpose.
+- Animals: `js/beast3d.js` (`CC_N` 16384, `ENV_MAX` 24, `BLOB_MAX` 12 ellipsoids a fur body joins, `POSE_ENV_STEPS`:
+  how finely a quick loop like the wingbeat is sampled for the fit); looks in `js/beast3d-looks.js` (the dog, Rivet) and
+  `js/beast3d-looks2.js` (the goat, the hen), appended `beast3d-looks3.js` ... next; new poses are appended to `POSES`
+  (old indices never move). `tests/validate-art.js` `BEAST_FILES`, `BEAST_OPS` [450, 320, 170] (the goat uses 393 at
+  detail 0), `BEAST_H_MAX` 0.7 (the goat's box is 0.66), `BEAST_COLOURS` 5000 with `BEAST_RANDOM_DRAWS` 1200 a kind, and
+  a hash fixture of the dog's and Rivet's draws (re-record only when their art changes on purpose).
+- Yard models: `js/yardmodels.js` `YARD_OPS` [500, 260, 120] canvas calls a model may make at each detail (a model may set
+  its own: the two water tanks do); a new prop's model goes in an appended `yardmodels3.js`, registered by its sprite's
+  art name, with every opts set it is placed with in `def.opts` (validate-art draws them all, whole, cracked and wrecked).
+- The farm's hens and goats are live figures in the walkers' pool (`js/yard.js` `ANIMALS`: speed, rest, what they do at
+  rest; `b.flock` puts them up): a new farm animal is a row there, a Beast3D look in an appended `beast3d-looks3.js` and
+  its sprite art for the fallback. A full farm adds five figures to the pool (three hens, two goats): they count against
+  `LIVE_RENDERS_MAX`, `LIVE_NEAR` and `LIVE_LEVELS` like the crew, each redrawn at most every `ANIMAL_EVERY` (4) frames
+  (`fig.every`; looking over the pens is the yard's one view at the owner's 25% bar, so a bigger farm may want it
+  higher). Beast3D reports the box it drew in and only that is pasted; Walker3D does not yet (the crew and walkers paste
+  their whole pictures). The engine tests that load Beast3D list
+  `beast3d-looks2.js` too (validate-engine `WANT`, validate-crew `ENGINE`, validate-drive, validate-scenery).
+
+## Still 3D models (the van, the yard's props, signs, plaques and porch)
+
+`js/model3d.js` draws models of convex parts; `js/van3d.js` is the van on it; `js/modelsprite.js`
+stands models in the first-person view (`this.models`, one instance each: kind, position, turn,
+scale, footprint, tiles, `mesh()`, and an optional `core`: the model-unit box a moved eye maps the old
+picture through; a model with parts sticking out past its body, like the van's plow wings and mirrors,
+passes one).
+
+A prop with a turn (`rot`) whose art `js/yardmodels.js` has is drawn as that model (`Interior.modelProps`, run at the
+end of `dressYard`; a model that will not build leaves its prop the sprite, said once). A new yard prop: its sprite art
+name, a model in an appended `js/yardmodels3.js` with `def.opts` listing every opts set it is placed with (the lot
+sign's board widths at Large and Huge are listed there), and the placer gives it its turn (`plotFrame.prop` does: the
+plot's front plus `o.turn`). A full yard stands about 38 prop models, 11 to 17 in view; a model out of the view costs
+one circle test, and `modelHides` / `modelCovers` ask only the strips over a column (40 to 100 strips a frame standing,
+up to about 470 walking close past builds).
+
+### `SCALE:` spots for models
+
+- `js/model3d.js` `MAX_V` 64 (corners a face or a decal may have), `MESH_KEEP` 128 (built models
+  kept: every look x gear x dents of the van is one, and every yard model's look and damage), `COLOURS_MAX` 8192 (colour
+  strings kept).
+- `js/modelsprite.js` `MODEL_KEEP_PX` (256 x 256: a picture this small is kept while its model is out of view) and
+  `MODEL_POOL_PX` (6M px, 24 MB: every model picture together; past it the longest unused go). A yard two or three
+  times bigger (100 or more prop models) keeps its far props' small pictures within it.
+- `js/yard.js` `LOT_SIGN_FOOT` 3: a lot sign's solid width in its front row (a narrower lot gets one).
+- `js/modelsprite.js`:
+  - `MODEL_MARGIN` 0.16 rad drawn past each side of the view (small turns need no redraw);
+  - `MODEL_STRIP` 8 columns a strip spans at most;
+  - `MODEL_DRIFT_PX` 12, `MODEL_ANGLE_MIN` 2 and `MODEL_ANGLE_MAX` 10 degrees: the step round a
+    model that redraws it (the owner's "about 10 degrees", finer for a big picture);
+  - `MODEL_LOD_PX` [80, 32] px: on-screen heights for detail 0 and 1;
+  - `MODEL_STEP` 64 px canvas growth, `MODEL_SPARE` 2 spare canvases;
+  - `MODEL_RENDERS_MAX` 2 redraws a frame and `MODEL_MAX_PX` 640 on the governor's starting row;
+    `MODEL_LEVELS` has one row per `LIVE_LEVELS` row (validate-engine checks the counts match). Many
+    models in view (the yard's props) mean more redraws waiting: watch the walk-round redraw count
+    and the `modelStats` probe before raising the cap;
+  - `MODEL_RUNS` 8 opaque runs kept per picture column and `MODEL_OPAQUE` 200 (the alpha that hides
+    what is behind; the contact shadow's does not): the picture's outline, read back once per redrawn
+    picture and only when a walker stands behind it, for its health bar and to skip drawing a walker
+    the model hides. A model with more parts stacked in one column may want more runs.
+- `tests/validate-art.js` `VAN_OPS` [1450, 700, 350]: the most canvas calls the van may make at
+  detail 0 / 1 / 2 from any view with all its gear (the road draws it every frame; Convoy Red from above
+  is at 1447, 6 of them the gun's middle barrel's root). A new decal or gear piece must fit, or go to
+  detail 0 only. `VAN_DECAL_AREA` (the smallest decal area on the roof and the back doors) and
+  validate-engine's `ROAD_DECAL` 1.5% (the share of the van a look's decal must cover from the road
+  camera, bare and under full armor) and `ROAD_DECAL_TOP` 1% (with every upgrade at its top: Olive Drab
+  is least at 1.1%) hold every look readable from behind. The upgrade tests read every bound from
+  `Upgrades.DEFS[k].max`, so a new level that draws nothing new fails.
+
+### Add a paint look
+
+1. Append a row to `PAINT_LOOKS` in `js/upgrades.js` (name, body, roof, trim, bumper, rims, decal,
+   decalA, decalB, cost, tier). `DEFS.paint` reads its `max` and `costs` from the rows.
+2. A new decal kind: its designs in `js/van3d.js` `DECALS` (both sides, the hood, the roof, the
+   back and the front, its front part over the bumper since the grille and lamps leave little paint; validate-art reads the kinds from `Van3D.DECAL_KINDS`), a branch in `js/sprites.js` `decal()`
+   (the map icon), a branch in `js/base.js` `paintChip` (the Garage swatch; without one it shows a plain
+   band), words in `js/base.js` `DECAL_WORDS`, and the kind in `tests/validate-world.js` `DECALS`.
+   The look's name is appended to `tests/validate-world.js` `SAVED_LOOKS` (looks are pinned to their
+   index: any price is allowed, but never insert or reorder).
+3. The paint card is a row of pictures: past about ten looks it wants a second row or a scroll.
+
 ## The crossover universes
 
 `docs/UNIVERSES.md`. A third universe is facts and words, not engine work: a `js/story-<u>.js` that adds
@@ -487,7 +582,10 @@ quests or errands need facts and words, not engine changes, within these limits.
 - **A new item** needs `one` and `many` count forms in `WORLD.ITEMS` (`tests/validate-crew.js`
   checks), used for rewards and the build tip.
 - **The yard.** Posts are hand-placed tiles: moving a plot, the van or a cabin room means
-  rechecking them (`npm test` does).
+  rechecking them (`npm test` does). Every post has a `face` and every sit post a `seat` (appended fields): moving a
+  chair, the porch bench or a bed means moving its seat, and `CREW_SEATS` (`js/story-crew.js`, one height per kind of
+  seat) must match the furniture (validate-world and validate-crew hold every seat to what stands under it). A new kind
+  of seat is an entry in `CREW_SEATS` and in `SEAT_ART` (`tests/validate-crew.js`).
 - `SCALE:` spots: `CREW_RULES.stars` (one entry per star), `requestsPerCrew` (one errand slot in the
   save), the `crew.read` list, the dog's trail lengths (`js/crew.js`, `js/building.js`), the walker
   look-ahead for Pip's tip (`js/crewstate.js`), `QUESTS_PER_PLACE`, and the How it works paragraph

@@ -88,7 +88,8 @@ never reveal a place on the map. A story quest is offered only once its building
 | `js/story-quests.js` | Facts: `QUESTS` (15 story quests, spots, rewards, perks), `DOG` |
 | `js/crewstate.js` | Save and trip state, rules, rewards, perks, text accessors (`ZSR.crewText`). Mixed into `ZSR.State`. Loads after `state.js` |
 | `js/state.js` | Small hook calls only: fresh save, upgrade, trip start, return home, day log, effects |
-| `js/crewart.js` | Art: the crew, the dog, portraits, quest objects. Loads after `sprites3d.js` |
+| `js/crewart.js` | Art: the crew, the dog, portraits, quest objects. Loads after `sprites3d.js`. Since 2026-10-18 the yard and cabin draw the crew and dog in 3D; these flat sprites are the fallback, the portraits stay |
+| `js/walker3d-crew.js`, `js/beast3d.js`, `js/beast3d-looks.js` | The crew's 3D looks on the walkers' rig (`Walker3D.addHuman`); the dog and Rivet on the four-legged rig. Colours read from js/crewart.js |
 | `js/crew.js` | Yard runtime, mixed into `ZSR.Interior`: wandering, shelter, jobs, raids, the talk bubble, lookout, the dog in the yard. Loads after `house.js` |
 | `js/yard.js`, `js/house.js`, `js/interior.js` | Hook calls into `crew.js`; REACH; the raider goal |
 | `js/building.js` | Quest objects and the dog inside buildings |
@@ -449,9 +450,28 @@ bubble open first pages through it ("Press E to read on"); the crew card's DOM i
 
 ## Engine contract (yard, cabin, UI)
 
-- `Interior.crew`: runtime list `[{ id, x, y, post, state, path, t, pose, f, prop, facing }]`
+- `Interior.crew`: runtime list `[{ id, x, y, post, state, path, t, pose, f, prop, facing, fig }]`
   plus `Interior.dog` once home. Built by `crewEnter()` from `enterYard`, re-added to props by
   `crewDress()` from `dressYard`, moved by `crewUpdate(dt)` from `yardUpdate`. Props are not solid.
+- In 3D (2026-10-18): a crew member's prop is `{ x, y, fig, lift: 0, crew }` (the dog's carries `dog`, Rivet's `robo`).
+  `fig` is a figure record from `Interior.liveFigure(kind, id, seed, heading)`: kind `"person"` (Walker3D's people,
+  `PERSON_H x CREW[id].scale` tall; js/walker3d-crew.js) or `"beast"` (a Beast3D type: `"dog"`, `"robodog"`).
+  `drawScene` draws it with the live walkers (`figSprite`, `figState`, `figDraw`): one canvas pool, one redraw cap, the
+  same near places (`LIVE_RENDERS_MAX`, `LIVE_NEAR`, `LIVE_LEVELS`), its canvas freed when the prop leaves the scene or
+  is hidden (`liveSweep`). Each frame the owner (`crewAnim` and `crewDogAnim` in js/crew.js, js/robodog.js,
+  js/building.js) sets what the figure wants: `want` (a heading, or null: the way it walks), `wantPose`, `wantRun`
+  (0..1), `wantWag` (animals), `lookX` / `lookY` (what the head turns to, null: ahead), `turnTo` (past the head's reach
+  the body turns too), `seat` (tiles), `job`, `hit`, `zb` (drawn this much nearer than it stands), and once, `every`
+  (frames: its picture redrawn at most this often; 0, the crew's, as often as it changes); then it calls
+  `figStep(f, dt, x0, y0, x, y)`, which eases the heading, gait, run, pose (out of the old one first) and head. A move
+  longer than `FIG_JUMP` (1.5 tiles) in one frame is a jump, not steps.
+- At a post the figure faces the post's `face`; sitting, it walks to the `seat`'s middle, turns to its `dir`, eases
+  into the sit pose at `CREW_SEATS[kind]` tiles and is drawn `zb` in front of the seat (0.05, a bed's edge 0.25); it
+  gets up before walking off. Talked to: the head first, the body past 0.95 rad, in the talk pose (a sitter stands to
+  talk). Waves: they run (`runSpeed`) to the shelter and cower facing its door; the dog gallops and lies low.
+  `crewHeadTop(c)` is the figure's head top as drawn now (lower seated): the bubble's tail (`--tail-top`) and the
+  tutorial's arrow use it. The portraits (`crewFace`) stay 2D.
+- Flat fallback (Walker3D's people or Beast3D not loaded: `liveFigure` returns null), as before 3D:
   Sprite: `D3().sprite("crew", { who, pose, f })` at scale `CREW[id].scale * CREW_ART.scale.crew`
   (0.95, a grown-up's prop scale; `PERSON_TOP` in js/crewart.js), lift 0, wide 0.75; f is exactly 0 or 1 (every opts set is a cached
   canvas). Dog: `D3().sprite("crewDog", { pose, f })` (pose stand | walk | sit | bark; add

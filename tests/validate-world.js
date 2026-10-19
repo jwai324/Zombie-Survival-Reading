@@ -948,7 +948,36 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   if (crewOn) {
     const hw = W.HOUSE.grid[0].length;
     const yw = W.YARD.grid[0].length;
+    const yh = W.YARD.grid.length;
     const names = new Set();
+    // the 3D crew (js/crew.js): a point in the yard (`at`) or the cabin (`house`), fractions allowed, inside the yard
+    const [hax, hay] = W.HOUSE.at;
+    const fin = (v) => typeof v === "number" && Number.isFinite(v);
+    const inYard = (o) => {
+      const pt = o.at || o.house;
+      if (!Array.isArray(pt) || pt.length !== 2 || !fin(pt[0]) || !fin(pt[1])) return false;
+      const [x, y] = o.at ? pt : [hax + pt[0], hay + pt[1]];
+      return x >= 0 && y >= 0 && x <= yw && y <= yh;
+    };
+    // a post's face: what they turn to there (a point, a YARD plot, a HOUSE note)
+    const FACE_KEYS = ["at", "house", "plot", "note"];
+    const checkFace = (pc, f) => {
+      if (!f || typeof f !== "object") return err(`${pc}: needs a face (what they turn to there: { at | house: [x, y] } or { plot } or { note })`);
+      const keys = Object.keys(f);
+      if (keys.length !== 1 || !FACE_KEYS.includes(keys[0])) return err(`${pc}: face ${JSON.stringify(f)} wants exactly one of ${FACE_KEYS.join(", ")}`);
+      if ((f.at || f.house) && !inYard(f)) err(`${pc}: face ${JSON.stringify(f)} is not a point in the yard`);
+      if ("plot" in f && !(W.YARD.plots || {})[f.plot]) err(`${pc}: face.plot "${f.plot}" is not a YARD plot`);
+      if ("note" in f && !(W.HOUSE.notes || []).some((n) => n.id === f.note)) err(`${pc}: face.note "${f.note}" is not a HOUSE note`);
+    };
+    // a seat: where a sit post's crew member sits (the porch bench, a dining chair, a bed's edge), its kind and way
+    const SEATS = W.CREW_SEATS || {};
+    Object.entries(SEATS).forEach(([k, h]) => { if (!(fin(h) && h > 0 && h <= 0.6)) err(`CREW_SEATS.${k}: a seat's height in tiles, above 0 and at most 0.6 (${h})`); });
+    const checkSeat = (pc, s) => {
+      if (!s || typeof s !== "object") return err(`${pc}: seat must be { house | at, kind, dir }`);
+      if (!!s.at === !!s.house || !inYard(s)) err(`${pc}: seat ${JSON.stringify(s)} needs one point, at (the yard) or house (the cabin), inside the yard`);
+      if (!fin(SEATS[s.kind])) err(`${pc}: seat.kind "${s.kind}" is not a CREW_SEATS key (${Object.keys(SEATS).join(", ")})`);
+      if (!["n", "e", "s", "w"].includes(s.dir)) err(`${pc}: seat.dir "${s.dir}" (n, e, s or w: the way the sitter faces)`);
+    };
     crewIds.forEach((id) => {
       const c = CREW[id];
       const ctx = `CREW ${id}`;
@@ -981,6 +1010,13 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
         if (!POSES.includes(p.pose)) err(`${pc}: pose "${p.pose}" (${POSES.join(", ")})`);
         if (!(typeof p.weight === "number" && p.weight > 0)) err(`${pc}: weight must be a number above 0`);
         checkRoomLevel(pc, p.room, p.level);
+        checkFace(pc, p.face);
+        // every sit post sits on a real seat, never the floor (owner, 2026-10-18); a seat is only for sitting
+        if (p.pose === "sit" && !p.seat) err(`${pc}: a sit post needs a seat (the porch bench, a cabin chair: CREW_SEATS)`);
+        if (p.seat) {
+          if (p.pose !== "sit") err(`${pc}: a seat on a ${p.pose} post (only sit posts sit)`);
+          checkSeat(pc, p.seat);
+        }
       });
     });
     // the rules
@@ -1393,6 +1429,53 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   ["minSteps", "gap", "groupGap", "ring", "near"].forEach((k) => { if (!fin(WS[k]) || WS[k] <= 0) err(`SETTINGS.walkerSpawn.${k} must be above 0`); });
   if (!(WS.gap >= WS.groupGap)) err("SETTINGS.walkerSpawn: gap must be at least groupGap");
   ["footDamageWalker", "footDamageRunner", "footDamageBrute"].forEach((k) => { if (W.SETTINGS[k] != null) err(`SETTINGS.${k}: a bite lives in WALKER_TYPES[].bite now`); });
+}
+
+// the van's paint looks (js/upgrades.js PAINT_LOOKS): a save keeps the index of the look it wears and of each look it
+// bought, so looks are only appended: the looks saves already hold keep their places. Every look whole (its colours
+// real #rrggbb, its decal a kind the van is drawn with), names unique, Primer Gray first and free, then each look's
+// price in DEFS.paint.costs order (any price: a look appended may cost less than the one before it), and its Garage
+// tier one the Garage reaches (the owner's 2026-10-18 eight: the six old looks and two new ones)
+{
+  vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", "upgrades.js"), "utf8"), sb, { filename: "upgrades.js" });
+  const UP = sb.ZSR.Upgrades;
+  const LOOKS = UP.PAINT_LOOKS;
+  // SCALE: a new decal kind is drawn by js/van3d.js, js/sprites.js and js/base.js paintChip (the Garage swatch), and
+  // named in js/base.js DECAL_WORDS, then listed here
+  const DECALS = ["none", "stripe", "patches", "stencil", "hazard", "flames", "lightning", "drips"];
+  const COLOURS = ["body", "roof", "trim", "bumper", "rims", "decalA", "decalB"];
+  const topTier = Math.max(...W.BASE_ROOMS.garage.levels.map((l) => l.effect.tierCap || 0));
+  if (!Array.isArray(LOOKS) || LOOKS.length < 8) err(`PAINT_LOOKS: ${LOOKS ? LOOKS.length : 0} looks, want at least the owner's 8`);
+  else {
+    const names = new Set();
+    LOOKS.forEach((l, i) => {
+      const c = `PAINT_LOOKS[${i}] ${l.name}`;
+      if (!l.name || typeof l.name !== "string") err(`PAINT_LOOKS[${i}]: no name`);
+      else if (names.has(l.name.toLowerCase())) err(`${c}: two looks have this name`);
+      names.add(String(l.name).toLowerCase());
+      COLOURS.forEach((k) => { if (!/^#[0-9a-f]{6}$/i.test(l[k] || "")) err(`${c}: ${k} "${l[k]}" must be a #rrggbb colour`); });
+      if (!DECALS.includes(l.decal)) err(`${c}: decal "${l.decal}" is not a kind the van is drawn with (${DECALS.join(", ")})`);
+      if (i === 0) {
+        if (l.cost !== 0 || l.tier !== 0) err(`${c}: the first look is the van's own primer: cost 0 and tier 0 (it is ${l.cost}, ${l.tier})`);
+        return;
+      }
+      if (!Number.isInteger(l.cost) || l.cost < 1) err(`${c}: cost ${l.cost} must be a positive whole number`);
+      if (UP.DEFS.paint.costs[i - 1] !== l.cost) err(`${c}: cost ${l.cost} is not DEFS.paint.costs[${i - 1}] (${UP.DEFS.paint.costs[i - 1]}); Upgrades.cost("paint", level) reads it there for code that reads every upgrade alike`);
+      if (!Number.isInteger(l.tier) || l.tier < 1 || l.tier > topTier) err(`${c}: tier ${l.tier} must be 1 to ${topTier} (the top Garage level's tierCap)`);
+    });
+    // saves keep look indexes (upgrades.paint, upgrades.paintOwned; a save from the old paint ladder at paint k owns
+    // looks 0 to k): these looks never move. SCALE: a new look is appended to PAINT_LOOKS and its name to this list
+    const SAVED_LOOKS = ["Primer Gray", "Matte Black", "Rust Bucket", "Olive Drab", "Hazard", "Convoy Red", "Night Violet", "Radioactive"];
+    SAVED_LOOKS.forEach((n, i) => {
+      if (!LOOKS[i] || LOOKS[i].name !== n) err(`PAINT_LOOKS[${i}] is ${LOOKS[i] ? LOOKS[i].name : "missing"}, want ${n}: a save keeps this index, so looks are only appended (docs/SCALING.md)`);
+    });
+    if (UP.DEFS.paint.max !== LOOKS.length - 1 || UP.DEFS.paint.costs.length !== LOOKS.length - 1) err(`DEFS.paint: max ${UP.DEFS.paint.max} and ${UP.DEFS.paint.costs.length} costs, want one for each look past the first (${LOOKS.length - 1})`);
+    ["Night Violet", "Radioactive"].forEach((n) => {
+      const l = LOOKS.find((x) => x.name === n);
+      if (!l) err(`PAINT_LOOKS: the owner's ${n} look is missing`);
+      else if (l.tier !== topTier) err(`PAINT_LOOKS ${n}: tier ${l.tier}, want the top Garage level's (${topTier}; owner, 2026-10-18)`);
+    });
+  }
 }
 
 if (errors.length) { errors.forEach((e) => console.log("ERROR " + e)); process.exit(1); }
