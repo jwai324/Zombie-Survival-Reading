@@ -2714,6 +2714,13 @@ and sit on the floor at the post, exactly as before 3D.
   every frame: standing, only the blinking beacons (about 20 in 600 frames); walking, about 1.5 a frame, under the cap.
   `Model3D.text` steps by the text's own size (the van's text looks the same), and `MESH_KEEP` is 128.
 
+**Review fixes (2026-10-19).** Standing on a prop you can walk onto (a stake, the guy wires, books, a can, debris) with
+its middle behind you, the picture's map wrapped its two angles apart and every column fell off the picture: the prop
+vanished and redrew every frame (in a quarter to a third of facings). The angle is now wrapped as one, and a test stands
+on every such prop facing four ways. The canvas sweep builds its oldest-first list only when over budget (it was every
+frame). Every lot sign width the yard can put up (each text size on each plot) must be one the sign model is checked at
+(the widths were typed in by hand).
+
 **The farm's hens and goats as live 3D figures (`js/yard.js` `ANIMALS`, `b.flock`, `yardAnimate`).**
 - Each is a live figure in the walkers' pool (Beast3D's chicken or goat), on its sprite's prop, which stays the fallback.
 - At each spot they rest a while (hens 1.5 to 5 s, goats 2.5 to 7 s; the sprites walked on at once) in one of their own

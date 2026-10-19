@@ -942,7 +942,10 @@
       if (pl.inside) {
         const as = Math.atan(tn);
         const rel = pl.d / t.d0;
-        const q = clamp(normAngle(t.b0 - t.axis) + normAngle(p.a + as - pl.b) * rel, -1.56, 1.56);
+        // (the ray's angle off the picture's axis, wrapped as one: with the model's middle behind you the two halves
+        // would wrap apart, 2 PI out, and every column fall off the picture)
+        const A = normAngle(t.b0 - t.axis);
+        const q = clamp(A + (normAngle(p.a + as - pl.b + A) - A) * rel, -1.56, 1.56);
         MAP_X = t.cx + t.Px * Math.tan(q);
         MAP_V = (H * Math.cos(q)) / (t.Py * Math.cos(as) * rel);
         return;
@@ -1275,7 +1278,6 @@
       const now = this.frameNo;
       const models = this.models || NONE;
       let px = 0;
-      let idle = null;
       pool.forEach((t, inst) => {
         const size = t.c.width * t.c.height;
         if (t.used !== now && ((now - t.used > MODEL_IDLE && size > MODEL_KEEP_PX) || !models.includes(inst))) {
@@ -1284,9 +1286,13 @@
           return;
         }
         px += size;
-        if (t.used !== now) (idle || (idle = [])).push([t.used, inst, t, size]);
       });
-      if (px <= MODEL_POOL_PX || !idle) return;
+      if (px <= MODEL_POOL_PX) return;
+      // over the budget (most frames never are, so the list is made only now): the longest unused go first
+      const idle = [];
+      pool.forEach((t, inst) => {
+        if (t.used !== now) idle.push([t.used, inst, t, t.c.width * t.c.height]);
+      });
       idle.sort((a, b) => a[0] - b[0]);
       for (let i = 0; i < idle.length && px > MODEL_POOL_PX; i++) {
         pool.delete(idle[i][1]);

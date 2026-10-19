@@ -371,7 +371,8 @@
     faces: "front",
     board: SIGN, // (the yard sizes the lot's board from it: js/yard.js lotSignBoard)
     key: (o) => String(o.t || "") + "|" + signW(o),
-    // every name on the lot board the yard puts up at the normal text size; Large and Huge's boards for the longest
+    // every name on the lot board the yard puts up at the normal text size; Large and Huge's boards for the longest (the
+    // widths js/yard.js lotSignBoard gives at each text size: validate-engine fails when one is missing here)
     opts: roomNames()
       .map((t) => ({ t, w: SIGN.wide }))
       .concat([1.82, 1.18].map((w) => ({ t: roomNames().reduce((a, b) => (emWidth(b) > emWidth(a) ? b : a)), w }))),

@@ -5128,6 +5128,53 @@ const ymErrors0 = errors.length;
       if (!lv) ok(signTiles.size === 2 * I.props.filter((pr) => pr.art === "ySign").length, `rooms at 0: the lot signs block ${signTiles.size} more tiles than their sprites (want two each)`);
     });
 
+    // standing on a prop you can walk onto (inside its plan box: a stake, the guy wires, books, a can), facing every
+    // way: drawn once and then left alone (its middle behind you, the picture's map once fell off it every frame: the
+    // prop vanished and redrew each frame)
+    {
+      const still = [];
+      for (const lv of [0, 3]) {
+        setRooms(lv);
+        S.save.builds = {};
+        I.enterYard({ firstCalm: 999 });
+        I.stop();
+        I.walkers.length = 0;
+        I.yardAnims.forEach((a) => a.kind === "blink" && (a.p.dim = 0));
+        I.render();
+        const onto = I.models.filter((m) => m.prop && m.box && !I.solidForPlayer(m.box.mx, m.box.my)).slice(0, 8);
+        ok(lv === 0 ? onto.some((m) => m.prop.art === "yStake") : onto.length > 0, `room level ${lv}: no prop model to stand on was found (${onto.map((m) => m.prop.art)})`);
+        for (const m of onto) {
+          for (let k = 0; k < 4; k++) {
+            at(m.box.mx, m.box.my, (k * Math.PI) / 2);
+            settle(30);
+            draws = [];
+            for (let i = 0; i < 5; i++) I.render();
+            const mine = draws.filter((d) => d.inst === m).length;
+            if (mine) still.push(`${m.prop.art} at room level ${lv} facing ${k * 90} degrees: ${mine} of 5 still frames redraw it (${draws.filter((d) => d.inst === m).map((d) => d.why)})`);
+          }
+        }
+      }
+      ok(!still.length, `standing on a prop it keeps redrawing: ${still.slice(0, 4).join("; ")}`);
+    }
+
+    // every lot sign board the yard can put up (each text size's scale on each plot's width: js/yard.js SIGN_SCALE,
+    // lotSignBoard) is one the sign's model lists in its opts, so validate-art draws and checks it at that width
+    {
+      const d = YM.def("ySign");
+      const listed = new Set(((d && d.opts) || []).map((o) => o.w));
+      const missing = new Set();
+      Object.values(I.SIGN_SCALE || {}).forEach((k) =>
+        Object.values(Y.plots).forEach((pl) =>
+          [pl.w, pl.h].forEach((W) => {
+            const board = I.lotSignBoard(I.LOT_SIGN_SCALE * k, W);
+            if (board && !listed.has(board.w)) missing.add(board.w);
+          })
+        )
+      );
+      ok(Object.keys(I.SIGN_SCALE || {}).length > 0 && I.LOT_SIGN_SCALE > 0, "js/yard.js does not give the engine its SIGN_SCALE and LOT_SIGN_SCALE");
+      ok(!missing.size, `lot sign boards ${[...missing].join(", ")} units wide go up in the yard but js/yardmodels1.js ySign's opts lack them (validate-art never draws them)`);
+    }
+
     // a model that will not build leaves its props their sprites (the yard still goes up, and draws)
     {
       const d = YM.def("yStake");

@@ -52,6 +52,7 @@
   // LOT_SIGN_MARGIN tiles (so at Huge its posts still stand on it): the names read as big as the old sprite's
   const LOT_SIGN_FOOT = 3;
   const LOT_SIGN_MARGIN = 0.15;
+  const LOT_SIGN_SCALE = 1.2; // the lot sign's prop scale at the normal text size (SIGN_SCALE grows it)
   const OPP = { n: "s", s: "n", e: "w", w: "e" };
   // the way a plot's front faces (the world's angles: 0 east, PI / 2 south): its props' 3D models face it (js/yardmodels.js)
   const FRONT = { e: 0, s: Math.PI / 2, w: Math.PI, n: -Math.PI / 2 };
@@ -382,8 +383,10 @@
   };
 
   Object.assign(ZSR.Interior, {
-    ANIMALS, // (the farm's animals and how far round a spot turns them first: read by tests/validate-engine.js)
-    ANIMAL_TURN,
+    ANIMALS, // (the farm's animals and how far round a spot turns them first, and the signs' sizes by the text size:
+    ANIMAL_TURN, // read by tests/validate-engine.js)
+    SIGN_SCALE,
+    LOT_SIGN_SCALE,
     enterYard(opts) {
       const S = State();
       const Y = W().YARD;
@@ -519,7 +522,7 @@
         [[0.14, 0.14], [b.W - 0.14, 0.14]].forEach(([U, V]) => b.prop(U, V, "yStake", null, { scale: 0.3 }));
         // the sign: in 3D a wide board on two posts across the middle of the front row (LOT_SIGN_FOOT tiles, solid), as
         // the sprite's was wide on screen; the sprite alone (no model) blocks its one tile as it always did
-        const scale = 1.2 * k;
+        const scale = LOT_SIGN_SCALE * k;
         const board = this.lotSignBoard(scale, b.W);
         const sign = b.prop(Math.floor(b.W / 2) + 0.5, 0.5, "ySign", Object.assign({ t: name.toUpperCase() }, board ? { w: board.w } : null), { scale, solid: true, foot: board ? [board.foot, 1] : undefined });
         this.lots.push({ room, x: sign.x, y: sign.y });
