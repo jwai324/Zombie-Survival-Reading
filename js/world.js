@@ -817,6 +817,10 @@
     buildRepairScrap: 3, // scrap to fix one wrecked or damaged room build (DEFENSE.buildHp)
     repairScrapPerHp: 3, // van repair: 1 scrap for every 3 health missing, back to full
     repairMinScrap: 5,
+    // field repair: walking out of a building on a trip, a patch up to fieldRepairCap of the van's health, at
+    // fieldRepairMult times the home price (repairScrapPerHp, repairMinScrap), Garage or not (owner, 2026-10-21)
+    fieldRepairCap: 0.75,
+    fieldRepairMult: 5,
     kitsMax: 3, // medical kits the backpack can carry; one kit heals you to full
     saveSlots: 4, // labeled saves, one per player
     // day 1: danger 1 -> 3, 2 -> 5, 3 -> 6, 4 -> 8, 5 -> 9; one more every three days, at most 14.

@@ -154,6 +154,11 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   (at least 5), free once the Garage room is built. Do it in the cabin's Garage tab, or at
   the van: starting it with less than full health asks "Fix the van?" first (Fix it / Go as
   is; Esc stays in the yard). Short on scrap, the fix button is greyed out.
+- **Field repair** on a trip: walking out of a building (or off River Landing) with the van under
+  75% health asks "Patch the van?" (Patch it / Go as is; Esc goes as is). It brings the van up to
+  75% of the trip's ceiling, never higher, at 5 times the cabin's price for that health
+  (`SETTINGS.fieldRepairCap`, `fieldRepairMult`), Garage or not. The prompt says it costs 5 times
+  more. It spends this trip's scrap first, then the saved scrap.
 
 ## Wreckers and wrecked builds (2026-10-15)
 

@@ -48,10 +48,12 @@
 .bench .btn.small { font-size: .95rem; padding: .45rem .8rem; }
 
 /* Keyboard diagram: every key colored by the finger that owns it */
-.kbd { --k: min(2.5rem, 6.8vw, 5.6vh); --g: .2rem; display: flex; flex-direction: column; gap: var(--g); align-items: flex-start; margin: .5rem auto .25rem; width: max-content; max-width: 100%; }
+.kbd { --k: min(2.5rem, 6vw, 5.6vh); --g: .2rem; display: flex; flex-direction: column; gap: var(--g); align-items: flex-start; margin: .5rem auto .25rem; width: max-content; max-width: 100%; }
 .kbd-row { display: flex; gap: var(--g); }
 .kbd-row.r2 { margin-left: calc(var(--k) * .5 + var(--g) * .5); }
 .kbd-row.r4 { margin-left: calc(var(--k) * 3.5 + var(--g) * 3.5); }
+/* Backspace over the right end of the top row; Enter and the right Shift reach that same edge */
+.kbd-row.r0 { align-self: flex-end; }
 .kbd-key { width: var(--k); height: var(--k); display: flex; align-items: center; justify-content: center; font-family: var(--font-head); font-weight: 700; font-size: calc(var(--k) * .44); line-height: 1; text-transform: uppercase; border: .125rem solid var(--ink); border-radius: .25rem; box-shadow: .125rem .125rem 0 var(--ink); background: var(--paper-3); position: relative; user-select: none; -webkit-user-select: none; transition: transform .08s; }
 .kbd-key.f-pinky { background: #d7b9e3; }
 .kbd-key.f-ring { background: #b6d0ea; }
@@ -59,7 +61,10 @@
 .kbd-key.f-pointer { background: #f3d98c; }
 .kbd-key.f-thumb { background: #efc5b2; }
 .kbd-key.shift { font-size: calc(var(--k) * .3); letter-spacing: .02em; }
-.kbd-key.shift.r { width: calc(var(--k) * 1.5 + var(--g) * .5); }
+.kbd-key.shift.r { width: calc(var(--k) * 2 + var(--g)); }
+.kbd-key.wide { font-size: calc(var(--k) * .3); letter-spacing: .02em; }
+.kbd-key.back { width: calc(var(--k) * 2 + var(--g)); }
+.kbd-key.enter { width: calc(var(--k) * 1.5 + var(--g) * .5); }
 .kbd-key.space { width: calc(var(--k) * 6 + var(--g) * 5); font-size: calc(var(--k) * .3); letter-spacing: .1em; }
 .kbd-key.bump::after { content: ""; position: absolute; bottom: .18rem; left: 32%; right: 32%; height: .15rem; background: var(--ink); border-radius: .1rem; }
 .kbd-key.home { box-shadow: 0 0 0 .19rem var(--amber), .125rem .125rem 0 var(--ink); }
@@ -73,7 +78,7 @@
 .bench-lesson h3 { font-size: 1.05rem; margin: 0 0 .2rem; }
 .bench-lesson .reading { font-size: 1rem; line-height: 1.4; }
 .bench-lesson .reading p { margin: 0 0 .5em; }
-.bench-lesson .kbd { --k: min(2rem, 6.8vw, 4.5vh); margin: .25rem auto .15rem; }
+.bench-lesson .kbd { --k: min(2rem, 6vw, 4.5vh); margin: .25rem auto .15rem; }
 .bench-lesson .kbd-legend { margin: .15rem 0 .25rem; font-size: .8rem; gap: .15rem .6rem; }
 .bench-lesson .bench-actions { margin-top: .3rem; }
 /* Wide windows: the lesson text sits beside the diagram, the buttons under the diagram,

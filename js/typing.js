@@ -27,9 +27,10 @@
 
   /* ---------- Fingers and keys ---------- */
   const FINGER = {};
-  [["left pinky", "qaz1"], ["left ring", "wsx2"], ["left middle", "edc3"], ["left pointer", "rfvtgb45"], ["right pointer", "yhnujm67"], ["right middle", "ik,8"], ["right ring", "ol.9"], ["right pinky", "p;/0'-"], ["right thumb", " "]].forEach(([f, keys]) => keys.split("").forEach((k) => (FINGER[k] = f)));
+  [["left pinky", "qaz1"], ["left ring", "wsx2"], ["left middle", "edc3"], ["left pointer", "rfvtgb45"], ["right pointer", "yhnujm67"], ["right middle", "ik,8"], ["right ring", "ol.9"], ["right pinky", "p;/0'-[]\\"], ["right thumb", " "]].forEach(([f, keys]) => keys.split("").forEach((k) => (FINGER[k] = f)));
   const SHIFTED = { "?": "/", "!": "1", ":": ";", '"': "'", "<": ",", ">": ".", "(": "9", ")": "0", _: "-" };
-  const ROWS = ["qwertyuiop", "asdfghjkl;", "zxcvbnm,./"];
+  // the diagram's rows, out to the right edge as on a real keyboard (the drills never use the keys past P and ;)
+  const ROWS = ["qwertyuiop[]\\", "asdfghjkl;'", "zxcvbnm,./"];
   const HOME = "asdfjkl;";
   const RUNS = ["fjf", "dkd", "sls", "a;a", "jfj", "kdk", "lsl", ";a;", "fdf", "jkj", "sas", "l;l", "fdsa", "jkl;", "asdf", ";lkj", "dfd", "kjk"];
   // words typed with the home row alone, then with G and H too, then with the top row as well
@@ -209,10 +210,15 @@
       d.textContent = label == null ? k : label;
       return d;
     };
+    // Backspace sits over the right end of the top row (there is no number row)
+    const r0 = el("div", "kbd-row r0");
+    r0.appendChild(key("Backspace", "Backspace", "wide back"));
+    container.appendChild(r0);
     ROWS.forEach((keys, i) => {
       const row = el("div", "kbd-row r" + (i + 1));
       if (i === 2) row.appendChild(key("ShiftLeft", "Shift", "shift f-pinky"));
       keys.split("").forEach((k) => row.appendChild(key(k, k, (k === "f" || k === "j" ? "bump" : "") + (HOME.indexOf(k) >= 0 ? " homekey" : ""))));
+      if (i === 1) row.appendChild(key("Enter", "Enter", "wide enter"));
       if (i === 2) row.appendChild(key("ShiftRight", "Shift", "shift r f-pinky"));
       container.appendChild(row);
     });
@@ -223,7 +229,7 @@
   function legend() {
     const L = el("div", "kbd-legend");
     const colors = { pinky: "#d7b9e3", ring: "#b6d0ea", middle: "#bfe0b2", pointer: "#f3d98c", thumb: "#efc5b2" };
-    [["left pinky", "q a z"], ["left ring", "w s x"], ["left middle", "e d c"], ["left pointer", "r f v t g b"], ["right pointer", "y h n u j m"], ["right middle", "i k ,"], ["right ring", "o l ."], ["right pinky", "p ; /"], ["thumbs", "space"]].forEach(([f, keys]) => {
+    [["left pinky", "q a z"], ["left ring", "w s x"], ["left middle", "e d c"], ["left pointer", "r f v t g b"], ["right pointer", "y h n u j m"], ["right middle", "i k ,"], ["right ring", "o l ."], ["right pinky", "p ; / ' [ ] \\ enter backspace"], ["thumbs", "space"]].forEach(([f, keys]) => {
       L.appendChild(el("span", null, '<i style="background:' + colors[f.split(" ")[1] || "thumb"] + '"></i><b>' + esc(f) + "</b> " + esc(keys)));
     });
     return L;
@@ -235,7 +241,7 @@
     });
     if (ch == null) return;
     const k = keyFor(ch);
-    const base = kbd.querySelector('.kbd-key[data-key="' + k.base.replace(/"/g, '\\"') + '"]');
+    const base = kbd.querySelector('.kbd-key[data-key="' + k.base.replace(/["\\]/g, "\\$&") + '"]');
     if (base) base.classList.add("target");
     if (k.shift) {
       const side = (FINGER[k.base] || "right").indexOf("left") === 0 ? "ShiftRight" : "ShiftLeft";

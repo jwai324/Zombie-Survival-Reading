@@ -1049,6 +1049,33 @@
       this.commit();
       return true;
     },
+    /** Field repair on a trip: the health a patch brings the van up to (SETTINGS.fieldRepairCap of the trip's
+        ceiling, so a hungry trip patches to its lower ceiling), or 0 when there is no trip. */
+    fieldRepairTarget() {
+      const t = this.trip;
+      return t ? Math.floor(t.vanMaxHp * W().SETTINGS.fieldRepairCap) : 0;
+    },
+    /** Scrap for a field repair: the home price for the health missing up to the target, times fieldRepairMult.
+        The Garage's free repair is a home perk and does not apply. 0 when the van is already at or past the target. */
+    fieldRepairCost() {
+      const t = this.trip;
+      const missing = t ? this.fieldRepairTarget() - t.vanHp : 0;
+      if (missing <= 0) return 0;
+      const S = W().SETTINGS;
+      return S.fieldRepairMult * Math.max(S.repairMinScrap, Math.ceil(missing / S.repairScrapPerHp));
+    },
+    /** Pay for a field repair, this trip's scrap first and then the saved scrap (the HUD shows them together).
+        Not committed here: a trip is saved when it ends, and quitting mid-trip loses it all. */
+    fieldRepairVan() {
+      const t = this.trip;
+      const cost = this.fieldRepairCost();
+      if (!cost || t.scrap + this.save.scrap < cost) return false;
+      const fromTrip = Math.min(t.scrap, cost);
+      t.scrap -= fromTrip;
+      this.save.scrap -= cost - fromTrip;
+      t.vanHp = this.fieldRepairTarget();
+      return true; // saved with the rest of the trip at home, like the trip's scrap
+    },
     /* ---------- The cabin's doors and windows (WORLD.HOUSE_UPGRADES) ---------- */
     /** Strength of one door or window at today's level ("doors" | "windows"). */
     houseMax(key) {

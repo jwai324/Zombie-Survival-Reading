@@ -382,6 +382,31 @@ group("tips", () => {
   ok(van && van.vars.hp === 50 && van.vars.max === S.vanMaxHp() && van.vars.cost === S.repairCost(), `tips: van vars ${JSON.stringify(van && van.vars)}`);
   S.save.rooms.garage = 1;
   ok(same(tips("bo"), ["vanFree"]), `tips: a van fixed for free by the Garage (${tips("bo")})`);
+  // field repair on a trip: up to fieldRepairCap of the trip's ceiling, fieldRepairMult times the home price,
+  // Garage or not; trip scrap first, then saved scrap
+  {
+    const SET = W.SETTINGS;
+    const scrap0 = S.save.scrap;
+    const hp0 = S.save.vanHp;
+    S.save.vanHp = S.vanMaxHp();
+    S.startTrip();
+    const t = S.trip;
+    const target = Math.floor(t.vanMaxHp * SET.fieldRepairCap);
+    t.vanHp = target;
+    ok(S.fieldRepairCost() === 0 && !S.fieldRepairVan(), "field repair: offered at or past the cap");
+    t.vanHp = target - 30;
+    const want = SET.fieldRepairMult * Math.max(SET.repairMinScrap, Math.ceil(30 / SET.repairScrapPerHp));
+    ok(S.fieldRepairCost() === want, `field repair: cost ${S.fieldRepairCost()}, want ${want}`);
+    t.scrap = 0;
+    S.save.scrap = want - 1;
+    ok(!S.fieldRepairVan() && t.vanHp === target - 30, "field repair: paid for without enough scrap");
+    t.scrap = 4;
+    S.save.scrap = want;
+    ok(S.fieldRepairVan() && t.vanHp === target && t.scrap === 0 && S.save.scrap === 4, `field repair: van ${t.vanHp}/${target}, trip scrap ${t.scrap}, saved ${S.save.scrap}`);
+    S.trip = null;
+    S.save.scrap = scrap0;
+    S.save.vanHp = hp0;
+  }
   S.save.rooms.garage = 0;
   S.save.fence = { "1,1": 0, "2,1": 10, "3,1": 1000 };
   S.save.house.hp = { "5,5": 0, "6,5": 40 };

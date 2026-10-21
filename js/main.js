@@ -784,7 +784,29 @@
     onExit() {
       Interior.leave();
       if (!State.trip) return goYard();
-      openMap(State.trip.at);
+      const toMap = () => openMap(State.trip.at);
+      const cost = State.fieldRepairCost();
+      if (!cost) return toMap();
+      // the van is under SETTINGS.fieldRepairCap of its health: offer a patch, at fieldRepairMult times the cabin's price
+      const t = State.trip;
+      const S = W.SETTINGS;
+      const scrap = State.save.scrap + t.scrap;
+      const short = scrap < cost;
+      const target = State.fieldRepairTarget();
+      confirm(
+        "The van has " + Math.floor(t.vanHp) + " of " + Math.round(t.vanMaxHp) + " health. Out here you can patch it up to " + target + " (" + Math.round(S.fieldRepairCap * 100) + "%). It costs " + S.fieldRepairMult + " times more than a fix at the cabin: " + cost + " scrap. You have " + scrap + ".",
+        () => {
+          if (State.fieldRepairVan()) Audio.play("buy");
+          toMap();
+        },
+        {
+          caption: "Patch the van?",
+          yes: short ? "Not enough scrap" : "Patch it (" + cost + " scrap)",
+          yesDisabled: short,
+          no: "Go as is",
+          onNo: toMap,
+        }
+      );
     },
   };
 
