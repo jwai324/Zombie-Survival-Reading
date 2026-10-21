@@ -2767,7 +2767,7 @@ machine with no GPU (a GPU pastes pictures far more cheaply).
   dialog focuses the slider so the arrow keys move it.
 - **The crew shut the cabin door behind them in a wave (2026-10-21).** Owner: "When the crew runs inside during a
   wave make sure they close the door." They already shut a door they opened themselves; now, running to the shelter,
-  an outer cabin door they pass that already stood open (you left it open, or it was forced) is shut behind them too,
+  an outer cabin door they pass that you left open is shut behind them too,
   by the same rule (once they are clear, nobody is in the doorway, and you and the dog are not right at it).
   Judgment calls: only doors they actually run through, so a back door nobody uses stays as you left it, and so does
   every door when the crew were already inside; a broken door cannot shut; inner doors are left alone (the shelter's

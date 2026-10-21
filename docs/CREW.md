@@ -30,7 +30,7 @@ at every level. The player is "you".
   solid: you and walkers pass through them, and shots pass them by (walkers ignore them).
 - **Waves.** When a wave starts, the crew hurry into the shelter (`CREW_RULES.shelter`, the office
   closet) and shut its door. A cabin door to the outside they run in through is shut behind them,
-  even if it stood open (you left it open, or a raider forced it). When the wave is cleared they come out. A raider (a walker that makes
+  even if you left it open (a broken one cannot shut). When the wave is cleared they come out. A raider (a walker that makes
   for the cabin) may go for the shelter: it forces the shut door like any inner door, and if it
   stands among the crew for `hurtSeconds`, one crew member is hurt off-screen. You hear a shout
   (toast). It costs 1 medical kit from storage, or 2 food if there is none, and that crew member's

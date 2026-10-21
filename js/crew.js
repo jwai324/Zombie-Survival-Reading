@@ -498,7 +498,7 @@
       return !c.path.length;
     },
     /** A shut cabin door just ahead opens for them (crewDoorsBehind shuts it again). Running in from a wave, a
-        cabin door to the outside left open (by you, or forced) is theirs to shut behind them too. */
+        cabin door to the outside you left open is theirs to shut behind them too. */
     crewDoorAhead(c) {
       const ax = Math.floor(c.x + Math.cos(c.facing) * 0.6);
       const ay = Math.floor(c.y + Math.sin(c.facing) * 0.6);
