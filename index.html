@@ -301,6 +301,10 @@
     <div class="panel confirm-panel">
       <div id="confirm-caption" class="caption">Sure?</div>
       <p id="confirm-text" class="tagline"></p>
+      <div id="confirm-slider" class="confirm-slider hidden">
+        <input type="range" id="confirm-range" aria-describedby="confirm-range-label">
+        <div id="confirm-range-label" class="confirm-range-label" aria-live="polite"></div>
+      </div>
       <div class="btn-row">
         <button id="btn-confirm-no" class="btn alt">No</button>
         <button id="btn-confirm-yes" class="btn big">Yes</button>

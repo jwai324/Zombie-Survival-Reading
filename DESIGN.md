@@ -2742,3 +2742,27 @@ render time against 3f897f8, before the project; mean / median / p95).** Standin
 walkers +4 / +5 / +4%. Standing at the pens with all five animals within 1 to 4 tiles, the worst view: +23 / +26 / +38%
 (before the two fixes above, +51%). Bars: 25% calm, 35% heavy wave; the pens close up are the one view at the bar, on a
 machine with no GPU (a GPU pastes pictures far more cheaply).
+
+## Owner decisions: field repair and the full keyboard (2026-10-21)
+
+- **Field repair.** Out at a place the van can be patched up to 75% at 5 times the usual price. Asked and answered:
+  offered when the player walks out of a building (River Landing's exit is the same hook, so it is offered there
+  too); the price is the cabin's base rate (1 scrap per 3 health, at least 5) for the health up to 75%, times 5,
+  even when the Garage makes cabin repairs free; the prompt tells the player it costs 5 times more.
+  Judgment calls: offered only below 75% (nothing to buy above it); the cap is 75% of the trip's own ceiling, so a
+  hungry trip patches to its lower ceiling; paid from this trip's scrap first, then the saved scrap (the HUD shows
+  them as one number); not committed mid-trip, it is saved with the trip at home like the trip's scrap. Short on
+  scrap, the prompt still shows with the patch button greyed out, as the yard's "Fix the van?" does.
+- **The typing diagram reaches the right edge.** [ ] \ after P, ' and Enter after ;, and Backspace over the right
+  end of the top row (there is no number row), all right-pinky colors. Show only: no drill uses them, so the
+  stages and saved progress are unchanged. The right Shift widened so all three rows end at the same edge; the key
+  size's width bound went from 6.8vw to 6vw to fit 13 keys a row.
+- **A slider for how much to repair (2026-10-21, later).** Owner: "choose how much they want to repair the van via
+  sliding", on every paid repair (asked: the trip patch, the yard's "Fix the van?" and the Garage tab). The slider
+  picks the health to fix up to, in whole points, from one above today's to the top (full at the cabin,
+  fieldRepairCap on a trip); `State.repairRange` gives all three their range, start and price. Judgment calls: it
+  starts at the most the scrap on hand pays for (full when it can), so a player short of a full fix can still buy
+  part of one instead of seeing a greyed-out button; the per-repair floor (repairMinScrap, times fieldRepairMult on
+  a trip) still applies, so many tiny patches cost more than one big one; free Garage repairs have no slider; the
+  dialog focuses the slider so the arrow keys move it.
+

@@ -35,23 +35,44 @@
     $("game").classList.toggle("hidden", which !== "road");
     $("fp").classList.toggle("hidden", which !== "fp");
   }
-  /** Yes/No dialog. opts: caption, yes/no labels, yesDisabled, onNo, onCancel (Esc; falls back to onNo). */
+  /** Yes/No dialog. opts: caption, yes/no labels, yesDisabled, onNo, onCancel (Esc; falls back to onNo).
+      opts.slider { min, max, value, label(v), yes(v), yesDisabled(v) }: a slider over whole numbers above the
+      buttons; its label and the yes button follow it, and onYes(v) gets where it stopped (no bar when min >= max). */
   let confirmCancel = null;
   function confirm(text, onYes, opts) {
     const o = opts || {};
+    const sl = o.slider;
+    const range = $("confirm-range");
     const close = () => {
       confirmCancel = null;
+      range.oninput = null;
       $("screen-confirm").classList.add("hidden");
+    };
+    const follow = () => {
+      const v = sl ? +range.value : null;
+      if (sl) $("confirm-range-label").textContent = sl.label(v);
+      $("btn-confirm-yes").textContent = sl ? sl.yes(v) : o.yes || "Yes";
+      $("btn-confirm-yes").disabled = sl ? !!sl.yesDisabled(v) : !!o.yesDisabled;
     };
     $("confirm-caption").textContent = o.caption || "Sure?";
     $("confirm-text").textContent = text;
-    $("btn-confirm-yes").textContent = o.yes || "Yes";
+    $("confirm-slider").classList.toggle("hidden", !sl);
+    if (sl) {
+      range.min = sl.min;
+      range.max = sl.max;
+      range.step = 1;
+      range.value = sl.value;
+      range.hidden = sl.min >= sl.max;
+      range.oninput = follow;
+    }
     $("btn-confirm-no").textContent = o.no || "No";
-    $("btn-confirm-yes").disabled = !!o.yesDisabled;
+    follow();
     $("screen-confirm").classList.remove("hidden");
+    if (sl && !range.hidden) range.focus(); // the arrow keys move it
     $("btn-confirm-yes").onclick = () => {
+      const v = sl ? +range.value : undefined;
       close();
-      onYes();
+      onYes(v);
     };
     $("btn-confirm-no").onclick = () => {
       close();
@@ -556,28 +577,9 @@
       };
       const max = State.vanMaxHp();
       if (State.save.vanHp >= max) return depart();
-      const hp = Math.floor(State.save.vanHp);
-      // the van is hurt: offer a full repair before the trip starts
+      // the van is hurt: offer a repair before the trip starts
       Interior.pause();
-      const cost = State.repairCost();
-      const scrap = State.save.scrap;
-      const short = scrap < cost;
-      const price = cost ? cost + " scrap" : "free";
-      confirm(
-        "The van has " + hp + " of " + max + " health. " + (short ? "A full fix costs " + cost + " scrap. You have " + scrap + "." : "Fix it before you go? Cost: " + price + ". You have " + scrap + " scrap."),
-        () => {
-          if (State.repairVan()) Audio.play("buy");
-          depart();
-        },
-        {
-          caption: "Fix the van?",
-          yes: short ? "Not enough scrap" : "Fix it (" + price + ")",
-          yesDisabled: short,
-          no: "Go as is",
-          onNo: depart,
-          onCancel: () => Interior.resume(), // Esc: stay in the yard
-        }
-      );
+      repairPrompt(false, depart, () => Interior.resume()); // Esc: stay in the yard
     },
     /** A crew member's card from the talk bubble (js/crew.js): offer, handIn or name. The yard waits while it is
         open; on close Interior.crewCardDone(id, action, result) hears how it went, then the yard runs and is saved. */
@@ -784,9 +786,51 @@
     onExit() {
       Interior.leave();
       if (!State.trip) return goYard();
-      openMap(State.trip.at);
+      const toMap = () => openMap(State.trip.at);
+      // the van is under SETTINGS.fieldRepairCap of its health: offer a patch, at fieldRepairMult times the cabin's price
+      if (!State.fieldRepairCost()) return toMap();
+      repairPrompt(true, toMap);
     },
   };
+
+  /** "Fix the van?" with a slider for how much (State.repairRange): at the cabin before a trip, up to full at the
+      cabin's price, or out on one (field), up to SETTINGS.fieldRepairCap at fieldRepairMult times that price. go runs
+      after either answer; Esc runs cancel, or go. Free with the Garage at the cabin: no slider, straight to full. */
+  function repairPrompt(field, go, cancel) {
+    const R = State.repairRange(field);
+    const S = W.SETTINGS;
+    const max = Math.round(field ? State.trip.vanMaxHp : State.vanMaxHp());
+    const said = "The van has " + Math.floor(R.hp) + " of " + max + " health. ";
+    const free = !R.cost(R.max);
+    const verb = field ? "Patch" : "Fix";
+    const short = (v) => R.cost(v) > R.scrap;
+    confirm(
+      field
+        ? said + "Out here you can patch it up to " + R.max + " (" + Math.round(S.fieldRepairCap * 100) + "%). It costs " + S.fieldRepairMult + " times more than a fix at the cabin. You have " + R.scrap + " scrap."
+        : said + (free ? "Fix it before you go? It is free." : "Fix it before you go? You have " + R.scrap + " scrap."),
+      (to) => {
+        if (field ? State.fieldRepairVan(to) : State.repairVan(to)) Audio.play("buy");
+        go();
+      },
+      {
+        caption: verb + " the van?",
+        yes: verb + " it (free)",
+        slider: free
+          ? null
+          : {
+              min: R.min,
+              max: R.max,
+              value: R.value,
+              label: (v) => (R.min < R.max ? "Slide: " : "") + verb + " to " + v + " of " + max + " health (+" + (v - Math.floor(R.hp)) + ")",
+              yes: (v) => (short(v) ? "Not enough scrap (" + R.cost(v) + ")" : verb + " it (" + R.cost(v) + " scrap)"),
+              yesDisabled: short,
+            },
+        no: "Go as is",
+        onNo: go,
+        onCancel: cancel,
+      }
+    );
+  }
 
   /* ---------- Shared: pause, backpack, death ---------- */
   function overlayOpen() {
