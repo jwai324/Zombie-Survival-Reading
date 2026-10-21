@@ -2757,4 +2757,12 @@ machine with no GPU (a GPU pastes pictures far more cheaply).
   end of the top row (there is no number row), all right-pinky colors. Show only: no drill uses them, so the
   stages and saved progress are unchanged. The right Shift widened so all three rows end at the same edge; the key
   size's width bound went from 6.8vw to 6vw to fit 13 keys a row.
+- **A slider for how much to repair (2026-10-21, later).** Owner: "choose how much they want to repair the van via
+  sliding", on every paid repair (asked: the trip patch, the yard's "Fix the van?" and the Garage tab). The slider
+  picks the health to fix up to, in whole points, from one above today's to the top (full at the cabin,
+  fieldRepairCap on a trip); `State.repairRange` gives all three their range, start and price. Judgment calls: it
+  starts at the most the scrap on hand pays for (full when it can), so a player short of a full fix can still buy
+  part of one instead of seeing a greyed-out button; the per-repair floor (repairMinScrap, times fieldRepairMult on
+  a trip) still applies, so many tiny patches cost more than one big one; free Garage repairs have no slider; the
+  dialog focuses the slider so the arrow keys move it.
 

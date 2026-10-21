@@ -1032,49 +1032,73 @@
       this.commit();
       return true;
     },
-    /** Scrap to bring the van back to full health. */
-    repairCost() {
-      const missing = this.vanMaxHp() - this.save.vanHp;
+    /** Scrap to fix the van at the cabin up to `to` health (default: back to full); 1 for every repairScrapPerHp, at
+        least repairMinScrap, free with the Garage's freeRepair. */
+    repairCost(to) {
+      const max = this.vanMaxHp();
+      const missing = Math.min(max, to == null ? max : to) - this.save.vanHp;
       if (missing <= 0) return 0;
       if (this.effects().freeRepair) return 0;
       return Math.max(W().SETTINGS.repairMinScrap, Math.ceil(missing / W().SETTINGS.repairScrapPerHp));
     },
-    repairVan() {
+    /** Fix the van at the cabin up to `to` health (default: full), paid from the saved scrap. */
+    repairVan(to) {
       const max = this.vanMaxHp();
-      if (this.save.vanHp >= max) return false;
-      const cost = this.repairCost();
+      const hp = Math.min(max, to == null ? max : to);
+      if (this.save.vanHp >= hp) return false;
+      const cost = this.repairCost(hp);
       if (this.save.scrap < cost) return false;
       this.save.scrap -= cost;
-      this.save.vanHp = max;
+      this.save.vanHp = hp;
       this.commit();
       return true;
     },
-    /** Field repair on a trip: the health a patch brings the van up to (SETTINGS.fieldRepairCap of the trip's
+    /** Field repair on a trip: the most a patch brings the van up to (SETTINGS.fieldRepairCap of the trip's
         ceiling, so a hungry trip patches to its lower ceiling), or 0 when there is no trip. */
     fieldRepairTarget() {
       const t = this.trip;
       return t ? Math.floor(t.vanMaxHp * W().SETTINGS.fieldRepairCap) : 0;
     },
-    /** Scrap for a field repair: the home price for the health missing up to the target, times fieldRepairMult.
-        The Garage's free repair is a home perk and does not apply. 0 when the van is already at or past the target. */
-    fieldRepairCost() {
+    /** Scrap for a field repair up to `to` health (default and most: fieldRepairTarget): the home price for that
+        health, times fieldRepairMult. The Garage's free repair is a home perk and does not apply. 0 when the van is
+        already there. */
+    fieldRepairCost(to) {
       const t = this.trip;
-      const missing = t ? this.fieldRepairTarget() - t.vanHp : 0;
+      const top = this.fieldRepairTarget();
+      const missing = t ? Math.min(top, to == null ? top : to) - t.vanHp : 0;
       if (missing <= 0) return 0;
       const S = W().SETTINGS;
       return S.fieldRepairMult * Math.max(S.repairMinScrap, Math.ceil(missing / S.repairScrapPerHp));
     },
-    /** Pay for a field repair, this trip's scrap first and then the saved scrap (the HUD shows them together).
-        Not committed here: a trip is saved when it ends, and quitting mid-trip loses it all. */
-    fieldRepairVan() {
+    /** Pay for a field repair up to `to` health (default: the cap), this trip's scrap first and then the saved
+        scrap (the HUD shows them together). Not committed here: a trip is saved when it ends, and quitting mid-trip
+        loses it all. */
+    fieldRepairVan(to) {
       const t = this.trip;
-      const cost = this.fieldRepairCost();
+      const top = this.fieldRepairTarget();
+      const hp = Math.min(top, to == null ? top : to);
+      const cost = this.fieldRepairCost(hp);
       if (!cost || t.scrap + this.save.scrap < cost) return false;
       const fromTrip = Math.min(t.scrap, cost);
       t.scrap -= fromTrip;
       this.save.scrap -= cost - fromTrip;
-      t.vanHp = this.fieldRepairTarget();
+      t.vanHp = hp;
       return true; // saved with the rest of the trip at home, like the trip's scrap
+    },
+    /** What the repair slider offers, at the cabin or out on a trip (field): health from one above today's up to
+        the top (full at the cabin, fieldRepairTarget on a trip), starting at the most the scrap on hand pays for
+        (the top when even the least is too dear). cost(to) prices any stop on it. */
+    repairRange(field) {
+      const t = this.trip;
+      const hp = field ? t.vanHp : this.save.vanHp;
+      const max = field ? this.fieldRepairTarget() : this.vanMaxHp();
+      const cost = (to) => (field ? this.fieldRepairCost(to) : this.repairCost(to));
+      const scrap = this.save.scrap + (field ? t.scrap : 0);
+      const min = Math.min(max, Math.floor(hp) + 1);
+      let value = max;
+      while (value > min && cost(value) > scrap) value--;
+      if (cost(value) > scrap) value = max;
+      return { hp, min, max, value, cost, scrap };
     },
     /* ---------- The cabin's doors and windows (WORLD.HOUSE_UPGRADES) ---------- */
     /** Strength of one door or window at today's level ("doors" | "windows"). */

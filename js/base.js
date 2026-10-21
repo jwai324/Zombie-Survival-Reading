@@ -575,23 +575,48 @@
         card.appendChild(btn);
         (d.group === "van" ? vanG : gunG).appendChild(card);
       });
-      // repair: instant, back to full
+      // repair: instant, as far as the slider says (State.repairRange), full by default when the scrap allows
       const rep = el("div", "upgrade");
       rep.appendChild(el("div", "icon", U().REPAIR.icon));
       const rmid = el("div");
-      rmid.appendChild(el("div", "name", "Full repair"));
+      rmid.appendChild(el("div", "name", "Repair"));
       const full = s.vanHp >= S.vanMaxHp();
       const cost = S.repairCost();
       // who fixes it free: the crew member whose tip tells of the free fix (CREW_TIPS[id].vanFree: Tomas)
       const fixer = Object.keys(W().CREW_TIPS || {}).find((id) => W().CREW_TIPS[id] && W().CREW_TIPS[id].vanFree && (W().CREW || {})[id]);
       const fixerName = fixer && ZSR.crewName ? ZSR.crewName(fixer) : "The crew";
-      rmid.appendChild(el("div", "desc", fx.freeRepair ? esc(fixerName) + " fixes the van for free. Back to full health." : esc(U().REPAIR.desc) + " Back to full health: 1 scrap for every " + W().SETTINGS.repairScrapPerHp + " missing."));
+      rmid.appendChild(el("div", "desc", fx.freeRepair ? esc(fixerName) + " fixes the van for free. Back to full health." : esc(U().REPAIR.desc) + " Slide to pick how much: 1 scrap for every " + W().SETTINGS.repairScrapPerHp + " health."));
       rep.appendChild(rmid);
-      tip(rep, "<strong>Van repair</strong><span class='t-line'>Van health " + Math.round(s.vanHp) + " of " + S.vanMaxHp() + ".</span><span class='t-line'>" + (full ? "Nothing to fix." : fx.freeRepair ? "Free with the Garage room." : cost + " scrap brings it back to full.") + " No typing needed.</span>");
+      tip(rep, "<strong>Van repair</strong><span class='t-line'>Van health " + Math.round(s.vanHp) + " of " + S.vanMaxHp() + ".</span><span class='t-line'>" + (full ? "Nothing to fix." : fx.freeRepair ? "Free with the Garage room." : cost + " scrap brings it back to full. Slide for less.") + " No typing needed.</span>");
       const rbtn = el("button", "btn" + (!full && s.scrap >= cost ? " go" : ""), full ? "FULL" : cost ? cost + " scrap" : "Repair");
       rbtn.disabled = full || s.scrap < cost;
+      let to; // undefined: back to full
+      if (!full && cost) {
+        const R = S.repairRange(false);
+        const label = el("div", "small repair-to");
+        const range = el("input", "repair-range");
+        range.type = "range";
+        range.min = R.min;
+        range.max = R.max;
+        range.step = 1;
+        range.value = R.value;
+        range.hidden = R.min >= R.max;
+        range.setAttribute("aria-label", "Van health to repair up to");
+        const follow = () => {
+          to = +range.value;
+          const c = R.cost(to);
+          label.textContent = "Fix to " + to + " of " + R.max + " health (+" + (to - Math.floor(R.hp)) + "): " + c + " scrap";
+          rbtn.textContent = c + " scrap";
+          rbtn.disabled = c > s.scrap;
+          rbtn.classList.toggle("go", c <= s.scrap);
+        };
+        range.addEventListener("input", follow);
+        rmid.appendChild(range);
+        rmid.appendChild(label);
+        follow();
+      }
       rbtn.addEventListener("click", () => {
-        if (S.repairVan()) {
+        if (S.repairVan(to)) {
           ZSR.Audio.play("buy");
           this.render();
         }

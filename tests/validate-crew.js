@@ -403,7 +403,29 @@ group("tips", () => {
     t.scrap = 4;
     S.save.scrap = want;
     ok(S.fieldRepairVan() && t.vanHp === target && t.scrap === 0 && S.save.scrap === 4, `field repair: van ${t.vanHp}/${target}, trip scrap ${t.scrap}, saved ${S.save.scrap}`);
+    // the slider: a partial patch, priced for its own health; it starts at the most the scrap pays for
+    t.vanHp = target - 30;
+    t.scrap = 0;
+    S.save.scrap = 1000;
+    const part = SET.fieldRepairMult * Math.max(SET.repairMinScrap, Math.ceil(12 / SET.repairScrapPerHp));
+    ok(S.fieldRepairCost(target - 18) === part && S.fieldRepairCost(target + 50) === want, "field repair: a partial patch or one past the cap is mispriced");
+    let R = S.repairRange(true);
+    ok(R.min === target - 29 && R.max === target && R.value === target && R.scrap === 1000, `field repair: slider ${JSON.stringify(R)}`);
+    S.save.scrap = part;
+    R = S.repairRange(true);
+    ok(R.cost(R.value) <= part && R.cost(R.value + 1) > part, `field repair: the slider does not start at the most ${part} scrap pays for (${R.value})`);
+    ok(S.fieldRepairVan(target - 18) && t.vanHp === target - 18 && S.save.scrap === 0, `field repair: partial patch to ${t.vanHp}, ${S.save.scrap} scrap left`);
     S.trip = null;
+    // at the cabin: the same slider, up to full at the cabin's price (no Garage: rooms.garage is 1 above, so clear it)
+    const g0 = S.save.rooms.garage;
+    S.save.rooms.garage = 0;
+    S.save.vanHp = S.vanMaxHp() - 30;
+    S.save.scrap = 1000;
+    const home = Math.max(SET.repairMinScrap, Math.ceil(15 / SET.repairScrapPerHp));
+    ok(S.repairCost(S.vanMaxHp() - 15) === home && S.repairCost() === Math.max(SET.repairMinScrap, Math.ceil(30 / SET.repairScrapPerHp)), "cabin repair: a partial fix is mispriced");
+    ok(S.repairRange(false).value === S.vanMaxHp(), "cabin repair: the slider does not start at full when the scrap allows");
+    ok(S.repairVan(S.vanMaxHp() - 15) && S.save.vanHp === S.vanMaxHp() - 15 && S.save.scrap === 1000 - home, `cabin repair: partial fix to ${S.save.vanHp}, ${S.save.scrap} scrap`);
+    S.save.rooms.garage = g0;
     S.save.scrap = scrap0;
     S.save.vanHp = hp0;
   }
