@@ -29,7 +29,8 @@ at every level. The player is "you".
   and moves on. Some spots appear only once a room is built (June at the Garden). They are not
   solid: you and walkers pass through them, and shots pass them by (walkers ignore them).
 - **Waves.** When a wave starts, the crew hurry into the shelter (`CREW_RULES.shelter`, the office
-  closet) and shut its door. When the wave is cleared they come out. A raider (a walker that makes
+  closet) and shut its door. A cabin door to the outside they run in through is shut behind them,
+  even if you left it open (a broken one cannot shut). When the wave is cleared they come out. A raider (a walker that makes
   for the cabin) may go for the shelter: it forces the shut door like any inner door, and if it
   stands among the crew for `hurtSeconds`, one crew member is hurt off-screen. You hear a shout
   (toast). It costs 1 medical kit from storage, or 2 food if there is none, and that crew member's
@@ -490,7 +491,8 @@ bubble open first pages through it ("Press E to read on"); the crew card's DOM i
   calls `Interior.crewCardDone()` then `Interior.resume()`, and `syncYard()`.
 - The shelter is the office closet (three tiles). Its two solid box stacks give way to the big
   battery against the end wall (not solid), so three crew and the dog fit.
-- Waves: `crewWave(true)` at a wave's start (hurry to the shelter, shut its door once inside),
+- Waves: `crewWave(true)` at a wave's start (hurry to the shelter, shut its door once inside; on the
+  run `crewDoorAhead` also takes an open, unbroken outer cabin door they pass, so `crewDoorsBehind` shuts it),
   `crewWave(false)` when cleared. `yardWalkerGoal` sends `raidShelterShare` of raiders to a shelter
   tile; `crewUpdate` times raiders among the crew and calls `State.crewHurt`.
 - Jobs: `crewUpdate` walks Tomas to the nearest hole or crack, then (fence whole) to a tile beside

@@ -2275,6 +2275,32 @@ simGroup("yard", "yard: a wave sends the crew (and the dog) into the shelter", (
   });
 });
 
+simGroup("yard", "yard: running in from a wave, the crew shut the cabin door behind them, even one left open", () => {
+  const g = engineGame(107);
+  const { I } = g;
+  [false, true].forEach((left) => {
+    homeYard(g, (S) => (S.save.crew.dog.home = true));
+    const front = Object.values(I.barriers).find((b) => b.kind === "door" && !b.back).door;
+    // every crew member just outside the front door, so they all run in through it
+    const out = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [front.x + dx, front.y + dy]).find(([x, y]) => !I.solidAt(x + 0.5, y + 0.5) && !I.inCabin(x + 0.5, y + 0.5));
+    if (!ok(out, "door: no tile outside the cabin beside the front door")) return;
+    I.crew.forEach((c) => hold(g, c.id, out[0] + 0.5, out[1] + 0.5));
+    if (left) I.crewSetDoor(front, true); // you left it open
+    standAt(g, out[0] + 0.5, out[1] + 0.5, front.x + 0.5, front.y + 0.5);
+    I.player.x += 6 * (out[0] - front.x) || 6; // you, well back from it (you near a door keeps it open)
+    I.player.y += 6 * (out[1] - front.y);
+    Object.assign(I.phase, { next: { size: "some", sides: ["n"] }, t: 0.01 });
+    let through = false;
+    stepFor(g, 20, () => {
+      if (I.crew.some((c) => tileKey(c) === front.x + "," + front.y)) through = true;
+    });
+    const how = left ? "left open" : "shut";
+    ok(through, `door (${how}): no crew member ran in through the front door`);
+    ok(I.crew.every((c) => c.state === "shelter"), `door (${how}): not every crew member reached the shelter`);
+    ok(!front.open && I.grid[front.y][front.x] === "O", `door (${how}): the front door was left open behind the crew`);
+  });
+});
+
 simGroup("yard", "yard: a raider in the shelter hurts one crew member, once", () => {
   const g = engineGame(106);
   const { I, S, W, store } = g;

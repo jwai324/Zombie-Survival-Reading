@@ -5,7 +5,8 @@
      wall to them: they open it, pass, and shut it behind them. They are props, never solid: you, walkers
      and shots pass them by.
    - Waves (crewWave): they run to the shelter (CREW_RULES.shelter, a HOUSE.rooms key: one tile each, the
-     dog shares its leader's) and shut its door once all are in. Some raiders go for the shelter (js/house.js
+     dog shares its leader's), shutting a cabin door to the outside behind them even if it stood open, and shut
+     the shelter's door once all are in. Some raiders go for the shelter (js/house.js
      yardWalkerGoal); one that stands among them hurtSeconds hurts one of them off-screen (State.crewHurt:
      supplies and trust; once per member per wave; the dog never). They come out when it is cleared.
    - Jobs in the calm (State.crewJobs): the fence job walks to the nearest hole or cracked segment, works
@@ -496,13 +497,15 @@
       if (moved) this.crewDoorAhead(c);
       return !c.path.length;
     },
-    /** A shut cabin door just ahead opens for them (crewDoorsBehind shuts it again). */
+    /** A shut cabin door just ahead opens for them (crewDoorsBehind shuts it again). Running in from a wave, a
+        cabin door to the outside you left open is theirs to shut behind them too. */
     crewDoorAhead(c) {
       const ax = Math.floor(c.x + Math.cos(c.facing) * 0.6);
       const ay = Math.floor(c.y + Math.sin(c.facing) * 0.6);
-      if (!this.grid[ay] || this.grid[ay][ax] !== "O") return;
+      const ch = this.grid[ay] && this.grid[ay][ax];
+      if (ch !== "O" && !(ch === "D" && c.state === "run")) return;
       const d = this.doors.find((o) => o.x === ax && o.y === ay);
-      if (!d || d.open) return;
+      if (!d || (d.open && !(d.house && !d.broken))) return;
       this.crewSetDoor(d, true);
       if (!c.doors) c.doors = [];
       if (!c.doors.includes(d)) c.doors.push(d);
