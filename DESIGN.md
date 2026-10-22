@@ -3017,3 +3017,14 @@ whether players actually read. Asked and answered before building:
 - **The tab closing with a note open** logs it up to that moment (pagehide).
 - **A word count is of the words on screen**, so a journal page counts the recap, June's entry and the radio together.
 
+### Reading a note on the page (owner, 2026-10-22: "make each note clickable so that I can read it")
+
+- **Each note's title is a button** that opens its words under its row; a second click closes it.
+- **The words are kept, not rebuilt.** The first time a note is logged, the exact words on screen are kept in
+  `zs.readtext.<slot>` (plain text, paragraphs kept), once a note. Rebuilding from the id would show today's level
+  and today's journal page, not what the player saw; a journal page and a crew card are assembled when shown.
+- **Capped at `READ_TEXT_MAX` characters a save** (300,000, `SCALE:` in js/state.js), the oldest dropped first, so
+  four full saves still leave most of localStorage for the saves themselves. Level 3's whole text is about 240,000
+  characters, so a long run at level 5 or 6 can lose its oldest notes' words; their rows stay, and say so.
+- **Notes logged before this change show no words** (the row says why). Cleared with the log, the save, or a new game.
+

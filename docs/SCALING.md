@@ -292,6 +292,8 @@ missing. Growth rules:
 - **Reading check log ids are permanent** (`zs.readlog.<slot>`, js/readcheck.js): a second read is found by
   matching ids (a note's id, `day:<n>`, `radio:<n>`, `crew:<kind>:<id>:<part>`). Renaming one makes the next read
   of it count as a first read. The log keeps the newest `READ_LOG_MAX` entries per save (`SCALE:` in js/state.js).
+  The words each note showed (`zs.readtext.<slot>`, keyed by the same ids) are kept up to `READ_TEXT_MAX`
+  characters per save (`SCALE:` in js/state.js); more text a level means more of a long run's oldest notes trimmed.
 - **Keep every `z` tile in a layout.** Walker rules name a building's `z` tiles by reading-order index
   (`NOTES[id].walkers`, `z: [1]`), so moving or removing one shifts what a rule points at (validate-world
   R4 checks each anchor still sits in its zone, by the landmark its note names).

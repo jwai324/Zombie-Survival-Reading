@@ -3,7 +3,8 @@
    radio, a crew request or thank-you read again, a note read again from the backpack) and the crew card. Not timed:
    the read panels in the world (signs, tags, wall notes, speech), which show only while the player stands near.
    Each note is written to its save's log the moment it closes (State.logReading), apart from the base save, so a
-   trip lost to a death still counts. The clock stops while the tab is hidden. Owner decision, 2026-10-22. */
+   trip lost to a death still counts, and its words are kept once (State.keepReadText) so the owner can click a
+   note on the page and read what the player saw. The clock stops while the tab is hidden. Owner decision, 2026-10-22. */
 (function (root) {
   "use strict";
   const ZSR = (root.ZSR = root.ZSR || {});
@@ -34,6 +35,9 @@
     const m = a.length >> 1;
     return a.length % 2 ? a[m] : (a[m - 1] + a[m]) / 2;
   }
+  /** Paragraphs from plain text: a blank line between them, a single line break kept. */
+  const paragraphs = (t) => String(t).split(/\n\s*\n/).map((p) => "<p>" + esc(p.trim()).replace(/\n/g, "<br>") + "</p>").join("");
+  const ENTITIES = { amp: "&", lt: "<", gt: ">", quot: '"', "#39": "'", nbsp: " " };
   const ordinal = (n) => n + ({ 1: "st", 2: "nd", 3: "rd" }[n % 100 > 10 && n % 100 < 14 ? 0 : n % 10] || "th");
   const when = (at) => new Date(at).toLocaleString([], { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 
@@ -59,7 +63,7 @@
       const words = wordCount(o.text || "");
       if (!words) return;
       const t = now();
-      open = { screen, kind: o.kind, id: o.id, title: o.title || "", place: o.place || "", words, t0: t, hiddenAt: document.hidden ? t : null, hiddenMs: 0 };
+      open = { screen, kind: o.kind, id: o.id, title: o.title || "", place: o.place || "", text: String(o.text), words, t0: t, hiddenAt: document.hidden ? t : null, hiddenMs: 0 };
       watch(screen);
     },
     /** The note on screen closed: log how long it was open. */
@@ -71,7 +75,19 @@
       const hidden = o.hiddenMs + (o.hiddenAt != null ? t - o.hiddenAt : 0);
       const S = State();
       const again = S.readLog(S.activeSlot()).some((e) => e.id === o.id);
-      S.logReading({ at: Date.now(), kind: o.kind, id: o.id, title: o.title, place: o.place, words: o.words, ms: Math.max(0, Math.round(t - o.t0 - hidden)), level: S.settings.level, day: S.save ? S.save.day : null, again });
+      if (S.logReading({ at: Date.now(), kind: o.kind, id: o.id, title: o.title, place: o.place, words: o.words, ms: Math.max(0, Math.round(t - o.t0 - hidden)), level: S.settings.level, day: S.save ? S.save.day : null, again })) S.keepReadText(o.id, o.text.trim());
+    },
+    /** The words of a note's HTML as plain text, a blank line between its blocks, for timing and for keeping. */
+    plain(html) {
+      return String(html)
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/?(p|div|h\d|li|ul|ol)\b[^>]*>/gi, "\n\n")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (m, k) => ENTITIES[k])
+        .replace(/[ \t]+/g, " ")
+        .replace(/ *\n */g, "\n")
+        .replace(/\n{3,}/g, "\n\n")
+        .trim();
     },
     /** Hidden tab: the clock stops, and starts again when the tab comes back. */
     visibility() {
@@ -216,20 +232,24 @@
       }
       if (log.length) {
         const notes = this.byNote(log);
-        html += '<details class="rc-details"><summary>Every note (' + notes.length + ")</summary>" + '<p class="small muted">One row a note, the last one opened on top. Speed and the flag are for the first read; a note opened more than once lists each time it was open and the total.</p>' + '<div class="rc-scroll"><table class="rc-table"><thead><tr><th>When</th><th>What</th><th class="num">Words</th><th class="num">Opens</th><th class="num">Open</th><th class="num">Speed</th><th></th></tr></thead><tbody>';
+        html += '<details class="rc-details"><summary>Every note (' + notes.length + ")</summary>" + '<p class="small muted">One row a note, the last one opened on top. Click a note to read it as the player saw it. Speed and the flag are for the first read; a note opened more than once lists each time it was open and the total.</p>' + '<div class="rc-scroll"><table class="rc-table"><thead><tr><th>When</th><th>What</th><th class="num">Words</th><th class="num">Opens</th><th class="num">Open</th><th class="num">Speed</th><th></th></tr></thead><tbody>';
         notes.forEach((n) => {
           const e = n.opens[0];
           const w = wpmOf(e);
           const tooFast = w > limit;
           const last = n.opens[n.opens.length - 1];
-          const what = '<span class="rc-kind">' + esc(KIND_NAMES[e.kind] || e.kind) + (e.place ? " · " + esc(e.place) : "") + "</span><br>" + esc(e.title || "") + (e.again ? ' <span class="muted">(first read not in the log)</span>' : "");
+          const what = '<span class="rc-kind">' + esc(KIND_NAMES[e.kind] || e.kind) + (e.place ? " · " + esc(e.place) : "") + '</span><br><button class="rc-open" data-note="' + esc(n.id) + '" aria-expanded="false">' + esc(e.title || "Read it") + "</button>" + (e.again ? ' <span class="muted">(first read not in the log)</span>' : "");
           const whenCell = esc(when(e.at)) + (e.day ? '<br><span class="muted">Day ' + e.day + "</span>" : "") + (n.opens.length > 1 ? '<br><span class="muted">last ' + esc(when(last.at)) + "</span>" : "");
           const openCell = dur(e.ms) + (n.opens.length > 1 ? '<br><span class="rc-more">then ' + n.opens.slice(1).map((x) => dur(x.ms)).join(", ") + "</span><br><strong>" + dur(n.total) + " in all</strong>" : "");
-          html += "<tr><td>" + whenCell + "</td><td>" + what + '</td><td class="num">' + e.words + '</td><td class="num">' + n.opens.length + '</td><td class="num">' + openCell + '</td><td class="num">' + (isFinite(w) ? Math.round(w) : "-") + '</td><td><span class="rc-flag ' + (tooFast ? "fast" : "ok") + '">' + (tooFast ? "Too fast" : "OK") + "</span></td></tr>";
+          html += "<tr><td>" + whenCell + "</td><td>" + what + '</td><td class="num">' + e.words + '</td><td class="num">' + n.opens.length + '</td><td class="num">' + openCell + '</td><td class="num">' + (isFinite(w) ? Math.round(w) : "-") + '</td><td><span class="rc-flag ' + (tooFast ? "fast" : "ok") + '">' + (tooFast ? "Too fast" : "OK") + '</span></td></tr><tr class="rc-text-row hidden"><td colspan="7"></td></tr>';
         });
         html += "</tbody></table></div></details>";
       }
       box.innerHTML = html;
+      box.onclick = (ev) => {
+        const btn = ev.target && ev.target.closest && ev.target.closest(".rc-open");
+        if (btn) this.toggleText(btn, sl.id, log);
+      };
       if (log.length) {
         const clear = document.createElement("button");
         clear.className = "btn del rc-clear";
@@ -242,6 +262,24 @@
         box.appendChild(clear);
       }
       return box;
+    },
+    /** Show or hide, under its row, the words a note showed the player (filled on first open). */
+    toggleText(btn, slotId, log) {
+      const row = btn.closest("tr").nextElementSibling;
+      if (!row || !row.classList.contains("rc-text-row")) return;
+      const show = row.classList.contains("hidden");
+      if (show && !row.dataset.filled) {
+        const id = btn.getAttribute("data-note");
+        const text = State().readText(slotId, id);
+        const e = log.find((x) => x.id === id && !x.again) || log.find((x) => x.id === id);
+        const about = e ? [e.level ? ordinal(e.level) + " grade reading level" : "", e.words + " words"].filter(Boolean).join(" · ") : "";
+        row.cells[0].innerHTML = text
+          ? '<div class="rc-note reading"><p class="small muted">As the player saw it' + (about ? " · " + about : "") + "</p>" + paragraphs(text) + "</div>"
+          : '<p class="small muted rc-note">The words of this note were not kept: it was read before the reading check kept them, or it is one of the oldest and was trimmed to save space.</p>';
+        row.dataset.filled = "1";
+      }
+      row.classList.toggle("hidden", !show);
+      btn.setAttribute("aria-expanded", show ? "true" : "false");
     },
     /** Leaving the page locks it again. */
     lock() {
