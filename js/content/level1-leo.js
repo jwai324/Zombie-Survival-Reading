@@ -132,7 +132,7 @@
     "tomas-leo-3": {
       title: "Tin with a battery cell",
       brief:
-        "Tomas says the robot dog's battery is empty. Only a Bolt-model cell fits it. Signal Electronics is north of the cabin. Look on the floor beside the robot. Find a red tin with a white paper band. The battery cell is inside. Tomas pays 35 scrap. He adds 1 box of radio parts.",
+        "Tomas says the robot dog's battery is nearly empty. Only a Bolt-model cell fits it. Signal Electronics is north of the cabin. Look on the floor beside the robot. Find a red tin with a white paper band. The battery cell is inside. Tomas pays 35 scrap. He adds 1 box of radio parts.",
       tag: "This red tin has a white paper band. A heavy battery cell inside hums softly. Someone wrote on the band: fully charged, keep dry.",
       journal: "You brought Tomas a battery cell from Signal Electronics. The robot dog's eyes glowed blue. It was the first time. They went dark again.",
       done: "Tomas snaps the battery cell into the robot dog. Its eyes glow blue for a moment. Its metal tail wags once. Tomas thanks you.",

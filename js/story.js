@@ -31,6 +31,7 @@
           "Mop the floor, fill the coffee, fix the ice machine.",
           "At the bottom: call Ruby back.",
           "Nothing on the list is crossed off.",
+          "Ruby's call was about the news: some sickness across the river. Probably nothing.",
         ] },
         { id: "gasngo-dead2", kind: "decoy", minLevel: 1, spot: 4, found: "in the back hall, outside the old safe room door", facts: [
           "A scrap of receipt in shaky pencil, not signed.",
@@ -481,7 +482,7 @@
       notes: [
         { id: "school-trail1", kind: "trail", spot: 6, found: "in the front lobby, just inside the front door", facts: [
           "Written by Ms. Adler, to Max and Mia.",
-          "The class has gone north to the Public Library, where Mrs. Greer will take them in.",
+          "The class has gone northwest to the Public Library, where Mrs. Greer will take them in.",
           "Every student is safe and counted, except the two of them.",
           "Ms. Adler will come back to check whenever she can.",
           "Sergeant Vega came looking for the class and left a note in the music room, beside the drum set.",
@@ -509,7 +510,7 @@
           "Written by Max and Mia.",
           "They came back to the school and found Ms. Adler's note.",
           "They had looked for the class as far west as the Water Tower, where Theo gave them water.",
-          "They will go north to the library at first light.",
+          "They will go northwest to the library at first light.",
         ] },
         { id: "school-dead4", kind: "decoy", minLevel: 6, spot: 5, found: "in the front office, near the principal's closet", facts: [
           "A note from the principal, from before the Fall.",
@@ -521,7 +522,7 @@
       signs: [
         { id: "school-sign1", kind: "sign", facts: ["A classroom poster: raise your hand, be kind, read every day.", "Someone added in marker: stay together."] },
         { id: "school-sign2", kind: "graffiti", facts: ["Ruby's red R, with a 6 under it.", "Under it: one in the hallway."] },
-        { id: "school-sign3", kind: "graffiti", facts: ["In neat chalk letters: Ms. Adler's class, gone north.", "Under it: read the note by the front door."] },
+        { id: "school-sign3", kind: "graffiti", facts: ["In neat chalk letters: Ms. Adler's class, gone northwest.", "Under it: read the note by the front door."] },
         { id: "school-sign4", kind: "sign", facts: ["A sign on the door: library closet, return books on time.", "Someone added: late fees canceled."] },
       ],
       key: { id: "key-school", opens: "police", after: "school-trail2", facts: ["What it looks like: a short steel key on a gray tag.", "Its tag says: \"Do not remove.\" The words \"do not\" are crossed out."] },

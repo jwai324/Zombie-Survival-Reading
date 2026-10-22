@@ -83,7 +83,7 @@
   T.journal = [
     {
       title: "Day One, by Candle",
-      text: "I write by candle in my green ledger. Our van rolls in on its last fuel. Tomas talks to it all the way. The cabin at the south end of town is empty. It is dry and has a woodstove. The door locks. Pip sleeps before the bags are in. You keep first watch at the window. Nothing comes.\n\n—June",
+      text: "I write by candle in my green ledger. Our van rolls in on its last fuel. Tomas talks to it all the way. The cabin at the south end of town is empty and dry. It has a woodstove and a locking door. Pip sleeps before unpacking. You keep first watch at the window.\n\n—June",
     },
     {
       title: "The Cabin by Day",
@@ -95,7 +95,7 @@
     },
     {
       title: "They Come in Waves",
-      text: "The first walkers come to the fence at dusk. They come in a group and push at the boards. Then the yard goes quiet for a while. Now I know they come in waves, with calm in between. A new rule goes on the door. Do not shout in the yard, because walkers follow sound.\n\n—June",
+      text: "The biggest group yet comes to the fence at dusk. They push at the boards. Then the yard goes quiet for a while. Now I know they come in waves, with calm in between. A new rule goes on the door. Do not shout in the yard, because walkers follow sound.\n\n—June",
     },
     {
       title: "Pip Asks Questions",
@@ -123,7 +123,7 @@
     },
     {
       title: "Static and Voices",
-      text: "Pip finds an old radio dial in a drawer. Pip turns it for an hour, but there is only static. Pip still thinks voices are out there. People say Jo talks on the radio from a rooftop. Pip lists every voice we hear. The first name is June, and that is me.\n\n—June",
+      text: "Pip finds an old radio dial in a drawer. Pip turns it for an hour. The loose dial gets only static. Pip still thinks voices are out there. Jo talks on the radio from a rooftop. Pip lists every voice we hear. The first name is June, and that is me.\n\n—June",
     },
     {
       title: "The Sunflower Kids",
@@ -163,11 +163,11 @@
     },
     {
       title: "The Rules Out Loud",
-      text: "After supper, I read the door rules out loud. Say where you go. Do not shout in the yard. Patch the fence before supper. Everyone eats the same. Pip wants one more rule. Take what you need, and leave the rest. It is the town's rule, and a good one. So it goes on our door too.\n\n—June",
+      text: "After supper, I read the five door rules out loud. Say where you go. Do not shout in the yard. Patch the fence before supper. Everyone eats the same. Take what you need, and leave the rest. Pip always joins in on that last one. It is the town's rule, and a good one.\n\n—June",
     },
     {
       title: "Ruby and Dev",
-      text: "Pip keeps asking about Ruby and her younger brother, Dev. People say Ruby is looking for Dev. Dev leaves messages for her. Pip has it all worked out. If they keep leaving messages, they will find each other. Pip says it like a fact. I do not argue.\n\n—June",
+      text: "Pip keeps asking about Ruby and her younger brother, Dev. People say Ruby went looking for Dev. Dev left messages for her everywhere. Pip has it all worked out. People who keep leaving messages find each other. Pip says it like a fact. I do not argue.\n\n—June",
     },
     {
       title: "Tick, Knock, Squeal",
@@ -175,7 +175,7 @@
     },
     {
       title: "Big, Messy, Honest",
-      text: "My knees ache on cold mornings. So I show Pip how to keep the ledger. It is just in case my hands get stiff. Pip's writing is big and messy. I tell Pip that is fine. A ledger only has to be honest. It does not have to be neat.\n\n—June",
+      text: "My knees ache on cold mornings. So on cold days, Pip keeps the ledger. It is just in case my hands get stiff. Pip's writing is big and messy. I tell Pip that is fine. A ledger only has to be honest. It does not have to be neat.\n\n—June",
     },
     {
       title: "A Bark Past the Trees",
@@ -266,7 +266,7 @@
     },
     {
       title: "Ruby Heads West",
-      text: "Jo here, with good news. Ruby heard Dev's message. She is heading west to the Water Tower. But first she left one more warning. It is on the gate at Ridge Lumber. Do not run the saws at Ridge Lumber. The noise brings the whole crowd from the loading dock.",
+      text: "Jo here, with good news. Ruby went back east to scout Ridge Lumber. Dev's message reached her there. She left one more warning on the gate. Now she is heading west to the Water Tower. Do not run the saws at Ridge Lumber. The noise brings the whole crowd from the loading dock.",
     },
     {
       title: "Together Again",
@@ -433,7 +433,7 @@
       },
       kitchen: {
         title: "Kate's Note on the Fridge",
-        text: "A fish magnet holds this note. Kate wrote it the morning they left. We go north with the River Convoy on Sergeant Vega's trucks. We took Biscuit, our go bags, and the last peaches. Are you kind? Then our cabin is yours now. Please keep the garden going.",
+        text: "A fish magnet holds this note. Kate wrote it the morning they left. We go north with Sergeant Vega and the River Convoy. We took Biscuit, our go bags, and the last peaches. Are you kind? Then our cabin is yours now. Please keep the garden going.",
       },
       pantry: {
         title: "Labels on the Shelves",

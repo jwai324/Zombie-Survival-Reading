@@ -13,7 +13,7 @@
       "The van rolled into the yard on its last drops of fuel, with Tomas talking to the engine the whole way.",
       "The cabin at the south end of town was empty and dry, with a woodstove and a door that still locks.",
       "Pip fell asleep on the bench before the bags were inside.",
-      "You took the first watch at the window, and nothing came.",
+      "You took the first watch at the window.",
     ] },
     { id: "journal-2", facts: [
       "In daylight the cabin is bigger than it looked: a whole family house with a porch, and the roof is sound.",
@@ -28,9 +28,9 @@
       "Pip counted the minutes you were gone and wrote the number on the wall.",
     ] },
     { id: "journal-4", facts: [
-      "The first walkers came to the fence at dusk.",
+      "The biggest group yet came to the fence at dusk.",
       "They came in a group, pushed at the boards, and then the yard went quiet for a while.",
-      "June learned that they come in waves, with calm in between.",
+      "June has learned that they come in waves, with calm in between.",
       "A new rule went on the door: no shouting in the yard, because walkers follow sound.",
     ] },
     { id: "journal-5", facts: [
@@ -71,9 +71,9 @@
     ] },
     { id: "journal-11", facts: [
       "Pip found an old radio dial in a drawer and turned it for an hour.",
-      "There was only static, but Pip is sure there are voices out there.",
-      "People say someone named Jo talks on the radio from a rooftop.",
-      "Pip has started a list of every voice the crew hears, and the first name on it is June.",
+      "There was only static from the loose dial, but Pip is sure there are voices out there.",
+      "Jo talks on the radio from a rooftop.",
+      "Pip keeps a list of every voice the crew hears, and the first name on it is June.",
     ] },
     { id: "journal-12", facts: [
       "June remembered her school garden and the kids who planted sunflowers by the fence.",
@@ -130,15 +130,15 @@
       "June said the rules on the door, the seeds, and each other.",
     ] },
     { id: "journal-21", facts: [
-      "June read the rules on the door out loud after supper.",
-      "Say where you go. No shouting in the yard. Patch the fence before supper. Everyone eats the same.",
-      "Pip wants to add a rule: take what you need, leave the rest.",
-      "June says that one is the town's rule, and it is a good one, so it goes on the door too.",
+      "June reads the five rules on the door out loud after supper.",
+      "Say where you go. No shouting in the yard. Patch the fence before supper. Everyone eats the same. Take what you need, leave the rest.",
+      "Pip always joins in on the last rule: take what you need, leave the rest.",
+      "June says that one is the town's rule, and it is a good one.",
     ] },
     { id: "journal-22", facts: [
       "Pip keeps asking about Ruby and her younger brother, Dev.",
-      "People say Ruby is looking for Dev, and Dev leaves messages for her.",
-      "Pip says if they keep leaving messages, they will find each other.",
+      "People say Ruby went looking for Dev, and Dev left messages for her wherever he went.",
+      "Pip says people who keep leaving messages find each other.",
       "June did not argue.",
     ] },
     { id: "journal-23", facts: [
@@ -149,7 +149,7 @@
     ] },
     { id: "journal-24", facts: [
       "June's knees ache on cold mornings.",
-      "Just in case her hands get stiff, she showed Pip how to keep the ledger.",
+      "Just in case her hands get stiff, she has Pip keep the ledger on cold mornings.",
       "Pip's writing is big and messy, and June says that is fine.",
       "A ledger only has to be honest, not neat.",
     ] },
@@ -287,6 +287,7 @@
       "Jo says Ruby heard Dev's message and is heading west to the Water Tower.",
       "Ruby left one more warning on the gate at Ridge Lumber.",
       "Do not run the saws at Ridge Lumber, because the noise brings the whole crowd from the loading dock.",
+      "Ruby had gone back east to scout Ridge Lumber when the message reached her.",
     ] },
     { id: "radio-17", voice: "Theo", facts: [
       "Theo has good news.",
@@ -562,7 +563,7 @@
     ],
     kitchen: [
       "A note on the fridge is held up by a magnet shaped like a fish.",
-      "Kate wrote it the morning the family left: we are going north with the River Convoy, on Sergeant Vega's trucks.",
+      "Kate wrote it the morning the family left: we are going north with Sergeant Vega and the River Convoy.",
       "They took Biscuit, their go bags and the last of the canned peaches.",
       "She wrote: if you find our cabin and you are kind, it is yours now, so please keep the garden going.",
     ],

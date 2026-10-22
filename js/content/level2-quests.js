@@ -50,7 +50,7 @@
         "June wants a first-aid book. She says tape and a cloth only go so far. With a book, she can patch the crew up better. The Public Library is north of the cabin. In its MEDIA room, look beside the owl statue. The book lies on the floor. It is thick and blue, with folded page corners. June will give you 40 scrap and 1 medical kit.",
       tag: "This thick blue first-aid book is from the Public Library. Some corners are folded down. They mark the pages about cuts, burns and sprains.",
       journal:
-        "You brought me a first-aid book from the Public Library. I read it by the stove. I read until the candle burned down. Now Tomas calls me Nurse June.",
+        "You brought me a first-aid book from the Public Library. I read by the stove until the candle burned down. “Late, June,” Tomas said. “Not for students,” I said.",
       done: "June has already started reading. She shows you the folded corners. She says they show which pages helped people most. Somebody read those pages again and again. From now on, her patch-up gives you 20 more health. June says she will practice on Tomas first.",
       after:
         "June learned first aid in her school garden. Kids got bee stings and scraped knees there. So the school nurse taught her what to do. June kept bandages in the tool shed. She kept lollipops there too, for the brave ones. The crew is braver, June says. But they still get no lollipops.",

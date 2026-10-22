@@ -162,7 +162,7 @@
     },
     "pip-t6": {
       title: "The List of Voices",
-      text: "Pip keeps a list of every voice the crew hears, and the first name on it is June. Tomas is second, which he finds unfair. People say someone named Jo talks on the radio from a rooftop. Pip says a voice like that is exactly what the list is for. The Radio room, made of radio parts and wire, brings in voices like Jo's, Pip says. It also finds new places for the map.",
+      text: "Pip keeps a list of every voice the crew hears, and the first name on it is June. Tomas is second, which he finds unfair. Jo talks on the radio from a rooftop. Pip says a voice like that is exactly what the list is for. The Radio room, made of radio parts and wire, brings in voices like Jo's, Pip says. It also finds new places for the map.",
     },
     "pip-t7": {
       title: "A Radio That Reaches",

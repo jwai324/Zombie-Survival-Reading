@@ -268,7 +268,7 @@
       object: { name: "Tin with a battery cell", art: "tin" },
       reward: { scrap: 35, items: { radioParts: 1 } },
       brief: [
-        "The robot dog's battery is dead, and only a Bolt-model cell fits it.",
+        "The robot dog's old battery is nearly dead, and only a Bolt-model cell fits it.",
         "Signal Electronics is north of the cabin.",
         "A red tin with a white paper band lies on the floor beside the robot.",
         "The battery cell is inside it.",

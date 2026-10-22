@@ -159,7 +159,7 @@
     },
     "pip-t6": {
       title: "The List of Voices",
-      text: "Pip pulls a battered notebook from their hoodie pocket. It holds a list of every voice the crew hears. The first name on it is June, with a crown drawn over it. People say someone named Jo talks on the radio from a rooftop, reading the news to anyone listening. Pip says a voice is just noise until someone writes it down. The Radio room, made of radio parts and wire, brings in voices like Jo's through the static. “And it finds new places for the map,” Pip says. “Voices know where things are.”",
+      text: "Pip pulls a battered notebook from their hoodie pocket. It holds a list of every voice the crew hears. The first name on it is June, with a crown drawn over it. Jo talks on the radio from a rooftop, reading the news to anyone listening. Pip says a voice is just noise until someone writes it down. The Radio room, made of radio parts and wire, brings in voices like Jo's through the static. “And it finds new places for the map,” Pip says. “Voices know where things are.”",
     },
     "pip-t7": {
       title: "A Radio That Reaches",

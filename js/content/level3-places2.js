@@ -56,7 +56,7 @@
         },
         "school-trail1": {
           title: "For Max and Mia",
-          text: "Max, Mia, this is for you. If anyone else finds it, please leave it here.\n\nI am so sorry we lost you in the rush. I looked for you until dark. Then I had to move the class.\n\nWe have gone north to the Public Library. Mrs. Greer, the librarian, will take us in. She has thick walls and a lot of quiet. Every student is safe and counted. Every student except the two of you.\n\nI will come back here to check whenever I can. If you find this, stay together. Walk, do not run, and go north to the library.\n\nOne more thing. When I came back today, I saw that Sergeant Vega had been here. Vega came looking for our class. Vega left a note in the music room, beside the drum set. Read it.\n\nWith love, Ms. Adler",
+          text: "Max, Mia, this is for you. If anyone else finds it, please leave it here.\n\nI am so sorry we lost you in the rush. I looked for you until dark. Then I had to move the class.\n\nWe have gone northwest to the Public Library. Mrs. Greer, the librarian, will take us in. She has thick walls and a lot of quiet. Every student is safe and counted. Every student except the two of you.\n\nI will come back here to check whenever I can. If you find this, stay together. Walk, do not run, and go northwest to the library.\n\nOne more thing. When I came back today, I saw that Sergeant Vega had been here. Vega came looking for our class. Vega left a note in the music room, beside the drum set. Read it.\n\nWith love, Ms. Adler",
         },
         "school-trail2": {
           title: "Vega Checked the School",
@@ -74,7 +74,7 @@
       signs: {
         "school-sign1": { title: "Classroom Poster", text: "OUR CLASS RULES: Raise your hand. Be kind. Read every day. At the bottom, someone added in green marker: Stay together. Always." },
         "school-sign2": { title: "Ruby's Red R", text: "Ruby's red R, sprayed fast, with a 6 under it. Below, smaller: ONE IN THE HALLWAY. KEEP BACK. IT HEARS." },
-        "school-sign3": { title: "Chalk on the Wall", text: "In neat chalk letters, like on a chalkboard: Ms. Adler's class, gone north. Under it, just as neat: Read the note by the front door." },
+        "school-sign3": { title: "Chalk on the Wall", text: "In neat chalk letters, like on a chalkboard: Ms. Adler's class, gone northwest. Under it, just as neat: Read the note by the front door." },
         "school-sign4": { title: "Library Closet Door", text: "LIBRARY CLOSET. Please return all books on time. Someone added in pen, under it: Late fees canceled. Forever. Signed, the students." },
       },
       key: { name: "Short steel key, gray tag", tag: "The gray tag says: \"Do not remove.\" Someone crossed out the words \"do not\" with a heavy line. The key is short and steel. It is plain and scratched." },
@@ -120,8 +120,8 @@
     hospital: {
       blurb: "St. Anne Annex, the north hills hospital: medicine, a generator, and the worst walkers.",
       door: {
-        title: "Doc Lin on the Ambulance",
-        text: "Doc Lin. I wrote this on my last run north.\n\nOne medical kit is in the patient room next to the x-ray machine. One more is by the giant teddy bear in the gift shop. The generator is in the utility room, on the right side.\n\nAt least nine walkers are inside. They stand still in the dark rooms, so look before you step in.\n\nThe pharmacy stock room is locked. The nurse's note is at the nurses' station, in the middle. Ada, if you are still in there, hold on. I am coming as soon as I can.",
+        title: "Nurse Ada on the Ambulance",
+        text: "Nurse Ada. I stayed when the others left, and I know every room in this building.\n\nOne medical kit is in the patient room next to the x-ray machine. One more is by the giant teddy bear in the gift shop. The generator is in the utility room, on the right side.\n\nAt least nine walkers are inside. They stand still in the dark rooms, so look before you step in.\n\nThe pharmacy stock room is locked. My note is at the nurses' station, in the middle. Doc Lin, if you make it up here, I am still inside. I kept the light on.",
       },
       notes: {
         "hospital-hall": {
@@ -163,7 +163,7 @@
       notes: {
         "watertower-panel": {
           title: "Three Breaker Boxes",
-          text: "Theo. You found the control panel. Good.\n\nThe pump house key is in the {pick}. That is one of the three breaker boxes by this panel. Open that box, and the key hangs on a nail inside. With it, you can open the pump house.\n\nOpen neither of the other two boxes. They are live, and the shock kills. Do not touch them, not even to look. I mean it.\n\nGo into the pump hall. The pump house door is at the back of the hall, at the blue pump end. The big red wheel is at the other end, away from it. Inside there are filters, a water tank, and wire. Leave at least one filter if you can.\n\nIf you need medicine, St. Anne Annex is the hospital, north up Hill Road. It still has medicine. But it is the most dangerous place in town. Do not go there alone.",
+          text: "Theo. You found the control panel. Good.\n\nThe pump house key is in the {pick}. That is one of the three breaker boxes by this panel. Open that box, and the key hangs on a nail inside. With it, you can open the pump house.\n\nOpen neither of the other two boxes. They are live, and the shock kills. Do not touch them, not even to look. I mean it.\n\nGo into the pump hall. The pump house door is at the back of the hall, at the blue pump end. The big red wheel is at the other end, away from it. Inside there are filters, a water tank, and wire. Leave at least one filter if you can.\n\nIf you need medicine, St. Anne Annex is the hospital, northeast up Hill Road. It still has medicine. But it is the most dangerous place in town. Do not go there alone.",
         },
         "watertower-trail1": {
           title: "Ruby, It's Dev",

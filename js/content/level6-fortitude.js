@@ -46,6 +46,10 @@
       title: "A Good Fix Is Slow",
       text: "Tomas tells you about the first fusion reactor in the old story. It ran for 10 seconds before a coil failed, and Kennedy was burned. After that, the team learned to stop rushing, which Tomas considers the most expensive lesson in the history of engineering. “A good fix is a slow fix,” Tomas says, flexing his own bandaged fingers with a rueful look. Then he brightens, because patience has a payoff he can promise. Once the Garage room is built, he says, the van comes home fixed for free.",
     },
+    "tomas-fort-t3": {
+      title: "A Famous Last Name",
+      text: "Tomas grins whenever Mr. Reyes of Reyes Hardware comes up, the way people grin about a favorite uncle. Mr. Reyes tells anyone who lingers at his counter that his family goes back to Dr. Camila Reyes. She lived hundreds of years ago, so nobody can prove it either way; whatever thread once tied them together frayed centuries before anyone was born. Tomas does not mind in the least. He likes the story, true or not. A man who has never once sold him a bent nail, Tomas says, has earned the right to choose his own ancestors. Then the mechanic in him takes over. Reyes Hardware, he says, is the place to find lumber and nails.",
+    },
     "pip-fort-t1": {
       title: "The Whole Team",
       text: "Pip can name Dr. Camila Reyes's whole team and will do so at the faintest provocation: Zoe, Kennedy, Ava, Patriya and Annabelle. Valen was the Fortitude who answered their messages. Valen learned the words help, thank you and together, which Pip regards as the most important vocabulary list ever compiled. Then Pip's voice drops into lookout mode. Read every note to the end, Pip says, because some notes in town are old or wrong. A note read halfway, Pip adds, is a trap you set for yourself.",

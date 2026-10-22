@@ -88,6 +88,10 @@
       title: "A Good Fix Is Slow",
       text: "Tomas tells you about the first fusion reactor. It ran for 10 seconds. Then a coil failed. Kennedy was burned. So the team learned to stop rushing. Tomas says a good fix is a slow fix. Build the Garage room. Then the van comes home fixed for free.",
     },
+    "tomas-fort-t3": {
+      title: "A Famous Last Name",
+      text: "Tomas tells you about Mr. Reyes of Reyes Hardware. Mr. Reyes says his family goes back to Dr. Camila Reyes. She lived hundreds of years ago. So nobody can prove it. Tomas likes the story, true or not. Get lumber and nails at Reyes Hardware.",
+    },
     "pip-fort-t1": {
       title: "The Whole Team",
       text: "Pip can name Dr. Camila Reyes's whole team. They are Zoe, Kennedy, Ava, Patriya and Annabelle. Valen, a Fortitude, answered their messages. Valen learned the words help, thank you and together. Pip says to read every note to the end. Some notes in town are old or wrong.",

@@ -28,7 +28,7 @@
         },
         "gasngo-dead1": {
           title: "Dev's Last Shift",
-          text: "This is a to-do list. Dev wrote it on his last shift, just before the Fall. The paper is soft and gray now.\n\nTO DO:\nMop the floor.\nFill the coffee.\nFix the ice machine.\n\nAt the bottom, in small letters, it says: Call Ruby back.\n\nNot one thing on the list is crossed off. The mop still leans in its bucket. The coffee pot is still empty. The ice machine is still broken. Did Dev ever call Ruby back? The list does not say.",
+          text: "This is a to-do list. Dev wrote it on his last shift, just before the Fall. The paper is soft and gray now.\n\nTO DO:\nMop the floor.\nFill the coffee.\nFix the ice machine.\n\nAt the bottom, in small letters, it says: Call Ruby back.\n\nRuby called about the news. The news was about some sickness across the river. Dev wrote: Probably nothing.\n\nNot one thing on the list is crossed off. The mop still leans in its bucket. The coffee pot is still empty. The ice machine is still broken. Did Dev ever call Ruby back? The list does not say.",
         },
         "gasngo-dead2": {
           title: "A Scrap of Receipt",

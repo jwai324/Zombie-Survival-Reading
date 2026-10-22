@@ -330,6 +330,8 @@
       // ("the van comes home fixed", "a broadcast each day"), which a wrecked build does not give until it is fixed
       if (when.room != null && (this.roomLevel ? this.roomLevel(when.room) : s.rooms[when.room] || 0) < (when.level != null ? when.level : 1)) return false;
       if (when.dog != null && !!when.dog !== this.dogHome()) return false;
+      // a topic the radio has overtaken: told only while fewer broadcasts than this have been heard (radioHeard)
+      if (when.radioBefore != null && (s.radioHeard || 0) >= when.radioBefore) return false;
       return true;
     },
     /** The next thing to tell: a handed-in story quest's payoff first ({ id: quest id, quest }), then the

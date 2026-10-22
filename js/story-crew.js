@@ -217,7 +217,7 @@
           "He says walkers smash windows and climb in, and nobody can climb out through a broken one.",
           "A broken door or window costs 2 scrap to fix: press E at it, or use the office computer.",
         ] },
-        { id: "tomas-t5", when: { day: 9, stars: 1 }, facts: [
+        { id: "tomas-t5", when: { day: 9, stars: 1, radioBefore: 15 }, facts: [
           "Tomas learned engines from his father, handing him wrenches under cars.",
           "His father learned the trade from Mr. Ortiz at Ortiz Auto.",
           "Tomas hopes Mr. Ortiz is still out there somewhere.",
@@ -287,7 +287,7 @@
         ] },
         { id: "pip-t6", when: { day: 11, stars: 1 }, facts: [
           "Pip keeps a list of every voice the crew hears, and the first name on it is June.",
-          "People say someone named Jo talks on the radio from a rooftop.",
+          "Jo talks on the radio from a rooftop.",
           "Pip says the Radio room, made of radio parts and wire, finds new places for the map.",
         ] },
         { id: "pip-t7", when: { room: "radio", level: 1 }, facts: [

@@ -815,7 +815,7 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
   const POSES = ["stand", "sit", "work", "read"];
   const JOBS = ["fence", "builds", "cabin", "heal", "lookout"];
   const PRONOUNS = ["she", "he", "they"];
-  const WHEN_KEYS = ["day", "stars", "quest", "note", "room", "level", "dog"];
+  const WHEN_KEYS = ["day", "stars", "quest", "note", "room", "level", "dog", "radioBefore"];
   // CREW_TIPS: every tip id the engine gives (js/crewstate.js), with the placeholders its facts carry. One table for
   // every crew member; the same as CREW_TIP_VARS in tests/validate-text.js and TIP_VARS in tests/validate-crew.js
   const TIP_VARS = { hungry: [], food: ["food", "days"], ready: ["room"], build: ["room", "needs"], heal: ["hp"], van: ["hp", "max", "cost"], vanFree: ["hp", "max"], fence: ["holes", "cracks"], cabin: ["broken"], crowbar: [], fine: [], wave: ["size", "sides"], keys: ["keys"], walkers: ["days"], radio: [], full: [], lanky: [], armored: [], wrecked: ["rooms", "cost"], screamer: [], wreckers: [] };

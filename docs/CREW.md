@@ -183,7 +183,7 @@ W.CREW_TALK = {
 `when` keys (all optional, all must hold): `day` (at least), `stars` (at least), `quest` (that
 quest done), `note` (that note read, `State.noteRead`), `room` + `level` (built that far and not
 wrecked: `State.roomLevel`, so a topic that gives the room's bonus as working waits until it is fixed), `dog`
-(true: the dog is home). 8 to 10 topics and 4 to 6 moods per crew member. Topics are character:
+(true: the dog is home), `radioBefore` (only while fewer broadcasts than this have been heard). 8 to 10 topics and 4 to 6 moods per crew member. Topics are character:
 their past, their worries and hopes, the town's threads as they hear them, the Hollis family,
 each other. Every topic must be true for any player who meets its `when` (the journal rule:
 never assume a build or a find the `when` does not guarantee).

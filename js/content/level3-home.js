@@ -76,7 +76,7 @@
   T.journal = [
     {
       title: "By Candlelight",
-      text: "This is the first page of my green ledger. I am writing by candlelight, so forgive the wobbly lines. The van rolled into the yard on its last drops of fuel. Tomas talked to the engine the whole way, and I think it listened. The cabin at the south end of town was empty and dry. It has a woodstove, and the door still locks. Pip fell asleep on the bench before the bags were even inside. You took the first watch at the window. Nothing came. Good night, from June.",
+      text: "This is the first page of my green ledger. I am writing by candlelight, so forgive the wobbly lines. The van rolled into the yard on its last drops of fuel. Tomas talked to the engine the whole way, and I think it listened. The cabin at the south end of town was empty and dry. It has a woodstove, and the door still locks. Pip fell asleep on the bench before the bags were even inside. You took the first watch at the window. Good night, from June.",
     },
     {
       title: "Bigger than It Looked",
@@ -87,8 +87,8 @@
       text: "Tomas spent the morning under the van. When he slid out, he was smiling and covered in grease. He says the van is old but honest, like a good mule. I have never met a mule I trusted, but I trust Tomas. In the afternoon you drove out to look for supplies. I watched the road the whole time, until the van came back. “June, you are allowed to blink,” Pip told me. Pip counted the minutes you were gone. Then Pip wrote the number on the wall in pencil.",
     },
     {
-      title: "The First Wave",
-      text: "The first walkers came to the fence at dusk. They came in a group, all at once. They pushed at the boards until the wood groaned. Then, just like that, the yard went quiet for a while. I sat up late and thought about it. They come in waves, with calm in between. That is something we can plan around. So a new rule went on the door tonight. No shouting in the yard, because walkers follow sound. Pip whispered, “June, can I still sing?” Only very, very softly.",
+      title: "The Biggest Wave Yet",
+      text: "The biggest group yet came to the fence at dusk, all at once. They pushed at the boards until the wood groaned. Then, just like that, the yard went quiet for a while. I sat up late and thought about it. By now I have learned that they come in waves, with calm in between. That is something we can plan around. So a new rule went on the door tonight. No shouting in the yard, because walkers follow sound. Pip whispered, “June, can I still sing?” Only very, very softly.",
     },
     {
       title: "Where Everyone Went",
@@ -116,7 +116,7 @@
     },
     {
       title: "Static and Voices",
-      text: "Pip found an old radio dial in a kitchen drawer. Pip turned it slowly for an hour. There was only static, a long gray hiss. Still, Pip is sure there are voices out there. People say someone named Jo talks on the radio from a rooftop. Maybe Jo is real, and maybe not. Pip has started a list of every voice the crew hears. The first name on it is mine. “June,” it says, in big letters. I am honored, and a little worried about the spelling.",
+      text: "Pip found an old radio dial in a kitchen drawer. Pip turned it slowly for an hour. There was only static from the loose dial, a long gray hiss. Still, Pip is sure there are voices out there. Jo talks on the radio from a rooftop. Pip keeps a list of every voice the crew hears. The first name on it is mine. “June,” it says, in big letters. I am honored, and a little worried about the spelling.",
     },
     {
       title: "Sunflowers by the Fence",
@@ -156,11 +156,11 @@
     },
     {
       title: "The Rules, Out Loud",
-      text: "After supper, I read the rules on the door out loud. Say where you go. No shouting in the yard. Patch the fence before supper. Everyone eats the same. Pip listened, then held up a hand. Pip wants to add a rule: take what you need, leave the rest. I said that one is the town's rule, not just ours. But it is a good one. So it goes on the door too, in Pip's big, loopy letters. — June",
+      text: "After supper, I read the five rules on the door out loud. Say where you go. No shouting in the yard. Patch the fence before supper. Everyone eats the same. Take what you need, leave the rest. Pip always joins in on the last one, loud and proud. I tell Pip that one is the town's rule, not just ours. But it is a good one. It looks fine on our door, in Pip's big, loopy letters. — June",
     },
     {
       title: "Messages Find People",
-      text: "Pip keeps asking about Ruby and her younger brother, Dev. People say Ruby is looking for Dev all over town. They say Dev leaves messages for her wherever he goes. Notes, chalk, paint on the walls. Pip has thought about this a lot. Pip says if they keep leaving messages, they will find each other. It is that simple, Pip says. I did not argue. Some days, the simple answer is the truest one anyone gives. — June",
+      text: "Pip keeps asking about Ruby and her younger brother, Dev. People say Ruby went looking for Dev all over town. They say Dev left messages for her wherever he went. Notes, chalk, paint on the walls. Pip has thought about this a lot. Pip says people who keep leaving messages find each other. It is that simple, Pip says. I did not argue. Some days, the simple answer is the truest one anyone gives. — June",
     },
     {
       title: "Engine Talk",
@@ -168,7 +168,7 @@
     },
     {
       title: "Big, Messy Letters",
-      text: "My knees ache on cold mornings. I think they are older than the cabin. Today I showed Pip how to keep the ledger. That is just in case my hands get stiff. Pip writes big and messy, with loops on every letter. I told Pip that is fine. A ledger only has to be honest, not neat. Pip wrote the date, the food count, and a small drawing of the van. The van had a face. I kept the drawing. — June",
+      text: "My knees ache on cold mornings. I think they are older than the cabin. On those mornings, I have Pip keep the ledger. That is just in case my hands get stiff. Pip writes big and messy, with loops on every letter. I tell Pip that is fine. A ledger only has to be honest, not neat. Today Pip wrote the date, the food count, and a small drawing of the van. The van had a face. I kept the drawing. — June",
     },
     {
       title: "A Bark Past the Trees",
@@ -259,7 +259,7 @@
     },
     {
       title: "Ruby Heads West",
-      text: "Jo here, with good news for once. Ruby heard Dev's message. She is heading west to the Water Tower right now. Before she left, Ruby left one more warning. She painted it on the gate at Ridge Lumber. Here is what it says. Do not run the saws at Ridge Lumber. The noise brings the whole crowd from the loading dock. Listen to Ruby on this. She has been right every time so far.",
+      text: "Jo here, with good news for once. Ruby had gone back east to scout Ridge Lumber. Dev's message reached her there. She is heading west to the Water Tower right now. Before she left, Ruby left one more warning. She painted it on the gate at Ridge Lumber. Here is what it says. Do not run the saws at Ridge Lumber. The noise brings the whole crowd from the loading dock. Listen to Ruby on this. She has been right every time so far.",
     },
     {
       title: "Together Again",
@@ -427,7 +427,7 @@
       },
       kitchen: {
         title: "Kate's Note on the Fridge",
-        text: "A magnet shaped like a fish holds a note on the fridge. Kate wrote it the morning the family left. We are going north with the River Convoy, on Sergeant Vega's trucks. We took Biscuit, our go bags, and the last of the canned peaches. If you find our cabin and you are kind, it is yours now. Please keep the garden going. —Kate",
+        text: "A magnet shaped like a fish holds a note on the fridge. Kate wrote it the morning the family left. We are going north with Sergeant Vega and the River Convoy. We took Biscuit, our go bags, and the last of the canned peaches. If you find our cabin and you are kind, it is yours now. Please keep the garden going. —Kate",
       },
       pantry: {
         title: "Dan's Shelf Labels",

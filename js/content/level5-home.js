@@ -76,7 +76,7 @@
   T.journal = [
     {
       title: "Day One by Candlelight",
-      text: "My name is June. This green ledger is the only clean thing I own, so I am writing in it by candlelight. The van rolled into the yard on its last drops of fuel. Tomas talked to the engine the whole way, coaxing it like a nervous horse, and I think it listened. The cabin sits at the south end of town. It is empty and dry, with a woodstove and a door that still locks. After weeks of broken doors, the click of that lock sounded like music. Pip fell asleep on the bench before the bags were even inside, one shoe still on. You took the first watch at the window. I lay awake listening for trouble, but nothing came. For one whole night, nothing came.",
+      text: "My name is June. This green ledger is the only clean thing I own, so I am writing in it by candlelight. The van rolled into the yard on its last drops of fuel. Tomas talked to the engine the whole way, coaxing it like a nervous horse, and I think it listened. The cabin sits at the south end of town. It is empty and dry, with a woodstove and a door that still locks. After weeks of broken doors, the click of that lock sounded like music. Pip fell asleep on the bench before the bags were even inside, one shoe still on. You took the first watch at the window. I fell asleep knowing someone was awake for all of us.",
     },
     {
       title: "The Cabin in Daylight",
@@ -88,7 +88,7 @@
     },
     {
       title: "Walkers at Dusk",
-      text: "The first walkers came to the fence at dusk. We heard them before we saw them, a dragging shuffle like wet leaves pushed by the wind. They came in a group and pushed at the boards until the whole fence groaned. Then, as suddenly as they arrived, the yard went quiet for a while. Tomas whispered, 'Write this down, June.' So here is what I learned today. They come in waves, with calm in between, like the tide at the beach where I grew up. The calm is not peace. It is only a breath before the next push. So a new rule went on the door: no shouting in the yard, because walkers follow sound. Pip whispered the rule twice, just to practice being quiet.",
+      text: "The biggest group yet came to the fence at dusk. We heard them before we saw them, a dragging shuffle like wet leaves pushed by the wind. They pushed at the boards until the whole fence groaned. Then, as suddenly as they arrived, the yard went quiet for a while. Tomas whispered, 'Write this down, June.' So here is what I have learned. They come in waves, with calm in between, like the tide at the beach where I grew up. The calm is not peace. It is only a breath before the next push. So a new rule went on the door: no shouting in the yard, because walkers follow sound. Pip whispered the rule twice, just to practice being quiet.",
     },
     {
       title: "Where Everyone Went",
@@ -116,7 +116,7 @@
     },
     {
       title: "Static and Voices",
-      text: "Pip found an old radio dial in a kitchen drawer, under a tangle of string and dead batteries. It was not attached to anything, but Pip turned it for an hour anyway, holding it close to one ear. There was only static, a long dry hiss like sand pouring out of a bag. Still, Pip is sure there are voices out there. People say someone named Jo talks on the radio from a rooftop, reading the news to anyone who will listen. Pip believes it completely. So now Pip has started a list of every voice the crew hears. The first name on it is June. I am honored, and also a little suspicious, because Pip wrote my name in purple crayon and drew a crown over it.",
+      text: "Pip found an old radio dial in a kitchen drawer, under a tangle of string and dead batteries. It was not attached to anything, but Pip turned it for an hour anyway, holding it close to one ear. There was only static from the loose dial, a long dry hiss like sand pouring out of a bag. Still, Pip is sure there are voices out there. Jo talks on the radio from a rooftop, reading the news to anyone who will listen. Pip keeps a list of every voice the crew hears. The first name on it is June. I am honored, and also a little suspicious, because Pip wrote my name in purple crayon and drew a crown over it.",
     },
     {
       title: "Sunflowers by the Fence",
@@ -156,11 +156,11 @@
     },
     {
       title: "The Rules on the Door",
-      text: "After supper, I read the rules on the door out loud, the way my old principal used to read the morning news. Say where you go. No shouting in the yard. Patch the fence before supper. Everyone eats the same. Four rules, written in different hands, and every one of them was learned the hard way. Pip listened with arms crossed, like a judge at a contest. Then Pip said we needed one more: take what you need, leave the rest. I smiled, because that one is not ours. That is the town's rule, the one the whole key ring is built on. But it is a good one, maybe the best one. So it goes on the door too. Pip wrote it at the bottom, big enough to read from the yard. June",
+      text: "After supper, I read the five rules on the door out loud, the way my old principal used to read the morning news. Say where you go. No shouting in the yard. Patch the fence before supper. Everyone eats the same. Take what you need, leave the rest. The first four are written in different hands, and every one of them was learned the hard way. Pip listens with arms crossed, like a judge at a contest, and always joins in on the last one. I smile every time, because that one is not ours. That is the town's rule, the one the whole key ring is built on. But it is a good one, maybe the best one. Pip wrote it at the bottom, big enough to read from the yard. June",
     },
     {
       title: "Messages for Each Other",
-      text: "Pip keeps asking about Ruby and her younger brother, Dev. After every trip, the first question is the same: any news? People say Ruby is looking for Dev, crossing town from one end to the other. And Dev leaves messages for her, on walls and counters and doors, like breadcrumbs in an old fairy tale. Pip has thought about this very carefully, the way Pip thinks about everything important. Pip says if they keep leaving messages, they will find each other. It is just a matter of time and paper. I know how big this town is, and how many walkers stand between those walls. Tomas raised an eyebrow at me. But June did not argue. Some hopes are worth guarding, like a match in the wind.",
+      text: "Pip keeps asking about Ruby and her younger brother, Dev. After every trip, the first question is the same: any news? People say Ruby went looking for Dev, crossing town from one end to the other. And Dev left messages for her wherever he went, on walls and counters and doors, like breadcrumbs in an old fairy tale. Pip has thought about this very carefully, the way Pip thinks about everything important. Pip says people who keep leaving messages find each other. I know how big this town is. Tomas raised an eyebrow at me. But June did not argue. Some hopes are worth guarding, like a match in the wind.",
     },
     {
       title: "Listening to the Engine",
@@ -168,7 +168,7 @@
     },
     {
       title: "An Honest Ledger",
-      text: "My knees ache on cold mornings. They creak like the old porch steps at my school, and they tell me the weather before the sky does. My hands are starting to complain too. So today I showed Pip how to keep the ledger, just in case my hands get stiff. We sat at the table with the green book open between us. I showed Pip where the food count goes, where the trips go, and where the rules go. Pip's writing is big and messy, with letters that lean on each other like tired friends. Pip apologized for it. I said that is fine. A ledger only has to be honest, not neat. The truth does not need pretty handwriting. June, a teacher again, for one afternoon.",
+      text: "My knees ache on cold mornings. They creak like the old porch steps at my school, and they tell me the weather before the sky does. My hands are starting to complain too. So on cold mornings, I have Pip keep the ledger, just in case my hands get stiff. We sit at the table with the green book open between us. Pip knows where the food count goes, where the trips go, and where the rules go. Pip's writing is big and messy, with letters that lean on each other like tired friends. Pip apologizes for it. I say that is fine. A ledger only has to be honest, not neat. The truth does not need pretty handwriting. June, a teacher again, every cold morning.",
     },
     {
       title: "A Bowl by the Gate",
@@ -259,7 +259,7 @@
     },
     {
       title: "Ruby Heads West",
-      text: "Jo on 88.1, and I have been grinning all day. Ruby heard Dev's message. She is heading west to the Water Tower right now, walking faster than she has walked in months, I bet. Before she left, though, Ruby did what Ruby always does. She left one more warning, painted on the gate at Ridge Lumber, so here it is for everyone. Do not run the saws at Ridge Lumber. Not even for one quick cut. The noise brings the whole crowd from the loading dock, and they pour out like water through a broken dam. Carry your boards out by hand instead. It is slower, but slow is how you get home. Ruby, safe travels. Jo out.",
+      text: "Jo on 88.1, and I have been grinning all day. Ruby had gone back east to scout Ridge Lumber, and that is where Dev's message reached her. She is heading west to the Water Tower right now, walking faster than she has walked in months, I bet. Before she left, though, Ruby did what Ruby always does. She left one more warning, painted on the gate at Ridge Lumber, so here it is for everyone. Do not run the saws at Ridge Lumber. Not even for one quick cut. The noise brings the whole crowd from the loading dock, and they pour out like water through a broken dam. Carry your boards out by hand instead. It is slower, but slow is how you get home. Ruby, safe travels. Jo out.",
     },
     {
       title: "Together Again",
@@ -427,7 +427,7 @@
       },
       kitchen: {
         title: "Kate's Note on the Fridge",
-        text: "A note hangs on the fridge, held up by a magnet shaped like a fish. Kate wrote it the morning the family left, and the pen pressed so hard it nearly tore the paper.\n\n“We are going north with the River Convoy, on Sergeant Vega's trucks. We took Biscuit, our go bags, and the last of the canned peaches. If you find our cabin and you are kind, it is yours now. Please keep the garden going. —Kate”\n\nJune says it is the most generous thing anyone ever wrote to a stranger, and she intends to deserve it.",
+        text: "A note hangs on the fridge, held up by a magnet shaped like a fish. Kate wrote it the morning the family left, and the pen pressed so hard it nearly tore the paper.\n\n“We are going north with Sergeant Vega and the River Convoy. We took Biscuit, our go bags, and the last of the canned peaches. If you find our cabin and you are kind, it is yours now. Please keep the garden going. —Kate”\n\nJune says it is the most generous thing anyone ever wrote to a stranger, and she intends to deserve it.",
       },
       pantry: {
         title: "The Pantry Shelves",

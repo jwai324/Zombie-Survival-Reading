@@ -27,7 +27,7 @@
         },
         "gasngo-dead1": {
           title: "Dev's Last Shift List",
-          text: "TO DO. Dev. My last shift before the Fall. I did not know it then.\n\nMop the floor. The whole floor, not just by the door. The boss checks under the shelves now.\n\nFill the coffee. Both pots. The truck drivers get grumpy at six.\n\nFix the ice machine. It keeps making that grinding sound. Kick it gently on the left side.\n\nAt the bottom, in bigger letters: Call Ruby back. She called three times today.\n\nNothing on the list is crossed off. The pen is still clipped to the page. The coffee pots are dry. The ice machine is quiet now. Everything is quiet now.",
+          text: "TO DO. Dev. My last shift before the Fall. I did not know it then.\n\nMop the floor. The whole floor, not just by the door. The boss checks under the shelves now.\n\nFill the coffee. Both pots. The truck drivers get grumpy at six.\n\nFix the ice machine. It keeps making that grinding sound. Kick it gently on the left side.\n\nAt the bottom, in bigger letters: Call Ruby back. She called three times today. It is about the news. Some sickness across the river. Probably nothing.\n\nNothing on the list is crossed off. The pen is still clipped to the page. The coffee pots are dry. The ice machine is quiet now. Everything is quiet now.",
         },
         "gasngo-dead2": {
           title: "A Scrap of Receipt",

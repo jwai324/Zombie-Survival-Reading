@@ -56,7 +56,7 @@
         },
         "school-trail1": {
           title: "Max, Mia: Read This",
-          text: "To Max and Mia. You came back. I knew you would.\n\nThe class has gone north to the Public Library. Mrs. Greer, the librarian, will take us in. Every student is safe and counted. Every one, except the two of you. I counted three times.\n\nI will come back to check whenever I can. Wait here if it is safe. If not, come north to the library. Stay together, like we practiced. Do not go anywhere alone.\n\nSergeant Vega came looking for the class. Vega left a note for you. It is in the music room, beside the drum set.\n\nLove, Ms. Adler",
+          text: "To Max and Mia. You came back. I knew you would.\n\nThe class has gone northwest to the Public Library. Mrs. Greer, the librarian, will take us in. Every student is safe and counted. Every one, except the two of you. I counted three times.\n\nI will come back to check whenever I can. Wait here if it is safe. If not, come northwest to the library. Stay together, like we practiced. Do not go anywhere alone.\n\nSergeant Vega came looking for the class. Vega left a note for you. It is in the music room, beside the drum set.\n\nLove, Ms. Adler",
         },
         "school-trail2": {
           title: "Sergeant Vega Came Looking",
@@ -74,7 +74,7 @@
       signs: {
         "school-sign1": { title: "Classroom Poster", text: "CLASS RULES: Raise your hand. Be kind. Read every day. At the bottom, someone added in marker: Stay together." },
         "school-sign2": { title: "Spray paint", text: "Ruby's red R, with a 6 under it. Under that, smaller: ONE IN THE HALLWAY. Check both ends." },
-        "school-sign3": { title: "Neat Chalk Letters", text: "Neat chalk letters, like on a blackboard. Ms. Adler's class, gone north. Under it: Read the note by the front door." },
+        "school-sign3": { title: "Neat Chalk Letters", text: "Neat chalk letters, like on a blackboard. Ms. Adler's class, gone northwest. Under it: Read the note by the front door." },
         "school-sign4": { title: "Library Closet Door", text: "LIBRARY CLOSET. Please return books on time. Thank you! Under it, someone added: Late fees canceled. Forever." },
       },
       key: { name: "Short steel key, gray tag", tag: "A short steel key on a gray tag. The tag says: Do not remove. Someone crossed out the words \"do not\" with a pen." },
@@ -120,8 +120,8 @@
     hospital: {
       blurb: "St. Anne Annex, the north hills hospital, with medicine and the worst walkers.",
       door: {
-        title: "Doc Lin on the Ambulance",
-        text: "Doc Lin. Read all of this.\n\nOne medical kit is in a patient room next to the x-ray machine. Another is by the giant teddy bear, in the gift shop. The generator is in the utility room, on the right.\n\nAt least nine walkers are inside. They stand in the dark rooms. They do not move until they hear you.\n\nThe pharmacy stock room is locked. The nurse's note is at the nurses' station, in the middle.",
+        title: "Nurse Ada on the Ambulance",
+        text: "Nurse Ada. I stayed inside when the others left. Read all of this.\n\nOne medical kit is in a patient room next to the x-ray machine. Another is by the giant teddy bear, in the gift shop. The generator is in the utility room, on the right.\n\nAt least nine walkers are inside. They stand in the dark rooms. They do not move until they hear you.\n\nThe pharmacy stock room is locked. My note is at the nurses' station, in the middle.",
       },
       notes: {
         "hospital-hall": {
@@ -163,7 +163,7 @@
       notes: {
         "watertower-panel": {
           title: "Three Breaker Boxes",
-          text: "Theo again. You found the panel. Good. Now listen close.\n\nThree breaker boxes hang by this panel. The pump house key is in the {pick}. Open that one, and take the key.\n\nOpen neither of the other two boxes! They are live. The shock kills. Do not touch them at all.\n\nThe pump house door is at the back of the pump hall. It is at the blue pump end, away from the big red wheel. In the pump house there are filters. There is a water tank and some wire, too.\n\nNeed medicine? St. Anne Annex is the hospital. It is north, up Hill Road. It still has medicine. But it is the most dangerous place in town.",
+          text: "Theo again. You found the panel. Good. Now listen close.\n\nThree breaker boxes hang by this panel. The pump house key is in the {pick}. Open that one, and take the key.\n\nOpen neither of the other two boxes! They are live. The shock kills. Do not touch them at all.\n\nThe pump house door is at the back of the pump hall. It is at the blue pump end, away from the big red wheel. In the pump house there are filters. There is a water tank and some wire, too.\n\nNeed medicine? St. Anne Annex is the hospital. It is northeast, up Hill Road. It still has medicine. But it is the most dangerous place in town.",
         },
         "watertower-trail1": {
           title: "Dev's Note to Ruby",
@@ -278,7 +278,7 @@
         },
         "library-trail1": {
           title: "The Class Lives Here Now",
-          text: "Mrs. Greer. A note for anyone who asks about the children.\n\nMs. Adler's class lives here now. They came north from Lincoln Middle School. I took them in on the first night. They read by window light. They keep quiet. They are very good at quiet now. Better than any class I ever had.\n\nMs. Adler still watches the front door. She waits for the twins, Max and Mia. Two of her students are still missing. She will not stop looking. If you see two lost twins, send them here.\n\nMy other note is in the periodicals room. It is beside the tall clock.",
+          text: "Mrs. Greer. A note for anyone who asks about the children.\n\nMs. Adler's class lives here now. They came northwest from Lincoln Middle School. I took them in on the first night. They read by window light. They keep quiet. They are very good at quiet now. Better than any class I ever had.\n\nMs. Adler still watches the front door. She waits for the twins, Max and Mia. Two of her students are still missing. She will not stop looking. If you see two lost twins, send them here.\n\nMy other note is in the periodicals room. It is beside the tall clock.",
         },
         "library-trail2": {
           title: "A Key for the Mall",

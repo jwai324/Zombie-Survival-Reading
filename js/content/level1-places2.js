@@ -59,7 +59,7 @@
         },
         "school-trail1": {
           title: "For Max and Mia",
-          text: "Max and Mia, this note is for you. It is from Ms. Adler.\n\nIf you read this, you came back. I am so glad. Our class went north to the Public Library. Mrs. Greer will take us in there.\n\nEvery kid in our class is safe. I count them each night. Each one is there but you two.\n\nI will come back here to check when I can.\n\nSergeant Vega came here to look for our class. Vega left a note in the music room. Look beside the drum set.\n\n—Ms. Adler",
+          text: "Max and Mia, this note is for you. It is from Ms. Adler.\n\nIf you read this, you came back. I am so glad. Our class went northwest to the Public Library. Mrs. Greer will take us in there.\n\nEvery kid in our class is safe. I count them each night. Each one is there but you two.\n\nI will come back here to check when I can.\n\nSergeant Vega came here to look for our class. Vega left a note in the music room. Look beside the drum set.\n\n—Ms. Adler",
         },
         "school-trail2": {
           title: "Vega Finds an Empty School",
@@ -77,7 +77,7 @@
       signs: {
         "school-sign1": { title: "Class poster", text: "A class poster says: RAISE YOUR HAND. BE KIND. READ EVERY DAY. Someone wrote under it: Stay together." },
         "school-sign2": { title: "Red spray paint", text: "Ruby's red R is here, with a 6 under it. Under that: ONE IN THE HALLWAY." },
-        "school-sign3": { title: "Neat chalk letters", text: "Someone wrote in neat chalk: Ms. Adler's class went north. Under it: Read the note by the front door." },
+        "school-sign3": { title: "Neat chalk letters", text: "Someone wrote in neat chalk: Ms. Adler's class went northwest. Under it: Read the note by the front door." },
         "school-sign4": { title: "LIBRARY CLOSET", text: "The door sign says: LIBRARY CLOSET. RETURN BOOKS ON TIME. Someone added: Late fees are canceled." },
       },
       key: { name: "Short steel key, gray tag", tag: "A short steel key has a gray tag. The tag says: Do not remove. Someone crossed out the words do not." },
@@ -126,7 +126,7 @@
       blurb: "The hospital in the hills has medicine and the worst walkers.",
       door: {
         title: "On the Ambulance Doors",
-        text: "This is Doc Lin. Read this before you go in.\n\nOne medical kit is in a patient room. That room is next to the x-ray machine. Another medical kit is in the gift shop. It is by the giant teddy bear. The generator is in the utility room, on the right.\n\nThere are at least nine walkers inside. They stand still in the dark rooms. So look before you step into a room.\n\nThe pharmacy stock room is locked. The nurse left a note at the nurses' station. It is in the middle of the building.\n\n—Doc Lin",
+        text: "I am Nurse Ada. I never left this place.\n\nOne medical kit is in a patient room. That room is next to the x-ray machine. Another medical kit is in the gift shop. It is by the giant teddy bear. The generator is in the utility room, on the right.\n\nThere are at least nine walkers inside. They stand still in the dark rooms. So look before you step into a room.\n\nThe pharmacy stock room is locked. I left a note at the nurses' station. It is in the middle of the building.\n\n—Nurse Ada",
       },
       notes: {
         "hospital-hall": {
@@ -169,7 +169,7 @@
       notes: {
         "watertower-panel": {
           title: "Theo's Breaker Boxes",
-          text: "This is Theo. I tend the pumps. It is quiet work, and I like it.\n\nThere are three breaker boxes by this panel. The pump house key is in the {pick}. Open that box and take the key.\n\nDo not open the other two boxes! They are live with power. The shock from them kills.\n\nThe pump house has filters, a water tank, and wire. Its door is at the back of the pump hall. Go to the blue pump end, away from the big red wheel.\n\nDo you need medicine? St. Anne Annex is the hospital. Take Hill Road north to get there. It still has medicine. But it is the most dangerous place in town.\n\n—Theo",
+          text: "This is Theo. I tend the pumps. It is quiet work, and I like it.\n\nThere are three breaker boxes by this panel. The pump house key is in the {pick}. Open that box and take the key.\n\nDo not open the other two boxes! They are live with power. The shock from them kills.\n\nThe pump house has filters, a water tank, and wire. Its door is at the back of the pump hall. Go to the blue pump end, away from the big red wheel.\n\nDo you need medicine? St. Anne Annex is the hospital. Take Hill Road northeast to get there. It still has medicine. But it is the most dangerous place in town.\n\n—Theo",
         },
         "watertower-trail1": {
           title: "Dev to Ruby",

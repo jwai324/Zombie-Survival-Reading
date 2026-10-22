@@ -2821,3 +2821,49 @@ These earlier lines no longer match the game. They stay as written; the game is 
   slows a walker; it does not stagger it.
 - **Poses** (smoother corners, 2026-10-16): a road walker claws for 0.4 s after hitting the van, while its 1 s hit
   cooldown is still above `CLAW_HOLD`, which is 0.6.
+
+## Owner decisions: audit follow-ups (2026-10-22)
+
+The owner read the audit's open list and asked for items 1 to 9 and 11 to 17 to be fixed, choosing where a choice
+was needed (item 10, the last working van, stays open). docs/AUDIT.md lists them under "Decided by the owner and
+fixed".
+
+- **The ledger agrees with the radio.** A Radio room can be built by day 4 or 5, so journal day 11 and Pip's pip-t6
+  now say Jo talks on the radio from a rooftop, not that people only say so. The day-22 page says Ruby went looking
+  for Dev, in the past, so it stays true when it repeats after the radio has her safe with him.
+- **Repeating pages are habits.** Entries 21 to 30 repeat every ten days, so day 21 (June reads the five rules on
+  the door out loud) and day 24 (Pip keeps the ledger on cold mornings) describe what they do, not a first time.
+- **Day 4 is the biggest wave yet, not the first.** Waves start on day 1, so day 1's page no longer says nothing
+  came, and day 4 is the biggest group so far (levels 3 and 6 retitled "The Biggest Wave Yet").
+- **Ruby went back east.** Radio-16 says Ruby had gone back east to scout Ridge Lumber when Dev's message reached
+  her, which is why she still needed the message after Rosa told her where Dev went.
+- **Tomas stops hoping once the radio says Mr. Ortiz is safe.** Owner: "Hide it after radio." A new crew `when` key,
+  `radioBefore: n`, tells a topic only while fewer than n broadcasts have been heard (`radioHeard`, js/crewstate.js);
+  tomas-t5 has `radioBefore: 15`, radio-15 being Theo saying Dev and Mr. Ortiz are staying with him. Nothing new is
+  saved. Journal-9 is written once, on day 9, before radio-15 can play, and stays as written.
+- **Nurse Ada wrote the St. Anne Annex door note.** Owner: "Nurse Ada." Doc Lin never reaches the hospital, so the
+  door note is Ada's, who stayed inside, at all six levels; where it speaks to Lin, Ada is still waiting for her.
+- **Sergeant Vega is she.** Owner: "She." Level 6's radio-30 now says "her", and STORY.md's people table records it.
+- **The convoy's vehicles have no set jobs.** Owner: "No roles." The firehouse plan at levels 4 to 6 and Chief
+  Dunn's level-4 broadcast no longer say which vehicle carries whom or hauls what, and Kate's fridge note no longer
+  calls the trucks Vega's (they are Chief Dunn's fire trucks; Vega has a van). The base facts about the boats (ten
+  people and their bags each; not enough boats yet) stay.
+- **June's first-aid book line is one story.** Owner: "Tomas, late night." At every level the june-4 journal line
+  ends with Tomas finding June still reading late and June answering as a student. Judgment call: level 1 is at its
+  word limit and must name June, so it says only "Tomas calls me Student June." It is words only, not a fact. The
+  june-2 line's per-level tails were left as they are.
+- **The pharmacy's decoy sticky note is neat ink at every level.** Levels 3 and 5 had pencil or bubbly writing; they
+  now match levels 1, 2 and 4.
+- **The robot dog's battery is nearly dead, not dead.** Owner: "Nearly dead battery." Quests 1 and 2 have the dog
+  stand, sit and beep, so quest 3 says the old battery is nearly dead and only a Bolt-model cell fits it; levels 4 to
+  6 say it wakes for a minute, then slumps, instead of calling it a statue.
+- **The Fall began as a sickness across the river, in the base game.** Owner: "Add to all levels, but not the
+  Fortitude/Captain Leo universes." Dev's shift list at the Gas-N-Go (gasngo-dead1) has a new last fact, "Ruby's
+  call was about the news: some sickness across the river. Probably nothing.", and every level carries it. The
+  crossover texts were not touched; UNIVERSES.md says which parts are base facts.
+- **Mr. Reyes's topic is written.** Owner: "Write the topic." Tomas's tomas-fort-t3 (Fortitude, day 9 and 2 stars)
+  tells that Mr. Reyes of Reyes Hardware says his family goes back to Dr. Camila Reyes; nobody can prove it either
+  way, and Tomas likes the story, true or not.
+- **Strict eight-way compass for these two.** Owner chose northwest and northeast where the map says so: the class
+  went northwest to the Public Library, and St. Anne Annex is northeast up Hill Road from the Water Tower. This
+  narrows the compass call earlier today for these two; the other route and idiom uses stay open in docs/AUDIT.md.

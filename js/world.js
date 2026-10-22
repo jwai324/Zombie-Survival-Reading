@@ -737,7 +737,7 @@
       ],
     },
     hospital: {
-      door: { id: "hospital-door", found: "on the ambulance doors", facts: ["Written by Doc Lin.", "One medical kit is in the patient room next to the x-ray machine, one is by the giant teddy bear in the gift shop; the generator is in the utility room, on the right.", "At least nine walkers inside; they stand in the dark rooms.", "The pharmacy stock room is locked; the nurse's note is at the nurses' station in the middle."] },
+      door: { id: "hospital-door", found: "on the ambulance doors", facts: ["Written by Nurse Ada.", "One medical kit is in the patient room next to the x-ray machine, one is by the giant teddy bear in the gift shop; the generator is in the utility room, on the right.", "At least nine walkers inside; they stand in the dark rooms.", "The pharmacy stock room is locked; my note is at the nurses' station in the middle."] },
       walkers: [{ says: ["hospital-door", "hospital-sign2"], zone: "darkRooms", all: true }],
       notes: [
         { id: "hospital-hall", found: "on the nurses' station", unlocks: "hospital", facts: ["Written by Nurse Ada, who stayed.", "The stock room badge, white on a blue clip, is in the {pick} of this station, right under this note; hold it to the reader by the stock room door.", "Open no other drawer: they are wired to the crash cart alarm, and it brings walkers, more and more, even through the front doors, until they get you.", "The stock room has three medical kits.", "The stock room door is in the nurses' station room itself, across its walkway from the desk, on the angel statue side.", "Stay quiet; the walkers here follow sound more than light."] },
@@ -746,7 +746,7 @@
     watertower: {
       door: { id: "watertower-door", found: "on the fence gate", facts: ["Written by Theo, who tends the pumps.", "One water filter is by the crates near the big red wheel; the other is in the boat workshop, by the rowboat.", "At least six walkers inside the pump building.", "The pump house is locked; Theo's note is on the control panel in the back right room."] },
       notes: [
-        { id: "watertower-panel", found: "on the control panel", unlocks: "watertower", reveals: ["hospital"], facts: ["Written by Theo.", "The pump house key is in the {pick}, one of the three breaker boxes by this panel.", "Open neither of the other two boxes: they are live, and the shock kills.", "The pump house has filters, a water tank, and wire.", "The pump house door is at the back of the pump hall, at the blue pump end, away from the big red wheel.", "St. Anne Annex, the hospital, is north up Hill Road; it still has medicine, but it is the most dangerous place in town."] },
+        { id: "watertower-panel", found: "on the control panel", unlocks: "watertower", reveals: ["hospital"], facts: ["Written by Theo.", "The pump house key is in the {pick}, one of the three breaker boxes by this panel.", "Open neither of the other two boxes: they are live, and the shock kills.", "The pump house has filters, a water tank, and wire.", "The pump house door is at the back of the pump hall, at the blue pump end, away from the big red wheel.", "St. Anne Annex, the hospital, is northeast up Hill Road; it still has medicine, but it is the most dangerous place in town."] },
       ],
     },
     lumberyard: {

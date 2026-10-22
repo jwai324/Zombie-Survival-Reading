@@ -43,7 +43,7 @@
       brief:
         "June wants a first-aid book. It can help her patch up the crew. Go to the Public Library, north of the cabin. In the MEDIA room, find the owl statue. The book lies on the floor there. It is thick and blue, with folded page corners. June gives you 40 scrap and 1 medical kit.",
       tag: "This thick blue book comes from the Public Library. Some page corners are folded down. Those pages are about cuts, burns and sprains.",
-      journal: "You brought me the Public Library's first-aid book. I read it by the stove until the candle burned down. Pip calls me Doctor June.",
+      journal: "You brought me the Public Library's first-aid book. I read it by the stove until the candle burned down. Tomas calls me Student June.",
       done: "June thanks you and starts to read right away. She says the folded corners show the best pages. Those pages helped people the most. Now her patch-up gives you 20 more health.",
       after:
         "June learned first aid in her school garden. Kids got bee stings and scraped knees. So the nurse showed her what to do. She kept bandages in the tool shed. Brave kids got lollipops. June says the crew is braver. But the crew gets no lollipops.",

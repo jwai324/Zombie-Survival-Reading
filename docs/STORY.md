@@ -33,7 +33,7 @@ They live in the yard and the cabin, not only in the ledger: see "The crew at ho
 The cabin is not small: it is a whole family house with a porch, the home of the **Hollis
 family**, who called it "the cabin" (a carved sign by the front door still says so). The crew
 keeps the name. The Hollises left before the crew arrived to join the River Convoy at the river
-dock (Kate's fridge note: north, on "Sergeant Vega's trucks"); whether the convoy has gone is never
+dock (Kate's fridge note: "going north with Sergeant Vega and the River Convoy"); whether the convoy has gone is never
 shown (see DESIGN.md, 2026-10-15: never written as gone or still waiting). They are never met, only
 read about.
 
@@ -126,7 +126,8 @@ turn. Each has a deadline in days; a late one is dropped and costs a little trus
 **Rules for crew texts.** The crew never give a lock answer, never tie a key to its stash, and
 never reveal a place on the map; they only name places the journal, or a note gating the topic,
 already names. Mr. Ortiz is safe at the Water Tower, but the crew say so only once the player has
-read Dev's note there (`watertower-trail1`). Tomas's father's fate is never stated. The Hollises
+read Dev's note there (`watertower-trail1`); Tomas's hope that Mr. Ortiz is still out there
+(`tomas-t5`) is no longer told once the radio has said Mr. Ortiz is safe (radio-15, `radioBefore: 15`). Tomas's father's fate is never stated. The Hollises
 are never written as lost, and the convoy never leaves on screen.
 
 **Crew canon the talk adds:**
@@ -151,13 +152,13 @@ are never written as lost, and the convoy never leaves on screen.
 |-----|-------------------|--------------|
 | **Ruby** | Gas-N-Go (door note and both trail notes), Ridge Lumber door note, a chalk note on a crate at Ortiz Auto; a red R with a walker count in every building except the Corner Grocery and the Water Tower; a message read by Jo on the radio | Scout who marks buildings for strangers. Searching for her younger brother **Dev**. |
 | **Dev** | Gas-N-Go (the clerk's main note, the STAFF ONLY sign), Ortiz Auto (door note, trail1), Water Tower (trail1, the chalk sign "Ruby, I am here"); Theo relays his message on the radio | Went east to Ortiz Auto to fix a truck so he and Ruby could leave. Then went on to the Water Tower with Mr. Ortiz, because Theo had clean water. Leaves his sister messages. |
-| **Doc Lin** | Corner Grocery, St. Anne Annex door notes | A doctor who carries medicine between the grocery, the pharmacy and the hospital. Trying to reach **Nurse Ada**, who stayed at St. Anne. |
-| **Nurse Ada** | St. Anne Annex | Stayed to keep the generator and the records. Writes calm, exact notes. |
+| **Doc Lin** | Corner Grocery door note | A doctor who carries medicine between the grocery, the pharmacy and the hospital. Trying to reach **Nurse Ada**, who stayed at St. Anne. |
+| **Nurse Ada** | St. Anne Annex (door note on the ambulance doors, and her notes inside) | Stayed to keep the generator and the records. Writes calm, exact notes. |
 | **Jo** | Signal Electronics, Northgate Mall door notes; the main voice on the radio | Scavenger turned broadcaster. Runs a pirate station on 88.1 from a rooftop. Reads out news, warnings and tips about stashes. |
 | **Max and Mia** | Lincoln Middle School (door note, dead-end note 3); 4th Precinct holding room (dead-end note 4); named in the Water Tower key note (Mia had the key), at the Public Library and on the radio | Twins, thirteen. Got separated from their class. Looking for their teacher. |
 | **Ms. Adler** | Lincoln Middle School (main note in the science room, trail note 1); her own line on the level-6 flyer at the Public Library; named in Mrs. Greer's library trail note, on the 4th Precinct missing-person board, in Station 12's notes, at Northgate Mall and on the radio | The twins' teacher. Led her students to the Public Library. |
 | **Mrs. Greer** | Public Library | The librarian. Took in Ms. Adler's class. Believes reading saved the building. |
-| **Sergeant Vega** | 4th Precinct; the key note at Lincoln Middle School (the music room); four radio broadcasts; named at Ridge Lumber, Northgate Mall, Station 12 and Ortiz Auto | Organizing the **River Convoy**: boats and trucks meant to leave north along the river road. Practical, tired. |
+| **Sergeant Vega** | 4th Precinct; the key note at Lincoln Middle School (the music room); four radio broadcasts; named at Ridge Lumber, Northgate Mall, Station 12 and Ortiz Auto | She is organizing the **River Convoy**: boats and trucks meant to leave north along the river road. Practical, tired (she/her). |
 | **Chief Dunn** | Station 12 | Fire chief, works with Vega on the convoy. Keeps lists. His crew fished at River Landing on days off; his pole (in the equipment bay) and his note on the dock post teach fishing. |
 | **Luis** | Northgate Mall | Security guard who never left his post. Knows the mall crowd's habits. |
 | **Theo** | Water Tower | Tends the pumps. Fair, quiet. Gave Dev and Mr. Ortiz a place to stay. |

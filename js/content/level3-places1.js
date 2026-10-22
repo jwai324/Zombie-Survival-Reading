@@ -26,7 +26,7 @@
         },
         "gasngo-dead1": {
           title: "Dev's Last To-Do List",
-          text: "A to-do list lies on the break room floor, by the ice machine. It is in Dev's messy handwriting. The date at the top is his last shift before the Fall.\n\nDEV, FRIDAY NIGHT.\nMop the floor. All of it, not just the middle.\nFill the coffee. Both pots, because the truck drivers get grumpy.\nFix the ice machine. It sounds like a sick goose again.\n\nAt the bottom, in pen pressed in hard: Call Ruby back! He underlined it twice.\n\nNothing on the list is crossed off. Not one thing. The pen is still clipped to the paper. The mop bucket stands by the shelf, dry and dusty now. The coffee pots still sit on the burner, empty and stained.\n\nWhatever happened that night, it happened before Dev got to any of it. You wonder if he ever called her back. You hope he did.",
+          text: "A to-do list lies on the break room floor, by the ice machine. It is in Dev's messy handwriting. The date at the top is his last shift before the Fall.\n\nDEV, FRIDAY NIGHT.\nMop the floor. All of it, not just the middle.\nFill the coffee. Both pots, because the truck drivers get grumpy.\nFix the ice machine. It sounds like a sick goose again.\n\nAt the bottom, in pen pressed in hard: Call Ruby back! He underlined it twice. Beside it: about the news, some sickness across the river. Probably nothing.\n\nNothing on the list is crossed off. Not one thing. The pen is still clipped to the paper. The mop bucket stands by the shelf, dry and dusty now. The coffee pots still sit on the burner, empty and stained.\n\nWhatever happened that night, it happened before Dev got to any of it. You wonder if he ever called her back. You hope he did.",
         },
         "gasngo-dead2": {
           title: "A Scrap of Receipt",
@@ -141,7 +141,7 @@
         },
         "pharmacy-dead2": {
           title: "A Yellow Sticky Note",
-          text: "A yellow sticky note lies on the floor, just inside the front door. It has lost most of its stick. The writing is in pencil, quick and slanted. Someone was in a hurry to remember it.\n\nCABINET ROOM CODE: {decoyCode}. Don't tell anyone!\n\nIt looks useful. It looks like the answer, and someone kept it safe for a long time. But look closer. The pencil has faded, and the paper has gone soft at the edges. This note is old. It is from before Mr. Okafor changed the code. There is even a sign about the new code on the cabinet room door.\n\nThis old code will not work. Type it into the keypad, and the alarm goes off. Walkers will pour in through every door. The code on the counter note is the one that works. Use that one, and leave this one on the floor.",
+          text: "A yellow sticky note lies on the floor, just inside the front door. It has lost most of its stick. The writing is in ink, neat and small. Someone wanted to remember it.\n\nCABINET ROOM CODE: {decoyCode}. Don't tell anyone!\n\nIt looks useful. It looks like the answer, and someone kept it safe for a long time. But look closer. The ink has faded, and the paper has gone soft at the edges. This note is old. It is from before Mr. Okafor changed the code. There is even a sign about the new code on the cabinet room door.\n\nThis old code will not work. Type it into the keypad, and the alarm goes off. Walkers will pour in through every door. The code on the counter note is the one that works. Use that one, and leave this one on the floor.",
         },
       },
       signs: {

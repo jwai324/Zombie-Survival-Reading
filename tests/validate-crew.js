@@ -1336,7 +1336,7 @@ const ERRAND_VARS = ["count", "item", "days", "reward"];
 // {reward} only where the request or the thank-you is shown with its reward (the card, the bubble, the backpack); the tag
 // (building), the journal line (day page), the title and the payoff topic are shown with no request at hand
 const QUEST_VARS = { brief: ["reward"], done: ["reward"], title: [], tag: [], journal: [], after: [] };
-const WHEN_KEYS = ["day", "stars", "quest", "note", "room", "level", "dog"];
+const WHEN_KEYS = ["day", "stars", "quest", "note", "room", "level", "dog", "radioBefore"];
 /** A day past every `day` gate in the crew facts (topics and quests), so the late-game checks hold whatever the gates say. */
 function lateDay(W) {
   const days = (W.QUESTS || []).map((q) => (q.when && q.when.day) || 0);
