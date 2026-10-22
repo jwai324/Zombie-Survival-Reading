@@ -130,8 +130,8 @@
         "He says the van comes home fixed for free once the Garage room is built.",
       ] },
       // Mr. Reyes's family story (docs/UNIVERSES.md, Crew talk): unproven, and the texts never confirm it
-      { id: "tomas-fort-t3", universe: U, when: { day: 9, stars: 2 }, facts: [
-        "Tomas says Mr. Reyes of Reyes Hardware tells everyone his family goes back to Dr. Camila Reyes.",
+      { id: "tomas-fort-t3", universe: U, when: { day: 9, stars: 2, note: "hardware-door" }, facts: [
+        "Tomas says Mr. Reyes of Reyes Hardware always told everyone his family goes back to Dr. Camila Reyes.",
         "She lived hundreds of years ago, so nobody can prove it either way.",
         "Tomas likes the story, true or not.",
         "He says Reyes Hardware is the place to find lumber and nails.",

@@ -1676,6 +1676,31 @@
       rbox(ctx, 17, -40, 30, 8, 2, "#d2352b", QLW);
       line(ctx, [[21, -30], [21, -8]], "rgba(255,255,255,0.7)", 1.8);
     },
+    sensorJar(ctx) {
+      // the jar again, but near empty: a small silver sensor on a coiled wire, a red lid, a paper label
+      rbox(ctx, 18, -34, 28, 31, 5, "#e2eff2", QLW);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(19, -26, 26, 22);
+      ctx.clip();
+      ctx.fillStyle = "#cfe3e8";
+      ctx.fillRect(19, -26, 26, 22);
+      const coil = [];
+      for (let i = 0; i <= 36; i++) {
+        const s = i / 36;
+        const a = s * 3 * TAU;
+        coil.push([23 + s * 9 + Math.cos(a) * 1.8, -17.5 + Math.sin(a) * 3]);
+      }
+      line(ctx, coil, "#7d848b", 1.6);
+      line(ctx, coil, "#e3e7eb", 0.6);
+      rbox(ctx, 32, -21, 7, 7, 1, STEEL, 1.1);
+      circle(ctx, 35.5, -17.5, 1.2, "#4a4f57", 0);
+      ctx.restore();
+      rbox(ctx, 22, -11.5, 20, 6.5, 0.6, "#f3eee0", 1.1);
+      line(ctx, [[25, -8.2], [39, -8.2]], "#2f6fb0", 1);
+      rbox(ctx, 17, -40, 30, 8, 2, "#d2352b", QLW);
+      line(ctx, [[21, -30], [21, -8]], "rgba(255,255,255,0.7)", 1.8);
+    },
     letter(ctx) {
       // an envelope lying on the floor: flap lines, a stamp, a red seal
       poly(ctx, [[6, -3], [46, -3], [56, -21], [16, -21]], "#fbf8f0", QLW); // white, as the quest texts say

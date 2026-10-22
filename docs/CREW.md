@@ -283,7 +283,7 @@ W.DOG = { ideas: ["...", "...", "..."], facts: { ask: [...], named: [...], pet: 
   checks it.
 - Quest object kinds (`object.art`, drawn by `js/crewart.js` as sprite `qObj` with `{ kind }`):
   `bag`, `photo`, `box`, `book`, `tin`, `leash`, `toolbox`, `radio`, `jar`, `letter`, `seeds`,
-  `blanket`, `tape`, `badge`, `wrench`.
+  `blanket`, `tape`, `badge`, `wrench`, `sensorJar`.
 - Rewards: `scrap` (20 to 80), `items` (ids from `ITEMS`; favor what the base is short of:
   lumber, wire, nails, books, seeds, parts, soil), `kits` (medical kits straight to storage),
   `crowbars`, `traps` ({ spike, blast }), and `perk`. Not every quest has a perk; aim for two or

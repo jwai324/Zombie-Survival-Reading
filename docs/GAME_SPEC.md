@@ -96,12 +96,12 @@ tension.
 | Radio | Reveals locations; later shows which still hold items. The yard gets a radio tower (timber, then steel on guy wires, then a red and white broadcast tower); the dining-room set grows with it |
 | Medbay | Less on-foot damage; one revive per trip inside a building (a booby trap still ends it); less van damage on the road |
 | Archive | Once a place's door note is read, the map shows what is left there; later the map marks caches, then shows every place's stock |
-| Well (late) | Needs Water 1. Clean water: faster yard regen, full health on entry at level 3. The Farm and the Lab need it |
+| Well (late) | Needs Water 1. Clean water: faster yard regen on top of the Water room (+1 / +2 / +3), full health on entry at level 3. The Farm and the Lab need it |
 | Farm (late) | Needs Garden 2 + Well. Crop field, chicken coop, goat pen: 2 / 4 / 6 food a day on top of the Garden |
 | Lab (late) | Needs Medbay + Well. Makes medical kits: one every 2 days, then 1 a day, then 2 a day |
 
 A level can carry `requires: { room: level }`; the build button says which room to build first.
-Food and medicine from different rooms add up; every other effect takes the best level.
+Food, medicine and yard healing from different rooms add up; every other effect takes the best level.
 
 ## The yard shows the base
 

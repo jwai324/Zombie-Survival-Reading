@@ -335,24 +335,25 @@
       body.appendChild(row);
     },
 
-    /** The fence line: how many holes, fix them all for scrap. */
+    /** The fence line: how many holes and cracked segments, fix them all for scrap (holes first, then the cracks). */
     fenceRow() {
       const S = State();
-      const holes = this.hooks.fenceHoles ? this.hooks.fenceHoles() : 0;
-      const cost = holes * W().SETTINGS.fenceRepairScrap;
+      const { holes, cracks } = this.hooks.fenceDamage ? this.hooks.fenceDamage() : { holes: 0, cracks: 0 };
+      const n = holes + cracks;
+      const cost = n * W().SETTINGS.fenceRepairScrap;
       const row = el("div", "fence-row" + (holes ? " bad" : ""));
-      row.appendChild(el("span", "stock", holes ? "Fence: " + holes + " hole" + (holes > 1 ? "s" : "") : "Fence: whole"));
-      if (holes) {
+      row.appendChild(el("span", "stock", n ? "Fence: " + (holes ? holes + " hole" + (holes > 1 ? "s" : "") : "") + (holes && cracks ? ", " : "") + (cracks ? cracks + " cracked" : "") : "Fence: whole"));
+      if (n) {
         const each = W().SETTINGS.fenceRepairScrap;
-        const can = Math.min(holes, Math.floor(S.save.scrap / each)); // the holes the scrap covers (Fix all fixes as far as it goes)
-        const b = tip(el("button", "btn" + (S.save.scrap >= cost ? " go" : ""), can >= holes || can < 1 ? "Fix all for " + cost + " scrap" : "Fix " + can + " of " + holes + " for " + can * each + " scrap"), "<strong>Fix the fence</strong><span class='t-line'>" + W().SETTINGS.fenceRepairScrap + " scrap per hole. Holes never close on their own. You can also stand at a gap in the yard and press E.</span>");
+        const can = Math.min(n, Math.floor(S.save.scrap / each)); // the segments the scrap covers (Fix all fixes as far as it goes)
+        const b = tip(el("button", "btn" + (S.save.scrap >= cost ? " go" : ""), can >= n || can < 1 ? "Fix all for " + cost + " scrap" : "Fix " + can + " of " + n + " for " + can * each + " scrap"), "<strong>Fix the fence</strong><span class='t-line'>" + W().SETTINGS.fenceRepairScrap + " scrap per hole or cracked segment. Holes never close on their own. You can also stand at a gap or a crack in the yard and press E.</span>");
         b.disabled = S.save.scrap < W().SETTINGS.fenceRepairScrap;
         b.addEventListener("click", () => {
           if (this.hooks.onRepairFence) this.hooks.onRepairFence();
           this.render();
         });
         row.appendChild(b);
-        row.appendChild(el("span", "small muted", "Or press E at a gap outside."));
+        row.appendChild(el("span", "small muted", "Or press E at a gap or a crack outside."));
       } else row.appendChild(el("span", "small muted", "Walkers claw through it during waves. Every hole costs " + W().SETTINGS.fenceRepairScrap + " scrap to rebuild."));
       return row;
     },

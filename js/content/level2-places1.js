@@ -337,7 +337,7 @@
         },
         "garden-trail1": {
           title: "A Rattling Truck",
-          text: "Rosa here. Let me tell you about a truck.\n\nA rattling old truck pulled up at my gate. Dev and Mr. Ortiz were in it. They stopped to fill their water jugs. I let them use my hose. The truck coughed smoke the whole time. Dev talked about his sister the whole time, too.\n\nThey were going north to the Water Tower. Theo is there. Theo has clean water.\n\nThe very next day, Ruby came. She was asking for Dev. She looked so tired. I told her where he went. She thanked me and ran north.\n\nMy other note is in the big greenhouse. It is by the scarecrow.",
+          text: "Rosa here. Let me tell you about a truck.\n\nA rattling old truck pulled up at my gate. Dev and Mr. Ortiz were in it. They stopped to fill their water jugs. I let them use my hose. The truck coughed smoke the whole time. Dev talked about his sister the whole time, too.\n\nThey were going north to the Water Tower. Theo is there. Theo has clean water.\n\nThe very next day, Ruby came. She was asking for Dev. She looked so tired. I told her where he went. She thanked me and ran off.\n\nMy other note is in the big greenhouse. It is by the scarecrow.",
         },
         "garden-trail2": {
           title: "Mr. Ortiz's Greasy Key",

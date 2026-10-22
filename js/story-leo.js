@@ -194,8 +194,9 @@
   });
 
   /* Tomas's Leo track: five parts for a shut-down Bolt-model robot dog he found by the back fence. The objects are
-     drawn as js/crewart.js draws their kinds (box: cardboard, red label; jar: glass, red lid, paper label; tin: red,
-     white paper band; badge: gold shield with a star on black leather; toolbox: red steel). */
+     drawn as js/crewart.js draws their kinds (box: cardboard, red label; sensorJar: glass, red lid, paper label, a small
+     silver sensor on a coiled wire inside; tin: red, white paper band; badge: gold shield with a star on black leather;
+     toolbox: red steel). */
   W.QUESTS = W.QUESTS || [];
   W.QUESTS.push(
     {
@@ -234,7 +235,7 @@
       id: "tomas-leo-2", giver: "tomas", universe: U,
       at: "garden", spot: [28, 18], near: "the beehives",
       when: { day: 5, stars: 1 },
-      object: { name: "Jar with a nose sensor", art: "jar" },
+      object: { name: "Jar with a nose sensor", art: "sensorJar" },
       reward: { scrap: 30, items: { parts: 1 } },
       brief: [
         "The robot dog needs a nose: a tiny chemistry sensor that tells what something is made of.",
@@ -268,7 +269,7 @@
       object: { name: "Tin with a battery cell", art: "tin" },
       reward: { scrap: 35, items: { radioParts: 1 } },
       brief: [
-        "The robot dog's old battery is nearly dead, and only a Bolt-model cell fits it.",
+        "The robot dog's battery is nearly dead, and only a Bolt-model cell fits it.",
         "Signal Electronics is north of the cabin.",
         "A red tin with a white paper band lies on the floor beside the robot.",
         "The battery cell is inside it.",

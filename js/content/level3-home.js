@@ -9,11 +9,11 @@
     lots: {
       garden: {
         title: "Garden plot",
-        empty: "GARDEN, someday. That is what June painted on this sign. Stakes and string mark out beds in the dark dirt behind the cabin. Nothing grows here yet. Raised beds of seeds and soil would grow food. That matters, because every trip in the van eats food. To start, the beds need 2 Seed packets and 1 Bag of soil. They also need 40 scrap. Build it from the cabin. June is already picking spots for the beans.",
+        empty: "GARDEN, someday. That is what June painted on this sign. Stakes and string mark out beds in the dark dirt in front of the cabin. Nothing grows here yet. Raised beds of seeds and soil would grow food. That matters, because every trip in the van eats food. To start, the beds need 2 Seed packets and 1 Bag of soil. They also need 40 scrap. Build it from the cabin. June is already picking spots for the beans.",
         built: [
-          "The sign says GARDEN now, and the word someday is painted over. One raised bed is planted with seeds. Small green leaves have pushed up through the soil. June checks it every morning, before anyone else is up. It grows 1 food each day. That is not much, but it is food you did not drive for. More beds would need seeds, soil, and 80 scrap.",
-          "The sign says GARDEN, and now there are more beds. Beans climb the string in green spirals, and squash leaves spread out wide. Pip has started naming the squash. June says that is a bad idea, because you cannot eat a friend. The garden grows 2 food each day. A water tank and a hose would make it grow more. That last step also needs seeds, soil, and 120 scrap.",
-          "The sign says GARDEN. A water tank feeds the beds through a long hose. No more hauling buckets from the barrel. Beans, squash and tomatoes fill every row. June finally has her full garden, and she stands in it a lot. She says she is checking for bugs. Mostly she is just smiling. It grows 3 food each day, the most these beds can give.",
+          "The sign says GARDEN now, and the word someday is painted over. Two raised beds are planted with seeds. Small green leaves have pushed up through the soil. June checks them every morning, before anyone else is up. It grows 1 food each day. That is not much, but it is food you did not drive for. More beds would need seeds, soil, and 80 scrap.",
+          "The sign says GARDEN, and now there are more beds. Beans climb the string in green spirals, and squash leaves spread out wide. Pip has started naming the squash. June says that is a bad idea, because you cannot eat a friend. The garden grows 2 food each day. A greenhouse and a water tank would make it grow more. That last step also needs seeds, soil, and 120 scrap.",
+          "The sign says GARDEN. A greenhouse stands behind the beds, and a water tank feeds them. No more hauling buckets from the barrels. Beans, squash and tomatoes fill every row. June finally has her full garden, and she stands in it a lot. She says she is checking for bugs. Mostly she is just smiling. It grows 3 food each day, the most these beds can give.",
         ],
       },
       farm: {
@@ -29,16 +29,16 @@
         title: "Well site",
         empty: "June painted the sign: WELL, dig after the Water room is built. A ring of stones marks the spot in the middle of the yard. Deep under the stones, the water is cold and clean. Water from down there would help you heal faster in the yard. The Farm and the Lab both need the Well first, so this lot matters. To dig it, you need 2 Lumber, 1 Tool kit, and 60 scrap.",
         built: [
-          "The sign says WELL: a hand-dug well lined with lumber. A bucket hangs on a rope, and the rope creaks on every pull. Tomas says the creak is a feature. The water comes up cold, clean, and a little sweet. Its clean water helps you heal faster in the yard. A hand pump would work even better. It needs lumber, engine parts, a water filter, and 100 scrap.",
-          "The sign says WELL: a hand pump with a filter brings the water up. No more rope burns on anyone's hands. Pip likes to work the handle and count the strokes out loud, but softly. You heal in the yard even faster than before. The Farm and the Lab can grow bigger now, too. A wired pump would need a water tank, engine parts, wire, and 150 scrap.",
-          "The sign says WELL: a wired pump fills a tank all by itself. When the yard is quiet, you can hear it hum. You heal in the yard faster than ever. You also start every building at full health, which feels like a gift. Tomas wired the pump in one long afternoon. June baked him a cake out of beans to say thanks. Nobody asked how.",
+          "The sign says WELL: a hand-dug well lined with lumber. A bucket hangs on a rope, and the rope creaks on every pull. Tomas says the creak is a feature. The water comes up cold, clean, and a little sweet. Its clean water helps you heal faster in the yard. A roof and a crank would work even better. It needs lumber, engine parts, a water filter, and 100 scrap.",
+          "The sign says WELL: a little roof and a crank for the bucket. A filter cleans the water on the way up. No more rope burns on anyone's hands. Pip likes to turn the crank and count the turns out loud, but softly. You heal in the yard even faster than before. The Farm and the Lab can grow bigger now, too. A hand pump and a trough would need a water tank, engine parts, wire, and 150 scrap.",
+          "The sign says WELL: a hand pump beside the well pipes water to a trough. Pip pumps the trough full every morning. You heal in the yard faster than ever. You also start every building at full health, which feels like a gift. Tomas laid the pipe in one long afternoon. June baked him a cake out of beans to say thanks. Nobody asked how.",
         ],
       },
       water: {
         title: "Water barrel",
         empty: "Tomas painted the sign: WATER, filter goes here. An empty barrel sits on two sawhorses by the back fence. When it rains, gray water fills it up. A filter and a tank here would turn that rainwater clear. Then you would heal faster while you are in the yard. To start, it needs 1 Water filter and 40 scrap. The Well waits on this lot, so build it early.",
         built: [
-          "The sign says WATER: a filter sits on top of the barrel. Gray water goes in at the top. Clear water drips out at the bottom, one slow drop at a time. It is slow, but it works. Because of it, you slowly heal in the yard. A big tank would hold much more. That needs a water tank, another filter, and 80 scrap.",
+          "The sign says WATER: three rain barrels stand under funnels. A filter sits on the tap. Gray rain goes in at the top. Clear water drips out of the tap, one slow drop at a time. It is slow, but it works. Because of it, you slowly heal in the yard. A big tank would hold much more. That needs a water tank, another filter, and 80 scrap.",
           "The sign says WATER: a filter and a big tank, full of clean water. The tank sits in the shade so nothing grows inside it. You heal faster in the yard now. June washes her hands at the spout. She says it feels like the old days. Two filters would make it even better. That needs a tank, 2 filters, and 120 scrap.",
           "The sign says WATER: two filters and a tank, working side by side. The water runs clear and cold, with no smell at all. You heal even faster in the yard. Better still, you walk into every building at full health. Tomas checks the filters once a week. Pip checks them every single day, just in case Tomas missed something.",
         ],
@@ -80,7 +80,7 @@
     },
     {
       title: "Bigger than It Looked",
-      text: "In daylight the cabin is bigger than it looked last night. It is a whole family house with a porch, and the roof is sound. An old fence circles the yard. Some of its boards are loose. Behind the cabin, the dirt is dark and good. I noticed it first, of course. Old gardeners always look down. Tonight I wrote our first rule on the inside of the door. Say where you are going before you go. Pip read it twice and asked, “Even to the bathroom?” Yes, Pip. Even there. — June",
+      text: "In daylight the cabin is bigger than it looked last night. It is a whole family house with a porch, and the roof is sound. An old fence circles the yard. Some of its boards are loose. In front of the cabin, the dirt is dark and good. I noticed it first, of course. Old gardeners always look down. Tonight I wrote our first rule on the inside of the door. Say where you are going before you go. Pip read it twice and asked, “Even to the bathroom?” Yes, Pip. Even there. — June",
     },
     {
       title: "The Old Mule",
@@ -100,7 +100,7 @@
     },
     {
       title: "Waiting on Seeds",
-      text: "Before the Fall, I was the gardener at a school. I want a little of that back. I picture raised beds behind the cabin, with beans, squash and tomatoes. The dirt is ready, and so am I. All we need now are seeds. My old friend Rosa ran the greenhouses at Greenhouse Row. That is west of the gas station. If anyone still has seeds, it is Rosa. She once grew a pumpkin the size of a tire. I told Pip, and Pip did not believe me. — June",
+      text: "Before the Fall, I was the gardener at a school. I want a little of that back. I picture raised beds in front of the cabin, with beans, squash and tomatoes. The dirt is ready, and so am I. All we need now are seeds. My old friend Rosa ran the greenhouses at Greenhouse Row. That is west of the gas station. If anyone still has seeds, it is Rosa. She once grew a pumpkin the size of a tire. I told Pip, and Pip did not believe me. — June",
     },
     {
       title: "The Red R",
@@ -168,7 +168,7 @@
     },
     {
       title: "Big, Messy Letters",
-      text: "My knees ache on cold mornings. I think they are older than the cabin. On those mornings, I have Pip keep the ledger. That is just in case my hands get stiff. Pip writes big and messy, with loops on every letter. I tell Pip that is fine. A ledger only has to be honest, not neat. Today Pip wrote the date, the food count, and a small drawing of the van. The van had a face. I kept the drawing. — June",
+      text: "My knees ache on cold mornings. I think they are older than the cabin. On those mornings, I have Pip keep the ledger. That is just in case my hands get stiff. Pip writes big and messy, with loops on every letter. I tell Pip that is fine. A ledger only has to be honest, not neat. Today Pip wrote the date, the food count, and a drawing of the van. The van had a face. I kept the drawing. — June",
     },
     {
       title: "A Bark Past the Trees",
@@ -299,7 +299,7 @@
     },
     {
       title: "Mrs. Greer's Key Tip",
-      text: "Mrs. Greer here, at the Public Library, with a key ring tip. The key hidden at the Public Library opens the jewelry vault at Northgate Mall. The notes in our reading rooms will guide you to it. Please read them all the way to the end. Skimming is how people miss things. One more thing, from a librarian who listens to Jo. At the mall, walk, do not run. Running brings the whole crowd.",
+      text: "Mrs. Greer here, at the Public Library, with a key ring tip. The key hidden at the Public Library opens the jewelry vault at Northgate Mall. The notes in our reading rooms will guide you to it. Please read them all the way to the end. Skimming is how people miss things. One more thing, from a librarian who listens to Jo. At the mall, walk, do not run. Running brings the walkers near you.",
     },
     {
       title: "Storm from the North",
@@ -381,7 +381,7 @@
       "Written on the box: always check that it is empty before you clean it. Below it, in bigger letters: point it at the ground, never at a person.",
     ],
     armorPlate: [
-      "Stenciled on the plate: steel, heavy. It is not kidding about heavy. A chalk note: bolt it onto the van door at chest height.",
+      "Stenciled on the plate: steel, heavy. It is not kidding about heavy. A chalk note: bolt it onto a door at chest height.",
       "Sticky note: a plate stops grabbing hands, not crashes. Marker lines along one edge count every dent it has taken. There are a lot of lines.",
     ],
     books: [

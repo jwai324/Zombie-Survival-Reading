@@ -27,8 +27,7 @@ works). With the option off, the game is exactly today's game.
 Every crossover text is checked against these. They come from the base texts, not from the books.
 
 - The Fall began as "some sickness across the river. Probably nothing." (Ruby's call in Dev's last
-  shift list at Gas-N-Go, at every level). The alarms and running appear only in the level 6 school
-  notes, and "within one week" is the crossover's own line (Fortitude's fort-j4), not a base fact.
+  shift list at Gas-N-Go, at every level). Alarms, sirens and running on that day are reading-level color, not base facts (level 6: Max and Mia's notes school-dead4 and police-dead4; level 5: radio-8 and the sirens in police-dead1 and grocery-dead3), and "the first week of the Fall" is the crossover's own line (Fortitude's fort-j4).
   It was months ago. **Both universes put the origin across the river.**
 - The base texts never say what caused it. The crossover may explain it; the base texts stay silent.
 - The town is a mid-size river town with a sun, a moon, birds, fish, a county and TV. The base texts never
@@ -123,7 +122,7 @@ super-algae spores; the Abyss Explorer pins; "If you stop failing, you stop lear
 | Sky | **Judgment call:** a thin silver arc across the night sky, the old Indestructium shipyard ring in low orbit (Book 1), with Mars as a bright point. Art only. |
 | Radio | Some days, short Fortitude-style bursts of numbers come through on the radio. Decoded, they are **old Accord records**: an automatic archive from Book 1 days, still broadcasting the Fortitude Accord, Valen's first "hello" and other Book 1 history. Who keeps it running stays open. Never replaces a base broadcast. |
 | Journal | June adds lines about the shipyard ring, the Waiting Vault, the Book 1 legends (Dr. Reyes's team, Valen, the old saying, the Abyss Explorer) and Mars; the bursts reach the ledger through the radio broadcasts and Pip's quest lines. |
-| Crew talk | 7 topics: Book 1 legends the town learned in school, the vault, Indestructium, the bursts; the Accord comes through the radio and Pip's quests. In Tomas's third topic (`tomas-fort-t3`, day 9 and 2 stars), Mr. Reyes of Reyes Hardware says his family goes back to Dr. Camila Reyes; after so many centuries nobody can prove it either way, Tomas likes the story, true or not, and the texts never confirm it. |
+| Crew talk | 7 topics: Book 1 legends the town learned in school, the vault, Indestructium, the bursts; the Accord comes through the radio and Pip's quests. In Tomas's third topic (`tomas-fort-t3`, day 9, 2 stars and Mr. Reyes's door note `hardware-door` read), Tomas says Mr. Reyes of Reyes Hardware always told everyone his family goes back to Dr. Camila Reyes; after so many centuries nobody can prove it either way, Tomas likes the story, true or not, and the texts never confirm it. |
 | Quest chain | **Pip decodes the bursts** the way Ava did: record and count the bursts, match a pod tag's numbers, match the pictures to the old history book and the words to an Accord page, then read the last record. Five quests long, its own track beside the base quests. |
 | Keepsakes | A tag from a Waiting Vault pod, a copy of an Accord page, an Abyss Explorer pin: the story objects of Pip's track (see "How it works"), each with its tag at six levels. |
 
@@ -164,7 +163,7 @@ super-algae spores; the Abyss Explorer pins; "If you stop failing, you stop lear
   stays home on trips, and Tomas fixes it for 20 scrap when you arrive home or a wave is cleared (only with the
   scrap). The practice walker in the tutorial is never zapped or biting it.
 - **The sky** (yard only): Mira-9 to the northeast, a pale disk with turning clouds; or the shipyard ring, a thin
-  silver arc highest to the north, and Mars low to the southeast. Both are fixed in the world and hidden behind
+  silver arc highest to the north, and Mars low to the east-southeast. Both are fixed in the world and hidden behind
   anything standing in front.
 - **The Fortitude keepsakes** (the pod tag, the Accord page, the Abyss Explorer pin) are the story objects of Pip's
   track, each with its tag at six levels, rather than extra stash loot: one tested path (quest objects) instead of

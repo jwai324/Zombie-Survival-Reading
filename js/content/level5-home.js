@@ -9,11 +9,11 @@
     lots: {
       garden: {
         title: "Garden plot",
-        empty: "GARDEN, someday. June painted those words on a scrap of board and pushed it into the dark dirt behind the cabin. Stakes and string mark out beds as neat as the lines in a notebook, though nothing grows in them yet. June noticed this soil on the second day, and she has been waiting ever since. Raised beds of seeds and soil here would grow food. That matters, because every trip in the van eats food, and the cupboard only empties on its own. To build the first bed, bring home 2 seed packets, 1 bag of soil, and 40 scrap.",
+        empty: "GARDEN, someday. June painted those words on a scrap of board and pushed it into the dark dirt in front of the cabin. Stakes and string mark out beds as neat as the lines in a notebook, though nothing grows in them yet. June noticed this soil on the second day, and she has been waiting ever since. Raised beds of seeds and soil here would grow food. That matters, because every trip in the van eats food, and the cupboard only empties on its own. To build the first bed, bring home 2 seed packets, 1 bag of soil, and 40 scrap.",
         built: [
-          "GARDEN, says the sign, and this time it is true. One raised bed is planted with seeds, and tiny green shoots have pushed up through the soil like fingers testing the air. June checks it every morning, kneeling in the dirt with her ledger on her knee. It grows 1 food each day. That is not a feast, but it means the cupboard is never quite as empty as the road makes it. One more seed packet, one more bag of soil, and 80 scrap would add more beds.",
+          "GARDEN, says the sign, and this time it is true. Two raised beds are planted with seeds, and tiny green shoots have pushed up through the soil like fingers testing the air. June checks them every morning, kneeling in the dirt with her ledger on her knee. It grows 1 food each day. That is not a feast, but it means the cupboard is never quite as empty as the road makes it. One more seed packet, one more bag of soil, and 80 scrap would add more beds.",
           "The sign still says GARDEN, but the plot has grown. Now there are more beds, and bean vines climb the string like kids racing up a rope in gym class. June hums while she weeds, and Tomas says it is the happiest sound in the yard. The garden grows 2 food each day now, enough that one bad trip does not mean an empty supper. June says the last step needs water that does not come from a bucket. Bring 2 seed packets, 1 bag of soil, 1 water tank, and 120 scrap.",
-          "GARDEN, says the sign, and June finally has her full garden. A water tank feeds the beds through a hose, so the soil stays dark and damp even on the hottest afternoons. Tomatoes hang heavy as red lanterns, and squash leaves spread wide enough to hide Pip's boots. It grows 3 food each day. On good days June carries the harvest in her apron, because no basket is big enough. She says this is what she pictured on the first night, when the dirt was only dirt.",
+          "GARDEN, says the sign, and June finally has her full garden. A greenhouse stands behind the beds. A water tank feeds them, so the soil stays dark and damp even on the hottest afternoons. Tomatoes hang heavy as red lanterns, and squash leaves spread wide enough to hide Pip's boots. It grows 3 food each day. On good days June carries the harvest in her apron, because no basket is big enough. She says this is what she pictured on the first night, when the dirt was only dirt.",
         ],
       },
       farm: {
@@ -29,16 +29,16 @@
         title: "Well site",
         empty: "WELL, dig after the Water room is built. June painted the sign herself and set it beside a ring of stones in the middle of the yard. The stones sit in a careful circle, like a promise waiting to be kept. Water from deep underground comes up cold and clean, so you would heal faster in the yard. The well stays locked until the Water room stands, because you should learn to clean water before you dig for more. The Farm and the Lab both need the Well first. To dig, bring 2 lumber, 1 tool kit, and 60 scrap.",
         built: [
-          "WELL, says the sign, and now there is a hole in the ground worth having. It is a hand-dug well lined with lumber, with a bucket on a rope. Drop the bucket, and a splash echoes far below, like a coin landing in a very deep pocket. Its clean water helps you heal faster in the yard. Tomas says the crank squeaks like the old cabin door did. Next, a hand pump would bring the water up faster. It needs 2 lumber, 1 set of engine parts, 1 water filter, and 100 scrap.",
-          "WELL, reads the sign, but the bucket and rope are gone. A hand pump with a filter now brings the water up, cold and clear, after a few strong pushes on the handle. Pip likes to pump it until the handle groans in protest. You heal in the yard even faster now, because cleaner water helps a body mend quicker. The last step is a wired pump that fills a tank by itself. It needs 1 water tank, 1 set of engine parts, 1 spool of wire, and 150 scrap.",
-          "WELL, says the sign, and the well practically runs itself. A wired pump hums softly and fills a tank, so clean water is always waiting, even after the longest trip. You heal in the yard faster than ever, and you start every building at full health. That changes how a trip feels. You walk through each door strong and steady, like someone who slept well, even on the nights you did not. June calls the well the quiet hero of the yard, because nobody notices it until it stops.",
+          "WELL, says the sign, and now there is a hole in the ground worth having. It is a hand-dug well lined with lumber, with a bucket on a rope. Drop the bucket, and a splash echoes far below, like a coin landing in a very deep pocket. Its clean water helps you heal faster in the yard. Tomas says the rope creaks like the old cabin door did. Next, a roof and a crank would bring the water up faster. It needs 2 lumber, 1 set of engine parts, 1 water filter, and 100 scrap.",
+          "WELL, reads the sign, and the bucket and rope have a roof over them now. A crank winds the bucket up, and a filter makes the water cold and clear. Pip likes to turn the crank until the handle groans in protest. You heal in the yard even faster now, because cleaner water helps a body mend quicker. The last step is a hand pump that pipes the water to a trough. It needs 1 water tank, 1 set of engine parts, 1 spool of wire, and 150 scrap.",
+          "WELL, says the sign, and a hand pump now stands beside the well. It pipes the water to a trough, so clean water is always waiting, even after the longest trip. You heal in the yard faster than ever, and you start every building at full health. That changes how a trip feels. You walk through each door strong and steady, like someone who slept well, even on the nights you did not. June calls the well the quiet hero of the yard, because nobody notices it until it stops.",
         ],
       },
       water: {
         title: "Water station",
         empty: "WATER, filter goes here. Tomas painted the sign and nailed it above an empty barrel that sits on two sawhorses by the back fence. Right now the barrel catches nothing but leaves and gray rainwater that smells like an old sock. A filter and a tank here would turn that gray rainwater clear, so you heal faster while you are in the yard. Without clean water, every scrape stays a scrape until you find a medical kit. To start, bring 1 water filter and 40 scrap, and the barrel finally gets a job.",
         built: [
-          "WATER, says the sign, and the barrel is finally useful. A filter on top of the barrel turns gray water clear. It works one slow drip at a time, like a clock that counts in drops. You slowly heal in the yard. It is not fast, but it is steady, and steady keeps a crew alive. A big tank would hold more water and heal you faster. It needs 1 water tank, 1 water filter, and 80 scrap, and Tomas has already cleared a spot for it.",
+          "WATER, says the sign, and the lot is finally useful. Three rain barrels stand under funnels, with a filter on the tap that turns gray water clear. It works one slow drip at a time, like a clock that counts in drops. You slowly heal in the yard. It is not fast, but it is steady, and steady keeps a crew alive. A big tank would hold more water and heal you faster. It needs 1 water tank, 1 water filter, and 80 scrap, and Tomas has already cleared a spot for it.",
           "WATER, reads the sign, and now there is plenty of it. A filter and a big tank stand together by the back fence, full of clean water. It tastes like nothing at all, which is exactly how water should taste. You heal faster in the yard, because a full tank means nobody has to ration a sip after a hard day. One more filter would finish the job. It needs 1 water tank, 2 water filters, and 120 scrap, so keep an eye out at the Water Tower.",
           "WATER, says the sign, and the station is complete. Two filters and a tank work side by side, so the water runs clear even after a storm stirs up the barrel. You heal even faster in the yard, and you walk into every building at full health. That means each trip starts with a clean slate instead of yesterday's bruises. Tomas tapped the tank with a wrench, and it rang like a bell. He claims that is a good sign, and nobody has the heart to argue.",
         ],
@@ -80,7 +80,7 @@
     },
     {
       title: "The Cabin in Daylight",
-      text: "In daylight, the cabin turned out to be bigger than it looked last night. It is a whole family house with a porch out front. The roof is sound, which matters more than size when the rain comes. An old fence circles the yard like a tired arm around a shoulder. Some of its boards are loose, and Tomas has already counted them twice. I noticed the dirt first, though. Behind the cabin it is dark and good, the kind that crumbles in your hand and smells alive. Tomas teased me for kneeling in it before breakfast. Then I took a pencil and wrote our first rule on the inside of the door. Say where you are going before you go. Pip read it out loud three times and named it June's Rule Number One. Nobody argued.",
+      text: "In daylight, the cabin turned out to be bigger than it looked last night. It is a whole family house with a porch out front. The roof is sound, which matters more than size when the rain comes. An old fence circles the yard like a tired arm around a shoulder. Some of its boards are loose, and Tomas has already counted them twice. I noticed the dirt first, though. In front of the cabin it is dark and good, the kind that crumbles in your hand and smells alive. Tomas teased me for kneeling in it before breakfast. Then I took a pencil and wrote our first rule on the inside of the door. Say where you are going before you go. Pip read it out loud three times and named it June's Rule Number One. Nobody argued.",
     },
     {
       title: "Old but Honest",
@@ -100,7 +100,7 @@
     },
     {
       title: "Before the Fall",
-      text: "Before the Fall, I was the gardener at a school. Pip finds this hilarious and says June the Gardener sounds like a superhero with a very small cape. Maybe so, but my hands remember the work. I want raised beds behind the cabin, with beans, squash and tomatoes, all lined up like students in a class photo. The dirt is ready. What I lack is seeds. My old friend Rosa ran the greenhouses at Greenhouse Row, west of the gas station. She could grow roses in a parking lot and tomatoes in a teacup. If anyone still has seeds, it is Rosa. I am as sure of that as I am of the sunrise. If you drive west, look for her, and tell her June sends her love.",
+      text: "Before the Fall, I was the gardener at a school. Pip finds this hilarious and says June the Gardener sounds like a superhero with a very small cape. Maybe so, but my hands remember the work. I want raised beds in front of the cabin, with beans, squash and tomatoes, all lined up like students in a class photo. The dirt is ready. What I lack is seeds. My old friend Rosa ran the greenhouses at Greenhouse Row, west of the gas station. She could grow roses in a parking lot and tomatoes in a teacup. If anyone still has seeds, it is Rosa. I am as sure of that as I am of the sunrise. If you drive west, look for her, and tell her June sends her love.",
     },
     {
       title: "The Red R",
@@ -160,7 +160,7 @@
     },
     {
       title: "Messages for Each Other",
-      text: "Pip keeps asking about Ruby and her younger brother, Dev. After every trip, the first question is the same: any news? People say Ruby went looking for Dev, crossing town from one end to the other. And Dev left messages for her wherever he went, on walls and counters and doors, like breadcrumbs in an old fairy tale. Pip has thought about this very carefully, the way Pip thinks about everything important. Pip says people who keep leaving messages find each other. I know how big this town is. Tomas raised an eyebrow at me. But June did not argue. Some hopes are worth guarding, like a match in the wind.",
+      text: "Pip keeps asking about Ruby and her younger brother, Dev. After every trip, the first question is the same: any news? People say Ruby went looking for Dev, crossing town from one end to the other. And Dev left messages for her wherever he went, on walls and counters and doors, like breadcrumbs in an old fairy tale. Pip has thought about this very carefully, the way Pip thinks about everything important. Pip says people who keep leaving messages find each other. Tomas raised an eyebrow at me. But June did not argue. Pip has a way of being right about the things that matter.",
     },
     {
       title: "Listening to the Engine",
@@ -231,7 +231,7 @@
     },
     {
       title: "Walk, Do Not Run",
-      text: "Jo on 88.1 with a warning, and you will want to remember this one. It is about Northgate Mall. The walkers there move in a group, like a flock of birds that turns all at once. And they come running at anyone who runs. It sounds backward, I know. Every part of you will want to sprint for the exit. Do not do it. Walk, do not run, and most of them stay put. Slow feet look like one of them. Fast feet look like a fire alarm. That tip comes from Luis, the mall guard who never left his post. He has watched that crowd longer than anyone, and he is still there to tell about it. Thanks, Luis. Jo out.",
+      text: "Jo on 88.1 with a warning, and you will want to remember this one. It is about Northgate Mall. The walkers there move in a group, like a flock of birds. And they come running at anyone who runs: every walker near you turns at once. It sounds backward, I know. Every part of you will want to sprint for the exit. Do not do it. Walk, do not run, and most of them stay put. Slow feet look like one of them. Fast feet look like a fire alarm. That tip comes from Luis, the mall guard who never left his post. He has watched that crowd longer than anyone, and he is still there to tell about it. Thanks, Luis. Jo out.",
     },
     {
       title: "Tip: The Seed Vault",
@@ -299,7 +299,7 @@
     },
     {
       title: "Mrs. Greer's Key Tip",
-      text: "Mrs. Greer here, from the Public Library, with a key ring tip. It feels a little strange for a librarian to give directions to a jewelry store, but here we are. The key hidden at the Public Library opens the jewelry vault at Northgate Mall. Read the notes in my reading rooms, and they will guide you to it. Please put the books back where you found them. Now, about that mall. I have heard the stories, and so have you. Walk, do not run, at the mall. Running wakes the whole crowd, and they will follow you like a rumor through a small town. Walk slowly and steadily, as if you were browsing the shelves. Mrs. Greer, signing off.",
+      text: "Mrs. Greer here, from the Public Library, with a key ring tip. It feels a little strange for a librarian to give directions to a jewelry store, but here we are. The key hidden at the Public Library opens the jewelry vault at Northgate Mall. Read the notes in my reading rooms, and they will guide you to it. Please put the books back where you found them. Now, about that mall. I have heard the stories, and so have you. Walk, do not run, at the mall. Running wakes every walker near you, and they will follow you like a rumor through a small town. Walk slowly and steadily, as if you were browsing the shelves. Mrs. Greer, signing off.",
     },
     {
       title: "Storm from the North",
@@ -381,7 +381,7 @@
       "Written on the box in heavy marker: always check that it is empty before you clean it. Below it: point it at the ground, never at a person. The rules are short on purpose, because they are the kind you can only break once.",
     ],
     armorPlate: [
-      "Stenciled on the plate: steel, heavy. Both words are true, and your arms will agree before you reach the van. A chalk note runs along the bottom edge: bolt it onto the van door at chest height. That is where grabbing hands reach first.",
+      "Stenciled on the plate: steel, heavy. Both words are true, and your arms will agree before you reach the van. A chalk note runs along the bottom edge: bolt it onto a door at chest height. That is where grabbing hands reach first.",
       "A sticky note clings to the plate: a plate stops grabbing hands, not crashes. Marker lines along one edge count every dent it has taken, neat as tally marks on a scoreboard. There are a lot of lines, and the plate is still in one piece.",
     ],
     books: [

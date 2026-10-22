@@ -7,7 +7,7 @@
   root.ZSR.TEXT[2] = {
     level: 2,
     howto: [
-      "The Fall came months ago. Walkers took over this river town. Most people ran, hid, or headed north. You stayed with your crew and one old van. It is the last working van in town. One night, it rolled into a quiet yard. The tank was down to its last drops of fuel. Tomas talked to the engine the whole way there. That first night, you took the first watch. Nothing came. June wrote that on the first page of her ledger.",
+      "The Fall came months ago. Walkers took over this river town. Most people ran, hid, or headed north. You stayed with your crew and one old van. It is the last working van in town. One night, it rolled into a quiet yard. The tank was down to its last drops of fuel. Tomas talked to the engine the whole way there. That first night, you took the first watch. June wrote that on the first page of her ledger.",
       "The yard sits at the south end of town. Behind it stands a big family house. A carved sign by the door calls it the cabin. It was the Hollis family's home. Kate drew maps for the county. Dan hung the dinner bell on the porch. Their kids were Gus, Finn, and Lucy. Their dog was named Biscuit. The family left to join the River Convoy. The convoy plans to head north by the river road. Kate left a note on the fridge before they went. It says the cabin is yours if you are kind. It also asks you to keep her garden going. The Hollises left with a plan, so they may return. For now, the cabin is your home base. It is the only place the game saves. If you go down, you return to your last save.",
       "June, Tomas, and Pip are your crew. June is in her sixties. She used to be a school gardener. She writes about each day in a green ledger. June is not sure she wants to leave the cabin. Tomas is seventeen, and his dad taught him engines. He keeps the van alive with wire and hard work. Pip is eleven and asks the hardest questions. Pip wants a dog more than anything. Once you build the radio, Pip will run it. Pip will list every voice heard on the air. Walk up to one of them to talk. Each talk gives you something useful. Sometimes they ask you for a favor. Bring what they need home from town. Each of them has trust stars. Talks and favors earn stars. More stars mean more help.",
       "Your crew lives among the Hollis family's things now. Tomas sleeps in Gus's old room. The sign on its door still says KEEP OUT. Pip's height is marked on the living room door frame. The mark sits between Finn's and Gus's. Pip wants to build the treehouse Finn drew. June's ledger sits by the radio in the dining room. The family left notes on the walls of every room. Walk up close to read them. They tell you who lived here, and what they hoped.",
@@ -97,9 +97,9 @@
         well: {
           desc: "A hand-dug well in the middle of the yard. Clean water from deep underground. You heal faster in the yard. The Farm and the Lab both need it.",
           next: [
-            "Needs the Water room first. Costs 60 scrap. Plus Lumber 2 and Tool kit 1. You heal in the yard at rate 2.",
-            "Costs 100 scrap. Plus Lumber 2 and Engine parts 1. Plus Water filter 1. Heal rate goes up to 3.",
-            "Costs 150 scrap. Plus Water tank 1 and Engine parts 1. Plus Spool of wire 1. Heal rate goes up to 4. You start every building at full health.",
+            "Needs the Water room first. Costs 60 scrap. Plus Lumber 2 and Tool kit 1. Adds 1 to your yard heal rate, on top of the Water room.",
+            "Costs 100 scrap. Plus Lumber 2 and Engine parts 1. Plus Water filter 1. Now adds 2 to your yard heal rate.",
+            "Costs 150 scrap. Plus Water tank 1 and Engine parts 1. Plus Spool of wire 1. Now adds 3 to your yard heal rate. You start every building at full health.",
           ],
         },
         farm: {

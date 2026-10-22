@@ -9,11 +9,11 @@
     lots: {
       garden: {
         title: "Garden, someday",
-        empty: "Stakes and string mark out beds in the dirt. The dirt is dark and good. It sits behind the cabin. June painted the sign herself. It says GARDEN, someday. Raised beds could go here. They need seeds and soil. Then they would grow food. That matters a lot. Every trip in the van eats food.",
+        empty: "Stakes and string mark out beds in the dirt. The dirt is dark and good. It sits in front of the cabin. June painted the sign herself. It says GARDEN, someday. Raised beds could go here. They need seeds and soil. Then they would grow food. That matters a lot. Every trip in the van eats food.",
         built: [
-          "The sign says GARDEN now. Someone crossed out the word someday. One raised bed is planted with seeds. Small green shoots poke up in rows. June checks the bed every morning. She pulls weeds before anyone else is up. It grows 1 food each day. It is not much yet. But it is a start.",
+          "The sign says GARDEN now. Someone crossed out the word someday. Two raised beds are planted with seeds. Small green shoots poke up in rows. June checks the beds every morning. She pulls weeds before anyone else is up. It grows 1 food each day. It is not much yet. But it is a start.",
           "The sign still says GARDEN. Now there are more beds. Beans climb the string toward the sun. The leaves are big and green. Pip counts the bean pods out loud. Tomas built a gate to keep rabbits out. The garden grows 2 food each day now. Tonight the beans are not from a can.",
-          "The sign says GARDEN in fresh paint. A water tank stands at the end of the beds. A hose runs from the tank to every bed. Nobody has to haul buckets now. June finally has her full garden. She walked the rows and did not say a word. It grows 3 food each day.",
+          "The sign says GARDEN in fresh paint. A greenhouse stands behind the beds. A water tank feeds them, so nobody hauls buckets now. June finally has her full garden. She walked the rows and did not say a word. It grows 3 food each day.",
         ],
       },
       farm: {
@@ -30,17 +30,17 @@
         empty: "A ring of stones sits in the middle of the yard. June painted the sign: WELL. Under that: dig after the Water room is built. Deep under the ground, the water is cold and clean. With it, you would heal faster in the yard. The Farm and the Lab both need the Well first.",
         built: [
           "The sign says WELL. It is a hand-dug well. Its walls are lined with lumber. A bucket hangs on a rope. The water comes up cold. It tastes like stone and rain. Its clean water helps you heal faster in the yard. Tomas says he dug enough for a lifetime.",
-          "The sign says WELL. No more bucket. A hand pump stands over the hole now. Pump the handle, and water comes up. It goes through a filter on the way. Pip likes to work the pump. Tomas oiled it, so it does not squeak. You heal in the yard even faster than before.",
-          "The sign says WELL. A wired pump hums by the stones. It fills a tank all on its own. Nobody pumps by hand now. You heal in the yard faster than ever. You start every building at full health, too. June says the well is the heart of the yard.",
+          "The sign says WELL. A little roof covers the hole now. A crank winds up the bucket. Turn the handle, and water comes up. It goes through a filter on the way. Pip likes to turn the crank. Tomas oiled it, so it does not squeak. You heal in the yard even faster than before.",
+          "The sign says WELL. A hand pump stands by the stones. Pipes carry its water to a trough. You heal in the yard faster than ever. You start every building at full health, too. June says the well is the heart of the yard.",
         ],
       },
       water: {
         title: "Water, filter here",
         empty: "An empty barrel sits on two sawhorses. It is by the back fence. Tomas painted the sign: WATER, filter goes here. Rainwater fills the barrel, but it is gray. Nobody wants to drink it like that. A filter and a tank would turn it clear. Clean water means you heal faster in the yard.",
         built: [
-          "The sign says WATER. A filter sits on top of the barrel now. Gray water goes in at the top. Clear water drips out at the bottom. It is slow, but it works. You slowly heal while you are in the yard. Pip watches the drips like a TV show.",
-          "The sign says WATER. Next to the barrel stands a big tank. The filter feeds it all day. The tank is full of clean water. Nobody drinks gray water anymore. You heal faster in the yard. Tomas tapped the tank and smiled at the sound. Full tanks ring low.",
-          "The sign says WATER. Now there are two filters on the barrel. A big tank stands next to them. The water is as clear as glass. You heal even faster in the yard. You also walk into every building at full health. That is a big deal out there.",
+          "The sign says WATER. Three rain barrels stand under funnels now. A filter sits on the tap. Gray rain goes in at the top. Clear water drips out of the tap. It is slow, but it works. You slowly heal while you are in the yard. Pip watches the drips like a TV show.",
+          "The sign says WATER. Now a big tank stands up on legs. The filter feeds it all day. The tank is full of clean water. Nobody drinks gray water anymore. You heal faster in the yard. Tomas tapped the tank and smiled at the sound. Full tanks ring low.",
+          "The sign says WATER. Now there are two filters. A big tank stands next to them. The water is as clear as glass. You heal even faster in the yard. You also walk into every building at full health. That is a big deal out there.",
         ],
       },
       power: {
@@ -75,12 +75,12 @@
 
   T.journal = [
     { title: "The First Night", text: "June here, writing by candlelight in my green ledger. The van rolled in on its last drops of fuel. Tomas talked to it the whole way. We found a cabin at the south end of town. It is empty and dry, with a woodstove. The door still locks. Pip fell asleep on the bench. The bags were not even inside. You took the first watch at the window." },
-    { title: "The Cabin in Daylight", text: "In daylight, the cabin is bigger than it looked. It is a whole family house, with a porch. And the roof is sound. An old fence circles the yard. Some of its boards are loose. Behind the cabin, the dirt is dark and good. I noticed it first. I wrote our first rule inside the door today. Say where you are going before you go.\n\n- June" },
+    { title: "The Cabin in Daylight", text: "In daylight, the cabin is bigger than it looked. It is a whole family house, with a porch. And the roof is sound. An old fence circles the yard. Some of its boards are loose. In front of the cabin, the dirt is dark and good. I noticed it first. I wrote our first rule inside the door today. Say where you are going before you go.\n\n- June" },
     { title: "The Van Goes Out", text: "Tomas spent the morning under the van. He came out smiling, with grease on his nose. He says the van is old but honest. Like a good mule, he says. Then you drove out to look for supplies. I watched the road until the van came back. Pip counted every minute you were gone. Then Pip wrote the number on the wall. I did not make Pip wash it off.\n\n- June" },
     { title: "Walkers at Dusk", text: "The biggest group yet came to the fence at dusk. They pushed at the boards and moaned. Then they drifted off. After that, the yard went quiet for a while. I have learned this much. They come in waves, with calm in between. We added a new rule to the door. No shouting in the yard. Walkers follow sound.\n\n- June" },
     { title: "Pip's Big Questions", text: "Pip asked me where everyone in town went. I said some people left. Some people hid. And some are still out there, helping each other. Then Pip asked about a dog. Could we keep one if we found one? I said a dog would need to eat, too. Pip said a dog would also need a name. June, you worry about the wrong things, Pip said." },
     { title: "Fence Before Supper", text: "The days have a rhythm now. Drive out. Come home. Hold the fence. A hole in the fence does not close by itself. Someone has to patch it with scrap. So I made it a rule. Patch the fence before supper. Supper was beans again tonight. Nobody complained out loud. Tomas made a face, though. I wrote that down too.\n\n- June" },
-    { title: "Before the Fall", text: "Before the Fall, I was the gardener at a school. I still dream in rows of green. I want raised beds behind the cabin. Beans, squash and tomatoes, to start. My old friend Rosa ran the greenhouses at Greenhouse Row. That is west of the gas station. If anyone still has seeds, it is Rosa. She never threw a seed away in her life.\n\n- June" },
+    { title: "Before the Fall", text: "Before the Fall, I was the gardener at a school. I still dream in rows of green. I want raised beds in front of the cabin. Beans, squash and tomatoes, to start. My old friend Rosa ran the greenhouses at Greenhouse Row. That is west of the gas station. If anyone still has seeds, it is Rosa. She never threw a seed away in her life.\n\n- June" },
     { title: "The Red R", text: "People talk about a scout named Ruby. She paints a red R on buildings. Next to the R, she writes a number. It is how many walkers she saw inside. Pip practiced on a board all afternoon. A big red R, with a 3 next to it. The paint dripped a little. Here is what I think. A stranger who warns strangers is a good sign.\n\n- June" },
     { title: "Wire and Stubbornness", text: "Tomas told me about his father tonight. His father was a mechanic. He learned the trade from Mr. Ortiz at Ortiz Auto. Tomas learned it from his father. He spent years under cars, handing over wrenches. Today he fixed the van's loose mirror. He used wire and stubbornness. Mostly stubbornness. He hopes Mr. Ortiz is still out there somewhere. So do I." },
     { title: "Cards by the Stove", text: "It rained all day. The roof leaked in two spots. We put pots under the drips. Plink, plunk, plink. Then we played cards by the stove. Pip won every game. Pip would not explain how. Tomas checked the deck for extra aces. He found none. A rainy day with everyone inside is a good day.\n\n- June" },
@@ -201,7 +201,7 @@
       "On the box: always check that it is empty. Do that before you clean it. Point it at the ground, never at a person.",
     ],
     armorPlate: [
-      "Stenciled on the plate: steel, heavy. Chalk note: bolt it onto the van door. Put it at chest height. It takes two people to lift.",
+      "Stenciled on the plate: steel, heavy. Chalk note: bolt it onto a door. Put it at chest height. It takes two people to lift.",
       "Sticky note: a plate stops grabbing hands, not crashes. Marker lines along one edge count every dent it took. There are a lot of lines.",
     ],
     books: [
@@ -233,7 +233,7 @@
       foyer: { title: "Five Hooks by the Door", text: "Five hooks hang by the door. A name is over each one. They say Kate, Dan, Gus, and Finn. The last hook is low, and it says Lucy. Its tag says: last one out locks the door. The hooks are empty now. The Hollis family took their keys when they left." },
       office: { title: "Kate's Map Desk", text: "Kate Hollis worked at this desk. She drew maps for the county. A sticky note is stuck to the computer screen. It says the computer runs off a big battery. The battery is in the closet. Now June keeps the base plans on this computer. Rooms, van, guns, traps: it is all here." },
       dining: { title: "The Chore Chart", text: "A chore chart hangs here, covered in gold stars. Gus washed the dishes. Finn took out the trash. Lucy fed Biscuit, the dog. Lucy has the most stars. Someone crossed out one of Gus's stars. Pip added a new row in pencil. It says Pip feeds the dog. Which dog? The one we do not have yet." },
-      kitchen: { title: "Kate's Note on the Fridge", text: "A fish magnet holds this note. Kate wrote it the morning the family left. We are going north with the River Convoy. We will go with Sergeant Vega. We took Biscuit and our go bags. We took the last canned peaches too. Did you find our cabin? If you are kind, it is yours now. Please keep the garden going." },
+      kitchen: { title: "Kate's Note on the Fridge", text: "A fish magnet holds this note. Kate wrote it the morning the family left. Sergeant Vega and the River Convoy are going north. We are going with them. We took Biscuit and our go bags. We took the last canned peaches too. Did you find our cabin? If you are kind, it is yours now. Please keep the garden going." },
       pantry: { title: "Labels on the Shelves", text: "Dan Hollis put a label on every shelf. They say beans, rice, peaches, and flour. Most of the shelves are bare now. But the labels are still there. This is where the crew counts the food. Everything else in storage gets counted here too." },
       pingpong: { title: "The Ping Pong Score", text: "A chalk scoreboard hangs over the ping pong table. The last game reads Finn 21, Dad 19. Under it, in Dan's writing: rematch on Sunday. Tomas and Pip play here now. They keep score the same way. Pip says the table leans to the left." },
       masterBath: { title: "A Heart on the Mirror", text: "Someone drew a heart on the bathroom mirror. Three names are inside it: Gus, Finn, and Lucy. A list is taped by the sink. It says: Lucy, brush your teeth for two whole minutes. June left the list up. She says it is a good rule." },

@@ -93,7 +93,7 @@
         },
         "firehouse-trail1": {
           title: "Convoy List, Page One",
-          text: "Chief Dunn. I keep lists, so here is the one that matters most.\n\nRIVER CONVOY: WHAT WE HAVE.\nTwo fire trucks, both from this station.\nSergeant Vega's van, full of gear.\nCarla's boats, built at the lumber yard.\n\nThe plan is to leave north along the river. Trucks on the road, boats on the water, all of us together.\n\nMr. Ortiz fixed both trucks before he went west. He did it with half the parts he needed. I owe that man a hot meal.\n\nThe bad news is the date. The leaving day has moved three times now. The river is still too high, and the boats cannot launch yet. So we wait.\n\nI wrote a second note for you. It is in the bunk room, near the brass pole.",
+          text: "Chief Dunn. I keep lists, so here is the one that matters most.\n\nRIVER CONVOY: WHAT WE HAVE.\nTwo fire trucks, both from this station.\nSergeant Vega's van, with new tires.\nCarla's boats, built at the lumber yard.\n\nThe plan is to leave north along the river. Trucks on the road, boats on the water, all of us together.\n\nMr. Ortiz fixed both trucks before he went west. He did it with half the parts he needed. I owe that man a hot meal.\n\nThe bad news is the date. The leaving day has moved three times now. The river is still too high, and the boats cannot launch yet. So we wait.\n\nI wrote a second note for you. It is in the bunk room, near the brass pole.",
         },
         "firehouse-trail2": {
           title: "Priya's Lightning Bolt Key",
@@ -200,7 +200,7 @@
       notes: {
         "lumberyard-rack": {
           title: "Carla's Clipboard",
-          text: "CARLA HERE! Yard boss! If you can read this, you are standing too close to my band saw. Today that is fine.\n\nThe kiln shed has an old padlock with a number dial. The code is {code}: {codeSpoken}. Spin the dial to each number, slowly. Give it a good yank, and the lock drops open.\n\nGet one number wrong, and the old padlock locks up for good. It jams, and after that only a crowbar opens it. So check each number twice.\n\nLeave by the band saw shop door and step into the rack hall. Follow the back wall toward the log pile. The kiln shed door is in that wall. The lumber in the shed is dry, and there are nails too.\n\nNow the big rule. DO NOT RUN THE SAWS. Not once. The noise brings the whole dock crowd, and they come fast. Carry what you need and go quietly.\n\nThanks for reading. Most people do not.\nCarla",
+          text: "CARLA HERE! Yard boss! If you can read this, you are standing too close to my band saw. Today that is fine.\n\nThe kiln shed has an old padlock with a code. The code is {code}: {codeSpoken}. Put in each number, slowly, then give the lock a good yank, and it drops open.\n\nGet one number wrong, and the old padlock locks up for good. It jams, and after that only a crowbar opens it. So check each number twice.\n\nLeave by the band saw shop door and step into the rack hall. Follow the back wall toward the log pile. The kiln shed door is in that wall. The lumber in the shed is dry, and there are nails too.\n\nNow the big rule. DO NOT RUN THE SAWS. Not once. The noise brings the whole dock crowd, and they come fast. Carry what you need and go quietly.\n\nThanks for reading. Most people do not.\nCarla",
         },
         "lumberyard-trail1": {
           title: "Boats for the Convoy",
@@ -216,7 +216,7 @@
         },
         "lumberyard-dead2": {
           title: "Code on a Receipt",
-          text: "KILN SHED CODE: {decoyCode}. GOT IT FROM THE CREW. HURRY.\n\nThat is all, scrawled on the back of an old receipt. It lies in the rack hall, outside the kiln shed door. The writing is fast and messy. The pen ran out halfway through the last word.\n\nIt sounds like inside news from the crew. Maybe it was, once. But look at the front of the receipt. The date on it is from months ago. Carla changed the padlock code after that. So this receipt has the old code.\n\nSpin the dial to the old code, and the padlock jams for good. Then only a crowbar opens it. You will stand by the shed, tugging, while the dock crowd listens.\n\nCarla's clipboard by the band saw has the code that works now. Trust the clipboard.",
+          text: "KILN SHED CODE: {decoyCode}. GOT IT FROM THE CREW. HURRY.\n\nThat is all, scrawled on the back of an old receipt. It lies in the rack hall, outside the kiln shed door. The writing is fast and messy. The pen ran out halfway through the last word.\n\nIt sounds like inside news from the crew. Maybe it was, once. But look at the front of the receipt. The date on it is from months ago. Carla changed the padlock code after that. So this receipt has the old code.\n\nPut in the old code, and the padlock jams for good. Then only a crowbar opens it. You will stand by the shed, tugging, while the dock crowd listens.\n\nCarla's clipboard by the band saw has the code that works now. Trust the clipboard.",
         },
       },
       signs: {
@@ -241,7 +241,7 @@
         },
         "mall-trail1": {
           title: "Still at My Post",
-          text: "Luis again. I have stayed at my post since the Fall began. That is a long time to stand in one place. My feet agree.\n\nI know this crowd now. They walk the same slow loop every day. Past the shoe store, past the Book Nook, back by the food court. Then they do it again. If you learn the loop, you can slip around it.\n\nSergeant Vega came by last month. Vega asked me to join the River Convoy. It was a seat on a truck, north along the river. It was a kind offer, and I said no.\n\nSomeone has to watch the mall. People still come here for food and medicine. Someone has to tell them to walk, not run.\n\nI left another note for you. It is in the sports store, beside the orange tent. Walk there. Do not run.",
+          text: "Luis again. I have stayed at my post since the Fall began. That is a long time to stand in one place. My feet agree.\n\nI know this crowd now. They walk the same slow loop every day. Past the shoe store, past the Book Nook, back by the food court. Then they do it again. If you learn the loop, you can slip around it.\n\nSergeant Vega came by last month. Vega asked me to join the River Convoy. It was a seat in the convoy, north along the river. It was a kind offer, and I said no.\n\nSomeone has to watch the mall. People still come here for food and medicine. Someone has to tell them to walk, not run.\n\nI left another note for you. It is in the sports store, beside the orange tent. Walk there. Do not run.",
         },
         "mall-trail2": {
           title: "A Key from Doc Lin",

@@ -7,7 +7,7 @@
   root.ZSR.TEXT[3] = {
     level: 3,
     howto: [
-      "The Fall came months ago, and walkers took over this river town. Most people ran, hid, or headed north. You stayed, with a small crew and one battered van. It is the last working van in town. One night it rolled into a quiet yard on its last drops of fuel. Tomas talked to the engine the whole way, and maybe it listened. That first night you took the first watch at the window without being asked. Nothing came. June wrote that down plainly, on the first page of her ledger.",
+      "The Fall came months ago, and walkers took over this river town. Most people ran, hid, or headed north. You stayed, with a small crew and one battered van. It is the last working van in town. One night it rolled into a quiet yard on its last drops of fuel. Tomas talked to the engine the whole way, and maybe it listened. That first night you took the first watch at the window without being asked. June wrote that down plainly, on the first page of her ledger.",
       "Your yard sits at the south end of town. Behind it stands a big family house. A carved sign by the front door calls it the cabin. It was the Hollis family's home. Kate drew maps for the county, and Dan hung the dinner bell. Their kids were Gus, Finn, and Lucy, and their dog was Biscuit. They left to join the River Convoy before your crew arrived. The convoy plans to head north along the river road. Kate left a note on the fridge for whoever came next. It says that if you are kind, the cabin is yours now. It also asks you to keep the garden going. The Hollises left with a plan, and they might come back. For now, the cabin is your home base. It is the only place the game saves. If you go down, you go back to your last save.",
       "June, Tomas, and Pip are your crew. June is in her sixties, a retired school gardener with a dry wit. She writes about each day in a green ledger. Even if the convoy goes, she may not want to leave. A garden, she says, makes a cabin hard to leave. Tomas is seventeen, a mechanic's son who talks to engines. He keeps the van alive with wire and stubbornness. Pip is eleven and asks the questions nobody else will. Pip wants a dog more than anything. Once the radio is built, Pip will run it. Pip plans to list every voice heard on the air. Walk up to any of them to talk. Each talk gives you one useful thing. Sometimes they ask you for a favor. Bring what they need home from town. Each of them has trust stars. Talks and favors earn stars, and more stars mean more help.",
       "Your crew lives among the Hollis family's things now. Tomas sleeps in Gus's old room, under a sign that says KEEP OUT. Pip's height is marked on the living room door frame, between Finn's and Gus's. Pip wants to build the treehouse Finn drew, once the fence is strong. June's ledger sits on the radio shelf in the dining room. The family left notes on the walls of every room. Walk up close to read them. They tell you who lived here and what they hoped for.",
@@ -125,9 +125,9 @@
         well: {
           desc: "A hand-dug well in the middle of the yard. It gives clean water from deep underground, so you heal faster in the yard. The Farm and the Lab both need the Well.",
           next: [
-            "Needs the Water room first. Costs Lumber 2, Tool kit 1, and 60 scrap. You heal in the yard at rate 2.",
-            "Costs Lumber 2, Engine parts 1, Water filter 1, and 100 scrap. You heal in the yard at rate 3.",
-            "Costs Water tank 1, Engine parts 1, Spool of wire 1, and 150 scrap. You heal in the yard at rate 4. You also start every building at full health.",
+            "Needs the Water room first. Costs Lumber 2, Tool kit 1, and 60 scrap. The Well adds 1 to your heal rate in the yard, on top of the Water room.",
+            "Costs Lumber 2, Engine parts 1, Water filter 1, and 100 scrap. The Well now adds 2 to your heal rate in the yard.",
+            "Costs Water tank 1, Engine parts 1, Spool of wire 1, and 150 scrap. The Well now adds 3 to your heal rate in the yard. You also start every building at full health.",
           ],
         },
         farm: {

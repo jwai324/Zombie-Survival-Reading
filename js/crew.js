@@ -11,7 +11,7 @@
      supplies and trust; once per member per wave; the dog never). They come out when it is cleared.
    - Jobs in the calm (State.crewJobs): the fence job walks to the nearest hole or cracked segment, works
      workSeconds and fixes it, paying from the base's scrap (State.crewRepairPay); the cabin job does the
-     same for the cabin's damaged doors and windows. While the next build is ready its scrap is kept back
+     same for the cabin's broken doors and windows. While the next build is ready its scrap is kept back
      (crewCanPay). No toast: they tell you when you next talk (a report).
      The lookout job calls the next wave (phase.next, rolled when the calm began: js/yard.js) as a toast
      State.crewLookoutSeconds() before it comes. The heal job patches you up when you talk while hurt.
@@ -788,7 +788,7 @@
       // the fence first, then the builds: the cabin's doors and windows only once both are whole
       if (!targets.length && kinds.includes("cabin")) {
         Object.entries(this.barriers || {}).forEach(([key, b]) => {
-          if (b.kind === "inner" || b.hp >= b.max) return;
+          if (b.kind === "inner" || b.hp > 0) return;
           const [x, y] = key.split(",").map(Number);
           targets.push({ kind: "cabin", key, x, y });
         });
@@ -853,7 +853,7 @@
       }
       if (job.kind === "builds") return this.buildDmg(job.key) === 2; // still wrecked
       const b = this.barriers && this.barriers[job.key];
-      return !!b && b.hp < b.max;
+      return !!b && b.hp <= 0;
     },
     /** The work is done: fixed and paid for (never while a walker stands in it; never if the scrap ran out).
         No toast: they tell you when you next talk (State.logWork). True when they are done with it. */

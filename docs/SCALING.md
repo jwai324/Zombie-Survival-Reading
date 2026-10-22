@@ -25,7 +25,7 @@ constant with a `SCALE:` comment.
 | Walkers at once | up to 14 a building, 40 in an alarm; a heavy yard wave is 7 + day + waves held, with no cap | `SETTINGS.walkersPerLocation`, `ALARM.cap`, `DEFENSE.manyCount` |
 | Reading levels | 6 | `js/content/`, `index.html`, tests |
 | Journal / radio | 30 entries each | `js/story-home.js` |
-| Crew | 3 crew, 22 spots, 42 topics (30 base, 12 crossover) and 16 moods, 25 story quests (15 base, 10 crossover), 11 errands, 1 dog | `js/story-crew.js`, `js/story-quests.js` |
+| Crew | 3 crew, 22 spots, 43 topics (30 base, 13 crossover) and 16 moods, 25 story quests (15 base, 10 crossover), 11 errands, 1 dog | `js/story-crew.js`, `js/story-quests.js` |
 | Tutorial | 5 yard steps and the ready card, 6 screen cards (map, road, door, building, lock, river) | `js/tutorial.js` `YARD_STEPS`, `CARDS` |
 | Danger | 1..5 | `LOCATIONS[].danger`, `js/map.js` pips |
 

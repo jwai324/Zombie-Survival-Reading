@@ -460,7 +460,7 @@
     /** What the built rooms give (a wrecked build gives nothing until it is fixed), plus the crew's perks. */
     effects() {
       const fx = { vanHp: 0, footHp: 0, tierCap: 2, freeRepair: false, showDanger: false, crates: 0, headlights: false, footRegen: 0, fullHealOnEntry: false, foodPerDay: 0, medsPerDay: 0, water: 0, reveal: 0, showStock: false, footDamage: 1, revive: 0, vanDamage: 1, notesShowStock: false, mapShowsCaches: false, mapShowsStock: false };
-      const ADD = { foodPerDay: true, medsPerDay: true }; // these stack across rooms; everything else takes the best level
+      const ADD = { foodPerDay: true, medsPerDay: true, footRegen: true }; // these stack across rooms (the Well heals on top of the Water room); everything else takes the best level
       Object.entries(this.save.rooms).forEach(([room, lvl]) => {
         if (this.roomWrecked(room)) return;
         const levels = W().BASE_ROOMS[room] ? W().BASE_ROOMS[room].levels : [];

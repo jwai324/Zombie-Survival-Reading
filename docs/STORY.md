@@ -11,7 +11,7 @@ described as wounds.
 
 ## The town and the crew
 
-Months after the Fall. A mid-size river town. The player is "you" and is never named.
+Months after the Fall, which began as "some sickness across the river. Probably nothing." (Ruby's call on Dev's to-do list at Gas-N-Go, `gasngo-dead1`, every level; the base texts never say what caused it). A mid-size river town. The player is "you" and is never named.
 
 The crew at the cabin (home base, south end of town):
 
@@ -43,7 +43,8 @@ read about.
 - **Dan**: hung the dinner bell, labeled the pantry shelves, lost the last ping pong game.
 - **Gus** (16), **Finn** (11) and **Lucy** (7), and their dog **Biscuit**, who went with them.
 
-Facts in `js/story-home.js`: `HOUSE_NOTES` (one note per room, read up close on the wall; where
+Facts in `js/story-home.js`: `HOUSE_NOTES` (fifteen notes, one in each lived-in room, read up close on the wall; the hallway,
+the second bathroom and the office, linen and toy closets have none; where
 each hangs is `HOUSE.notes` in `js/world.js`) and `HOUSE_UPGRADE_FACTS` (the computer's House
 tab). Words at six levels: `T.house` in each `levelN-home.js`.
 
@@ -53,6 +54,7 @@ tab). Words at six levels: `T.house` in each `levelN-home.js`.
 | Foyer | Five name hooks (Lucy's low), "last one out locks the door"; the keys went with them | |
 | Office | Kate's map desk; a sticky note: the computer runs off the big battery in the closet | The computer holds the base plans (rooms, van, guns, traps) |
 | Office closet | (no note) the big battery against the end wall; the floor is kept clear | The crew's shelter in a wave (`CREW_RULES.shelter`) |
+| Hallway, second bathroom, linen closet, toy closet | (no note) | |
 | Dining room | The chore chart, gold stars (Lucy leads, one of Gus's crossed out) | Pip's pencil row: feeds the dog we do not have yet. The radio shelf and June's ledger: tune in to today's news, read past days again; Pip's map and list of voices take over the table (Radio 2), a cork board of the town (Radio 3) |
 | Kitchen | Kate's note on the fridge, under a fish magnet | |
 | Pantry | Dan's shelf labels: beans, rice, peaches, flour | The crew counts food and everything in storage |
@@ -151,9 +153,9 @@ are never written as lost, and the convoy never leaves on screen.
 | Who | Where they appear | Their thread |
 |-----|-------------------|--------------|
 | **Ruby** | Gas-N-Go (door note and both trail notes), Ridge Lumber door note, a chalk note on a crate at Ortiz Auto; a red R with a walker count in every building except the Corner Grocery and the Water Tower; a message read by Jo on the radio | Scout who marks buildings for strangers. Searching for her younger brother **Dev**. |
-| **Dev** | Gas-N-Go (the clerk's main note, the STAFF ONLY sign), Ortiz Auto (door note, trail1), Water Tower (trail1, the chalk sign "Ruby, I am here"); Theo relays his message on the radio | Went east to Ortiz Auto to fix a truck so he and Ruby could leave. Then went on to the Water Tower with Mr. Ortiz, because Theo had clean water. Leaves his sister messages. |
-| **Doc Lin** | Corner Grocery door note | A doctor who carries medicine between the grocery, the pharmacy and the hospital. Trying to reach **Nurse Ada**, who stayed at St. Anne. |
-| **Nurse Ada** | St. Anne Annex (door note on the ambulance doors, and her notes inside) | Stayed to keep the generator and the records. Writes calm, exact notes. |
+| **Dev** | Gas-N-Go (the clerk's main note, his to-do list, the STAFF ONLY sign), Ortiz Auto (door note, trail1), Water Tower (trail1, the chalk sign "Ruby, I am here"); Theo relays his message on the radio | Went east to Ortiz Auto to fix a truck so he and Ruby could leave. Then went on to the Water Tower with Mr. Ortiz, because Theo had clean water. Leaves his sister messages. |
+| **Doc Lin** | Corner Grocery (door note, trail note 1, the level-6 checklist for Ada); a medical kit tag; three radio broadcasts; her name on the St. Anne Annex sign-in sheet from before the Fall; named at Mile 9 Pharmacy, Signal Electronics, Station 12 and Northgate Mall | A doctor who carries medicine between the grocery, the pharmacy and the hospital. Trying to reach **Nurse Ada**, who stayed at St. Anne. |
+| **Nurse Ada** | St. Anne Annex (door note on the ambulance doors, and her notes inside); two radio broadcasts | Stayed to keep the generator and the records. Writes calm, exact notes. |
 | **Jo** | Signal Electronics, Northgate Mall door notes; the main voice on the radio | Scavenger turned broadcaster. Runs a pirate station on 88.1 from a rooftop. Reads out news, warnings and tips about stashes. |
 | **Max and Mia** | Lincoln Middle School (door note, dead-end note 3); 4th Precinct holding room (dead-end note 4); named in the Water Tower key note (Mia had the key), at the Public Library and on the radio | Twins, thirteen. Got separated from their class. Looking for their teacher. |
 | **Ms. Adler** | Lincoln Middle School (main note in the science room, trail note 1); her own line on the level-6 flyer at the Public Library; named in Mrs. Greer's library trail note, on the 4th Precinct missing-person board, in Station 12's notes, at Northgate Mall and on the radio | The twins' teacher. Led her students to the Public Library. |
@@ -174,7 +176,7 @@ Minor voices: Luis's niece (safe at the Public Library with Ms. Adler's class; h
 
 ## The threads (story arcs)
 
-1. **Ruby and Dev.** Ruby follows Dev's trail east and then west. Clues across Gas-N-Go,
+1. **Ruby and Dev.** Ruby follows Dev's trail east and then west; after Rosa tells her where Dev went, she goes back east to scout Ridge Lumber, where Dev's radio message reaches her (radio-16). Clues across Gas-N-Go,
    Ortiz Auto, Greenhouse Row and the Water Tower. Dev's last note says he is safe with Theo; Theo, on Jo's radio,
    later passes on that Ruby reached the Water Tower. Hopeful, unresolved enough to wonder.
 2. **Doc Lin and Nurse Ada.** Medicine moving uptown. Ada keeps the hospital going; Lin
@@ -243,8 +245,11 @@ plan in `js/layouts.js` with four **landmarks**, one per corner (the tire tower,
 the fire truck ...), rooms with their own wall signs (BREAK ROOM, STAFF LOCKER, PHARMACY), and
 the stash room behind its `Q` door. Door notes may use left and right as seen walking in.
 Inside, a reader can face any way, so notes steer by landmarks, rooms and signs ("beside the
-tire tower", "in the K9 room", "under the SEAFOOD sign"), never "left of" or "right of". The
-main note and both trail notes name at least one landmark (`npm test` checks).
+tire tower", "in the K9 room", "under the SEAFOOD sign"), never "left of" or "right of". A wall
+may be called the left or right wall as seen from the entrance (`js/world.js` defines it, above
+`NOTES`), always paired with a landmark ("on the left wall, by the coffee machine"); never a
+bare "left of" or "right of" a landmark. The main note and both trail notes name at least one
+landmark (`npm test` checks).
 
 ## The building maps
 

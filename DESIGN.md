@@ -2867,3 +2867,74 @@ fixed".
 - **Strict eight-way compass for these two.** Owner chose northwest and northeast where the map says so: the class
   went northwest to the Public Library, and St. Anne Annex is northeast up Hill Road from the Water Tower. This
   narrows the compass call earlier today for these two; the other route and idiom uses stay open in docs/AUDIT.md.
+
+## Owner decisions: audit items 18 to 45 (2026-10-22)
+
+The owner answered the rest of the audit's open list (item 10, the last working van, stays open). docs/AUDIT.md
+lists every answer under "Decided by the owner".
+
+- **The Well adds on top of the Water room.** Owner: "Well adds on top." Yard healing (`footRegen`) now stacks
+  across rooms, like food and medicine (`ADD` in js/state.js effects()), and the Well gives +1, +2, +3 instead of
+  2, 3, 4. With Water 1, which the Well needs, the yard heals at 2, 3, 4 as before; with Water 3 it reaches 6. The
+  computer's Well lines and GAME_SPEC say so. The balance harness never builds the Well, so `npm run balance` is
+  unchanged.
+- **Yard signs say what the yard builds.** Owner: reword the signs (Well, Water) and add a tank (Garden). The Well
+  is a roofed well with a crank at level 2 and a hand pump with a trough at level 3; the Water room's first build
+  is three rain barrels under funnels, with a filter on the tap; the Garden has two raised beds, and at level 3 a
+  greenhouse and a water tank, which the yard now draws (a small yTankStand in BUILDS.garden).
+- **The garden is in front of the cabin.** Owner: reword the texts. Every text that put it behind the cabin or
+  house now says in front of it, where the plot is.
+- **The armor plate's chalk note says "a door".** Plates go into fence walls and cabin doors and windows, not the
+  van.
+- **Kate's note is on the fridge.** Owner: draw it there. A new 'fridge' note kind (js/houseart.js) draws the note
+  under the orange fish magnet on a fridge set into the kitchen wall; the free-standing fridge prop is gone and a
+  counter stands in its place, so the kitchen's solid tiles (and the cabin raid's seeded spots) are as before.
+- **The cabin has a woodstove.** Owner: add it. hWoodstove stands against the living room's west wall by the
+  armchair. The chimney the audit cited is drawn only on the town map's cabin.
+- **The house notes are fifteen, not one per room.** Owner: correct the docs. STORY.md names the five rooms
+  without a note (the hallway, the second bathroom, and the office, linen and toy closets). The earlier line "on the walls of every
+  room" (the walk-in cabin, 2026-10-13) is superseded by this.
+- **The pump house holds a second water filter.** Owner: add it. "waterFilter" is appended to the Water Tower's
+  cache and a fourth cache tile sits at (16,4), after the others in reading order, so old saves keep their spots.
+- **Theo's "crates near the big red wheel" stays.** Owner: leave it (ambiguous, not wrong).
+- **Ridge Lumber's boats are out of sight.** Owner: reword. Levels 5 and 6 keep them out past the log pile, beyond
+  the back fence, under tarps; nothing says the player has seen them.
+- **The quest-2 jar shows its sensor.** Owner: draw it. A new sensorJar kind (js/crewart.js) is used by Tomas's
+  Captain Leo quest; Rosa's jar of beans keeps the old kind.
+- **The kiln padlock takes a code.** Owner: reword. No level calls it a dial, wheels or something to spin.
+- **Mars sits east-southeast.** Owner: change the doc. UNIVERSES.md now matches the art (az PI/6); the earlier
+  "Mars low to the southeast" (crossover universes, 2026-10-17) is superseded.
+- **Fix all braces cracks too.** Owner: "Code follows the spec." The computer's fence row counts holes and cracked
+  segments, Fix all prices both and mends holes first, then braces cracks, as far as the scrap goes; the yard's goal
+  line counts cracks too. One under-half rule, fenceCracked() in js/yard.js, serves E, Fix all and the computer.
+- **Tomas fixes only broken doors and windows.** Owner: "Broken only." His cabin job no longer spends scrap on a
+  door or window that is merely cracked, which now waits for E or the computer, as his lines and CREW.md always
+  said.
+- **The mall: every walker near you turns.** Owner: soften the text. The guard's notes, the radio and the level-6
+  tip no longer say one sprint turns the whole floor; "walk, and most of them stay put" stays.
+- **Road screams stay as they are.** Owner: leave it. On the road a scream still reaches about 10% fewer walker
+  tiles than GAME_SPEC's figures (the 56-unit road tile); nothing was changed or noted elsewhere.
+- **Left or right wall, with a landmark.** Owner: allow it. STORY.md and TEXT_GUIDE.md now allow "the left or right
+  wall as you walk in", always paired with a landmark; a bare "left of" or "right of" is still out.
+- **Level 1 may quote lists and use greetings.** Owner: allow them. TEXT_GUIDE.md now lets a level-1 note quote a
+  board or a ledger as list items, and use greetings and sign-offs ("Reyes here.", "Theo out.", "Good reading.").
+- **Side buttons, the Settings line and .claude/settings.json stay.** Owner: keep touch support; keep the earlier
+  Settings call; leave the permission file.
+- **econ.js was a one-off.** Owner: say it was not kept. The balance files say the per-day loadouts came from a
+  one-off script that was not saved, and the loadouts table in tests/balance/loadouts.json is the record. The
+  earlier claim that a player first goes to a danger 5 place on day 17 rests on that table.
+
+### Follow-ups to this morning's owner fixes
+
+A read-only verifier pass checked the first sixteen owner fixes again; these are the calls it led to.
+
+- **How it works no longer says nothing came on the first night**, at any level, to match journal-1.
+- **The convoy's "no roles" now holds everywhere**: Vega watches from the road, Lin and Luis ride "with the
+  convoy", Dunn's list saves seats without trucks, Ortiz fixed "both of the station's fire trucks", and Dunn's
+  level-6 plan has the boats carry people and their bags along the river.
+- **Mr. Reyes's family story is past tense and needs his door note.** His store is overrun, so tomas-fort-t3 says
+  he always told everyone, and it waits for the hardware-door note (the crew name a place only once a note or the
+  ledger has), besides day 9 and 2 stars. The earlier entry's "(Fortitude, day 9 and 2 stars)" is superseded.
+- **June answers as a student at level 5 too** ("Near midnight Tomas found me there"), and each level keeps its
+  file's own way of quoting speech. The earlier entry's level-1 judgment call stands.
+- **The radioBefore key is range-checked and tested** (validate-world, validate-crew).

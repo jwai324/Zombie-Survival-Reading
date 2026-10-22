@@ -151,7 +151,7 @@
     },
     "pip-t3": {
       title: "Counting the Waves",
-      text: "Pip has counted every wave since the first walkers came. They came to the fence at dusk. A small wave comes from the trees on two sides. A big wave comes on all four. The warning says which sides. Sometimes the quiet ends with no wave at all. Pip writes that down too.",
+      text: "Pip has counted every wave since the first walkers came. They came to the fence. A small wave comes from the trees on two sides. A big wave comes on all four. The warning says which sides. Sometimes the quiet ends with no wave at all. Pip writes that down too.",
     },
     "pip-t4": {
       title: "Pip on Lookout",

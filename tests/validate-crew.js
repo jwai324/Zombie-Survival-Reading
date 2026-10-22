@@ -340,6 +340,12 @@ group("topics in order, when, moods", () => {
   ok(next("ann").mood === true, "nextTopic: with every topic told, not a mood");
   ok(next("cy") === null, "nextTopic: a crew member with no topics and no moods does not give null");
   ok(S.crewWhen({}, "ann") && S.crewWhen(null) && !S.crewWhen({ day: 99 }, "ann") && !S.crewWhen({ dog: false }, "ann"), "crewWhen: an empty when, a day not reached or dog: false while home");
+  const heard = S.save.radioHeard;
+  S.save.radioHeard = 14;
+  ok(S.crewWhen({ radioBefore: 15 }, "ann"), "crewWhen: radioBefore 15 does not hold with 14 broadcasts heard");
+  S.save.radioHeard = 15;
+  ok(!S.crewWhen({ radioBefore: 15 }, "ann"), "crewWhen: radioBefore 15 still holds with 15 broadcasts heard");
+  S.save.radioHeard = heard;
 });
 
 group("tips", () => {

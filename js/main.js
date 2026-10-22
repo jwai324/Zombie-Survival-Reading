@@ -530,7 +530,7 @@
           Interior.refreshYard({ rebuildFence: key === "walls" });
           if (key === "walls" || key === "doors" || key === "windows") syncYard();
         },
-        fenceHoles: () => Interior.fenceHoles().length,
+        fenceDamage: () => Interior.fenceDamage(), // { holes, cracks }: Fix all mends the holes, then braces the cracks
         onRepairFence() {
           const n = Interior.repairAllHoles();
           syncYard();

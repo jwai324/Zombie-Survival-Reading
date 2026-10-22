@@ -10,11 +10,11 @@
       garden: {
         title: "Garden plot",
         empty:
-          "June painted this sign. It says GARDEN, someday. Stakes and string mark out beds in the dirt. The dirt is dark, and it sits behind the cabin. Raised beds of seeds and soil could grow food here. We need food, because each van trip eats food.",
+          "June painted this sign. It says GARDEN, someday. Stakes and string mark out beds in the dirt. The dirt is dark, and it sits in front of the cabin. Raised beds of seeds and soil could grow food here. We need food, because each van trip eats food.",
         built: [
-          "The sign says GARDEN now. One raised bed is planted with seeds. June checks the bed every morning. She looks for green shoots. The bed grows 1 food each day. It is small, but it is a start.",
+          "The sign says GARDEN now. Two raised beds are planted with seeds. June checks the beds every morning. She looks for green shoots. The beds grow 1 food each day. It is small, but it is a start.",
           "The sign says GARDEN. Now there are more beds. Beans climb up the string. Pip counts the bean pods out loud. The beds grow 2 food each day. So our food lasts longer now.",
-          "The sign says GARDEN. A water tank stands by the beds. A hose runs from the tank to each bed. June has her full garden at last, and she grins at it. It grows 3 food each day.",
+          "The sign says GARDEN. A greenhouse stands behind the beds. A water tank feeds the beds. June has her full garden at last, and she grins at it. It grows 3 food each day.",
         ],
       },
       farm: {
@@ -33,8 +33,8 @@
           "June painted this sign: WELL. It says to dig after the Water room is built. Stones ring a spot in the yard. Water from deep down is cold and clean. It would help you heal faster in the yard. The Farm and the Lab need the Well first.",
         built: [
           "The sign says WELL. It is a well dug by hand, and lumber lines it. A bucket hangs on a rope. The water comes up cold and clean. It helps you heal faster in the yard.",
-          "The sign says WELL. Now a hand pump brings the water up. Nobody needs the bucket. The water goes through a filter on the way. Pip likes to work the handle. You heal in the yard even faster.",
-          "The sign says WELL. Now a pump runs on wire and fills a tank by itself. Nobody has to pump by hand. You heal in the yard faster than ever. You also start each building at full health.",
+          "The sign says WELL. Now a little roof covers the well. A crank winds up the bucket. The water goes through a filter on the way. Pip likes to turn the crank. You heal in the yard even faster.",
+          "The sign says WELL. Now a hand pump stands by the well. Pipes take the water to a trough. You heal in the yard faster than ever. You also start each building at full health.",
         ],
       },
       water: {
@@ -42,7 +42,7 @@
         empty:
           "Tomas painted this sign: WATER, filter goes here. An empty barrel sits on two sawhorses by the back fence. Rain fills it, but the water is gray. A filter and a tank would make the water clear. Then you would heal faster in the yard.",
         built: [
-          "The sign says WATER. A filter sits on top of the barrel now. Gray water goes in at the top. Clear water comes out at the tap. Tomas tastes it first and makes a face, but it is fine. You slowly heal in the yard.",
+          "The sign says WATER. Three rain barrels stand under funnels now. Rain fills them, but it is gray. A filter sits on the tap. Clear water comes out. Tomas tastes it first and makes a face, but it is fine. You slowly heal in the yard.",
           "The sign says WATER. Now a big tank stands next to the filter. The tank is full of clean water, so nobody waits for rain. Pip checks the tank each night. You heal faster in the yard.",
           "The sign says WATER. Now two filters work, and a tank stands by them. You heal even faster in the yard. You also walk into each building at full health. That means you use fewer medical kits.",
         ],
@@ -87,7 +87,7 @@
     },
     {
       title: "The Cabin by Day",
-      text: "By day, the cabin looks bigger. It is a family house with a porch. The roof is sound. An old fence circles the yard. Some boards are loose. The dirt behind the cabin is dark and good. I see it first. I write our first rule inside the door. Say where you are going before you go.\n\n—June",
+      text: "By day, the cabin looks bigger. It is a family house with a porch. The roof is sound. An old fence circles the yard. Some boards are loose. The dirt out front is dark and good. I see it first. I write our first rule inside the door. Say where you are going before you go.\n\n—June",
     },
     {
       title: "Old but Honest",
@@ -107,7 +107,7 @@
     },
     {
       title: "Before the Fall",
-      text: "Before the Fall, I was the gardener at a school. Now I want raised beds behind the cabin. I want beans, squash, and tomatoes. My old friend Rosa ran the greenhouses at Greenhouse Row. That is west of the gas station. If anyone still has seeds, it is Rosa.\n\n—June",
+      text: "Before the Fall, I was the gardener at a school. Now I want raised beds in front of the cabin. I want beans, squash, and tomatoes. My old friend Rosa ran the greenhouses at Greenhouse Row. That is west of the gas station. If anyone still has seeds, it is Rosa.\n\n—June",
     },
     {
       title: "The Red R",
@@ -238,7 +238,7 @@
     },
     {
       title: "Walk at the Mall",
-      text: "Jo here, with a warning about Northgate Mall. The walkers there move in a group. If you run, they all come running at you. So walk, and do not run. Then most of them stay put. That tip comes from Luis. He is the mall guard who never left his post.",
+      text: "Jo here, with a warning about Northgate Mall. The walkers there move in a group. If you run, the ones near you come running. So walk, and do not run. Then most of them stay put. That tip comes from Luis. He is the mall guard who never left his post.",
     },
     {
       title: "Seeds from Rosa",
@@ -266,7 +266,7 @@
     },
     {
       title: "Ruby Heads West",
-      text: "Jo here, with good news. Ruby went back east to scout Ridge Lumber. Dev's message reached her there. She left one more warning on the gate. Now she is heading west to the Water Tower. Do not run the saws at Ridge Lumber. The noise brings the whole crowd from the loading dock.",
+      text: "Jo here, with good news. Ruby went back east to scout Ridge Lumber. Dev's message reached her there. Now she is heading west to the Water Tower. She left one more warning on the lumber gate. Do not run the saws at Ridge Lumber. The noise brings the whole crowd from the loading dock.",
     },
     {
       title: "Together Again",
@@ -388,7 +388,7 @@
       "Always check that it is empty before you clean it. Point it at the ground, never at a person.",
     ],
     armorPlate: [
-      "The plate is steel, and it is heavy. Chalk says to bolt it on the van door. Put it at chest height.",
+      "The plate is steel, and it is heavy. Chalk says to bolt it on a door. Put it at chest height.",
       "A plate stops grabbing hands, but it does not stop crashes. Marker lines on one edge count every dent.",
     ],
     books: [

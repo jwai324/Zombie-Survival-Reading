@@ -7,7 +7,7 @@
   root.ZSR.TEXT[5] = {
     level: 5,
     howto: [
-      "The Fall came months ago, and the walkers took this river town street by street. Most people ran, hid, or headed north. You stayed, with a small crew and one battered van, the last working van in town. One night it limped into a quiet yard on its final drops of fuel. Tomas talked to the engine the entire way, coaxing and bargaining as if it could hear him. That first night you took the first watch at the window without being asked, and nothing came. June wrote that down plainly at the top of the first page of her ledger, as if it were a promise.",
+      "The Fall came months ago, and the walkers took this river town street by street. Most people ran, hid, or headed north. You stayed, with a small crew and one battered van, the last working van in town. One night it limped into a quiet yard on its final drops of fuel. Tomas talked to the engine the entire way, coaxing and bargaining as if it could hear him. That first night you took the first watch at the window without being asked. June wrote that down plainly at the top of the first page of her ledger, as if it were a promise.",
       "The yard sits at the south end of town, in front of a big family house. A carved sign by the front door names it the cabin. It belonged to the Hollis family. Kate drew maps for the county at the office desk, and Dan hung the dinner bell on the porch. Their kids were Gus, Finn, and Lucy, and their dog was Biscuit. They left to join the River Convoy before your crew arrived. The convoy is a line of trucks and boats meant to carry people north along the river road. Kate left a note on the fridge for whoever came next. \"If you find our cabin and you are kind,\" it says, \"it is yours now. Please keep the garden going.\" The Hollises left with a plan, not in a panic, and they might come back someday. Until then, the cabin is your home base, and it is the only place the game saves. If you go down, you return to your last save, and everything since is gone.",
       "June, Tomas, and Pip are your crew. June is in her sixties, a retired school gardener with a calm voice and a dry sense of humor. She records every day in a green ledger and plants anything that will grow. Even if the convoy ever leaves, she is not sure she wants to go; a garden makes a cabin hard to leave. Tomas is seventeen, a mechanic's son who talks to engines and keeps the van alive with wire and stubbornness. Pip is eleven, asks the questions nobody else will, and wants a dog more than anything. Once the radio is built, Pip will run it and keep a list of every voice on the air. Walk up to any of them to talk; each talk leaves you with something useful. Now and then one asks you for a favor, and you bring what they need home from town. Each of them has trust stars. Talks and favors earn stars, and more stars mean more help.",
       "Your crew lives among the Hollis family's things now, careful with them, the way you are careful in a borrowed coat. Tomas sleeps in Gus's old room, under a sign that still says KEEP OUT. Pip's height is marked on the living room door frame, right between Finn's and Gus's. Pip wants to build the treehouse Finn drew, once the fence is strong enough. June's ledger sits on the radio shelf in the dining room, where anyone can read past days again. The family left notes on the walls of every room. Walk up close to read them, and they tell you who lived here and what they hoped for.",
@@ -91,7 +91,7 @@
           ],
         },
         garden: {
-          desc: "Raised beds of soil and seeds behind the house. The garden grows food. Every trip eats one food, and a trip with no food means a weaker van.",
+          desc: "Raised beds of soil and seeds in front of the house. The garden grows food. Every trip eats one food, and a trip with no food means a weaker van.",
           next: [
             "Grows 1 food each day.",
             "Grows 2 food each day.",
@@ -125,9 +125,9 @@
         well: {
           desc: "A hand-dug well in the middle of the yard. Its water comes up cold and clean from deep underground, so you heal faster while you are in the yard. The Farm and the Lab both need the Well before they can be built.",
           next: [
-            "Needs the Water room first. Costs Lumber 2, Tool kit 1, and 60 scrap. You heal in the yard at rate 2.",
-            "Costs Lumber 2, Engine parts 1, Water filter 1, and 100 scrap. You heal in the yard at rate 3.",
-            "Costs Water tank 1, Engine parts 1, Spool of wire 1, and 150 scrap. You heal in the yard at rate 4, and you start every building at full health.",
+            "Needs the Water room first. Costs Lumber 2, Tool kit 1, and 60 scrap. The Well adds 1 to your heal rate in the yard, on top of whatever the Water room gives.",
+            "Costs Lumber 2, Engine parts 1, Water filter 1, and 100 scrap. The Well now adds 2 to your yard heal rate, on top of the Water room.",
+            "Costs Water tank 1, Engine parts 1, Spool of wire 1, and 150 scrap. The Well now adds 3 to your yard heal rate, on top of the Water room, and you start every building at full health.",
           ],
         },
         farm: {

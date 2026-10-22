@@ -48,7 +48,7 @@
     },
     "tomas-fort-t3": {
       title: "A Famous Last Name",
-      text: "Tomas grins whenever Mr. Reyes of Reyes Hardware comes up, the way people grin about a favorite uncle. Mr. Reyes tells anyone who lingers at his counter that his family goes back to Dr. Camila Reyes. She lived hundreds of years ago, so nobody can prove it either way; whatever thread once tied them together frayed centuries before anyone was born. Tomas does not mind in the least. He likes the story, true or not. A man who has never once sold him a bent nail, Tomas says, has earned the right to choose his own ancestors. Then the mechanic in him takes over. Reyes Hardware, he says, is the place to find lumber and nails.",
+      text: "Tomas grins whenever Mr. Reyes of Reyes Hardware comes up, the way people grin about a favorite uncle. Mr. Reyes told anyone who lingered at his counter that his family goes back to Dr. Camila Reyes. She lived hundreds of years ago, so nobody can prove it either way; any record that could settle it crumbled centuries before anyone was born. Tomas does not mind in the least. He likes the story, true or not. A man who has never once sold him a bent nail, Tomas says, has earned the right to choose his own ancestors. Then the mechanic in him takes over. Reyes Hardware, he says, is the place to find lumber and nails.",
     },
     "pip-fort-t1": {
       title: "The Whole Team",

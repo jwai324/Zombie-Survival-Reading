@@ -18,7 +18,7 @@
     { id: "journal-2", facts: [
       "In daylight the cabin is bigger than it looked: a whole family house with a porch, and the roof is sound.",
       "An old fence circles the yard, and some of its boards are loose.",
-      "The dirt behind the cabin is dark and good, and June noticed it first.",
+      "The dirt in front of the cabin is dark and good, and June noticed it first.",
       "June wrote the first rule on the inside of the door: say where you are going before you go.",
     ] },
     { id: "journal-3", facts: [
@@ -47,7 +47,7 @@
     ] },
     { id: "journal-7", facts: [
       "Before the Fall, June was the gardener at a school.",
-      "She wants raised beds behind the cabin, with beans, squash and tomatoes.",
+      "She wants raised beds in front of the cabin, with beans, squash and tomatoes.",
       "Her old friend Rosa ran the greenhouses at Greenhouse Row, west of the gas station.",
       "June says that if anyone still has seeds, it is Rosa.",
     ] },
@@ -428,7 +428,7 @@
       ["Written on the box: always check that it is empty before you clean it.", "Below it: point it at the ground, never at a person."],
     ],
     armorPlate: [
-      ["Stenciled on the plate: steel, heavy.", "A chalk note: bolt it onto the van door at chest height."],
+      ["Stenciled on the plate: steel, heavy.", "A chalk note: bolt it onto a door at chest height."],
       ["Sticky note: a plate stops grabbing hands, not crashes.", "Marker lines along one edge count every dent it has taken."],
     ],
     books: [
@@ -445,14 +445,14 @@
   W.YARD_LOTS = {
     garden: {
       empty: [
-        "Stakes and string mark out beds in the dark dirt behind the cabin.",
+        "Stakes and string mark out beds in the dark dirt in front of the cabin.",
         "June painted the sign: GARDEN, someday.",
         "Raised beds of seeds and soil here would grow food, and every trip in the van eats food.",
       ],
       built: [
-        ["The sign says GARDEN, and one raised bed is planted with seeds.", "June checks it every morning.", "It grows 1 food each day."],
+        ["The sign says GARDEN, and two raised beds are planted with seeds.", "June checks them every morning.", "It grows 1 food each day."],
         ["The sign says GARDEN, and now there are more beds, with beans climbing the string.", "It grows 2 food each day."],
-        ["The sign says GARDEN, and a water tank feeds the beds through a hose.", "June finally has her full garden.", "It grows 3 food each day."],
+        ["The sign says GARDEN: a greenhouse stands behind the beds, and a water tank feeds them.", "June finally has her full garden.", "It grows 3 food each day."],
       ],
     },
     farm: {
@@ -476,8 +476,8 @@
       ],
       built: [
         ["The sign says WELL: a hand-dug well lined with lumber, with a bucket on a rope.", "Its clean water helps you heal faster in the yard."],
-        ["The sign says WELL: a hand pump with a filter now brings the water up.", "You heal in the yard even faster."],
-        ["The sign says WELL: a wired pump fills a tank.", "You heal in the yard faster than ever, and you start every building at full health."],
+        ["The sign says WELL: a little roof now covers the well, with a crank to wind up the bucket.", "A filter cleans the water.", "You heal in the yard even faster."],
+        ["The sign says WELL: a hand pump beside the well pipes the water to a trough.", "You heal in the yard faster than ever, and you start every building at full health."],
       ],
     },
     water: {
@@ -487,7 +487,7 @@
         "A filter and a tank here would turn gray rainwater clear, so you heal faster while you are in the yard.",
       ],
       built: [
-        ["The sign says WATER: a filter on top of the barrel turns gray water clear.", "You slowly heal in the yard."],
+        ["The sign says WATER: three rain barrels under funnels, with a filter on the tap that turns gray water clear.", "You slowly heal in the yard."],
         ["The sign says WATER: a filter and a big tank, full of clean water.", "You heal faster in the yard."],
         ["The sign says WATER: two filters and a tank.", "You heal even faster in the yard, and you walk into every building at full health."],
       ],

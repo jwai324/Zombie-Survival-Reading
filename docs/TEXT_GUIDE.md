@@ -62,7 +62,11 @@ at every level, in words a reader at that level can use. `npm test` checks numbe
   may use left and right as seen walking in. Inside a building a reader may be facing any
   way, so the main note and the trail notes steer by landmarks, rooms and signs ("beside the
   tire tower", "in the break room", "under the PHARMACY sign"), never "left of" or "right of";
-  each names at least one landmark (`npm test` checks).
+  each names at least one landmark (`npm test` checks). A wall may be called the left or right
+  wall as seen from the entrance (`js/world.js` defines it, above `NOTES`), always paired with
+  a landmark ("on the left wall, by the coffee machine"); never a bare "left of" or "right of" a
+  landmark. `npm test` catches "left of" and "right of" only in quest and crew briefs, so check
+  place notes by eye.
 - How to open the cache, when the note has `unlocks`, exactly as `WORLD.LOCKS` works it, and
   what a mistake costs. The answers are rolled per save, so the words carry placeholders that
   the game fills in: `{code}` `{codeSpoken}` `{move1}` `{move2}` `{moves}` `{pick}` `{button}`, and
@@ -100,6 +104,9 @@ Level 1 is short, not chopped. Every sentence is a complete sentence with a subj
 next: join ideas with because, so, then, but, when. Use the full name of a thing the first time
 ("medical kit", not "med kit"). Say who is talking, where things are, and what to do, in that
 order of need. If a fact needs two short sentences to be clear, use two; the note can run long.
+A quoted list or board (a job board, a ledger) may keep its list items as they are, and greetings,
+sign-offs and short exclamations ("Reyes here.", "Theo out.", "Good eye.", "Good reading.") are
+allowed; every other sentence has a subject and a verb.
 Read every level 1 note aloud: if a first grader would ask "what does that mean?", rewrite it.
 
 ## The crew's words (`levelN-crew.js`, `levelN-crew2.js`)

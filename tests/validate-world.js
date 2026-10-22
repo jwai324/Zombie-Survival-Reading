@@ -888,7 +888,7 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
     });
   }
   const PLACEHOLDERS = ["food", "days", "room", "needs", "hp", "max", "cost", "holes", "cracks", "broken", "keys", "size", "sides", "rooms", "fixed", "scrap", "who", "item", "count", "reward", "dog"];
-  const ART_KINDS = ["bag", "photo", "box", "book", "tin", "leash", "toolbox", "radio", "jar", "letter", "seeds", "blanket", "tape", "badge", "wrench"];
+  const ART_KINDS = ["bag", "photo", "box", "book", "tin", "leash", "toolbox", "radio", "jar", "letter", "seeds", "blanket", "tape", "badge", "wrench", "sensorJar"];
   const PERKS = ["foodPerDay", "medsPerDay", "footHp", "vanHp", "scrapPerDay", "crewRepairFree", "lookoutEarly", "healAmount", "crowbarCost"];
   const REWARD_KEYS = ["scrap", "items", "kits", "crowbars", "traps", "perk"];
   const ERRAND_REWARD_KEYS = ["scrap", "kits", "crowbars"];
@@ -945,6 +945,7 @@ W.LOCATIONS.forEach((l) => { if (!reach.has(l.id)) err(`${l.id}: no road reaches
     if ("note" in w && !levelOneNotes.has(w.note)) err(`${ctx}: when.note "${w.note}" is not a note every reading level shows (a door note, a main or trail note, or a dead note with minLevel 1)`);
     if ("room" in w || "level" in w) checkRoomLevel(ctx, w.room, w.level);
     if ("dog" in w && w.dog !== true) err(`${ctx}: when.dog can only be true`);
+    if ("radioBefore" in w && !isInt(w.radioBefore, 1, (W.RADIO || []).length)) err(`${ctx}: when.radioBefore ${w.radioBefore} must be a broadcast number, 1 to ${(W.RADIO || []).length}`);
   };
 
   // the roster

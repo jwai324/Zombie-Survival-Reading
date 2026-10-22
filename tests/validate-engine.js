@@ -786,6 +786,33 @@ try {
     if (killed < 16) err(`${ctx}: only ${killed} of 16 walkers reached the player`);
   }
 
+  /* The office computer's fence "Fix all" (js/base.js fenceRow, the fenceDamage hook): it counts the holes and the
+     cracked segments (under half strength) and mends the holes first, then braces the cracks, as far as the scrap goes. */
+  {
+    S.save.fence = {};
+    I.enterYard({ firstCalm: 999 });
+    I.stop();
+    I.walkers.length = 0;
+    const segs = Object.keys(I.fenceState());
+    const each = W.SETTINGS.fenceRepairScrap;
+    segs.slice(0, 2).forEach((k) => {
+      const [x, y] = k.split(",").map(Number);
+      delete I.fence[k];
+      I.grid[y][x] = ".";
+    });
+    segs.slice(2, 4).forEach((k) => (I.fence[k] = I.fenceMax * 0.25));
+    I.fence[segs[4]] = I.fenceMax * 0.5; // exactly half: not cracked
+    const dmg = I.fenceDamage();
+    if (dmg.holes !== 2 || dmg.cracks !== 2) err(`fence Fix all: 2 holes and 2 cracks counted as ${JSON.stringify(dmg)}`);
+    S.save.scrap = each * 3;
+    const n = I.repairAllHoles();
+    const left = I.fenceDamage();
+    if (n !== 3 || left.holes !== 0 || left.cracks !== 1 || S.save.scrap !== 0) err(`fence Fix all: scrap for three fixed ${n} (left ${JSON.stringify(left)}, scrap ${S.save.scrap}): the holes first, then a crack`);
+    S.save.scrap = each * 5;
+    if (I.repairAllHoles() !== 1 || I.fenceDamage().cracks !== 0 || S.save.scrap !== each * 4) err("fence Fix all: the last crack was not braced for its scrap");
+    if (I.fence[segs[4]] !== I.fenceMax * 0.5) err("fence Fix all: a segment at half strength (not cracked) was fixed");
+  }
+
   /* ---------- The cabin ----------
      Every room can be walked into from the front door; every note on its walls can be read from its
      room; what E does inside can be reached; frames render from every room and from the yard with the

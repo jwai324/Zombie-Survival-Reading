@@ -216,7 +216,7 @@
         },
         "lumberyard-dead2": {
           title: "Code on a Receipt",
-          text: "Scrawled on the back of a receipt. The pen skipped. It was written in a hurry.\n\nKILN SHED CODE: {decoyCode}. Got it off the clipboard. Hurry.\n\nIt looks right. It says it came from the clipboard. But look at the date on the receipt. It is from months ago.\n\nCarla changed the padlock after that. This is the old code. Spin it in, and the old padlock locks up for good. Then only a crowbar opens it.\n\nDo not rush. Go find Carla's clipboard by the band saw. It has the code that works now. Read twice, spin once.",
+          text: "Scrawled on the back of a receipt. The pen skipped. It was written in a hurry.\n\nKILN SHED CODE: {decoyCode}. Got it off the clipboard. Hurry.\n\nIt looks right. It says it came from the clipboard. But look at the date on the receipt. It is from months ago.\n\nCarla changed the padlock after that. This is the old code. Put it in, and the old padlock locks up for good. Then only a crowbar opens it.\n\nDo not rush. Go find Carla's clipboard by the band saw. It has the code that works now. Read twice, put it in once.",
         },
       },
       signs: {
