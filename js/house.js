@@ -429,6 +429,7 @@
         this.maskDirty = true;
         this.walkers.forEach((w) => (w.pathT = 0));
         this.houseFaces();
+        this.updateHud(); // the yard's goal line counts broken doors and windows (yardGoal), which the per-frame signature does not see
         this.toast(b.kind === "window" ? "A window is smashed in! They can climb into the cabin." : (b.back ? "The back door" : "The front door") + " is down! They are getting into the cabin.", 3);
         Audio().play("crunch");
         return false;

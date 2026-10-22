@@ -306,7 +306,7 @@
     },
     {
       title: "Mrs. Greer's Key Tip",
-      text: "Mrs. Greer here, with a key ring tip. A key is hidden at the Public Library. It opens the jewelry vault at Northgate Mall. Please be careful at the mall. Walk there, and do not run. The walkers there chase anyone who runs.",
+      text: "Mrs. Greer here, with a key ring tip. A key is hidden at the Public Library. It opens the jewelry vault at Northgate Mall. Please be careful at the mall. Walk there, and do not run. If you run, the walkers near you chase you.",
     },
     {
       title: "Storm Tonight",
