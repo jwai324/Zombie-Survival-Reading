@@ -675,6 +675,10 @@
       const propped = !!(this.fishing && this.fishing.propped);
       const held = S.weaponsHeld().concat(S.hasRod() && !propped ? ["rod"] : []);
       if (held.length < 2) {
+        if (propped) {
+          this.modeCall("RodSelect");
+          return;
+        }
         this.toast("Only the pistol so far. Other guns are out there in the city.", 2.5);
         return;
       }

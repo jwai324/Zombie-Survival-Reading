@@ -181,7 +181,18 @@
     radio: (S, ctx, id) => ((S.roomLevel ? S.roomLevel("radio") : S.save.rooms.radio || 0) > 0 && !S.crewSave().read.includes("tip:" + id + ":radio") ? {} : null),
     food: (S) => {
       const per = (W().SETTINGS && W().SETTINGS.foodPerTrip) || 1;
-      return { food: S.save.food, days: Math.floor(Math.max(0, S.save.food) / per) };
+      const c = S.crewSave();
+      const R = rules();
+      const dog = !!(c.dog && c.dog.home) && R.dogFoodEvery > 0;
+      let left = Math.max(0, S.save.food), day = S.save.day || 1, fed = (c.dog && c.dog.fed) || 0, days = 0;
+      // trips the pantry covers: each eats foodPerTrip, and the dog eats 1 every dogFoodEvery days (crewDayPassed)
+      while (left > 0) {
+        left -= per;
+        day += 1;
+        if (dog && day - fed >= R.dogFoodEvery) { left -= 1; fed = day; }
+        days += 1;
+      }
+      return { food: S.save.food, days };
     },
     // the van, the fence and the cabin are fine (the regular tips say otherwise first), and so is every build
     fine: (S, ctx) => (buildsHurt(S, ctx) ? null : {}),

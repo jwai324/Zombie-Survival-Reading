@@ -838,16 +838,6 @@
         line(ctx, [[x, y - 2], [x, y + 5], [x + 3, y + 7]], INK, 3.5);
         line(ctx, [[x, y - 2], [x, y + 5], [x + 3, y + 7]], BRASS, 1.6);
       });
-      // Dan's flannel on his hook, a scarf on Gus's, a little pink backpack on Lucy's
-      poly(ctx, [[17, 25], [23, 25], [27, 30], [27, 52], [13, 52], [13, 30]], "#9a3a2a", 2.5);
-      [33, 41, 49].forEach((y) => line(ctx, [[14, y], [26, y]], "rgba(20,20,30,0.55)", 1.5));
-      [17, 23].forEach((x) => line(ctx, [[x, 28], [x, 51]], "rgba(20,20,30,0.45)", 1.2));
-      poly(ctx, [[17, 25], [20, 31], [23, 25]], "#e6dfcc", 1.2);
-      poly(ctx, [[29, 26], [34, 26], [33, 48], [29, 48]], "#d9a21b", 2);
-      line(ctx, [[29, 34], [33.5, 34]], "#3f6a4a", 2);
-      line(ctx, [[29, 41], [33, 41]], "#3f6a4a", 2);
-      rbox(ctx, 49, 42, 12, 13, 3, "#e48aa8", 2);
-      box(ctx, 51, 48, 8, 5, "#c96a8a", 1.2);
     },
     /* A county map pinned up, a yellow sticky note on it. */
     map(ctx) {
@@ -918,14 +908,14 @@
       box(ctx, 42, 34, 10, 7, "#e48a8a", 1.2);
       pin(ctx, 47, 35, "#3f5a8a");
     },
-    /* Two wall shelves with labels along their edges, nearly empty (one can of soup left). */
+    /* Two wall shelves with labels along their edges, nearly empty (one can of beans left). */
     labels(ctx) {
       // the last can, on the top shelf over its label
       box(ctx, 41, 10, 10, 12, "#c0302a", 2);
       box(ctx, 41, 14, 10, 4, "#f3eee0", 0);
       ink(ctx, 2);
       ctx.strokeRect(41, 10, 10, 12);
-      [[22, ["RICE", "SOUP"]], [44, ["BEANS", "JAM"]]].forEach(([y, names]) => {
+      [[22, ["RICE", "BEANS"]], [44, ["PEACHES", "FLOUR"]]].forEach(([y, names]) => {
         poly(ctx, [[7, y + 11], [14, y + 11], [7, y + 18]], "#3a3d42", 1.5);
         poly(ctx, [[57, y + 11], [50, y + 11], [57, y + 18]], "#3a3d42", 1.5);
         box(ctx, 3, y, 58, 11, WOOD, 2.5);
@@ -936,15 +926,17 @@
         });
       });
     },
-    /* A chalk scoreboard: GUS against FINN, in tally marks. */
+    /* A chalk scoreboard: the last game, FINN 21 DAD 19, and the crew's tally marks under it. */
     score(ctx) {
       box(ctx, 5, 5, 54, 44, "#7a5232", 3);
       box(ctx, 9, 9, 46, 34, "#24382c", 1.5);
       const chalk = "rgba(236,236,226,0.92)";
-      fitText(ctx, "GUS", 20.5, 15, 18, 8, chalk);
-      fitText(ctx, "FINN", 43.5, 15, 18, 8, chalk);
+      fitText(ctx, "FINN", 20.5, 15, 18, 8, chalk);
+      fitText(ctx, "DAD", 43.5, 15, 18, 8, chalk);
       line(ctx, [[32, 11], [32, 41]], chalk, 1.2);
       line(ctx, [[11, 21], [53, 21]], chalk, 1.2);
+      fitText(ctx, "21", 20.5, 26, 14, 7, chalk);
+      fitText(ctx, "19", 43.5, 26, 14, 7, chalk);
       const tally = (x, y, n) => {
         for (let g = 0; g * 5 < n; g++) {
           const m = Math.min(5, n - g * 5);
@@ -954,10 +946,8 @@
           if (m === 5) line(ctx, [[gx - 1, gy + 5], [gx + 7, gy + 1]], chalk, 1.2);
         }
       };
-      tally(13, 25, 12);
-      tally(36, 25, 14);
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
-      ctx.fillRect(12, 34, 16, 6);
+      tally(13, 34, 7);
+      tally(36, 34, 9);
       box(ctx, 9, 43, 46, 4, "#6b4423", 1.5);
       box(ctx, 14, 42, 7, 2, "#f3f3ea", 0);
     },

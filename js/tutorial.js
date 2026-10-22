@@ -391,7 +391,7 @@
     if (Im.lineClear(p.x, p.y, t.x, t.y)) return t;
     const key = Math.floor(t.x) + "," + Math.floor(t.y);
     if (!run.field || run.fieldKey !== key || run.fieldT <= 0) {
-      // SCALE: one BFS over the yard twice a second (about 2.5k tiles today); past ~10k tiles cap it at 60 steps
+      // SCALE: one BFS over the yard twice a second (about 3,740 tiles today); past ~10k tiles cap it at 60 steps
       run.field = Im.reachable(Math.floor(t.x), Math.floor(t.y), true); // closed doors count as open
       run.fieldKey = key;
       run.fieldT = TUNE.guideEvery;

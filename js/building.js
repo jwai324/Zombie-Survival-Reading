@@ -782,6 +782,13 @@
       const id = this.loc.id;
       const stashName = this.loc.stashName || "the stash";
       if (S.locState(id).stashJammed) return this.crowbarPrompt("stash");
+      // its key snapped off in a wrong lock: a key is never found twice, so this stash stays shut (god mode still tries)
+      const src = S.keySourceFor(id);
+      if (src && S.keyBroken(src) && !S.god) {
+        this.toast("Locked: " + stashName + ". Its key snapped off in a wrong lock. It is gone for good.", 4);
+        Audio().play("wrong");
+        return;
+      }
       const held = S.keysHeld().filter((k) => !k.broken);
       if (!held.length) {
         this.toast("Locked: " + stashName + ". Its key is hidden in another building. Notes say where.", 3.5);
@@ -814,7 +821,7 @@
       const S = State();
       const n = S.crowbarsLeft();
       const name = which === "stash" ? this.loc.stashName || "the stash" : this.loc.cacheName;
-      this.lockPrompt({ kind: "crowbar", caption: "Jammed", title: cap(name), text: "It is jammed tight. A crowbar can pry it open, and the crowbar breaks doing it. You have " + n + " crowbar" + (n === 1 ? "" : "s") + ". Build them at the workbench, in the Traps & tools tab.", go: "Use a crowbar", goDisabled: n < 1 }, (r) => {
+      this.lockPrompt({ kind: "crowbar", caption: "Jammed", title: cap(name), text: "It is jammed tight. A crowbar can pry it open, and the crowbar breaks doing it. You have " + n + " crowbar" + (n === 1 ? "" : "s") + ". Build them at the office computer, in the Traps & tools tab (a short typing round at the workbench).", go: "Use a crowbar" /* (the computer's tab name: js/base.js TABS) */, goDisabled: n < 1 }, (r) => {
         if (r.cancel) return;
         if (!r.god && !S.useCrowbar()) return;
         const tl = S.tripLoc(this.loc.id);
@@ -1397,7 +1404,12 @@
         if (k === "found" && !st.cacheKey) return cap(this.loc.cacheName) + ": locked";
         return "Press E to open " + this.loc.cacheName;
       }
-      if (f.kind === "stash") return st.stashJammed ? cap(this.loc.stashName) + " is jammed: press E to pry it open" : "Press E to try a key in " + this.loc.stashName;
+      if (f.kind === "stash") {
+        if (st.stashJammed) return cap(this.loc.stashName) + " is jammed: press E to pry it open";
+        const src = S.keySourceFor(this.loc.id);
+        if (src && S.keyBroken(src) && !S.god) return cap(this.loc.stashName) + ": locked. Its key is gone.";
+        return "Press E to try a key in " + this.loc.stashName;
+      }
       if (f.kind === "fixture") return st.cacheKey ? "You already searched " + (FIXTURES[f.obj.fixture] || FIXTURES.drawers).name : "Press E to search " + (FIXTURES[f.obj.fixture] || FIXTURES.drawers).name;
       if (f.kind === "panel") return f.obj.off ? "The alarm panel: off" : "Press E to use the alarm panel";
       if (f.kind === "dog") return f.obj.def ? "Press E to hold out " + ZSR.crewName(f.obj.def.giver) + "'s treats" : "";

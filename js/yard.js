@@ -1234,10 +1234,11 @@
           // (only while the base can pay: with no scrap nobody fixes anything)
           const fixer = this.crewCanPay("fence") && this.crewFixer("fence");
           const cabinFixer = this.crewCanPay("cabin") && this.crewFixer("cabin");
-          const fenceScrap = W().SETTINGS.fenceRepairScrap + " scrap";
+          const fenceScrap = W().SETTINGS.fenceRepairScrap + " scrap"; // your own E price (the crew's perk never applies to you)
+          const crewFence = State().crewRepairCost("fence"); // what the base pays Tomas a hole: 0 with the free-repair perk
           const fence = !holes
             ? "Wave cleared. The fence held."
-            : "Wave cleared. " + holes + " hole" + (holes > 1 ? "s" : "") + " in the fence: " + (fixer ? fixer + " will fix " + (holes > 1 ? "them (" + fenceScrap + " each" : "it (" + fenceScrap) + ", from the base), or E at a gap fixes one now." : "E at a gap fixes it for " + fenceScrap + ".");
+            : "Wave cleared. " + holes + " hole" + (holes > 1 ? "s" : "") + " in the fence: " + (fixer ? fixer + " will fix " + (holes > 1 ? "them" : "it") + (crewFence ? " (" + crewFence + " scrap" + (holes > 1 ? " each" : "") + ", from the base)" : " (no scrap, with the brackets)") + ", or E at a gap fixes one now." : "E at a gap fixes it for " + fenceScrap + ".");
           const cabin = !broken ? "" : " The cabin has " + broken + " broken door" + (broken > 1 ? "s or windows" : " or window") + (cabinFixer ? ": " + cabinFixer + " will see to " + (broken > 1 ? "them" : "it") + ", or E there fixes it now." : ": E there fixes it, or use the computer.");
           const builds = this.wreckClearedWords(vanHit); // wrecked builds and a beaten van (js/yardwreck.js), or ""
           const robo = this.roboHomeWords ? this.roboHomeWords() : ""; // Tomas fixes a shut-down Rivet (js/robodog.js)

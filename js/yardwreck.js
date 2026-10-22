@@ -75,7 +75,9 @@
         const names = listWords(wrecked.map(roomName));
         const fixer = this.crewCanPay && this.crewCanPay("builds") && this.crewFixer("builds");
         const n = wrecked.length;
-        out += " Wrecked: " + names + ". " + (fixer ? fixer + " will fix " + (n > 1 ? "them (" + each + " each, from the base), or E at one fixes it now." : "it (" + each + ", from the base), or E there fixes it now.") : "E at a wrecked build fixes it for " + each + ".");
+        const crew = State().crewRepairCost("builds"); // what the base pays the fixer a build: 0 with the free-repair perk
+        const price = crew ? " (" + crew + " scrap" + (n > 1 ? " each" : "") + ", from the base)" : " (for free)";
+        out += " Wrecked: " + names + ". " + (fixer ? fixer + " will fix " + (n > 1 ? "them" + price + ", or E at one fixes it now." : "it" + price + ", or E there fixes it now.") : "E at a wrecked build fixes it for " + each + ".");
       }
       if (vanHit) out += " The van took a beating: fix it at the van or in the computer's Garage tab.";
       return out;
