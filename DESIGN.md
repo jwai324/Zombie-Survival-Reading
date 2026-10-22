@@ -2772,3 +2772,52 @@ machine with no GPU (a GPU pastes pictures far more cheaply).
   Judgment calls: only doors they actually run through, so a back door nobody uses stays as you left it, and so does
   every door when the crew were already inside; a broken door cannot shut; inner doors are left alone (the shelter's
   has its own rule); in the calm an open door you left is still yours to leave open.
+
+## Judgment calls: the game audit (2026-10-22)
+
+The owner asked for a full audit of where the texts and docs disagree with the game, with a fix for everything the
+evidence settles. The report, with every open question and a proposed fix for each, is `docs/AUDIT.md`. The calls
+below were made during the audit, where verifiers split on the same pattern in different buildings.
+
+- **Walkers in buildings stand until they wake.** Texts that said walkers pace, drift, roam or wander before they
+  hear you were reworded to match the engine (every building walker starts asleep and still, js/interior.js), in
+  every building but the mall, whose crowd loop is an open question for the owner (docs/AUDIT.md). This closes the
+  "text claims the engine still does not keep" list of 2026-10-15 (Walkers v2). If idle wandering is ever added
+  to the engine, the old wording can come back.
+- **Signs hang beside doors, never on them.** tests/validate-world.js puts every sign on a wall tile, so texts and
+  facts that put a sign on or over a door now say beside or by it.
+- **Jo's antenna on the Water Tower is built.** The owner approved it as built for the art (2026-10-17, the Water
+  Tower row: "(all built)") and five of six levels of Priya's note say so; the level-6 sketch note that called it a
+  plan, and level 4 of Priya's note that said "we never finished", now agree.
+- **DESIGN.md stays a log.** No earlier entry was rewritten; the corrections below point at the old lines instead.
+- **Compass words.** A bare bearing the map contradicts by 45 degrees ("Station 12, the fire station north of
+  here", which is northeast) was fixed in the fact and all six levels. Route and idiom uses ("north up Hill Road",
+  "gone north to the Public Library") are left for the owner (docs/AUDIT.md, Compass and left/right words).
+- **Fix all says what it fixes.** The office computer's three Fix all buttons (fence, cabin, builds) read "Fix k
+  of n for M scrap" when the scrap covers only part; the partial fix itself is unchanged.
+- **The Hollises' garden.** Kate's note asks the crew to keep the garden going, so June's garden topic now says the
+  cabin has a garden "again" at every level, and STORY.md says the Hollis beds had gone to bare dirt.
+
+### Corrections to earlier entries
+
+These earlier lines no longer match the game. They stay as written; the game is as described here.
+
+- **Why caches need the note** (Judgment calls, 2026-10-12): the main note "also reveals the next place" usually,
+  not always. Four end-of-chain places (St. Anne Annex, Ridge Lumber, Northgate Mall, the Public Library) reveal
+  none.
+- **Why the fence is patched between waves** (2026-10-12): superseded. The fence never patches itself. A hole stays
+  until it is paid for (1 scrap): E at the gap, Fix all at the office computer, or Tomas in the calm. Building
+  Walls up rebuilds the whole fence (GAME_SPEC, The fence, traps and kits).
+- **Why dead ends scale with grade** (Reading expansion): levels 1 to 3 get two dead-end notes (the lock decoy among
+  them), levels 4 and 5 three, level 6 four: (2, 2, 2, 3, 3, 4), as js/story.js and GAME_SPEC have it.
+- **Yard lots became plot signs** (Merging the bigger buildings): walking up to a plot sign and pressing E opens its
+  panel; E or walking off closes it.
+- **Not in this drop**, painted text: text painted on signs, walls and landmarks inside the buildings does not grow
+  with Huge text, but the yard's lot signs and plaques do (`SIGN_SCALE` in js/yard.js).
+- **Not in this drop**, profiles: per-player profiles came as the four labeled saves, each with its own settings and
+  tutorial progress. A parent view of words read is still not built (`stats.wordsRead` is counted per save and
+  shown nowhere).
+- **Rivet's zaps** (crossover universes, 2026-10-17: "small zaps that slow or stagger walkers"): as built, a zap
+  slows a walker; it does not stagger it.
+- **Poses** (smoother corners, 2026-10-16): a road walker claws for 0.4 s after hitting the van, while its 1 s hit
+  cooldown is still above `CLAW_HOLD`, which is 0.6.
