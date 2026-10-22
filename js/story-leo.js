@@ -125,6 +125,38 @@
         "Then the knock came again, three soft notes, and the radio went quiet.",
       ] },
     ],
+    /* The notes under the cabin door: one opens by itself on the first log on of a real day (the tutorial's yard
+       part done), in order, until the list ends (js/xoverstate.js xoverNoteDue). An unsigned writer who ends every
+       note with the knock; who it is stays open. Each hints harder than the last, and the last says where you are.
+       Kept in the backpack once read. Saves store the count: append, never insert or reorder. */
+    notes: [
+      { id: "leo-n1", facts: [
+        "Someone left this note under the cabin door and is glad the cabin's lights are on again.",
+        "The writer asks you to look up tonight and count the moons.",
+        "One moon is small and close; the other is huge and pale, with white clouds that turn slowly.",
+        "The old folks in town say the big one is listening.",
+        "The writer says to ask any grown-up in town about the trip they or their grandparents took as kids.",
+        "The writer signs with three knocks: knock, knock, knock.",
+      ] },
+      { id: "leo-n2", facts: [
+        "The writer says the old part of town has a name for the sickness across the river: the Gray.",
+        "Miners across the river dug into old, deep rock and brought up gray spores from something long dead.",
+        "Long before the town was built, a forest grew in the sky here, and it died.",
+        "The cloud-people had warned the town not to dig there.",
+        "The town's founders came here as kids, on a ship that folded space like paper.",
+        "Every Founders' Day the town ate cake for those kids.",
+        "The writer signs with the three knocks.",
+      ] },
+      { id: "leo-n3", facts: [
+        "The writer says it plainly: this world is Mira-8.",
+        "The huge pale moon is Mira-9, the home of the Mirans, the cloud-people.",
+        "About two hundred years ago, Captain Leo and Co-captain Camila flew the ship Skip-One to Mira-9.",
+        "The Skip Drive only works on bodies that are still growing, so only kids could ride it.",
+        "The three knocks are the Come Back Knock, the sound the Mirans send across the sky.",
+        "The writer heard the knock as a kid and has answered it ever since, but signs no name.",
+        "If you hear the knock, you are not alone.",
+      ] },
+    ],
   };
 
   /* Rivet, the robot dog (Tomas's track, quest 5). Tiles, seconds, health points. A weak helper: it zaps an awake

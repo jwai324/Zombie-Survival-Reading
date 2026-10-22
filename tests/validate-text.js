@@ -360,8 +360,8 @@ function checkHome(ctx, t, spec) {
 }
 
 /* The crossover universes (docs/UNIVERSES.md): T.universe[u] in js/content/levelN-<u>.js holds June's ledger lines
-   (`journal`, a few lines under a day's page: the tag range, a little longer) and the broadcasts (`radio`, the lot
-   range), one per WORLD.UNIVERSES[u] entry, in order. A broadcast names its speaker, as the base radio's do. The
+   (`journal`, a few lines under a day's page: the tag range, a little longer), the broadcasts (`radio`, the lot
+   range) and the notes under the cabin door (`notes`, the note range), one per WORLD.UNIVERSES[u] entry, in order. A broadcast names its speaker, as the base radio's do. The
    crew's words for a universe's topics and quests live in T.crew with the rest (checkCrew). */
 const XJ_SCALE = 1.6; // a crossover ledger line runs this times an item tag's length
 function checkUniverses(ctx, t, spec) {
@@ -369,7 +369,7 @@ function checkUniverses(ctx, t, spec) {
   const T = t.universe || {};
   Object.keys(T).forEach((u) => { if (!U[u]) err(`${ctx} universe.${u}`, "not a universe in WORLD.UNIVERSES (js/story-<universe>.js)"); });
   Object.entries(U).forEach(([u, def]) => {
-    [["journal", spec.tag, XJ_SCALE], ["radio", spec.lot, 1]].forEach(([kind, range, scale]) => {
+    [["journal", spec.tag, XJ_SCALE], ["radio", spec.lot, 1], ["notes", spec.words, 1]].forEach(([kind, range, scale]) => {
       const facts = def[kind] || [];
       const list = T[u] && T[u][kind];
       const kctx = `${ctx} universe.${u}.${kind}`;

@@ -73,6 +73,7 @@ knock; Leo's Mission Two list ends "10. ?".
 | Journal | June adds lines about the "second moon", the knock, Founders' Day. Never assumes a build or a find. |
 | Crew talk | New topics: Pip was named after PIP, the ship's helper on Skip-One; June keeps a cloud-tree seed in a jar; Tomas on Koen, the builder; history the whole town learned in school. |
 | Quest chain | **Tomas rebuilds a broken Bolt-model robot dog**, five quests long. Its own track beside the base quests. The real dog from Pip's fifth quest stays as it is. |
+| Notes under the door | (owner, 2026-10-22) **Three notes from an unsigned writer**, each opening by itself on its own log on. Each hints harder than the last; note 3 says plainly that this is Mira-8. See "The notes under the cabin door" below. |
 
 **The robot dog in play** (owner, 2026-10-17). Once the fifth quest is handed in, the robot dog
 follows you in the yard and inside buildings, and rides along in the van (it does nothing on the
@@ -83,6 +84,30 @@ wave, and Tomas repairs it at the cabin for scrap. Bolt's book traits to keep: b
 two for a laugh), a metal tail that wags, a nose that is really a chemistry tester.
 
 Not in v1: found items (no new tagged loot; Tomas's five quest objects use the base quest path), new notes in buildings, a new place.
+
+### The notes under the cabin door (owner, 2026-10-22)
+
+The owner asked for notes that open by themselves on the player's next three log ons, about 200 words each. They
+should hint at the universe, and by the end of note 3 it should be clear where you are. This is **Leo only** for now.
+
+| Decision | Answer |
+|----------|--------|
+| A log on | The **first time the slot is opened on each real (calendar) day** (Continue on the title screen), using the device's local date. One note a day, in order, with no catch-up: a player who skips a week gets the next note, not two. |
+| When | Only after the tutorial's yard part is done (`Tutorial.done("ready")`), so a note never covers the tutorial. Then the note opens first, then an unread day page, then the yard. |
+| Length | **About 200 words at levels 4 and 5**, following the note range at every level (level 1 about 110, level 6 about 240). The same facts at every level. |
+| Writer | **An unknown writer** who leaves notes under the cabin door and ends each one "Knock, knock, knock." They heard the knock as a kid and have answered it ever since. Who they are stays open (like the Accord archive). They are not Sool, who lives on Mira-9. |
+| The arc | Note 1, "Count the Moons": two moons, the big pale one "listening", and the long trip every family here took as kids. Note 2, "What the Miners Found": the Gray, the miners, the dead sky-forest, the cloud-people's warning, the kid founders, Founders' Day. Note 3, "Where You Are": Mira-8, Mira-9, the Mirans, Captain Leo and Co-captain Camila on Skip-One about 200 years ago, the Skip Drive (kids only), the Come Back Knock. |
+| Spoilers | **Nothing is held back.** June's ledger names Mira-8 on the first day page; the owner accepted that the notes may repeat what the ledger has already told. |
+| Old saves | A save that already played Leo before the notes existed (day pages written in it) gets them as read: listed in the backpack, none opens by itself. A Leo save with no Leo day pages yet gets all three. |
+| Reading again | The backpack lists the read notes ("Notes under the cabin door") while the universe is on. |
+| Switching | Each universe has its own count (`save.xover[u].notes`, `noteDate`); switching away and back replays nothing. |
+
+How it is built: facts in `WORLD.UNIVERSES.leo.notes` (`js/story-leo.js`, ids `leo-n1..3`), words in
+`T.universe.leo.notes` (`js/content/levelN-leo.js`). The state is `State.xoverNoteDue(date)`,
+`xoverNoteSeen(i, date, words)` and `xoverNotesRead()` in `js/xoverstate.js`. The log on is `logOn()` in
+`js/main.js`, and the reader is `Backpack.xoverNote` and `renderXoverNotes` in `js/backpack.js`. Any universe whose
+facts gain a `notes` list gets the same behavior with no engine change (Fortitude has none). Append notes, never
+insert: saves store the count.
 
 ## Fortitude: Earth, hundreds of years after Book 4
 
@@ -131,7 +156,7 @@ super-algae spores; the Abyss Explorer pins; "If you stop failing, you stop lear
 | File | What it holds |
 |------|---------------|
 | `js/story-leo.js`, `js/story-fortitude.js` | Facts: `WORLD.UNIVERSES[u]` (name, sky, `journal`, `radio`, pacing, `robotQuest`), `WORLD.ROBO` (Leo), and the crew topics and quests each universe appends to `CREW_TALK` and `QUESTS` with `universe: "<u>"` |
-| `js/content/levelN-leo.js`, `levelN-fortitude.js` | Words at six levels: `T.universe[u].journal` / `.radio`, and the crew's words for the topics and quests, merged into `T.crew.talk` / `T.crew.quests` |
+| `js/content/levelN-leo.js`, `levelN-fortitude.js` | Words at six levels: `T.universe[u].journal` / `.radio` / `.notes`, and the crew's words for the topics and quests, merged into `T.crew.talk` / `T.crew.quests` |
 | `js/xoverstate.js` | Mixed into `ZSR.State` after `js/crewstate.js`: `universe()`, `universeDef()`, `save.xover`, `xoverLog(entry)` (the day page's crossover line and broadcast), Rivet's health (`roboHome`, `roboOn`, `roboBite`, `roboRepair`), `ZSR.xoverText` |
 | `js/crewstate.js` | Topics and quests with `universe` show only in that universe; each universe's quests are a giver's own track (`nextStoryQuest(id, track)`; `offer` tries the base track first) |
 | `js/robodog.js` | Rivet in the yard and in buildings (mixed into `ZSR.Interior`): follow, zap, bites, shutdown, repair words |
@@ -188,10 +213,11 @@ super-algae spores; the Abyss Explorer pins; "If you stop failing, you stop lear
 - `tests/validate-world.js`: the crossover quests by the base rules, within their track; a quest's `universe` is a
   `UNIVERSES` key.
 - `tests/validate-text.js`: `T.universe[u]` at every level (one text per fact entry, the tag range x 1.6 for
-  ledger lines, the lot range for broadcasts, the speaker named); the topics' and quests' words with the crew's.
+  ledger lines, the lot range for broadcasts, the note range for the notes under the door, the speaker named); the topics' and quests' words with the crew's.
 - `tests/validate-crew.js`: off adds nothing; each universe's ledger lines and broadcasts in order and paced; a
   day with the universe off keeps its count; Rivet's health, shutdown, repair and save; old saves get `xover`;
-  topics and quests in order per universe; every crossover object waits on its spot and is walked onto; Rivet
+  topics and quests in order per universe; the notes under the door (one a real day, in order, no catch-up, words
+  counted once, kept in the save, old saves get them as read, Continue calls `logOn()` after the tutorial); every crossover object waits on its spot and is walked onto; Rivet
   follows, zaps (the walker slows), is bitten, shuts down, is fixed, leaves when the universe goes off, and comes
   into a building; a whole play-through in each universe.
 - `tests/validate-god.js`: god mode offers and jumps to each crossover quest in its universe.
