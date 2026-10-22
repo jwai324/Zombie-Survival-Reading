@@ -114,7 +114,7 @@
       brief:
         "Tomas found a shut-down Bolt-model robot dog by the back fence. “I want to wake it up,” he says. First it needs new leg motors. Reyes Hardware is northeast of the cabin. A box of leg motors sits on the floor beside the riding mower. It is a cardboard box with a red label. Tomas will give you 25 scrap and 1 spool of wire.",
       tag: "A cardboard box of four small leg motors, each wrapped in paper. The red label says: for school robot dogs, Bolt-model.",
-      journal: "You brought Tomas a box of leg motors from Reyes Hardware. The robot dog in the garage can stand now, though it wobbles.",
+      journal: "You brought Tomas a box of leg motors from Reyes Hardware. The robot dog by the van can stand now, though it wobbles.",
       done: "Tomas fits the leg motors into the robot dog, one leg at a time. It stands up, wobbles, and sits down again with a click. “Well, it is a start,” Tomas says. He wipes his hands on his red rag and thanks you.",
       after:
         "Tomas says Bolt-model dogs were built to copy Koen's first robot dog, Bolt. Bolt went everywhere Koen went, even to Mira-9. Tomas looks at the robot dog sitting by the van. He wants this one to go everywhere you go.",
@@ -147,7 +147,7 @@
       journal: "You brought Tomas the school robot dog's gold star badge. Tomas and Pip stayed up late teaching the robot dog all our names.",
       done: "Tomas moves the memory chip from the badge into the robot dog. It turns its head and looks at each of you, one at a time. Then it beeps, soft and happy. “It knows us,” Tomas says quietly, and he thanks you.",
       after:
-        "Tomas says the robot dog knows our faces now. It still needs eyes for the dark, and a voice to warn us. Tomas already has a plan for both. “Then it can go out with you,” Tomas says, “and watch your back.”",
+        "Tomas says the robot dog knows our faces now. It still needs eyes for the dark, and a voice to beep at us. Tomas already has a plan for both. “Then it can go out with you,” Tomas says, “and watch your back.”",
     },
     "tomas-leo-5": {
       title: "Toolbox of robot-dog parts",

@@ -27,7 +27,7 @@
       },
       well: {
         title: "Well site",
-        empty: "WELL, dig after the Water room is built. June painted the sign herself and set it beside a ring of stones next to the cabin. The stones sit in a careful circle, like a promise waiting to be kept. Water from deep underground comes up cold and clean, so you would heal faster in the yard. The well stays locked until the Water room stands, because you should learn to clean water before you dig for more. The Farm and the Lab both need the Well first. To dig, bring 2 lumber, 1 tool kit, and 60 scrap.",
+        empty: "WELL, dig after the Water room is built. June painted the sign herself and set it beside a ring of stones in the middle of the yard. The stones sit in a careful circle, like a promise waiting to be kept. Water from deep underground comes up cold and clean, so you would heal faster in the yard. The well stays locked until the Water room stands, because you should learn to clean water before you dig for more. The Farm and the Lab both need the Well first. To dig, bring 2 lumber, 1 tool kit, and 60 scrap.",
         built: [
           "WELL, says the sign, and now there is a hole in the ground worth having. It is a hand-dug well lined with lumber, with a bucket on a rope. Drop the bucket, and a splash echoes far below, like a coin landing in a very deep pocket. Its clean water helps you heal faster in the yard. Tomas says the crank squeaks like the old cabin door did. Next, a hand pump would bring the water up faster. It needs 2 lumber, 1 set of engine parts, 1 water filter, and 100 scrap.",
           "WELL, reads the sign, but the bucket and rope are gone. A hand pump with a filter now brings the water up, cold and clear, after a few strong pushes on the handle. Pip likes to pump it until the handle groans in protest. You heal in the yard even faster now, because cleaner water helps a body mend quicker. The last step is a wired pump that fills a tank by itself. It needs 1 water tank, 1 set of engine parts, 1 spool of wire, and 150 scrap.",
@@ -36,18 +36,18 @@
       },
       water: {
         title: "Water station",
-        empty: "WATER, filter goes here. Tomas painted the sign and nailed it above an empty barrel that sits on two sawhorses by the cabin wall. Right now the barrel catches nothing but leaves and gray rainwater that smells like an old sock. A filter and a tank here would turn that gray rainwater clear, so you heal faster while you are in the yard. Without clean water, every scrape stays a scrape until you find a medical kit. To start, bring 1 water filter and 40 scrap, and the barrel finally gets a job.",
+        empty: "WATER, filter goes here. Tomas painted the sign and nailed it above an empty barrel that sits on two sawhorses by the back fence. Right now the barrel catches nothing but leaves and gray rainwater that smells like an old sock. A filter and a tank here would turn that gray rainwater clear, so you heal faster while you are in the yard. Without clean water, every scrape stays a scrape until you find a medical kit. To start, bring 1 water filter and 40 scrap, and the barrel finally gets a job.",
         built: [
           "WATER, says the sign, and the barrel is finally useful. A filter on top of the barrel turns gray water clear. It works one slow drip at a time, like a clock that counts in drops. You slowly heal in the yard. It is not fast, but it is steady, and steady keeps a crew alive. A big tank would hold more water and heal you faster. It needs 1 water tank, 1 water filter, and 80 scrap, and Tomas has already cleared a spot for it.",
-          "WATER, reads the sign, and now there is plenty of it. A filter and a big tank stand together against the cabin wall, full of clean water. It tastes like nothing at all, which is exactly how water should taste. You heal faster in the yard, because a full tank means nobody has to ration a sip after a hard day. One more filter would finish the job. It needs 1 water tank, 2 water filters, and 120 scrap, so keep an eye out at the Water Tower.",
+          "WATER, reads the sign, and now there is plenty of it. A filter and a big tank stand together by the back fence, full of clean water. It tastes like nothing at all, which is exactly how water should taste. You heal faster in the yard, because a full tank means nobody has to ration a sip after a hard day. One more filter would finish the job. It needs 1 water tank, 2 water filters, and 120 scrap, so keep an eye out at the Water Tower.",
           "WATER, says the sign, and the station is complete. Two filters and a tank work side by side, so the water runs clear even after a storm stirs up the barrel. You heal even faster in the yard, and you walk into every building at full health. That means each trip starts with a clean slate instead of yesterday's bruises. Tomas tapped the tank with a wrench, and it rang like a bell. He claims that is a good sign, and nobody has the heart to argue.",
         ],
       },
       power: {
         title: "Power pole",
-        empty: "POWER, lights first. Tomas painted the sign and hung it on a bare pole by the shed. An old coil of rope lies at its foot like a sleeping snake. Fuel, wire and lights here would let the map show how dangerous each place is before you drive there. Knowing the danger first means fewer nasty surprises at a door. Later a generator could do even more, out on the road. To start, bring 2 fuel cans, 1 spool of wire, and 60 scrap.",
+        empty: "POWER, lights first. Tomas painted the sign and hung it on a bare pole by the back fence. An old coil of rope lies at its foot like a sleeping snake. Fuel, wire and lights here would let the map show how dangerous each place is before you drive there. Knowing the danger first means fewer nasty surprises at a door. Later a generator could do even more, out on the road. To start, bring 2 fuel cans, 1 spool of wire, and 60 scrap.",
         built: [
-          "POWER, says the sign, and the pole finally does something. Fuel cans, wire, and a string of working lights run from the shed to the cabin. After dark they glow like a row of small moons. Because of them, the map shows the danger of every place, so you know what waits before you go. Pip calls it the worry meter. Next comes a generator, which would also turn up supplies on the road. It needs 1 generator, 2 fuel cans, and 100 scrap.",
+          "POWER, says the sign, and the pole finally does something. Fuel cans, wire, and a string of working lights run from the pole to the cabin. After dark they glow like a row of small moons. Because of them, the map shows the danger of every place, so you know what waits before you go. Pip calls it the worry meter. Next comes a generator, which would also turn up supplies on the road. It needs 1 generator, 2 fuel cans, and 100 scrap.",
           "POWER, reads the sign, and the yard has a heartbeat now. A generator hums under a tin roof, steady and low, like a big animal purring in its sleep. The map shows danger, and you find one supply crate on every drive. Those crates add up fast, the way pennies fill a jar. More wire could run power all the way out to the van. It needs 2 spools of wire, 3 fuel cans, and 150 scrap, and Tomas has already measured the distance twice.",
           "POWER, says the sign, and the wires reach farther than ever. More wire runs out to the van, which now has headlights. They cut through night and fog like a knife through bread. The map shows danger, you find two supply crates on every drive, and the dark no longer owns the road. Night drives used to feel like driving into a closet with the door shut. Now the way ahead is bright. Tomas says the van has never looked so proud of itself.",
         ],
@@ -152,7 +152,7 @@
     },
     {
       title: "What We Carry",
-      text: "Pip asked a big question tonight, the kind that lands on the table like a heavy stone. Is the world ever going to come back? Tomas stopped chewing. I put down my spoon and took a moment, because Pip deserves the truth and not a bedtime story. I said some of it will come back, the parts people carry with them. Buildings fall and roads crack, but what you know and who you love can travel. Pip thought about that for a long time. Then came the second question: which parts is the crew carrying? I pointed at the door first. The rules on the door, I said. The seeds, when we find them. And each other. Pip nodded slowly. June hopes that answer was good enough.",
+      text: "Pip asked a big question tonight, the kind that lands on the table like a heavy stone. Is the world ever going to come back? Tomas stopped chewing. I put down my spoon and took a moment, because Pip deserves the truth and not a bedtime story. I said some of it will come back, the parts people carry with them. Buildings fall and roads crack, but what you know and who you love can travel. Pip thought about that for a long time. Then came the second question: which parts is the crew carrying? I pointed at the door first. The rules on the door, I said. The seeds. And each other. Pip nodded slowly. June hopes that answer was good enough.",
     },
     {
       title: "The Rules on the Door",
@@ -235,7 +235,7 @@
     },
     {
       title: "Tip: The Seed Vault",
-      text: "Jo again, with a key ring tip, and a big thank you to Mr. Reyes, who cut half the keys in this town with his own two hands. The key hidden at Reyes Hardware opens the seed vault at Greenhouse Row. The notes inside the hardware store will point the way, so read them before you start tearing up the paint aisle. I talked to Rosa about that vault, and she had a message to go with it. Take the seeds and plant them. Do not hoard them in a drawer, where they turn into expensive dust. And save some seeds for the next person. A seed you save today is a garden for somebody else next spring. Those are Rosa's words, not mine. Jo out.",
+      text: "Jo again, with a key ring tip, and a big thank you to Mr. Reyes, who cut the first keys of the ring with his own two hands. The key hidden at Reyes Hardware opens the seed vault at Greenhouse Row. The notes inside the hardware store will point the way, so read them before you start tearing up the paint aisle. I talked to Rosa about that vault, and she had a message to go with it. Take the seeds and plant them. Do not hoard them in a drawer, where they turn into expensive dust. And save some seeds for the next person. A seed you save today is a garden for somebody else next spring. Those are Rosa's words, not mine. Jo out.",
     },
     {
       title: "Nurse Ada Answers",
@@ -307,11 +307,11 @@
     },
     {
       title: "The Light Is On",
-      text: "This is Doc Lin. I am at the bottom of the hill below St. Anne Annex, closer than I have ever been. I am speaking softly, because the walkers on this hill have sharp ears. Last night I looked up, and I saw it. A light, in the top window of the hospital. Small and yellow and steady, like a lighthouse built for one person. I stood there for a long time, just looking at it. Nurse Ada is still there. She kept her promise. Now I have to keep mine. The road up the hill is still crowded, but I am still trying to reach her, one careful step at a time. Ada, I saw your light. Doc Lin out.",
+      text: "This is Doc Lin. I am at the bottom of the hill below St. Anne Annex. I am speaking softly, because the walkers on this hill have sharp ears. Last night I looked up, and I saw it. A light, in the top window of the hospital. Small and yellow and steady, like a lighthouse built for one person. I stood there for a long time, just looking at it. Nurse Ada is still there. She kept her promise. Now I have to keep mine. The road up the hill is still crowded, but I am still trying to reach her, one careful step at a time. Ada, I saw your light. Doc Lin out.",
     },
     {
       title: "Pack Tonight",
-      text: "Sergeant Vega, from the 4th Precinct, and this is the announcement we have all been waiting for. The River Convoy will leave at first light tomorrow, if the river road holds. The water is down, the boats are ready, and the trucks finally have their parts. Everyone on the list should pack tonight. Take only what you can carry, and be at the river before dawn. Do not be late, because the convoy will not wait. To anyone who stays behind, I respect that choice. This town still needs people. So keep the town's rule, the one that got us all this far: take what you need, leave the rest. Look after each other. Vega out.",
+      text: "Sergeant Vega, from the 4th Precinct, and this is the announcement we have all been waiting for. The River Convoy will leave at first light tomorrow, if the river road holds. The water is down, for now. Everyone on the list should pack tonight. Take only what you can carry, and be at the river before dawn. Do not be late, because the convoy will not wait. To anyone who stays behind, I respect that choice. This town still needs people. So keep the town's rule, the one that got us all this far: take what you need, leave the rest. Look after each other. Vega out.",
     },
     {
       title: "Same Time Tomorrow",
@@ -451,7 +451,7 @@
       },
       gusRoom: {
         title: "Gus's Room",
-        text: "A sign is taped to the door: Gus's Room. Keep Out. This Means You, Finn. Gus is sixteen, the age when a closed door is a whole country. He left behind a guitar with two broken strings. It is propped in the corner as if it were waiting for him to come back.\n\nTomas sleeps here now. He says the sign still counts, only the name has changed: these days it means Pip. Pip ignores it with great dignity.",
+        text: "A sign is taped up by the door: Gus's Room. Keep Out. This Means You, Finn. Gus is sixteen, the age when a closed door is a whole country. He left behind a guitar with two broken strings. It is propped in the corner as if it were waiting for him to come back.\n\nTomas sleeps here now. He says the sign still counts, only the name has changed: these days it means Pip. Pip ignores it with great dignity.",
       },
       finnRoom: {
         title: "The Treehouse Plan",
@@ -463,7 +463,7 @@
       },
       playroom: {
         title: "The Typing Chalkboard",
-        text: "The play room has a little desk with an old typewriter on it. It is heavy as a toolbox and loud as rain on a tin roof. A chalkboard hangs above the desk. On it Kate wrote: practice your typing for ten minutes a day, with your fingers on the home row. Under that, Lucy wrote her name ten times, each one a bit straighter, like a fence going up board by board.\n\nThe typewriter still works. Anyone in the crew can sit here and practice, and the clacking keys make the house feel lived in.",
+        text: "The play room has a little desk with an old typewriter on it. It is heavy as a toolbox and loud as rain on a tin roof. A chalkboard hangs on the wall across from the desk. On it Kate wrote: practice your typing for ten minutes a day, with your fingers on the home row. Under that, Lucy wrote her name ten times, each one a bit straighter, like a fence going up board by board.\n\nThe typewriter still works. Anyone in the crew can sit here and practice, and the clacking keys make the house feel lived in.",
       },
       coatCloset: {
         title: "The Go Bag List",

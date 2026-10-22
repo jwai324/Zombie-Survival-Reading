@@ -30,7 +30,7 @@
       well: {
         title: "Well site",
         empty:
-          "June painted this sign: WELL. It says to dig after the Water room is built. Stones ring a spot by the cabin. Water from deep down is cold and clean. It would help you heal faster in the yard. The Farm and the Lab need the Well first.",
+          "June painted this sign: WELL. It says to dig after the Water room is built. Stones ring a spot in the yard. Water from deep down is cold and clean. It would help you heal faster in the yard. The Farm and the Lab need the Well first.",
         built: [
           "The sign says WELL. It is a well dug by hand, and lumber lines it. A bucket hangs on a rope. The water comes up cold and clean. It helps you heal faster in the yard.",
           "The sign says WELL. Now a hand pump brings the water up. Nobody needs the bucket. The water goes through a filter on the way. Pip likes to work the handle. You heal in the yard even faster.",
@@ -40,7 +40,7 @@
       water: {
         title: "Water barrel",
         empty:
-          "Tomas painted this sign: WATER, filter goes here. An empty barrel sits on two sawhorses by the cabin wall. Rain fills it, but the water is gray. A filter and a tank would make the water clear. Then you would heal faster in the yard.",
+          "Tomas painted this sign: WATER, filter goes here. An empty barrel sits on two sawhorses by the back fence. Rain fills it, but the water is gray. A filter and a tank would make the water clear. Then you would heal faster in the yard.",
         built: [
           "The sign says WATER. A filter sits on top of the barrel now. Gray water goes in at the top. Clear water comes out at the tap. Tomas tastes it first and makes a face, but it is fine. You slowly heal in the yard.",
           "The sign says WATER. Now a big tank stands next to the filter. The tank is full of clean water, so nobody waits for rain. Pip checks the tank each night. You heal faster in the yard.",
@@ -50,7 +50,7 @@
       power: {
         title: "Power pole",
         empty:
-          "Tomas painted this sign: POWER, lights first. A bare pole stands by the shed. An old coil of rope lies at its foot. Fuel, wire, and lights could go here. Then the map would show how dangerous each place is. Later, a generator could do even more.",
+          "Tomas painted this sign: POWER, lights first. A bare pole stands by the back fence. An old coil of rope lies at its foot. Fuel, wire, and lights could go here. Then the map would show how dangerous each place is. Later, a generator could do even more.",
         built: [
           "The sign says POWER. Fuel cans sit by the pole, and wire runs up it. A string of lights works now. The map shows the danger of every place. Now you know what you drive into.",
           "The sign says POWER. Now a generator hums under a tin roof. The map still shows the danger of every place. You also find one supply crate on each drive. Tomas pats the generator and calls it a good beast.",
@@ -417,7 +417,7 @@
     notes: {
       porch: {
         title: "The Dinner Bell",
-        text: "A carved sign says THE CABIN, THE HOLLIS FAMILY. Dan Hollis hung this iron bell. The kids could hear it from the woods. A note says: ring for supper. June added in chalk: walkers come to the bell. So ring it only when you are ready to fight.",
+        text: "A carved sign says THE CABIN, THE HOLLIS FAMILY. Dan Hollis hung this iron bell. The kids heard it from the woods. A note says: ring for supper. June's chalk line: the bell carries far. Walkers come to it. Ring it only when you are ready to fight.",
       },
       foyer: {
         title: "Five Hooks by the Door",
@@ -457,7 +457,7 @@
       },
       gusRoom: {
         title: "Keep Out",
-        text: "The sign on this door says GUS'S ROOM. KEEP OUT. THIS MEANS YOU, FINN. Gus is sixteen. He left his guitar here, and it has two broken strings. Tomas sleeps here now. He says the sign still counts, and now it means Pip.",
+        text: "The sign by this door says GUS'S ROOM. KEEP OUT. THIS MEANS YOU, FINN. Gus is sixteen. He left his guitar here, and it has two broken strings. Tomas sleeps here now. He says the sign still counts, and now it means Pip.",
       },
       finnRoom: {
         title: "Finn's Treehouse Plan",

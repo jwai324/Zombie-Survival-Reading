@@ -20,9 +20,9 @@
 
   W.UNIVERSES = W.UNIVERSES || {};
   W.UNIVERSES.leo = {
-    name: "Captain Leo", // the Settings choice and the HUD
+    name: "Captain Leo", // the save slot's summary (js/main.js universeTail); Settings labels the button itself
     where: "Mira-8",
-    sky: "mira9", // js/crossover.js draws it over the yard
+    sky: "mira9", // js/crossart.js (ZSR.Crossover.sky) draws it over the yard
     // the quest whose hand-in wakes Rivet, the robot dog (ROBO below)
     robotQuest: "tomas-leo-5",
     // a journal line rides on every journalEvery-th day page; a broadcast on every radioEvery-th day the Radio
@@ -132,10 +132,10 @@
      down until Tomas fixes it at the cabin for scrap. js/robodog.js. */
   W.ROBO = {
     name: "Rivet",
-    hp: 60, // bites it takes before it shuts down (a plain walker's bite is about 10)
+    hp: 60, // bites it takes before it shuts down (a plain walker's bite is 12, so five bites; a brute's 22, so three)
     zapEvery: 1.8, // seconds between zaps
     zapRange: 4.5, // tiles: it zaps the nearest awake walker this close, in a clear line
-    zapDamage: 6, // a pistol shot is 25: the robot dog is a helper, not a gun
+    zapDamage: 6, // a pistol shot is 12: the robot dog is a helper, not a gun
     slow: 0.5, // a zapped walker moves at this share of its speed...
     slowSeconds: 1.6, // ...for this long
     repairScrap: 20, // Tomas's price to fix it once it has shut down (at home: a trip's return or a wave's end)
@@ -218,7 +218,7 @@
       ],
       journal: [
         "You brought Tomas a box of leg motors from Reyes Hardware.",
-        "The robot dog in the garage can stand now, though it wobbles.",
+        "The robot dog by the van can stand now, though it wobbles.",
       ],
       done: [
         "Tomas fits the leg motors into the robot dog, one leg at a time.",
@@ -318,7 +318,7 @@
       ],
       after: [
         "Tomas says the robot dog knows our faces now.",
-        "It still needs eyes that see in the dark, and a voice to warn us.",
+        "It still needs eyes that see in the dark, and a voice to beep at us.",
         "Then it can go out with you.",
       ],
     },

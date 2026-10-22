@@ -117,7 +117,7 @@
     },
     "tomas-m1": {
       title: "Talking to the Engine",
-      text: "Tomas likes to whistle under the van. He talks to the engine like an old friend. He asks it how it slept. He tells it to be brave today. Tomas says engines work harder when someone believes in them. June says that is not how engines work. Tomas keeps talking anyway.",
+      text: "Tomas likes to whistle under the van. He talks to the engine like an old friend. He asks it how it slept. He tells it to be brave today. Tomas says engines work harder when someone believes in them. Pip says that is not how engines work. Tomas keeps talking anyway.",
     },
     "tomas-m2": {
       title: "Ticks, Knocks and Squeals",
@@ -225,7 +225,7 @@
       keys: "Pip says you are holding {keys}. Each key's note says which stash it opens. Your notes are in the backpack, so read them again.",
       walkers: "Pip keeps count of the walkers in town. In {days} days, each building gets one more walker. That goes on up to a limit, Pip says.",
       radio: "Each day you come home, a new broadcast waits. Pip says to tune in at the dining room radio. You can hear the old ones again there too.",
-      full: "Pip says the buildings in town are full of walkers. No building will get any more. Each place stays as dangerous as it is now.",
+      full: "Pip says the buildings in town are full of walkers. No building will get more walkers than it has today.",
     }),
   });
 

@@ -154,8 +154,8 @@
           text: "KEYS CUT HERE, with an arrow. Next to it, a circle with a key inside. The arrow points to the paint vault, in the paint department.",
         },
         "hardware-sign4": {
-          title: "Marker on the Door",
-          text: "Marker on the back room door: It sticks. Read my note by the paint mixer before you push it. Signed: Mr. Reyes.",
+          title: "Marker by the Door",
+          text: "Marker on the wall beside the back room door: It sticks. Read my note by the paint mixer before you push it. Signed: Mr. Reyes.",
         },
       },
       key: {
@@ -204,7 +204,7 @@
         },
         "pharmacy-sign3": {
           title: "Health Poster",
-          text: "CLEAN WATER SAVES LIVES. A cartoon glass of water smiles at you. In big letters: If you can't filter it, boil it.",
+          text: "CLEAN WATER SAVES LIVES. A cartoon drop of water smiles at you. In big letters: If you can't filter it, boil it.",
         },
         "pharmacy-sign4": {
           title: "Cabinet Room Door",
@@ -222,7 +222,7 @@
       blurb: "A repair shop on the east side, with engine parts and a service pit.",
       door: {
         title: "Dev's Chalk Note",
-        text: "Dev, from the Gas-N-Go. Ruby, if this is you, read the notes inside, too.\n\nEngine parts are on the workbenches. One is in the back right, by the red tool chest. One is in the left bay.\n\nAt least five walkers are inside. One wanders the parts room, by the engine crane. It never stays still.\n\nThe service pit is under a locked hatch. Mr. Ortiz left a note in the office. It is behind the waiting room.",
+        text: "Dev, from the Gas-N-Go. Ruby, if this is you, read the notes inside, too.\n\nEngine parts are on the workbenches. One is in the back right, by the red tool chest. One is in the left bay.\n\nAt least five walkers are inside. One stands in the parts room, by the engine crane. It stays still until it hears you.\n\nThe service pit is under a locked hatch. Mr. Ortiz left a note in the office. It is behind the waiting room.",
       },
       notes: {
         "autoshop-office": {
@@ -314,7 +314,7 @@
         },
         "radioshack-sign4": {
           title: "Office Door Sign",
-          text: "MANAGER'S OFFICE. PLEASE KNOCK. A neat little sign on the office door. Under it, in marker: Priya says look under the register.",
+          text: "MANAGER'S OFFICE. PLEASE KNOCK. A neat little sign beside the office door. Under it, in marker: Priya says look under the register.",
         },
       },
       key: {
@@ -333,7 +333,7 @@
       notes: {
         "garden-bench": {
           title: "Rosa's Watering Cans",
-          text: "Rosa again. You found my bench. Sit a minute, if it is safe.\n\nThree watering cans sit by this bench. The shed padlock key is in the {pick}. Tip that one, and the key falls out.\n\nDo not touch the other two cans! They are my walker alarm. They are full of bells and tin cans. Tip one over, and the noise brings walkers. More and more come, even through the gate. They keep coming until they get you.\n\nLeave the palm tree house. Take the path down toward the beehives. The shed door is on that path. The shed has more seeds and a water tank.\n\nThen go north. Station 12 is the fire station north of here. Its equipment bay has tools and water tanks.",
+          text: "Rosa again. You found my bench. Sit a minute, if it is safe.\n\nThree watering cans sit by this bench. The shed padlock key is in the {pick}. Tip that one, and the key falls out.\n\nDo not touch the other two cans! They are my walker alarm. They are full of bells and tin cans. Tip one over, and the noise brings walkers. More and more come, even through the gate. They keep coming until they get you.\n\nLeave the palm tree house. Take the path down toward the beehives. The shed door is on that path. The shed has more seeds and a water tank.\n\nThen go north and east. Station 12 is the fire station north and east of here. Its equipment bay has tools and water tanks.",
         },
         "garden-trail1": {
           title: "A Rattling Truck",

@@ -43,7 +43,7 @@
     },
     "june-t9": {
       title: "A Garden Worth Staying For",
-      text: "June brushes soil off her gloves and looks proud. She says Kate Hollis's note on the fridge asked whoever found the cabin to keep the garden going. “Well, Kate, now there is one,” June says, to nobody in particular. Each new level of the Garden grows more food each day. Every bed you add is a supper you never have to drive for. Then June goes quiet, the way she does when a thought is heavy. “A cabin with a garden is hard to leave,” she says, “even for the River Convoy.”",
+      text: "June brushes soil off her gloves and looks proud. She says Kate Hollis's note on the fridge asked whoever found the cabin to keep the garden going. “Well, Kate, now there is one again,” June says, to nobody in particular. Each new level of the Garden grows more food each day. Every bed you add is a supper you never have to drive for. Then June goes quiet, the way she does when a thought is heavy. “A cabin with a garden is hard to leave,” she says, “even for the River Convoy.”",
     },
     "june-t10": {
       title: "Not My Dog",
@@ -73,7 +73,7 @@
     // Tomas: seventeen, engines, stubborn, earnest
     "tomas-t1": {
       title: "Old but Honest",
-      text: "Tomas wipes a wrench on his red rag and grins. He is seventeen, and keeping the van alive is his job, or maybe his hobby. “The van is old but honest, like a good mule,” Tomas says. “It is slow and stubborn, but it never lies about what is wrong.” Then his grin fades. Damage to the van stays from one trip to the next, so every dent you bring home rides out with you again. Fix it at the office computer, Tomas says, or at the van before you go. “Treat it right, and it brings you home.”",
+      text: "Tomas wipes a wrench on his red rag and grins. He is seventeen, and keeping the van alive is his job, or maybe his hobby. “The van is old but honest, like a good mule,” Tomas says. “It is slow and stubborn, but it never lies about what is wrong.” Then his grin fades. Damage to the van stays from one trip to the next, so most of the dents you bring home ride out with you again. Fix it at the office computer, Tomas says, or at the van before you go. “Treat it right, and it brings you home.”",
     },
     "tomas-t2": {
       title: "Holes in the Fence",
@@ -93,7 +93,7 @@
     },
     "tomas-t6": {
       title: "A Garage at Last",
-      text: "Tomas cannot stop grinning. He finally has a garage, like the one his father worked in. He talks about it like a kid on his birthday. “It even smells right,” he says. “Oil and dust and old rags.” Then comes the good news. With the Garage built, the van comes home fixed after every trip, for free, so no more scrap goes to dents. Each Garage level also lets the van's upgrades go one level higher. “Build it up,” Tomas says, “and I will make that engine sing.”",
+      text: "Tomas cannot stop grinning. He finally has a garage, like the one his father worked in. He talks about it like a kid on his birthday. “It even smells right,” he says. “Oil and dust and old rags.” Then comes the good news. With the Garage built, the van comes home fixed after every trip, for free. So no more of your scrap goes to dents once you are home. Each Garage level also lets the van's upgrades go one level higher. “Build it up,” Tomas says, “and I will make that engine sing.”",
     },
     "tomas-t7": {
       title: "Up the River Road",
@@ -159,7 +159,7 @@
     },
     "pip-t6": {
       title: "The List of Voices",
-      text: "Pip pulls a folded paper from their hoodie pocket. It is a list of every voice the crew hears. The first name on it is June, with a crown drawn over it. People say someone named Jo talks on the radio from a rooftop, reading the news to anyone listening. Pip says a voice is just noise until someone writes it down. The Radio room, made of radio parts and wire, brings in voices like Jo's through the static. “And it finds new places for the map,” Pip says. “Voices know where things are.”",
+      text: "Pip pulls a battered notebook from their hoodie pocket. It holds a list of every voice the crew hears. The first name on it is June, with a crown drawn over it. People say someone named Jo talks on the radio from a rooftop, reading the news to anyone listening. Pip says a voice is just noise until someone writes it down. The Radio room, made of radio parts and wire, brings in voices like Jo's through the static. “And it finds new places for the map,” Pip says. “Voices know where things are.”",
     },
     "pip-t7": {
       title: "A Radio That Reaches",
@@ -221,7 +221,7 @@
       keys: "Pip says you are holding {keys}, and Pip is very curious about that. Each key's note says which stash it opens, and your notes are all in the backpack. Read them again before you try a lock.",
       walkers: "Pip keeps count on the wall: in {days} days, the buildings in town each get one more walker, up to a limit. So the sooner you go, Pip says, the fewer walkers wait for you inside.",
       radio: "Pip says a new broadcast waits at the radio in the dining room each day you come home. So every trip ends with news. Tune in there, and you can hear the old ones again too.",
-      full: "Pip draws a line under the tally marks on the wall, like closing a finished column. Every building in town is as full of walkers as it will get, Pip says. From now on, a place is only as dangerous as it is today, and Pip finds that oddly comforting.",
+      full: "Pip draws a line under the tally marks on the wall, like closing a finished column. Every building in town is as full of walkers as it will get, Pip says. From now on, no building gets more walkers than it has today, and Pip finds that oddly comforting.",
     }),
   });
 

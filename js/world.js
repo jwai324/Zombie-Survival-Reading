@@ -639,7 +639,7 @@
      Positions are true in js/layouts.js: "front" is the entrance wall, "back" the far wall,
      left/right as seen from the entrance looking in. Landmarks are named exactly as in the
      layout (the validator checks door notes name two of them and inside notes one).
-     Keep facts short: every one must fit a level 1 note (door notes about 30 words). A door
+     Keep facts short: every one must fit a level 1 note (a level 1 door note runs about 50 to 100 words; tests/validate-text.js holds it to 49..98). A door
      note gives one walker spot, one landmark per item and where the inside note is; the
      inside note adds one short route from the note to the locked door.
      `walkers`: what the texts say about where walkers stand, kept true on every visit (js/building.js
@@ -709,7 +709,7 @@
       door: { id: "garden-door", found: "painted on the gate", facts: ["Written by Rosa, who ran the greenhouse.", "Soil is in the big greenhouse with the scarecrow; seeds are in the shop by the gate, near the big gnome.", "At least five walkers inside, one at the back of the big greenhouse.", "The potting shed is locked; Rosa's note is on the potting bench by the palm tree, back right."] },
       walkers: [{ says: ["garden-door", "garden-sign2"], z: [0], n: 1, zone: "bigGreenhouseBack", exact: true }],
       notes: [
-        { id: "garden-bench", found: "on the potting bench by the palm tree", unlocks: "garden", reveals: ["firehouse"], facts: ["Written by Rosa.", "The shed padlock key is in the {pick}, one of the three watering cans by this bench.", "The other two cans are Rosa's walker alarm, full of bells and tin cans: tip one over and the noise brings walkers, more and more, even through the gate, until they get you.", "The shed has more seeds and a water tank.", "The shed door is on the path from the palm tree house down to the beehives.", "Station 12, the fire station north of here, has tools and water tanks in its equipment bay."] },
+        { id: "garden-bench", found: "on the potting bench by the palm tree", unlocks: "garden", reveals: ["firehouse"], facts: ["Written by Rosa.", "The shed padlock key is in the {pick}, one of the three watering cans by this bench.", "The other two cans are Rosa's walker alarm, full of bells and tin cans: tip one over and the noise brings walkers, more and more, even through the gate, until they get you.", "The shed has more seeds and a water tank.", "The shed door is on the path from the palm tree house down to the beehives.", "Station 12, the fire station north and east of here, has tools and water tanks in its equipment bay."] },
       ],
     },
     police: {
@@ -723,7 +723,7 @@
       ],
     },
     school: {
-      door: { id: "school-door", found: "on the office door", facts: ["Written by Max and Mia.", "Boxes of books: one is in the music room with the drum set, the other in the front office, behind the lion statue.", "At least six walkers inside, one in the main hallway.", "The library closet is locked; the key is in the teacher's note in the science room, back left, by the big brain."] },
+      door: { id: "school-door", found: "on the office door", facts: ["Written by Max and Mia.", "Boxes of books: one is in the music room with the drum set, the other in the front office, behind the lion statue.", "At least six walkers inside, one in the main hallway.", "The library closet is locked; the key is in the teacher's note on the desk just inside the door of the science room, back left, the room with the big brain."] },
       walkers: [{ says: ["school-door", "school-sign2"], z: [2], n: 1, zone: "mainHallway", exact: true }],
       notes: [
         { id: "school-classroom", found: "on the teacher's desk in the science room", unlocks: "school", reveals: ["mall"], facts: ["Written by Ms. Adler, a teacher.", "The library closet key is in the {pick} of this desk, right under this note.", "Open no other drawer: Max and Mia tied air horns to the other two, and the noise brings every walker in the school, even through the front door, until they get you.", "The closet has books and a folder of city maps.", "Follow the main hallway toward the drum set room; the library is the room next to it, and its closet is in the back corner on the drum set side.", "Northgate Mall in the north has food, medicine, and wire, but the crowds there are the worst in town."] },
@@ -750,7 +750,7 @@
       ],
     },
     lumberyard: {
-      door: { id: "lumberyard-door", found: "spray-painted on the gate", facts: ["Written by Ruby.", "Lumber is in the long racks in the middle, and one more stack is out back by the log pile.", "At least eight walkers inside; a crowd gathers by the loading dock and the flatbed truck, and a big one stands by the log pile.", "The kiln shed is locked; the yard boss left a note on a clipboard by the band saw."] },
+      door: { id: "lumberyard-door", found: "spray-painted on the gate", facts: ["Written by Ruby.", "Lumber is in the long racks in the middle, and one more stack is out back by the log pile.", "At least eight walkers inside; a crowd gathers by the loading dock and the flatbed truck, and a big one stands by the log pile.", "The kiln shed is locked; the yard boss left a note on a clipboard by the band saw.", "Do not run the saws; the noise brings the dock crowd."] },
       walkers: [
         // the big one by the log pile, and the dock crowd: most of them ("Most of them gather by the loading dock")
         { says: ["lumberyard-door", "lumberyard-trail1", "lumberyard-trail2"], z: [0], n: 1, zone: "yard", type: "brute", near: "the log pile" },

@@ -27,7 +27,7 @@
       },
       well: {
         title: "Well, dig later",
-        empty: "A ring of stones sits beside the cabin. June painted the sign: WELL. Under that: dig after the Water room is built. Deep under the ground, the water is cold and clean. With it, you would heal faster in the yard. The Farm and the Lab both need the Well first.",
+        empty: "A ring of stones sits in the middle of the yard. June painted the sign: WELL. Under that: dig after the Water room is built. Deep under the ground, the water is cold and clean. With it, you would heal faster in the yard. The Farm and the Lab both need the Well first.",
         built: [
           "The sign says WELL. It is a hand-dug well. Its walls are lined with lumber. A bucket hangs on a rope. The water comes up cold. It tastes like stone and rain. Its clean water helps you heal faster in the yard. Tomas says he dug enough for a lifetime.",
           "The sign says WELL. No more bucket. A hand pump stands over the hole now. Pump the handle, and water comes up. It goes through a filter on the way. Pip likes to work the pump. Tomas oiled it, so it does not squeak. You heal in the yard even faster than before.",
@@ -36,7 +36,7 @@
       },
       water: {
         title: "Water, filter here",
-        empty: "An empty barrel sits on two sawhorses. It is by the cabin wall. Tomas painted the sign: WATER, filter goes here. Rainwater fills the barrel, but it is gray. Nobody wants to drink it like that. A filter and a tank would turn it clear. Clean water means you heal faster in the yard.",
+        empty: "An empty barrel sits on two sawhorses. It is by the back fence. Tomas painted the sign: WATER, filter goes here. Rainwater fills the barrel, but it is gray. Nobody wants to drink it like that. A filter and a tank would turn it clear. Clean water means you heal faster in the yard.",
         built: [
           "The sign says WATER. A filter sits on top of the barrel now. Gray water goes in at the top. Clear water drips out at the bottom. It is slow, but it works. You slowly heal while you are in the yard. Pip watches the drips like a TV show.",
           "The sign says WATER. Next to the barrel stands a big tank. The filter feeds it all day. The tank is full of clean water. Nobody drinks gray water anymore. You heal faster in the yard. Tomas tapped the tank and smiled at the sound. Full tanks ring low.",
@@ -45,7 +45,7 @@
       },
       power: {
         title: "Power, lights first",
-        empty: "A bare pole stands by the shed. An old coil of rope sits at its foot. Tomas painted the sign: POWER, lights first. He talks about it a lot. Fuel, wire, and lights could go here. Then the map would show how dangerous each place is. Later, a generator could do even more.",
+        empty: "A bare pole stands by the back fence. An old coil of rope sits at its foot. Tomas painted the sign: POWER, lights first. He talks about it a lot. Fuel, wire, and lights could go here. Then the map would show how dangerous each place is. Later, a generator could do even more.",
         built: [
           "The sign says POWER. Fuel cans sit under the pole. Wire runs up to a string of lights. The lights work. They are warm and yellow. Pip stared at them for a long time. Now the map shows the danger of every place. You can see which ones to fear.",
           "The sign says POWER. Now a generator hums under a tin roof. It is loud, so Tomas runs it by day. The map still shows the danger of every place. Now you find one supply crate on every drive, too. Tomas named the generator Big Lou. Pip says that is a terrible name.",
@@ -239,7 +239,7 @@
       masterBath: { title: "A Heart on the Mirror", text: "Someone drew a heart on the bathroom mirror. Three names are inside it: Gus, Finn, and Lucy. A list is taped by the sink. It says: Lucy, brush your teeth for two whole minutes. June left the list up. She says it is a good rule." },
       master: { title: "The Wedding Photo", text: "A photo hangs over the big bed. It shows Kate and Dan Hollis by the river. It was their wedding day. June says whoever is hurt the most gets this bed. A nap here heals you all the way. But it takes time. The walkers keep coming while you sleep." },
       living: { title: "Lines on the Door Frame", text: "Pencil lines on the door frame mark each year. They show how tall the kids grew. Gus has the top line. Lucy's lowest line says age 3. Pip stood against the frame. Pip came up between Finn and Gus. The radio shelf stood by the couch once. Pip carried it to the dining room. The crew eats there." },
-      gusRoom: { title: "Keep Out", text: "A sign on this door says: Gus's Room. Keep Out. This Means You, Finn. Gus is sixteen. He left behind a guitar with two broken strings. Tomas sleeps here now. He says the sign still counts. Now it means you, Pip." },
+      gusRoom: { title: "Keep Out", text: "A sign by this door says: Gus's Room. Keep Out. This Means You, Finn. Gus is sixteen. He left behind a guitar with two broken strings. Tomas sleeps here now. He says the sign still counts. Now it means you, Pip." },
       finnRoom: { title: "Finn's Treehouse Plan", text: "Finn drew a plan for a treehouse. It goes in the woods past the fence. The plan has a rope ladder and a lookout. A bucket hangs on a pulley. Finn drew the bucket full of snacks. Pip wants to build it someday. But first the fence has to be strong." },
       lucyRoom: { title: "My Dog Biscuit", text: "A crayon drawing hangs on the wall. It shows a dog with floppy ears. It says: MY DOG BISCUIT. Under it, Lucy wrote what Biscuit can do. Biscuit can sit, shake, and roll over. Pip pinned a second drawing next to it. It shows a dog with no name yet." },
       playroom: { title: "The Typing Chalkboard", text: "The play room has a little desk. An old typewriter sits on it. There is a chalkboard too. On it, Kate wrote: practice typing ten minutes a day. Keep your fingers on the home row. Under it, Lucy wrote her name ten times." },

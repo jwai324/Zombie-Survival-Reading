@@ -11,7 +11,7 @@
       "The yard sits at the south end of town, in front of a big family house. A carved sign by the front door names it the cabin. It belonged to the Hollis family. Kate drew maps for the county at the office desk, and Dan hung the dinner bell on the porch. Their kids were Gus, Finn, and Lucy, and their dog was Biscuit. They left to join the River Convoy before your crew arrived. The convoy is a line of trucks and boats meant to carry people north along the river road. Kate left a note on the fridge for whoever came next. \"If you find our cabin and you are kind,\" it says, \"it is yours now. Please keep the garden going.\" The Hollises left with a plan, not in a panic, and they might come back someday. Until then, the cabin is your home base, and it is the only place the game saves. If you go down, you return to your last save, and everything since is gone.",
       "June, Tomas, and Pip are your crew. June is in her sixties, a retired school gardener with a calm voice and a dry sense of humor. She records every day in a green ledger and plants anything that will grow. Even if the convoy ever leaves, she is not sure she wants to go; a garden makes a cabin hard to leave. Tomas is seventeen, a mechanic's son who talks to engines and keeps the van alive with wire and stubbornness. Pip is eleven, asks the questions nobody else will, and wants a dog more than anything. Once the radio is built, Pip will run it and keep a list of every voice on the air. Walk up to any of them to talk; each talk leaves you with something useful. Now and then one asks you for a favor, and you bring what they need home from town. Each of them has trust stars. Talks and favors earn stars, and more stars mean more help.",
       "Your crew lives among the Hollis family's things now, careful with them, the way you are careful in a borrowed coat. Tomas sleeps in Gus's old room, under a sign that still says KEEP OUT. Pip's height is marked on the living room door frame, right between Finn's and Gus's. Pip wants to build the treehouse Finn drew, once the fence is strong enough. June's ledger sits on the radio shelf in the dining room, where anyone can read past days again. The family left notes on the walls of every room. Walk up close to read them, and they tell you who lived here and what they hoped for.",
-      "People are still alive out in the town, hiding in shops, schools, and towers. A scout is searching for her younger brother. A doctor carries medicine from building to building. Two twins are trying to find their teacher. These people leave notes for whoever comes next, so read every one. The note at the door tells you how many walkers wait inside, and other notes tell you where the best supplies are. One note explains how to open the cache room, and you must do exactly what it says. A wrong code sets off an alarm, and walkers pour in, even through the way out, so you cannot leave. A wrong move can jam a lock. Some notes are out of date, and a few are simply wrong. Read each one to the end before you trust it. The survivors made a rule together: take what you need, and leave the rest. They locked the best supplies in stashes, away from people who smash and grab. Every building has one stash, but its key is hidden in a different building, and only the notes tell you where. One note leads you to a second, and the second says where the key is hidden and which stash it opens. The whole town is a chain of locks and keys. People who read find the keys; people who smash and grab never do.",
+      "People are still alive out in the town, hiding in shops, schools, and towers. A scout is searching for her younger brother. A doctor carries medicine from building to building. Two twins are trying to find their teacher. These people leave notes for whoever comes next, so read every one. The note at the door tells you how many walkers wait inside, and other notes tell you where the best supplies are. One note explains how to open the cache room, and you must do exactly what it says. A wrong code can set off an alarm, and walkers pour in, even through the way out, so you cannot leave. A wrong move can jam a lock. Some notes are out of date, and a few are simply wrong. Read each one to the end before you trust it. The survivors made a rule together: take what you need, and leave the rest. They locked the best supplies in stashes, away from people who smash and grab. Every building has one stash, but its key is hidden in a different building, and only the notes tell you where. One note leads you to a second, and the second says where the key is hidden and which stash it opens. The whole town is a chain of locks and keys. People who read find the keys; people who smash and grab never do.",
       "The van is your only way across town. You choose a destination on the town map, and the map spells out the way in words. The road itself will never show you the way. Before every corner, a sign tells you where each lane goes. Where roads meet, your own lane may turn, so find your road on the sign early. Get into its lane before the white line. Take a wrong turn, and the drive starts over.",
       "Home is never safe for long. In a calm, no walkers come, so you can build or drive to town. Then a wave arrives. Walkers claw holes in the fence, and some head straight for the cabin. A hole stays open until you fix it, and every fix costs scrap. Dan's dinner bell still hangs on the porch, but it no longer calls anyone to supper; now it calls walkers. Ring it only when you are ready to fight. You build by typing at the workbench. Kate's chalkboard in the play room still reminds you to keep your fingers on the home row. Every room you build makes the cabin stronger, and a little more like home.",
     ],
@@ -69,9 +69,9 @@
         garage: {
           desc: "The shop where the van and the gun get stronger. Its workbench is where you build, upgrade, and craft by typing. A better garage unlocks higher upgrade tiers. Until the Garage room is built, a repair costs 1 scrap for every 3 health missing, and at least 5 scrap. Once it is built, the van is repaired for free each time you come home.",
           next: [
-            "Van and gun upgrades up to tier 3. Free van repair at base.",
-            "Van and gun upgrades up to tier 4. Free van repair at base.",
-            "Van and gun upgrades up to tier 5. Free van repair at base. This level needs gun parts.",
+            "Van and gun upgrades up to tier 3, Spread Shot to tier 1. Free van repair at base.",
+            "Van and gun upgrades up to tier 4, Spread Shot to tier 2. Free van repair at base.",
+            "Van and gun upgrades up to tier 5, Spread Shot to tier 3. Free van repair at base. This level needs gun parts.",
           ],
         },
         power: {
@@ -102,16 +102,16 @@
           desc: "A radio tower in the yard, wired to the radio in the dining room. Voices from across town tell you where places are, and later what is left in them.",
           next: [
             "Reveals 3 new places on the map.",
-            "Reveals every place on the map.",
-            "Reveals every place, and shows which places still have items. This level needs a box of books.",
+            "Reveals every building on the map.",
+            "Reveals every building, and shows which places still have items. This level needs a box of books.",
           ],
         },
         medbay: {
           desc: "A room with beds, bandages, and medical kits. Walker hits hurt less, and if you go down inside a building, you can get back up once.",
           next: [
             "Walker hits hurt you 20 percent less on foot.",
-            "Hits hurt 20 percent less, and you get one revive per trip if you go down.",
-            "Hits hurt 30 percent less, one revive per trip, and the van takes 20 percent less damage.",
+            "Hits hurt 20 percent less, and you get one revive per trip if you go down inside a building.",
+            "Hits hurt 30 percent less, one revive per trip inside a building, and the van takes 20 percent less damage on the road.",
           ],
         },
         archive: {
@@ -123,7 +123,7 @@
           ],
         },
         well: {
-          desc: "A hand-dug well beside the cabin. Its water comes up cold and clean from deep underground, so you heal faster while you are in the yard. The Farm and the Lab both need the Well before they can be built.",
+          desc: "A hand-dug well in the middle of the yard. Its water comes up cold and clean from deep underground, so you heal faster while you are in the yard. The Farm and the Lab both need the Well before they can be built.",
           next: [
             "Needs the Water room first. Costs Lumber 2, Tool kit 1, and 60 scrap. You heal in the yard at rate 2.",
             "Costs Lumber 2, Engine parts 1, Water filter 1, and 100 scrap. You heal in the yard at rate 3.",

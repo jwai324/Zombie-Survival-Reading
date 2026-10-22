@@ -143,7 +143,7 @@
       title: "Gold Abyss Explorer pin",
       brief:
         "The last bursts keep drawing one shape: the Abyss Explorer. That is the little submarine from the old story. Station 12's chief kept an Abyss Explorer pin by the brass pole. Station 12 is northwest of the cabin. The pin is a gold badge with a star, on a black leather fold. Pip will give you 60 scrap and 1 box of radio parts.",
-      tag: "A gold badge with a star, on a black leather fold. The star is worn smooth. Stamped on the back: Abyss Explorer, seven miles down.",
+      tag: "A gold badge with a star, on a black leather fold. The star is worn smooth. Stamped on the back: Abyss Explorer, seven miles down. It is a keepsake copy of a very old pin.",
       journal: "You brought Pip an Abyss Explorer pin from Station 12. Pip wore it to supper and decoded the last record before bed.",
       done: "Pip pins the badge to the radio shelf and plays the last burst slowly. The picture is the submarine, small and brave, and then come words. Pip writes them down one at a time, pencil shaking a little. Pip thanks you without looking up.",
       after:

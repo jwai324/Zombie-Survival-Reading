@@ -230,7 +230,7 @@
     "pip-e2": {
       title: "Wire for a longer antenna",
       brief: "Pip needs {count} of these within {days} days: {item}. Pip wants a longer antenna, to hear farther voices. Pip wants to know who is out there. Pip will pay {reward}.",
-      done: "Pip winds the wire into a neat coil. Then Pip labels it in big, messy letters. The label says: WIRE, DO NOT TOUCH.",
+      done: "Pip winds the wire into a neat coil. Then Pip labels it in big, messy letters. The label says: ANTENNA WIRE, DO NOT TOUCH.",
     },
     "pip-e3": {
       title: "Books to read at night",

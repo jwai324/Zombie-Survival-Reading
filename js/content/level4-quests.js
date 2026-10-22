@@ -19,7 +19,7 @@
     "june-2": {
       title: "Roll of knee tape",
       brief: "June's knees ache when she kneels in the garden, and the cold mornings make it worse. She says her knees are older than the cabin and twice as noisy.\n\nMile 9 Pharmacy is northwest of the cabin. Mr. Okafor there sold a tape that holds a sore knee steady. A roll lies on the floor by the giant toothbrush, outside the STAFF ONLY door. It is a wide roll of blue tape. June will give you 30 scrap and 1 medical kit.",
-      tag: "A wide roll of blue tape from Mile 9 Pharmacy, still sealed in plastic. The label says: for sore knees and ankles. Below it, in small print: stretch it gently, and never wrap it too tight.",
+      tag: "A wide roll of blue tape from Mile 9 Pharmacy. The label says: for sore knees and ankles. Below it, in small print: stretch it gently, and never wrap it too tight.",
       journal: "You brought me a roll of knee tape from Mile 9 Pharmacy. I taped both knees and worked in the dirt until supper, kneeling like a young woman again. “June, you are humming,” Tomas said. I was.",
       done: "June laughs out loud when she sees the blue tape. She says Mr. Okafor told her to buy this tape for years, and she always said next week. She wraps both knees on the spot, snug but not too tight. With her knees taped, she can kneel in the dirt again and tend the beds all day. More hours in the garden mean more to eat. From now on, the crew gets 1 more food every day.",
       after: "June tells you about Mr. Okafor, the careful pharmacist at Mile 9. For twenty years, he kept her knee pills ready in a paper bag with her name on it. For twenty years, she forgot to pick them up. He never scolded her once. She paid him back in tomatoes every summer, the fattest ones she grew. June says the town was full of people who kept things safe for each other. She thinks some of them still are.",
@@ -69,7 +69,7 @@
     "tomas-3": {
       title: "Fire crew toolbox",
       brief: "Tomas wants to make crowbars from scrap, so he needs a good pry bar to copy. Fire crews pry open stuck doors for a living, so theirs should be the best in town.\n\nThe fire crew at Station 12, northwest of the cabin, kept a pry bar in their toolbox. Their toolbox lies by the gear racks, near the big door marked RESCUE. It is a long red toolbox with a gray handle. Tomas will give you 40 scrap and 1 crowbar.",
-      tag: "A long red toolbox with Station 12 painted on the side in gold letters. A heavy pry bar lies inside, wrapped in an old rag. It is chipped and scuffed, and clearly well loved.",
+      tag: "A long red toolbox with Station 12 painted on the side in white letters. A heavy pry bar lies inside, wrapped in an old rag. It is chipped and scuffed, and clearly well loved.",
       journal: "You brought home the fire crew's toolbox from Station 12. Tomas drew the pry bar on the back of a box before supper, measuring every curve twice. “June, look at that bend,” he said. I looked. It was a bend.",
       done: "Tomas studies the pry bar from end to end, turning it slowly in the light. He taps it, weighs it in his hand, and measures the bend at the tip. He can make crowbars the same way now, from scrap. From now on, a crowbar costs only 10 scrap to build. Tomas says every jammed lock in town should start worrying.",
       after: "Tomas once went to Station 12 with his father, to fix the fire truck. He was nine, and the truck looked as big as a house. The fire crew let him sit in the driver's seat, but touch nothing. He sat on his hands. Afterward, Chief Dunn said a good tool is one you trust when you are scared. Tomas says the van is like that, and so is the crew.",
@@ -94,7 +94,7 @@
     /* ---------- Pip: ready for a dog, the lookout, scrap, a leash, and the dog ---------- */
     "pip-1": {
       title: "Tin of dog treats",
-      brief: "Pip wants to be ready for a dog, even though the crew has none yet. Pip has already drawn a dog with no name and taped it up in Lucy's room. Now Pip wants something a real dog would come running for.\n\nGas-N-Go is west of the cabin. A tin of dog treats lies by the slushie machine, under the LOTTO poster. The tin is red, with a white band around the middle. Pip will give you 20 scrap and 1 spool of wire.",
+      brief: "Pip wants to be ready for a dog, even though the crew has none yet. Pip has already drawn a dog with no name and pinned it up in Lucy's room. Now Pip wants something a real dog would come running for.\n\nGas-N-Go is west of the cabin. A tin of dog treats lies by the slushie machine, under the LOTTO poster. The tin is red, with a white band around the middle. Pip will give you 20 scrap and 1 spool of wire.",
       tag: "A red tin of dog treats with a white band around the middle. It rattles when you shake it, and it is almost full. The lid says: for good dogs only.",
       journal: "You brought Pip a tin of dog treats from Gas-N-Go. Pip put it under their drawing of a dog with no name yet. “June, now the drawing has snacks,” Pip said. I could not argue with that.",
       done: "Pip shakes the tin and listens to it rattle, eyes closed, as if it were music. Then Pip shakes it again, just to be sure. Pip says a dog will come to someone who has treats, and now the crew has treats. Then the tin goes under Pip's drawing of a dog, ready for the real one.",

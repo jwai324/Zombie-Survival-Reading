@@ -114,7 +114,7 @@
       brief:
         "Tomas found a shut-down robot dog by the back fence. It is an old Bolt-model. Tomas wants to wake it up. First, it needs new leg motors. Reyes Hardware is northeast of the cabin. A box of leg motors sits on the floor there. It is beside the riding mower. Look for a cardboard box with a red label. You get 25 scrap and 1 spool of wire.",
       tag: "This cardboard box holds four small leg motors. Each one is wrapped in paper. The red label says: for school robot dogs, Bolt-model.",
-      journal: "You brought Tomas leg motors from Reyes Hardware. Now the robot dog in the garage can stand. It still wobbles, though.",
+      journal: "You brought Tomas leg motors from Reyes Hardware. Now the robot dog by the van can stand. It still wobbles, though.",
       done: "Tomas fits the leg motors into the robot dog. He does it one leg at a time. It stands up and wobbles. Then it sits down again with a click. Tomas laughs and thanks you. He says it is a start.",
       after:
         "Tomas says Bolt-model dogs were built to copy Bolt. Bolt was Koen's first robot dog. Bolt went everywhere Koen went, even to Mira-9. Tomas wants this one to go everywhere you go. He pats its metal head.",
@@ -147,7 +147,7 @@
       journal: "You brought Tomas the school robot dog's gold star badge. Tomas and Pip stayed up late. They taught the robot dog all our names.",
       done: "Tomas takes the memory chip from behind the badge. He moves it into the robot dog. The robot dog turns its head. It looks at each of you, one by one. Then it beeps. Tomas thanks you.",
       after:
-        "Tomas says the robot dog knows our faces now. But it still needs eyes that see in the dark. It also needs a voice to warn us. Then it can go out with you, Tomas says.",
+        "Tomas says the robot dog knows our faces now. But it still needs eyes that see in the dark. It also needs a voice to beep at us. Then it can go out with you, Tomas says.",
     },
     "tomas-leo-5": {
       title: "Toolbox of robot-dog parts",
@@ -155,7 +155,7 @@
         "The toy store at Northgate Mall sold robot dog parts. It sold spare eye lights and voice chips. Northgate Mall is northeast of the cabin. Look by the green dino for a red steel toolbox. The parts are inside. With them, the robot dog can see in the dark. It can zap walkers and come with you. Tomas will give you 60 scrap.",
       tag: "This red steel toolbox holds two blue eye lights. A small voice chip is inside too. The lid sticker says: Toy Town, robot dog repairs.",
       journal: "You brought Tomas the last parts for the robot dog. Tomas named it Rivet. Rivet followed you around the yard all evening, beeping.",
-      done: "Tomas fits the eye lights and the voice chip. The robot dog wakes up for good. Tomas names it Rivet, since rivets hold it together. Rivet follows you everywhere, even into buildings and the van. Its zaps slow walkers down, but it is no gun. Too many bites will shut it down. Tomas fixes it at home for 20 scrap.",
+      done: "Tomas fits the eye lights and the voice chip. The robot dog wakes up for good. Tomas names it Rivet, since rivets hold it together. Rivet follows you in the yard and buildings. It rides in the van. Its zaps slow walkers down, but it is no gun. Too many bites shut it down. Tomas fixes it at home for 20 scrap.",
       after:
         "Tomas says Koen would be proud of Rivet. Koen once wrote about robots. A robot is only as good as one thing. That is the friend who fixes it. Tomas says he will always fix Rivet. It does not matter how many times.",
     },

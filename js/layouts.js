@@ -589,7 +589,7 @@
       ],
       scatter: { every: 5, keys: [["crack"], ["vent"], ["pipes"], ["poster", "STAY SAFE"]] },
       spots: { 2: [5, 3], 3: [35, 10], 4: [19, 19], 5: [25, 22], 6: [18, 16], 7: [36, 24] },
-      signs: [[16, 27, "n"], [0, 23, "e"], [0, 13, "e"], [24, 7, "s"]],
+      signs: [[16, 27, "n"], [0, 13, "e"], [0, 23, "e"], [24, 7, "s"]],
       walkerZones: { garage: [[27, 1, 36, 26]] },
       landmarks: {
         1: { name: "the dog kennel", art: "kennel", solid: true, size: 0.75, label: "K9" },
@@ -891,7 +891,7 @@
         [39, 15, "warning", "TRIP HAZARD"], [39, 20, "graffiti", "THEY WAIT"],
       ],
       scatter: { every: 5, keys: [["crack"], ["sawBlade"], ["toolWall"], ["poster", "SAFETY FIRST"], ["boarded"]] },
-      spots: { 2: [31, 21], 3: [2, 1], 4: [31, 2], 5: [27, 14], 6: [11, 27], 7: [16, 8] },
+      spots: { 2: [30, 24], 3: [2, 1], 4: [31, 2], 5: [27, 14], 6: [11, 27], 7: [16, 8] },
       signs: [[9, 29, "n"], [29, 16, "w"], [12, 4, "w"], [19, 7, "s"]],
       walkerZones: { yard: [[24, 1, 38, 9]], dock: [[30, 11, 38, 28]] },
       landmarks: {

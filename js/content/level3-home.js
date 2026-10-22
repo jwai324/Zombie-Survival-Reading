@@ -27,7 +27,7 @@
       },
       well: {
         title: "Well site",
-        empty: "June painted the sign: WELL, dig after the Water room is built. A ring of stones marks the spot beside the cabin. Deep under the stones, the water is cold and clean. Water from down there would help you heal faster in the yard. The Farm and the Lab both need the Well first, so this lot matters. To dig it, you need 2 Lumber, 1 Tool kit, and 60 scrap.",
+        empty: "June painted the sign: WELL, dig after the Water room is built. A ring of stones marks the spot in the middle of the yard. Deep under the stones, the water is cold and clean. Water from down there would help you heal faster in the yard. The Farm and the Lab both need the Well first, so this lot matters. To dig it, you need 2 Lumber, 1 Tool kit, and 60 scrap.",
         built: [
           "The sign says WELL: a hand-dug well lined with lumber. A bucket hangs on a rope, and the rope creaks on every pull. Tomas says the creak is a feature. The water comes up cold, clean, and a little sweet. Its clean water helps you heal faster in the yard. A hand pump would work even better. It needs lumber, engine parts, a water filter, and 100 scrap.",
           "The sign says WELL: a hand pump with a filter brings the water up. No more rope burns on anyone's hands. Pip likes to work the handle and count the strokes out loud, but softly. You heal in the yard even faster than before. The Farm and the Lab can grow bigger now, too. A wired pump would need a water tank, engine parts, wire, and 150 scrap.",
@@ -36,7 +36,7 @@
       },
       water: {
         title: "Water barrel",
-        empty: "Tomas painted the sign: WATER, filter goes here. An empty barrel sits on two sawhorses by the cabin wall. When it rains, gray water fills it up. A filter and a tank here would turn that rainwater clear. Then you would heal faster while you are in the yard. To start, it needs 1 Water filter and 40 scrap. The Well waits on this lot, so build it early.",
+        empty: "Tomas painted the sign: WATER, filter goes here. An empty barrel sits on two sawhorses by the back fence. When it rains, gray water fills it up. A filter and a tank here would turn that rainwater clear. Then you would heal faster while you are in the yard. To start, it needs 1 Water filter and 40 scrap. The Well waits on this lot, so build it early.",
         built: [
           "The sign says WATER: a filter sits on top of the barrel. Gray water goes in at the top. Clear water drips out at the bottom, one slow drop at a time. It is slow, but it works. Because of it, you slowly heal in the yard. A big tank would hold much more. That needs a water tank, another filter, and 80 scrap.",
           "The sign says WATER: a filter and a big tank, full of clean water. The tank sits in the shade so nothing grows inside it. You heal faster in the yard now. June washes her hands at the spout. She says it feels like the old days. Two filters would make it even better. That needs a tank, 2 filters, and 120 scrap.",
@@ -45,7 +45,7 @@
       },
       power: {
         title: "Power pole",
-        empty: "Tomas painted the sign: POWER, lights first. A bare pole stands by the shed. An old coil of rope lies at its foot. Fuel, wire and lights here would show how dangerous each place is. You could pick your drives with your eyes open. Later a generator could do even more. To start, it needs 2 Fuel cans, 1 Spool of wire, and 60 scrap.",
+        empty: "Tomas painted the sign: POWER, lights first. A bare pole stands by the back fence. An old coil of rope lies at its foot. Fuel, wire and lights here would show how dangerous each place is. You could pick your drives with your eyes open. Later a generator could do even more. To start, it needs 2 Fuel cans, 1 Spool of wire, and 60 scrap.",
         built: [
           "The sign says POWER: fuel cans, wire, and a string of working lights. At night the yard glows a soft yellow. The map shows the danger of every place before you drive. Less guessing means fewer bad trips, and fewer close calls. A generator would add more. It needs a generator, 2 fuel cans, and 100 scrap.",
           "The sign says POWER: a generator hums under a tin roof. It runs in the day and stays off at night, because walkers hear it. The map shows danger, and you find one supply crate on every drive. Tomas says the hum helps him think. Headlights for the van would be next. They need wire, fuel, and 150 scrap.",
@@ -75,123 +75,123 @@
 
   T.journal = [
     {
-      title: "Day 1, by Candlelight",
+      title: "By Candlelight",
       text: "This is the first page of my green ledger. I am writing by candlelight, so forgive the wobbly lines. The van rolled into the yard on its last drops of fuel. Tomas talked to the engine the whole way, and I think it listened. The cabin at the south end of town was empty and dry. It has a woodstove, and the door still locks. Pip fell asleep on the bench before the bags were even inside. You took the first watch at the window. Nothing came. Good night, from June.",
     },
     {
-      title: "Day 2: Bigger than It Looked",
+      title: "Bigger than It Looked",
       text: "In daylight the cabin is bigger than it looked last night. It is a whole family house with a porch, and the roof is sound. An old fence circles the yard. Some of its boards are loose. Behind the cabin, the dirt is dark and good. I noticed it first, of course. Old gardeners always look down. Tonight I wrote our first rule on the inside of the door. Say where you are going before you go. Pip read it twice and asked, “Even to the bathroom?” Yes, Pip. Even there. — June",
     },
     {
-      title: "Day 3: The Old Mule",
+      title: "The Old Mule",
       text: "Tomas spent the morning under the van. When he slid out, he was smiling and covered in grease. He says the van is old but honest, like a good mule. I have never met a mule I trusted, but I trust Tomas. In the afternoon you drove out to look for supplies. I watched the road the whole time, until the van came back. “June, you are allowed to blink,” Pip told me. Pip counted the minutes you were gone. Then Pip wrote the number on the wall in pencil.",
     },
     {
-      title: "Day 4: The First Wave",
+      title: "The First Wave",
       text: "The first walkers came to the fence at dusk. They came in a group, all at once. They pushed at the boards until the wood groaned. Then, just like that, the yard went quiet for a while. I sat up late and thought about it. They come in waves, with calm in between. That is something we can plan around. So a new rule went on the door tonight. No shouting in the yard, because walkers follow sound. Pip whispered, “June, can I still sing?” Only very, very softly.",
     },
     {
-      title: "Day 5: Where Everyone Went",
+      title: "Where Everyone Went",
       text: "Pip asked me where everyone in town went. It is a fair question, and I wanted to answer it honestly. I said some people left, and some people hid. And some people are still out there, helping each other. Pip thought about that for a long time. Then Pip asked if we could keep a dog if we found one. I said a dog would need to eat too. Pip said a dog would also need a name. That was not my point, but it was a good point. — June",
     },
     {
-      title: "Day 6: Patch Before Supper",
+      title: "Patch Before Supper",
       text: "The days have a rhythm now. Drive out, come home, hold the fence. It sounds simple, and some days it even is. Here is what I learned today. A hole in the fence does not close by itself. Someone has to patch it with scrap, every single time. So I made it a rule. Patch the fence before supper. Tomas grumbled about it, but he did it first. Supper was beans again. Nobody complained out loud, and I am counting that as a win. — June",
     },
     {
-      title: "Day 7: Waiting on Seeds",
+      title: "Waiting on Seeds",
       text: "Before the Fall, I was the gardener at a school. I want a little of that back. I picture raised beds behind the cabin, with beans, squash and tomatoes. The dirt is ready, and so am I. All we need now are seeds. My old friend Rosa ran the greenhouses at Greenhouse Row. That is west of the gas station. If anyone still has seeds, it is Rosa. She once grew a pumpkin the size of a tire. I told Pip, and Pip did not believe me. — June",
     },
     {
-      title: "Day 8: The Red R",
+      title: "The Red R",
       text: "People talk about a scout named Ruby. She paints a red R on buildings around town. Next to the R, she writes how many walkers she saw inside. It is simple, and it could save a life. Pip practiced painting the R on a board today. Pip put a number next to it, very neat. Then Pip painted three more, just for practice. A stranger who leaves warnings for other strangers is a good sign. It means someone still cares about people they will never meet. — June",
     },
     {
-      title: "Day 9: Under the Cars",
+      title: "Under the Cars",
       text: "Tomas told me about his father tonight. His father was a mechanic. He learned the trade from Mr. Ortiz at Ortiz Auto. Tomas learned it from his father, lying under cars and handing over wrenches. Today he fixed the van's loose mirror. He used wire and pure stubbornness, and it has not moved since. He hopes Mr. Ortiz is still out there somewhere. So do I. A man who taught that well should meet his students' students. I told Tomas so, and he went red to the ears.",
     },
     {
-      title: "Day 10: Rain and Cards",
+      title: "Rain and Cards",
       text: "It rained all day. The roof leaked in two spots, and one was right over my chair. We put pots under the drips and listened to them plink. Then we played cards by the stove. Pip won every game. Pip would not explain how, and Tomas checked both sleeves twice. Nothing. A rainy day with everyone inside is a good day. No one on the road, and no one at the fence. Just the stove, the pots, and a card shark named Pip. — June",
     },
     {
-      title: "Day 11: Static and Voices",
+      title: "Static and Voices",
       text: "Pip found an old radio dial in a kitchen drawer. Pip turned it slowly for an hour. There was only static, a long gray hiss. Still, Pip is sure there are voices out there. People say someone named Jo talks on the radio from a rooftop. Maybe Jo is real, and maybe not. Pip has started a list of every voice the crew hears. The first name on it is mine. “June,” it says, in big letters. I am honored, and a little worried about the spelling.",
     },
     {
-      title: "Day 12: Sunflowers by the Fence",
+      title: "Sunflowers by the Fence",
       text: "Today I remembered my school garden. One spring, the kids planted sunflowers along the fence. I taught them to plant a seed one finger deep. I taught them to water it every day, even on weekends. Some of them did, and some of them tried. The sunflowers grew taller than all of us. I wonder where those kids are now. I hope they are safe, wherever they went. I hope they remember the sunflowers. I still remember every one of their faces. — June",
     },
     {
-      title: "Day 13: Counting the Food",
+      title: "Counting the Food",
       text: "I count the food every night now. I write the number here, in this ledger, so we never have to guess. Every trip in the van eats food. A hungry crew makes a weak van. A weak van is a danger to everyone. So the rule is simple. Everyone eats the same, even when there is not much. Tonight there was not much. Tomas gave Pip half his bread anyway. I pretended not to see. Some rules can bend a little. — June",
     },
     {
-      title: "Day 14: Talk of a Convoy",
+      title: "Talk of a Convoy",
       text: "There is talk of the River Convoy. It is a line of boats and trucks. A police sergeant named Vega is getting it ready. The plan is to leave north along the river road. Tomas wants to see if the van could make the trip. He already has a list of parts it would need. I am not sure I want to leave the cabin. The roof leaks, but it is our roof. We will talk about it again. Not tonight, though. — June",
     },
     {
-      title: "Day 15: Half a Month",
+      title: "Half a Month",
       text: "Tomas fixed the squeaky cabin door today. He used a strip of wire and some cooking oil. Now it swings without a sound. I told him he would fix the moon if someone handed him a ladder. Pip looked worried and asked if the moon was broken. No, Pip. The moon is fine. Here is the real news. We have lasted half a month at the cabin. That is longer than anyone guessed, me included. I wrote it down twice, to be sure. — June",
     },
     {
-      title: "Day 16: The Hardest Night",
+      title: "The Hardest Night",
       text: "Last night was the hardest night yet. Walkers came at the fence from every side. The boards cracked, and I was sure one would give. Nobody ran, and nobody shouted. Everyone stayed in place and did their job. The fence held until morning, and so did we. Pip slept in the closet with a pot on their head. Pip called it a helmet. This morning I put the pot back on the stove. It still has a dent in it. — June",
     },
     {
-      title: "Day 17: Doc Lin's Rounds",
+      title: "Doc Lin's Rounds",
       text: "There is talk of a doctor named Doc Lin. Doc Lin carries medicine around town, mostly on foot. The route goes between the grocery, the pharmacy and the hospital. Back and forth, rain or not. A nurse named Ada stayed at the hospital, St. Anne Annex. She stayed to keep the generator running. I think about those two a lot. People like that are the reason the town is not gone. We should try to be people like that, too. — June",
     },
     {
-      title: "Day 18: Frost on the Glass",
+      title: "Frost on the Glass",
       text: "This morning there was frost on the van's windshield. Tomas scraped it off with an old library card. He says it is the most use that card ever got. Cold mornings worry me. Before we need anything else, we need blankets. A cold crew sleeps badly, and a tired crew makes mistakes. So blankets go at the top of the list. Pip drew a dog in the frost on the window. It had a long tail and a very big smile. — June",
     },
     {
-      title: "Day 19: Counting Heads",
+      title: "Counting Heads",
       text: "People tell a story about a teacher named Ms. Adler. She led her whole class out of Lincoln Middle School. People say she took them to the Public Library. Two of her students got separated from the class. They are twins, named Max and Mia. I keep thinking about those two. A good teacher counts heads every hour. I know, because I used to. I hope Ms. Adler is still counting, and I hope her count comes out right. — June",
     },
     {
-      title: "Day 20: What We Carry",
-      text: "Pip asked me if the world is ever going to come back. I took a long time to answer. I said some of it will, the parts people carry with them. Pip asked which parts our crew is carrying. I pointed at the door first, at the rules. Then I pointed at the jar of seeds on the shelf. Then I pointed at Tomas, and at Pip, and at me. The rules, the seeds, and each other, I said. Pip nodded slowly. — June",
+      title: "What We Carry",
+      text: "Pip asked me if the world is ever going to come back. I took a long time to answer. I said some of it will, the parts people carry with them. Pip asked which parts our crew is carrying. I pointed at the door first, at the rules. Then I pointed out the back window, at the dirt where the seeds go. Then I pointed at Tomas, and at Pip, and at me. The rules, the seeds, and each other, I said. Pip nodded slowly. — June",
     },
     {
-      title: "Day 21: The Rules, Out Loud",
+      title: "The Rules, Out Loud",
       text: "After supper, I read the rules on the door out loud. Say where you go. No shouting in the yard. Patch the fence before supper. Everyone eats the same. Pip listened, then held up a hand. Pip wants to add a rule: take what you need, leave the rest. I said that one is the town's rule, not just ours. But it is a good one. So it goes on the door too, in Pip's big, loopy letters. — June",
     },
     {
-      title: "Day 22: Messages Find People",
+      title: "Messages Find People",
       text: "Pip keeps asking about Ruby and her younger brother, Dev. People say Ruby is looking for Dev all over town. They say Dev leaves messages for her wherever he goes. Notes, chalk, paint on the walls. Pip has thought about this a lot. Pip says if they keep leaving messages, they will find each other. It is that simple, Pip says. I did not argue. Some days, the simple answer is the truest one anyone gives. — June",
     },
     {
-      title: "Day 23: Engine Talk",
+      title: "Engine Talk",
       text: "Tomas is teaching Pip to listen to the van's engine. They lie side by side on the cold ground under it. A tick means one thing. A knock means another. A squeal means stop right now, no matter what. Pip took notes, of course, with drawings. Now Pip says hello to the van every morning, very politely. Tomas says the van likes it. I have decided not to ask how he knows. Some things are between a mechanic and his van. — June",
     },
     {
-      title: "Day 24: Big, Messy Letters",
+      title: "Big, Messy Letters",
       text: "My knees ache on cold mornings. I think they are older than the cabin. Today I showed Pip how to keep the ledger. That is just in case my hands get stiff. Pip writes big and messy, with loops on every letter. I told Pip that is fine. A ledger only has to be honest, not neat. Pip wrote the date, the food count, and a small drawing of the van. The van had a face. I kept the drawing. — June",
     },
     {
-      title: "Day 25: A Bark Past the Trees",
+      title: "A Bark Past the Trees",
       text: "A dog barked somewhere past the trees last night. Just three barks, and then nothing. Pip stood at the window for an hour, listening. Tomas said a dog that survived this long must be smart. Smart enough to find the crew, he said, if it wants to. This morning Pip left a bowl of water by the gate, just in case. I did not say a word about it. I may have filled the bowl again at noon. — June",
     },
     {
-      title: "Day 26: Stories in the Wind",
-      text: "The wind came hard from the north and rattled the windows all night. Nobody could sleep, so we told stories by the stove. Tomas told one about his father's garage and the smell of hot oil. I told one about my school garden and a very brave tomato. Pip told one about a dog that drives a van. It was the best story by far. The dog parks badly, but everyone forgives him. — June",
+      title: "Stories in the Wind",
+      text: "The wind came hard from the north and rattled the windows all night. Nobody could sleep, so we told stories by the stove. Tomas told one about his father's garage and the smell of hot oil. I told one about my school garden and a very brave tomato. Pip told one about a dog that drives a van. It was the best story by far. The dog parks badly, but everyone forgives it. — June",
     },
     {
-      title: "Day 27: Reading by the Window",
+      title: "Reading by the Window",
       text: "I think about my old students when I write in here. If any of them made it, maybe they are in the library. It helps to picture them reading by the window. I see them turning pages, heads close together. One reads too slowly, and another one reads ahead. Someone is whispering the hard words. Then I close the ledger and get up. There is always a next job, and I do it. — June",
     },
     {
-      title: "Day 28: What We Want",
+      title: "What We Want",
       text: "Tomas says the van could make it up the river road. That is, if the convoy ever leaves. So tonight I asked the crew what they want. Pip said a dog, right away. Tomas said a garage, with real tools on the wall. I said a garden, and they both rolled their eyes at me. We talked for a long time after that. In the end, we agreed. The cabin is home for now. — June",
     },
     {
-      title: "Day 29: A Quiet Day",
+      title: "A Quiet Day",
       text: "A quiet day, the first in a while. Sun on the yard and wind in the trees. No walkers at the fence for hours. I sat on the step and wrote slowly, just because I could. Tomas whistled under the van. Pip practiced knots on the fence rope, tongue sticking out. Quiet days are not wasted. They are how you get ready for loud ones. Tomorrow may be loud. Today was not. — June",
     },
     {
-      title: "Day 30: Still Here",
+      title: "Still Here",
       text: "Tonight I read the ledger back to the crew, from the very first page. It took a while, and Pip asked for the funny parts twice. We found the cabin. We kept it, and we kept each other. Tomorrow is the same work as today. The van, the fence, the food, the rules on the door. At the bottom of this page, I wrote one more line. We are still here, and that is a lot. — June",
     },
   ];
@@ -451,15 +451,15 @@
       },
       gusRoom: {
         title: "Gus's Keep Out Sign",
-        text: "A sign on the door says: Gus's Room. Keep Out. This Means You, Finn. Gus is sixteen. He left behind a guitar with two broken strings. It still leans against the bed. Tomas sleeps in here now. He says the sign still counts, only now it means Pip.",
+        text: "A sign by the door says: Gus's Room. Keep Out. This Means You, Finn. Gus is sixteen. He left behind a guitar with two broken strings. It still leans in the corner. Tomas sleeps in here now. He says the sign still counts, only now it means Pip.",
       },
       finnRoom: {
         title: "Finn's Treehouse Plan",
-        text: "Finn drew a plan for a treehouse and taped it over his desk. It goes in the woods past the fence. The plan has a rope ladder and a lookout at the top. A bucket on a pulley hauls things up. Every part has a label in careful letters. Pip wants to build it someday, after the fence is strong.",
+        text: "Finn drew a plan for a treehouse and taped it on the wall by his bed. It goes in the woods past the fence. The plan has a rope ladder and a lookout at the top. A bucket on a pulley hauls things up. Every part has a label in careful letters. Pip wants to build it someday, after the fence is strong.",
       },
       lucyRoom: {
         title: "Lucy's Dog Drawing",
-        text: "A crayon drawing is taped above the bed. It shows a dog with big floppy ears. The top says: MY DOG BISCUIT. Under it, Lucy wrote that Biscuit can sit, shake, and roll over. Pip pinned a second drawing right next to it. It is a dog too, but it has no name yet.",
+        text: "A crayon drawing is taped on the wall beside the bed. It shows a dog with big floppy ears. The top says: MY DOG BISCUIT. Under it, Lucy wrote that Biscuit can sit, shake, and roll over. Pip pinned a second drawing right next to it. It is a dog too, but it has no name yet.",
       },
       playroom: {
         title: "The Chalkboard Rule",

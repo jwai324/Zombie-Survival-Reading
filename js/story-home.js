@@ -149,7 +149,7 @@
     ] },
     { id: "journal-24", facts: [
       "June's knees ache on cold mornings.",
-      "She showed Pip how to keep the ledger, just in case her hands get stiff.",
+      "Just in case her hands get stiff, she showed Pip how to keep the ledger.",
       "Pip's writing is big and messy, and June says that is fine.",
       "A ledger only has to be honest, not neat.",
     ] },
@@ -468,7 +468,7 @@
     },
     well: {
       empty: [
-        "A ring of stones marks the spot beside the cabin.",
+        "A ring of stones marks the spot in the middle of the yard.",
         "June painted the sign: WELL, dig after the Water room is built.",
         "Water from deep underground comes up cold and clean, so you would heal faster in the yard.",
         "The Farm and the Lab both need the Well first.",
@@ -481,7 +481,7 @@
     },
     water: {
       empty: [
-        "An empty barrel sits on two sawhorses by the cabin wall.",
+        "An empty barrel sits on two sawhorses by the back fence.",
         "Tomas painted the sign: WATER, filter goes here.",
         "A filter and a tank here would turn gray rainwater clear, so you heal faster while you are in the yard.",
       ],
@@ -493,7 +493,7 @@
     },
     power: {
       empty: [
-        "A bare pole stands by the shed with an old coil of rope at its foot.",
+        "A bare pole stands by the back fence with an old coil of rope at its foot.",
         "Tomas painted the sign: POWER, lights first.",
         "Fuel, wire and lights here would let the map show how dangerous each place is.",
         "Later a generator could do even more.",
@@ -594,7 +594,7 @@
       "The radio shelf used to stand by the couch, until Pip carried it to the dining room, where the crew eats.",
     ],
     gusRoom: [
-      "A sign on the door says: GUS'S ROOM, KEEP OUT, THIS MEANS YOU FINN.",
+      "A sign by the door says: GUS'S ROOM, KEEP OUT, THIS MEANS YOU FINN.",
       "Gus is sixteen and left behind a guitar with two broken strings.",
       "Tomas sleeps here now, and he says the sign still counts for Pip.",
     ],

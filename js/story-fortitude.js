@@ -9,8 +9,9 @@
    The same rules as js/story-leo.js: nothing here edits a base fact; topics and quests carry
    `universe: "fortitude"` and show only in this universe; journal lines and broadcasts are told in order by this
    universe's own count. Pip's track decodes the radio's bursts: old records of the Fortitude Accord, kept by an
-   archive nobody can find. The Book 1 keepsakes (a pod tag, an Accord page, an Abyss Explorer pin) are the track's
-   story objects, with their tags at six levels. Old saves store these ids: append, never rename, remove or reorder. */
+   archive nobody can find. The Fortitude keepsakes (a Waiting Vault pod tag, a copy of an Accord page, an Abyss
+   Explorer pin; the last two are Book 1 replicas) are the track's story objects, with their tags at six levels.
+   Old saves store these ids: append, never rename, remove or reorder. */
 (function (root) {
   "use strict";
   const W = root.ZSR.WORLD;
@@ -20,7 +21,7 @@
   W.UNIVERSES.fortitude = {
     name: "Fortitude",
     where: "Earth",
-    sky: "ring", // the old shipyard ring across the sky, and Mars as a bright point (js/crossover.js)
+    sky: "ring", // the old shipyard ring across the sky, and Mars as a bright point (drawn by ZSR.Crossover.sky in js/crossart.js)
     journalEvery: 2,
     radioEvery: 3,
     journal: [
@@ -36,7 +37,7 @@
       ] },
       { id: "fort-j3", facts: [
         "Every school on Earth teaches the story of Dr. Camila Reyes, who saw the Fortitude fleet first.",
-        "Pip can name her whole team: Zoe, Kennedy, Ava, Patriya and Annabelle.",
+        "Pip can name Dr. Reyes's whole team: Zoe, Kennedy, Ava, Patriya and Annabelle.",
         "June says that was hundreds of years ago, but it still feels close some nights.",
       ] },
       { id: "fort-j4", facts: [
@@ -294,6 +295,7 @@
       tag: [
         "A gold badge with a star, on a black leather fold.",
         "Stamped on the back: Abyss Explorer, seven miles down.",
+        "It is a keepsake copy of a very old pin.",
       ],
       journal: [
         "You brought Pip an Abyss Explorer pin from Station 12.",
