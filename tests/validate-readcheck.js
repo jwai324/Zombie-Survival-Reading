@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /* The reading check (js/readcheck.js, the logs in js/state.js): a note's time is logged when its screen is hidden,
    without the time the tab was hidden; a second read is marked; each save keeps its own log, capped, cleared with
-   the save; nothing is logged in god mode; the PIN gates the page. Part of npm test.
+   the save; nothing is logged in god mode; the PIN gates the page; each note's words are kept once, capped, so the
+   page can show them. Part of npm test.
    Prints one OK line, or the errors and exit 1. */
 "use strict";
 const fs = require("fs");
@@ -97,6 +98,7 @@ try {
   ok(log[0] && log[0].ms === 20000, "time with the tab hidden is not counted (got " + (log[0] && log[0].ms) + " ms)");
   ok(log[0] && log[0].words === 60 && log[0].kind === "note" && log[0].place === "Gas-N-Go" && log[0].again === false, "the entry keeps its words, kind, place, and is a first read");
   ok(store.has("zs.readlog.1") && !JSON.parse(store.get("zs.save.1")).readLog, "the log is written apart from the save");
+  ok(S.readText(1, "n1") === sixty && S.readText(1, "nope") === null, "the words a note showed are kept for the page");
 
   // read again; a new note over an open one logs the open one first
   open("n1", sixty);
@@ -109,6 +111,32 @@ try {
   const groups = R.byNote(S.readLog(1));
   const n1 = groups.find((g) => g.id === "n1");
   ok(groups.length === 2 && n1 && n1.opens.length === 2 && n1.total === 22000 && groups[0].id === "n2", "byNote: one row a note, every open and the total, the last opened first");
+  ok(S.readText(1, "n2") === "a few words" && JSON.parse(store.get("zs.readtext.1")).list.length === 2, "each note's words are kept once, not once an open");
+
+  // the words as the player saw them: blocks become paragraphs, entities are decoded, the word count is unchanged
+  const html = '<p class="recap">Day 2 &amp; the rain.</p><p>Line one<br>line two</p><h4 class="radio-head">On the radio</h4><p>Static.</p>';
+  const shown = R.plain(html);
+  ok(shown === "Day 2 & the rain.\n\nLine one\nline two\n\nOn the radio\n\nStatic.", "plain() keeps paragraphs and line breaks and decodes entities (got " + JSON.stringify(shown) + ")");
+  ok(shown.split(/\s+/).length === html.replace(/<[^>]+>/g, " ").trim().split(/\s+/).length, "plain() counts the same words as stripping the tags");
+
+  // clicking a note on the page shows its words under its row, and again hides them
+  const mk = () => {
+    const cls = new Set(["rc-text-row", "hidden"]);
+    const row = { classList: { contains: (c) => cls.has(c), toggle: (c, on) => (on ? cls.add(c) : cls.delete(c)) }, dataset: {}, cells: [{ innerHTML: "" }] };
+    const attrs = {};
+    const btn = { closest: () => ({ nextElementSibling: row }), getAttribute: (k) => attrs[k], setAttribute: (k, v) => (attrs[k] = v) };
+    return { cls, row, btn, attrs };
+  };
+  const a = mk();
+  a.attrs["data-note"] = "n1";
+  R.toggleText(a.btn, 1, S.readLog(1));
+  ok(!a.cls.has("hidden") && a.attrs["aria-expanded"] === "true" && a.row.cells[0].innerHTML.includes("<p>" + sixty + "</p>"), "clicking a note shows its words");
+  R.toggleText(a.btn, 1, S.readLog(1));
+  ok(a.cls.has("hidden") && a.attrs["aria-expanded"] === "false", "clicking it again hides them");
+  const b = mk();
+  b.attrs["data-note"] = "gone";
+  R.toggleText(b.btn, 1, [{ id: "gone", words: 3, level: 3 }]);
+  ok(/not kept/.test(b.row.cells[0].innerHTML), "a note whose words were not kept says so");
   screen.classList.add("hidden");
   ok(S.readLog(1).length === 3, "hiding an already hidden screen logs nothing more");
   R.start("screen-note", { kind: "note", id: "blank", text: "  " });
@@ -121,18 +149,22 @@ try {
   for (let i = 0; i < 700; i++) S.logReading({ at: i, kind: "note", id: "x" + i, words: 1, ms: 1 });
   const capped = S.readLog(2);
   ok(capped.length < 700 && capped[capped.length - 1].id === "x699", "the log keeps only the newest entries (" + capped.length + " of 700)");
+  const big = "word ".repeat(20000);
+  for (let i = 0; i < 40; i++) S.keepReadText("big" + i, big);
+  const kept = JSON.parse(store.get("zs.readtext.2")).list;
+  ok(kept.length < 40 && kept[kept.length - 1][0] === "big39" && S.readText(2, "big0") === null, "the kept words are capped, the oldest dropped first (" + kept.length + " of 40 kept)");
   S.deleteSlot(2);
-  ok(!store.has("zs.readlog.2"), "deleting a save deletes its log");
+  ok(!store.has("zs.readlog.2") && !store.has("zs.readtext.2"), "deleting a save deletes its log and its kept words");
   S.loadSave(1);
   S.clearReadLog(1);
-  ok(S.readLog(1).length === 0, "clearReadLog empties a save's log");
+  ok(S.readLog(1).length === 0 && !store.has("zs.readtext.1"), "clearReadLog empties a save's log and its kept words");
 
   // god mode: nothing logged
   S.godStart(false);
   open("g1", sixty);
   tick(5000);
   screen.classList.add("hidden");
-  ok(!store.has("zs.readlog.1"), "nothing is logged in god mode");
+  ok(!store.has("zs.readlog.1") && !store.has("zs.readtext.1"), "nothing is logged or kept in god mode");
   S.godEnd();
 
   // the PIN: set once, kept hashed, needed after a lock

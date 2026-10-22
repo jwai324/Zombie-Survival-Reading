@@ -9,10 +9,15 @@
   // settings: the shared fallback (no save chosen yet, or a slot from before settings were per save);
   // slotSettings: each save slot's own reading level, text size, sound and the rest
   // readLog: each save slot's reading check log (js/readcheck.js), written apart from the save the moment a note
-  // closes, so a trip lost to a death still counts; readCheck: the owner's PIN (hashed) and speed limit, all saves
-  const KEYS = { settings: "zs.settings", slotSettings: (id) => "zs.settings." + id, slots: "zs.slots", legacy: "zs.base", slot: (id) => "zs.save." + id, readLog: (id) => "zs.readlog." + id, readCheck: "zs.readcheck" };
+  // closes, so a trip lost to a death still counts; readText: the words each logged note showed, once a note, so the
+  // owner can read it on the page; readCheck: the owner's PIN (hashed) and speed limit, all saves
+  const KEYS = { settings: "zs.settings", slotSettings: (id) => "zs.settings." + id, slots: "zs.slots", legacy: "zs.base", slot: (id) => "zs.save." + id, readLog: (id) => "zs.readlog." + id, readText: (id) => "zs.readtext." + id, readCheck: "zs.readcheck" };
   // SCALE: the newest READ_LOG_MAX timed notes are kept per save (about 150 bytes each in localStorage)
   const READ_LOG_MAX = 600;
+  // SCALE: the words of the notes read are kept per save up to READ_TEXT_MAX characters, the oldest dropped first,
+  // so every save slot at its cap (1.2 M characters for 4) leaves most of localStorage's ~5 M for the saves. All of
+  // level 3's text is about 240,000 characters today; a long run at level 5 or 6 loses its oldest notes' words.
+  const READ_TEXT_MAX = 300000;
 
   const DEFAULT_SETTINGS = {
     level: 3, // reading level 1..6
@@ -350,6 +355,7 @@
       idx.active = sid;
       write(KEYS.slots, idx);
       write(KEYS.readLog(sid), null); // a new player starts a new reading check log
+      write(KEYS.readText(sid), null);
       // a new save starts from the settings on screen, and shows its new player the how-to and the tutorial
       this.settings = Object.assign({}, this.settings, { seenHowto: false, tutorial: null });
       this.saveSettings();
@@ -366,6 +372,7 @@
       write(KEYS.slot(id), null);
       write(KEYS.slotSettings(id), null);
       write(KEYS.readLog(id), null);
+      write(KEYS.readText(id), null);
       if (wasActive) idx.active = null;
       write(KEYS.slots, idx);
       if (wasActive) {
@@ -405,6 +412,24 @@
     },
     clearReadLog(id) {
       write(KEYS.readLog(id), null);
+      write(KEYS.readText(id), null);
+    },
+    /** The words a logged note showed the first time they were kept, or null (not kept, or trimmed). */
+    readText(id, noteId) {
+      const hit = id ? (read(KEYS.readText(id), { list: [] }).list || []).find((p) => p[0] === noteId) : null;
+      return hit ? hit[1] : null;
+    },
+    /** Keep the words a note showed, for the active save, once a note: [[noteId, text], ...] oldest first. */
+    keepReadText(noteId, text) {
+      const sid = this.activeSlot();
+      if (!sid || this.god || !text) return false;
+      const list = read(KEYS.readText(sid), { list: [] }).list || [];
+      if (list.some((p) => p[0] === noteId)) return false;
+      list.push([noteId, String(text)]);
+      let size = list.reduce((a, p) => a + p[1].length, 0);
+      while (size > READ_TEXT_MAX && list.length > 1) size -= list.shift()[1].length;
+      write(KEYS.readText(sid), { list });
+      return true;
     },
     /** { pinHash: null until the owner sets a PIN, wpm: the "too fast" line, or null for the default }. */
     readCheckConfig() {

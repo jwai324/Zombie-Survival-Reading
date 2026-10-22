@@ -26,7 +26,7 @@
   const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
   /** The reading check (js/readcheck.js) times the note now on screen, counting its words as shown. */
   const timeNote = (kind, id, place) =>
-    ZSR.ReadCheck && ZSR.ReadCheck.start("screen-note", { kind, id, place, title: document.getElementById("note-title").textContent, text: document.getElementById("note-text").innerHTML.replace(/<[^>]+>/g, " ") });
+    ZSR.ReadCheck && ZSR.ReadCheck.start("screen-note", { kind, id, place, title: document.getElementById("note-title").textContent, text: ZSR.ReadCheck.plain(document.getElementById("note-text").innerHTML) });
 
   const Backpack = {
     onClose: null,
