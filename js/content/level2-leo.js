@@ -79,6 +79,12 @@
         text: "Sool hummed a slow song with long notes. Sool called it the cloud-tree song. Then Sool said, \"We wait. We are friends.\" The knock came one more time, three soft notes. Then the radio went quiet.",
       },
     ],
+    /* The notes under the cabin door (WORLD.UNIVERSES.leo.notes): an unsigned writer, the note range */
+    notes: [
+      { title: "Count the Moons", text: "Hello. I slipped this note under the cabin door. I am glad to see lights on in there again.\n\nI have a small favor to ask. Tonight, look up and count the moons. One is small and close. The other is huge and pale. Its white clouds turn so slowly they seem still. Old folks in town say the big one is listening.\n\nHere is one more favor. Ask any grown-up in town about the long trip. They took it as kids, or their grandparents did. Every family here has that story.\n\nKnock, knock, knock." },
+      { title: "What the Miners Found", text: "Hello again. The sickness came from across the river. Do you know its name? In the old part of town, people call it the Gray.\n\nThis is how it started. Miners dug deep into old rock across the river. They brought up gray spores from something long dead. Long ago, a forest grew in the sky here. That was before the town was built. Then the forest died. The cloud-people warned the town not to dig there. The miners dug anyway.\n\nThe town's founders came here as kids. Their ship folded space like paper. Every Founders' Day, the town ate cake for them.\n\nKnock, knock, knock." },
+      { title: "Where You Are", text: "I will say it plainly now. This world is Mira-8. The huge pale moon is Mira-9. It is the home of the Mirans, the cloud-people.\n\nAbout two hundred years ago, kids flew to Mira-9. Captain Leo and Co-captain Camila led them. Their ship was called Skip-One. Its Skip Drive only works on growing bodies. That is why only kids could ride it.\n\nThe three knocks are the Come Back Knock. The Mirans send it across the sky. I heard it as a kid. I have answered it ever since. I will not sign my name. But if you hear the knock, you are not alone.\n\nKnock, knock, knock." },
+    ],
   };
 
   T.crew.talk = Object.assign(T.crew.talk || {}, {

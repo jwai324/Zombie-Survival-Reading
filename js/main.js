@@ -386,7 +386,7 @@
           Audio.play("click");
           if (!State.loadSave(slot.id)) return;
           applySettings(); // this save's own reading level, text size and the rest
-          goYardWithDay(); // an unread day page (closed mid-read) comes first
+          logOn(); // a crossover note under the cabin door, then an unread day page (closed mid-read), then the yard
         });
         const del = document.createElement("button");
         del.className = "btn del";
@@ -429,6 +429,22 @@
       renderHowto();
       show("screen-howto");
     } else goYardWithDay();
+  }
+  /** The device's real day, local time: "YYYY-MM-DD" (a crossover note opens once a real day). */
+  function localDate() {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  }
+  /** A save opened from the title screen (a log on). With a crossover universe on, its next note under the cabin
+      door opens first: one a real day, once the tutorial's yard part is done (State.xoverNoteDue). Then the day
+      page, if unread, and the yard. */
+  function logOn() {
+    const date = localDate();
+    const i = Tutorial.done("ready") ? State.xoverNoteDue(date) : -1;
+    if (i < 0) return goYardWithDay();
+    hideScreens();
+    showCanvas(null);
+    Backpack.xoverNote(i, { date, primary: "Continue", onClose: () => goYardWithDay() });
   }
   /** Home with today's page first: the recap, June's journal, the radio. Then the yard. */
   function goYardWithDay(opts, after) {

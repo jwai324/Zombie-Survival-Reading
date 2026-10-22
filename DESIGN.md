@@ -2364,6 +2364,33 @@ The design is `docs/UNIVERSES.md` ("How it works, as built"). Cheap to change:
 - **God mode lists a universe's quests only while it is on**, so a quest can never be jumped to where its object
   would not show.
 
+### Notes under the cabin door: Captain Leo (2026-10-22)
+
+**Asked:** "For games in the captain Leo universe or the fortitude universe insert a note that automatically opens
+the next 3 time a player logs on. The notes should be about 200 words long each and hint to being in those
+universes. By the end of Note 3 it should be clear that you are in that universe." Then: "For Captain Leo only add
+the 3 notes. If some content that should have already been read is used, that is ok."
+
+| Question | Owner's answer |
+|----------|----------------|
+| Which universes? | Captain Leo only, for now. |
+| What is a log on? | Once per real day: the first time the slot is opened that calendar day. |
+| How long? | About 200 words at levels 4 to 5, following the note range at the other levels. |
+| Who writes them? | An unknown writer, left at the base. |
+| Hold the existing Leo content back until note 3? | No. Nothing is held back; repeating what the ledger already said is fine. |
+
+Judgment calls (cheap to change), all in `docs/UNIVERSES.md` "The notes under the cabin door":
+
+- **After the tutorial's yard part** (`Tutorial.done("ready")`), so a note never covers a tutorial card.
+- **No catch-up:** one note per log on day, even after a gap of several days.
+- **Old Leo saves get the notes as read** if they already have Leo day pages (they have seen the storyline): the
+  notes are in the backpack, and none opens by itself.
+- **The writer is not Sool** (Sool lives on Mira-9). They sign every note with the knock, heard it as a kid, and
+  their identity stays open.
+- **The note opens before an unread day page**, and the backpack lists it again under "Notes under the cabin door".
+- **Engine strings** ("Under the cabin door", "Note 1 of 3 · no name signed") are one level of English, like the
+  other engine strings.
+
 ## Driving lag on the owner's PC (2026-10-17)
 
 **Reported:** "The driving is lagging a lot." The owner's FPS meter (hardware acceleration on, per chrome://gpu):

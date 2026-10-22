@@ -1704,7 +1704,7 @@ group("real facts: the crossover universes add on top, and off adds nothing", ()
     // the words resolve at every level
     for (let lv = 1; lv <= 6; lv++) {
       S.settings.level = lv;
-      [["journal", J], ["radio", R]].forEach(([kind, n]) => {
+      [["journal", J], ["radio", R], ["notes", (def.notes || []).length]].forEach(([kind, n]) => {
         for (let i = 0; i < n; i++) ok(g.ZSR.xoverText(u, kind, i).text.length > 20, `universe ${u}: ${kind} ${i} has no words at level ${lv}`);
       });
     }
@@ -1744,6 +1744,54 @@ group("real facts: the crossover universes add on top, and off adds nothing", ()
   S.commit();
   S.loadSave(2);
   ok(S.save.xover && Object.keys(U).every((u) => S.save.xover[u] && S.save.xover[u].journal === 0) && S.save.xover.robo, "universe: an old save without xover did not get one");
+  // the notes under the cabin door: one a real day at a log on, in order, no catch-up, then none
+  S.settings.universe = "off";
+  ok(S.xoverNoteDue("2026-01-01") === -1 && !S.xoverNotesRead().length, "notes: one is due with the universe off");
+  Object.entries(U).forEach(([u, def]) => {
+    const n = (def.notes || []).length;
+    S.settings.universe = u;
+    S.newGame(3, "Notes " + u);
+    if (!n) return ok(S.xoverNoteDue("2026-01-01") === -1, `notes (${u}): one is due in a universe with none`);
+    ok(S.save.xover[u].notes === 0 && S.xoverNoteDue("2026-01-01") === 0, `notes (${u}): a new save does not start at the first`);
+    ok(!S.xoverNoteSeen(1, "2026-01-01", 10), `notes (${u}): a note was read out of order`);
+    const words = S.save.stats.wordsRead;
+    const days = ["2026-01-01", "2026-01-03", "2026-01-09", "2026-01-10", "2026-01-11"];
+    const shown = [];
+    days.forEach((d) => {
+      for (let k = 0; k < 3; k++) { // three log ons the same day: only the first opens one
+        const i = S.xoverNoteDue(d);
+        if (i < 0) continue;
+        ok(k === 0, `notes (${u}): a second note opened on ${d}`);
+        ok(S.xoverNoteSeen(i, d, 100), `notes (${u}): note ${i} due but not marked read`);
+        shown.push(i);
+      }
+    });
+    ok(same(shown, [...Array(n).keys()]), `notes (${u}): they opened ${JSON.stringify(shown)}, not each once in order`);
+    ok(S.save.stats.wordsRead === words + 100 * n, `notes (${u}): their words did not count once each`);
+    ok(same(S.xoverNotesRead(), [...Array(n).keys()]), `notes (${u}): the backpack does not list every read note`);
+    // switching away and back loses nothing; another universe has its own
+    S.settings.universe = "off";
+    ok(!S.xoverNotesRead().length, `notes (${u}): listed with the universe off`);
+    S.settings.universe = u;
+    S.commit();
+    S.loadSave(3);
+    ok(S.save.xover[u].notes === n && S.xoverNoteDue("2027-01-01") === -1, `notes (${u}): the save did not keep them, or one opened after the last`);
+    // a save that played this universe before the notes existed: they wait read, none opens; one that had not: all to come
+    [[4, 0], [0, n]].forEach(([pages, due]) => {
+      S.newGame(3, "Old notes");
+      S.save.xover[u].pages = pages;
+      delete S.save.xover[u].notes;
+      delete S.save.xover[u].noteDate;
+      S.commit();
+      S.loadSave(3);
+      const left = n - S.save.xover[u].notes;
+      ok(left === due, `notes (${u}): an old save with ${pages} day pages in it has ${left} notes to come, not ${due}`);
+    });
+  });
+  // the log on (js/main.js is not run here): Continue opens the note first, after the tutorial's yard part
+  const main = fs.readFileSync(path.join(ROOT, "js", "main.js"), "utf8");
+  ok(/loadSave\(slot\.id\)[\s\S]{0,200}logOn\(\)/.test(main), "notes: Continue on the title screen does not call logOn()");
+  ok(/function logOn\(\)[\s\S]{0,300}Tutorial\.done\("ready"\)[\s\S]{0,60}State\.xoverNoteDue\(/.test(main), "notes: logOn() does not wait on the tutorial and ask State.xoverNoteDue");
 });
 
 /* =====================================================================================================

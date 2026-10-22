@@ -79,6 +79,12 @@
         text: "Sool hummed the cloud-tree song tonight, slow, with long notes that rose and fell. Then Sool said, “We wait. We are friends.” The knock came again, three soft notes, and then the radio went quiet. Pip left it on all night anyway.",
       },
     ],
+    /* The notes under the cabin door (WORLD.UNIVERSES.leo.notes): an unsigned writer, the note range */
+    notes: [
+      { title: "Count the Moons", text: "Hello. I slipped this note under the cabin door last night. It is good to see lights in that window again. The cabin sat dark for months.\n\nI have a small favor to ask. Tonight, step outside and count the moons. One is small and close, the way a moon should be. The other is huge and pale. Its white clouds turn so slowly they seem to stand still. The old folks in town say the big one is listening. I have always believed them.\n\nHere is a second favor. Ask any grown-up in town about the long trip. They took it as kids, or their grandparents did. Every family here has that story, and nobody tells it the same way twice.\n\nKnock, knock, knock." },
+      { title: "What the Miners Found", text: "Hello again. You know the sickness came from across the river. But do you know its name? In the old part of town, people call it the Gray.\n\nHere is how it started. Miners across the river dug into old, deep rock. They brought up gray spores from something long dead. Long before the town was built, a forest grew in the sky here. Then it withered and died, and nobody knows why. The cloud-people warned the town not to dig there. The miners dug anyway.\n\nThe town's founders came here as kids. Their ship folded space like paper. Every Founders' Day, the whole town ate cake and told their story. Ask someone to tell it to you.\n\nKnock, knock, knock." },
+      { title: "Where You Are", text: "I have dropped enough hints, so I will say it plainly. This world is Mira-8. The huge pale moon is Mira-9, the home of the Mirans, the cloud-people.\n\nAbout two hundred years ago, a ship called Skip-One flew to Mira-9. Captain Leo and Co-captain Camila led its crew of kids. Its Skip Drive folded space, but it only worked on growing bodies. So only kids could ride it, and this town began with kids.\n\nThe three knocks at the end of my notes are the Come Back Knock. The Mirans send it across the sky. I heard it as a kid, and I have answered it ever since. I will not sign my name. But if you ever hear the knock, you are not alone.\n\nKnock, knock, knock." },
+    ],
   };
 
   T.crew.talk = Object.assign(T.crew.talk || {}, {

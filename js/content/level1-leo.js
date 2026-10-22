@@ -79,6 +79,12 @@
         text: "Sool hums the cloud-tree song. It is slow, with long notes. Then Sool says, \"We wait. We are friends.\" The knock comes again, three soft notes. Then the radio goes quiet.",
       },
     ],
+    /* The notes under the cabin door (WORLD.UNIVERSES.leo.notes): an unsigned writer, the note range */
+    notes: [
+      { title: "Count the Moons", text: "Hello. I left this note under the cabin door. I am glad the lights are on here again.\n\nWill you do one thing for me? Look up at the sky tonight. Then count the moons. One moon is small, and it is close. The other moon is huge and pale. White clouds turn on it, slow and soft. Old folks in town say the big moon listens.\n\nHere is one more thing to do. Ask a grown-up in town about a long trip. They took that trip as a kid. Or maybe their gran and gramps took it. Each one has a story to tell.\n\nKnock, knock, knock." },
+      { title: "What the Miners Found", text: "Hello again. Do you know the name of the sickness? It came from across the river. The old part of town calls it the Gray.\n\nHere is how it came. Miners dug deep in old rock across the river. They brought up gray spores. The spores came from something long dead. Long ago, a forest grew in the sky here. That was before the town was built. Then the forest died. The cloud-people told the town not to dig there. The miners dug there anyway.\n\nThe first people here came as kids. Their ship could fold space like paper. On Founders' Day, the town had cake for them.\n\nKnock, knock, knock." },
+      { title: "Where You Are", text: "Now I will say it plainly. This world is Mira-8. The huge pale moon is Mira-9. The Mirans live there. They are the cloud-people.\n\nLong ago, kids flew to Mira-9. That was about two hundred years ago. Captain Leo and Co-captain Camila led them. The ship was called Skip-One. It had a Skip Drive. The Skip Drive only works on growing bodies. So only kids could ride it.\n\nDo you know the three knocks? The town calls them the Come Back Knock. The Mirans send them across the sky. I heard the knock as a kid. I have answered it ever since. I will not sign my name. If you hear the knock, you are not alone.\n\nKnock, knock, knock." },
+    ],
   };
 
   T.crew.talk = Object.assign(T.crew.talk || {}, {

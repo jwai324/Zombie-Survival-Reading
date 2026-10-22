@@ -41,6 +41,7 @@
       }
       this.renderCrew(onClose);
       this.renderDays(onClose);
+      this.renderXoverNotes(onClose);
       this.renderTags();
       const body = document.getElementById("backpack-body");
       body.innerHTML = "";
@@ -295,6 +296,45 @@
         det.appendChild(card);
       });
       box.appendChild(det);
+    },
+
+    /** The crossover universe's notes under the cabin door read so far (only while that universe is on). */
+    renderXoverNotes(onClose) {
+      const box = document.getElementById("backpack-days");
+      const S = State();
+      const read = box && S.xoverNotesRead ? S.xoverNotesRead() : [];
+      if (!read.length) return;
+      const det = el("details", "bp-section");
+      det.appendChild(el("summary", null, "Notes under the cabin door (" + read.length + ")"));
+      read.forEach((i) => {
+        const t = ZSR.xoverText(S.universe(), "notes", i);
+        const card = el("button", "note-card");
+        card.appendChild(el("span", "note-title", esc(t.title || "Note " + (i + 1))));
+        card.appendChild(el("span", "note-found", "Note " + (i + 1) + " of " + S.universeDef().notes.length));
+        card.addEventListener("click", () => {
+          document.getElementById("screen-backpack").classList.add("hidden");
+          this.xoverNote(i, { primary: "Back", onClose: () => this.open(onClose) });
+        });
+        det.appendChild(card);
+      });
+      box.appendChild(det);
+    },
+    /** Note i under the cabin door of the universe on, in the note reader. opts: { primary, onClose, date }: with
+        date it is opening by itself at a log on, so it is marked read (its words count) and the save is written. */
+    xoverNote(i, opts) {
+      const o = opts || {};
+      const S = State();
+      const u = S.universe();
+      const t = ZSR.xoverText(u, "notes", i);
+      if (o.date && S.xoverNoteSeen(i, o.date, wordCount(t.text))) S.commit();
+      this.showText({
+        caption: "Under the cabin door",
+        title: t.title,
+        found: "Note " + (i + 1) + " of " + ((S.universeDef(u) || {}).notes || []).length + " · no name signed",
+        text: t.text,
+        primary: o.primary,
+        onClose: o.onClose,
+      });
     },
 
     /** Tags of every item picked up so far: both sides of each. */

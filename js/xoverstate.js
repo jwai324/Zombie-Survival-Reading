@@ -30,7 +30,8 @@
     /** A save's fresh crossover field: one progress record per universe, and the robot dog. */
     xoverFresh() {
       const out = { robo: { hp: null, down: false } };
-      Object.keys(unis()).forEach((u) => (out[u] = { journal: 0, radio: 0, pages: 0, radioDays: 0 }));
+      // notes: how many of its notes under the cabin door are read; noteDate: the real day ("YYYY-MM-DD") one last opened
+      Object.keys(unis()).forEach((u) => (out[u] = { journal: 0, radio: 0, pages: 0, radioDays: 0, notes: 0, noteDate: "" }));
       return out;
     },
     /** Fill a save's crossover field (old saves, and a universe added later). */
@@ -39,6 +40,10 @@
       const fresh = this.xoverFresh();
       if (!s.xover || typeof s.xover !== "object" || Array.isArray(s.xover)) s.xover = fresh;
       Object.keys(fresh).forEach((k) => {
+        // a save that played this universe before its notes existed has seen its storyline: they wait read in the
+        // backpack, and none opens by itself (docs/UNIVERSES.md "The notes under the cabin door")
+        const was = s.xover[k];
+        if (was && typeof was === "object" && was.notes === undefined && was.pages > 0) was.notes = ((unis()[k] || {}).notes || []).length;
         if (!s.xover[k] || typeof s.xover[k] !== "object") s.xover[k] = fresh[k];
         else Object.keys(fresh[k]).forEach((f) => {
           if (s.xover[k][f] === undefined) s.xover[k][f] = fresh[k][f];
@@ -73,6 +78,34 @@
       }
       if (x.journal != null || x.radio != null) entry.x = x;
       return entry;
+    },
+
+    /* ---------- The notes under the cabin door ---------- */
+    /** The note due at this log on: the index of the universe's next unread note (WORLD.UNIVERSES[u].notes), when
+        none opened on this real day (date: the device's local "YYYY-MM-DD", from the caller), else -1. One a day, in
+        order, no catch-up. The caller holds it back while the tutorial's yard part runs (js/main.js logOn). */
+    xoverNoteDue(date) {
+      const u = this.universe();
+      const def = this.universeDef(u);
+      if (!def || !date) return -1;
+      const st = this.xoverSave()[u];
+      return st.notes < (def.notes || []).length && st.noteDate !== date ? st.notes : -1;
+    },
+    /** Note i opened on this date: the next waits for another day, and its words count once. The caller saves. */
+    xoverNoteSeen(i, date, words) {
+      const def = this.universeDef();
+      const st = def && this.xoverSave()[this.universe()];
+      if (!st || i !== st.notes || i >= (def.notes || []).length) return false;
+      st.notes++;
+      st.noteDate = date;
+      this.save.stats.wordsRead += words || 0;
+      return true;
+    },
+    /** The read notes of the universe on, in order (indexes), for the backpack. */
+    xoverNotesRead() {
+      const def = this.universeDef();
+      if (!def) return [];
+      return [...Array(Math.min(this.xoverSave()[this.universe()].notes || 0, (def.notes || []).length)).keys()];
     },
 
     /* ---------- Rivet, the robot dog (the Captain Leo universe) ---------- */
@@ -121,7 +154,7 @@
     },
   };
 
-  /** A crossover journal line or broadcast at the reading level: { title, text } (kind "journal" | "radio"). */
+  /** A crossover journal line, broadcast or note at the reading level: { title, text } (kind "journal" | "radio" | "notes"). */
   ZSR.xoverText = function xoverText(u, kind, idx) {
     const e = ZSR.textAt
       ? ZSR.textAt((t) => {
