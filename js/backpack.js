@@ -24,6 +24,9 @@
     return l ? l.name : String(id);
   };
   const plural = (n, word) => n + " " + word + (n === 1 ? "" : "s");
+  /** The reading check (js/readcheck.js) times the note now on screen, counting its words as shown. */
+  const timeNote = (kind, id, place) =>
+    ZSR.ReadCheck && ZSR.ReadCheck.start("screen-note", { kind, id, place, title: document.getElementById("note-title").textContent, text: document.getElementById("note-text").innerHTML.replace(/<[^>]+>/g, " ") });
 
   const Backpack = {
     onClose: null,
@@ -136,6 +139,7 @@
       };
       screen.classList.remove("hidden");
       screen.querySelector(".panel").scrollTop = 0;
+      timeNote("text", "text:" + (o.caption || "") + ":" + (o.title || ""), o.caption || "");
     },
 
     /** The crew: each one's trust stars, their open requests (read again, give up), the dog's name, and the story
@@ -388,6 +392,7 @@
       };
       screen.classList.remove("hidden");
       screen.querySelector(".panel").scrollTop = 0;
+      timeNote(o.tune ? "radio" : "day", (o.tune ? "radio:" : "day:") + entry.day, "Day " + entry.day);
     },
 
     /** The radio in the dining room: today's broadcast on its own, heard now (State.radioWaiting). */
@@ -519,6 +524,7 @@
       };
       screen.classList.remove("hidden");
       screen.querySelector(".panel").scrollTop = 0;
+      timeNote("note", noteId, loc ? loc.name : "");
       return wasNew;
     },
   };

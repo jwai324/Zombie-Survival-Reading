@@ -2957,3 +2957,36 @@ A second read-only verifier pass checked the answers above; these are the calls 
 - **Small level drift cleared**: one crank origin (a bicycle part), two beds where the signs said one, no gate the
   yard does not draw, the pump stands beside the well, Mr. Reyes's family claim stays his at level 1, and the
   armor plate's second tag no longer mentions driving.
+
+## Owner decisions: the reading check (2026-10-22)
+
+Settings > Reading check: every save, and how long each note stayed open before the player moved on, to see
+whether players actually read. Asked and answered before building:
+
+- **What is timed: pop-ups only.** The note reader (building and door notes, June's journal, the radio, a crew
+  request or thank-you read again, a note read again from the backpack) and the crew card. The read panels in the
+  world (signs, graffiti, cabin wall notes, tags, speech bubbles) are not: they show while the player stands near,
+  so their time measures walking, not reading.
+- **Logged at once, per save, apart from the save** (`zs.readlog.<slot>`), so a trip lost to a death or a closed
+  tab still counts. Deleting a save, or starting a new one in its slot, deletes its log. Nothing is logged in god mode.
+- **Judged by speed.** Each note shows its words, the time open and the words a minute; above the line (default
+  400, changeable on the page) it is flagged "Too fast". Each save's summary: the share read at a believable
+  speed, the count too fast, the middle speed and the total time, counting first reads only.
+- **Behind a 4-digit PIN** the owner sets the first time. Leaving the page locks it again.
+
+### Judgment calls
+
+- **The clock stops while the tab is hidden** (visibilitychange). A note left open while the player walks away
+  from a visible screen still counts as reading: the page says so. Fast flags are the reliable signal; slow ones are not.
+- **One row a note, every open listed** (owner, 2026-10-22: "show how long they are open if opened multiple
+  times"). A note opened more than once shows its open count, each time it was open after the first, and the total;
+  the last note opened sits on top. The speed and the flag stay on the first read, and the summary counts first
+  reads only: skimming a note you have already read is fine. Judging on the total instead is a one-line change.
+- **One speed line for every reading level.** Simpler than a line per grade; the owner can lower it for a young
+  reader. A line per level is the natural next step if one save's numbers look off.
+- **The PIN is stored hashed (FNV-1a)**, which keeps it from showing as digits in storage; anyone with the browser
+  console can still clear it or the logs. Forgot the PIN: `localStorage.removeItem("zs.readcheck")` in the console
+  (the page says so); the logs stay.
+- **The tab closing with a note open** logs it up to that moment (pagehide).
+- **A word count is of the words on screen**, so a journal page counts the recap, June's entry and the radio together.
+
