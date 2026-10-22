@@ -48,7 +48,7 @@
     },
     "tomas-fort-t3": {
       title: "A Famous Last Name",
-      text: "Tomas grins when Mr. Reyes of Reyes Hardware comes up. Mr. Reyes told everyone who would stand still long enough that his family goes back to Dr. Camila Reyes. She lived hundreds of years ago, so nobody can prove it either way; that trail went cold centuries back. Tomas does not mind. He likes the story, true or not, and he would sooner fix a leaky roof than ask Mr. Reyes for proof. Then he gets practical. Reyes Hardware, he says, is the place to find lumber and nails.",
+      text: "Tomas grins when Mr. Reyes of Reyes Hardware comes up. Mr. Reyes told everyone who would stand still long enough that his family goes back to Dr. Camila Reyes. She lived hundreds of years ago, so nobody can prove it either way; that trail went cold centuries back. Tomas does not mind. He likes the story, true or not, and he would sooner have fixed a leaky roof than asked Mr. Reyes for proof. Then he gets practical. Reyes Hardware, he says, is the place to find lumber and nails.",
     },
     "pip-fort-t1": {
       title: "The Whole Team",

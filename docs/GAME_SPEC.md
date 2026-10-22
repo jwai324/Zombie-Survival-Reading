@@ -26,10 +26,10 @@ useful.
    sooner. Walkers claw through the fence; the Walls room makes it stronger.
    The cabin (v3, 2026-10-13) is the Hollis family's house, walked into from the yard,
    laid out from the owner's floor plan: porch, foyer, office, dining room, kitchen with
-   four cabinet runs and a pantry, ping pong room, living room, master bedroom and bath,
-   three kids' rooms, a second bath, closets and a rear play room. The office computer
-   opens the build menu, which pauses the yard: upgrade rooms with items plus scrap, the van
-   and gun in the garage, the doors and windows in the House tab. The pantry lists food and
+   five cabinet runs, a fridge set into the wall, and a pantry, ping pong room, living room,
+   master bedroom and bath, three kids' rooms, a second bath, closets and a rear play room.
+   The office computer opens the build menu, which pauses the yard: upgrade rooms with items
+   plus scrap, the van and gun in the garage, the doors and windows in the House tab. The pantry lists food and
    storage, the radio shelf in the dining room tunes in to today's broadcast and shows past days, the typewriter is typing practice, and the big
    bed heals fully for a minute of the calm. The computer, radio shelf, typewriter and bed wait
    while a wave is on. Doors open and shut with E; walkers break shut doors, smash windows
@@ -532,8 +532,9 @@ June, Tomas and Pip live at the cabin. The full design and the contract between 
   an errand late, a request given up (in the backpack's Crew section).
 - **Jobs.** Tomas fixes fence holes and cracks in the calm at the usual scrap when the base can pay,
   then wrecked room builds (3 scrap each, no star needed; a cracked one is left to you), and the
-  cabin's doors and windows from two stars; he tells you in his next bubble. June patches
-  you up once a calm (one star). Pip calls the next wave's size and sides as lookout (one star).
+  cabin's broken doors and windows from two stars (a cracked one is left to you); he tells you in
+  his next bubble. June patches you up once a calm (one star). Pip calls the next wave's size and
+  sides as lookout (one star).
 - **Waves.** The crew hurry into the office closet and shut its door. A raider that forces it and
   stands among them for 6 seconds hurts one off-screen (at most once each per wave): a shout, 1
   medical kit from storage or else 2 food, and trust. Nobody dies; nothing is shown.

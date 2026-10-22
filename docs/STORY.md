@@ -39,7 +39,7 @@ read about.
 
 - **Kate**: drew maps for the county at the office desk. Wrote the note on the fridge: if you
   find our cabin and you are kind, it is yours now; please keep the garden going. The Hollises' beds
-  behind the cabin had gone to bare dirt by the time the crew came.
+  in front of the cabin had gone to bare dirt by the time the crew came.
 - **Dan**: hung the dinner bell, labeled the pantry shelves, lost the last ping pong game.
 - **Gus** (16), **Finn** (11) and **Lucy** (7), and their dog **Biscuit**, who went with them.
 
@@ -154,8 +154,8 @@ are never written as lost, and the convoy never leaves on screen.
 |-----|-------------------|--------------|
 | **Ruby** | Gas-N-Go (door note and both trail notes), Ridge Lumber door note, a chalk note on a crate at Ortiz Auto; a red R with a walker count in every building except the Corner Grocery and the Water Tower; a message read by Jo on the radio | Scout who marks buildings for strangers. Searching for her younger brother **Dev**. |
 | **Dev** | Gas-N-Go (the clerk's main note, his to-do list, the STAFF ONLY sign), Ortiz Auto (door note, trail1), Water Tower (trail1, the chalk sign "Ruby, I am here"); Theo relays his message on the radio | Went east to Ortiz Auto to fix a truck so he and Ruby could leave. Then went on to the Water Tower with Mr. Ortiz, because Theo had clean water. Leaves his sister messages. |
-| **Doc Lin** | Corner Grocery (door note, trail note 1, the level-6 checklist for Ada); a medical kit tag; three radio broadcasts; her name on the St. Anne Annex sign-in sheet from before the Fall; named at Mile 9 Pharmacy, Signal Electronics, Station 12 and Northgate Mall | A doctor who carries medicine between the grocery, the pharmacy and the hospital. Trying to reach **Nurse Ada**, who stayed at St. Anne. |
-| **Nurse Ada** | St. Anne Annex (door note on the ambulance doors, and her notes inside); two radio broadcasts | Stayed to keep the generator and the records. Writes calm, exact notes. |
+| **Doc Lin** | Corner Grocery (door note, trail note 1, the level-6 checklist for Ada); a medical kit tag; three radio broadcasts; at St. Anne Annex, her name on the sign-in sheet from before the Fall and in Ada's notes and chalk sign; named at Mile 9 Pharmacy, Signal Electronics, Station 12 and Northgate Mall | A doctor who carries medicine between the grocery, the pharmacy and the hospital. Trying to reach **Nurse Ada**, who stayed at St. Anne. |
+| **Nurse Ada** | St. Anne Annex (door note on the ambulance doors, and her notes inside); her steps in a medical kit tag; two radio broadcasts; named at the Corner Grocery, Mile 9 Pharmacy, Signal Electronics and Northgate Mall (the supply cupboard key's tag) | Stayed to keep the generator and the records. Writes calm, exact notes. |
 | **Jo** | Signal Electronics, Northgate Mall door notes; the main voice on the radio | Scavenger turned broadcaster. Runs a pirate station on 88.1 from a rooftop. Reads out news, warnings and tips about stashes. |
 | **Max and Mia** | Lincoln Middle School (door note, dead-end note 3); 4th Precinct holding room (dead-end note 4); named in the Water Tower key note (Mia had the key), at the Public Library and on the radio | Twins, thirteen. Got separated from their class. Looking for their teacher. |
 | **Ms. Adler** | Lincoln Middle School (main note in the science room, trail note 1); her own line on the level-6 flyer at the Public Library; named in Mrs. Greer's library trail note, on the 4th Precinct missing-person board, in Station 12's notes, at Northgate Mall and on the radio | The twins' teacher. Led her students to the Public Library. |

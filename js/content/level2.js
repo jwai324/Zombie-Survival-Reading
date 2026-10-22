@@ -58,8 +58,8 @@
           desc: "Clean water. You heal faster while you are in the yard. More water means faster healing.",
           next: [
             "You slowly heal in the yard. Rate 1.",
-            "You heal in the yard. Rate 2.",
-            "You heal fast in the yard. Rate 3. You start every building at full health.",
+            "You heal in the yard. Rate 2, plus what the Well adds.",
+            "You heal fast in the yard. Rate 3, plus what the Well adds. You start every building at full health.",
           ],
         },
         garden: {

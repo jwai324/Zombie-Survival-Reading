@@ -11,7 +11,7 @@
         title: "Garden plot",
         empty: "GARDEN, someday. That is what June painted on this sign. Stakes and string mark out beds in the dark dirt in front of the cabin. Nothing grows here yet. Raised beds of seeds and soil would grow food. That matters, because every trip in the van eats food. To start, the beds need 2 Seed packets and 1 Bag of soil. They also need 40 scrap. Build it from the cabin. June is already picking spots for the beans.",
         built: [
-          "The sign says GARDEN now, and the word someday is painted over. Two raised beds are planted with seeds. Small green leaves have pushed up through the soil. June checks them every morning, before anyone else is up. It grows 1 food each day. That is not much, but it is food you did not drive for. More beds would need seeds, soil, and 80 scrap.",
+          "The sign says GARDEN now, and the word someday is painted over. Two raised beds are planted with seeds. Small green leaves have pushed up through the soil. June checks them every morning, before anyone else is up. The garden grows 1 food each day. That is not much, but it is food you did not drive for. More beds would need seeds, soil, and 80 scrap.",
           "The sign says GARDEN, and now there are more beds. Beans climb the string in green spirals, and squash leaves spread out wide. Pip has started naming the squash. June says that is a bad idea, because you cannot eat a friend. The garden grows 2 food each day. A greenhouse and a water tank would make it grow more. That last step also needs seeds, soil, and 120 scrap.",
           "The sign says GARDEN. A greenhouse stands behind the beds, and a water tank feeds them. No more hauling buckets from the barrels. Beans, squash and tomatoes fill every row. June finally has her full garden, and she stands in it a lot. She says she is checking for bugs. Mostly she is just smiling. It grows 3 food each day, the most these beds can give.",
         ],
@@ -231,7 +231,7 @@
     },
     {
       title: "Walk, Don't Run",
-      text: "Jo here, with a warning about Northgate Mall. The walkers there move in a group, all together. If anyone runs, they come running at that person. So here is the trick. Walk, do not run, and most of them stay put. It feels wrong, I know. Your legs will want to run. That tip comes from Luis, the mall guard who never left his post. He has watched that crowd for months. Trust Luis on this one.",
+      text: "Jo here, with a warning about Northgate Mall. The walkers there move in a group, all together. If anyone runs, the walkers near that person come running. So here is the trick. Walk, do not run, and most of them stay put. It feels wrong, I know. Your legs will want to run. That tip comes from Luis, the mall guard who never left his post. He has watched that crowd for months. Trust Luis on this one.",
     },
     {
       title: "Seeds for the Next Person",

@@ -2938,3 +2938,22 @@ A read-only verifier pass checked the first sixteen owner fixes again; these are
 - **June answers as a student at level 5 too** ("Near midnight Tomas found me there"), and each level keeps its
   file's own way of quoting speech. The earlier entry's level-1 judgment call stands.
 - **The radioBefore key is range-checked and tested** (validate-world, validate-crew).
+
+### Follow-ups to the answers on items 18 to 45
+
+A second read-only verifier pass checked the answers above; these are the calls it led to.
+
+- **The mall, everywhere.** The radio-9 fact now says the walkers near anyone who runs come running, and the mall's
+  door notes (levels 4 to 6), radio-9 (levels 2, 3 and 6), Mrs. Greer's radio-26 and Luis's patrol log say the same:
+  the crowd drifts together, but only the walkers near a runner turn.
+- **No convoy roles, the last ones.** Vega's level-6 note no longer has the boats float the river where the road
+  fails; Carla's level-5 sketch counts the boats, the trucks and the van together for the chief's list; level-5
+  radio-25 just says there are not enough boats.
+- **The Water room's lines name the Well.** At levels 2 to 6 the computer's Water lines give the room's own rate
+  "plus what the Well adds", since yard healing now stacks.
+- **The yard's goal line sees a crack at once.** It refreshes the moment a fence segment drops under half
+  strength; Tomas's fence job, his tip, the fence's cracked look, E and Fix all all use the one fenceCracked() rule;
+  a test pins that Tomas leaves a cracked window alone.
+- **Small level drift cleared**: one crank origin (a bicycle part), two beds where the signs said one, no gate the
+  yard does not draw, the pump stands beside the well, Mr. Reyes's family claim stays his at level 1, and the
+  armor plate's second tag no longer mentions driving.

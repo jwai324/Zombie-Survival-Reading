@@ -768,7 +768,7 @@
 
     /* ---------- Jobs ---------- */
     /** A job for this crew member now (their stars unlock it; never in a wave): the nearest fence segment to
-        fix, else (builds job) the nearest wrecked room build, else (cabin job) the nearest damaged door or window,
+        fix, else (builds job) the nearest wrecked room build, else (cabin job) the nearest broken door or window (a cracked one is left to you),
         that the base can pay for. Sets off; true if so. (A build only cracked still works: you brace it, E or the
         computer's "Fix all"; the crew's words say Tomas fixes wrecked ones.) */
     crewTryJob(c) {
@@ -820,10 +820,9 @@
     /** Fence segments with a hole or a crack (below half strength, as yardFacing shows them): [[x, y]]. */
     crewFenceDamage() {
       const out = [];
-      const half = this.fenceMax * 0.5;
       (this.crewFenceTiles || []).forEach(([x, y]) => {
         const hp = this.fence[x + "," + y];
-        if (hp == null || hp < half) out.push([x, y]);
+        if (hp == null || this.fenceCracked(hp)) out.push([x, y]);
       });
       return out;
     },
@@ -849,7 +848,7 @@
       if (!job) return false;
       if (job.kind === "fence") {
         const hp = this.fence[job.key];
-        return hp == null || hp < this.fenceMax * 0.5;
+        return hp == null || this.fenceCracked(hp);
       }
       if (job.kind === "builds") return this.buildDmg(job.key) === 2; // still wrecked
       const b = this.barriers && this.barriers[job.key];
@@ -1329,13 +1328,12 @@
     crewTipCtx(id) {
       const S = State();
       const ph = this.phase;
-      const half = this.fenceMax * 0.5;
       let holes = 0;
       let cracks = 0;
       (this.crewFenceTiles || []).forEach(([x, y]) => {
         const hp = this.fence[x + "," + y];
         if (hp == null) holes++;
-        else if (hp < half) cracks++;
+        else if (this.fenceCracked(hp)) cracks++;
       });
       // wrecked: the builds walkers wrecked (Tomas's wrecked tip; js/yardwreck.js)
       const builds = this.buildDamage();

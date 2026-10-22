@@ -86,8 +86,8 @@
           desc: "A filter and a tank turn gray water clear. Clean water means you heal faster in the yard, and more water means faster healing.",
           next: [
             "You slowly heal in the yard, at rate 1.",
-            "You heal in the yard at rate 2.",
-            "You heal in the yard at rate 3, and you start every building at full health.",
+            "You heal in the yard at rate 2, plus whatever the Well adds.",
+            "You heal in the yard at rate 3, plus whatever the Well adds, and you start every building at full health.",
           ],
         },
         garden: {

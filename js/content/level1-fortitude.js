@@ -90,7 +90,7 @@
     },
     "tomas-fort-t3": {
       title: "A Famous Last Name",
-      text: "Tomas tells you about Mr. Reyes of Reyes Hardware. Mr. Reyes told a family story. His family goes back to Dr. Camila Reyes. She lived hundreds of years ago. So nobody can prove it. Tomas likes the story, true or not. Get lumber and nails at Reyes Hardware.",
+      text: "Tomas talks about Mr. Reyes of Reyes Hardware. Mr. Reyes always told one story. He said his family came from Dr. Camila Reyes. She lived hundreds of years ago. So nobody can prove it. Tomas likes the story, true or not. Get lumber and nails at Reyes Hardware.",
     },
     "pip-fort-t1": {
       title: "The Whole Team",

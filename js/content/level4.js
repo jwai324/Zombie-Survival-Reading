@@ -58,8 +58,8 @@
           desc: "Clean water from a filter and a tank. You recover health faster in the yard, and more water means faster recovery.",
           next: [
             "You slowly recover health in the yard, at rate 1.",
-            "You recover health in the yard at rate 2.",
-            "You recover health in the yard at rate 3, and you enter every building at full health.",
+            "You recover health in the yard at rate 2, plus whatever the Well adds.",
+            "You recover health in the yard at rate 3, plus whatever the Well adds, and you enter every building at full health.",
           ],
         },
         garden: {

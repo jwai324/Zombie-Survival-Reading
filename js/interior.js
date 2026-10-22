@@ -1363,7 +1363,10 @@
           if (z.barrier) {
             if (!this.modeCall("HitBarrier", key, harm)) z.pathT = 0; // gone (or opened): find the way again
           } else if (this.fence[key] != null) {
+            const was = this.fence[key];
             this.fence[key] -= harm;
+            // it just cracked: the goal line counts the cracks (yardGoal), which the per-frame signature does not see
+            if (this.fence[key] > 0 && !this.fenceCracked(was) && this.fenceCracked(this.fence[key])) this.updateHud();
             if (this.fence[key] <= 0) {
               delete this.fence[key];
               this.grid[Math.floor(fy)][Math.floor(fx)] = ".";
@@ -3229,7 +3232,7 @@
         // the fence shows its damage: cracked below half strength
         const idx = this.lowIdx[o];
         const hp = this.fence[(idx % this.gw) + "," + ((idx / this.gw) | 0)];
-        tex = this.fenceLook(hp != null && hp < this.fenceMax * 0.5);
+        tex = this.fenceLook(this.fenceCracked(hp));
       } else if (typeof tex === "string" || !tex) tex = this.tex(tex || "crate");
       const lvl = Math.round((fog + (this.lowSide[o] === 1 ? 0.1 : 0)) * 10);
       if (lvl > 0) tex = this.dimOwn(tex, lvl);

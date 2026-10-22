@@ -263,7 +263,7 @@
       blurb: "Northgate Mall in the north, full of supplies and home to the biggest walker crowd in town.",
       door: {
         title: "Jo's Warning on the Doors",
-        text: "Jo here, from 88.1. Some things do not fit in a broadcast, so I am writing them here.\n\nFood is in the food court at the back. Medicine is in the pharmacy on the left. Wire is in the gadget store on the right, next door to the orange tent. You will cover a lot of ground, so pack light and leave your hands free.\n\nAt least nine walkers are inside, and many of them stand along the main hall. Where one goes, the rest follow, like a slow tide. Never get caught between them and the doors.\n\nThe security office is locked. The guard's note is in the play area, by the green dino. Read it before you try the office. Luis knows this crowd better than anybody alive.",
+        text: "Jo here, from 88.1. Some things do not fit in a broadcast, so I am writing them here.\n\nFood is in the food court at the back. Medicine is in the pharmacy on the left. Wire is in the gadget store on the right, next door to the orange tent. You will cover a lot of ground, so pack light and leave your hands free.\n\nAt least nine walkers are inside, and many of them stand along the main hall. They drift together, like a slow tide. Never get caught between them and the doors.\n\nThe security office is locked. The guard's note is in the play area, by the green dino. Read it before you try the office. Luis knows this crowd better than anybody alive.",
       },
       notes: {
         "mall-guard": {

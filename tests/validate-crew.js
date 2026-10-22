@@ -2250,6 +2250,17 @@ simGroup("yard", "yard: the cabin job fixes a smashed window, and a corner hole 
     stepFor(g, 120);
     ok(I.barriers[win].hp === 0, `repairs: the window was fixed below ${cx.stars} stars`);
   }
+  // at the cabin job's stars a cracked (not broken) window is left to you: only broken ones are theirs
+  homeYard(g, (S) => {
+    S.addTrust(cx.id, trustFor(W, cx.stars));
+    S.save.scrap = 50;
+  });
+  const cw = I.barriers[win];
+  I.yardHitBarrier(win, cw.max * 0.6);
+  const crackedHp = cw.hp;
+  ok(crackedHp > 0 && crackedHp < cw.max * 0.5, `repairs: setup, the window is not cracked (${crackedHp} of ${cw.max})`);
+  stepFor(g, 120);
+  ok(cw.hp === crackedHp && cw.hp > 0, `repairs: ${cx.id} fixed a cracked window (${crackedHp} -> ${cw.hp} of ${cw.max}); only broken ones are theirs`);
 });
 
 simGroup("yard", "yard: a wave sends the crew (and the dog) into the shelter", () => {

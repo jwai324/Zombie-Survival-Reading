@@ -923,7 +923,7 @@
       box(ctx, 14, 59, 36, 5, "#3a3d42", 1.5);
       // a star magnet on the freezer, a red one lower down
       star(ctx, 40, 12, 3, "#f2c12e", 1);
-      circle(ctx, 22, 50, 2, "#c0302a", 1);
+      circle(ctx, 20, 54, 2, "#c0302a", 1);
       // Kate's note under the fish magnet
       ctx.save();
       ctx.translate(34, 38);

@@ -30,8 +30,8 @@
         empty: "WELL, dig after the Water room is built. June painted the sign and propped it against a ring of stones in the middle of the yard. The stones mark the exact spot she picked, after a whole afternoon of pacing and frowning. Deep underground, the water is cold and clean. Brought up to the surface, it would help you heal faster while you are in the yard. The Farm and the Lab both need the Well first. This ring of stones matters more than it looks.",
         built: [
           "WELL, says the sign, and now there is a real one behind it. The hole was dug by hand, one shovel at a time. Its walls are lined with lumber so they cannot cave in. A bucket hangs from a rope over the opening. Drop it, wait for the splash, then haul it back up full. The water is so cold it makes your teeth ache. Its clean water helps you heal faster in the yard, right where the waves hit.",
-          "WELL, the sign reads, and now a little roof keeps the rain off the opening. A crank winds the bucket up, and a filter cleans the water on the way. Tomas built the crank from a car jack, and it squeaks on every turn. The water runs clear and tastes faintly of stone. Pip has turned cranking into a contest with a scoreboard on the shed wall. Thanks to the cleaner water, you heal in the yard even faster than before.",
-          "WELL, says the sign, and now a hand pump stands beside it. A short run of pipe carries the water to a trough. Nobody carries buckets now, and nobody misses it. You heal in the yard faster than ever before. Better still, you start every building at full health, no matter how rough the drive was. June says this well is the best thing anyone has dug since the Fall.",
+          "WELL, the sign reads, and now a little roof keeps the rain off the opening. A crank winds the bucket up, and a filter cleans the water on the way. Tomas built the crank from a bicycle part, and it squeaks on every turn. The water runs clear and tastes faintly of stone. Pip has turned cranking into a contest with a scoreboard on the shed wall. Thanks to the cleaner water, you heal in the yard even faster than before.",
+          "WELL, says the sign, and now a hand pump stands beside the well. A short run of pipe carries the water to a trough. Nobody carries buckets now, and nobody misses it. You heal in the yard faster than ever before. Better still, you start every building at full health, no matter how rough the drive was. June says this well is the best thing anyone has dug since the Fall.",
         ],
       },
       water: {
@@ -202,7 +202,7 @@
     ],
     armorPlate: [
       "Stenciled on the plate: steel, heavy. It lives up to the label. A chalk note on the back says to bolt it onto a door at chest height. That is where grabbing hands reach first.",
-      "A sticky note warns: a plate stops grabbing hands, not crashes. Drive carefully anyway. Marker lines along one edge count every dent it has taken, like tally marks on a wall.",
+      "A sticky note warns: a plate stops grabbing hands, not crashes. Marker lines along one edge count every dent it has taken, like tally marks on a wall.",
     ],
     books: [
       "Stamped inside the first cover of every book: Public Library, please return. Mrs. Greer's note is taped to the box, in careful cursive: reading saved this building. She means that more than you might think.",

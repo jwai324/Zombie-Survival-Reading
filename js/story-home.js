@@ -246,7 +246,7 @@
     ] },
     { id: "radio-9", voice: "Jo", facts: [
       "Jo warns about Northgate Mall.",
-      "The walkers there move in a group and come running at anyone who runs.",
+      "The walkers there move in a group, and the ones near anyone who runs come running.",
       "Walk, do not run, and most of them stay put.",
       "That tip comes from Luis, the mall guard who never left his post.",
     ] },
@@ -450,7 +450,7 @@
         "Raised beds of seeds and soil here would grow food, and every trip in the van eats food.",
       ],
       built: [
-        ["The sign says GARDEN, and two raised beds are planted with seeds.", "June checks them every morning.", "It grows 1 food each day."],
+        ["The sign says GARDEN, and two raised beds are planted with seeds.", "June checks them every morning.", "The garden grows 1 food each day."],
         ["The sign says GARDEN, and now there are more beds, with beans climbing the string.", "It grows 2 food each day."],
         ["The sign says GARDEN: a greenhouse stands behind the beds, and a water tank feeds them.", "June finally has her full garden.", "It grows 3 food each day."],
       ],
@@ -533,7 +533,7 @@
     },
   };
 
-  /* Inside the cabin: what the Hollis family left on the walls, one per room (WORLD.HOUSE.notes says
+  /* Inside the cabin: what the Hollis family left on the walls, one in each of fifteen rooms; the hallway, the second bathroom and the office, linen and toy closets have none (WORLD.HOUSE.notes says
      where). The Hollis family: Kate and Dan, and their kids Gus (16), Finn (11) and Lucy (7), and
      their dog Biscuit. They named the house "the cabin" and went north with the River Convoy.
      Some notes also say what a thing in the room is for now (the computer, the pantry, the radio

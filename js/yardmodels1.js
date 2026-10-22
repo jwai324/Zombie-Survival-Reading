@@ -654,7 +654,8 @@
     key: () => "",
     opts: [{}],
     // its own ceilings: the yard's biggest build after the tall tank (two tiles tall, alone on a 3 x 3 plot where it
-    // stands in for three rain barrels), and only at detail 2 from 40 tiles off
+    // stands in for three rain barrels), and only at detail 2 from 40 tiles off; also a small tank (scale 0.7, one
+    // tile) feeding the Garden's level-3 beds (js/yard.js BUILDS.garden[2])
     ops: [900, 700, 280],
     build(B, o) {
       const g = grimeOf(o.dmg);
