@@ -31,6 +31,7 @@
           "Mop the floor, fill the coffee, fix the ice machine.",
           "At the bottom: call Ruby back.",
           "Nothing on the list is crossed off.",
+          "Ruby's call was about the news: some sickness across the river. Probably nothing.",
         ] },
         { id: "gasngo-dead2", kind: "decoy", minLevel: 1, spot: 4, found: "in the back hall, outside the old safe room door", facts: [
           "A scrap of receipt in shaky pencil, not signed.",
@@ -211,7 +212,7 @@
         { id: "hardware-sign1", kind: "sign", facts: ["A hand-painted sign: Reyes Hardware.", "Under the name: if we don't have it, you don't need it."] },
         { id: "hardware-sign2", kind: "graffiti", facts: ["Ruby's red R by the front door, with a 5 under it.", "Under it: two in the middle aisles."] },
         { id: "hardware-sign3", kind: "sign", facts: ["A sign with an arrow: keys cut here.", "Someone drew a circle with a key inside next to the arrow, which points toward the paint vault in the paint department."] },
-        { id: "hardware-sign4", kind: "graffiti", facts: ["Written on the back room door in marker: it sticks, so read my note by the paint mixer before you push it.", "Mr. Reyes signed it."] },
+        { id: "hardware-sign4", kind: "graffiti", facts: ["Written on the wall beside the back room door in marker: it sticks, so read my note by the paint mixer before you push it.", "Mr. Reyes signed it."] },
       ],
       key: { id: "key-hardware", opens: "garden", after: "hardware-trail2", facts: ["What it looks like: a copper key with a leaf scratched into its head.", "Its tag says: \"Take only what you need.\""] },
     },
@@ -367,7 +368,7 @@
         { id: "radioshack-sign1", kind: "sign", facts: ["A store sign: Signal Electronics.", "Under it: we fix what others throw away."] },
         { id: "radioshack-sign2", kind: "graffiti", facts: ["Ruby's red R, with a 6 under it.", "Under it: one by the robot, at the end of the counter."] },
         { id: "radioshack-sign3", kind: "graffiti", facts: ["Painted in big yellow numbers: 88.1.", "Under it: Jo, every night at dusk."] },
-        { id: "radioshack-sign4", kind: "sign", facts: ["A sign on the door: manager's office, please knock.", "Under it in marker: Priya says look under the register."] },
+        { id: "radioshack-sign4", kind: "sign", facts: ["A sign beside the door: manager's office, please knock.", "Under it in marker: Priya says look under the register."] },
       ],
       key: { id: "key-radioshack", opens: "watertower", after: "radioshack-trail2", facts: ["What it looks like: a long, thin key on a blue tag shaped like a drop of water.", "Its tag says: \"Bring the wrench back.\""] },
     },
@@ -402,7 +403,7 @@
           "That key fit the old lock, before the chief changed it.",
           "The chief's note on the watch desk says which key fits now.",
         ] },
-        { id: "firehouse-dead3", kind: "dead", minLevel: 4, spot: 6, found: "in the office, between the desks", facts: [
+        { id: "firehouse-dead3", kind: "dead", minLevel: 4, spot: 6, found: "in the office, a few steps from the desk", facts: [
           "A page from Chief Dunn's convoy list.",
           "Luis is crossed out: he will not leave the mall.",
           "Doc Lin wants one seat, only as far as St. Anne.",
@@ -481,7 +482,7 @@
       notes: [
         { id: "school-trail1", kind: "trail", spot: 6, found: "in the front lobby, just inside the front door", facts: [
           "Written by Ms. Adler, to Max and Mia.",
-          "The class has gone north to the Public Library, where Mrs. Greer will take them in.",
+          "The class has gone northwest to the Public Library, where Mrs. Greer will take them in.",
           "Every student is safe and counted, except the two of them.",
           "Ms. Adler will come back to check whenever she can.",
           "Sergeant Vega came looking for the class and left a note in the music room, beside the drum set.",
@@ -509,7 +510,7 @@
           "Written by Max and Mia.",
           "They came back to the school and found Ms. Adler's note.",
           "They had looked for the class as far west as the Water Tower, where Theo gave them water.",
-          "They will go north to the library at first light.",
+          "They will go northwest to the library at first light.",
         ] },
         { id: "school-dead4", kind: "decoy", minLevel: 6, spot: 5, found: "in the front office, near the principal's closet", facts: [
           "A note from the principal, from before the Fall.",
@@ -521,7 +522,7 @@
       signs: [
         { id: "school-sign1", kind: "sign", facts: ["A classroom poster: raise your hand, be kind, read every day.", "Someone added in marker: stay together."] },
         { id: "school-sign2", kind: "graffiti", facts: ["Ruby's red R, with a 6 under it.", "Under it: one in the hallway."] },
-        { id: "school-sign3", kind: "graffiti", facts: ["In neat chalk letters: Ms. Adler's class, gone north.", "Under it: read the note by the front door."] },
+        { id: "school-sign3", kind: "graffiti", facts: ["In neat chalk letters: Ms. Adler's class, gone northwest.", "Under it: read the note by the front door."] },
         { id: "school-sign4", kind: "sign", facts: ["A sign on the door: library closet, return books on time.", "Someone added: late fees canceled."] },
       ],
       key: { id: "key-school", opens: "police", after: "school-trail2", facts: ["What it looks like: a short steel key on a gray tag.", "Its tag says: \"Do not remove.\" The words \"do not\" are crossed out."] },
@@ -675,7 +676,7 @@
         { id: "lumberyard-sign1", kind: "sign", facts: ["A big painted sign: Ridge Lumber, cut to order."] },
         { id: "lumberyard-sign2", kind: "graffiti", facts: ["Ruby's red R, with an 8 under it.", "Under it: they gather at the dock, stay away."] },
         { id: "lumberyard-sign3", kind: "sign", facts: ["A safety sign: ear protection needed near the saws.", "Carla added in marker: the saws stay off."] },
-        { id: "lumberyard-sign4", kind: "graffiti", facts: ["Spray-painted on the kiln shed door: code on the clipboard."] },
+        { id: "lumberyard-sign4", kind: "graffiti", facts: ["Spray-painted on the wall beside the kiln shed door: code on the clipboard."] },
       ],
       key: { id: "key-lumberyard", opens: "library", after: "lumberyard-trail2", facts: ["What it looks like: a long, old-fashioned key with a round loop for a handle, tied to a paper bookmark.", "Its bookmark tag says: \"Handle with care.\""] },
     },
@@ -726,7 +727,7 @@
         { id: "mall-sign1", kind: "sign", facts: ["A banner: Northgate Mall, something for everyone."] },
         { id: "mall-sign2", kind: "graffiti", facts: ["Ruby's red R by the front doors, with a 9 under it.", "Under it, in huge letters: don't run."] },
         { id: "mall-sign3", kind: "sign", facts: ["A store map on the wall.", "The jewelry vault is marked inside the gadget store, at its front wall."] },
-        { id: "mall-sign4", kind: "sign", facts: ["A sign on the door: security, staff only.", "Under it in marker: code on the clipboard by the green dino."] },
+        { id: "mall-sign4", kind: "sign", facts: ["A sign beside the door: security, staff only.", "Under it in marker: code on the clipboard by the green dino."] },
       ],
       key: { id: "key-mall", opens: "hospital", after: "mall-trail2", facts: ["What it looks like: a small silver key on a white tag with a red cross.", "Its tag says: \"Ada says use it.\""] },
     },

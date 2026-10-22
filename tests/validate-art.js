@@ -73,7 +73,7 @@ const CREW_COLOURS = 6000; // SCALE: the same for random draws of the crew's loo
 // docs/CREW.md's own lists: the post poses (plus "walk", between posts) and the quest object kinds. The art
 // must cover them even before a fact uses one (validate-world.js holds the facts to the same kinds).
 const CREW_POSES = ["stand", "sit", "work", "read", "walk"];
-const QUEST_KINDS = ["bag", "photo", "box", "book", "tin", "leash", "toolbox", "radio", "jar", "letter", "seeds", "blanket", "tape", "badge", "wrench"];
+const QUEST_KINDS = ["bag", "photo", "box", "book", "tin", "leash", "toolbox", "radio", "jar", "letter", "seeds", "blanket", "tape", "badge", "wrench", "sensorJar"];
 
 const errors = [];
 const warnings = [];

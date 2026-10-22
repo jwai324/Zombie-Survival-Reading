@@ -1,12 +1,14 @@
 #!/usr/bin/env node
 /* Validates js/content/level*.js against js/world.js and docs/TEXT_GUIDE.md.
-   Covers howto, base rooms (incl. late rooms and what they require), traps, the
+   Covers howto, base rooms (incl. late rooms and what they require), traps, tools (the crowbar's card), the
    workbench blurb, the typing drills (fingers, words, phrases, sentences), the notes
    (facts, landmarks, revealed places, and street names that must lie on the way there),
    wall signs, keys, and the home texts (plot signs, journal, radio, item tags, recap, and the
    house: the Hollis family's notes on the cabin walls and the House tab's doors and windows), and the crew's
    words (T.crew: talk, tips, reports, story quests, errands, the dog; see "The crew at home base" below), and
-   June's first-run tutorial (level 1 only: T.tutorial, see checkTutorial).
+   June's first-run tutorial (level 1 only: T.tutorial, see checkTutorial), River Landing (T.river: the pole's tag,
+   the parking sign and the chief's note on the dock post, against RIVER_FACTS) and the crossover universes
+   (T.universe: June's ledger lines and the broadcasts, see checkUniverses).
    Usage: node tests/validate-text.js [level ...] [--crew=auto|strict|present]. Exit 1 on any error. */
 "use strict";
 const fs = require("fs");
@@ -186,7 +188,7 @@ const HOWTO_MUST = [
   [/scrap/i, "scrap (a fence hole stays until fixed, and every fix costs scrap)"],
   [/typ/i, "typing (how you build)"],
   [/\bnotes?\b/i, "the notes (read them: they say where things are and how to open the cache)"],
-  [/alarm/i, "alarms (a wrong code sets one off, and walkers pour in)"],
+  [/alarm/i, "alarms (a wrong code can set one off, and walkers pour in)"],
   [/\bstash/i, "stashes (a locked room in every building)"],
   [/\bkeys?\b/i, "stash keys (hidden in a different building, found by reading)"],
   [/\bsigns?\b/i, "the road signs (they say where each lane goes)"],
@@ -395,9 +397,10 @@ function checkUniverses(ctx, t, spec) {
    bite, no stray brace, Pip as "they" (in every text, not only the crew's) and the dog as "it".
    Modes, so npm test passes between the facts and the words (the first one set wins: the command line
    --crew=auto|strict|present, then CREW_STRICT=1 in the environment, then CREW_WORDS_REQUIRED):
-   - auto (the default): a level whose T.crew has no words yet gets one warning counting what is missing; a level
+   - auto: a level whose T.crew has no words yet gets one warning counting what is missing; a level
      with any crew words is checked in full, every missing text an error, its How it works and controls too.
    - strict: every level in full, words or not (the to-do list for a level: node tests/validate-text.js 3 --crew=strict).
+     Strict is the default while CREW_WORDS_REQUIRED is true (it is: a missing crew text fails npm test).
    - present: only the texts that are written; what is missing is listed as warnings (for drafting). */
 const CREW_WORDS_REQUIRED = true; // the crew words are written at every level: a missing crew text fails npm test
 const ARGS = process.argv.slice(2);
@@ -885,7 +888,7 @@ function checkLevel(n) {
     if (crewNeed) howtoCrewMust().forEach(([test, what]) => { if (!test(t.howto.map(String))) crewNeed(ctx, `howto must mention ${what}`); });
   }
   // controls: the key list under How it works, at this level too
-  if (!Array.isArray(t.controls) || t.controls.length < 5) err(ctx, "controls needs 5+ lines (Road, Inside and in the yard, E, Traps, Backpack, Workbench, Map)");
+  if (!Array.isArray(t.controls) || t.controls.length < 5) err(ctx, "controls needs 5+ lines (Road, Inside and in the yard, E, Traps, Guns, Fishing, Backpack, Reading, Computer, Map)");
   else {
     t.controls.forEach((c, i) => {
       if (!isStr(c, 10)) err(`${ctx} controls[${i}]`, "empty");
@@ -948,6 +951,18 @@ function checkLevel(n) {
       const name = WORLD.BASE_ROOMS[other].name;
       if (!d.includes(name)) err(tctx, `desc must name "${name}" (unlocked by ${name} ${lvl})`);
       else if (!hasNumber(lvl, d)) warn(tctx, `desc names "${name}" but not level ${lvl}`);
+    });
+  });
+  // tools (the workbench's crowbar card, read by js/base.js): the usual scrap cost and what each needs
+  const tools = base.tools || {};
+  Object.entries(WORLD.TOOLS || {}).forEach(([key, def]) => {
+    const tctx = `${ctx} base.tools.${key}`;
+    const d = tools[key] && tools[key].desc;
+    if (!isStr(d)) return err(tctx, `desc missing (${def.name}: ${def.scrap} scrap)`);
+    if (!hasNumber(def.scrap, d)) err(tctx, `desc must give the scrap cost ${def.scrap}`);
+    Object.entries(def.needs || {}).forEach(([item, n]) => {
+      const iname = WORLD.ITEMS[item].name;
+      if (!d.includes(iname)) err(tctx, `desc must name "${iname}" (needs ${n})`);
     });
   });
   if (!base.bench || !isStr(base.bench.intro)) err(ctx, "base.bench.intro missing (one or two sentences shown at the garage workbench)");

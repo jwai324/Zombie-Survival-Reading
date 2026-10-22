@@ -31,7 +31,7 @@
         },
         "police-dead2": {
           title: "Numbers on a Scrap",
-          text: "A torn scrap of paper, folded twice. The writing is fast and messy.\n\nARMORY COMBINATION: {decoyCode}. GOT IT FROM THE SARGE.\n\nThat looks like a lucky find. The armory has gun parts. Who would not want them?\n\nBut look at the back of the scrap. It is an old duty list, from the first week of the Fall. These numbers are just as old. Sergeant Vega changed the combination after that. So this one is wrong now. Spin it in, and the station alarm goes off.\n\nDo not trust a scrap with no name on it. The note on the front desk has the one that works.",
+          text: "A torn scrap of paper, folded twice. The writing is fast and messy.\n\nARMORY COMBINATION: {decoyCode}. GOT IT FROM THE SARGE.\n\nThat looks like a lucky find. The armory has gun parts. Who would not want them?\n\nBut look at the back of the scrap. It is an old duty list, from the first week of the Fall. These numbers are just as old. Sergeant Vega changed the combination after that. So this one is wrong now. Type it in, and the station alarm goes off.\n\nDo not trust a scrap with no name on it. The note on the front desk has the one that works.",
         },
       },
       signs: {
@@ -47,16 +47,16 @@
       blurb: "Lincoln Middle School, with boxes of books and a locked library closet.",
       door: {
         title: "Max and Mia Were Here",
-        text: "It's Max and Mia! We came back to look for our class.\n\nBoxes of books are in the music room, by the drum set. More are in the front office, behind the lion statue.\n\nAt least six walkers are inside. One walks up and down the main hallway. Be quiet in there.\n\nThe library closet is locked. The key is in the teacher's note. It is in the science room, back left, by the big brain. Good luck!",
+        text: "It's Max and Mia! We came back to look for our class.\n\nThere are two boxes of books. One is in the music room, by the drum set. The other is in the front office, behind the lion statue.\n\nAt least six walkers are inside. One stands in the main hallway. Be quiet, or it wakes.\n\nThe library closet is locked. The key is in the teacher's note. It is on the desk by the science room door, back left. That room has the big brain. Good luck!",
       },
       notes: {
         "school-classroom": {
           title: "Ms. Adler's Desk Drawers",
-          text: "I am Ms. Adler. I taught in this room for nine years.\n\nThe library closet key is in the {pick} of this desk. The drawers are right under this note.\n\nOpen no other drawer! Max and Mia tied air horns to the other two. The noise brings every walker in the school. They come even through the front door. They keep coming until they get you.\n\nFollow the main hallway toward the drum set room. The library is the room next to it. Its closet is in the back corner, on the drum set side. Inside are books and a folder of city maps.\n\nNorthgate Mall is up north. It has food, medicine, and wire. But the crowds there are the worst in town.",
+          text: "I am Ms. Adler. I taught in this room for eleven years.\n\nThe library closet key is in the {pick} of this desk. The drawers are right under this note.\n\nOpen no other drawer! Max and Mia tied air horns to the other two. The noise brings every walker in the school. They come even through the front door. They keep coming until they get you.\n\nFollow the main hallway toward the drum set room. The library is the room next to it. Its closet is in the back corner, on the drum set side. Inside are books and a folder of city maps.\n\nNorthgate Mall is up north. It has food, medicine, and wire. But the crowds there are the worst in town.",
         },
         "school-trail1": {
           title: "Max, Mia: Read This",
-          text: "To Max and Mia. You came back. I knew you would.\n\nThe class has gone north to the Public Library. Mrs. Greer, the librarian, will take us in. Every student is safe and counted. Every one, except the two of you. I counted three times.\n\nI will come back to check whenever I can. Wait here if it is safe. If not, come north to the library. Stay together, like we practiced. Do not go anywhere alone.\n\nSergeant Vega came looking for the class. Vega left a note for you. It is in the music room, beside the drum set.\n\nLove, Ms. Adler",
+          text: "To Max and Mia. You came back. I knew you would.\n\nThe class has gone northwest to the Public Library. Mrs. Greer, the librarian, will take us in. Every student is safe and counted. Every one, except the two of you. I counted three times.\n\nI will come back to check whenever I can. Wait here if it is safe. If not, come northwest to the library. Stay together, like we practiced. Do not go anywhere alone.\n\nSergeant Vega came looking for the class. Vega left a note for you. It is in the music room, beside the drum set.\n\nLove, Ms. Adler",
         },
         "school-trail2": {
           title: "Sergeant Vega Came Looking",
@@ -74,7 +74,7 @@
       signs: {
         "school-sign1": { title: "Classroom Poster", text: "CLASS RULES: Raise your hand. Be kind. Read every day. At the bottom, someone added in marker: Stay together." },
         "school-sign2": { title: "Spray paint", text: "Ruby's red R, with a 6 under it. Under that, smaller: ONE IN THE HALLWAY. Check both ends." },
-        "school-sign3": { title: "Neat Chalk Letters", text: "Neat chalk letters, like on a blackboard. Ms. Adler's class, gone north. Under it: Read the note by the front door." },
+        "school-sign3": { title: "Neat Chalk Letters", text: "Neat chalk letters, like on a blackboard. Ms. Adler's class, gone northwest. Under it: Read the note by the front door." },
         "school-sign4": { title: "Library Closet Door", text: "LIBRARY CLOSET. Please return books on time. Thank you! Under it, someone added: Late fees canceled. Forever." },
       },
       key: { name: "Short steel key, gray tag", tag: "A short steel key on a gray tag. The tag says: Do not remove. Someone crossed out the words \"do not\" with a pen." },
@@ -101,7 +101,7 @@
         },
         "firehouse-dead1": {
           title: "Chief Dunn's Famous Chili",
-          text: "STATION 12 CHILI. By Chief Dunn. Feeds the whole crew.\n\nWhat you need:\nBeans.\nMore beans.\nWhatever is in the can.\n\nHow to make it:\nPut it all in the pot. Add water if it looks thick. Cook it slow. Cook it slower than that. Stir when you walk past. Do not rush it.\n\nServe it hot after a long shift. Nobody complains. If they do, they wash the pot. Vega burned the rice once. We still talk about it.\n\nAt the bottom, in big letters: NEVER LET VEGA COOK.\n\nSomebody drew a little fire under the words. Somebody else wrote: fair.",
+          text: "STATION 12 CHILI. By Chief Dunn. Feeds the whole crew.\n\nWhat you need:\nBeans.\nMore beans.\nWhatever is in the can.\n\nHow to make it:\nPut it all in the pot. Add water if it looks thick. Cook it slow. Cook it slower than that. Stir when you walk past. Do not rush it.\n\nServe it hot after a long shift. Nobody complains. If they do, they wash the pot. Vega burned a pot of water once. We still talk about it.\n\nAt the bottom, in big letters: NEVER LET VEGA COOK.\n\nSomebody drew a little fire under the words. Somebody else wrote: fair.",
         },
         "firehouse-dead2": {
           title: "Duty Roster Tip",
@@ -120,8 +120,8 @@
     hospital: {
       blurb: "St. Anne Annex, the north hills hospital, with medicine and the worst walkers.",
       door: {
-        title: "Doc Lin on the Ambulance",
-        text: "Doc Lin. Read all of this.\n\nOne medical kit is in a patient room next to the x-ray machine. Another is by the giant teddy bear, in the gift shop. The generator is in the utility room, on the right.\n\nAt least nine walkers are inside. They stand in the dark rooms. They do not move until they hear you.\n\nThe pharmacy stock room is locked. The nurse's note is at the nurses' station, in the middle.",
+        title: "Nurse Ada on the Ambulance",
+        text: "Nurse Ada. I stayed inside when the others left. Read all of this.\n\nOne medical kit is in a patient room next to the x-ray machine. Another is by the giant teddy bear, in the gift shop. The generator is in the utility room, on the right.\n\nAt least nine walkers are inside. They stand in the dark rooms. They do not move until they hear you.\n\nThe pharmacy stock room is locked. My note is at the nurses' station, in the middle.",
       },
       notes: {
         "hospital-hall": {
@@ -158,12 +158,12 @@
       blurb: "The pump building under the Water Tower, full of water filters.",
       door: {
         title: "Theo's Note on the Gate",
-        text: "Theo here. I tend the pumps.\n\nOne water filter is by the crates, near the big red wheel. The other is in the boat workshop, by the rowboat.\n\nAt least six walkers are inside the pump building. They drift around the machines.\n\nThe pump house is locked. My note is on the control panel, in the back right room. Read it before you touch anything. Shut the gate behind you.",
+        text: "Theo here. I tend the pumps.\n\nOne water filter is by the crates, near the big red wheel. The other is in the boat workshop, by the rowboat.\n\nAt least six walkers are inside the pump building. They stand among the machines.\n\nThe pump house is locked. My note is on the control panel, in the back right room. Read it before you touch anything. Shut the gate behind you.",
       },
       notes: {
         "watertower-panel": {
           title: "Three Breaker Boxes",
-          text: "Theo again. You found the panel. Good. Now listen close.\n\nThree breaker boxes hang by this panel. The pump house key is in the {pick}. Open that one, and take the key.\n\nOpen neither of the other two boxes! They are live. The shock kills. Do not touch them at all.\n\nThe pump house door is at the back of the pump hall. It is at the blue pump end, away from the big red wheel. In the pump house there are filters. There is a water tank and some wire, too.\n\nNeed medicine? St. Anne Annex is the hospital. It is north, up Hill Road. It still has medicine. But it is the most dangerous place in town.",
+          text: "Theo again. You found the panel. Good. Now listen close.\n\nThree breaker boxes hang by this panel. The pump house key is in the {pick}. Open that one, and take the key.\n\nOpen neither of the other two boxes! They are live. The shock kills. Do not touch them at all.\n\nThe pump house door is at the back of the pump hall. It is at the blue pump end, away from the big red wheel. In the pump house there are filters. There is a water tank and some wire, too.\n\nNeed medicine? St. Anne Annex is the hospital. It is northeast, up Hill Road. It still has medicine. But it is the most dangerous place in town.",
         },
         "watertower-trail1": {
           title: "Dev's Note to Ruby",
@@ -175,7 +175,7 @@
         },
         "watertower-dead1": {
           title: "Theo's Water Rules",
-          text: "WATER RULES. Written on a card by Theo. Pinned by the pumps.\n\nOne jug per person each day.\nKids get two.\nNobody leaves thirsty.\n\nThat is it. Three rules. Theo does not like long lists. Nobody argues with Theo's rules.\n\nThe card is soft from many hands. Someone tried to add a fourth rule. It said: Theo gets three jugs. Theo crossed it out. Next to it he wrote: no.\n\nAt the bottom there is a tally. It counts every jug Theo gave away. The marks fill the whole back of the card. Then they go onto the wall. Theo is fair like that.",
+          text: "WATER RULES. Written on a card by Theo. Pinned up by the front door.\n\nOne jug per person each day.\nKids get two.\nNobody leaves thirsty.\n\nThat is it. Three rules. Theo does not like long lists. Nobody argues with Theo's rules.\n\nThe card is soft from many hands. Someone tried to add a fourth rule. It said: Theo gets three jugs. Theo crossed it out. Next to it he wrote: no.\n\nAt the bottom there is a tally. It counts every jug Theo gave away. The marks fill the whole back of the card. Then they go onto the wall. Theo is fair like that.",
         },
         "watertower-dead2": {
           title: "Paper Plate Note",
@@ -183,7 +183,7 @@
         },
       },
       signs: {
-        "watertower-sign1": { title: "City Sign", text: "CITY WATER WORKS. STAFF ONLY. Below it, in red: DANGER. Pumps start without warning. Keep hands clear." },
+        "watertower-sign1": { title: "City Sign", text: "CITY WATER WORKS. STAFF ONLY. Below it, on a yellow plate: DANGER. Pumps start without warning. Keep hands clear." },
         "watertower-sign2": { title: "Big Chalk Letters", text: "Big chalk letters across the wall: Ruby, I am here. It is signed with a D. The D is underlined twice." },
         "watertower-sign3": { title: "Chalk Circle", text: "A chalk circle with a key inside. It is by the tool crib door, in the boat workshop. Under it: Key not here. Read the notes." },
         "watertower-sign4": { title: "Pump House Door", text: "PUMP HOUSE. KEEP LOCKED. Theo wrote under it: Key in a breaker box by the control panel. Read my note there first. Two are live." },
@@ -195,7 +195,7 @@
       blurb: "Ridge Lumber on the east ridge, stacked high with wood.",
       door: {
         title: "Ruby's Spray Paint",
-        text: "Ruby. I spray-painted this so you can read it from the road.\n\nLumber is in the long racks in the middle. One more stack is out back, by the log pile. A big walker stands there.\n\nAt least eight walkers are inside. A crowd gathers by the loading dock and the flatbed truck. Stay away from the dock.\n\nThe kiln shed is locked. The yard boss left a note on a clipboard. It is by the band saw. Quiet in there. No saws.",
+        text: "Ruby. I spray-painted this so you can read it from the road.\n\nLumber is in the long racks in the middle. One more stack is out back, by the log pile. A big walker stands there.\n\nAt least eight walkers are inside. A crowd gathers by the loading dock and the flatbed truck. Stay away from the dock.\n\nThe kiln shed is locked. The yard boss left a note on a clipboard. It is by the band saw. Do not run the saws. The noise brings the dock crowd.",
       },
       notes: {
         "lumberyard-rack": {
@@ -216,14 +216,14 @@
         },
         "lumberyard-dead2": {
           title: "Code on a Receipt",
-          text: "Scrawled on the back of a receipt. The pen skipped. It was written in a hurry.\n\nKILN SHED CODE: {decoyCode}. Got it off the clipboard. Hurry.\n\nIt looks right. It says it came from the clipboard. But look at the date on the receipt. It is from months ago.\n\nCarla changed the padlock after that. This is the old code. Spin it in, and the old padlock locks up for good. Then only a crowbar opens it.\n\nDo not rush. Go find Carla's clipboard by the band saw. It has the code that works now. Read twice, spin once.",
+          text: "Scrawled on the back of a receipt. The pen skipped. It was written in a hurry.\n\nKILN SHED CODE: {decoyCode}. Got it off the clipboard. Hurry.\n\nIt looks right. It says it came from the clipboard. But look at the date on the receipt. It is from months ago.\n\nCarla changed the padlock after that. This is the old code. Put it in, and the old padlock locks up for good. Then only a crowbar opens it.\n\nDo not rush. Go find Carla's clipboard by the band saw. It has the code that works now. Read twice, put it in once.",
         },
       },
       signs: {
         "lumberyard-sign1": { title: "Big Painted Sign", text: "Ridge Lumber. Cut to order. Since 1962. Ask at the counter for a price. Under it, in chalk: Prices are free now." },
         "lumberyard-sign2": { title: "Spray paint", text: "Ruby's red R, with an 8 under it. Below, in drippy letters: THEY GATHER AT THE DOCK. STAY AWAY." },
         "lumberyard-sign3": { title: "Safety Sign", text: "SAFETY FIRST. Ear protection needed near the saws. Under it, in Carla's marker: The saws stay off. Period." },
-        "lumberyard-sign4": { title: "Paint on the Shed", text: "Spray paint on the kiln shed door. CODE ON THE CLIPBOARD. A big arrow points toward the saw shop." },
+        "lumberyard-sign4": { title: "Paint on the Shed", text: "Spray paint on the wall beside the kiln shed door. CODE ON THE CLIPBOARD. A big arrow points toward the saw shop." },
       },
       key: { name: "Old key with bookmark tag", tag: "A long, old-fashioned key. It has a round loop for a handle. It is tied to a paper bookmark. The bookmark says: Handle with care." },
     },
@@ -241,7 +241,7 @@
         },
         "mall-trail1": {
           title: "Luis Holds His Post",
-          text: "Luis again. Guard's log, sort of.\n\nI have stayed at my post since the Fall began. Every day. I watch the crowd from the balcony. I know their habits now. They walk the same slow loop. Every day, the same path. Past the fountain, past the shoe store, back again.\n\nSergeant Vega came by last month. Vega asked me to join the River Convoy. I said no. Someone has to watch the mall. If I leave, who warns people? Vega did not argue much.\n\nMy other note is in the sports store. It is beside the orange tent. Read it. It is about a key.",
+          text: "Luis again. Guard's log, sort of.\n\nI have stayed at my post since the Fall began. Every day. I watch the crowd from the main hall. I know their habits now. They walk the same slow loop. Every day, the same path. Past the food court, past the shoe store, back again.\n\nSergeant Vega came by last month. Vega asked me to join the River Convoy. I said no. Someone has to watch the mall. If I leave, who warns people? Vega did not argue much.\n\nMy other note is in the sports store. It is beside the orange tent. Read it. It is about a key.",
         },
         "mall-trail2": {
           title: "A Key from Doc Lin",
@@ -278,7 +278,7 @@
         },
         "library-trail1": {
           title: "The Class Lives Here Now",
-          text: "Mrs. Greer. A note for anyone who asks about the children.\n\nMs. Adler's class lives here now. They came north from Lincoln Middle School. I took them in on the first night. They read by window light. They keep quiet. They are very good at quiet now. Better than any class I ever had.\n\nMs. Adler still watches the front door. She waits for the twins, Max and Mia. Two of her students are still missing. She will not stop looking. If you see two lost twins, send them here.\n\nMy other note is in the periodicals room. It is beside the tall clock.",
+          text: "Mrs. Greer. A note for anyone who asks about the children.\n\nMs. Adler's class lives here now. They came northwest from Lincoln Middle School. I took them in on the first night. They read by window light. They keep quiet. They are very good at quiet now. Better than any class I ever had.\n\nMs. Adler still watches the front door. She waits for the twins, Max and Mia. Two of her students are still missing. She will not stop looking. If you see two lost twins, send them here.\n\nMy other note is in the periodicals room. It is beside the tall clock.",
         },
         "library-trail2": {
           title: "A Key for the Mall",
@@ -286,7 +286,7 @@
         },
         "library-dead1": {
           title: "Class Reading Chart",
-          text: "MS. ADLER'S CLASS READING CHART. One star for every book you finish!\n\nThe chart is long. It is taped across two tables. Every student's name is on it. Most rows are full of gold stars. Some rows run off the edge. Someone taped on extra paper. The stars are cut from candy wrappers.\n\nTwo names have no stars yet. Max. Mia.\n\nTheir rows are empty. But they are not crossed out. Next to them, in neat pencil: saving their stars. Ms. Adler checks it every evening.\n\nThere is a small envelope pinned there, too. It is full of gold stars. It is waiting.",
+          text: "MS. ADLER'S CLASS READING CHART. One star for every book you finish!\n\nThe chart is long. It is taped to the wall. Every student's name is on it. Most rows are full of gold stars. Some rows run off the edge. Someone taped on extra paper. The stars are cut from candy wrappers.\n\nTwo names have no stars yet. Max. Mia.\n\nTheir rows are empty. But they are not crossed out. Next to them, in neat pencil: saving their stars. Ms. Adler checks it every evening.\n\nThere is a small envelope pinned there, too. It is full of gold stars. It is waiting.",
         },
         "library-dead2": {
           title: "Index Card Tip",

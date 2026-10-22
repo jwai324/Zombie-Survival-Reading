@@ -28,7 +28,7 @@
         },
         "gasngo-dead1": {
           title: "Dev's Last Shift",
-          text: "This is a to-do list. Dev wrote it on his last shift, just before the Fall. The paper is soft and gray now.\n\nTO DO:\nMop the floor.\nFill the coffee.\nFix the ice machine.\n\nAt the bottom, in small letters, it says: Call Ruby back.\n\nNot one thing on the list is crossed off. The mop still leans on a shelf. The coffee pot is still empty. The ice machine is still broken. Did Dev ever call Ruby back? The list does not say.",
+          text: "This is a to-do list. Dev wrote it on his last shift, just before the Fall. The paper is soft and gray now.\n\nTO DO:\nMop the floor.\nFill the coffee.\nFix the ice machine.\n\nAt the bottom, in small letters, it says: Call Ruby back.\n\nRuby called about the news. The news was about some sickness across the river. Dev wrote: Probably nothing.\n\nNot one thing on the list is crossed off. The mop still leans in its bucket. The coffee pot is still empty. The ice machine is still broken. Did Dev ever call Ruby back? The list does not say.",
         },
         "gasngo-dead2": {
           title: "A Scrap of Receipt",
@@ -155,8 +155,8 @@
           text: "Keys cut here, says the sign. A circled key is by it. The arrow points to the paint vault, by the paints.",
         },
         "hardware-sign4": {
-          title: "Marker on the Door",
-          text: "Marker on this door says: It sticks. Read my note by the paint mixer before you push. Mr. Reyes signed it.",
+          title: "Marker by the Door",
+          text: "Marker by this door says: It sticks. Read my note by the paint mixer before you push. Mr. Reyes signed it.",
         },
       },
       key: {
@@ -167,7 +167,7 @@
 
     /* ---------- Mile 9 Pharmacy ---------- */
     pharmacy: {
-      blurb: "A small drugstore with medical kits on the shelves and five walkers inside.",
+      blurb: "A small drugstore with medical kits on the floor. At least five walkers wait inside.",
       door: {
         title: "Under the Tape",
         text: "I am Mr. Okafor, the pharmacist. Please read this with care.\n\nThere are two medical kits out here. One is by the giant toothbrush. The other is in the middle, where the aisles cross.\n\nThere are at least five walkers inside. Most of them stay near the back, so go slow.\n\nThe cabinet room is locked. Its code is on my note behind the counter. To get behind the counter, go in at the right end. That is by the wheelchairs.\n\n—Mr. Okafor, pharmacist",
@@ -175,7 +175,7 @@
       notes: {
         "pharmacy-counter": {
           title: "The Cabinet Code",
-          text: "Mr. Okafor here. I am careful with codes, so please be careful too.\n\nThe cabinet room has a keypad. The code is {code}. Say it like this: {codeSpoken}. Punch in each number with care.\n\nUse that code and no other. One wrong code sets off the alarm. Then walkers pour in, even through the front door. They keep coming until they get you.\n\nThe cabinet room has two more medical kits. It has a water filter too.\n\nThe cabinet room door is behind this counter. It is in the corner by the wheelchairs.\n\nSt. Anne Annex is the hospital in the north hills. It still has medicine and a generator. But it is the most dangerous place in town.\n\n—Mr. Okafor",
+          text: "Mr. Okafor here. I am careful with codes, so please be careful too.\n\nThe cabinet room has a keypad. The code is {code}. Say it like this: {codeSpoken}. Punch in each number with care.\n\nUse that code and no other. One wrong code sets off the alarm. Then walkers pour in, even through the front door. They keep coming until they get you.\n\nThe cabinet room has two more medical kits. It has a water filter too.\n\nThe cabinet room door is behind this counter. It is in the back corner. It is on the same side as the wheelchairs.\n\nSt. Anne Annex is the hospital in the north hills. It still has medicine and a generator. But it is the most dangerous place in town.\n\n—Mr. Okafor",
         },
         "pharmacy-trail1": {
           title: "Doc Lin Turns Back",
@@ -223,7 +223,7 @@
       blurb: "A car repair shop with engine parts on the benches and a pit under a locked hatch.",
       door: {
         title: "Chalk on the Bay Door",
-        text: "This is Dev, from the Gas-N-Go. Ruby, if you read this, read the notes inside too.\n\nThere are engine parts on the workbenches. One is in the back right, by the red tool chest. The other is in the left bay.\n\nThere are at least five walkers inside. One walks around the parts room, by the engine crane.\n\nThe service pit is under a locked hatch. Mr. Ortiz left a note about it. His note is in the office, behind the waiting room.\n\n—Dev",
+        text: "This is Dev, from the Gas-N-Go. Ruby, if you read this, read the notes inside too.\n\nThere are engine parts on the workbenches. One is in the back right, by the red tool chest. The other is in the left bay.\n\nThere are at least five walkers inside. One stands in the parts room, by the engine crane.\n\nThe service pit is under a locked hatch. Mr. Ortiz left a note about it. His note is in the office, behind the waiting room.\n\n—Dev",
       },
       notes: {
         "autoshop-office": {
@@ -240,7 +240,7 @@
         },
         "autoshop-dead1": {
           title: "The Job Board",
-          text: "This is a job board on the wall. Mr. Ortiz wrote the jobs on it in thick chalk.\n\nJOBS:\nChief Dunn's fire truck: new brakes.\nSergeant Vega's van: new tires.\nCarla's boat motor: not done yet.\n\nThe chalk is smeared now. No one will come for the van or the truck today. But the board still makes the shop look open. It looks like Mr. Ortiz will walk in soon. Then he will pick up a wrench and get to work.",
+          text: "This is a job board on the wall. Mr. Ortiz wrote the jobs on it in thick grease pencil.\n\nJOBS:\nChief Dunn's fire truck: new brakes.\nSergeant Vega's van: new tires.\nCarla's boat motor: not done yet.\n\nThe writing is smeared now. No one will come for the van or the truck today. But the board still makes the shop look open. It looks like Mr. Ortiz will walk in soon. Then he will pick up a wrench and get to work.",
         },
         "autoshop-dead2": {
           title: "A Greasy Tip",
@@ -315,7 +315,7 @@
         },
         "radioshack-sign4": {
           title: "Office Door",
-          text: "The door sign says: Manager's office, please knock. Someone wrote under it in marker: Priya says look under the register.",
+          text: "The sign beside the door says: Manager's office, please knock. Someone wrote under it in marker: Priya says look under the register.",
         },
       },
       key: {
@@ -334,7 +334,7 @@
       notes: {
         "garden-bench": {
           title: "Rosa's Shed Key",
-          text: "Rosa here. You made it to my bench. Good.\n\nThe potting shed has a padlock. Three watering cans sit by this bench. The key is in one of them. Look in the {pick}. Tip it, and the key drops out.\n\nDo not tip the other two cans! They are my walker alarm. They are full of bells and tin cans. The noise brings walkers, more and more. They come in even through the gate. They keep coming until they get you.\n\nThe shed has more seeds and a water tank. Take some seeds, and leave some.\n\nGo out of the palm tree house. Take the path down toward the beehives. The shed door is on that path.\n\nDo you need tools? Station 12 is the fire station, north of here. Its equipment bay has tools and water tanks.\n\n—Rosa",
+          text: "Rosa here. You made it to my bench. Good.\n\nThe potting shed has a padlock. Three watering cans sit by this bench. The key is in one of them. Look in the {pick}. Tip it, and the key drops out.\n\nDo not tip the other two cans! They are my walker alarm. They are full of bells and tin cans. The noise brings walkers, more and more. They come in even through the gate. They keep coming until they get you.\n\nThe shed has more seeds and a water tank. Take some seeds, and leave some.\n\nGo out of the palm tree house. Take the path down toward the beehives. The shed door is on that path.\n\nDo you need tools? Station 12 is the fire station, north and east of here. Its equipment bay has tools and water tanks.\n\n—Rosa",
         },
         "garden-trail1": {
           title: "A Rattling Truck",

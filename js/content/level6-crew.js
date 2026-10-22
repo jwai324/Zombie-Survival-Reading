@@ -43,7 +43,7 @@
     },
     "june-t9": {
       title: "Keeping the Garden Going",
-      text: "June talks about the Garden the way a general talks about a battle that went well. She reminds you of Kate Hollis's note on the fridge, the one that asked whoever found the cabin to keep the garden going. “Well, Kate,” June says to nobody in particular, “now there is one.” Each new level of the Garden grows more food each day, so every level you add pays you back at supper. Then June lowers her voice. Everyone is talking about the River Convoy and the road north. “A cabin with a garden is hard to leave,” she says. “Even for that.”",
+      text: "June talks about the Garden the way a general talks about a battle that went well. She reminds you of Kate Hollis's note on the fridge, the one that asked whoever found the cabin to keep the garden going. “Well, Kate,” June says to nobody in particular, “now there is one again.” Each new level of the Garden grows more food each day, so every level you add pays you back at supper. Then June lowers her voice. Everyone is talking about the River Convoy and the road north. “A cabin with a garden is hard to leave,” she says. “Even for that.”",
     },
     "june-t10": {
       title: "Pip's Problem",
@@ -73,7 +73,7 @@
     // Tomas: seventeen, engines, stubborn, earnest
     "tomas-t1": {
       title: "An Old but Honest Van",
-      text: "Tomas is seventeen, and as far as he is concerned, his whole job is keeping the van alive. He pats its dented fender while he talks. “It is old but honest, like a good mule,” he says. “It will never win a race, but it will never lie to you about what it can carry.” Then he gets serious. Damage to the van stays from one trip to the next, and nothing heals overnight. Fix it at the office computer, or at the van before you go, and do not count on luck to cover the difference. “Drive out hurt, come home worse,” Tomas says. “That is not a saying. It is a forecast.”",
+      text: "Tomas is seventeen, and as far as he is concerned, his whole job is keeping the van alive. He pats its dented fender while he talks. “It is old but honest, like a good mule,” he says. “It will never win a race, but it will never lie to you about what it can carry.” Then he gets serious. Damage to the van stays from one trip to the next, and most of it is still there in the morning. Fix it at the office computer, or at the van before you go, and do not count on luck to cover the difference. “Drive out hurt, come home worse,” Tomas says. “That is not a saying. It is a forecast.”",
     },
     "tomas-t2": {
       title: "Walking the Fence Line",
@@ -101,7 +101,7 @@
     },
     "tomas-t8": {
       title: "The KEEP OUT Sign",
-      text: "Tomas sleeps in Gus's room, under a sign that orders everyone to KEEP OUT. He says the sign now means Pip, and he enforces it about as well as Gus probably did. Gus left a guitar behind, too, with two broken strings. Tomas tunes the four good ones some nights and wants to fix the rest someday, once he finds strings. “It deserves to be played,” he says. Meanwhile, there is news. Now that he trusts you, Tomas also fixes the cabin's broken doors and windows himself when it is quiet. He will tell you what he did, and what it cost, the next time you talk.",
+      text: "Tomas sleeps in Gus's room, under a sign that orders everyone to KEEP OUT. He says the sign now means Pip, and he enforces it about as well as Gus probably did. Gus left a guitar behind, too, with two broken strings. Tomas has not touched it yet, but he wants to fix it someday, once he finds strings. “It deserves to be played,” he says. Meanwhile, there is news. Now that he trusts you, Tomas also fixes the cabin's broken doors and windows himself when it is quiet. He will tell you what he did, and what it cost, the next time you talk.",
     },
     "tomas-t9": {
       title: "News of Mr. Ortiz",
@@ -159,7 +159,7 @@
     },
     "pip-t6": {
       title: "The List of Voices",
-      text: "Pip keeps a list of every voice the crew hears, written in a notebook that is starting to come apart at the spine. The first name on it is June, underlined twice. People say someone named Jo talks on the radio from a rooftop, reading out news and warnings to anybody listening. Pip says that is exactly the kind of voice the list was made for. The Radio room, made of radio parts and wire, brings in voices like Jo's, Pip says, and it finds new places for the map too. “Imagine,” Pip says. “Voices that know things we do not.”",
+      text: "Pip keeps a list of every voice the crew hears, written in a notebook that is starting to come apart at the spine. The first name on it is June, underlined twice. Jo talks on the radio from a rooftop, reading out news and warnings to anybody listening. Pip says that is exactly the kind of voice the list was made for. The Radio room, made of radio parts and wire, brings in voices like Jo's, Pip says, and it finds new places for the map too. “Imagine,” Pip says. “Voices that know things we do not.”",
     },
     "pip-t7": {
       title: "A Radio That Reaches",
@@ -191,7 +191,7 @@
     },
     "pip-m4": {
       title: "The Leaning Table",
-      text: "Pip has a theory about the ping pong table and will share it whether or not you ask. The table leans to the left. Not much, Pip admits, but enough: enough that a ball struck with ordinary, honest skill drifts away from the paddle and off the edge. That is the only reason Tomas wins, Pip says firmly. Tomas, who has won the last several games, suggests Pip try holding the paddle the right way around. Pip is preparing a scientific study involving a marble and a notebook. “Results soon,” Pip says darkly. “Very soon.”",
+      text: "Pip has a theory about the ping pong table and will share it whether or not you ask. The table leans to the left. Not much, Pip admits, but enough: enough that a ball struck with ordinary, honest skill drifts away from the paddle and off the edge. That is the only reason Tomas wins, Pip says firmly. Tomas, who has won the last several games, suggests Pip try holding the paddle the right way around. Pip has run a scientific study involving a marble and a notebook. The marble rolled left every time. “Case closed,” Pip says darkly.",
     },
     "pip-m5": {
       title: "Read to the End",
@@ -221,7 +221,7 @@
       keys: "Pip has noticed the jingle in your pocket: you are holding {keys}. Each key's note says which stash it opens, Pip reminds you, and your notes are all in the backpack. “Read it again before you try a lock,” Pip says.",
       walkers: "Pip keeps count, and the numbers are not good news: in {days} days, the buildings in town each get one more walker, up to a limit. Pip says the places you keep putting off will only get busier.",
       radio: "Pip says a new broadcast waits at the radio in the dining room each day you come home, and Pip has not missed one yet. Tune in there. If you have missed one, no harm done: the old ones play again too.",
-      full: "Pip has drawn a double line under the tally on the wall, the way a bookkeeper closes an account. Every building in town is as full of walkers as it will get, Pip says. From now on, a place is only as dangerous as it is today. “Which is still plenty,” Pip adds, “so do not get comfortable.”",
+      full: "Pip has drawn a double line under the tally on the wall, the way a bookkeeper closes an account. Every building in town is as full of walkers as it will get, Pip says. From now on, no building gets more walkers than it has today. “Which is still plenty,” Pip adds, “so do not get comfortable.”",
     }),
   });
 

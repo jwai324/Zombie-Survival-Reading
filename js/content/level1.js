@@ -7,16 +7,16 @@
   root.ZSR.TEXT[1] = {
     level: 1,
     howto: [
-      "The Fall came months ago. Now walkers fill this river town. Most people ran, hid, or went north. You stayed with your crew. You have one old van. No other van in town still runs. One night the van rolled into a yard. It ran on its last drops of fuel. Tomas talked to the engine the whole way. That first night, you kept watch at the window. Nothing came.",
+      "The Fall came months ago. Now walkers fill this river town. Most people ran, hid, or went north. You stayed with your crew. You have one old van. No other van in town still runs. One night the van rolled into a yard. It ran on its last drops of fuel. Tomas talked to the engine the whole way. That first night, you kept watch at the window.",
       "The yard is at the south end of town. A big house stands behind it. A sign by the door calls it the cabin. The Hollis family lived there. Kate drew maps, and Dan hung the dinner bell. Their kids were Gus, Finn, and Lucy. Their dog was Biscuit. They left to join the River Convoy. Kate left a note on the fridge. The cabin is yours if you are kind. That is what her note says. It asks you to keep the garden going. Maybe the Hollis family will come back one day. For now, the cabin is your home base. The game saves only at home base. Go down, and you return to your last save.",
       "June, Tomas, and Pip are your crew. June is the oldest of you. She was a gardener at a school. She writes about each day in a green ledger. June may not want to leave the cabin. Tomas is seventeen. His dad taught him to fix cars. Now he keeps the van alive. Pip is eleven and asks hard questions. Pip wants a dog more than anything. Pip will run the radio once you build it. Then Pip will list every voice on it. Walk up to one of them to talk. They tell you useful things. Sometimes they ask you for a favor. Bring them what they need from town. Each one has trust stars. Talks and favors earn stars. More stars mean more help.",
       "You live with the Hollis family's things now. Tomas sleeps in Gus's room. A sign on the door says KEEP OUT. Pip's height is marked on a door frame. The mark is between Finn's and Gus's. Pip wants to build the treehouse Finn drew. The family left notes all over the cabin. Walk up close to read them.",
-      "People are still out there in the town. They hide in shops, schools, and towers. A scout looks for her lost brother. A doctor carries medicine across town. Two twins look for their teacher. They leave notes for anyone who comes next. So read every note. The door note says how many walkers wait inside. Notes tell you where the good things are. One note says how to open the cache room. Do just what it says. A wrong code sets off an alarm. Then walkers pour in, and you cannot leave. A wrong move can jam a lock. Some notes are old or wrong. So read to the end before you trust one. The people out there made a rule. Take what you need, and leave the rest. They lock the best things in a stash. Each building has one stash. Its key is hidden in a different building. Only the notes say where. One note leads you to a second note. That note tells you where the key is. It also tells you which stash it opens. People who read find the keys. People who smash and grab do not.",
+      "People are still out there in the town. They hide in shops, schools, and towers. A scout looks for her lost brother. A doctor carries medicine across town. Two twins look for their teacher. They leave notes for anyone who comes next. So read every note. The door note says how many walkers wait inside. Notes tell you where the good things are. One note says how to open the cache room. Do just what it says. A wrong code can set off an alarm. Then walkers pour in, and you cannot leave. A wrong move can jam a lock. Some notes are old or wrong. So read to the end before you trust one. The people out there made a rule. Take what you need, and leave the rest. They lock the best things in a stash. Each building has one stash. Its key is hidden in a different building. Only the notes say where. One note leads you to a second note. That note tells you where the key is. It also tells you which stash it opens. People who read find the keys. People who smash and grab do not.",
       "You pick a place on the town map. The map tells you the way in words. The road will not show you the way. Signs show where each lane goes. Where roads meet, your lane may turn! So find your road on the sign early. Get in its lane before the white line. Did you take a wrong turn? Then the drive starts over.",
       "Home is never safe for long. In a calm, no walkers come. You can build, or you can drive to town. Then a wave of walkers comes. They claw holes in the fence. Some go for the cabin, too. A hole stays open until you fix it. Each fix costs scrap. Dan's dinner bell still hangs on the porch. It used to call the family to supper. Now it calls walkers. So ring it only when you are ready. You build by typing at the workbench. Kate left a chalk note in the play room. Keep your fingers on the home row, it says. Each thing you build makes the cabin stronger.",
     ],
     controls: [
-      "Road: Aim with the mouse, and hold to shoot. A and D change lanes. So do the arrow keys and the side buttons. Your lane goes straight past side streets. Where roads meet, each road has a lane. A place's drive has a lane too. Your lane may turn! Read the sign, and get in the lane with your arrow. Be in that lane before the white line. To park, take the lane for your place's drive.",
+      "Road: Aim with the mouse, and hold to shoot. A and D change lanes. So do the arrow keys and the side buttons. Your left lane goes straight past side streets. Where roads meet, each road has a lane. A place's drive has a lane too. Your lane may turn! Read the sign, and get in the lane with your arrow. Be in that lane before the white line. To park, take the lane for your place's drive.",
       "Inside and in the yard: W A S D move you. The mouse looks around. Click to shoot. Hold Shift to run. B opens the backpack. M shows a map of the building. P stops the game.",
       "E does it all: E reads notes. E opens and shuts doors. E uses keypads, locks, and drawers. At a stash, E lets you pick a key. E leaves a building and starts the van. E uses the computer and things in the cabin. E rings the dinner bell. E fixes a door or window for 2 scrap. E fixes a fence hole for 1 scrap. E fixes a wrecked build for 3 scrap. E talks to the crew. When they ask a favor, press E again.",
       "Traps in the yard: T sets a spike trap. R sets a blast trap. The trap goes on the ground in front of you. It can go just past the fence, too.",
@@ -41,7 +41,7 @@
       hint: "Read the sign. It shows where each lane goes. Press A or D to change lanes.",
       wrongWay: "Wrong way! That road goes to {place}.",
       wrongStreet: "Wrong way! That street is {street}.",
-      wrongSide: "Wrong way! {street} is a dead end.",
+      wrongSide: "Wrong way! {street} does not go through.",
       wrongPlace: "That is {place}. It is not {dest}.",
       wrongLot: "This is the wrong lot. It is not {dest}.",
       wrongTitle: "Wrong way",
@@ -51,7 +51,7 @@
       routeHead: "The way there",
       routeTake: "Take {street} to {place}.",
       routeTakeStreet: "Take {street}.",
-      routeStraight: "Stay in your lane past side streets. Where roads meet, read the sign. Then get in the lane for your road.",
+      routeStraight: "Stay in your left lane past side streets. Where roads meet, read the sign. Then get in the lane for your road.",
       routeDrive: "At {dest}, take the lane for its drive. It goes to the door.",
       routeEnd: "{dest} is at the end of {street}. Drive to the end.",
     },
@@ -69,9 +69,9 @@
         garage: {
           desc: "The Garage is a work bay for the van and its gun. Fixing the van costs 1 scrap for every 3 health it lost. It always costs at least 5 scrap. Build the Garage, and the fixes are free.",
           next: [
-            "The van and its gun can go up to tier 3. Fixing the van at base is free.",
-            "The van and its gun can go up to tier 4. Fixing the van at base is free.",
-            "The van and its gun can go up to tier 5. Fixing the van at base is free. It needs gun parts.",
+            "The van and its gun can go up to tier 3. Spread Shot stops at tier 1. Fixing the van at base is free.",
+            "The van and its gun can go up to tier 4. Spread Shot stops at tier 2. Fixing the van at base is free.",
+            "The van and its gun can go up to tier 5. Spread Shot stops at tier 3. Fixing the van at base is free. It needs gun parts.",
           ],
         },
         power: {
@@ -102,16 +102,16 @@
           desc: "The Radio room is a tower in the yard. A wire runs from it to the dining room. Voices come out of the radio there. They tell you where new places are.",
           next: [
             "It shows up to three new places on the map.",
-            "It shows every place on the map.",
-            "It shows every place on the map. It also shows which places still have items.",
+            "It shows every building on the map.",
+            "It shows every building on the map. It also shows which places still have items.",
           ],
         },
         medbay: {
           desc: "The Medbay is where you patch up. Walker hits hurt you less.",
           next: [
             "Walker hits hurt you less when you are on foot.",
-            "Walker hits hurt you less. If you go down, you get back up once on each trip.",
-            "Walker hits hurt you even less. You get back up once on each trip. The van takes less damage, too.",
+            "Walker hits hurt you less. If you go down in a building, you get back up once each trip.",
+            "Walker hits hurt you even less. You get back up once each trip, in a building. The van takes less damage on the road, too.",
           ],
         },
         archive: {
@@ -123,11 +123,11 @@
           ],
         },
         well: {
-          desc: "The Well is dug by hand next to the cabin. It brings clean water up from deep down. You heal faster in the yard. The Farm and the Lab both need it.",
+          desc: "The Well is dug by hand in the middle of the yard. It brings clean water up from deep down. You heal faster in the yard. The Farm and the Lab both need it.",
           next: [
-            "You need the Water room first. It costs 60 scrap. You also need Lumber 2 and Tool kit 1. You heal in the yard at rate 2.",
-            "It costs 100 scrap. You also need Lumber 2 and Engine parts 1. You need Water filter 1, too. The heal rate goes up to 3.",
-            "It costs 150 scrap. You also need Water tank 1 and Engine parts 1. You need Spool of wire 1, too. The heal rate goes up to 4. You start each building at full health.",
+            "You need the Water room first. It costs 60 scrap. You also need Lumber 2 and Tool kit 1. The Well adds 1 to your heal rate in the yard. That is on top of the Water room.",
+            "It costs 100 scrap. You also need Lumber 2 and Engine parts 1. You need Water filter 1, too. Now the Well adds 2 to your heal rate.",
+            "It costs 150 scrap. You also need Water tank 1 and Engine parts 1. You need Spool of wire 1, too. Now the Well adds 3 to your heal rate. You start each building at full health.",
           ],
         },
         farm: {
@@ -192,7 +192,7 @@
         "Read the note first.",
         "The door is shut.",
         "Press E at the door.",
-        "Hold the fence, Max.",
+        "Hold the fence, Tomas.",
         "Gas is on the floor.",
         "Walkers come in waves.",
         "Fix the hole with scrap.",

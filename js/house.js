@@ -48,7 +48,7 @@
     toyCloset: { floor: "hWood", c: "#e6d9a8", pat: "plain" },
   };
   // what each note on a wall looks like (hNote kinds; the porch's is the carved sign, hPlaque)
-  const NOTE_KIND = { foyer: "hooks", office: "map", dining: "chart", kitchen: "cork", pantry: "labels", pingpong: "score", masterBath: "mirror", master: "photo", living: "marks", gusRoom: "keepout", finnRoom: "plan", lucyRoom: "drawing", playroom: "chalk", coatCloset: "list" };
+  const NOTE_KIND = { foyer: "hooks", office: "map", dining: "chart", kitchen: "fridge", pantry: "labels", pingpong: "score", masterBath: "mirror", master: "photo", living: "marks", gusRoom: "keepout", finnRoom: "plan", lucyRoom: "drawing", playroom: "chalk", coatCloset: "list" };
 
   /* ---------- Furniture, room by room, in house tiles ----------
      f.low(x0, y0, w, h, def): knee-high solid furniture you can see and shoot over (one def per piece);
@@ -117,7 +117,9 @@
       f.low(15, 6, 1, 1, { h: 0.48, tex: "hStove", top: "#2f3136" });
       f.low(15, 8, 1, 2, counter());
       f.low(13, 10, 2, 1, counter());
-      f.prop(12.5, 8.5, "hFridge", { scale: 0.92, solid: true });
+      // the fridge is built into the west wall, Kate's note on its door (the kitchen note: NOTE_KIND fridge); a counter
+      // stands where the free-standing fridge did, so the kitchen's floor (and where raiders wait) is as it was
+      f.low(12, 8, 1, 1, counter());
       f.prop(15.6, 11.6, "hDogBowl", { scale: 0.12 });
     },
     pantry(f) {
@@ -129,6 +131,7 @@
       f.prop(15.5, 19.45, "hTV", { scale: 0.6, solid: true });
       f.prop(16.5, 19.5, "hPlant", { scale: 0.55, solid: true });
       f.prop(12.5, 17.5, "hArmchair", { scale: 0.5, solid: true });
+      f.prop(12.42, 16.5, "hWoodstove", { scale: 0.95, solid: true }); // the woodstove by the armchair, against the outside wall
       f.prop(12.45, 19.45, "hLamp", { scale: 0.9, solid: true, cover: false });
       f.prop(18.5, 17.5, "hPlant", { scale: 0.55, solid: true }); // where the radio shelf stood: Pip carried it to the dining room
       f.prop(16.5, 13.4, "hBookcase", { scale: 0.95, solid: true });
@@ -426,6 +429,7 @@
         this.maskDirty = true;
         this.walkers.forEach((w) => (w.pathT = 0));
         this.houseFaces();
+        this.updateHud(); // the yard's goal line counts broken doors and windows (yardGoal), which the per-frame signature does not see
         this.toast(b.kind === "window" ? "A window is smashed in! They can climb into the cabin." : (b.back ? "The back door" : "The front door") + " is down! They are getting into the cabin.", 3);
         Audio().play("crunch");
         return false;

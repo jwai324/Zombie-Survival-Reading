@@ -13,7 +13,7 @@
       brief:
         "June wants to plant sunflowers by the fence. Her old school kids did that too. Go to Corner Grocery, east of the cabin. Find the fish tank by the SEAFOOD sign. The seeds lie on the floor there. Look for a brown paper bag with a sunflower. You get 20 scrap and 1 seed packet.",
       tag: "This paper bag holds sunflower seeds. They come from the big bins. The price sticker says: for snacks or for planting.",
-      journal: "You brought home a bag of sunflower seeds. I planted them by the fence, one finger deep. Pip watered every one.\n\n—June.",
+      journal: "You brought a bag of sunflower seeds. I planted them by the fence, one finger deep. Pip watered every one. June's giants, Pip says.",
       done: "June holds the bag like it is gold. She says sunflowers grow taller than the fence. They turn their faces to the sun. June thanks you with a big smile.",
       after:
         "June tells you about her school garden. Each spring, kids planted sunflowers by the school fence. Each fall, they saved the seeds in envelopes. Each kid wrote their name on one. One boy wrote down his sunflower's height every day. June says he would keep a good ledger.",
@@ -23,7 +23,7 @@
       brief:
         "June's knees ache when she kneels in the garden. Go to Mile 9 Pharmacy, northwest of the cabin. Mr. Okafor sold tape there for sore knees. A roll lies by the giant toothbrush. It is outside the STAFF ONLY door. The roll is wide and blue. You get 30 scrap and 1 medical kit.",
       tag: "It is a wide roll of blue tape. It comes from Mile 9 Pharmacy. The label says: for sore knees and ankles.",
-      journal: "You brought me knee tape from Mile 9 Pharmacy. I taped my knees. Then I worked in the dirt until supper.\n\n—June.",
+      journal: "You brought me knee tape from Mile 9 Pharmacy. I taped my knees and worked in the dirt until supper. Not bad for June.",
       done: "June laughs. She says Mr. Okafor was right. For years, he told her to buy this tape. Now she can kneel in the dirt again. So the crew gets 1 more food every day. June thanks you.",
       after:
         "June tells you about Mr. Okafor. He kept her knee pills in a paper bag. For twenty years, she forgot to pick them up. She paid him back in tomatoes every summer. June says the town was like that. People kept things safe for each other.",
@@ -33,7 +33,7 @@
       brief:
         "June's friend Rosa grew beans from June's seeds. Each fall, Rosa saved June a jar. Go to Greenhouse Row, west of the cabin. Look under the seed racks by the big gnome. The jar has a red lid and spotted beans. You get 30 scrap and 2 seed packets. June adds 1 bag of soil.",
       tag: "This glass jar holds dry, spotted beans. It has a red lid. Rosa's label says: For June. The beans came up.",
-      journal: "You brought home Rosa's jar from Greenhouse Row. I read the label three times. Then I set the jar in the window.\n\n—June.",
+      journal: "You brought home Rosa's jar from Greenhouse Row. The label says: For June. I read it three times. I put it in the window.",
       done: "June reads the label. Then she smiles for a long time. She says Rosa never wasted words. These words are Rosa's best ever, June says. She hugs the jar and thanks you.",
       after:
         "June tells you about Rosa. They met at a plant sale. They both grabbed the last tomato plant. So they shared it. Then they traded seeds every spring. June gave beans, and Rosa gave squash. June will save the best beans from this jar. They are for Rosa.",
@@ -43,7 +43,7 @@
       brief:
         "June wants a first-aid book. It can help her patch up the crew. Go to the Public Library, north of the cabin. In the MEDIA room, find the owl statue. The book lies on the floor there. It is thick and blue, with folded page corners. June gives you 40 scrap and 1 medical kit.",
       tag: "This thick blue book comes from the Public Library. Some page corners are folded down. Those pages are about cuts, burns and sprains.",
-      journal: "You brought me the Public Library's first-aid book. I read it by the stove. I read until the candle burned down.\n\n—June.",
+      journal: "You brought me the Public Library's first-aid book. I read it by the stove until the candle burned down. Tomas calls me Student June.",
       done: "June thanks you and starts to read right away. She says the folded corners show the best pages. Those pages helped people the most. Now her patch-up gives you 20 more health.",
       after:
         "June learned first aid in her school garden. Kids got bee stings and scraped knees. So the nurse showed her what to do. She kept bandages in the tool shed. Brave kids got lollipops. June says the crew is braver. But the crew gets no lollipops.",
@@ -53,7 +53,7 @@
       brief:
         "June wants seeds for a bigger garden. Go to Lincoln Middle School, northeast of the cabin. June once helped its garden club save seeds. Look in the SCIENCE room, by the big brain. Find a seed box with a red label. You get 50 scrap and 2 seed packets. June adds 2 bags of soil.",
       tag: "This cardboard box is full of seed envelopes. They are sorted by plant. The red label says: Lincoln Garden Club. Save your best seeds.",
-      journal: "You brought the seed box from Lincoln Middle School. Pip and I sorted seeds at the kitchen table. We stayed up late.\n\n—June.",
+      journal: "You brought the seed box from Lincoln Middle School. Pip and I sorted seeds at the kitchen table. Late, Pip yawned: Good night, June.",
       done: "June reads every envelope out loud. There are beans, squash, corn, peppers and sunflowers. She plants them in every corner of the yard. Now the crew gets 2 more food every day. June thanks you.",
       after:
         "June found the kids' names on the envelopes. They wrote them in pencil. June hopes those kids are safe, wherever they are. She will save seeds from this crop for them. June says a seed is a promise. It promises that next year will come.",
@@ -127,7 +127,7 @@
       brief:
         "Pip wants to see walkers from farther away. Go to the Water Tower, northwest of the cabin. Its pump crew used binoculars to watch the river. The binoculars are in the WORKSHOP, by the rowboat. Find a yellow case with a brown strap. You get 30 scrap. Pip adds 1 box of radio parts.",
       tag: "These black binoculars sit in a yellow case. Someone scratched words on the strap. The words say: river watch.",
-      journal: "You brought Pip binoculars from the Water Tower. Pip watched the trees from the porch roof. Then I called Pip down for supper.\n\n—June.",
+      journal: "You brought Pip binoculars from the Water Tower. Pip watched the trees from the porch roof. I called: Supper, Pip! Pip said: Coming, June!",
       done: "Pip looks at everything through the binoculars, even you. From the porch roof, Pip sees walkers much sooner. On watch, Pip calls waves 10 seconds sooner now. Pip thanks you and grins.",
       after:
         "Pip saw something from the porch roof. Far past the trees, smoke rose from a chimney. Pip says smoke means someone is cooking supper. So someone is still out there. Pip drew the smoke on the wall. Next to it is a question mark.",

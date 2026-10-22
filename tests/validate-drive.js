@@ -934,6 +934,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   const NUMS = { fillRect: 4, strokeRect: 4, clearRect: 4, rect: 4, moveTo: 2, lineTo: 2, arc: 5, ellipse: 7, quadraticCurveTo: 4, bezierCurveTo: 6, arcTo: 5, translate: 2, scale: 2, rotate: 1, roundRect: 4, setTransform: 6, transform: 6, createLinearGradient: 4, createRadialGradient: 6, fillText: 3, strokeText: 3 };
   let where = "(setup)";
   const log = []; // what every context did this frame: [canvas tag, call, args, fillStyle]
+  let recording = true; // off once this section is done, so canvases the game keeps stop filling the log
   const bad = new Set();
   function context2d(canvas, tag) {
     const state = { fillStyle: "#000000", strokeStyle: "#000000", globalAlpha: 1, lineWidth: 1, font: "10px sans-serif", lineCap: "butt", lineJoin: "miter", imageSmoothingEnabled: true, imageSmoothingQuality: "low", textAlign: "start", textBaseline: "alphabetic", globalCompositeOperation: "source-over" };
@@ -970,7 +971,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
               for (let i = 1; i < args.length; i++) if (!finite(args[i])) bad.add(`${where}: ${tag} drawImage() argument ${i + 1} is ${args[i]}`);
             }
             if ((k === "ellipse" && (args[2] < 0 || args[3] < 0)) || (k === "arc" && args[2] < 0)) bad.add(`${where}: ${tag} ${k}() with a negative radius`);
-            log.push([tag, k, args, state.fillStyle]);
+            if (recording) log.push([tag, k, args, state.fillStyle]);
             return calls[k] ? calls[k](...args) : undefined;
           };
         },
@@ -1131,6 +1132,8 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   W.SETTINGS.walkerGore = true;
   M.draw = d0;
   globalThis.document = realDoc;
+  recording = false;
+  log.length = 0;
   kinds.forEach((k) => seen.kinds.has(k) || drawErr(`the angled camera never drew a ${k}`));
   ["walk", "claw", "scream"].forEach((p) => seen.poses.has(p) || drawErr(`the angled camera never drew a walker's "${p}" pose`));
   if (!seen.falls) drawErr("the angled camera never drew a walker going over");
@@ -1170,6 +1173,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   let vanNote = "no 3D van checked"; // (what the road's van test found, for the summary)
   const bad = new Set();
   const log = []; // [tag, call, args]
+  let recording = true; // off once this section is done, so canvases the game keeps stop filling the log
   function context2d(canvas, tag) {
     const state = { fillStyle: "#000000", strokeStyle: "#000000", globalAlpha: 1, lineWidth: 1, font: "10px sans-serif", lineCap: "butt", lineJoin: "miter", imageSmoothingEnabled: true, imageSmoothingQuality: "low", textAlign: "start", textBaseline: "alphabetic", globalCompositeOperation: "source-over" };
     const stack = [];
@@ -1195,7 +1199,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
           return (...args) => {
             for (const a of args) if (typeof a === "number" && !finite(a)) bad.add(`${where}: ${tag} ${k}(${args.map((x) => (typeof x === "number" ? x : typeof x)).join(", ")})`);
             if (k === "drawImage" && !(args[0] && args[0].width > 0 && args[0].height > 0)) bad.add(`${where}: ${tag} drawImage() of something with no size`);
-            log.push([tag, k, args]);
+            if (recording) log.push([tag, k, args]);
             return calls[k] ? calls[k](...args) : undefined;
           };
         },
@@ -1869,6 +1873,8 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
 
   G.hudRects = hud0;
   globalThis.document = realDoc;
+  recording = false;
+  log.length = 0;
   [...bad].slice(0, 12).forEach(fErr);
   console.log(`flat out: night drawn on change and down the van's heading (beam ${P.NIGHT_BEAM.reach}), fog ${P.FOG.near}..${P.FOG.far}, minimap arrow up and its fade for places in view, signs and hints off the road at 3 sizes, Spread Shot all hits, title screen and garage still scenes, ${vanNote}, the workbench's van in its spot, the map's van whole in every paint job, texWall in its own pixels, ${bad.size} bad calls`);
 }
@@ -1891,6 +1897,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
   let where = "(setup)";
   const bad = new Set();
   const log = []; // [call, args, fillStyle]
+  let recording = true; // off once this section is done, so canvases the game keeps stop filling the log
   function context2d(canvas, tag) {
     const state = { fillStyle: "#000000", strokeStyle: "#000000", globalAlpha: 1, lineWidth: 1, font: "10px sans-serif", lineCap: "butt", lineJoin: "miter", imageSmoothingEnabled: true, imageSmoothingQuality: "low", textAlign: "start", textBaseline: "alphabetic", globalCompositeOperation: "source-over" };
     const stack = [];
@@ -1917,7 +1924,7 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
           return (...args) => {
             for (const a of args) if (typeof a === "number" && !finite(a)) bad.add(`${where}: ${tag} ${k}(${args.map((x) => (typeof x === "number" ? x : typeof x)).join(", ")})`);
             if (k === "drawImage" && !(args[0] && args[0].width > 0 && args[0].height > 0)) bad.add(`${where}: ${tag} drawImage() of something with no size`);
-            if (tag === "screen") log.push([k, args, state.fillStyle]);
+            if (recording && tag === "screen") log.push([k, args, state.fillStyle]);
             return calls[k] ? calls[k](...args) : undefined;
           };
         },
@@ -2182,6 +2189,8 @@ console.log(`persp: ${shots - missed} of ${shots} clicked walkers hit; ${inside}
     P.drawItem = item0;
     B.onPart = null;
     globalThis.document = realDoc;
+    recording = false;
+    log.length = 0;
     [...bad].slice(0, 12).forEach(bErr);
     console.log(`places: ${W.LOCATIONS.length} buildings drawn (${drawn} approach and parked frames), ${orderPairs} walker-and-part pairs (${orderBad} the wrong way round), the van under none, the tower past the haze ${towerSeen.sky} times, ${bad.size} bad calls`);
   }

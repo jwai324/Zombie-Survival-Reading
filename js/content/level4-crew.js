@@ -46,7 +46,7 @@
     },
     "june-t9": {
       title: "Keeping the Garden Going",
-      text: "June says Kate Hollis's note on the fridge asked whoever found the cabin to keep the garden going. Now there is one, and June tends it every morning before breakfast. Each new level of the Garden grows more food each day. June calls it the only bank in town that still pays. She also says a cabin with a garden is hard to leave, even for the River Convoy. She does not say more. She just brushes the dirt off her gloves.",
+      text: "June says Kate Hollis's note on the fridge asked whoever found the cabin to keep the garden going. Now there is one again, and June tends it every morning before breakfast. Each new level of the Garden grows more food each day. June calls it the only bank in town that still pays. She also says a cabin with a garden is hard to leave, even for the River Convoy. She does not say more. She just brushes the dirt off her gloves.",
     },
     "june-t10": {
       title: "Pip's Problem",
@@ -76,7 +76,7 @@
     /* Tomas: seventeen, engines, stubborn, earnest */
     "tomas-t1": {
       title: "Old but Honest",
-      text: "Tomas is seventeen, and he keeps the van alive with wire, tape, and stubbornness. He pats its hood the way some people pat a horse. He says the van is old but honest, like a good mule. It does not heal on its own, though. Damage to the van stays from one trip to the next. Fix it at the office computer, or at the van before you go. “Take care of her,” Tomas says, “and she brings you home.”",
+      text: "Tomas is seventeen, and he keeps the van alive with wire, tape, and stubbornness. He pats its hood the way some people pat a horse. He says the van is old but honest, like a good mule. Damage to the van stays from one trip to the next. Most of it is still there the next morning. Fix it at the office computer, or at the van before you go. “Take care of her,” Tomas says, “and she brings you home.”",
     },
     "tomas-t2": {
       title: "Fixing the Fence",
@@ -104,7 +104,7 @@
     },
     "tomas-t8": {
       title: "Gus's Room",
-      text: "Tomas sleeps in Gus's room, under a sign that says KEEP OUT. Tomas says the sign now means Pip, mostly. Gus left a guitar there with two broken strings. Tomas wants to fix it someday, once he finds strings that fit. For now he can play one sad song on the four that are left. Tomas also fixes the cabin's broken doors and windows himself now, when it is quiet. He tells you about it the next time you talk.",
+      text: "Tomas sleeps in Gus's room, under a sign that says KEEP OUT. Tomas says the sign now means Pip, mostly. Gus left a guitar there with two broken strings. Tomas wants to fix it someday, once he finds strings that fit. Tomas also fixes the cabin's broken doors and windows himself now, when it is quiet. He tells you about it the next time you talk.",
     },
     "tomas-t9": {
       title: "Good News from the Tower",
@@ -154,7 +154,7 @@
     },
     "pip-t4": {
       title: "The Lookout",
-      text: "Pip watches the trees for you now, from the back fence, with the walkie-talkie clipped on. Before the quiet runs out, Pip calls out what is coming next and from which sides. That gives you time to get in place. June does not love Pip being the lookout. But Pip says somebody has to, and Pip has the sharpest eyes in the cabin. Pip also has the loudest voice.",
+      text: "Pip watches the trees for you now, with the walkie-talkie clipped on. Before the quiet runs out, Pip calls out what is coming next and from which sides. That gives you time to get in place. June does not love Pip being the lookout. But Pip says somebody has to, and Pip has the sharpest eyes in the cabin. Pip also has the loudest voice.",
     },
     "pip-t5": {
       title: "Ruby's Red R",
@@ -162,7 +162,7 @@
     },
     "pip-t6": {
       title: "The List of Voices",
-      text: "Pip keeps a list of every voice the crew hears, and the first name on it is June. Tomas is second, which he finds unfair. People say someone named Jo talks on the radio from a rooftop. Pip says a voice like that is exactly what the list is for. The Radio room, made of radio parts and wire, brings in voices like Jo's, Pip says. It also finds new places for the map.",
+      text: "Pip keeps a list of every voice the crew hears, and the first name on it is June. Tomas is second, which he finds unfair. Jo talks on the radio from a rooftop. Pip says a voice like that is exactly what the list is for. The Radio room, made of radio parts and wire, brings in voices like Jo's, Pip says. It also finds new places for the map.",
     },
     "pip-t7": {
       title: "A Radio That Reaches",
@@ -224,7 +224,7 @@
       keys: "Pip says you are holding {keys}. Each key's note says which stash it opens. Your notes are all in the backpack, so read them again before you try a lock.",
       walkers: "Pip keeps count with tally marks. In {days} days, the buildings in town get one more walker each, up to a limit. Pip says an early trip is a quieter trip.",
       radio: "Pip says a new broadcast waits at the radio in the dining room each day you come home. Pip never misses one. Tune in there, and you can hear the old ones again too, any time.",
-      full: "Pip taps the last tally mark on the wall. Every building in town is as full of walkers as it will get, Pip says. From now on, a place is only as dangerous as it is today.",
+      full: "Pip taps the last tally mark on the wall. Every building in town is as full of walkers as it will get, Pip says. From now on, no building gets more walkers than it has today.",
     }),
   });
 

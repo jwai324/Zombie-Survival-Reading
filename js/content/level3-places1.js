@@ -26,7 +26,7 @@
         },
         "gasngo-dead1": {
           title: "Dev's Last To-Do List",
-          text: "A to-do list lies on the break room floor, by the ice machine. It is in Dev's messy handwriting. The date at the top is his last shift before the Fall.\n\nDEV, SATURDAY NIGHT.\nMop the floor. All of it, not just the middle.\nFill the coffee. Both pots, because the truck drivers get grumpy.\nFix the ice machine. It sounds like a sick goose again.\n\nAt the bottom, in pen pressed in hard: Call Ruby back! He underlined it twice.\n\nNothing on the list is crossed off. Not one thing. The pen is still clipped to the paper. The mop bucket stands by the shelf, dry and dusty now. The coffee pots still sit on the burner, empty and stained.\n\nWhatever happened that night, it happened before Dev got to any of it. You wonder if he ever called her back. You hope he did.",
+          text: "A to-do list lies on the break room floor, by the ice machine. It is in Dev's messy handwriting. The date at the top is his last shift before the Fall.\n\nDEV, FRIDAY NIGHT.\nMop the floor. All of it, not just the middle.\nFill the coffee. Both pots, because the truck drivers get grumpy.\nFix the ice machine. It sounds like a sick goose again.\n\nAt the bottom, in pen pressed in hard: Call Ruby back! He underlined it twice. Beside it: about the news, some sickness across the river. Probably nothing.\n\nNothing on the list is crossed off. Not one thing. The pen is still clipped to the paper. The mop bucket stands by the shelf, dry and dusty now. The coffee pots still sit on the burner, empty and stained.\n\nWhatever happened that night, it happened before Dev got to any of it. You wonder if he ever called her back. You hope he did.",
         },
         "gasngo-dead2": {
           title: "A Scrap of Receipt",
@@ -100,7 +100,7 @@
         },
         "hardware-dead1": {
           title: "Who Borrowed What",
-          text: "BORROWED TOOLS. BRING THEM BACK!\n\nThe list is nailed to a post in the lumber racks, in Mr. Reyes's big square letters. The paper is curled from damp. Some names are old and faded. Three are newer.\n\nCarla: one long saw. She said a week.\nChief Dunn: two ladders. For the convoy, he says.\nTheo: one pipe wrench. Never returned. Again.\n\nThe word again is underlined three times, hard enough to tear the paper. Beside Theo's name, Mr. Reyes drew a tiny wrench with a sad face.\n\nUnder the list, in smaller writing: If you see these people, remind them. Nicely. Then remind them again.\n\nMost of the tool hooks near the list are empty. Half the town owes Mr. Reyes a tool. Nails are not on the list. Nobody borrows nails. They just take them.",
+          text: "BORROWED TOOLS. BRING THEM BACK!\n\nThe list is nailed to a post in the lumber racks, in Mr. Reyes's big square letters. The paper is curled from damp. Some names are old and faded. Three are newer.\n\nCarla: one long saw. She said a week.\nChief Dunn: two ladders. For the station roof, he says.\nTheo: one pipe wrench. Never returned. Again.\n\nThe word again is underlined three times, hard enough to tear the paper. Beside Theo's name, Mr. Reyes drew a tiny wrench with a sad face.\n\nUnder the list, in smaller writing: If you see these people, remind them. Nicely. Then remind them again.\n\nMost of the tool hooks near the list are empty. Half the town owes Mr. Reyes a tool. Nails are not on the list. Nobody borrows nails. They just take them.",
         },
         "hardware-dead2": {
           title: "A Paint Chip Tip",
@@ -108,10 +108,10 @@
         },
       },
       signs: {
-        "hardware-sign1": { title: "Hand-Painted Sign", text: "Reyes Hardware, painted by hand in red and gold. Under the name: If we don't have it, you don't need it." },
+        "hardware-sign1": { title: "Hand-Painted Sign", text: "Reyes Hardware, painted by hand in red on white. Under the name: If we don't have it, you don't need it." },
         "hardware-sign2": { title: "Red Spray Paint", text: "Ruby's red R by the front door, sprayed big, with a 5 under it. Below that: two in the middle aisles." },
         "hardware-sign3": { title: "KEYS CUT HERE", text: "KEYS CUT HERE, with a long arrow. It points to the paint vault in the paint department. Next to it, someone drew a circle with a key inside." },
-        "hardware-sign4": { title: "Marker on the Door", text: "Written on the back room door in thick marker: IT STICKS. READ MY NOTE BY THE PAINT MIXER BEFORE YOU PUSH IT. Signed underneath: Mr. Reyes." },
+        "hardware-sign4": { title: "Marker by the Door", text: "Written on the wall beside the back room door in thick marker: IT STICKS. READ MY NOTE BY THE PAINT MIXER BEFORE YOU PUSH IT. Signed underneath: Mr. Reyes." },
       },
       key: { name: "Copper key with a leaf", tag: "\"Take only what you need.\" The copper key has a small leaf scratched by hand into its round head. The copper has turned a little green at the edges." },
     },
@@ -137,11 +137,11 @@
         },
         "pharmacy-dead1": {
           title: "A Bag for June",
-          text: "A white paper pharmacy bag, folded shut at the top and stapled twice. A printed label is stuck to the front. Nobody ever picked it up. The staples have rusted a little.\n\nThe name on the label is June, in capital letters. The pills inside are for sore knees. The label says to take one each morning with food.\n\nMr. Okafor wrote a note across the bottom in tidy blue pen. It says: she always forgets these. Mr. Okafor must have known her well.\n\nThe bag sat behind the counter for a long time. Then someone moved it out here, to the cross aisle. Maybe they meant to deliver it.\n\nYou think of June back at the cabin, kneeling in the dirt to plant. Her knees do creak. Maybe it is the same June.",
+          text: "A white paper pharmacy bag, folded shut at the top and stapled twice. A printed label is stuck to the front. Nobody ever picked it up. The staples have rusted a little.\n\nThe name on the label is June, in capital letters. The pills inside are for sore knees. The label says to take one with food, twice a day.\n\nMr. Okafor wrote a note across the bottom in tidy blue pen. It says: she always forgets these. Mr. Okafor must have known her well.\n\nThe bag sat behind the counter for a long time. Then someone moved it out here, to the cross aisle. Maybe they meant to deliver it.\n\nYou think of June back at the cabin, kneeling in the dirt to plant. Her knees do creak. Maybe it is the same June.",
         },
         "pharmacy-dead2": {
           title: "A Yellow Sticky Note",
-          text: "A yellow sticky note lies on the floor, just inside the front door. It has lost most of its stick. The writing is in pencil, quick and slanted. Someone was in a hurry to remember it.\n\nCABINET ROOM CODE: {decoyCode}. Don't tell anyone!\n\nIt looks useful. It looks like the answer, and someone kept it safe for a long time. But look closer. The pencil has faded, and the paper has gone soft at the edges. This note is old. It is from before Mr. Okafor changed the code. There is even a sign about the new code on the cabinet room door.\n\nThis old code will not work. Type it into the keypad, and the alarm goes off. Walkers will pour in through every door. The code on the counter note is the one that works. Use that one, and leave this one on the floor.",
+          text: "A yellow sticky note lies on the floor, just inside the front door. It has lost most of its stick. The writing is in ink, neat and small. Someone wanted to remember it.\n\nCABINET ROOM CODE: {decoyCode}. Don't tell anyone!\n\nIt looks useful. It looks like the answer, and someone kept it safe for a long time. But look closer. The ink has faded, and the paper has gone soft at the edges. This note is old. It is from before Mr. Okafor changed the code. There is even a sign about the new code on the cabinet room door.\n\nThis old code will not work. Type it into the keypad, and the alarm goes off. Walkers will pour in through every door. The code on the counter note is the one that works. Use that one, and leave this one on the floor.",
         },
       },
       signs: {
@@ -157,7 +157,7 @@
       blurb: "Ortiz Auto, a repair shop with engine parts and a generator down in the service pit.",
       door: {
         title: "Dev's Chalk on the Garage",
-        text: "Dev here, from the Gas-N-Go. I wrote this in chalk, so read it before the rain does.\n\nEngine parts are on the workbenches. One bench is at the back right, by the red tool chest. The other is in the left bay.\n\nAt least five walkers are inside. One wanders the parts room, by the engine crane. It moves slow, but it does not stop.\n\nThe service pit is under a locked hatch. Do not waste time on it. Mr. Ortiz left a note in the office, behind the waiting room. It tells you how to open the hatch.",
+        text: "Dev here, from the Gas-N-Go. I wrote this in chalk, so read it before the rain does.\n\nEngine parts are on the workbenches. One bench is at the back right, by the red tool chest. The other is in the left bay.\n\nAt least five walkers are inside. One stands in the parts room, by the engine crane. It stays still until it hears you.\n\nThe service pit is under a locked hatch. Do not waste time on it. Mr. Ortiz left a note in the office, behind the waiting room. It tells you how to open the hatch.",
       },
       notes: {
         "autoshop-office": {
@@ -174,7 +174,7 @@
         },
         "autoshop-dead1": {
           title: "Mr. Ortiz's Job Board",
-          text: "A whiteboard hangs by the waiting room chairs, smudged with grease. Across the top, in Mr. Ortiz's blocky writing: JOBS THIS WEEK.\n\nChief Dunn's fire truck: new brakes.\nSergeant Vega's van: new tires.\nCarla's boat motor: not done yet.\n\nNext to the boat motor, someone drew a little boat with a sad face. Below it, Mr. Ortiz wrote: Carla, I need one more part. Stop asking.\n\nEvery job on this board is for the River Convoy. The trucks, the van, the boats. You can see the plan in it, even on a dusty whiteboard. People are getting ready to leave. Grease prints cover the edges, where hands grabbed the board. In the corner, a small note says: Dev, sweep the floor.\n\nThe marker hangs on a string. It is dried out now. Nobody has added a job in a long time.",
+          text: "A whiteboard hangs by the waiting room chairs, smudged with grease. Across the top, in Mr. Ortiz's blocky writing: JOBS THIS WEEK.\n\nChief Dunn's fire truck: new brakes.\nSergeant Vega's van: new tires.\nCarla's boat motor: not done yet.\n\nNext to the boat motor, someone drew a little boat with a sad face. Below it, Mr. Ortiz wrote: Carla, I need one more part. Stop asking.\n\nMost of the jobs on this board are for the River Convoy. The trucks, the van, the boats. You can see the plan in it, even on a dusty whiteboard. People are getting ready to leave. Grease prints cover the edges, where hands grabbed the board. In the corner, a small note says: Dev, sweep the floor.\n\nThe grease pencil hangs on a string. It is dried out now. Nobody has added a job in a long time.",
         },
         "autoshop-dead2": {
           title: "The Hatch Trick",
@@ -194,7 +194,7 @@
       blurb: "Signal Electronics, a downtown store with spools of wire, close to the walker crowds.",
       door: {
         title: "Jo's Sign in the Window",
-        text: "Jo wrote this. Yes, the Jo from the radio. Hi.\n\nSpools of wire are between the two long shelves in the middle. One is on the TV wall side, and one is on the robot side.\n\nAt least six walkers are inside. One is near the right end of the counter, by the robot. It will hear the door, so be ready the second you step in.\n\nThe manager's office is locked. The manager left a note on the counter at the back. Read it before you touch that door. It will save you a lot of noise.",
+        text: "Jo wrote this. Yes, the Jo from the radio. Hi.\n\nSpools of wire are between the two long shelves in the middle. One is on the TV wall side, and one is on the robot side.\n\nAt least six walkers are inside. One is near the right end of the counter, by the robot. It will hear you once you get close, so be ready before you cross the floor.\n\nThe manager's office is locked. The manager left a note on the counter at the back. Read it before you touch that door. It will save you a lot of noise.",
       },
       notes: {
         "radioshack-counter": {
@@ -236,7 +236,7 @@
       notes: {
         "garden-bench": {
           title: "Rosa's Watering Cans",
-          text: "Rosa again. This bench has held a lot of tired people.\n\nThe potting shed has a padlock on it. The key is in the {pick}. That is one of the three watering cans by this bench. Tip that one over, slowly, and let the key slide out. With that key, you can open the potting shed.\n\nLeave the other two cans alone. They are my walker alarm. I filled them with bells and tin cans. Tip one over, and the noise brings walkers, more and more. They even come in through the gate, so you cannot leave. They keep coming until they get you.\n\nTo find the shed, leave the palm tree house. Take the path down toward the beehives. The shed door is on that path.\n\nThere are more seeds inside, and there is a water tank. Keep the seeds dry.\n\nStation 12 is the fire station, north of here. Its equipment bay has tools and water tanks. Tell Chief Dunn that Rosa sent you.",
+          text: "Rosa again. This bench has held a lot of tired people.\n\nThe potting shed has a padlock on it. The key is in the {pick}. That is one of the three watering cans by this bench. Tip that one over, slowly, and let the key slide out. With that key, you can open the potting shed.\n\nLeave the other two cans alone. They are my walker alarm. I filled them with bells and tin cans. Tip one over, and the noise brings walkers, more and more. They even come in through the gate, so you cannot leave. They keep coming until they get you.\n\nTo find the shed, leave the palm tree house. Take the path down toward the beehives. The shed door is on that path.\n\nThere are more seeds inside, and there is a water tank. Keep the seeds dry.\n\nStation 12 is the fire station, north and east of here. Its equipment bay has tools and water tanks. Tell Chief Dunn that Rosa sent you.",
         },
         "garden-trail1": {
           title: "A Rattling Truck",
@@ -252,7 +252,7 @@
         },
         "garden-dead2": {
           title: "A Seed Packet Tip",
-          text: "Shed key is in the {decoyPick} by the bench. Help yourself!\n\nThe note is from a stranger, written on an empty seed packet. It lies on the path, right outside the potting shed door. The writing is big and friendly. Nobody signed it.\n\nIt sounds kind, and it was true once. But turn the packet over. Rosa wrote on the back, in neat green pencil. \"A looter read this note and came for my shed. So I moved the key. This note is old now.\"\n\nThe cans by the bench are not all safe anymore. The wrong one is full of bells and tin cans. Tip it, and the noise brings every walker near the gate. Rosa's note on the potting bench says where the key is now. Read hers, not this one.",
+          text: "Shed key is in the {decoyPick} by the bench. Help yourself!\n\nThe note is from a stranger, written on an empty seed packet. It lies on the path, right outside the potting shed door. The writing is big and friendly. Nobody signed it.\n\nIt sounds kind, and it was true once. But turn the packet over. Rosa wrote on the back, in neat green pencil. \"A looter read this note and came for my shed. So I moved the key. This note is old now.\"\n\nThe cans by the bench are not all safe anymore. The wrong one is full of bells and tin cans. Tip it, and the noise brings walkers, more and more, even through the gate. Rosa's note on the potting bench says where the key is now. Read hers, not this one.",
         },
       },
       signs: {

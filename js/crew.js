@@ -11,7 +11,7 @@
      supplies and trust; once per member per wave; the dog never). They come out when it is cleared.
    - Jobs in the calm (State.crewJobs): the fence job walks to the nearest hole or cracked segment, works
      workSeconds and fixes it, paying from the base's scrap (State.crewRepairPay); the cabin job does the
-     same for the cabin's damaged doors and windows. While the next build is ready its scrap is kept back
+     same for the cabin's broken doors and windows. While the next build is ready its scrap is kept back
      (crewCanPay). No toast: they tell you when you next talk (a report).
      The lookout job calls the next wave (phase.next, rolled when the calm began: js/yard.js) as a toast
      State.crewLookoutSeconds() before it comes. The heal job patches you up when you talk while hurt.
@@ -768,7 +768,7 @@
 
     /* ---------- Jobs ---------- */
     /** A job for this crew member now (their stars unlock it; never in a wave): the nearest fence segment to
-        fix, else (builds job) the nearest wrecked room build, else (cabin job) the nearest damaged door or window,
+        fix, else (builds job) the nearest wrecked room build, else (cabin job) the nearest broken door or window (a cracked one is left to you),
         that the base can pay for. Sets off; true if so. (A build only cracked still works: you brace it, E or the
         computer's "Fix all"; the crew's words say Tomas fixes wrecked ones.) */
     crewTryJob(c) {
@@ -788,7 +788,7 @@
       // the fence first, then the builds: the cabin's doors and windows only once both are whole
       if (!targets.length && kinds.includes("cabin")) {
         Object.entries(this.barriers || {}).forEach(([key, b]) => {
-          if (b.kind === "inner" || b.hp >= b.max) return;
+          if (b.kind === "inner" || b.hp > 0) return;
           const [x, y] = key.split(",").map(Number);
           targets.push({ kind: "cabin", key, x, y });
         });
@@ -820,10 +820,9 @@
     /** Fence segments with a hole or a crack (below half strength, as yardFacing shows them): [[x, y]]. */
     crewFenceDamage() {
       const out = [];
-      const half = this.fenceMax * 0.5;
       (this.crewFenceTiles || []).forEach(([x, y]) => {
         const hp = this.fence[x + "," + y];
-        if (hp == null || hp < half) out.push([x, y]);
+        if (hp == null || this.fenceCracked(hp)) out.push([x, y]);
       });
       return out;
     },
@@ -849,11 +848,11 @@
       if (!job) return false;
       if (job.kind === "fence") {
         const hp = this.fence[job.key];
-        return hp == null || hp < this.fenceMax * 0.5;
+        return hp == null || this.fenceCracked(hp);
       }
       if (job.kind === "builds") return this.buildDmg(job.key) === 2; // still wrecked
       const b = this.barriers && this.barriers[job.key];
-      return !!b && b.hp < b.max;
+      return !!b && b.hp <= 0;
     },
     /** The work is done: fixed and paid for (never while a walker stands in it; never if the scrap ran out).
         No toast: they tell you when you next talk (State.logWork). True when they are done with it. */
@@ -1329,13 +1328,12 @@
     crewTipCtx(id) {
       const S = State();
       const ph = this.phase;
-      const half = this.fenceMax * 0.5;
       let holes = 0;
       let cracks = 0;
       (this.crewFenceTiles || []).forEach(([x, y]) => {
         const hp = this.fence[x + "," + y];
         if (hp == null) holes++;
-        else if (hp < half) cracks++;
+        else if (this.fenceCracked(hp)) cracks++;
       });
       // wrecked: the builds walkers wrecked (Tomas's wrecked tip; js/yardwreck.js)
       const builds = this.buildDamage();

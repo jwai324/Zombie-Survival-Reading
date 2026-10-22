@@ -198,7 +198,7 @@
         [1, 3].forEach((v) => [0, 2].forEach((u) => b.low(u, v, 2, 1, { h: 0.42, tex: { name: "yBed", opts: { lush: 1 } }, top: "#4f7a32" })));
         b.prop(0.5, 2.5, "yPlants", null, { scale: 1.05, solid: true, cover: false });
       },
-      // a hoop greenhouse behind two beds of tomatoes, sunflowers by the door
+      // a hoop greenhouse behind two beds of tomatoes, sunflowers by the door, a small water tank on a stand to feed them
       (b) => {
         b.floor(0, 0, b.W, b.D, "dirt");
         const door = (iu) => iu === 1 || iu === 2;
@@ -206,6 +206,7 @@
         b.low(0, 1, 2, 1, { h: 0.42, tex: { name: "yBed", opts: { lush: 2 } }, top: "#4f7a32" });
         b.low(2, 1, 2, 1, { h: 0.42, tex: { name: "yBed", opts: { lush: 2 } }, top: "#4f7a32" });
         b.prop(3.5, 0.5, "yPlants", null, { scale: 1.05, solid: true, cover: false });
+        b.prop(2.5, 0.5, "yTankStand", null, { scale: 0.7, solid: true });
       },
     ],
     radio: [
@@ -791,6 +792,21 @@
       for (let y = 0; y < this.gh; y++) for (let x = 0; x < this.gw; x++) if (Y[y][x] === "F" && this.fence[x + "," + y] == null) out.push([x, y]);
       return out;
     },
+    /** A standing segment under half its strength is cracked: E braces it (yardFacing), and so does Fix all. */
+    fenceCracked(hp) {
+      return hp != null && hp < this.fenceMax * 0.5;
+    },
+    /** The cracked segments (still standing): [[x, y]]. */
+    fenceCracks() {
+      const Y = W().YARD.grid;
+      const out = [];
+      for (let y = 0; y < this.gh; y++) for (let x = 0; x < this.gw; x++) if (Y[y][x] === "F" && this.fenceCracked(this.fence[x + "," + y])) out.push([x, y]);
+      return out;
+    },
+    /** The fence's damage for the office computer (js/base.js fenceRow): { holes, cracks }. */
+    fenceDamage() {
+      return { holes: this.fenceHoles().length, cracks: this.fenceCracks().length };
+    },
     /** Is this tile on the fence line (whole, cracked or a hole)? The player never walks through it. */
     isFenceLine(gx, gy) {
       const Y = W().YARD.grid;
@@ -965,14 +981,18 @@
     yardBreach() {
       this.breachChanged();
     },
-    /** Fix every hole the player can afford (the cabin menu button). Returns how many were fixed. */
+    /** Fix every hole, then brace every cracked segment, as far as the scrap goes (the computer's Fix all).
+        Returns how many segments were fixed. */
     repairAllHoles() {
+      const holes = this.fenceHoles();
       let n = 0;
-      for (const [x, y] of this.fenceHoles()) {
+      for (const [x, y] of holes.concat(this.fenceCracks())) {
         if (!this.repairFence(x, y)) break;
         n++;
       }
-      if (n) this.toast("Fence fixed: " + n + " hole" + (n > 1 ? "s" : "") + ".", 3);
+      const h = Math.min(n, holes.length);
+      const c = n - h;
+      if (n) this.toast("Fence fixed: " + [h ? h + " hole" + (h > 1 ? "s" : "") : "", c ? c + " crack" + (c > 1 ? "s" : "") + " braced" : ""].filter(Boolean).join(", ") + ".", 3);
       return n;
     },
 
@@ -1234,10 +1254,11 @@
           // (only while the base can pay: with no scrap nobody fixes anything)
           const fixer = this.crewCanPay("fence") && this.crewFixer("fence");
           const cabinFixer = this.crewCanPay("cabin") && this.crewFixer("cabin");
-          const fenceScrap = W().SETTINGS.fenceRepairScrap + " scrap";
+          const fenceScrap = W().SETTINGS.fenceRepairScrap + " scrap"; // your own E price (the crew's perk never applies to you)
+          const crewFence = State().crewRepairCost("fence"); // what the base pays Tomas a hole: 0 with the free-repair perk
           const fence = !holes
             ? "Wave cleared. The fence held."
-            : "Wave cleared. " + holes + " hole" + (holes > 1 ? "s" : "") + " in the fence: " + (fixer ? fixer + " will fix " + (holes > 1 ? "them (" + fenceScrap + " each" : "it (" + fenceScrap) + ", from the base), or E at a gap fixes one now." : "E at a gap fixes it for " + fenceScrap + ".");
+            : "Wave cleared. " + holes + " hole" + (holes > 1 ? "s" : "") + " in the fence: " + (fixer ? fixer + " will fix " + (holes > 1 ? "them" : "it") + (crewFence ? " (" + crewFence + " scrap" + (holes > 1 ? " each" : "") + ", from the base)" : " (no scrap, with the brackets)") + ", or E at a gap fixes one now." : "E at a gap fixes it for " + fenceScrap + ".");
           const cabin = !broken ? "" : " The cabin has " + broken + " broken door" + (broken > 1 ? "s or windows" : " or window") + (cabinFixer ? ": " + cabinFixer + " will see to " + (broken > 1 ? "them" : "it") + ", or E there fixes it now." : ": E there fixes it, or use the computer.");
           const builds = this.wreckClearedWords(vanHit); // wrecked builds and a beaten van (js/yardwreck.js), or ""
           const robo = this.roboHomeWords ? this.roboHomeWords() : ""; // Tomas fixes a shut-down Rivet (js/robodog.js)
@@ -1299,7 +1320,7 @@
         if (!Y[gy] || Y[gy][gx] !== "F") continue;
         const hp = this.fence[gx + "," + gy];
         if (hp == null) cand.push({ kind: "hole", obj: [gx, gy], x: gx + 0.5, y: gy + 0.5 });
-        else if (hp < this.fenceMax * 0.5) cand.push({ kind: "crack", obj: [gx, gy], x: gx + 0.5, y: gy + 0.5 });
+        else if (this.fenceCracked(hp)) cand.push({ kind: "crack", obj: [gx, gy], x: gx + 0.5, y: gy + 0.5 });
       }
       this.wreckFacing(cand); // a wrecked or cracked build close by: fix it (js/yardwreck.js)
       this.crewFacing(cand); // a crew member or the dog right under the crosshair (js/crew.js); last, so it sees the spots
@@ -1343,11 +1364,12 @@
     yardGoal() {
       const S = State();
       const broken = this.fenceHoles().length;
+      const cracks = this.fenceCracks().length; // cracked but standing: E braces them, and so does Fix all
       const tr = S.save.traps || {};
       const held = Object.entries(W().TRAPS).filter(([k]) => tr[k] > 0).map(([k, d]) => tr[k] + " " + d.name.toLowerCase() + (tr[k] > 1 ? "s" : "") + " (" + d.key + ")");
       const cabin = this.houseDamage().broken;
       const wrecked = this.wreckedWords();
-      return "Day " + S.save.day + " · fence " + (broken ? broken + " hole" + (broken > 1 ? "s" : "") + " (E to fix)" : "whole") + (cabin ? " · cabin: " + cabin + " broken" : "") + (wrecked ? " · wrecked: " + wrecked : "") + " · walls " + S.save.rooms.walls + (held.length ? " · traps: " + held.join(", ") : "");
+      return "Day " + S.save.day + " · fence " + (broken || cracks ? [broken ? broken + " hole" + (broken > 1 ? "s" : "") : "", cracks ? cracks + " cracked" : ""].filter(Boolean).join(", ") + " (E to fix)" : "whole") + (cabin ? " · cabin: " + cabin + " broken" : "") + (wrecked ? " · wrecked: " + wrecked : "") + " · walls " + S.save.rooms.walls + (held.length ? " · traps: " + held.join(", ") : "");
     },
     /** A shot in the calm carries: the next wave comes sooner (the bow is silent). */
     yardNoise(tiles) {

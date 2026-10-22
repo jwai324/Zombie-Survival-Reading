@@ -19,7 +19,7 @@
     "june-2": {
       title: "Roll of knee tape",
       brief: "June's knees ache when she kneels in the garden. She does not like to say so. Mr. Okafor at Mile 9 Pharmacy sold tape that holds a sore knee steady. The pharmacy is northwest of the cabin. A roll lies on the floor by the giant toothbrush. It is just outside the STAFF ONLY door. Look for a wide roll of blue tape. June will give you 30 scrap and 1 medical kit.",
-      tag: "A wide roll of blue tape from Mile 9 Pharmacy, still in its plastic. The label says: for sore knees and ankles. Wrap it snug, not tight.",
+      tag: "A wide roll of blue tape from Mile 9 Pharmacy. The label says: for sore knees and ankles. Wrap it snug, not tight.",
       journal: "You brought me a roll of knee tape from Mile 9 Pharmacy. I taped both knees and worked in the dirt until supper. Tomas called me Speedy June all evening.",
       done: "June laughs when she sees the blue tape. “Mr. Okafor told me to buy this for years,” she says. “I never listened.” June tapes both knees right away. Now she can kneel in the dirt again, as long as she likes. From now on, the crew gets 1 more food every day.",
       after: "June tells you about Mr. Okafor. For twenty years, he kept her knee pills ready in a paper bag. For twenty years, she forgot to pick them up. She paid him back in tomatoes every summer. June says the town was full of people like him. They kept things safe for each other, and they still do.",
@@ -36,7 +36,7 @@
       title: "First-aid book",
       brief: "June wants a first-aid book, so she can patch the crew up better. “Tape and a clean cloth only go so far,” she says. The Public Library is north of the cabin. The book lies on the floor of the MEDIA room, beside the owl statue. It is a thick blue book. Someone folded down the corners of its pages. June will give you 40 scrap and 1 medical kit.",
       tag: "A thick blue first-aid book from the Public Library. A due date is stamped inside. The corners are folded down on the pages about cuts, burns and sprains.",
-      journal: "You brought me a first-aid book from the Public Library. I read it by the stove until the candle burned all the way down. Pip calls me Doctor June now.",
+      journal: "You brought me a first-aid book from the Public Library. I read it by the stove until the candle burned all the way down. “June, it is late,” Tomas said. Not for a student, I said.",
       done: "June starts reading before you even let go of the book. She taps a folded corner. June says the folded corners show which pages helped people most. “Someone used this book well,” she says. “Now I will too.” From now on, when June patches you up, you get 20 more health.",
       after: "June learned first aid in her school garden. Kids got bee stings and scraped knees there all the time. So the school nurse taught her what to do. June kept bandages in the tool shed, and lollipops for the brave ones. “This crew is braver than all of them,” June says. “You still get no lollipops.”",
     },
@@ -186,7 +186,7 @@
     "pip-e2": {
       title: "Wire for a longer antenna",
       brief: "Pip needs {count} of these within {days} days: {item}. Pip wants a longer antenna, to hear voices that are farther away. Pip will pay {reward}, and say thank you twice.",
-      done: "Pip winds the wire into a neat coil. Then Pip labels it in big, messy letters: ANTENNA, DO NOT TOUCH. Pip says that rule means Tomas.",
+      done: "Pip winds the wire into a neat coil. Then Pip labels it in big, messy letters: ANTENNA WIRE, DO NOT TOUCH. Pip says that rule means Tomas.",
     },
     "pip-e3": {
       title: "Something new to read",

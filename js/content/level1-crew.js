@@ -224,7 +224,7 @@
       keys: "Pip says you are holding {keys}. Each key's note says which stash it opens. Your notes are in the backpack. Read them again.",
       walkers: "Pip keeps count of the walkers in town. In {days} days, each building gets one more walker. It stops at a limit.",
       radio: "A new show waits each day you get home. Pip says it is at the dining room radio. Tune in, and hear old ones.",
-      full: "Pip says the town's buildings are full of walkers. No building will get any more. Each place stays as dangerous as it is today.",
+      full: "Pip says the town's buildings are full of walkers. No building gets more walkers than it has today.",
     }),
   });
 

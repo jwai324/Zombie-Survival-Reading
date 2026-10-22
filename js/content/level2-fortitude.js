@@ -88,6 +88,10 @@
       title: "A Good Fix Is Slow",
       text: "Tomas tells you about the first fusion reactor. It ran for 10 seconds. Then a coil failed, and Kennedy was burned. After that, the team learned to stop rushing. Tomas says a good fix is a slow fix. He has another tip. Build the Garage room. Then the van comes home fixed for free.",
     },
+    "tomas-fort-t3": {
+      title: "A Famous Last Name",
+      text: "Tomas tells you about Mr. Reyes of Reyes Hardware. Mr. Reyes always told everyone the same thing. He said his family goes back to Dr. Camila Reyes. But she lived hundreds of years ago. So nobody can prove it either way. Tomas likes the story, true or not. Reyes Hardware is the place to find lumber and nails.",
+    },
     "pip-fort-t1": {
       title: "The Whole Team",
       text: "Pip can name Dr. Camila Reyes's whole team. They were Zoe, Kennedy, Ava, Patriya and Annabelle. Valen was the Fortitude who answered their messages. Valen learned the words help, thank you and together. Pip has a tip from all that reading. Read every note to the end. Some notes in town are old or wrong.",
@@ -143,7 +147,7 @@
       title: "Gold Abyss Explorer pin",
       brief:
         "The last bursts keep drawing one shape. It is the Abyss Explorer, the little submarine. That submarine is from the old story. Station 12's chief kept an Abyss Explorer pin. It is by the brass pole. Station 12 is northwest of the cabin. The pin is a gold badge with a star. It sits on a black leather fold. Pip will pay 60 scrap. Pip adds 1 box of radio parts.",
-      tag: "This gold badge has a star. It sits on a black leather fold. Stamped on the back: Abyss Explorer, seven miles down.",
+      tag: "This gold badge has a star, on a black leather fold. Stamped on the back: Abyss Explorer, seven miles down. It is a keepsake copy of a very old pin.",
       journal: "You brought Pip an Abyss Explorer pin from Station 12. Pip wore it to supper. Then Pip decoded the last record before bed.",
       done: "Pip pins the badge to the radio shelf. Then Pip plays the last burst slowly. The picture is the submarine. And then come words. Pip thanks you and holds very still.",
       after:

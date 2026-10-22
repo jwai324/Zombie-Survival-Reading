@@ -85,12 +85,12 @@ never reveal a place on the map. A story quest is offered only once its building
 
 | File | What it holds |
 |------|---------------|
-| `js/story-crew.js` | Facts: `CREW` (roster, posts, jobs), `CREW_RULES`, `CREW_TALK` (topics, moods), `CREW_TIPS`, `CREW_REPORTS`, `ERRANDS`, `CREW_UI` facts for the dog card |
-| `js/story-quests.js` | Facts: `QUESTS` (15 story quests, spots, rewards, perks), `DOG` |
+| `js/story-crew.js` | Facts: `CREW` (roster, posts, jobs), `CREW_RULES`, `CREW_TALK` (topics, moods), `CREW_TIPS`, `CREW_REPORTS`, `ERRANDS` |
+| `js/story-quests.js` | Facts: `QUESTS` (the 15 base story quests, spots, rewards, perks; `js/story-leo.js` and `js/story-fortitude.js` append five each), `DOG` |
 | `js/crewstate.js` | Save and trip state, rules, rewards, perks, text accessors (`ZSR.crewText`). Mixed into `ZSR.State`. Loads after `state.js` |
 | `js/state.js` | Small hook calls only: fresh save, upgrade, trip start, return home, day log, effects |
 | `js/crewart.js` | Art: the crew, the dog, portraits, quest objects. Loads after `sprites3d.js`. Since 2026-10-18 the yard and cabin draw the crew and dog in 3D; these flat sprites are the fallback, the portraits stay |
-| `js/walker3d-crew.js`, `js/beast3d.js`, `js/beast3d-looks.js` | The crew's 3D looks on the walkers' rig (`Walker3D.addHuman`); the dog and Rivet on the four-legged rig. Colours read from js/crewart.js |
+| `js/walker3d-crew.js`, `js/beast3d.js`, `js/beast3d-looks.js` | The crew's 3D looks on the walkers' rig (`Walker3D.addHuman`); the dog and Rivet on the four-legged rig. Colours match js/crewart.js's PEOPLE (tests/validate-art.js holds them equal) |
 | `js/crew.js` | Yard runtime, mixed into `ZSR.Interior`: wandering, shelter, jobs, raids, the talk bubble, lookout, the dog in the yard. Loads after `house.js` |
 | `js/yard.js`, `js/house.js`, `js/interior.js` | Hook calls into `crew.js`; REACH; the raider goal |
 | `js/building.js` | Quest objects and the dog inside buildings |
@@ -133,9 +133,9 @@ W.CREW = {
 
 Posts must be open floor the player can reach, inside the fence, outside every plot rectangle
 (builds fill plots), at least 1.5 tiles from every `HOUSE.spots` entry and the van, and not in the
-shelter. `tests/validate-crew.js` checks every post at room levels 0 and 3. Give each crew member
+shelter. `tests/validate-crew.js` checks every post at room levels 0 to 3 and mixes. Give each crew member
 5 to 8 posts across the yard and the cabin, true to the story (June: porch, garden, kitchen,
-living room by her ledger; Tomas: by the van, the garage plot, Gus's room where he sleeps, the
+living room by the bookcase; Tomas: by the van, the garage plot, Gus's room where he sleeps, the
 ping pong room; Pip: the radio shelf in the dining room, the radio plot, the dining room, Finn's
 room).
 
@@ -169,9 +169,9 @@ W.CREW_TALK = {
     // one-time story topics, told in this order, each once its `when` holds
     topics: [
       { id: "june-t1", when: { day: 1 }, facts: [...] },
-      { id: "june-t2", when: { day: 3, stars: 1 }, facts: [...] },
-      { id: "june-t5", when: { stars: 2, note: "garden-dead1" }, facts: [...] }, // reacts to a note read
-      { id: "june-t7", when: { quest: "june-2" }, facts: [...] }, // after a quest is done
+      { id: "june-t2", when: { day: 1 }, facts: [...] },
+      { id: "june-t8", when: { stars: 2, note: "garden-dead1" }, facts: [...] }, // reacts to a note read
+      { id: "june-t10", when: { dog: true, quest: "pip-5" }, facts: [...] }, // after a quest is done (and the dog is home)
     ],
     // repeatable mood lines, in turn, once every topic that can be told has been
     moods: [{ id: "june-m1", facts: [...] }, ...],
@@ -183,14 +183,14 @@ W.CREW_TALK = {
 `when` keys (all optional, all must hold): `day` (at least), `stars` (at least), `quest` (that
 quest done), `note` (that note read, `State.noteRead`), `room` + `level` (built that far and not
 wrecked: `State.roomLevel`, so a topic that gives the room's bonus as working waits until it is fixed), `dog`
-(true: the dog is home). 8 to 10 topics and 4 to 6 moods per crew member. Topics are character:
+(true: the dog is home), `radioBefore` (only while fewer broadcasts than this have been heard). 8 to 10 topics and 4 to 6 moods per crew member. Topics are character:
 their past, their worries and hopes, the town's threads as they hear them, the Hollis family,
 each other. Every topic must be true for any player who meets its `when` (the journal rule:
 never assume a build or a find the `when` does not guarantee).
 
 ### `CREW_TIPS` (js/story-crew.js)
 
-Live useful information. The engine decides which tip applies (in this order, first that applies),
+Live useful information. The engine decides which tip applies (an urgent tip first; otherwise the regular tips that apply take turns, one per talk; a fallback only when nothing else applies: see "As built" below),
 fills the placeholders, and the words give it voice. Each crew member has the tip ids below; the
 facts carry the placeholders exactly.
 
@@ -236,13 +236,13 @@ levels (`tests/validate-world.js` checks the reports name the job holder).
 W.ERRANDS = {
   june: [
     // count: [min, max] rolled when offered; days: the deadline; reward: what it pays
-    { id: "june-e1", item: "seeds", count: [2, 3], days: 4, reward: { scrap: 25 }, facts: [...], done: [...] },
+    { id: "june-e1", item: "seeds", count: [1, 2], days: 4, reward: { scrap: 25 }, facts: [...], done: [...] },
   ],
   tomas: [...], pip: [...],
 };
 ```
 
-3 to 4 errands per crew member, items true to them (June: seeds, soil, waterFilter, meds; Tomas: parts, nails, lumber, wire, fuel, tools; Pip:
+3 to 4 errands per crew member, items true to them (June: seeds, soil, waterFilter, meds; Tomas: parts, nails, fuel, tools; Pip:
 lumber, wire, books; only items some place's shelves stock, never radioParts or maps). Item ids
 from `ITEMS`, never "food". Facts carry `{count}`,
 `{item}` (the item's name), `{days}` and `{reward}` ("30 scrap"). Rewards: scrap 15 to 40, or a
@@ -254,13 +254,13 @@ medical kit, or a crowbar.
 W.QUESTS = [
   {
     id: "june-1", giver: "june", // order within a giver is the array order
-    at: "pharmacy", // a LOCATIONS id with a layout (never base or river)
-    spot: [8, 14], // the object's tile in that layout: plain reachable floor
-    near: "the giant toothbrush", // a landmark of that layout within 3 tiles of the spot
-    room: "PHARMACY", // optional: a room sign the words may name
+    at: "grocery", // a LOCATIONS id with a layout (never base or river)
+    spot: [3, 11], // the object's tile in that layout: plain reachable floor
+    near: "the fish tank", // a landmark of that layout within 3 tiles of the spot
+    room: "SEAFOOD", // optional: a room sign the words may name
     when: { day: 2, stars: 0 }, // plus: the previous quest of this giver done, and `at` known
-    object: { name: "June's pill bag", art: "bag" }, // art: one of the quest object kinds below
-    reward: { scrap: 30, items: { meds: 1 }, perk: { foodPerDay: 1 } },
+    object: { name: "Bag of sunflower seeds", art: "seeds" }, // art: one of the quest object kinds below
+    reward: { scrap: 20, items: { seeds: 1 } }, // also kits, crowbars, traps and perk: see Rewards below
     brief: [...], // the request: why, where (place, direction from the cabin, room, landmark), what it looks like, the reward
     tag: [...], // the object's tag, shown on pickup
     journal: [...], // June's ledger line, on the first day page after the hand-over
@@ -273,7 +273,7 @@ W.QUESTS = [
 W.DOG = { ideas: ["...", "...", "..."], facts: { ask: [...], named: [...], pet: [...] } };
 ```
 
-- Five quests per crew member, 15 in all. Order by stars and days: quest 1 at 0 stars and day 2,
+- Five base quests per crew member, 15 in all, plus five per crossover track (25 with both; see Crossover tracks below). Order by stars and days: quest 1 at 0 stars and day 2,
   2 at 1 star and day 4, 3 at 2 stars and day 8, 4 at 3 stars and day 13, 5 at 4 stars and day 19
   (the dog, pip-5, day 28: the journal still wants a dog on day 28). Early quests should target places known at the start
   (Gas-N-Go, Corner Grocery, Reyes Hardware) or found early; later ones may go further.
@@ -283,7 +283,7 @@ W.DOG = { ideas: ["...", "...", "..."], facts: { ask: [...], named: [...], pet: 
   checks it.
 - Quest object kinds (`object.art`, drawn by `js/crewart.js` as sprite `qObj` with `{ kind }`):
   `bag`, `photo`, `box`, `book`, `tin`, `leash`, `toolbox`, `radio`, `jar`, `letter`, `seeds`,
-  `blanket`, `tape`, `badge`, `wrench`.
+  `blanket`, `tape`, `badge`, `wrench`, `sensorJar`.
 - Rewards: `scrap` (20 to 80), `items` (ids from `ITEMS`; favor what the base is short of:
   lumber, wire, nails, books, seeds, parts, soil), `kits` (medical kits straight to storage),
   `crowbars`, `traps` ({ spike, blast }), and `perk`. Not every quest has a perk; aim for two or
@@ -327,8 +327,9 @@ crew: {
 
 Trip additions: `trip.quest: []` (quest ids whose object was picked up this trip), `trip.dog:
 false` (the dog is following you this trip). Death drops both (`abandonTrip` reloads).
-`returnHome` merges them: each quest in `trip.quest` becomes `found` (and goes on the day log as
-`entry.quests`); `trip.dog` sets the dog quest `found` and `crew.dog.home = true`. It also adds
+`returnHome` merges them: each quest in `trip.quest` becomes `found` (counted in the day's recap as
+`recap.quests`; June's ledger line, `entry.quests`, comes on the first day page after the hand-in,
+from `crew.ledger`); `trip.dog` sets the dog quest `found` and `crew.dog.home = true`. It also adds
 cargo of an active errand's item to `have` (capped at `count`), drops errands past `due` (trust
 loss, report `late`), feeds the dog (1 food every `dogFoodEvery` days), and adds `scrapPerDay`.
 Crew state changes at the base are saved through `ZSR.Main.syncYard()` (never mid-wave).
@@ -386,9 +387,9 @@ As built, beyond the table (js/crewstate.js):
 - Reports: `crewReportItems(id)` -> `[{ key, vars }]`, words through
   `ZSR.crewFill(ZSR.crewText("report", key), vars)`. Jobs: `paid = crewRepairPay("fence" | "builds" |
   "cabin")` (0 with `crewRepairFree`; never below 0), then `logWork(id, kind, 1, paid)` ("fence"
-  becomes `fenceFree` when free, "builds" `buildsFree`, "cabin" `cabinFree`), `logWork(id, "heal", hp)`. `crewHealAmount()`,
+  becomes `fenceFree` when free, "builds" `buildsFree`, "cabin" `cabinFree`). `crewHealAmount()`,
   `crewLookoutSeconds()` include the perks. `crewHurt(id)` returns the cost words ("a medical kit",
-  "2 food", or less food when the pantry is short).
+  "2 food", or less food when the pantry is short, or "nothing" when the pantry is already empty).
 - Requests: `request(id)` (the one ready to hand in first), `requests(id)` (all open),
   `requestVars(offerOrRequest)` -> `{ reward }` for a quest, `{ count, item, days, reward }` for an
   errand (`days`: the deadline when offered; trips left once open). An errand is due on the day it
@@ -427,7 +428,7 @@ As built, beyond the table (js/crewstate.js):
 T.crew = T.crew || {};
 T.crew.talk = Object.assign(T.crew.talk || {}, { "june-t1": { title, text }, "june-m1": { title, text } }); // every topic and mood
 T.crew.tips = Object.assign(T.crew.tips || {}, { june: { food: "...{food}...{days}..." }, tomas: {}, pip: {} });
-T.crew.reports = Object.assign(T.crew.reports || {}, { fence, fenceFree, cabin, cabinFree, hurt, late });
+T.crew.reports = Object.assign(T.crew.reports || {}, { fence, fenceFree, cabin, cabinFree, builds, buildsFree, hurt, late });
 T.crew.dog = Object.assign(T.crew.dog || {}, { ask, named, pet });
 // levelN-quests.js
 T.crew.quests = Object.assign(T.crew.quests || {}, { "june-1": { title, brief, tag, journal, done, after } }); // dog quest: no tag
@@ -516,7 +517,7 @@ of the cabin" (the 8-way bearing from the base on the city map, north up; within
 edge the neighbour is allowed). Spot distance is measured to the nearest landmark footprint tile
 (Chebyshev), and a spot may not touch a footprint, even diagonally. Quest texts name only their own
 place, places known at the start, or the same giver's earlier quest places; no crew fact names a
-stash; no "left of" or "right of" in a brief. Quest i needs exactly i stars. The dog quest's day is
+stash; no "left of" or "right of" in a brief. Quest i needs exactly i - 1 stars (quest 1 at 0, quest 5 at 4). The dog quest's day is
 at least the last journal page that mentions a dog; its done facts give "every <dogFoodEvery> days"
 when they mention food. A `done` fact states each whole-number perk value.
 
@@ -547,7 +548,7 @@ June talks the player through the first-run tutorial (`js/tutorial.js`; owner de
 
 ## Tests
 
-`tests/validate-crew.js` (in `npm test`): posts open and reachable at room levels 0 and 3; crew
+`tests/validate-crew.js` (in `npm test`): posts open and reachable at room levels 0 to 3 and mixes; crew
 wander without entering solid tiles or crossing the fence; reach the shelter in a wave and come
 out after; a raider among them costs a kit (else 2 food) and trust, once per member per wave; Tomas
 fixes holes and pays scrap, not below 0, and reports it; talk trust once a day; topics in order and

@@ -29,7 +29,7 @@
         },
         "police-dead1": {
           title: "Lost and Found",
-          text: "This is the lost and found list from the front desk.\n\nOne bike was turned in. It is blue, and its front wheel is bent. One trumpet was turned in. It still plays, but not well. One dog leash was turned in, but no dog came with it.\n\nNobody came back for these things. The bike still leans on the wall. The trumpet still sits in a box.\n\nThen someone added a new line at the bottom. They used a new pen. The letters are big and slow. The line says: One town.",
+          text: "This is the lost and found list from the front desk.\n\nOne bike was turned in. It is blue, and its front wheel is bent. One trumpet was turned in. It still plays, but not well. One dog leash was turned in, but no dog came with it.\n\nNobody came back for these things. The bike and the trumpet are gone now.\n\nThen someone added a new line at the bottom. They used a new pen. The letters are big and slow. The line says: One town.",
         },
         "police-dead2": {
           title: "Numbers on a Scrap",
@@ -50,7 +50,7 @@
       blurb: "The middle school has books, maps, and a locked closet.",
       door: {
         title: "Max and Mia's Note",
-        text: "Hi! We are Max and Mia. We are twins, and this is our school.\n\nThere are two boxes of books. One box is in the music room, by the drum set. The other box is in the front office, behind the lion statue.\n\nThere are at least six walkers inside. One of them walks in the main hallway.\n\nThe library closet is locked. Our teacher left a note that tells where the key is. The note is in the science room, at the back left. Look by the big brain.\n\n—Max and Mia",
+        text: "Hi! We are Max and Mia. We are twins, and this is our school.\n\nThere are two boxes of books. One box is in the music room, by the drum set. The other box is in the front office, behind the lion statue.\n\nThere are at least six walkers inside. One of them stands in the main hallway.\n\nThe library closet is locked. Our teacher left a note that tells where the key is. The note is on a desk by the science room door. That room is back left, with the big brain.\n\n—Max and Mia",
       },
       notes: {
         "school-classroom": {
@@ -59,7 +59,7 @@
         },
         "school-trail1": {
           title: "For Max and Mia",
-          text: "Max and Mia, this note is for you. It is from Ms. Adler.\n\nIf you read this, you came back. I am so glad. Our class went north to the Public Library. Mrs. Greer will take us in there.\n\nEvery kid in our class is safe. I count them each night. Each one is there but you two.\n\nI will come back here to check when I can.\n\nSergeant Vega came here to look for our class. Vega left a note in the music room. Look beside the drum set.\n\n—Ms. Adler",
+          text: "Max and Mia, this note is for you. It is from Ms. Adler.\n\nIf you read this, you came back. I am so glad. Our class went northwest to the Public Library. Mrs. Greer will take us in there.\n\nEvery kid in our class is safe. I count them each night. Each one is there but you two.\n\nI will come back here to check when I can.\n\nSergeant Vega came here to look for our class. Vega left a note in the music room. Look beside the drum set.\n\n—Ms. Adler",
         },
         "school-trail2": {
           title: "Vega Finds an Empty School",
@@ -67,7 +67,7 @@
         },
         "school-dead1": {
           title: "Lunch This Week",
-          text: "This is the lunch menu for one week. It was the week the Fall began.\n\nMonday was tacos. Tuesday was soup and rolls. Wednesday was fish sticks. Thursday was pasta and corn. Friday was PIZZA!\n\nA kid drew lots of stars next to Friday. Some stars are in pen. Some are in green crayon.\n\nThe page curls at the edges now. It still hangs by one tack.\n\nA kid wrote at the bottom: We never got the pizza. A small sad face is under it.",
+          text: "This is the lunch menu for one week. It was the week the Fall began.\n\nMonday was soup and rolls. Tuesday was tacos. Wednesday was fish sticks. Thursday was pasta and corn. Friday was PIZZA!\n\nA kid drew lots of stars next to Friday. Some stars are in pen. Some are in green crayon.\n\nThe page curls at the edges now. It still hangs by one tack.\n\nA kid wrote at the bottom: We never got the pizza. A small sad face is under it.",
         },
         "school-dead2": {
           title: "A Kid's Note",
@@ -77,7 +77,7 @@
       signs: {
         "school-sign1": { title: "Class poster", text: "A class poster says: RAISE YOUR HAND. BE KIND. READ EVERY DAY. Someone wrote under it: Stay together." },
         "school-sign2": { title: "Red spray paint", text: "Ruby's red R is here, with a 6 under it. Under that: ONE IN THE HALLWAY." },
-        "school-sign3": { title: "Neat chalk letters", text: "Someone wrote in neat chalk: Ms. Adler's class went north. Under it: Read the note by the front door." },
+        "school-sign3": { title: "Neat chalk letters", text: "Someone wrote in neat chalk: Ms. Adler's class went northwest. Under it: Read the note by the front door." },
         "school-sign4": { title: "LIBRARY CLOSET", text: "The door sign says: LIBRARY CLOSET. RETURN BOOKS ON TIME. Someone added: Late fees are canceled." },
       },
       key: { name: "Short steel key, gray tag", tag: "A short steel key has a gray tag. The tag says: Do not remove. Someone crossed out the words do not." },
@@ -126,7 +126,7 @@
       blurb: "The hospital in the hills has medicine and the worst walkers.",
       door: {
         title: "On the Ambulance Doors",
-        text: "This is Doc Lin. Read this before you go in.\n\nOne medical kit is in a patient room. That room is next to the x-ray machine. Another medical kit is in the gift shop. It is by the giant teddy bear. The generator is in the utility room, on the right.\n\nThere are at least nine walkers inside. They stand still in the dark rooms. So look before you step into a room.\n\nThe pharmacy stock room is locked. The nurse left a note at the nurses' station. It is in the middle of the building.\n\n—Doc Lin",
+        text: "I am Nurse Ada. I never left this place.\n\nOne medical kit is in a patient room. That room is next to the x-ray machine. Another medical kit is in the gift shop. It is by the giant teddy bear. The generator is in the utility room, on the right.\n\nThere are at least nine walkers inside. They stand still in the dark rooms. So look before you step into a room.\n\nThe pharmacy stock room is locked. I left a note at the nurses' station. It is in the middle of the building.\n\n—Nurse Ada",
       },
       notes: {
         "hospital-hall": {
@@ -169,7 +169,7 @@
       notes: {
         "watertower-panel": {
           title: "Theo's Breaker Boxes",
-          text: "This is Theo. I tend the pumps. It is quiet work, and I like it.\n\nThere are three breaker boxes by this panel. The pump house key is in the {pick}. Open that box and take the key.\n\nDo not open the other two boxes! They are live with power. The shock from them kills.\n\nThe pump house has filters, a water tank, and wire. Its door is at the back of the pump hall. Go to the blue pump end, away from the big red wheel.\n\nDo you need medicine? St. Anne Annex is the hospital. Take Hill Road north to get there. It still has medicine. But it is the most dangerous place in town.\n\n—Theo",
+          text: "This is Theo. I tend the pumps. It is quiet work, and I like it.\n\nThere are three breaker boxes by this panel. The pump house key is in the {pick}. Open that box and take the key.\n\nDo not open the other two boxes! They are live with power. The shock from them kills.\n\nThe pump house has filters, a water tank, and wire. Its door is at the back of the pump hall. Go to the blue pump end, away from the big red wheel.\n\nDo you need medicine? St. Anne Annex is the hospital. Take Hill Road northeast to get there. It still has medicine. But it is the most dangerous place in town.\n\n—Theo",
         },
         "watertower-trail1": {
           title: "Dev to Ruby",
@@ -202,7 +202,7 @@
       blurb: "A lumber yard on the ridge, with a dock full of walkers.",
       door: {
         title: "Spray Paint on the Gate",
-        text: "This is Ruby. I painted this note on the gate.\n\nLumber is in the long racks, in the middle of the yard. One more stack is out back, by the log pile. But a big walker stands by the log pile, too.\n\nThere are at least eight walkers inside. A crowd waits by the loading dock and the flatbed truck. So stay away from the dock.\n\nThe kiln shed is locked. The yard boss left a note on a clipboard. It is by the band saw.\n\n—Ruby",
+        text: "This is Ruby. I painted this note on the gate.\n\nLumber is in the long racks, in the middle of the yard. One more stack is out back, by the log pile. But a big walker stands by the log pile, too.\n\nThere are at least eight walkers inside. A crowd waits by the loading dock and the flatbed truck. So stay away from the dock.\n\nThe kiln shed is locked. The yard boss left a note on a clipboard. It is by the band saw.\n\nDo not run the saws. The noise brings the dock crowd.\n\n—Ruby",
       },
       notes: {
         "lumberyard-rack": {
@@ -230,7 +230,7 @@
         "lumberyard-sign1": { title: "Painted yard sign", text: "A big painted sign says: Ridge Lumber. Cut to order." },
         "lumberyard-sign2": { title: "Red spray paint", text: "Ruby's red R has an 8 under it. Below: THEY GATHER AT THE DOCK. STAY AWAY." },
         "lumberyard-sign3": { title: "SAFETY FIRST", text: "A safety sign says: EAR PROTECTION NEEDED NEAR THE SAWS. Carla added in marker: The saws stay off." },
-        "lumberyard-sign4": { title: "Spray paint", text: "Someone sprayed paint on the kiln shed door. It says: CODE ON THE CLIPBOARD." },
+        "lumberyard-sign4": { title: "Spray paint", text: "Someone sprayed paint beside the kiln shed door. It says: CODE ON THE CLIPBOARD." },
       },
       key: { name: "Old key tied to a bookmark", tag: "A long, old key has a round loop for a handle. A paper bookmark is tied on. It says: Handle with care." },
     },

@@ -838,16 +838,6 @@
         line(ctx, [[x, y - 2], [x, y + 5], [x + 3, y + 7]], INK, 3.5);
         line(ctx, [[x, y - 2], [x, y + 5], [x + 3, y + 7]], BRASS, 1.6);
       });
-      // Dan's flannel on his hook, a scarf on Gus's, a little pink backpack on Lucy's
-      poly(ctx, [[17, 25], [23, 25], [27, 30], [27, 52], [13, 52], [13, 30]], "#9a3a2a", 2.5);
-      [33, 41, 49].forEach((y) => line(ctx, [[14, y], [26, y]], "rgba(20,20,30,0.55)", 1.5));
-      [17, 23].forEach((x) => line(ctx, [[x, 28], [x, 51]], "rgba(20,20,30,0.45)", 1.2));
-      poly(ctx, [[17, 25], [20, 31], [23, 25]], "#e6dfcc", 1.2);
-      poly(ctx, [[29, 26], [34, 26], [33, 48], [29, 48]], "#d9a21b", 2);
-      line(ctx, [[29, 34], [33.5, 34]], "#3f6a4a", 2);
-      line(ctx, [[29, 41], [33, 41]], "#3f6a4a", 2);
-      rbox(ctx, 49, 42, 12, 13, 3, "#e48aa8", 2);
-      box(ctx, 51, 48, 8, 5, "#c96a8a", 1.2);
     },
     /* A county map pinned up, a yellow sticky note on it. */
     map(ctx) {
@@ -918,14 +908,41 @@
       box(ctx, 42, 34, 10, 7, "#e48a8a", 1.2);
       pin(ctx, 47, 35, "#3f5a8a");
     },
-    /* Two wall shelves with labels along their edges, nearly empty (one can of soup left). */
+    /* The kitchen's white fridge, built into the wall: a paper note held on its door by a fish-shaped magnet. */
+    fridge(ctx) {
+      ctx.fillStyle = "rgba(0,0,0,0.18)";
+      ctx.fillRect(10, 5, 44, 59);
+      rbox(ctx, 12, 4, 40, 56, 4, "#f2f0ea", 2.5);
+      ctx.fillStyle = "rgba(0,0,0,0.08)";
+      ctx.fillRect(46, 7, 4, 51);
+      ctx.fillStyle = "rgba(255,255,255,0.7)";
+      ctx.fillRect(15, 7, 2, 11);
+      line(ctx, [[12, 21], [52, 21]], INK, 2);
+      rbox(ctx, 15, 10, 3, 8, 1.5, "#c9cdd0", 1.2);
+      rbox(ctx, 15, 25, 3, 16, 1.5, "#c9cdd0", 1.2);
+      box(ctx, 14, 59, 36, 5, "#3a3d42", 1.5);
+      // a star magnet on the freezer, a red one lower down
+      star(ctx, 40, 12, 3, "#f2c12e", 1);
+      circle(ctx, 20, 54, 2, "#c0302a", 1);
+      // Kate's note under the fish magnet
+      ctx.save();
+      ctx.translate(34, 38);
+      ctx.rotate(-0.06);
+      box(ctx, -10, -11, 20, 22, "#fbfaf3", 1.6);
+      scribble(ctx, -8, 8, -5, 5, 3.5, "#2f4f9a", 21, 1);
+      oval(ctx, -1, -11, 5.5, 2.8, "#ff8a2a", 1.5);
+      poly(ctx, [[4, -11], [8, -14.5], [8, -7.5]], "#ff8a2a", 1.5);
+      circle(ctx, -4, -11.4, 0.8, INK, 0);
+      ctx.restore();
+    },
+    /* Two wall shelves with labels along their edges, nearly empty (one can of beans left). */
     labels(ctx) {
       // the last can, on the top shelf over its label
       box(ctx, 41, 10, 10, 12, "#c0302a", 2);
       box(ctx, 41, 14, 10, 4, "#f3eee0", 0);
       ink(ctx, 2);
       ctx.strokeRect(41, 10, 10, 12);
-      [[22, ["RICE", "SOUP"]], [44, ["BEANS", "JAM"]]].forEach(([y, names]) => {
+      [[22, ["RICE", "BEANS"]], [44, ["PEACHES", "FLOUR"]]].forEach(([y, names]) => {
         poly(ctx, [[7, y + 11], [14, y + 11], [7, y + 18]], "#3a3d42", 1.5);
         poly(ctx, [[57, y + 11], [50, y + 11], [57, y + 18]], "#3a3d42", 1.5);
         box(ctx, 3, y, 58, 11, WOOD, 2.5);
@@ -936,15 +953,17 @@
         });
       });
     },
-    /* A chalk scoreboard: GUS against FINN, in tally marks. */
+    /* A chalk scoreboard: the last game, FINN 21 DAD 19, and the crew's tally marks under it. */
     score(ctx) {
       box(ctx, 5, 5, 54, 44, "#7a5232", 3);
       box(ctx, 9, 9, 46, 34, "#24382c", 1.5);
       const chalk = "rgba(236,236,226,0.92)";
-      fitText(ctx, "GUS", 20.5, 15, 18, 8, chalk);
-      fitText(ctx, "FINN", 43.5, 15, 18, 8, chalk);
+      fitText(ctx, "FINN", 20.5, 15, 18, 8, chalk);
+      fitText(ctx, "DAD", 43.5, 15, 18, 8, chalk);
       line(ctx, [[32, 11], [32, 41]], chalk, 1.2);
       line(ctx, [[11, 21], [53, 21]], chalk, 1.2);
+      fitText(ctx, "21", 20.5, 26, 14, 7, chalk);
+      fitText(ctx, "19", 43.5, 26, 14, 7, chalk);
       const tally = (x, y, n) => {
         for (let g = 0; g * 5 < n; g++) {
           const m = Math.min(5, n - g * 5);
@@ -954,10 +973,8 @@
           if (m === 5) line(ctx, [[gx - 1, gy + 5], [gx + 7, gy + 1]], chalk, 1.2);
         }
       };
-      tally(13, 25, 12);
-      tally(36, 25, 14);
-      ctx.fillStyle = "rgba(255,255,255,0.08)";
-      ctx.fillRect(12, 34, 16, 6);
+      tally(13, 34, 7);
+      tally(36, 34, 9);
       box(ctx, 9, 43, 46, 4, "#6b4423", 1.5);
       box(ctx, 14, 42, 7, 2, "#f3f3ea", 0);
     },
@@ -1775,6 +1792,39 @@
     ctx.fillRect(18, 10, 4, 28);
     line(ctx, [[10, 34], [38, 34]], "rgba(150,110,60,0.6)", 1.5);
     rod(ctx, [[30, 41], [30, 52]], "#b8902e", 0.8);
+  });
+  /* A black iron woodstove on short legs, a fire behind its glass door, a kettle on top, the pipe up to the ceiling. */
+  sprite("hWoodstove", 80, 160, (ctx, w, h) => {
+    shadow(ctx, w / 2, h - 3, 32);
+    // the stovepipe, with its collars and the damper handle
+    box(ctx, 33, 0, 14, 96, "#3a3d42", 2.5);
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(36, 2, 3, 92);
+    box(ctx, 31, 28, 18, 4, "#2f3136", 1.5);
+    box(ctx, 31, 70, 18, 4, "#2f3136", 1.5);
+    rod(ctx, [[28, 52], [52, 52]], "#2f3136", 2);
+    // legs, the body and its top plate
+    box(ctx, 14, 144, 8, 13, "#24262a", 2);
+    box(ctx, 58, 144, 8, 13, "#24262a", 2);
+    rbox(ctx, 10, 100, 60, 46, 5, "#2f3136", 3);
+    ctx.fillStyle = "rgba(255,255,255,0.12)";
+    ctx.fillRect(14, 104, 4, 38);
+    box(ctx, 6, 94, 68, 8, "#3a3d42", 2.5);
+    // the kettle on the plate
+    oval(ctx, 61, 87, 8, 6, "#9ea3aa", 2);
+    line(ctx, [[53, 86], [48, 81]], INK, 3);
+    line(ctx, [[53, 86], [48, 81]], "#9ea3aa", 1.5);
+    box(ctx, 59, 79, 4, 3, "#3a3d42", 1);
+    // the door: a fire behind the glass, the handle, the ash vent under it
+    rbox(ctx, 20, 107, 40, 30, 4, "#24262a", 2);
+    rbox(ctx, 25, 111, 30, 21, 3, "#3a1a10", 1.5);
+    ctx.fillStyle = "rgba(255,140,40,0.35)";
+    ctx.fillRect(26, 112, 28, 19);
+    poly(ctx, [[27, 131], [32, 118], [36, 125], [40, 113], [44, 125], [48, 118], [53, 131]], "#ff8a2a", 0);
+    poly(ctx, [[32, 131], [36, 122], [40, 127], [44, 121], [48, 131]], "#f6d25a", 0);
+    box(ctx, 28, 128, 24, 3, "#5a3a22", 0);
+    box(ctx, 55, 118, 4, 9, BRASS, 1.2);
+    box(ctx, 28, 139, 24, 4, "#24262a", 1.2);
   });
   /* A potted plant. */
   function leaf(ctx, x, y, len, ang, c) {

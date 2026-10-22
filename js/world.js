@@ -100,9 +100,9 @@
     well: {
       name: "Well",
       levels: [
-        { needs: { lumber: 2, tools: 1 }, scrap: 60, requires: { water: 1 }, effect: { water: 1, footRegen: 2 } },
-        { needs: { lumber: 2, parts: 1, waterFilter: 1 }, scrap: 100, effect: { water: 2, footRegen: 3 } },
-        { needs: { waterTank: 1, parts: 1, wire: 1 }, scrap: 150, effect: { water: 3, footRegen: 4, fullHealOnEntry: true } },
+        { needs: { lumber: 2, tools: 1 }, scrap: 60, requires: { water: 1 }, effect: { water: 1, footRegen: 1 } },
+        { needs: { lumber: 2, parts: 1, waterFilter: 1 }, scrap: 100, effect: { water: 2, footRegen: 2 } },
+        { needs: { waterTank: 1, parts: 1, wire: 1 }, scrap: 150, effect: { water: 3, footRegen: 3, fullHealOnEntry: true } },
       ],
     },
     farm: {
@@ -538,7 +538,7 @@
     { id: "hospital", name: "St. Anne Annex", type: "hospital", x: 250, y: 215, danger: 5, template: "hospital",
       items: ["meds", "generator", "meds"], cache: ["meds", "meds", "meds"], cacheName: "the pharmacy stock room", stash: ["generator", "meds"], stashName: "the supply cupboard" },
     { id: "watertower", name: "Water Tower", type: "utility", x: 120, y: 350, danger: 3, template: "watertower",
-      items: ["waterFilter", "waterFilter"], cache: ["waterFilter", "waterTank", "wire"], cacheName: "the pump house", stash: ["gunParts", "wire"], stashName: "the tool crib" },
+      items: ["waterFilter", "waterFilter"], cache: ["waterFilter", "waterTank", "wire", "waterFilter"], cacheName: "the pump house", stash: ["gunParts", "wire"], stashName: "the tool crib" },
     { id: "lumberyard", name: "Ridge Lumber", type: "industrial", x: 880, y: 380, danger: 4, template: "lumberyard",
       items: ["lumber", "lumber", "lumber"], cache: ["lumber", "lumber", "nails"], cacheName: "the kiln shed", stash: ["generator", "tools"], stashName: "the foreman's lockbox" },
     { id: "mall", name: "Northgate Mall", type: "mall", x: 800, y: 180, danger: 5, template: "mall",
@@ -639,7 +639,7 @@
      Positions are true in js/layouts.js: "front" is the entrance wall, "back" the far wall,
      left/right as seen from the entrance looking in. Landmarks are named exactly as in the
      layout (the validator checks door notes name two of them and inside notes one).
-     Keep facts short: every one must fit a level 1 note (door notes about 30 words). A door
+     Keep facts short: every one must fit a level 1 note (a level 1 door note runs about 50 to 100 words; tests/validate-text.js holds it to 49..98). A door
      note gives one walker spot, one landmark per item and where the inside note is; the
      inside note adds one short route from the note to the locked door.
      `walkers`: what the texts say about where walkers stand, kept true on every visit (js/building.js
@@ -709,7 +709,7 @@
       door: { id: "garden-door", found: "painted on the gate", facts: ["Written by Rosa, who ran the greenhouse.", "Soil is in the big greenhouse with the scarecrow; seeds are in the shop by the gate, near the big gnome.", "At least five walkers inside, one at the back of the big greenhouse.", "The potting shed is locked; Rosa's note is on the potting bench by the palm tree, back right."] },
       walkers: [{ says: ["garden-door", "garden-sign2"], z: [0], n: 1, zone: "bigGreenhouseBack", exact: true }],
       notes: [
-        { id: "garden-bench", found: "on the potting bench by the palm tree", unlocks: "garden", reveals: ["firehouse"], facts: ["Written by Rosa.", "The shed padlock key is in the {pick}, one of the three watering cans by this bench.", "The other two cans are Rosa's walker alarm, full of bells and tin cans: tip one over and the noise brings walkers, more and more, even through the gate, until they get you.", "The shed has more seeds and a water tank.", "The shed door is on the path from the palm tree house down to the beehives.", "Station 12, the fire station north of here, has tools and water tanks in its equipment bay."] },
+        { id: "garden-bench", found: "on the potting bench by the palm tree", unlocks: "garden", reveals: ["firehouse"], facts: ["Written by Rosa.", "The shed padlock key is in the {pick}, one of the three watering cans by this bench.", "The other two cans are Rosa's walker alarm, full of bells and tin cans: tip one over and the noise brings walkers, more and more, even through the gate, until they get you.", "The shed has more seeds and a water tank.", "The shed door is on the path from the palm tree house down to the beehives.", "Station 12, the fire station north and east of here, has tools and water tanks in its equipment bay."] },
       ],
     },
     police: {
@@ -723,7 +723,7 @@
       ],
     },
     school: {
-      door: { id: "school-door", found: "on the office door", facts: ["Written by Max and Mia.", "Boxes of books: one is in the music room with the drum set, the other in the front office, behind the lion statue.", "At least six walkers inside, one in the main hallway.", "The library closet is locked; the key is in the teacher's note in the science room, back left, by the big brain."] },
+      door: { id: "school-door", found: "on the office door", facts: ["Written by Max and Mia.", "Boxes of books: one is in the music room with the drum set, the other in the front office, behind the lion statue.", "At least six walkers inside, one in the main hallway.", "The library closet is locked; the key is in the teacher's note on the desk just inside the door of the science room, back left, the room with the big brain."] },
       walkers: [{ says: ["school-door", "school-sign2"], z: [2], n: 1, zone: "mainHallway", exact: true }],
       notes: [
         { id: "school-classroom", found: "on the teacher's desk in the science room", unlocks: "school", reveals: ["mall"], facts: ["Written by Ms. Adler, a teacher.", "The library closet key is in the {pick} of this desk, right under this note.", "Open no other drawer: Max and Mia tied air horns to the other two, and the noise brings every walker in the school, even through the front door, until they get you.", "The closet has books and a folder of city maps.", "Follow the main hallway toward the drum set room; the library is the room next to it, and its closet is in the back corner on the drum set side.", "Northgate Mall in the north has food, medicine, and wire, but the crowds there are the worst in town."] },
@@ -737,7 +737,7 @@
       ],
     },
     hospital: {
-      door: { id: "hospital-door", found: "on the ambulance doors", facts: ["Written by Doc Lin.", "One medical kit is in the patient room next to the x-ray machine, one is by the giant teddy bear in the gift shop; the generator is in the utility room, on the right.", "At least nine walkers inside; they stand in the dark rooms.", "The pharmacy stock room is locked; the nurse's note is at the nurses' station in the middle."] },
+      door: { id: "hospital-door", found: "on the ambulance doors", facts: ["Written by Nurse Ada.", "One medical kit is in the patient room next to the x-ray machine, one is by the giant teddy bear in the gift shop; the generator is in the utility room, on the right.", "At least nine walkers inside; they stand in the dark rooms.", "The pharmacy stock room is locked; my note is at the nurses' station in the middle."] },
       walkers: [{ says: ["hospital-door", "hospital-sign2"], zone: "darkRooms", all: true }],
       notes: [
         { id: "hospital-hall", found: "on the nurses' station", unlocks: "hospital", facts: ["Written by Nurse Ada, who stayed.", "The stock room badge, white on a blue clip, is in the {pick} of this station, right under this note; hold it to the reader by the stock room door.", "Open no other drawer: they are wired to the crash cart alarm, and it brings walkers, more and more, even through the front doors, until they get you.", "The stock room has three medical kits.", "The stock room door is in the nurses' station room itself, across its walkway from the desk, on the angel statue side.", "Stay quiet; the walkers here follow sound more than light."] },
@@ -746,11 +746,11 @@
     watertower: {
       door: { id: "watertower-door", found: "on the fence gate", facts: ["Written by Theo, who tends the pumps.", "One water filter is by the crates near the big red wheel; the other is in the boat workshop, by the rowboat.", "At least six walkers inside the pump building.", "The pump house is locked; Theo's note is on the control panel in the back right room."] },
       notes: [
-        { id: "watertower-panel", found: "on the control panel", unlocks: "watertower", reveals: ["hospital"], facts: ["Written by Theo.", "The pump house key is in the {pick}, one of the three breaker boxes by this panel.", "Open neither of the other two boxes: they are live, and the shock kills.", "The pump house has filters, a water tank, and wire.", "The pump house door is at the back of the pump hall, at the blue pump end, away from the big red wheel.", "St. Anne Annex, the hospital, is north up Hill Road; it still has medicine, but it is the most dangerous place in town."] },
+        { id: "watertower-panel", found: "on the control panel", unlocks: "watertower", reveals: ["hospital"], facts: ["Written by Theo.", "The pump house key is in the {pick}, one of the three breaker boxes by this panel.", "Open neither of the other two boxes: they are live, and the shock kills.", "The pump house has filters, a water tank, and wire.", "The pump house door is at the back of the pump hall, at the blue pump end, away from the big red wheel.", "St. Anne Annex, the hospital, is northeast up Hill Road; it still has medicine, but it is the most dangerous place in town."] },
       ],
     },
     lumberyard: {
-      door: { id: "lumberyard-door", found: "spray-painted on the gate", facts: ["Written by Ruby.", "Lumber is in the long racks in the middle, and one more stack is out back by the log pile.", "At least eight walkers inside; a crowd gathers by the loading dock and the flatbed truck, and a big one stands by the log pile.", "The kiln shed is locked; the yard boss left a note on a clipboard by the band saw."] },
+      door: { id: "lumberyard-door", found: "spray-painted on the gate", facts: ["Written by Ruby.", "Lumber is in the long racks in the middle, and one more stack is out back by the log pile.", "At least eight walkers inside; a crowd gathers by the loading dock and the flatbed truck, and a big one stands by the log pile.", "The kiln shed is locked; the yard boss left a note on a clipboard by the band saw.", "Do not run the saws; the noise brings the dock crowd."] },
       walkers: [
         // the big one by the log pile, and the dock crowd: most of them ("Most of them gather by the loading dock")
         { says: ["lumberyard-door", "lumberyard-trail1", "lumberyard-trail2"], z: [0], n: 1, zone: "yard", type: "brute", near: "the log pile" },

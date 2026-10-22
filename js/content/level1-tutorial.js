@@ -30,7 +30,7 @@
     },
     shoot: {
       title: "Stop a walker",
-      text: "A walker is in the yard. It is slow, but it can still hurt you. Put the cross in the middle on it. Click or press Space to shoot. Keep at it until it goes down.",
+      text: "A walker is coming into the yard. It is slow, but it can still hurt you. Put the cross in the middle on it. Click or press Space to shoot. Keep at it until it goes down.",
       try: "Find the walker. Shoot it until it goes down.",
       bow: "Hold the mouse button down. Let go to shoot.",
       item: "Stop the walker",
@@ -43,8 +43,8 @@
     },
     computer: {
       title: "The computer",
-      text: "The computer is in the office in the cabin. You build new rooms there. Each room needs things from town. Bring them home, and build here. Press E at the computer to use it. Click Step away when you are done.",
-      try: "Go to the computer and press E. Then click Step away.",
+      text: "The computer is in the office in the cabin. You build new rooms there. Each room needs things from town. Bring them home, and build here. Press E at the computer to use it. Click Step away from the computer.",
+      try: "Go to the computer and press E. Then click Step away from the computer.",
       item: "Use the computer",
     },
     ready: {

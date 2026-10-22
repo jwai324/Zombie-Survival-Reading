@@ -34,7 +34,7 @@
     },
     "june-t6": {
       title: "Rosa and the Seeds",
-      text: "June's old friend Rosa ran the greenhouses at Greenhouse Row. June says Rosa could grow a tomato on a rock. So if anyone still has seeds, it is Rosa. Seed packets and a bag of soil start a Garden. A Garden grows food every day, and every crate counts. June already knows where the beans will go. She has known for weeks.",
+      text: "June's old friend Rosa ran the greenhouses at Greenhouse Row. June says Rosa could grow a tomato on a rock. So if anyone still has seeds, it is Rosa. Seed packets and a bag of soil start a Garden. A Garden grows food every day, and every crate counts. June already knows where the beans will go. She has known since the first morning.",
     },
     "june-t7": {
       title: "One Finger Deep",
@@ -76,7 +76,7 @@
     /* Tomas: seventeen, engines, stubborn, earnest */
     "tomas-t1": {
       title: "The Old Mule",
-      text: "Tomas is seventeen, and he keeps the van alive. He pats the hood like it is a horse. Tomas says the van is old but honest, like a good mule. But it does not heal on its own. Damage to the van stays from one trip to the next. Fix it at the office computer, or at the van before you go. “Treat it right,” Tomas says, “and it gets you home.”",
+      text: "Tomas is seventeen, and he keeps the van alive. He pats the hood like it is a horse. Tomas says the van is old but honest, like a good mule. Damage to the van stays from one trip to the next. Most of it is still there the next day. Fix it at the office computer, or at the van before you go. “Treat it right,” Tomas says, “and it gets you home.”",
     },
     "tomas-t2": {
       title: "Holes in the Fence",
@@ -128,7 +128,7 @@
     },
     "tomas-m4": {
       title: "Half His Bread",
-      text: "At supper, Tomas slips Pip half his bread under the table. June pretends not to see. Tomas says he is not hungry, but his stomach growls. Pip says thank you with a big smile. Tomas says growing kids need bread more than he does. He is seventeen, so he is still growing too.",
+      text: "At supper, Tomas slips Pip half his bread under the table. June pretends not to see. Tomas says he is not hungry, but his stomach growls. Pip says thank you with a big smile. Tomas says growing kids need bread more than he does. He is seventeen, and he says he is done growing.",
     },
     "tomas-m5": {
       title: "To the Line",
@@ -154,7 +154,7 @@
     },
     "pip-t4": {
       title: "The Lookout",
-      text: "Pip watches the trees for you now, from the back fence. Before the quiet runs out, Pip calls what comes next and from which sides. June does not love Pip being the lookout. But Pip says somebody has to do it. Pip also says the smallest one in the crew has the sharpest eyes.",
+      text: "Pip watches the trees for you now. Before the quiet runs out, Pip calls what comes next and from which sides. June does not love Pip being the lookout. But Pip says somebody has to do it. Pip also says the smallest one in the crew has the sharpest eyes.",
     },
     "pip-t5": {
       title: "Ruby's Red R",
@@ -224,7 +224,7 @@
       keys: "Pip says you are holding {keys}. Each key's note says which stash it opens. Your notes are in the backpack, so read them again.",
       walkers: "Pip keeps count on the wall. In {days} days, each building in town gets one more walker. That keeps happening, up to a limit. Pip says the sooner you go, the fewer walkers you meet.",
       radio: "Pip says a new broadcast waits each day you come home. It waits at the radio in the dining room. Tune in there, and hear the old ones again too.",
-      full: "Pip says every building in town is as full of walkers as it gets. From now on, a place is only as dangerous as it is today.",
+      full: "Pip says every building in town is as full of walkers as it gets. From now on, no building gets more walkers than it has today.",
     }),
   });
 

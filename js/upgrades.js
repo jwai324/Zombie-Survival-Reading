@@ -35,7 +35,7 @@
     spread: { group: "gun", name: "Spread Shot", icon: "SPR", desc: "The van's gun on the road. Extra rounds with every shot.", max: 3, costs: [90, 180, 300] },
   };
 
-  const REPAIR = { name: "Field Repair", icon: "FIX", desc: "Ruby and Doc Lin patch the van.", cost: 30, heal: 40 };
+  const REPAIR = { name: "Field Repair", icon: "FIX", desc: "Tomas patches the van.", cost: 30, heal: 40 };
 
   const Upgrades = {
     DEFS,

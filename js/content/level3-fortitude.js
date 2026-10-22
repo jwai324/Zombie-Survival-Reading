@@ -88,6 +88,10 @@
       title: "A Good Fix Is Slow",
       text: "Tomas says the first fusion reactor ran for 10 seconds before a coil failed. Kennedy was burned, and the team learned to stop rushing. “A good fix is a slow fix,” Tomas says, and that goes for vans. Once the Garage room is built, the van comes home fixed for free.",
     },
+    "tomas-fort-t3": {
+      title: "A Famous Last Name",
+      text: "Tomas says Mr. Reyes of Reyes Hardware always told everyone the same story. His family, Mr. Reyes said, goes back to Dr. Camila Reyes. She lived hundreds of years ago, so nobody can prove it either way. Tomas does not mind. He likes the story, true or not. He never asked Mr. Reyes for proof. Besides, he says, Reyes Hardware is the place to find lumber and nails.",
+    },
     "pip-fort-t1": {
       title: "The Whole Team",
       text: "Pip can name Dr. Camila Reyes's whole team: Zoe, Kennedy, Ava, Patriya and Annabelle. Valen was the Fortitude who answered their messages. Valen learned the words help, thank you and together. Pip says to read every note to the end. Some notes in town are old or wrong, and the end tells you which.",
@@ -143,7 +147,7 @@
       title: "Gold Abyss Explorer pin",
       brief:
         "The last bursts keep drawing one shape: the Abyss Explorer. That is the little submarine from the old story. Station 12's chief kept an Abyss Explorer pin by the brass pole. Station 12 is northwest of the cabin. The pin is a gold badge with a star, on a black leather fold. Pip will give you 60 scrap and 1 box of radio parts.",
-      tag: "A gold badge with a star, on a black leather fold. The star is worn smooth. Stamped on the back: Abyss Explorer, seven miles down.",
+      tag: "A gold badge with a star, on a black leather fold. The star is worn smooth. Stamped on the back: Abyss Explorer, seven miles down. It is a keepsake copy of a very old pin.",
       journal: "You brought Pip an Abyss Explorer pin from Station 12. Pip wore it to supper and decoded the last record before bed.",
       done: "Pip pins the badge to the radio shelf and plays the last burst slowly. The picture is the submarine, small and brave, and then come words. Pip writes them down one at a time, pencil shaking a little. Pip thanks you without looking up.",
       after:

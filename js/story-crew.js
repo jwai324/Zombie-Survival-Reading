@@ -40,7 +40,7 @@
         // on the porch bench, looking out over the yard
         { id: "porch", house: [7, 1], pose: "sit", weight: 3, face: { at: [25.5, 30] }, seat: { house: [6.5, 1.87], kind: "porchBench", dir: "n" } },
         { id: "kitchen", house: [14, 7], pose: "stand", weight: 3, face: { house: [15.5, 6.5] } }, // at the stove (the work pose is a garden kneel)
-        { id: "ledger", house: [17, 15], pose: "read", weight: 3, face: { house: [16.5, 13.4] } }, // in the living room, by the shelf with her ledger
+        { id: "ledger", house: [17, 15], pose: "read", weight: 3, face: { house: [16.5, 13.4] } }, // in the living room, reading by the bookcase (her ledger lives on the dining-room radio shelf)
         { id: "office", house: [3, 3], pose: "read", weight: 2, face: { house: [2, 1.5] } }, // the base plans at Kate's map desk
         { id: "lot", at: [13, 16], pose: "stand", weight: 2, face: { plot: "garden" } }, // looking over the garden plot
         { id: "garden", at: [13, 18], room: "garden", level: 1, pose: "work", weight: 4, face: { plot: "garden" } }, // tending her beds
@@ -110,7 +110,7 @@
     walkSpeed: 1.1, // tiles a second
     runSpeed: 2.6, // tiles a second, hurrying to the shelter
     dwell: [20, 50], // seconds at a post
-    workSeconds: 4, // to fix one fence segment or cabin door or window
+    workSeconds: 4, // to fix one fence segment, wrecked build, or cabin door or window
     lookoutSeconds: 15, // Pip calls the next wave this long before it comes
     healAmount: 40, // June patches you up this much, once per calm
     requestsPerCrew: 1, // SCALE: open requests of each kind (story quest, errand) per crew member; errands: 1 (one save slot)
@@ -176,7 +176,7 @@
           "Notes you bring home stay in your backpack, so you can read them again.",
         ] },
         { id: "june-t9", when: { day: 14, room: "garden", level: 1 }, facts: [ // day 14: the River Convoy (JOURNAL day 14)
-          "June says Kate Hollis's note asked whoever found the cabin to keep the garden going, and now there is one.",
+          "June says Kate Hollis's note asked whoever found the cabin to keep the garden going, and now there is one again.",
           "Each new level of the Garden grows more food each day.",
           "June says a cabin with a garden is hard to leave, even for the River Convoy.",
         ] },
@@ -217,7 +217,7 @@
           "He says walkers smash windows and climb in, and nobody can climb out through a broken one.",
           "A broken door or window costs 2 scrap to fix: press E at it, or use the office computer.",
         ] },
-        { id: "tomas-t5", when: { day: 9, stars: 1 }, facts: [
+        { id: "tomas-t5", when: { day: 9, stars: 1, radioBefore: 15 }, facts: [
           "Tomas learned engines from his father, handing him wrenches under cars.",
           "His father learned the trade from Mr. Ortiz at Ortiz Auto.",
           "Tomas hopes Mr. Ortiz is still out there somewhere.",
@@ -287,7 +287,7 @@
         ] },
         { id: "pip-t6", when: { day: 11, stars: 1 }, facts: [
           "Pip keeps a list of every voice the crew hears, and the first name on it is June.",
-          "People say someone named Jo talks on the radio from a rooftop.",
+          "Jo talks on the radio from a rooftop.",
           "Pip says the Radio room, made of radio parts and wire, finds new places for the map.",
         ] },
         { id: "pip-t7", when: { room: "radio", level: 1 }, facts: [
@@ -358,7 +358,7 @@
       walkers: { facts: ["Pip keeps count: in {days} days, the buildings in town get one more walker each, up to a limit."] },
       radio: { facts: ["Pip says a new broadcast waits at the radio in the dining room each day you come home.", "Tune in there, and hear the old ones again too."] },
       // the fallback once every known building is at its walker limit (the walkers tip has nothing left to count)
-      full: { facts: ["Pip says every building in town is as full of walkers as it will get.", "From now on, a place is only as dangerous as it is today."] },
+      full: { facts: ["Pip says every building in town is as full of walkers as it will get.", "From now on, no building gets more walkers than it has today."] },
       // told once, the first talk after you first meet one (save.met; js/crewstate.js)
       // the scream speeds up only the walkers already awake near it, and wakes nobody (owner decision, WORLD.SCREAM)
       screamer: { facts: ["Pip says some walkers scream when they spot you.", "Awake walkers nearby hear it and speed up for a while; sleeping ones sleep on.", "So stop a screamer first."] },

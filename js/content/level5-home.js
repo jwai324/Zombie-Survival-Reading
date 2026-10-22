@@ -9,11 +9,11 @@
     lots: {
       garden: {
         title: "Garden plot",
-        empty: "GARDEN, someday. June painted those words on a scrap of board and pushed it into the dark dirt behind the cabin. Stakes and string mark out beds as neat as the lines in a notebook, though nothing grows in them yet. June noticed this soil on the second day, and she has been waiting ever since. Raised beds of seeds and soil here would grow food. That matters, because every trip in the van eats food, and the cupboard only empties on its own. To build the first bed, bring home 2 seed packets, 1 bag of soil, and 40 scrap.",
+        empty: "GARDEN, someday. June painted those words on a scrap of board and pushed it into the dark dirt in front of the cabin. Stakes and string mark out beds as neat as the lines in a notebook, though nothing grows in them yet. June noticed this soil on the second day, and she has been waiting ever since. Raised beds of seeds and soil here would grow food. That matters, because every trip in the van eats food, and the cupboard only empties on its own. To build the first beds, bring home 2 seed packets, 1 bag of soil, and 40 scrap.",
         built: [
-          "GARDEN, says the sign, and this time it is true. One raised bed is planted with seeds, and tiny green shoots have pushed up through the soil like fingers testing the air. June checks it every morning, kneeling in the dirt with her ledger on her knee. It grows 1 food each day. That is not a feast, but it means the cupboard is never quite as empty as the road makes it. One more seed packet, one more bag of soil, and 80 scrap would add more beds.",
+          "GARDEN, says the sign, and this time it is true. Two raised beds are planted with seeds, and tiny green shoots have pushed up through the soil like fingers testing the air. June checks them every morning, kneeling in the dirt with her ledger on her knee. The garden grows 1 food each day. That is not a feast, but it means the cupboard is never quite as empty as the road makes it. One more seed packet, one more bag of soil, and 80 scrap would add more beds.",
           "The sign still says GARDEN, but the plot has grown. Now there are more beds, and bean vines climb the string like kids racing up a rope in gym class. June hums while she weeds, and Tomas says it is the happiest sound in the yard. The garden grows 2 food each day now, enough that one bad trip does not mean an empty supper. June says the last step needs water that does not come from a bucket. Bring 2 seed packets, 1 bag of soil, 1 water tank, and 120 scrap.",
-          "GARDEN, says the sign, and June finally has her full garden. A water tank feeds the beds through a hose, so the soil stays dark and damp even on the hottest afternoons. Tomatoes hang heavy as red lanterns, and squash leaves spread wide enough to hide Pip's boots. It grows 3 food each day. On good days June carries the harvest in her apron, because no basket is big enough. She says this is what she pictured on the first night, when the dirt was only dirt.",
+          "GARDEN, says the sign, and June finally has her full garden. A greenhouse stands behind the beds. A water tank feeds them, so the soil stays dark and damp even on the hottest afternoons. Tomatoes hang heavy as red lanterns, and squash leaves spread wide enough to hide Pip's boots. It grows 3 food each day. On good days June carries the harvest in her apron, because no basket is big enough. She says this is what she pictured on the first night, when the dirt was only dirt.",
         ],
       },
       farm: {
@@ -27,27 +27,27 @@
       },
       well: {
         title: "Well site",
-        empty: "WELL, dig after the Water room is built. June painted the sign herself and set it beside a ring of stones next to the cabin. The stones sit in a careful circle, like a promise waiting to be kept. Water from deep underground comes up cold and clean, so you would heal faster in the yard. The well stays locked until the Water room stands, because you should learn to clean water before you dig for more. The Farm and the Lab both need the Well first. To dig, bring 2 lumber, 1 tool kit, and 60 scrap.",
+        empty: "WELL, dig after the Water room is built. June painted the sign herself and set it beside a ring of stones in the middle of the yard. The stones sit in a careful circle, like a promise waiting to be kept. Water from deep underground comes up cold and clean, so you would heal faster in the yard. The well stays locked until the Water room stands, because you should learn to clean water before you dig for more. The Farm and the Lab both need the Well first. To dig, bring 2 lumber, 1 tool kit, and 60 scrap.",
         built: [
-          "WELL, says the sign, and now there is a hole in the ground worth having. It is a hand-dug well lined with lumber, with a bucket on a rope. Drop the bucket, and a splash echoes far below, like a coin landing in a very deep pocket. Its clean water helps you heal faster in the yard. Tomas says the crank squeaks like the old cabin door did. Next, a hand pump would bring the water up faster. It needs 2 lumber, 1 set of engine parts, 1 water filter, and 100 scrap.",
-          "WELL, reads the sign, but the bucket and rope are gone. A hand pump with a filter now brings the water up, cold and clear, after a few strong pushes on the handle. Pip likes to pump it until the handle groans in protest. You heal in the yard even faster now, because cleaner water helps a body mend quicker. The last step is a wired pump that fills a tank by itself. It needs 1 water tank, 1 set of engine parts, 1 spool of wire, and 150 scrap.",
-          "WELL, says the sign, and the well practically runs itself. A wired pump hums softly and fills a tank, so clean water is always waiting, even after the longest trip. You heal in the yard faster than ever, and you start every building at full health. That changes how a trip feels. You walk through each door strong and steady, like someone who slept well, even on the nights you did not. June calls the well the quiet hero of the yard, because nobody notices it until it stops.",
+          "WELL, says the sign, and now there is a hole in the ground worth having. It is a hand-dug well lined with lumber, with a bucket on a rope. Drop the bucket, and a splash echoes far below, like a coin landing in a very deep pocket. Its clean water helps you heal faster in the yard. Tomas says the rope creaks like the old cabin door did. Next, a roof and a crank would bring the water up faster. It needs 2 lumber, 1 set of engine parts, 1 water filter, and 100 scrap.",
+          "WELL, reads the sign, and the bucket and rope have a roof over them now. A crank winds the bucket up, and a filter makes the water clean and clear. Pip likes to turn the crank until the handle groans in protest. You heal in the yard even faster now, because cleaner water helps a body mend quicker. The last step is a hand pump that pipes the water to a trough. It needs 1 water tank, 1 set of engine parts, 1 spool of wire, and 150 scrap.",
+          "WELL, says the sign, and a hand pump now stands beside the well. It pipes the water to a trough, so clean water is always waiting, even after the longest trip. You heal in the yard faster than ever, and you start every building at full health. That changes how a trip feels. You walk through each door strong and steady, like someone who slept well, even on the nights you did not. June calls the well the quiet hero of the yard, because nobody notices it until it stops.",
         ],
       },
       water: {
         title: "Water station",
-        empty: "WATER, filter goes here. Tomas painted the sign and nailed it above an empty barrel that sits on two sawhorses by the cabin wall. Right now the barrel catches nothing but leaves and gray rainwater that smells like an old sock. A filter and a tank here would turn that gray rainwater clear, so you heal faster while you are in the yard. Without clean water, every scrape stays a scrape until you find a medical kit. To start, bring 1 water filter and 40 scrap, and the barrel finally gets a job.",
+        empty: "WATER, filter goes here. Tomas painted the sign and nailed it above an empty barrel that sits on two sawhorses by the back fence. Right now the barrel catches nothing but leaves and gray rainwater that smells like an old sock. A filter and a tank here would turn that gray rainwater clear, so you heal faster while you are in the yard. Without clean water, every scrape stays a scrape until you find a medical kit. To start, bring 1 water filter and 40 scrap, and the barrel finally gets a job.",
         built: [
-          "WATER, says the sign, and the barrel is finally useful. A filter on top of the barrel turns gray water clear. It works one slow drip at a time, like a clock that counts in drops. You slowly heal in the yard. It is not fast, but it is steady, and steady keeps a crew alive. A big tank would hold more water and heal you faster. It needs 1 water tank, 1 water filter, and 80 scrap, and Tomas has already cleared a spot for it.",
-          "WATER, reads the sign, and now there is plenty of it. A filter and a big tank stand together against the cabin wall, full of clean water. It tastes like nothing at all, which is exactly how water should taste. You heal faster in the yard, because a full tank means nobody has to ration a sip after a hard day. One more filter would finish the job. It needs 1 water tank, 2 water filters, and 120 scrap, so keep an eye out at the Water Tower.",
+          "WATER, says the sign, and the lot is finally useful. Three rain barrels stand under funnels, with a filter on the tap that turns gray water clear. It works one slow drip at a time, like a clock that counts in drops. You slowly heal in the yard. It is not fast, but it is steady, and steady keeps a crew alive. A big tank would hold more water and heal you faster. It needs 1 water tank, 1 water filter, and 80 scrap, and Tomas has already cleared a spot for it.",
+          "WATER, reads the sign, and now there is plenty of it. A filter and a big tank stand together by the back fence, full of clean water. It tastes like nothing at all, which is exactly how water should taste. You heal faster in the yard, because a full tank means nobody has to ration a sip after a hard day. One more filter would finish the job. It needs 1 water tank, 2 water filters, and 120 scrap, so keep an eye out at the Water Tower.",
           "WATER, says the sign, and the station is complete. Two filters and a tank work side by side, so the water runs clear even after a storm stirs up the barrel. You heal even faster in the yard, and you walk into every building at full health. That means each trip starts with a clean slate instead of yesterday's bruises. Tomas tapped the tank with a wrench, and it rang like a bell. He claims that is a good sign, and nobody has the heart to argue.",
         ],
       },
       power: {
         title: "Power pole",
-        empty: "POWER, lights first. Tomas painted the sign and hung it on a bare pole by the shed. An old coil of rope lies at its foot like a sleeping snake. Fuel, wire and lights here would let the map show how dangerous each place is before you drive there. Knowing the danger first means fewer nasty surprises at a door. Later a generator could do even more, out on the road. To start, bring 2 fuel cans, 1 spool of wire, and 60 scrap.",
+        empty: "POWER, lights first. Tomas painted the sign and hung it on a bare pole by the back fence. An old coil of rope lies at its foot like a sleeping snake. Fuel, wire and lights here would let the map show how dangerous each place is before you drive there. Knowing the danger first means fewer nasty surprises at a door. Later a generator could do even more, out on the road. To start, bring 2 fuel cans, 1 spool of wire, and 60 scrap.",
         built: [
-          "POWER, says the sign, and the pole finally does something. Fuel cans, wire, and a string of working lights run from the shed to the cabin. After dark they glow like a row of small moons. Because of them, the map shows the danger of every place, so you know what waits before you go. Pip calls it the worry meter. Next comes a generator, which would also turn up supplies on the road. It needs 1 generator, 2 fuel cans, and 100 scrap.",
+          "POWER, says the sign, and the pole finally does something. Fuel cans, wire, and a string of working lights run from the pole to the cabin. After dark they glow like a row of small moons. Because of them, the map shows the danger of every place, so you know what waits before you go. Pip calls it the worry meter. Next comes a generator, which would also turn up supplies on the road. It needs 1 generator, 2 fuel cans, and 100 scrap.",
           "POWER, reads the sign, and the yard has a heartbeat now. A generator hums under a tin roof, steady and low, like a big animal purring in its sleep. The map shows danger, and you find one supply crate on every drive. Those crates add up fast, the way pennies fill a jar. More wire could run power all the way out to the van. It needs 2 spools of wire, 3 fuel cans, and 150 scrap, and Tomas has already measured the distance twice.",
           "POWER, says the sign, and the wires reach farther than ever. More wire runs out to the van, which now has headlights. They cut through night and fog like a knife through bread. The map shows danger, you find two supply crates on every drive, and the dark no longer owns the road. Night drives used to feel like driving into a closet with the door shut. Now the way ahead is bright. Tomas says the van has never looked so proud of itself.",
         ],
@@ -76,11 +76,11 @@
   T.journal = [
     {
       title: "Day One by Candlelight",
-      text: "My name is June. This green ledger is the only clean thing I own, so I am writing in it by candlelight. The van rolled into the yard on its last drops of fuel. Tomas talked to the engine the whole way, coaxing it like a nervous horse, and I think it listened. The cabin sits at the south end of town. It is empty and dry, with a woodstove and a door that still locks. After weeks of broken doors, the click of that lock sounded like music. Pip fell asleep on the bench before the bags were even inside, one shoe still on. You took the first watch at the window. I lay awake listening for trouble, but nothing came. For one whole night, nothing came.",
+      text: "My name is June. This green ledger is the only clean thing I own, so I am writing in it by candlelight. The van rolled into the yard on its last drops of fuel. Tomas talked to the engine the whole way, coaxing it like a nervous horse, and I think it listened. The cabin sits at the south end of town. It is empty and dry, with a woodstove and a door that still locks. After weeks of broken doors, the click of that lock sounded like music. Pip fell asleep on the bench before the bags were even inside, one shoe still on. You took the first watch at the window. I fell asleep knowing someone was awake for all of us.",
     },
     {
       title: "The Cabin in Daylight",
-      text: "In daylight, the cabin turned out to be bigger than it looked last night. It is a whole family house with a porch out front. The roof is sound, which matters more than size when the rain comes. An old fence circles the yard like a tired arm around a shoulder. Some of its boards are loose, and Tomas has already counted them twice. I noticed the dirt first, though. Behind the cabin it is dark and good, the kind that crumbles in your hand and smells alive. Tomas teased me for kneeling in it before breakfast. Then I took a pencil and wrote our first rule on the inside of the door. Say where you are going before you go. Pip read it out loud three times and named it June's Rule Number One. Nobody argued.",
+      text: "In daylight, the cabin turned out to be bigger than it looked last night. It is a whole family house with a porch out front. The roof is sound, which matters more than size when the rain comes. An old fence circles the yard like a tired arm around a shoulder. Some of its boards are loose, and Tomas has already counted them twice. I noticed the dirt first, though. In front of the cabin it is dark and good, the kind that crumbles in your hand and smells alive. Tomas teased me for kneeling in it before breakfast. Then I took a pencil and wrote our first rule on the inside of the door. Say where you are going before you go. Pip read it out loud three times and named it June's Rule Number One. Nobody argued.",
     },
     {
       title: "Old but Honest",
@@ -88,7 +88,7 @@
     },
     {
       title: "Walkers at Dusk",
-      text: "The first walkers came to the fence at dusk. We heard them before we saw them, a dragging shuffle like wet leaves pushed by the wind. They came in a group and pushed at the boards until the whole fence groaned. Then, as suddenly as they arrived, the yard went quiet for a while. Tomas whispered, 'Write this down, June.' So here is what I learned today. They come in waves, with calm in between, like the tide at the beach where I grew up. The calm is not peace. It is only a breath before the next push. So a new rule went on the door: no shouting in the yard, because walkers follow sound. Pip whispered the rule twice, just to practice being quiet.",
+      text: "The biggest group yet came to the fence at dusk. We heard them before we saw them, a dragging shuffle like wet leaves pushed by the wind. They pushed at the boards until the whole fence groaned. Then, as suddenly as they arrived, the yard went quiet for a while. Tomas whispered, 'Write this down, June.' So here is what I have learned. They come in waves, with calm in between, like the tide at the beach where I grew up. The calm is not peace. It is only a breath before the next push. So a new rule went on the door: no shouting in the yard, because walkers follow sound. Pip whispered the rule twice, just to practice being quiet.",
     },
     {
       title: "Where Everyone Went",
@@ -100,7 +100,7 @@
     },
     {
       title: "Before the Fall",
-      text: "Before the Fall, I was the gardener at a school. Pip finds this hilarious and says June the Gardener sounds like a superhero with a very small cape. Maybe so, but my hands remember the work. I want raised beds behind the cabin, with beans, squash and tomatoes, all lined up like students in a class photo. The dirt is ready. What I lack is seeds. My old friend Rosa ran the greenhouses at Greenhouse Row, west of the gas station. She could grow roses in a parking lot and tomatoes in a teacup. If anyone still has seeds, it is Rosa. I am as sure of that as I am of the sunrise. If you drive west, look for her, and tell her June sends her love.",
+      text: "Before the Fall, I was the gardener at a school. Pip finds this hilarious and says June the Gardener sounds like a superhero with a very small cape. Maybe so, but my hands remember the work. I want raised beds in front of the cabin, with beans, squash and tomatoes, all lined up like students in a class photo. The dirt is ready. What I lack is seeds. My old friend Rosa ran the greenhouses at Greenhouse Row, west of the gas station. She could grow roses in a parking lot and tomatoes in a teacup. If anyone still has seeds, it is Rosa. I am as sure of that as I am of the sunrise. If you drive west, look for her, and tell her June sends her love.",
     },
     {
       title: "The Red R",
@@ -116,7 +116,7 @@
     },
     {
       title: "Static and Voices",
-      text: "Pip found an old radio dial in a kitchen drawer, under a tangle of string and dead batteries. It was not attached to anything, but Pip turned it for an hour anyway, holding it close to one ear. There was only static, a long dry hiss like sand pouring out of a bag. Still, Pip is sure there are voices out there. People say someone named Jo talks on the radio from a rooftop, reading the news to anyone who will listen. Pip believes it completely. So now Pip has started a list of every voice the crew hears. The first name on it is June. I am honored, and also a little suspicious, because Pip wrote my name in purple crayon and drew a crown over it.",
+      text: "Pip found an old radio dial in a kitchen drawer, under a tangle of string and dead batteries. It was not attached to anything, but Pip turned it for an hour anyway, holding it close to one ear. There was only static from the loose dial, a long dry hiss like sand pouring out of a bag. Still, Pip is sure there are voices out there. Jo talks on the radio from a rooftop, reading the news to anyone who will listen. Pip keeps a list of every voice the crew hears. The first name on it is June. I am honored, and also a little suspicious, because Pip wrote my name in purple crayon and drew a crown over it.",
     },
     {
       title: "Sunflowers by the Fence",
@@ -152,15 +152,15 @@
     },
     {
       title: "What We Carry",
-      text: "Pip asked a big question tonight, the kind that lands on the table like a heavy stone. Is the world ever going to come back? Tomas stopped chewing. I put down my spoon and took a moment, because Pip deserves the truth and not a bedtime story. I said some of it will come back, the parts people carry with them. Buildings fall and roads crack, but what you know and who you love can travel. Pip thought about that for a long time. Then came the second question: which parts is the crew carrying? I pointed at the door first. The rules on the door, I said. The seeds, when we find them. And each other. Pip nodded slowly. June hopes that answer was good enough.",
+      text: "Pip asked a big question tonight, the kind that lands on the table like a heavy stone. Is the world ever going to come back? Tomas stopped chewing. I put down my spoon and took a moment, because Pip deserves the truth and not a bedtime story. I said some of it will come back, the parts people carry with them. Buildings fall and roads crack, but what you know and who you love can travel. Pip thought about that for a long time. Then came the second question: which parts is the crew carrying? I pointed at the door first. The rules on the door, I said. The seeds. And each other. Pip nodded slowly. June hopes that answer was good enough.",
     },
     {
       title: "The Rules on the Door",
-      text: "After supper, I read the rules on the door out loud, the way my old principal used to read the morning news. Say where you go. No shouting in the yard. Patch the fence before supper. Everyone eats the same. Four rules, written in different hands, and every one of them was learned the hard way. Pip listened with arms crossed, like a judge at a contest. Then Pip said we needed one more: take what you need, leave the rest. I smiled, because that one is not ours. That is the town's rule, the one the whole key ring is built on. But it is a good one, maybe the best one. So it goes on the door too. Pip wrote it at the bottom, big enough to read from the yard. June",
+      text: "After supper, I read the five rules on the door out loud, the way my old principal used to read the morning news. Say where you go. No shouting in the yard. Patch the fence before supper. Everyone eats the same. Take what you need, leave the rest. The first four are written in different hands, and every one of them was learned the hard way. Pip listens with arms crossed, like a judge at a contest, and always joins in on the last one. I smile every time, because that one is not ours. That is the town's rule, the one the whole key ring is built on. But it is a good one, maybe the best one. Pip wrote it at the bottom, big enough to read from the yard. June",
     },
     {
       title: "Messages for Each Other",
-      text: "Pip keeps asking about Ruby and her younger brother, Dev. After every trip, the first question is the same: any news? People say Ruby is looking for Dev, crossing town from one end to the other. And Dev leaves messages for her, on walls and counters and doors, like breadcrumbs in an old fairy tale. Pip has thought about this very carefully, the way Pip thinks about everything important. Pip says if they keep leaving messages, they will find each other. It is just a matter of time and paper. I know how big this town is, and how many walkers stand between those walls. Tomas raised an eyebrow at me. But June did not argue. Some hopes are worth guarding, like a match in the wind.",
+      text: "Pip keeps asking about Ruby and her younger brother, Dev. After every trip, the first question is the same: any news? People say Ruby went looking for Dev, crossing town from one end to the other. And Dev left messages for her wherever he went, on walls and counters and doors, like breadcrumbs in an old fairy tale. Pip has thought about this very carefully, the way Pip thinks about everything important. Pip says people who keep leaving messages find each other. Tomas raised an eyebrow at me. But June did not argue. Pip has a way of being right about the things that matter.",
     },
     {
       title: "Listening to the Engine",
@@ -168,7 +168,7 @@
     },
     {
       title: "An Honest Ledger",
-      text: "My knees ache on cold mornings. They creak like the old porch steps at my school, and they tell me the weather before the sky does. My hands are starting to complain too. So today I showed Pip how to keep the ledger, just in case my hands get stiff. We sat at the table with the green book open between us. I showed Pip where the food count goes, where the trips go, and where the rules go. Pip's writing is big and messy, with letters that lean on each other like tired friends. Pip apologized for it. I said that is fine. A ledger only has to be honest, not neat. The truth does not need pretty handwriting. June, a teacher again, for one afternoon.",
+      text: "My knees ache on cold mornings. They creak like the old porch steps at my school, and they tell me the weather before the sky does. My hands are starting to complain too. So on cold mornings, I have Pip keep the ledger, just in case my hands get stiff. We sit at the table with the green book open between us. Pip knows where the food count goes, where the trips go, and where the rules go. Pip's writing is big and messy, with letters that lean on each other like tired friends. Pip apologizes for it. I say that is fine. A ledger only has to be honest, not neat. The truth does not need pretty handwriting. June, a teacher again, every cold morning.",
     },
     {
       title: "A Bowl by the Gate",
@@ -231,11 +231,11 @@
     },
     {
       title: "Walk, Do Not Run",
-      text: "Jo on 88.1 with a warning, and you will want to remember this one. It is about Northgate Mall. The walkers there move in a group, like a flock of birds that turns all at once. And they come running at anyone who runs. It sounds backward, I know. Every part of you will want to sprint for the exit. Do not do it. Walk, do not run, and most of them stay put. Slow feet look like one of them. Fast feet look like a fire alarm. That tip comes from Luis, the mall guard who never left his post. He has watched that crowd longer than anyone, and he is still there to tell about it. Thanks, Luis. Jo out.",
+      text: "Jo on 88.1 with a warning, and you will want to remember this one. It is about Northgate Mall. The walkers there move in a group, like a flock of birds. And they come running at anyone who runs: every walker near you turns at once. It sounds backward, I know. Every part of you will want to sprint for the exit. Do not do it. Walk, do not run, and most of them stay put. Slow feet look like one of them. Fast feet look like a fire alarm. That tip comes from Luis, the mall guard who never left his post. He has watched that crowd longer than anyone, and he is still there to tell about it. Thanks, Luis. Jo out.",
     },
     {
       title: "Tip: The Seed Vault",
-      text: "Jo again, with a key ring tip, and a big thank you to Mr. Reyes, who cut half the keys in this town with his own two hands. The key hidden at Reyes Hardware opens the seed vault at Greenhouse Row. The notes inside the hardware store will point the way, so read them before you start tearing up the paint aisle. I talked to Rosa about that vault, and she had a message to go with it. Take the seeds and plant them. Do not hoard them in a drawer, where they turn into expensive dust. And save some seeds for the next person. A seed you save today is a garden for somebody else next spring. Those are Rosa's words, not mine. Jo out.",
+      text: "Jo again, with a key ring tip, and a big thank you to Mr. Reyes, who cut the first keys of the ring with his own two hands. The key hidden at Reyes Hardware opens the seed vault at Greenhouse Row. The notes inside the hardware store will point the way, so read them before you start tearing up the paint aisle. I talked to Rosa about that vault, and she had a message to go with it. Take the seeds and plant them. Do not hoard them in a drawer, where they turn into expensive dust. And save some seeds for the next person. A seed you save today is a garden for somebody else next spring. Those are Rosa's words, not mine. Jo out.",
     },
     {
       title: "Nurse Ada Answers",
@@ -259,7 +259,7 @@
     },
     {
       title: "Ruby Heads West",
-      text: "Jo on 88.1, and I have been grinning all day. Ruby heard Dev's message. She is heading west to the Water Tower right now, walking faster than she has walked in months, I bet. Before she left, though, Ruby did what Ruby always does. She left one more warning, painted on the gate at Ridge Lumber, so here it is for everyone. Do not run the saws at Ridge Lumber. Not even for one quick cut. The noise brings the whole crowd from the loading dock, and they pour out like water through a broken dam. Carry your boards out by hand instead. It is slower, but slow is how you get home. Ruby, safe travels. Jo out.",
+      text: "Jo on 88.1, and I have been grinning all day. Ruby had gone back east to scout Ridge Lumber, and that is where Dev's message reached her. She is heading west to the Water Tower right now, walking faster than she has walked in months, I bet. Before she left, though, Ruby did what Ruby always does. She left one more warning, painted on the gate at Ridge Lumber, so here it is for everyone. Do not run the saws at Ridge Lumber. Not even for one quick cut. The noise brings the whole crowd from the loading dock, and they pour out like water through a broken dam. Carry your boards out by hand instead. It is slower, but slow is how you get home. Ruby, safe travels. Jo out.",
     },
     {
       title: "Together Again",
@@ -295,11 +295,11 @@
     },
     {
       title: "The List Grows",
-      text: "Chief Dunn at Station 12, reading the River Convoy list. I will not read every name tonight, because the list keeps growing and Jo needs the air. More names are on it every day. Some are in neat print, and some are in crayon, from kids who signed for their whole family. That is the good news. Here is the hard part. The convoy is delayed again, because there are not enough boats yet. We have trucks, we have people, and we have a river. What we lack is enough boats to carry them all. If you know where a boat is, tell us. And if you can fix an engine, come to Station 12. Bring your tools and your patience. Dunn out.",
+      text: "Chief Dunn at Station 12, reading the River Convoy list. I will not read every name tonight, because the list keeps growing and Jo needs the air. More names are on it every day. Some are in neat print, and some are in crayon, from kids who signed for their whole family. That is the good news. Here is the hard part. The convoy is delayed again, because there are not enough boats yet. We have trucks, we have people, and we have a river. What we lack is enough boats. If you know where a boat is, tell us. And if you can fix an engine, come to Station 12. Bring your tools and your patience. Dunn out.",
     },
     {
       title: "Mrs. Greer's Key Tip",
-      text: "Mrs. Greer here, from the Public Library, with a key ring tip. It feels a little strange for a librarian to give directions to a jewelry store, but here we are. The key hidden at the Public Library opens the jewelry vault at Northgate Mall. Read the notes in my reading rooms, and they will guide you to it. Please put the books back where you found them. Now, about that mall. I have heard the stories, and so have you. Walk, do not run, at the mall. Running wakes the whole crowd, and they will follow you like a rumor through a small town. Walk slowly and steadily, as if you were browsing the shelves. Mrs. Greer, signing off.",
+      text: "Mrs. Greer here, from the Public Library, with a key ring tip. It feels a little strange for a librarian to give directions to a jewelry store, but here we are. The key hidden at the Public Library opens the jewelry vault at Northgate Mall. Read the notes in my reading rooms, and they will guide you to it. Please put the books back where you found them. Now, about that mall. I have heard the stories, and so have you. Walk, do not run, at the mall. Running wakes every walker near you, and they will follow you like a rumor through a small town. Walk slowly and steadily, as if you were browsing the shelves. Mrs. Greer, signing off.",
     },
     {
       title: "Storm from the North",
@@ -307,11 +307,11 @@
     },
     {
       title: "The Light Is On",
-      text: "This is Doc Lin. I am at the bottom of the hill below St. Anne Annex, closer than I have ever been. I am speaking softly, because the walkers on this hill have sharp ears. Last night I looked up, and I saw it. A light, in the top window of the hospital. Small and yellow and steady, like a lighthouse built for one person. I stood there for a long time, just looking at it. Nurse Ada is still there. She kept her promise. Now I have to keep mine. The road up the hill is still crowded, but I am still trying to reach her, one careful step at a time. Ada, I saw your light. Doc Lin out.",
+      text: "This is Doc Lin. I am at the bottom of the hill below St. Anne Annex. I am speaking softly, because the walkers on this hill have sharp ears. Last night I looked up, and I saw it. A light, in the top window of the hospital. Small and yellow and steady, like a lighthouse built for one person. I stood there for a long time, just looking at it. Nurse Ada is still there. She kept her promise. Now I have to keep mine. The road up the hill is still crowded, but I am still trying to reach her, one careful step at a time. Ada, I saw your light. Doc Lin out.",
     },
     {
       title: "Pack Tonight",
-      text: "Sergeant Vega, from the 4th Precinct, and this is the announcement we have all been waiting for. The River Convoy will leave at first light tomorrow, if the river road holds. The water is down, the boats are ready, and the trucks finally have their parts. Everyone on the list should pack tonight. Take only what you can carry, and be at the river before dawn. Do not be late, because the convoy will not wait. To anyone who stays behind, I respect that choice. This town still needs people. So keep the town's rule, the one that got us all this far: take what you need, leave the rest. Look after each other. Vega out.",
+      text: "Sergeant Vega, from the 4th Precinct, and this is the announcement we have all been waiting for. The River Convoy will leave at first light tomorrow, if the river road holds. The water is down, for now. Everyone on the list should pack tonight. Take only what you can carry, and be at the river before dawn. Do not be late, because the convoy will not wait. To anyone who stays behind, I respect that choice. This town still needs people. So keep the town's rule, the one that got us all this far: take what you need, leave the rest. Look after each other. Vega out.",
     },
     {
       title: "Same Time Tomorrow",
@@ -381,7 +381,7 @@
       "Written on the box in heavy marker: always check that it is empty before you clean it. Below it: point it at the ground, never at a person. The rules are short on purpose, because they are the kind you can only break once.",
     ],
     armorPlate: [
-      "Stenciled on the plate: steel, heavy. Both words are true, and your arms will agree before you reach the van. A chalk note runs along the bottom edge: bolt it onto the van door at chest height. That is where grabbing hands reach first.",
+      "Stenciled on the plate: steel, heavy. Both words are true, and your arms will agree before you reach the van. A chalk note runs along the bottom edge: bolt it onto a door at chest height. That is where grabbing hands reach first.",
       "A sticky note clings to the plate: a plate stops grabbing hands, not crashes. Marker lines along one edge count every dent it has taken, neat as tally marks on a scoreboard. There are a lot of lines, and the plate is still in one piece.",
     ],
     books: [
@@ -427,7 +427,7 @@
       },
       kitchen: {
         title: "Kate's Note on the Fridge",
-        text: "A note hangs on the fridge, held up by a magnet shaped like a fish. Kate wrote it the morning the family left, and the pen pressed so hard it nearly tore the paper.\n\n“We are going north with the River Convoy, on Sergeant Vega's trucks. We took Biscuit, our go bags, and the last of the canned peaches. If you find our cabin and you are kind, it is yours now. Please keep the garden going. —Kate”\n\nJune says it is the most generous thing anyone ever wrote to a stranger, and she intends to deserve it.",
+        text: "A note hangs on the fridge, held up by a magnet shaped like a fish. Kate wrote it the morning the family left, and the pen pressed so hard it nearly tore the paper.\n\n“We are going north with Sergeant Vega and the River Convoy. We took Biscuit, our go bags, and the last of the canned peaches. If you find our cabin and you are kind, it is yours now. Please keep the garden going. —Kate”\n\nJune says it is the most generous thing anyone ever wrote to a stranger, and she intends to deserve it.",
       },
       pantry: {
         title: "The Pantry Shelves",
@@ -451,7 +451,7 @@
       },
       gusRoom: {
         title: "Gus's Room",
-        text: "A sign is taped to the door: Gus's Room. Keep Out. This Means You, Finn. Gus is sixteen, the age when a closed door is a whole country. He left behind a guitar with two broken strings. It is propped in the corner as if it were waiting for him to come back.\n\nTomas sleeps here now. He says the sign still counts, only the name has changed: these days it means Pip. Pip ignores it with great dignity.",
+        text: "A sign is taped up by the door: Gus's Room. Keep Out. This Means You, Finn. Gus is sixteen, the age when a closed door is a whole country. He left behind a guitar with two broken strings. It is propped in the corner as if it were waiting for him to come back.\n\nTomas sleeps here now. He says the sign still counts, only the name has changed: these days it means Pip. Pip ignores it with great dignity.",
       },
       finnRoom: {
         title: "The Treehouse Plan",
@@ -463,7 +463,7 @@
       },
       playroom: {
         title: "The Typing Chalkboard",
-        text: "The play room has a little desk with an old typewriter on it. It is heavy as a toolbox and loud as rain on a tin roof. A chalkboard hangs above the desk. On it Kate wrote: practice your typing for ten minutes a day, with your fingers on the home row. Under that, Lucy wrote her name ten times, each one a bit straighter, like a fence going up board by board.\n\nThe typewriter still works. Anyone in the crew can sit here and practice, and the clacking keys make the house feel lived in.",
+        text: "The play room has a little desk with an old typewriter on it. It is heavy as a toolbox and loud as rain on a tin roof. A chalkboard hangs on the wall across from the desk. On it Kate wrote: practice your typing for ten minutes a day, with your fingers on the home row. Under that, Lucy wrote her name ten times, each one a bit straighter, like a fence going up board by board.\n\nThe typewriter still works. Anyone in the crew can sit here and practice, and the clacking keys make the house feel lived in.",
       },
       coatCloset: {
         title: "The Go Bag List",

@@ -24,7 +24,7 @@
       },
       {
         title: "The First Week",
-        text: "This is the first week of the Fall. Waiting Vault alarms rang across the river. They rang for two days. Then the sleepers walked out. They were not right. I do not like this, so I stop.\n\n—June",
+        text: "I remember the first week of the Fall. Waiting Vault alarms rang across the river. They rang for two days. Then the sleepers walked out. They were not right. I do not like this, so I stop.\n\n—June",
       },
       {
         title: "What a Fortitude Looks Like",
@@ -88,6 +88,10 @@
       title: "A Good Fix Is Slow",
       text: "Tomas tells you about the first fusion reactor. It ran for 10 seconds. Then a coil failed. Kennedy was burned. So the team learned to stop rushing. Tomas says a good fix is a slow fix. Build the Garage room. Then the van comes home fixed for free.",
     },
+    "tomas-fort-t3": {
+      title: "A Famous Last Name",
+      text: "Tomas talks about Mr. Reyes of Reyes Hardware. Mr. Reyes always told one story. He said his family came from Dr. Camila Reyes. She lived hundreds of years ago. So nobody can prove it. Tomas likes the story, true or not. Get lumber and nails at Reyes Hardware.",
+    },
     "pip-fort-t1": {
       title: "The Whole Team",
       text: "Pip can name Dr. Camila Reyes's whole team. They are Zoe, Kennedy, Ava, Patriya and Annabelle. Valen, a Fortitude, answered their messages. Valen learned the words help, thank you and together. Pip says to read every note to the end. Some notes in town are old or wrong.",
@@ -113,7 +117,7 @@
       title: "Tin with a pod tag",
       brief:
         "Mile 9 Pharmacy is northwest of the cabin. Someone brought a Waiting Vault pod tag there. Pip will compare its numbers to the bursts. The metal tag is in a red tin. It has a white paper band. It is on the floor by the pill bottle. Pip pays 30 scrap and 1 medical kit.",
-      tag: "Inside the red tin is a cold metal tag. It has a long number. The white band says: return to the Waiting Vault.",
+      tag: "The tin holds a cold metal tag. It has a long number. The band says: Waiting Vault, pod tag. Return to the front desk.",
       journal: "You brought a pod tag from Mile 9 Pharmacy. Pip held it up to the radio. Pip wrote numbers until the candle burned down.",
       done: "Pip lines up the tag's number with the bursts. The numbers are made the same way. So the bursts are records. A machine keeps them. Pip thanks you.",
       after:
@@ -143,7 +147,7 @@
       title: "Gold Abyss Explorer pin",
       brief:
         "The last bursts keep drawing the Abyss Explorer. It is the little submarine from the old story. Station 12 is northwest of the cabin. Its chief kept a pin by the brass pole. It is a gold star badge on black leather. Pip pays 60 scrap. Pip adds 1 box of radio parts.",
-      tag: "This gold badge has a star. It sits on a black leather fold. The back is stamped: Abyss Explorer, seven miles down.",
+      tag: "A gold star badge on black leather. It is a copy of a very old pin. The back says: Abyss Explorer, seven miles down.",
       journal: "You brought an Abyss Explorer pin from Station 12. Pip wore it to supper. Pip decoded the last record before bed.",
       done: "Pip pins the badge to the radio shelf. Then Pip plays the last burst slowly. The picture is the submarine. Then words come after it. Pip thanks you.",
       after:

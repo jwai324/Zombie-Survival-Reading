@@ -11,7 +11,7 @@ described as wounds.
 
 ## The town and the crew
 
-Months after the Fall. A mid-size river town. The player is "you" and is never named.
+Months after the Fall, which began as "some sickness across the river. Probably nothing." (Ruby's call on Dev's to-do list at Gas-N-Go, `gasngo-dead1`, every level; the base texts never say what caused it). A mid-size river town. The player is "you" and is never named.
 
 The crew at the cabin (home base, south end of town):
 
@@ -32,15 +32,19 @@ They live in the yard and the cabin, not only in the ledger: see "The crew at ho
 
 The cabin is not small: it is a whole family house with a porch, the home of the **Hollis
 family**, who called it "the cabin" (a carved sign by the front door still says so). The crew
-keeps the name. The Hollises went north with the River Convoy, on Sergeant Vega's trucks, before
-the crew arrived; they are never met, only read about.
+keeps the name. The Hollises left before the crew arrived to join the River Convoy at the river
+dock (Kate's fridge note: "going north with Sergeant Vega and the River Convoy"); whether the convoy has gone is never
+shown (see DESIGN.md, 2026-10-15: never written as gone or still waiting). They are never met, only
+read about.
 
 - **Kate**: drew maps for the county at the office desk. Wrote the note on the fridge: if you
-  find our cabin and you are kind, it is yours now; please keep the garden going.
+  find our cabin and you are kind, it is yours now; please keep the garden going. The Hollises' beds
+  in front of the cabin had gone to bare dirt by the time the crew came.
 - **Dan**: hung the dinner bell, labeled the pantry shelves, lost the last ping pong game.
 - **Gus** (16), **Finn** (11) and **Lucy** (7), and their dog **Biscuit**, who went with them.
 
-Facts in `js/story-home.js`: `HOUSE_NOTES` (one note per room, read up close on the wall; where
+Facts in `js/story-home.js`: `HOUSE_NOTES` (fifteen notes, one in each lived-in room, read up close on the wall; the hallway,
+the second bathroom and the office, linen and toy closets have none; where
 each hangs is `HOUSE.notes` in `js/world.js`) and `HOUSE_UPGRADE_FACTS` (the computer's House
 tab). Words at six levels: `T.house` in each `levelN-home.js`.
 
@@ -49,7 +53,8 @@ tab). Words at six levels: `T.house` in each `levelN-home.js`.
 | Porch | The THE CABIN / THE HOLLIS FAMILY sign; the dinner bell and "ring for supper" | June's chalk: the bell carries far and walkers come to it, so ring it only when you are ready to fight |
 | Foyer | Five name hooks (Lucy's low), "last one out locks the door"; the keys went with them | |
 | Office | Kate's map desk; a sticky note: the computer runs off the big battery in the closet | The computer holds the base plans (rooms, van, guns, traps) |
-| Office closet | (no note) the big battery and boxes | The crew's shelter in a wave (`CREW_RULES.shelter`) |
+| Office closet | (no note) the big battery against the end wall; the floor is kept clear | The crew's shelter in a wave (`CREW_RULES.shelter`) |
+| Hallway, second bathroom, linen closet, toy closet | (no note) | |
 | Dining room | The chore chart, gold stars (Lucy leads, one of Gus's crossed out) | Pip's pencil row: feeds the dog we do not have yet. The radio shelf and June's ledger: tune in to today's news, read past days again; Pip's map and list of voices take over the table (Radio 2), a cork board of the town (Radio 3) |
 | Kitchen | Kate's note on the fridge, under a fish magnet | |
 | Pantry | Dan's shelf labels: beans, rice, peaches, flour | The crew counts food and everything in storage |
@@ -81,9 +86,9 @@ each `levelN-crew.js`.
 
 | Crew | In the cabin | In the yard |
 |------|--------------|-------------|
-| June | the porch, by the bench; the kitchen stove; the living room, by the shelf with her ledger; the office (the base plans) | looking over the garden plot; tending the Garden (once built); the Lab's herb beds (once built) |
+| June | the porch, by the bench; the kitchen stove; the living room, reading by the bookcase; the office (the base plans) | looking over the garden plot; tending the Garden (once built); the Lab's herb beds (once built) |
 | Tomas | Gus's room, where he sleeps; the ping pong table | under the van's hood; by the garage plot; the east fence; the Power and Water plots (once built) |
-| Pip | at the radio in the dining room; on the floor by the chore chart; Finn's treehouse plan; Lucy's drawing of a dog with no name yet; the ping pong table | the radio plot, with the list of voices; beside the radio tower (once built); the back fence, watching the trees |
+| Pip | at the radio in the dining room; on the dining chair by the chore chart; Finn's treehouse plan; Lucy's drawing of a dog with no name yet; the ping pong table | the radio plot, with the list of voices; beside the radio tower (once built); the back fence, watching the trees |
 
 **In a wave** they hurry into the office closet, the shelter, and shut its door; they come out
 when the wave is cleared. A raider that forces the closet door and stays among them hurts one of
@@ -92,7 +97,7 @@ food if there is none, and that crew member's trust drops. The dog shelters with
 never hurt.
 
 **Their jobs**, unlocked by trust stars (`CREW[id].jobs`): Tomas fixes fence holes and cracks from
-the start, and the cabin's broken doors and windows from 2 stars; the usual scrap comes out of the
+the start, then the yard builds walkers wrecked (also from the start), and the cabin's broken doors and windows from 2 stars once the fence and the builds are whole; the usual scrap comes out of the
 base's scrap (a quest perk can make it free), and he tells you about it the next time you talk.
 June patches you up once each calm, from 1 star. Pip is the lookout from 1 star: before the quiet
 runs out, Pip calls the next wave's size and sides.
@@ -123,7 +128,8 @@ turn. Each has a deadline in days; a late one is dropped and costs a little trus
 **Rules for crew texts.** The crew never give a lock answer, never tie a key to its stash, and
 never reveal a place on the map; they only name places the journal, or a note gating the topic,
 already names. Mr. Ortiz is safe at the Water Tower, but the crew say so only once the player has
-read Dev's note there (`watertower-trail1`). Tomas's father's fate is never stated. The Hollises
+read Dev's note there (`watertower-trail1`); Tomas's hope that Mr. Ortiz is still out there
+(`tomas-t5`) is no longer told once the radio has said Mr. Ortiz is safe (radio-15, `radioBefore: 15`). Tomas's father's fate is never stated. The Hollises
 are never written as lost, and the convoy never leaves on screen.
 
 **Crew canon the talk adds:**
@@ -146,15 +152,15 @@ are never written as lost, and the convoy never leaves on screen.
 
 | Who | Where they appear | Their thread |
 |-----|-------------------|--------------|
-| **Ruby** | Gas-N-Go, Ridge Lumber door notes; graffiti everywhere (a red R with a walker count) | Scout who marks buildings for strangers. Searching for her younger brother **Dev**. |
-| **Dev** | Gas-N-Go clerk, Ortiz Auto door note | Went east to Ortiz Auto to fix a truck so he and Ruby could leave. Then went on to the Water Tower with Mr. Ortiz, because Theo had clean water. Leaves his sister messages. |
-| **Doc Lin** | Corner Grocery, St. Anne Annex door notes | A doctor who carries medicine between the grocery, the pharmacy and the hospital. Trying to reach **Nurse Ada**, who stayed at St. Anne. |
-| **Nurse Ada** | St. Anne Annex | Stayed to keep the generator and the records. Writes calm, exact notes. |
+| **Ruby** | Gas-N-Go (door note and both trail notes), Ridge Lumber door note, a chalk note on a crate at Ortiz Auto; a red R with a walker count in every building except the Corner Grocery and the Water Tower; a message read by Jo on the radio | Scout who marks buildings for strangers. Searching for her younger brother **Dev**. |
+| **Dev** | Gas-N-Go (the clerk's main note, his to-do list, the STAFF ONLY sign), Ortiz Auto (door note, trail1), Water Tower (trail1, the chalk sign "Ruby, I am here"); Theo relays his message on the radio | Went east to Ortiz Auto to fix a truck so he and Ruby could leave. Then went on to the Water Tower with Mr. Ortiz, because Theo had clean water. Leaves his sister messages. |
+| **Doc Lin** | Corner Grocery (door note, trail note 1, the level-6 checklist for Ada); a medical kit tag; three radio broadcasts; at St. Anne Annex, her name on the sign-in sheet from before the Fall and in Ada's notes and chalk sign; named at Mile 9 Pharmacy, Signal Electronics, Station 12 and Northgate Mall | A doctor who carries medicine between the grocery, the pharmacy and the hospital. Trying to reach **Nurse Ada**, who stayed at St. Anne. |
+| **Nurse Ada** | St. Anne Annex (door note on the ambulance doors, and her notes inside); her steps in a medical kit tag; two radio broadcasts; named at the Corner Grocery, Mile 9 Pharmacy, Signal Electronics and Northgate Mall (Luis's second note and the supply cupboard key's tag) | Stayed to keep the generator and the records. Writes calm, exact notes. |
 | **Jo** | Signal Electronics, Northgate Mall door notes; the main voice on the radio | Scavenger turned broadcaster. Runs a pirate station on 88.1 from a rooftop. Reads out news, warnings and tips about stashes. |
-| **Max and Mia** | Lincoln Middle School door note | Twins, thirteen. Got separated from their class. Looking for their teacher. |
-| **Ms. Adler** | Lincoln Middle School | The twins' teacher. Led her students to the Public Library. |
+| **Max and Mia** | Lincoln Middle School (door note, dead-end note 3); 4th Precinct holding room (dead-end note 4); named in the Water Tower key note (Mia had the key), at the Public Library and on the radio | Twins, thirteen. Got separated from their class. Looking for their teacher. |
+| **Ms. Adler** | Lincoln Middle School (main note in the science room, trail note 1); her own line on the level-6 flyer at the Public Library; named in Mrs. Greer's library trail note, on the 4th Precinct missing-person board, in Station 12's notes, at Northgate Mall and on the radio | The twins' teacher. Led her students to the Public Library. |
 | **Mrs. Greer** | Public Library | The librarian. Took in Ms. Adler's class. Believes reading saved the building. |
-| **Sergeant Vega** | 4th Precinct | Organizing the **River Convoy**: boats and trucks meant to leave north along the river road. Practical, tired. |
+| **Sergeant Vega** | 4th Precinct; the key note at Lincoln Middle School (the music room); four radio broadcasts; named at Ridge Lumber, Northgate Mall, Station 12 and Ortiz Auto | She is organizing the **River Convoy**: boats and trucks meant to leave north along the river road. Practical, tired (she/her). |
 | **Chief Dunn** | Station 12 | Fire chief, works with Vega on the convoy. Keeps lists. His crew fished at River Landing on days off; his pole (in the equipment bay) and his note on the dock post teach fishing. |
 | **Luis** | Northgate Mall | Security guard who never left his post. Knows the mall crowd's habits. |
 | **Theo** | Water Tower | Tends the pumps. Fair, quiet. Gave Dev and Mr. Ortiz a place to stay. |
@@ -163,13 +169,15 @@ are never written as lost, and the convoy never leaves on screen.
 | **Hana** | Corner Grocery | Store manager. Practical. |
 | **Mr. Okafor** | Mile 9 Pharmacy | Pharmacist. Careful with codes. |
 | **Priya** | Signal Electronics | Manager. Built Jo's first transmitter. |
-| **Mr. Ortiz** | Ortiz Auto | Owner. Taught Tomas's father. Left with Dev. |
+| **Mr. Ortiz** | Ortiz Auto; a note at the Water Tower, by the blue pump (reading level 4 and up); the tools and parts item tags | Owner. Taught Tomas's father. Left with Dev. |
 | **Carla** | Ridge Lumber | Yard boss. Loud, kind. |
+
+Minor voices: Luis's niece (safe at the Public Library with Ms. Adler's class; her letter, carried by Jo, is in the mall's Book Nook); Mr. Reyes's grandson (crayon drawing at Reyes Hardware); Vega's brother upriver (the unsent letter in the precinct's holding cell is to him); the upriver radio voice that only says "we are still here" (Jo's list at Signal Electronics); Peanut, the lost dog on the Gas-N-Go flyer.
 
 ## The threads (story arcs)
 
-1. **Ruby and Dev.** Ruby follows Dev's trail east and then west. Clues across Gas-N-Go,
-   Ortiz Auto and the Water Tower. Dev's last note says he is safe with Theo; Jo's radio
+1. **Ruby and Dev.** Ruby follows Dev's trail east and then west; after Rosa tells her where Dev went, she goes back east to scout Ridge Lumber, where Dev's radio message reaches her (radio-16). Clues across Gas-N-Go,
+   Ortiz Auto, Greenhouse Row and the Water Tower. Dev's last note says he is safe with Theo; Theo, on Jo's radio,
    later passes on that Ruby reached the Water Tower. Hopeful, unresolved enough to wonder.
 2. **Doc Lin and Nurse Ada.** Medicine moving uptown. Ada keeps the hospital going; Lin
    keeps trying to get there. Pharmacy and grocery notes show the route; hospital notes
@@ -193,7 +201,7 @@ Every building has, besides its door note and its main note (spot 1, opens the c
 | Note id | Kind | Spot | Shown | What it must do |
 |---------|------|------|-------|-----------------|
 | `<loc>-trail1` | trail | 2 to 7 | always | A named character moves an arc forward, and says exactly where `trail2` is in this building. |
-| `<loc>-trail2` | trail | 2 to 7 | after trail1 is read | Says where the key is in this building, what it looks like, and which stash at which place it opens, with a direction, and what a wrong key does in that stash's lock. Reveals that place on the map. The only place that ties a key to its stash. |
+| `<loc>-trail2` | trail | 2 to 7 | after trail1 is read | Says where the key is in this building, what it looks like, and which stash at which place it opens, with a direction, and what a wrong key does in that stash's lock. Reveals that place on the map. (A place known from the start, such as Corner Grocery, Hardware or Gas-N-Go, is already there; the entry still names the key's destination for the validator.) The only place that ties a key to its stash. |
 | `<loc>-dead1` | dead or decoy | 2 to 7 | every level | Flavor (a diary, a list, a letter) or a decoy (useful-looking but wrong or out of date). |
 | `<loc>-dead2` | decoy | 2 to 7 | every level | The lock decoy: a clearly different wrong answer for this building's cache lock (`{decoy...}` placeholders), with a later hint that it is out of date. |
 | `<loc>-dead3` | dead or decoy | 2 to 7 | reading level 4+ | Same. At least one of dead2 to dead4 is a decoy. |
@@ -237,8 +245,11 @@ plan in `js/layouts.js` with four **landmarks**, one per corner (the tire tower,
 the fire truck ...), rooms with their own wall signs (BREAK ROOM, STAFF LOCKER, PHARMACY), and
 the stash room behind its `Q` door. Door notes may use left and right as seen walking in.
 Inside, a reader can face any way, so notes steer by landmarks, rooms and signs ("beside the
-tire tower", "in the K9 room", "under the SEAFOOD sign"), never "left of" or "right of". The
-main note and both trail notes name at least one landmark (`npm test` checks).
+tire tower", "in the K9 room", "under the SEAFOOD sign"), never "left of" or "right of". A wall
+may be called the left or right wall as seen from the entrance (`js/world.js` defines it, above
+`NOTES`), always paired with a landmark ("on the left wall, by the coffee machine"); never a
+bare "left of" or "right of" a landmark. The main note and both trail notes name at least one
+landmark (`npm test` checks).
 
 ## The building maps
 
@@ -246,8 +257,8 @@ The maps are the layouts themselves (`js/layouts.js`): each one's grid, its land
 decor, and its story places (`spots` for notes 2 to 7, `signs` for the four wall signs, the
 stash door `Q`, the stash spots `k` and the key spot `y`). Each building's stash is a small
 room of its own, usually one of the building's side rooms given a lock (the gas station's old
-restroom, the precinct's evidence room, the hospital's supply room, a corner of the library's
-periodicals room). In the game, M shows the map of what you have seen.
+safe room, the precinct's evidence locker, the hospital's supply cupboard, the library's rare
+book room). In the game, M shows the map of what you have seen.
 
 ## Home: journal, radio, item tags, plot signs (facts in `js/story-home.js`)
 
@@ -256,11 +267,11 @@ periodicals room). In the game, M shows the map of what you have seen.
   built or found; a short recap of the real day is written by the game around it.
 - **Radio**: once the Radio room is built, one broadcast each day you come home. It waits at the
   radio in the dining room until you tune in there (E). Mostly Jo
-  on 88.1, sometimes Theo, Vega, Doc Lin or Nurse Ada. News, warnings, messages between the
+  on 88.1, sometimes Theo, Vega, Chief Dunn, Mrs. Greer, Doc Lin or Nurse Ada. News, warnings, messages between the
   threads above, and now and then a true tip about the key ring.
 - **Item tags**: two tags per item (the label, a sticky note, writing on the side). Shown
   when the item is picked up, kept in the backpack.
-- **Plot signs**: every room has a plot in the yard (`YARD.plots`) with a sign, a plaque once
+- **Plot signs**: every room but the Walls (the fence itself) has a plot in the yard (`YARD.plots`) with a sign, a plaque once
   built, read up close. The outdoor rooms (Garden, Farm, Well, Water, Power, Radio, Lab) also
   have hand-painted words: empty, what could go there; built, what stands there now at that
   level. Facts follow `BASE_ROOMS` in `js/world.js`.

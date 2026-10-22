@@ -10,12 +10,12 @@
       blurb: "The 4th Precinct, north of downtown: gun parts, an armor plate, and a locked armory.",
       door: {
         title: "Sergeant Vega's Notice",
-        text: "Sergeant Vega, 4th Precinct. I pinned this to the board so you see it first.\n\nGun parts are in the squad room, on the left side of the long hall. An armor plate is in the garage on the right, by the riot shields.\n\nAt least eight walkers are inside. A big one waits by the police bike in the garage. Do not let it pin you in a corner.\n\nThe armory is locked. I left the combination on a note at the front desk. Read it before you touch the dial.",
+        text: "Sergeant Vega, 4th Precinct. I pinned this to the board so you see it first.\n\nGun parts are in the squad room, on the left side of the long hall. An armor plate is in the garage on the right, by the riot shields.\n\nAt least eight walkers are inside. A big one waits by the police bike in the garage. Do not let it pin you in a corner.\n\nThe armory is locked. I left the combination on a note at the front desk. Read it before you touch the keypad.",
       },
       notes: {
         "police-desk": {
           title: "The Armory Combination",
-          text: "Sergeant Vega again. You made it to the front desk, so you are doing fine.\n\nDo this in order. First, turn off the alarm. Its panel is on the left wall, by the coffee machine. Press the {button} button, and only that one.\n\nThen go to the armory. It has a dial lock on a steel door. The combination is {code}. Spin the dial slowly, and stop on each number.\n\nGet any of this wrong, and the station alarm goes off. A wrong button does it. A wrong number does it. Opening the armory with the alarm still on does it too. Then walkers pour in, even through the front door. They keep coming until they get you.\n\nTake the long hall to the back hall, and head toward the police bike. The armory is the last door before the garage. Inside are gun parts and an armor plate.\n\nThe Public Library is north of downtown. It has books in its archive room. The librarian stayed when everyone else left. Tell Mrs. Greer the 4th Precinct says hello.",
+          text: "Sergeant Vega again. You made it to the front desk, so you are doing fine.\n\nDo this in order. First, turn off the alarm. Its panel is on the left wall, by the coffee machine. Press the {button} button, and only that one.\n\nThen go to the armory. It has a keypad on a steel door. The combination is {code}. Press the numbers slowly, one at a time.\n\nGet any of this wrong, and the station alarm goes off. A wrong button does it. A wrong number does it. Opening the armory with the alarm still on does it too. Then walkers pour in, even through the front door. They keep coming until they get you.\n\nTake the long hall to the back hall, and head toward the police bike. The armory is the last door before the garage. Inside are gun parts and an armor plate.\n\nThe Public Library is north of downtown. It has books in its archive room. The librarian stayed when everyone else left. Tell Mrs. Greer the 4th Precinct says hello.",
         },
         "police-trail1": {
           title: "The River Convoy Is Real",
@@ -27,11 +27,11 @@
         },
         "police-dead1": {
           title: "Lost and Found List",
-          text: "FRONT DESK: LOST AND FOUND.\n\nThis list was taped to the front desk before the Fall. Someone moved it out here to the garage. Maybe they wanted it out of the way. Maybe they wanted to keep it safe.\n\nItems turned in this month:\nOne bike. Blue, with a bent front wheel. Found by the bus stop.\nOne trumpet. In its case, with sheet music still inside.\nOne dog leash with no dog. Red, and still clipped shut.\n\nNobody came back for any of it. The bike is gone now, and the trumpet is gone too. The leash still hangs on a hook by the desk.\n\nAt the bottom, someone added a line in thick black pen. The letters are pressed hard into the paper. It says: one town.\n\nUnder that, in pencil, another hand wrote: still ours.",
+          text: "FRONT DESK: LOST AND FOUND.\n\nThis list was taped to the front desk before the Fall. Someone moved it out here to the garage. Maybe they wanted it out of the way. Maybe they wanted to keep it safe.\n\nItems turned in this month:\nOne bike. Blue, with a bent front wheel. Found by the bus stop.\nOne trumpet. In its case, with sheet music still inside.\nOne dog leash with no dog. Red, and still clipped shut.\n\nNobody came back for any of it. The bike is gone now, and the trumpet is gone too.\n\nAt the bottom, someone added a line in thick black pen. The letters are pressed hard into the paper. It says: one town.\n\nUnder that, in pencil, another hand wrote: still ours.",
         },
         "police-dead2": {
           title: "Numbers on a Scrap",
-          text: "ARMORY: {decoyCode}. Spin it slow. Got it from a guy who got it from Vega. Trust me, it works.\n\nThat is all it says. It is a scrap of notebook paper, left along the far wall of the garage. The handwriting is fast and sloppy. Whoever wrote it was in a hurry.\n\nIt sounds sure, and maybe it worked once. But think about the armory door. There is a newer sign on it. It says the combination was changed. Sergeant Vega changed it after too many people knew the old one. This scrap has the old numbers.\n\nTry them on the dial, and the station alarm goes off. Walkers pour in, even through the front door. The note on the front desk has the combination that works. It is in Vega's own writing. Go by that one, not by a guy who knew a guy.",
+          text: "ARMORY: {decoyCode}. Punch it in slow. Got it from a guy who got it from Vega. Trust me, it works.\n\nThat is all it says. It is a scrap of notebook paper, left along the far wall of the garage. The handwriting is fast and sloppy. Whoever wrote it was in a hurry.\n\nIt sounds sure, and maybe it worked once. But think about the armory door. There is a newer sign on it. It says the combination was changed. Sergeant Vega changed it after too many people knew the old one. This scrap has the old numbers.\n\nTry them on the keypad, and the station alarm goes off. Walkers pour in, even through the front door. The note on the front desk has the combination that works. It is in Vega's own writing. Go by that one, not by a guy who knew a guy.",
         },
       },
       signs: {
@@ -44,10 +44,10 @@
     },
 
     school: {
-      blurb: "Lincoln Middle School: boxes of books in the classrooms and a locked library closet.",
+      blurb: "Lincoln Middle School: boxes of books in the music room and the front office, and a locked library closet.",
       door: {
         title: "Max and Mia Were Here",
-        text: "Max and Mia here! We are twins, and we go to school here. Well, we did.\n\nThere are two boxes of books. One is in the music room, with the drum set. The other is in the front office, behind the lion statue.\n\nAt least six walkers are inside. One walks the main hallway, back and forth, all day long. Wait until it turns, then go!\n\nThe library closet is locked. The key is in our teacher's note. It is in the science room, at the back on the left, by the big brain. That was our room!",
+        text: "Max and Mia here! We are twins, and we go to school here. Well, we did.\n\nThere are two boxes of books. One is in the music room, with the drum set. The other is in the front office, behind the lion statue.\n\nAt least six walkers are inside. One stands in the main hallway. It wakes up if it hears you. Keep back, or put it down first!\n\nThe library closet is locked. The key is in our teacher's note. It is on the desk by the science room door, at the back on the left. That is the room with the big brain. It was our room!",
       },
       notes: {
         "school-classroom": {
@@ -56,7 +56,7 @@
         },
         "school-trail1": {
           title: "For Max and Mia",
-          text: "Max, Mia, this is for you. If anyone else finds it, please leave it here.\n\nI am so sorry we lost you in the rush. I looked for you until dark. Then I had to move the class.\n\nWe have gone north to the Public Library. Mrs. Greer, the librarian, will take us in. She has thick walls and a lot of quiet. Every student is safe and counted. Every student except the two of you.\n\nI will come back here to check whenever I can. If you find this, stay together. Walk, do not run, and go north to the library.\n\nOne more thing. When I came back today, I saw that Sergeant Vega had been here. Vega came looking for our class. Vega left a note in the music room, beside the drum set. Read it.\n\nWith love, Ms. Adler",
+          text: "Max, Mia, this is for you. If anyone else finds it, please leave it here.\n\nI am so sorry we lost you in the rush. I looked for you until dark. Then I had to move the class.\n\nWe have gone northwest to the Public Library. Mrs. Greer, the librarian, will take us in. She has thick walls and a lot of quiet. Every student is safe and counted. Every student except the two of you.\n\nI will come back here to check whenever I can. If you find this, stay together. Walk, do not run, and go northwest to the library.\n\nOne more thing. When I came back today, I saw that Sergeant Vega had been here. Vega came looking for our class. Vega left a note in the music room, beside the drum set. Read it.\n\nWith love, Ms. Adler",
         },
         "school-trail2": {
           title: "Vega Checked the School",
@@ -73,8 +73,8 @@
       },
       signs: {
         "school-sign1": { title: "Classroom Poster", text: "OUR CLASS RULES: Raise your hand. Be kind. Read every day. At the bottom, someone added in green marker: Stay together. Always." },
-        "school-sign2": { title: "Ruby's Red R", text: "Ruby's red R, sprayed fast, with a 6 under it. Below, smaller: ONE IN THE HALLWAY. WAIT FOR IT TO TURN, THEN MOVE." },
-        "school-sign3": { title: "Chalk on the Wall", text: "In neat chalk letters, like on a chalkboard: Ms. Adler's class, gone north. Under it, just as neat: Read the note by the front door." },
+        "school-sign2": { title: "Ruby's Red R", text: "Ruby's red R, sprayed fast, with a 6 under it. Below, smaller: ONE IN THE HALLWAY. KEEP BACK. IT HEARS." },
+        "school-sign3": { title: "Chalk on the Wall", text: "In neat chalk letters, like on a chalkboard: Ms. Adler's class, gone northwest. Under it, just as neat: Read the note by the front door." },
         "school-sign4": { title: "Library Closet Door", text: "LIBRARY CLOSET. Please return all books on time. Someone added in pen, under it: Late fees canceled. Forever. Signed, the students." },
       },
       key: { name: "Short steel key, gray tag", tag: "The gray tag says: \"Do not remove.\" Someone crossed out the words \"do not\" with a heavy line. The key is short and steel. It is plain and scratched." },
@@ -89,11 +89,11 @@
       notes: {
         "firehouse-desk": {
           title: "The Key Board",
-          text: "Chief Dunn. This is the watch desk, and somebody always sat here. Now it is just me, and my lists.\n\nLook at the key board on the wall by this desk. It holds four keys, each one a different color. The equipment bay opens with the {pick}. Take that one, and only that one.\n\nThe other keys are for old locks. Put a wrong one in the bay lock, and it jams. After that, only a crowbar opens it. So check the color twice.\n\nThe equipment bay is at the back of the truck bay. It is beside the fire truck, on the gear racks side. In the bay there is a water tank, a stack of lumber, and tools. Load the tank first, since it is the heaviest.\n\nYou will need filters for that water. Go to the Water Tower on the west side. It has filters in its pump house. Tell Theo the chief says thanks.",
+          text: "Chief Dunn. This is the watch desk, and somebody always sat here. Now it is just me, and my lists.\n\nLook at the key board by this desk. It holds four keys, each one a different color. The equipment bay opens with the {pick}. Take that one, and only that one.\n\nThe other keys are for old locks. Put a wrong one in the bay lock, and it jams. After that, only a crowbar opens it. So check the color twice.\n\nThe equipment bay is at the back of the truck bay. It is beside the fire truck, on the gear racks side. In the bay there is a water tank, a stack of lumber, and tools. Load the tank first, since it is the heaviest.\n\nYou will need filters for that water. Go to the Water Tower on the west side. It has filters in its pump house. Tell Theo the chief says thanks.",
         },
         "firehouse-trail1": {
           title: "Convoy List, Page One",
-          text: "Chief Dunn. I keep lists, so here is the one that matters most.\n\nRIVER CONVOY: WHAT WE HAVE.\nTwo fire trucks, both from this station.\nSergeant Vega's van, full of gear.\nCarla's boats, built at the lumber yard.\n\nThe plan is to leave north along the river. Trucks on the road, boats on the water, all of us together.\n\nMr. Ortiz fixed both trucks before he went west. He did it with half the parts he needed. I owe that man a hot meal.\n\nThe bad news is the date. The leaving day has moved three times now. The river is still too high, and the boats cannot launch yet. So we wait.\n\nI wrote a second note for you. It is in the bunk room, near the brass pole.",
+          text: "Chief Dunn. I keep lists, so here is the one that matters most.\n\nRIVER CONVOY: WHAT WE HAVE.\nTwo fire trucks, both from this station.\nSergeant Vega's van, with new tires.\nCarla's boats, built at the lumber yard.\n\nThe plan is to leave north along the river. Trucks on the road, boats on the water, all of us together.\n\nMr. Ortiz fixed both trucks before he went west. He did it with half the parts he needed. I owe that man a hot meal.\n\nThe bad news is the date. The leaving day has moved three times now. The river is still too high, and the boats cannot launch yet. So we wait.\n\nI wrote a second note for you. It is in the bunk room, near the brass pole.",
         },
         "firehouse-trail2": {
           title: "Priya's Lightning Bolt Key",
@@ -111,7 +111,7 @@
       signs: {
         "firehouse-sign1": { title: "TRUCK BAY", text: "TRUCK BAY. KEEP CLEAR AT ALL TIMES. Trucks may leave without warning. Do not park, stand, or wait in front of these doors." },
         "firehouse-sign2": { title: "Safety Board", text: "THIS STATION HAS GONE ___ DAYS WITHOUT AN ACCIDENT. The number is wiped clean. Written in its place, in marker: we stopped counting." },
-        "firehouse-sign3": { title: "Ruby's Red R", text: "Ruby's red R by the front door, with a 6 under it. Under that, quick and drippy: TWO IN THE TRUCK BAY. CHECK BEHIND THE TANK." },
+        "firehouse-sign3": { title: "Ruby's Red R", text: "Ruby's red R by the front door, with a 6 under it. Under that, quick and drippy: TWO IN THE TRUCK BAY." },
         "firehouse-sign4": { title: "Chalk by the Door", text: "Chalked by the equipment bay door, big and quick: THE BAY KEY IS ON THE BOARD. THE CHIEF'S NOTE SAYS WHICH ONE." },
       },
       key: { name: "Silver key, lightning bolt tag", tag: "The yellow tag is shaped like a lightning bolt. It says: \"Fix it, don't toss it.\" The key itself is small and silver, with a bright shine." },
@@ -120,8 +120,8 @@
     hospital: {
       blurb: "St. Anne Annex, the north hills hospital: medicine, a generator, and the worst walkers.",
       door: {
-        title: "Doc Lin on the Ambulance",
-        text: "Doc Lin. I wrote this on my last run north.\n\nOne medical kit is in the patient room next to the x-ray machine. One more is by the giant teddy bear in the gift shop. The generator is in the utility room, on the right side.\n\nAt least nine walkers are inside. They stand still in the dark rooms, so look before you step in.\n\nThe pharmacy stock room is locked. The nurse's note is at the nurses' station, in the middle. Ada, if you are still in there, hold on. I am coming as soon as I can.",
+        title: "Nurse Ada on the Ambulance",
+        text: "Nurse Ada. I stayed when the others left, and I know every room in this building.\n\nOne medical kit is in the patient room next to the x-ray machine. One more is by the giant teddy bear in the gift shop. The generator is in the utility room, on the right side.\n\nAt least nine walkers are inside. They stand still in the dark rooms, so look before you step in.\n\nThe pharmacy stock room is locked. My note is at the nurses' station, in the middle. Doc Lin, if you make it up here, I am still inside. I kept the light on.",
       },
       notes: {
         "hospital-hall": {
@@ -163,7 +163,7 @@
       notes: {
         "watertower-panel": {
           title: "Three Breaker Boxes",
-          text: "Theo. You found the control panel. Good.\n\nThe pump house key is in the {pick}. That is one of the three breaker boxes by this panel. Open that box, and the key hangs on a nail inside. With it, you can open the pump house.\n\nOpen neither of the other two boxes. They are live, and the shock kills. Do not touch them, not even to look. I mean it.\n\nGo into the pump hall. The pump house door is at the back of the hall, at the blue pump end. The big red wheel is at the other end, away from it. Inside there are filters, a water tank, and wire. Leave at least one filter if you can.\n\nIf you need medicine, St. Anne Annex is the hospital, north up Hill Road. It still has medicine. But it is the most dangerous place in town. Do not go there alone.",
+          text: "Theo. You found the control panel. Good.\n\nThe pump house key is in the {pick}. That is one of the three breaker boxes by this panel. Open that box, and the key hangs on a nail inside. With it, you can open the pump house.\n\nOpen neither of the other two boxes. They are live, and the shock kills. Do not touch them, not even to look. I mean it.\n\nGo into the pump hall. The pump house door is at the back of the hall, at the blue pump end. The big red wheel is at the other end, away from it. Inside there are filters, a water tank, and wire. Leave at least one filter if you can.\n\nIf you need medicine, St. Anne Annex is the hospital, northeast up Hill Road. It still has medicine. But it is the most dangerous place in town. Do not go there alone.",
         },
         "watertower-trail1": {
           title: "Ruby, It's Dev",
@@ -175,16 +175,16 @@
         },
         "watertower-dead1": {
           title: "Theo's Water Rules",
-          text: "WATER RULES.\nWritten by Theo on an index card, in square capital letters.\n\nOne jug per person, each day. Fill it at the tap by the gate.\nKids get two jugs. They are still growing.\nWash your hands before you touch the tap.\nNever drink from the river.\nBring your jug back. Jugs are hard to find now.\nNobody leaves thirsty.\n\nThe card is nailed to the wall just inside the door. The last rule is written bigger than the others. It is underlined twice.\n\nSomeone has drawn a small heart in the corner. Someone else wrote, in a kid's hand: thank you Theo. Under that, Theo added: you are welcome. Now go wash your hands. A line of jugs sits under the card, clean and ready. Each one has a name on a strip of tape.",
+          text: "WATER RULES.\nWritten by Theo on an index card, in square capital letters.\n\nOne jug per person, each day. Fill it at the tap by the gate.\nKids get two jugs. They are still growing.\nNobody leaves thirsty.\n\nUnder the rules, in smaller letters, Theo added more. Wash your hands before you touch the tap. Never drink from the river. Bring your jug back, because jugs are hard to find now.\n\nThe card is nailed to the wall just inside the door. The last rule is written bigger than the others. It is underlined twice.\n\nSomeone has drawn a small heart in the corner. Someone else wrote, in a kid's hand: thank you Theo. Under that, Theo added: you are welcome. Now go wash your hands. A line of jugs sits under the card, clean and ready. Each one has a name on a strip of tape.",
         },
         "watertower-dead2": {
           title: "Paper Plate Note",
-          text: "Pump house key: in the {decoyPick}. Just open it and grab the key.\n\nThat is what the note says. It is written on a paper plate in blue crayon. It lies in the blue pump room, by the far wall. There is no name on it.\n\nIt sounds easy. Whoever wrote it seemed to know this place. Now turn the plate over. Theo found it and wrote on the back, in his square capitals. THIS IS OLD. I REWIRED THE BOXES AND MOVED THE KEY. THAT BOX IS LIVE NOW.\n\nA live box is deadly. Open it, and the shock kills you. Theo left the plate here so people would see his warning. His note on the control panel says which box is safe. Read it before you touch a single breaker box.",
+          text: "Pump house key: in the {decoyPick}. Just open it and grab the key.\n\nThat is what the note says. It is written on a paper plate in blue marker. It is nailed to the far wall of the blue pump room. There is no name on it.\n\nIt sounds easy. Whoever wrote it seemed to know this place. Now turn the plate over. Theo found it and wrote on the back, in his square capitals. THIS IS OLD. I REWIRED THE BOXES AND MOVED THE KEY. THAT BOX IS LIVE NOW.\n\nA live box is deadly. Open it, and the shock kills you. Theo left the plate here so people would see his warning. His note on the control panel says which box is safe. Read it before you touch a single breaker box.",
         },
       },
       signs: {
         "watertower-sign1": { title: "City Water Works", text: "CITY WATER WORKS. STAFF ONLY. Below it, a yellow sign: DANGER. PUMPS START WITHOUT WARNING. Keep your hands and feet clear of all moving parts." },
-        "watertower-sign2": { title: "Big Chalk Letters", text: "In big chalk letters, across half the wall: Ruby, I am here! Wait for me! It is signed with one fat letter: D." },
+        "watertower-sign2": { title: "Big Chalk Letters", text: "In big chalk letters, across half the wall: Ruby, I am here! It is signed with one fat letter: D." },
         "watertower-sign3": { title: "Chalk Circle", text: "A chalk circle with a key drawn inside, by the tool crib door in the boat workshop. Under it: The key is not here. Read the notes." },
         "watertower-sign4": { title: "Pump House Door", text: "PUMP HOUSE. KEEP LOCKED. Under it, in Theo's neat pen: The key is in a breaker box by the control panel. Read my note there first. Two boxes are live." },
       },
@@ -195,12 +195,12 @@
       blurb: "Ridge Lumber on the east ridge: racks of wood, a dock crowd, and a locked kiln shed.",
       door: {
         title: "Ruby's Spray Paint",
-        text: "Ruby. I marked this gate so you would see it from the road.\n\nLumber is in the long racks in the middle. One more stack is out back, by the log pile. A big walker stands right by it.\n\nAt least eight walkers are inside. A crowd of them gathers by the loading dock and the flatbed truck. Stay away from that side.\n\nThe kiln shed is locked. The yard boss left a note on a clipboard by the band saw. Read it before you touch the shed. Then load up and get out.",
+        text: "Ruby. I marked this gate so you would see it from the road.\n\nLumber is in the long racks in the middle. One more stack is out back, by the log pile. A big walker stands right by it.\n\nAt least eight walkers are inside. A crowd of them gathers by the loading dock and the flatbed truck. Stay away from that side.\n\nThe kiln shed is locked. The yard boss left a note on a clipboard by the band saw. Read it before you touch the shed. And do not run the saws. The noise brings the dock crowd. Then load up and get out.",
       },
       notes: {
         "lumberyard-rack": {
           title: "Carla's Clipboard",
-          text: "CARLA HERE! Yard boss! If you can read this, you are standing too close to my band saw. Today that is fine.\n\nThe kiln shed has an old padlock with a number dial. The code is {code}: {codeSpoken}. Spin the dial to each number, slowly. Give it a good yank, and the lock drops open.\n\nGet one number wrong, and the old padlock locks up for good. It jams, and after that only a crowbar opens it. So check each number twice.\n\nLeave by the band saw shop door and step into the rack hall. Follow the back wall toward the log pile. The kiln shed door is in that wall. The lumber in the shed is dry, and there are nails too.\n\nNow the big rule. DO NOT RUN THE SAWS. Not once. The noise brings the whole dock crowd, and they come fast. Carry what you need and go quietly.\n\nThanks for reading. Most people do not.\nCarla",
+          text: "CARLA HERE! Yard boss! If you can read this, you are standing too close to my band saw. Today that is fine.\n\nThe kiln shed has an old padlock with a code. The code is {code}: {codeSpoken}. Put in each number, slowly, then give the lock a good yank, and it drops open.\n\nGet one number wrong, and the old padlock locks up for good. It jams, and after that only a crowbar opens it. So check each number twice.\n\nLeave by the band saw shop door and step into the rack hall. Follow the back wall toward the log pile. The kiln shed door is in that wall. The lumber in the shed is dry, and there are nails too.\n\nNow the big rule. DO NOT RUN THE SAWS. Not once. The noise brings the whole dock crowd, and they come fast. Carry what you need and go quietly.\n\nThanks for reading. Most people do not.\nCarla",
         },
         "lumberyard-trail1": {
           title: "Boats for the Convoy",
@@ -216,14 +216,14 @@
         },
         "lumberyard-dead2": {
           title: "Code on a Receipt",
-          text: "KILN SHED CODE: {decoyCode}. GOT IT FROM THE CREW. HURRY.\n\nThat is all, scrawled on the back of an old receipt. It lies in the rack hall, outside the kiln shed door. The writing is fast and messy. The pen ran out halfway through the last word.\n\nIt sounds like inside news from the crew. Maybe it was, once. But look at the front of the receipt. The date on it is from months ago. Carla changed the padlock code after that. So this receipt has the old code.\n\nSpin the dial to the old code, and the padlock jams for good. Then only a crowbar opens it. You will stand by the shed, tugging, while the dock crowd listens.\n\nCarla's clipboard by the band saw has the code that works now. Trust the clipboard.",
+          text: "KILN SHED CODE: {decoyCode}. GOT IT FROM THE CREW. HURRY.\n\nThat is all, scrawled on the back of an old receipt. It lies in the rack hall, outside the kiln shed door. The writing is fast and messy. The pen ran out halfway through the last word.\n\nIt sounds like inside news from the crew. Maybe it was, once. But look at the front of the receipt. The date on it is from months ago. Carla changed the padlock code after that. So this receipt has the old code.\n\nPut in the old code, and the padlock jams for good. Then only a crowbar opens it. You will stand by the shed, tugging, while the dock crowd listens.\n\nCarla's clipboard by the band saw has the code that works now. Trust the clipboard.",
         },
       },
       signs: {
         "lumberyard-sign1": { title: "Painted Yard Sign", text: "Ridge Lumber. Cut to order. The words are painted in tall green letters on a long board. A pine tree stands at each end." },
         "lumberyard-sign2": { title: "Ruby's Red R", text: "Ruby's red R, sprayed tall, with an 8 under it. Below, in fast letters: THEY GATHER AT THE DOCK. STAY AWAY." },
         "lumberyard-sign3": { title: "Safety Sign", text: "CAUTION: EAR PROTECTION NEEDED NEAR THE SAWS. Under it, Carla added in thick marker: The saws stay off! No ear protection needed now!" },
-        "lumberyard-sign4": { title: "Spray Paint on the Door", text: "Spray-painted across the kiln shed door, in big black letters: CODE ON THE CLIPBOARD. An arrow points toward the racks. The paint has dripped a little." },
+        "lumberyard-sign4": { title: "Spray Paint by the Door", text: "Spray-painted on the wall beside the kiln shed door, in big black letters: CODE ON THE CLIPBOARD. An arrow points toward the racks. The paint has dripped a little." },
       },
       key: { name: "Long key with a bookmark", tag: "The paper bookmark tied to it says: \"Handle with care.\" The key is long and old-fashioned, with a round loop for a handle. It is heavier than it looks." },
     },
@@ -241,7 +241,7 @@
         },
         "mall-trail1": {
           title: "Still at My Post",
-          text: "Luis again. I have stayed at my post since the Fall began. That is a long time to stand in one place. My feet agree.\n\nI know this crowd now. They walk the same slow loop every day. Past the shoe store, around the fountain, back by the food court. Then they do it again. If you learn the loop, you can slip around it.\n\nSergeant Vega came by last month. Vega asked me to join the River Convoy. It was a seat on a truck, north along the river. It was a kind offer, and I said no.\n\nSomeone has to watch the mall. People still come here for food and medicine. Someone has to tell them to walk, not run.\n\nI left another note for you. It is in the sports store, beside the orange tent. Walk there. Do not run.",
+          text: "Luis again. I have stayed at my post since the Fall began. That is a long time to stand in one place. My feet agree.\n\nI know this crowd now. They walk the same slow loop every day. Past the shoe store, past the Book Nook, back by the food court. Then they do it again. If you learn the loop, you can slip around it.\n\nSergeant Vega came by last month. Vega asked me to join the River Convoy. It was a seat in the convoy, north along the river. It was a kind offer, and I said no.\n\nSomeone has to watch the mall. People still come here for food and medicine. Someone has to tell them to walk, not run.\n\nI left another note for you. It is in the sports store, beside the orange tent. Walk there. Do not run.",
         },
         "mall-trail2": {
           title: "A Key from Doc Lin",

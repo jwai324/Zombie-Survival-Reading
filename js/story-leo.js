@@ -20,9 +20,9 @@
 
   W.UNIVERSES = W.UNIVERSES || {};
   W.UNIVERSES.leo = {
-    name: "Captain Leo", // the Settings choice and the HUD
+    name: "Captain Leo", // the save slot's summary (js/main.js universeTail); Settings labels the button itself
     where: "Mira-8",
-    sky: "mira9", // js/crossover.js draws it over the yard
+    sky: "mira9", // js/crossart.js (ZSR.Crossover.sky) draws it over the yard
     // the quest whose hand-in wakes Rivet, the robot dog (ROBO below)
     robotQuest: "tomas-leo-5",
     // a journal line rides on every journalEvery-th day page; a broadcast on every radioEvery-th day the Radio
@@ -132,10 +132,10 @@
      down until Tomas fixes it at the cabin for scrap. js/robodog.js. */
   W.ROBO = {
     name: "Rivet",
-    hp: 60, // bites it takes before it shuts down (a plain walker's bite is about 10)
+    hp: 60, // bites it takes before it shuts down (a plain walker's bite is 12, so five bites; a brute's 22, so three)
     zapEvery: 1.8, // seconds between zaps
     zapRange: 4.5, // tiles: it zaps the nearest awake walker this close, in a clear line
-    zapDamage: 6, // a pistol shot is 25: the robot dog is a helper, not a gun
+    zapDamage: 6, // a pistol shot is 12: the robot dog is a helper, not a gun
     slow: 0.5, // a zapped walker moves at this share of its speed...
     slowSeconds: 1.6, // ...for this long
     repairScrap: 20, // Tomas's price to fix it once it has shut down (at home: a trip's return or a wave's end)
@@ -194,8 +194,9 @@
   });
 
   /* Tomas's Leo track: five parts for a shut-down Bolt-model robot dog he found by the back fence. The objects are
-     drawn as js/crewart.js draws their kinds (box: cardboard, red label; jar: glass, red lid, paper label; tin: red,
-     white paper band; badge: gold shield with a star on black leather; toolbox: red steel). */
+     drawn as js/crewart.js draws their kinds (box: cardboard, red label; sensorJar: glass, red lid, paper label, a small
+     silver sensor on a coiled wire inside; tin: red, white paper band; badge: gold shield with a star on black leather;
+     toolbox: red steel). */
   W.QUESTS = W.QUESTS || [];
   W.QUESTS.push(
     {
@@ -218,7 +219,7 @@
       ],
       journal: [
         "You brought Tomas a box of leg motors from Reyes Hardware.",
-        "The robot dog in the garage can stand now, though it wobbles.",
+        "The robot dog by the van can stand now, though it wobbles.",
       ],
       done: [
         "Tomas fits the leg motors into the robot dog, one leg at a time.",
@@ -234,7 +235,7 @@
       id: "tomas-leo-2", giver: "tomas", universe: U,
       at: "garden", spot: [28, 18], near: "the beehives",
       when: { day: 5, stars: 1 },
-      object: { name: "Jar with a nose sensor", art: "jar" },
+      object: { name: "Jar with a nose sensor", art: "sensorJar" },
       reward: { scrap: 30, items: { parts: 1 } },
       brief: [
         "The robot dog needs a nose: a tiny chemistry sensor that tells what something is made of.",
@@ -268,7 +269,7 @@
       object: { name: "Tin with a battery cell", art: "tin" },
       reward: { scrap: 35, items: { radioParts: 1 } },
       brief: [
-        "The robot dog's battery is dead, and only a Bolt-model cell fits it.",
+        "The robot dog's battery is nearly dead, and only a Bolt-model cell fits it.",
         "Signal Electronics is north of the cabin.",
         "A red tin with a white paper band lies on the floor beside the robot.",
         "The battery cell is inside it.",
@@ -318,7 +319,7 @@
       ],
       after: [
         "Tomas says the robot dog knows our faces now.",
-        "It still needs eyes that see in the dark, and a voice to warn us.",
+        "It still needs eyes that see in the dark, and a voice to beep at us.",
         "Then it can go out with you.",
       ],
     },

@@ -285,7 +285,7 @@
       head.appendChild(tip(el("div", "stat", '<span class="v">' + s.day + '</span><span class="l">day</span>'), "<strong>Day " + s.day + "</strong><span class='t-line'>A day passes every time you drive home. Items you took come back after " + W().SETTINGS.restockDays + " days.</span>"));
       head.appendChild(tip(el("div", "stat", '<span class="v">' + s.scrap + '</span><span class="l">scrap</span>'), "<strong>Scrap</strong><span class='t-line'>The money of the Fall. Walkers drop it, piles hold it. Rooms, upgrades, traps and fence repairs all cost scrap.</span>"));
       head.appendChild(tip(el("div", "stat" + (s.food <= 0 ? " bad" : ""), '<span class="v">' + s.food + '</span><span class="l">food</span>'), "<strong>Food</strong><span class='t-line'>Every trip eats 1. At 0 the crew is hungry and the van is weaker. The Garden and the Farm grow food each day.</span>"));
-      head.appendChild(tip(el("div", "stat", '<span class="v">' + Math.round(s.vanHp) + "/" + S.vanMaxHp() + '</span><span class="l">van</span>'), "<strong>Van health</strong><span class='t-line'>Repair it in the Garage tab. Armor plating and the Walls room raise the maximum.</span>"));
+      head.appendChild(tip(el("div", "stat", '<span class="v">' + Math.round(s.vanHp) + "/" + S.vanMaxHp() + '</span><span class="l">van</span>'), "<strong>Van health</strong><span class='t-line'>Repair it in the Garage tab. Armor plating, the Walls room and a crew quest raise the maximum.</span>"));
       head.appendChild(tip(el("div", "stat", '<span class="v">' + S.baseLevel() + "/" + S.maxBaseLevel() + '</span><span class="l">base level</span>'), "<strong>Base level</strong><span class='t-line'>All room levels added up. " + Object.keys(W().BASE_ROOMS).length + " rooms, 3 levels each.</span>"));
       body.appendChild(head);
       if (t && t.base && t.base.intro) body.appendChild(el("p", "base-intro", esc(t.base.intro)));
@@ -335,22 +335,25 @@
       body.appendChild(row);
     },
 
-    /** The fence line: how many holes, fix them all for scrap. */
+    /** The fence line: how many holes and cracked segments, fix them all for scrap (holes first, then the cracks). */
     fenceRow() {
       const S = State();
-      const holes = this.hooks.fenceHoles ? this.hooks.fenceHoles() : 0;
-      const cost = holes * W().SETTINGS.fenceRepairScrap;
+      const { holes, cracks } = this.hooks.fenceDamage ? this.hooks.fenceDamage() : { holes: 0, cracks: 0 };
+      const n = holes + cracks;
+      const cost = n * W().SETTINGS.fenceRepairScrap;
       const row = el("div", "fence-row" + (holes ? " bad" : ""));
-      row.appendChild(el("span", "stock", holes ? "Fence: " + holes + " hole" + (holes > 1 ? "s" : "") : "Fence: whole"));
-      if (holes) {
-        const b = tip(el("button", "btn" + (S.save.scrap >= cost ? " go" : ""), "Fix all for " + cost + " scrap"), "<strong>Fix the fence</strong><span class='t-line'>" + W().SETTINGS.fenceRepairScrap + " scrap per hole. Holes never close on their own. You can also stand at a gap in the yard and press E.</span>");
+      row.appendChild(el("span", "stock", n ? "Fence: " + (holes ? holes + " hole" + (holes > 1 ? "s" : "") : "") + (holes && cracks ? ", " : "") + (cracks ? cracks + " cracked" : "") : "Fence: whole"));
+      if (n) {
+        const each = W().SETTINGS.fenceRepairScrap;
+        const can = Math.min(n, Math.floor(S.save.scrap / each)); // the segments the scrap covers (Fix all fixes as far as it goes)
+        const b = tip(el("button", "btn" + (S.save.scrap >= cost ? " go" : ""), can >= n || can < 1 ? "Fix all for " + cost + " scrap" : "Fix " + can + " of " + n + " for " + can * each + " scrap"), "<strong>Fix the fence</strong><span class='t-line'>" + W().SETTINGS.fenceRepairScrap + " scrap per hole or cracked segment. Holes never close on their own. You can also stand at a gap or a crack in the yard and press E.</span>");
         b.disabled = S.save.scrap < W().SETTINGS.fenceRepairScrap;
         b.addEventListener("click", () => {
           if (this.hooks.onRepairFence) this.hooks.onRepairFence();
           this.render();
         });
         row.appendChild(b);
-        row.appendChild(el("span", "small muted", "Or press E at a gap outside."));
+        row.appendChild(el("span", "small muted", "Or press E at a gap or a crack outside."));
       } else row.appendChild(el("span", "small muted", "Walkers claw through it during waves. Every hole costs " + W().SETTINGS.fenceRepairScrap + " scrap to rebuild."));
       return row;
     },
@@ -364,7 +367,9 @@
       const row = el("div", "fence-row" + (dmg.broken ? " bad" : ""));
       row.appendChild(el("span", "stock", n ? "Cabin: " + (dmg.broken ? dmg.broken + " broken" : "") + (dmg.broken && dmg.cracked ? ", " : "") + (dmg.cracked ? dmg.cracked + " cracked" : "") : "Cabin: doors and windows whole"));
       if (n) {
-        const b = tip(el("button", "btn" + (S.save.scrap >= cost ? " go" : ""), "Fix all for " + cost + " scrap"), "<strong>Fix the cabin</strong><span class='t-line'>" + W().SETTINGS.houseRepairScrap + " scrap per door or window. You can also press E at a broken one.</span>");
+        const each = W().SETTINGS.houseRepairScrap;
+        const can = Math.min(n, Math.floor(S.save.scrap / each)); // the doors and windows the scrap covers
+        const b = tip(el("button", "btn" + (S.save.scrap >= cost ? " go" : ""), can >= n || can < 1 ? "Fix all for " + cost + " scrap" : "Fix " + can + " of " + n + " for " + can * each + " scrap"), "<strong>Fix the cabin</strong><span class='t-line'>" + W().SETTINGS.houseRepairScrap + " scrap per door or window. You can also press E at a broken one.</span>");
         b.disabled = S.save.scrap < W().SETTINGS.houseRepairScrap;
         b.addEventListener("click", () => {
           if (this.hooks.onRepairHouse) this.hooks.onRepairHouse();
@@ -388,7 +393,8 @@
       const parts = (dmg.wrecked.length ? [dmg.wrecked.length + " wrecked (" + esc(names(dmg.wrecked)) + ")"] : []).concat(dmg.cracked.length ? [dmg.cracked.length + " cracked (" + esc(names(dmg.cracked)) + ")"] : []);
       row.appendChild(el("span", "stock", n ? "Builds: " + parts.join(", ") : "Builds: all working"));
       if (n) {
-        const b = tip(el("button", "btn" + (S.save.scrap >= cost ? " go" : ""), "Fix all for " + cost + " scrap"), "<strong>Fix the builds</strong><span class='t-line'>" + each + " scrap per build. A wrecked build does nothing until it is fixed. You can also press E at it in the yard.</span>");
+        const can = Math.min(n, Math.floor(S.save.scrap / each)); // the builds the scrap covers
+        const b = tip(el("button", "btn" + (S.save.scrap >= cost ? " go" : ""), can >= n || can < 1 ? "Fix all for " + cost + " scrap" : "Fix " + can + " of " + n + " for " + can * each + " scrap"), "<strong>Fix the builds</strong><span class='t-line'>" + each + " scrap per build. A wrecked build does nothing until it is fixed. You can also press E at it in the yard.</span>");
         b.disabled = S.save.scrap < each;
         b.addEventListener("click", () => {
           if (this.hooks.onRepairBuilds) this.hooks.onRepairBuilds();
@@ -517,7 +523,7 @@
       // a wrecked Garage gives nothing until it is fixed (js/yardwreck.js): the built level still shows, and why
       const garageWrecked = S.roomWrecked ? S.roomWrecked("garage") : false;
       const topCap = Math.max(cap, ...W().BASE_ROOMS.garage.levels.map((l) => l.effect.tierCap || 0)); // the top Garage level's
-      wrap.appendChild(el("p", "small muted", "Garage level " + s.rooms.garage + (garageWrecked ? " (wrecked: fix it to use it)" : "") + ": van and van-gun upgrades and paint up to tier " + cap + ", Spread Shot two tiers lower" + (garageWrecked ? ". Fix the Garage to go higher." : cap < topCap ? ". Build the Garage room to go higher." : ".") + (fx.freeRepair ? " Repairs are free here." : " Repairs cost " + W().SETTINGS.repairMinScrap + " scrap or more, 1 for every " + W().SETTINGS.repairScrapPerHp + " health missing.")));
+      wrap.appendChild(el("p", "small muted", "Garage level " + s.rooms.garage + (garageWrecked ? " (wrecked: fix it to use it)" : "") + ": van and van-gun upgrades and paint up to tier " + cap + ", Spread Shot up to tier " + S.upgradeCap("spread") + (garageWrecked ? ". Fix the Garage to go higher." : cap < topCap ? ". Build the Garage room to go higher." : ".") + (fx.freeRepair ? " Repairs are free here." : " Repairs cost " + W().SETTINGS.repairMinScrap + " scrap or more, 1 for every " + W().SETTINGS.repairScrapPerHp + " health missing.")));
       const preview = el("canvas");
       preview.id = "garage-van";
       preview.width = 360;
@@ -585,7 +591,7 @@
       // who fixes it free: the crew member whose tip tells of the free fix (CREW_TIPS[id].vanFree: Tomas)
       const fixer = Object.keys(W().CREW_TIPS || {}).find((id) => W().CREW_TIPS[id] && W().CREW_TIPS[id].vanFree && (W().CREW || {})[id]);
       const fixerName = fixer && ZSR.crewName ? ZSR.crewName(fixer) : "The crew";
-      rmid.appendChild(el("div", "desc", fx.freeRepair ? esc(fixerName) + " fixes the van for free. Back to full health." : esc(U().REPAIR.desc) + " Slide to pick how much: 1 scrap for every " + W().SETTINGS.repairScrapPerHp + " health."));
+      rmid.appendChild(el("div", "desc", fx.freeRepair ? esc(fixerName) + " fixes the van for free. Back to full health." : esc(fixerName) + " patches the van. Slide to pick how much: 1 scrap for every " + W().SETTINGS.repairScrapPerHp + " health, at least " + W().SETTINGS.repairMinScrap + " scrap."));
       rep.appendChild(rmid);
       tip(rep, "<strong>Van repair</strong><span class='t-line'>Van health " + Math.round(s.vanHp) + " of " + S.vanMaxHp() + ".</span><span class='t-line'>" + (full ? "Nothing to fix." : fx.freeRepair ? "Free with the Garage room." : cost + " scrap brings it back to full. Slide for less.") + " No typing needed.</span>");
       const rbtn = el("button", "btn" + (!full && s.scrap >= cost ? " go" : ""), full ? "FULL" : cost ? cost + " scrap" : "Repair");
@@ -902,8 +908,8 @@
         cell.appendChild(el("span", "name", esc(it.name)));
         cell.appendChild(el("span", "n", "×" + n));
         cell.style.borderLeftColor = it.color;
-        const uses = Object.entries(W().BASE_ROOMS).filter(([, r]) => r.levels.some((l) => l.needs[k])).map(([, r]) => r.name).concat(Object.values(W().TRAPS).filter((tr) => tr.needs[k]).map((tr) => tr.name));
-        tip(cell, "<strong>" + esc(it.name) + " ×" + n + "</strong><span class='t-line'>Used by: " + (uses.length ? esc(uses.join(", ")) : "nothing yet") + (k === "meds" ? ". Also packed as health kits." : "") + "</span>");
+        const uses = Object.entries(W().BASE_ROOMS).filter(([, r]) => r.levels.some((l) => l.needs[k])).map(([, r]) => r.name).concat(Object.values(W().TRAPS).filter((tr) => tr.needs[k]).map((tr) => tr.name)).concat(Object.values(W().HOUSE_UPGRADES || {}).filter((h) => h.levels.some((l) => l.needs[k])).map((h) => h.name));
+        tip(cell, "<strong>" + esc(it.name) + " ×" + n + "</strong><span class='t-line'>Used by: " + (uses.length ? esc(uses.join(", ")) : "nothing yet") + (k === "meds" ? ". Also packed as medical kits in the backpack." : "") + "</span>");
         grid.appendChild(cell);
       });
       if (!any) wrap.appendChild(el("p", "muted", "Nothing yet. Drive out, read the notes, bring things back."));

@@ -13,12 +13,12 @@
       "The van rolled into the yard on its last drops of fuel, with Tomas talking to the engine the whole way.",
       "The cabin at the south end of town was empty and dry, with a woodstove and a door that still locks.",
       "Pip fell asleep on the bench before the bags were inside.",
-      "You took the first watch at the window, and nothing came.",
+      "You took the first watch at the window.",
     ] },
     { id: "journal-2", facts: [
       "In daylight the cabin is bigger than it looked: a whole family house with a porch, and the roof is sound.",
       "An old fence circles the yard, and some of its boards are loose.",
-      "The dirt behind the cabin is dark and good, and June noticed it first.",
+      "The dirt in front of the cabin is dark and good, and June noticed it first.",
       "June wrote the first rule on the inside of the door: say where you are going before you go.",
     ] },
     { id: "journal-3", facts: [
@@ -28,9 +28,9 @@
       "Pip counted the minutes you were gone and wrote the number on the wall.",
     ] },
     { id: "journal-4", facts: [
-      "The first walkers came to the fence at dusk.",
+      "The biggest group yet came to the fence at dusk.",
       "They came in a group, pushed at the boards, and then the yard went quiet for a while.",
-      "June learned that they come in waves, with calm in between.",
+      "June has learned that they come in waves, with calm in between.",
       "A new rule went on the door: no shouting in the yard, because walkers follow sound.",
     ] },
     { id: "journal-5", facts: [
@@ -47,7 +47,7 @@
     ] },
     { id: "journal-7", facts: [
       "Before the Fall, June was the gardener at a school.",
-      "She wants raised beds behind the cabin, with beans, squash and tomatoes.",
+      "She wants raised beds in front of the cabin, with beans, squash and tomatoes.",
       "Her old friend Rosa ran the greenhouses at Greenhouse Row, west of the gas station.",
       "June says that if anyone still has seeds, it is Rosa.",
     ] },
@@ -71,9 +71,9 @@
     ] },
     { id: "journal-11", facts: [
       "Pip found an old radio dial in a drawer and turned it for an hour.",
-      "There was only static, but Pip is sure there are voices out there.",
-      "People say someone named Jo talks on the radio from a rooftop.",
-      "Pip has started a list of every voice the crew hears, and the first name on it is June.",
+      "There was only static from the loose dial, but Pip is sure there are voices out there.",
+      "Jo talks on the radio from a rooftop.",
+      "Pip keeps a list of every voice the crew hears, and the first name on it is June.",
     ] },
     { id: "journal-12", facts: [
       "June remembered her school garden and the kids who planted sunflowers by the fence.",
@@ -130,15 +130,15 @@
       "June said the rules on the door, the seeds, and each other.",
     ] },
     { id: "journal-21", facts: [
-      "June read the rules on the door out loud after supper.",
-      "Say where you go. No shouting in the yard. Patch the fence before supper. Everyone eats the same.",
-      "Pip wants to add a rule: take what you need, leave the rest.",
-      "June says that one is the town's rule, and it is a good one, so it goes on the door too.",
+      "June reads the five rules on the door out loud after supper.",
+      "Say where you go. No shouting in the yard. Patch the fence before supper. Everyone eats the same. Take what you need, leave the rest.",
+      "Pip always joins in on the last rule: take what you need, leave the rest.",
+      "June says that one is the town's rule, and it is a good one.",
     ] },
     { id: "journal-22", facts: [
       "Pip keeps asking about Ruby and her younger brother, Dev.",
-      "People say Ruby is looking for Dev, and Dev leaves messages for her.",
-      "Pip says if they keep leaving messages, they will find each other.",
+      "People say Ruby went looking for Dev, and Dev left messages for her wherever he went.",
+      "Pip says people who keep leaving messages find each other.",
       "June did not argue.",
     ] },
     { id: "journal-23", facts: [
@@ -149,7 +149,7 @@
     ] },
     { id: "journal-24", facts: [
       "June's knees ache on cold mornings.",
-      "She showed Pip how to keep the ledger, just in case her hands get stiff.",
+      "Just in case her hands get stiff, she has Pip keep the ledger on cold mornings.",
       "Pip's writing is big and messy, and June says that is fine.",
       "A ledger only has to be honest, not neat.",
     ] },
@@ -246,7 +246,7 @@
     ] },
     { id: "radio-9", voice: "Jo", facts: [
       "Jo warns about Northgate Mall.",
-      "The walkers there move in a group and come running at anyone who runs.",
+      "The walkers there move in a group, and the ones near anyone who runs come running.",
       "Walk, do not run, and most of them stay put.",
       "That tip comes from Luis, the mall guard who never left his post.",
     ] },
@@ -287,6 +287,7 @@
       "Jo says Ruby heard Dev's message and is heading west to the Water Tower.",
       "Ruby left one more warning on the gate at Ridge Lumber.",
       "Do not run the saws at Ridge Lumber, because the noise brings the whole crowd from the loading dock.",
+      "Ruby had gone back east to scout Ridge Lumber when the message reached her.",
     ] },
     { id: "radio-17", voice: "Theo", facts: [
       "Theo has good news.",
@@ -427,7 +428,7 @@
       ["Written on the box: always check that it is empty before you clean it.", "Below it: point it at the ground, never at a person."],
     ],
     armorPlate: [
-      ["Stenciled on the plate: steel, heavy.", "A chalk note: bolt it onto the van door at chest height."],
+      ["Stenciled on the plate: steel, heavy.", "A chalk note: bolt it onto a door at chest height."],
       ["Sticky note: a plate stops grabbing hands, not crashes.", "Marker lines along one edge count every dent it has taken."],
     ],
     books: [
@@ -444,14 +445,14 @@
   W.YARD_LOTS = {
     garden: {
       empty: [
-        "Stakes and string mark out beds in the dark dirt behind the cabin.",
+        "Stakes and string mark out beds in the dark dirt in front of the cabin.",
         "June painted the sign: GARDEN, someday.",
         "Raised beds of seeds and soil here would grow food, and every trip in the van eats food.",
       ],
       built: [
-        ["The sign says GARDEN, and one raised bed is planted with seeds.", "June checks it every morning.", "It grows 1 food each day."],
+        ["The sign says GARDEN, and two raised beds are planted with seeds.", "June checks them every morning.", "The garden grows 1 food each day."],
         ["The sign says GARDEN, and now there are more beds, with beans climbing the string.", "It grows 2 food each day."],
-        ["The sign says GARDEN, and a water tank feeds the beds through a hose.", "June finally has her full garden.", "It grows 3 food each day."],
+        ["The sign says GARDEN: a greenhouse stands behind the beds, and a water tank feeds them.", "June finally has her full garden.", "It grows 3 food each day."],
       ],
     },
     farm: {
@@ -468,32 +469,32 @@
     },
     well: {
       empty: [
-        "A ring of stones marks the spot beside the cabin.",
+        "A ring of stones marks the spot in the middle of the yard.",
         "June painted the sign: WELL, dig after the Water room is built.",
         "Water from deep underground comes up cold and clean, so you would heal faster in the yard.",
         "The Farm and the Lab both need the Well first.",
       ],
       built: [
         ["The sign says WELL: a hand-dug well lined with lumber, with a bucket on a rope.", "Its clean water helps you heal faster in the yard."],
-        ["The sign says WELL: a hand pump with a filter now brings the water up.", "You heal in the yard even faster."],
-        ["The sign says WELL: a wired pump fills a tank.", "You heal in the yard faster than ever, and you start every building at full health."],
+        ["The sign says WELL: a little roof now covers the well, with a crank to wind up the bucket.", "A filter cleans the water.", "You heal in the yard even faster."],
+        ["The sign says WELL: a hand pump beside the well pipes the water to a trough.", "You heal in the yard faster than ever, and you start every building at full health."],
       ],
     },
     water: {
       empty: [
-        "An empty barrel sits on two sawhorses by the cabin wall.",
+        "An empty barrel sits on two sawhorses by the back fence.",
         "Tomas painted the sign: WATER, filter goes here.",
         "A filter and a tank here would turn gray rainwater clear, so you heal faster while you are in the yard.",
       ],
       built: [
-        ["The sign says WATER: a filter on top of the barrel turns gray water clear.", "You slowly heal in the yard."],
+        ["The sign says WATER: three rain barrels under funnels, with a filter on the tap that turns gray water clear.", "You slowly heal in the yard."],
         ["The sign says WATER: a filter and a big tank, full of clean water.", "You heal faster in the yard."],
         ["The sign says WATER: two filters and a tank.", "You heal even faster in the yard, and you walk into every building at full health."],
       ],
     },
     power: {
       empty: [
-        "A bare pole stands by the shed with an old coil of rope at its foot.",
+        "A bare pole stands by the back fence with an old coil of rope at its foot.",
         "Tomas painted the sign: POWER, lights first.",
         "Fuel, wire and lights here would let the map show how dangerous each place is.",
         "Later a generator could do even more.",
@@ -532,7 +533,7 @@
     },
   };
 
-  /* Inside the cabin: what the Hollis family left on the walls, one per room (WORLD.HOUSE.notes says
+  /* Inside the cabin: what the Hollis family left on the walls, one in each of fifteen rooms; the hallway, the second bathroom and the office, linen and toy closets have none (WORLD.HOUSE.notes says
      where). The Hollis family: Kate and Dan, and their kids Gus (16), Finn (11) and Lucy (7), and
      their dog Biscuit. They named the house "the cabin" and went north with the River Convoy.
      Some notes also say what a thing in the room is for now (the computer, the pantry, the radio
@@ -562,7 +563,7 @@
     ],
     kitchen: [
       "A note on the fridge is held up by a magnet shaped like a fish.",
-      "Kate wrote it the morning the family left: we are going north with the River Convoy, on Sergeant Vega's trucks.",
+      "Kate wrote it the morning the family left: we are going north with Sergeant Vega and the River Convoy.",
       "They took Biscuit, their go bags and the last of the canned peaches.",
       "She wrote: if you find our cabin and you are kind, it is yours now, so please keep the garden going.",
     ],
@@ -594,7 +595,7 @@
       "The radio shelf used to stand by the couch, until Pip carried it to the dining room, where the crew eats.",
     ],
     gusRoom: [
-      "A sign on the door says: GUS'S ROOM, KEEP OUT, THIS MEANS YOU FINN.",
+      "A sign by the door says: GUS'S ROOM, KEEP OUT, THIS MEANS YOU FINN.",
       "Gus is sixteen and left behind a guitar with two broken strings.",
       "Tomas sleeps here now, and he says the sign still counts for Pip.",
     ],

@@ -114,9 +114,9 @@
       title: "Box of leg motors",
       brief: "Tomas found a shut-down Bolt-model robot dog by the back fence, and he wants to wake it up. It is dented and dusty, but Tomas says the frame is sound. First it needs new leg motors.\n\nReyes Hardware is northeast of the cabin. A box of leg motors sits on the floor beside the riding mower. It is a cardboard box with a red label. Tomas will give you 25 scrap and 1 spool of wire.",
       tag: "A cardboard box of four small leg motors, each wrapped in paper. The red label says: for school robot dogs, Bolt-model. They rattle softly when you lift the box.",
-      journal: "You brought Tomas a box of leg motors from Reyes Hardware. The robot dog in the garage can stand now, though it wobbles like a newborn calf. Pip cheered anyway.",
+      journal: "You brought Tomas a box of leg motors from Reyes Hardware. The robot dog by the van can stand now, though it wobbles like a newborn calf. Pip cheered anyway.",
       done: "Tomas fits the leg motors into the robot dog, one leg at a time, humming under his breath. When the last screw is tight, he steps back. The robot dog stands up, wobbles, and sits down again with a click. Tomas laughs and pats its metal head. “That is a start,” he says. “Everything good starts out wobbly.”",
-      after: "Tomas says Bolt-model dogs were built to copy Koen's first robot dog, Bolt. Bolt went everywhere Koen went, even to Mira-9. It trotted along the soft roads there like it owned them. Tomas looks at the robot dog in the garage for a long moment. He wants this one to go everywhere you go. “Out there,” Tomas says, “you could use a friend.”",
+      after: "Tomas says Bolt-model dogs were built to copy Koen's first robot dog, Bolt. Bolt went everywhere Koen went, even to Mira-9. It trotted along the soft roads there like it owned them. Tomas looks at the robot dog by the van for a long moment. He wants this one to go everywhere you go. “Out there,” Tomas says, “you could use a friend.”",
     },
     "tomas-leo-2": {
       title: "Jar with a nose sensor",
@@ -128,7 +128,7 @@
     },
     "tomas-leo-3": {
       title: "Tin with a battery cell",
-      brief: "Tomas says the robot dog's battery is flat, and only a Bolt-model cell fits it. He tried three other batteries, and none of them clicked in. Without power, it is just a very heavy statue.\n\nSignal Electronics is north of the cabin. A red tin with a white paper band lies on the floor beside the robot. The battery cell is inside it. Tomas will give you 35 scrap and 1 box of radio parts.",
+      brief: "Tomas says the robot dog's battery is nearly flat, and only a Bolt-model cell fits it. He tried three other batteries, and none of them clicked in. The robot dog wakes for a minute, then slumps.\n\nSignal Electronics is north of the cabin. A red tin with a white paper band lies on the floor beside the robot. The battery cell is inside it. Tomas will give you 35 scrap and 1 box of radio parts.",
       tag: "A red tin with a white paper band. Inside, a heavy battery cell hums softly. Someone wrote on the band: fully charged, keep dry.",
       journal: "You brought Tomas a battery cell from Signal Electronics. The robot dog's eyes glowed blue for the first time, then went dark again. Tomas says that is normal. I hope so.",
       done: "Tomas snaps the battery cell into the robot dog's chest. For a moment nothing happens. Then its eyes glow blue, and its metal tail wags once against the floor. Pip gasps out loud. The light fades again, but Tomas is smiling. “It knows it is awake now,” he says. “It just has not decided what to do about it.”",
@@ -140,7 +140,7 @@
       tag: "A gold shield badge with a star, on a black leather fold. On the back: Lincoln Lions robot dog, sniffs the air pipes every Monday.",
       journal: "You brought Tomas the school robot dog's gold star badge. Tomas and Pip stayed up late teaching the robot dog all our names. It beeps twice at mine, which Pip says is a laugh.",
       done: "Tomas moves the memory chip from behind the badge into the robot dog. He closes the panel and waits. The robot dog turns its head and looks at each of you, one face at a time. Then it beeps. Tomas lets out a long breath. “It remembers being a school dog,” he says. “Now it can remember us too.”",
-      after: "Tomas says the robot dog knows our faces now. It follows him from the garage to the porch and back again. But it still needs eyes that see in the dark, and a voice to warn us. Out there, the dark is where trouble waits. Then it can go out with you, Tomas says, and you will not be alone.",
+      after: "Tomas says the robot dog knows our faces now. It follows him from the van to the porch and back again. But it still needs eyes that see in the dark, and a voice to beep at us. Out there, the dark is where trouble waits. Then it can go out with you, Tomas says, and you will not be alone.",
     },
     "tomas-leo-5": {
       title: "Toolbox of robot-dog parts",
