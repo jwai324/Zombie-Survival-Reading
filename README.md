@@ -29,8 +29,9 @@ No install, no build step, no dependencies.
 - Or serve the folder with anything static: `npm start` (uses `http-server` on port 8080),
   `python3 -m http.server`, GitHub Pages, Netlify, or a Vercel static deploy.
 
-Buildings and the yard are first person and need a keyboard and mouse. The map and the
-road also work on touch.
+The game needs a keyboard and mouse: a touch-only phone or tablet gets a notice on the title
+screen and cannot start a game. On a touchscreen laptop the map also takes touch and the road
+shows two lane buttons.
 
 On your first day June walks you through the yard (walk and look, the backpack, a slow practice
 walker, the crew, the office computer) before the van will leave, and gives one short card the first
@@ -60,26 +61,28 @@ Show tutorial again is in the pause menu.
    free typing practice; the big bed heals you fully for a minute of the calm. Notes the
    Hollis family left on the walls are read up close. Its doors open and shut with E:
    walkers walk through an open one, pound a shut one down, and smash windows to climb in
-   (you cannot climb out). Some walkers in every wave make for the cabin, break in and wait
+   (you cannot climb out). About a quarter of a wave's walkers make for the cabin, break in and wait
    inside; the wave lasts until they are cleared out, and while you are outside the wave label
    reads "WAVE · walkers in the cabin" (where, never how many). E at a broken door or window fixes
    it (2 scrap); the computer's House tab makes doors and windows stronger.
    **What you build is what you see:** every room has its own plot in the yard, a staked lot
-   with its name on a sign until it is built, then a bigger build at each level (a carport,
-   then a shed, then a workshop; rain barrels, then a tank on a stand, then a water tower).
-   Walk up to a plot's sign (or its plaque once built) and press E to read what it is, what the
-   next level needs and what must be built first. The Walls level is the fence itself (pickets, braced planks, corrugated metal, concrete
+   with its name on a sign until it is built, then a bigger build at each level (a lean-to tool
+   shed, then a shed with a roll-up door, then a metal workshop; rain barrels, then a tank on a
+   stand, then a tall tank with a ladder).
+   Walk up to a plot's sign (or its plaque once built) and press E to read what the next level
+   gives and needs and what must be built first; the seven outdoor rooms (Garden, Farm, Well,
+   Water, Power, Radio, Lab) also carry hand-painted words about what stands there, or could. The Walls level is the fence itself (pickets, braced planks, corrugated metal, concrete
    and razor wire). The van in the driveway shows its armor,
    plow, engine gear and paint, and its roof gun shows heavier rounds, rate of fire and
    spread. The gun in your hands shows its own mods: a heavier muzzle, a longer barrel and
    sights, a smoother action, a steadier grip (the bow: broadheads, stronger limbs, a smoother
    draw, sight pins).
    **The crew.** June, Tomas and Pip live at the cabin with you. In the calm they wander
-   between their spots in the yard and the cabin (June by her ledger and the garden, Tomas at the
+   between their spots in the yard and the cabin (June in the living room and the garden, Tomas at the
    van and the garage, Pip at the radio). Look at one and press E: a speech bubble shows what they
    did for you, one useful thing (food left, the van, the fence, the next wave, your keys) and a
    piece of their story, while the yard keeps running. When they have a favor to ask, E again
-   opens a card. Five story quests each send you to bring one object home from one building, and
+   opens a card. Five story quests from each of them send you to bring one object home from one building (Pip's fifth is the dog, below), and
    their words say where: the place, which way from the cabin, the room's sign and a landmark.
    The object is there only once you say yes. Bring it home and hand it over in person for
    supplies, sometimes a lasting help (more food a day, a cheaper crowbar, free fence fixes, a
@@ -156,16 +159,20 @@ Show tutorial again is in the pause menu.
    Food crates and fish feed the crew when you get home.
 5. **Home again.** Cargo is unloaded, a day passes, the crew eats one food, the game
    saves, and you read the day's page: a recap, June's journal, and (once the Radio room is
-   built) a broadcast from Jo or one of the town's voices. In the yard, each outdoor room
-   (Garden, Farm, Well, Water, Power, Radio, Lab) has a lot with a painted sign: walk up to
-   it and press E to read what it is, what the next level needs, and why it is locked. Build rooms with items plus scrap, upgrade the van and its gun, mod your guns
+   built) a broadcast from Jo or one of the town's voices. In the yard, every room's plot has a sign
+   (a plaque once built): walk up to it and press E to read what the next level gives and needs and
+   why it is locked; the outdoor rooms (Garden, Farm, Well, Water, Power, Radio, Lab) also carry
+   hand-painted words about what stands there. Build rooms with items plus scrap, upgrade the van and its gun, mod your guns
    (damage, range, fire rate, accuracy) in the Weapons tab, craft traps:
    each one is a short typing round at the garage workbench, after a five-second countdown
    (the first time teaches home-row finger placement). The stages go slowly: the home row a
    pair of keys at a time, its runs and words, a home-row check, then the top and bottom rows
    a pair at a time, and only then words, phrases and sentences. A stage moves up after 3 or 4
    good rounds (90% accuracy or better); free practice rounds in the cabin count too. Repairs
-   are instant and bring the van back to full.
+   are instant: a slider picks how much health to buy (1 scrap for every 3 health, 5 scrap at
+   least), up to full; with the Garage built the fix is free and goes straight to full. Out on a
+   trip, leaving a building with the van under three quarters of its health offers a field patch
+   up to that mark, at five times the cabin price, Garage or not.
 
 Death (wrecked van, down inside a building, overrun in the yard) reloads the last save.
 Up to four players keep their own labeled saves, picked on the title screen.
@@ -177,6 +184,8 @@ index.html              all screens
 css/style.css           comic-book styling; every size in rem so Huge text (1 inch) scales everything
 css/crew.css            the crew's speech bubble
 css/tutorial.css        June's tutorial card, the ring on a HUD button, the "Now you try" panel and the arrow
+css/bench.css           the workbench overlay: the garage scene behind, the typing game in front
+css/god.css             god mode: the menu over everything, and the badge that says nothing is being saved
 js/layouts.js           THE BUILDINGS: one floor plan per place, its four landmarks, wall decor, palette,
                         and its story places: note spots, wall signs, the stash room and the key
 js/world.js             THE FACTS: items, base rooms, the yard and its plots, map locations, roads, the key ring, notes
@@ -184,24 +193,45 @@ js/story.js             story facts inside buildings: trail and dead-end notes, 
 js/story-home.js        story facts at home: June's journal, the radio, item tags, the yard plot signs
 js/story-crew.js        the crew's facts: who they are, their spots, rules, talk, tips, reports, errands
 js/story-quests.js      the crew's story quests (one object, one building each) and the dog
+js/story-leo.js         crossover facts, the Captain Leo universe (UNIVERSES.leo): its journal, radio, crew topics
+                        and Tomas's robot dog quests, and Rivet the robot dog (ROBO)
+js/story-fortitude.js   crossover facts, the Fortitude universe (UNIVERSES.fortitude): its journal, radio, crew
+                        topics and Pip's quests (the keepsakes)
 js/streets.js           street names, side streets, lanes and decisions for a route, road text fallback; corners shaped
                         for the angled camera (cornerSpin), braking by sharpness, the river's one course (RIVER)
 js/content/levelN*.js   THE WORDS at reading level N (1..6): levelN.js (how it works, controls, road, rooms,
                         typing), levelN-places1.js and -places2.js (every building), levelN-home.js (journal,
-                        radio, tags, plot signs), levelN-crew.js (the crew's talk, tips, reports, the dog),
+                        radio, tags, plot signs, the day's recap, the cabin's wall notes and upgrade cards, River
+                        Landing), levelN-crew.js (the crew's talk, tips, reports, the dog),
                         levelN-crew2.js (more tips and reports: the walker kinds, wreckers, wrecked builds),
-                        levelN-quests.js (the crew's story quests and errands)
+                        levelN-quests.js (the crew's story quests and errands), levelN-leo.js and
+                        levelN-fortitude.js (the crossover universes: T.universe.leo / T.universe.fortitude
+                        journal lines and broadcasts, and the crew's crossover talk and quests; see
+                        docs/UNIVERSES.md)
 js/content/level1-tutorial.js  June's first-run tutorial: level 1 only, read at every reading level
 js/locks.js             the locks: answers rolled per save, the {placeholders} they fill in the notes, the lock
                         prompt (keypad, moves, choices, stash keys, crowbar), god mode, fixture art
 js/state.js             settings, the base save, the in-memory trip, room effects, explored maps, the key ring
 js/crewstate.js         the crew's save state: trust, talk, requests, rewards and perks, reports, the dog, their words
+js/xoverstate.js        the crossover universes' save state: which universe is on, each one's journal and radio
+                        progress, and Rivet the robot dog
 js/interior.js          first-person engine: raycaster, low see-over tiles, roofs, floors and ceilings,
                         props, walkers (what each does, the scream, the downed, the blood; each drawn live into
                         a pooled canvas, with a frame-time governor), shooting and switching guns, reading
                         signs up close, HUD plumbing
 js/walker3d.js          the walkers' live 3D models: joints, gaits, poses, falls, levels of detail, canvas 2D only
 js/walker3d-looks.js    the six walker kinds' looks, as data (Walker3D.addType)
+js/walker3d-crew.js     the crew on the walkers' rig: June, Tomas and Pip's looks, as data
+js/beast3d.js           the animals as live 3D jointed figures: the stray dog, Rivet, the goats and the hens
+js/beast3d-looks.js     the stray dog's and Rivet's looks for beast3d.js
+js/beast3d-looks2.js    the goats' and hens' looks for beast3d.js
+js/model3d.js           still 3D things drawn in the comic style with plain Canvas 2D calls (no WebGL)
+js/van3d.js             the one 3D van everywhere it is seen (yard, river, road, garage, title, workbench): paint,
+                        armor, plow, engine gear, dents by health, the roof gun
+js/modelsprite.js       still 3D models standing in the first-person view (the parked van, the yard's props, signs,
+                        plaques, the porch)
+js/yardmodels.js        the yard's props, signs and plaques (and the porch's) as 3D models: the contract;
+                        yardmodels1.js and yardmodels2.js hold the models, room by room
 js/building.js          building mode: layouts, landmarks, decor, items, notes, cache, stash and key,
                         wall signs, guns on the floor, the M map
 js/yard.js              yard mode: plots and their builds per level, fence by Walls level, traps, waves, the bell and
@@ -209,6 +239,10 @@ js/yard.js              yard mode: plots and their builds per level, fence by Wa
 js/yardwreck.js         wreckers: the van and the room builds they claw, wrecked builds and fixing them
 js/crew.js              the crew in the yard and cabin: wandering, the shelter, raids, Tomas's repairs, the lookout,
                         the talk bubble, the dog at home
+js/robodog.js           Rivet, Tomas's robot dog (Captain Leo universe): it follows you in the yard and inside
+                        buildings and zaps walkers
+js/crossart.js          crossover art: Rivet the robot dog, the zap spark, the sky over the yard (Mira-9 or
+                        the shipyard ring) (docs/UNIVERSES.md)
 js/crewart.js           crew art: June, Tomas and Pip in five poses, the dog, portraits, quest objects
 js/river.js             River Landing: the bank, walkers out of the trees, fishing (cast, bite, hook, the pole
                         propped on the bank and its bell), the sign and the dock note
@@ -219,7 +253,7 @@ js/house.js             the cabin in the yard: rooms and furniture, doors and wi
 js/houseart.js          cabin art: siding, roof, doors and windows by level and damage, wallpapers, wall notes,
                         floors and ceiling, furniture
 js/sprites3d.js         first-person textures and sprites, the registration API, the 3D guns in hand
-                        (each showing its mods), the yard van (and its dents)
+                        (each showing its mods)
 js/decor.js             wall decor faces (signs, posters, lockers, notice boards ...)
 js/landmarks1.js        landmark art: gas station, grocery, hardware, pharmacy, auto shop, electronics, garden
 js/landmarks2.js        landmark art: precinct, school, fire station, hospital, water tower, lumber, mall, library
@@ -259,13 +293,16 @@ js/upgrades.js          van and van-gun upgrades (the road)
 js/weapons.js           guns carried on foot: stats, mods, where each one is hidden
 js/audio.js             synthesized sound effects
 js/main.js              screen flow
+js/god.js               god mode: the owner's test sandbox (type !godmode), nothing saved while it is on
 docs/GAME_SPEC.md       the design as agreed
 docs/TEXT_GUIDE.md      how to write the six reading levels from the facts
 docs/STORY.md           the people, the story threads and the key ring
 docs/CREW.md            the crew at home base: the design and the contract between its files
 docs/SCALING.md         growing the game: limits the city is near, add-a-place checklist, save compatibility
+docs/UNIVERSES.md       the Captain Leo and Fortitude crossover universes: canon, rules, what each adds
+DESIGN.md               the dated log of owner decisions and judgment calls (record new ones here)
 CLAUDE.md               standing notes for future builds (the game will grow; read docs/SCALING.md first)
-tests/                  world, weapons, text, streets, drive, scenery, engine, crew, art and balance validators, script
+tests/                  world, weapons, text, streets, drive, scenery, engine, crew, art, typing, god-mode and balance validators, script
                         syntax check, word counter; tests/balance: the road's balance run (npm run balance)
 ```
 
@@ -283,7 +320,8 @@ tests/                  world, weapons, text, streets, drive, scenery, engine, c
   table in `docs/TEXT_GUIDE.md`. `node tests/count-words.js` shows words per file; every
   level must keep at least four times its pre-expansion reading (`npm test` checks).
 - **Change a story fact** (a trail note, a sign, a key, a journal day, a broadcast): edit
-  `js/story.js` or `js/story-home.js`, then the six levels. See `docs/STORY.md`.
+  `js/story.js` or `js/story-home.js` (or, for a crossover line, `js/story-leo.js` /
+  `js/story-fortitude.js`, see `docs/UNIVERSES.md`), then the six levels. See `docs/STORY.md`.
 - **Change the crew** (a story topic, a quest, an errand, a spot they stand on): edit
   `js/story-crew.js` or `js/story-quests.js`, then the six levels (`levelN-crew.js`,
   `levelN-quests.js`). `docs/CREW.md` has the shapes and rules; `npm test` checks the spots, each
@@ -292,10 +330,11 @@ tests/                  world, weapons, text, streets, drive, scenery, engine, c
   reader (owner decision), so there are no other levels to update; `npm test` holds it to level 1
   (see `docs/TEXT_GUIDE.md`, "June's tutorial"). Which cards exist, what each pictures and the yard's
   steps are `CARDS` and `YARD_STEPS` in `js/tutorial.js`; see `docs/SCALING.md` before adding one.
-- **Add a location** (the full checklist and the save rules are in `docs/SCALING.md`): add it to `LOCATIONS`, `NOTES`, `KEYS` and `ROADS` in `js/world.js`, give
-  it a street name (and side streets if you like) in `js/streets.js`, draw its floor plan,
-  landmarks and story places in `js/layouts.js` (and their art), add its story in
-  `js/story.js`, then write its texts at all six levels.
+- **Add a location** (the full checklist and the save rules are in `docs/SCALING.md`): add it to `LOCATIONS`, `LOCKS`, `NOTES`, `KEYS` and `ROADS` in `js/world.js` (and a
+  `NOTES[id].walkers` rule for any text that says where walkers stand), give it a street name (and
+  side streets if you like) in `js/streets.js`, draw its floor plan, landmarks and story places in
+  `js/layouts.js` (and their art), add its story in `js/story.js`, its building on the angled road
+  in `ROWS` (`js/perspective-buildings.js`), then write its texts at all six levels.
 
 ## Tuning
 
@@ -325,7 +364,7 @@ tests/                  world, weapons, text, streets, drive, scenery, engine, c
   `GEOM` in `js/streets.js`; how the corners are shaped for the angled camera and how hard it brakes by sharpness:
   `CAM`, `COMFORT` and `GEOM.backMax` there (`CAM` mirrors `PERSP`). The road camera: `PERSP` in `js/game.js` (its pace and shots; the corner
   braking `brake`, `brakeIn`, `brakeOut`; the lazy camera `look`, `lookRamp`, `camW`, `camPace`; the van's nose
-  `nose`), `Persp.cfg` in `js/perspective.js` (pitch, view, how far it sees, `minAspect` for narrow windows), the
+  `nose`), `Persp.cfg` in `js/perspective.js` (pitch, view, how far it sees) and `Persp.minAspect` / `maxFov` for narrow windows, the
   walkers' `TILE` and `LIVE_BUDGET_MS` there, the scenery governor's `SCENERY_BUDGET_MS` and `SCENERY_LEVELS`,
   night's `NIGHT_BEAM` and fog's `FOG`; the roadside's reach `SCENERY_REACH` in `js/game.js`.
   Each place's building on the angled road: its row in `ROWS` in `js/perspective-buildings.js`.

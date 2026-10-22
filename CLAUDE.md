@@ -22,8 +22,9 @@ limits the current city already sits near, and every `SCALE:` spot (`grep -rn "S
 ## Working rules
 
 - No build step, no dependencies: plain browser JS in `js/`, loaded by `<script>` tags in `index.html` (order matters).
-- Facts live in `js/world.js`, `js/story.js`, `js/story-home.js`, and for the crew at home base
-  `js/story-crew.js` and `js/story-quests.js`. Words live in `js/content/levelN*.js` at all
+- Facts live in `js/layouts.js` (floor plans), `js/world.js`, `js/story.js`, `js/story-home.js`, for the crew at home base
+  `js/story-crew.js` and `js/story-quests.js`, and for the crossovers `js/story-leo.js` and `js/story-fortitude.js`
+  (every `js/story*.js` that `index.html` loads). Words live in `js/content/levelN*.js` at all
   six reading levels. Change a fact and you change six texts. See `docs/TEXT_GUIDE.md`.
 - `npm test` runs every validator and must pass before a push.
 - Record owner decisions and judgment calls in `DESIGN.md`. The agreed design is `docs/GAME_SPEC.md`.

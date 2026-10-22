@@ -20,7 +20,7 @@ useful.
 
 1. **Home base: cabin defense.** You are in the yard, first person, with the cabin
    behind you, the van in the driveway, and a fence around the lot. Time runs in
-   phases: **calm** (no walkers, 4 to 7 minutes; go inside to build, or leave in the van),
+   phases: **calm** (no walkers, 4 to about 6 and a half minutes, `DEFENSE.calmSeconds`; the first calm after you enter the yard is 3 minutes, `DEFENSE.firstCalmSeconds`; go inside to build, or leave in the van),
    then a **wave** that is sometimes nothing, sometimes a few walkers, sometimes a lot.
    The dinner bell on the porch calls the next wave at once; gunshots in the calm bring it
    sooner. Walkers claw through the fence; the Walls room makes it stronger.
@@ -40,7 +40,7 @@ useful.
    builds"). A fence hole draws only the walkers within 8 tiles' walk of it outside; the rest
    keep clawing their own segment. The base is the only
    place the game saves: on arrival, after every build action, and after every wave.
-2. **Map.** A fixed, hand-drawn city of 15 locations plus the base, with named streets and
+2. **Map.** A fixed, hand-drawn city of 15 buildings, River Landing and the base, with named streets and
    side streets. Only some are known at first; notes and the Radio room reveal the rest.
    Pick a known destination; the route is drawn and listed in words ("The way there").
 3. **Road.** Driving through the city seen from behind and above the van (the angled road
@@ -64,7 +64,7 @@ useful.
 yard) reloads the last base save. Everything since that save is lost. That is the
 tension.
 
-**Endless.** There is no win. Score is days survived plus base level.
+**Endless.** There is no win and no single score: the game keeps the days survived and the base level (all room levels added up), shown on the death screen and in the computer's header; the save remembers the best of each.
 
 ## Reading
 
@@ -94,8 +94,8 @@ tension.
 | Water | Faster health regen in the yard (without it the yard heals 1 per 15 s; never on the road or in buildings); level 3 starts buildings at full health |
 | Garden | Food per day (each trip eats one food; no food means a weaker van) |
 | Radio | Reveals locations; later shows which still hold items. The yard gets a radio tower (timber, then steel on guy wires, then a red and white broadcast tower); the dining-room set grows with it |
-| Medbay | Less on-foot damage; one revive per trip; less van damage |
-| Archive | Notes show what is left at a place; map shows caches and stock |
+| Medbay | Less on-foot damage; one revive per trip inside a building (a booby trap still ends it); less van damage on the road |
+| Archive | Once a place's door note is read, the map shows what is left there; later the map marks caches, then shows every place's stock |
 | Well (late) | Needs Water 1. Clean water: faster yard regen, full health on entry at level 3. The Farm and the Lab need it |
 | Farm (late) | Needs Garden 2 + Well. Crop field, chicken coop, goat pen: 2 / 4 / 6 food a day on top of the Garden |
 | Lab (late) | Needs Medbay + Well. Makes medical kits: one every 2 days, then 1 a day, then 2 a day |
@@ -150,7 +150,7 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   blast trap hurts every walker close to it (120, one use). Set traps are saved.
 - **Medical kits** live in the backpack (up to 3, packed from storage at the cabin). Using a
   kit heals to full. Inside a building a kit from the van's cargo can be used too.
-- **Van repair** is instant and restores full health: 1 scrap for every 3 health missing
+- **Van repair** is instant and brings the van up to the health you pick (the repair slider below; the free Garage repair is always full): 1 scrap for every 3 health fixed
   (at least 5), free once the Garage room is built. Do it in the cabin's Garage tab, or at
   the van: starting it with less than full health asks "Fix the van?" first (Fix it / Go as
   is; Esc stays in the yard). Short on scrap, the fix button is greyed out.
@@ -261,7 +261,8 @@ top tier) and Spread Shot (one barrel per round). The gun in your hands shows it
   it; aimed at the ground they fan out as before. Aim assist (Settings) also takes a walker a little
   off the pointer; with no pointer yet it takes the walker closest to straight ahead.
 - The minimap (top left, under the HUD's top row) turns with the van (its arrow always points up),
-  shows known roads, side streets and places (each one's building, as on the city map, at the end
+  shows every road and side street (known ones solid, unknown ones faded; the road the van is on
+  and the next corner's roads count as known) and known places (each one's building, as on the city map, at the end
   of its own short drive), and flags the destination. It never draws the route. It fades while a
   place really in view (in front of the camera, short of the haze) lies under it.
 - The title screen and the garage's preview show the 3D van on the angled road in its paint and every
@@ -309,7 +310,7 @@ The owner's decisions are in `DESIGN.md` ("Walkers v2"). The kinds are facts, on
 | Screamer | 22 | 1.35 | 8 | 0.85 | 4 | 3 | thin and ashen, long tangled hair, a torn maroon top, a very wide mouth; jerky and twitchy |
 
 Health grows with the day (x (1 + 0.1 (day - 1)) in buildings and alarms, 0.08 in the yard and at
-the river; `WALKER_HP_STEP`); each walker's speed is its kind's +-10%; the Medbay cuts bites; claws
+the river; `WALKER_HP_STEP`); each walker's speed is its kind's +-10% on foot (`Interior.SPEED_JITTER`) and +-15% on the road (`Game.addZombie`); the Medbay cuts bites; claws
 hit the fence, the cabin's doors and windows, the room builds and the van. Glowing yellow eyes on
 every kind.
 
@@ -332,7 +333,7 @@ every kind.
   stands 1.2 s, head back and arms up, and every awake walker within 10 tiles, itself included,
   moves 30% faster for 5 s (frenzy, `WORLD.SCREAM`). Sleepers sleep on. On foot a toast says "A
   scream! Walkers near it speed up." (at most every 20 s); on the road a "SKREE!" burst, the sound,
-  and frenzied walkers show red eyes, a glow on the ground and speed lines. A walker killed does
+  and a red glow on the ground under every frenzied walker (amber with gore off). A walker killed does
   nothing more that frame, so a sleeping screamer killed by the shot that wakes it never screams.
 - **The lanky** bites from 1.25 tiles, but never round a wall's corner.
 - **On the road** each kind is the same live 3D figure as on foot, seen from the road camera's
@@ -348,9 +349,9 @@ every kind.
   short dark-red spray on every hit (a ram on the road too) that lands as splats, a pool under a
   downed walker. Off: grime instead, no ribs, no spray, no pool. Grey sparks off armor show either
   way. The reading text has no gore at all.
-- **No walker counts on screen.** The HUD has no walker box in any scene; the yard's phase box says
+- **No walker counts on screen.** No HUD box counts the walkers coming or left in any scene (the road's DOWNED box tallies only the walkers put down this trip, `State.trip.walkers`); the yard's phase box says
   WAVE or HEAVY WAVE; the river's toast says something is coming. Door notes and Ruby's graffiti keep
-  their counts ("at least eight"), which grow with the day (`SETTINGS.walkersPerLocation`).
+  their counts ("at least eight", the day-1 count); the walkers inside grow with the day (`SETTINGS.walkersPerLocation`), so the notes stay true.
 - **Walkers waiting in the cabin** (a judgment call beside the owner's no-counts answer, `DESIGN.md`)
   hold a wave open out of sight, so the label says where they are, never how many: "WAVE · walkers
   in the cabin" (or "HEAVY WAVE · walkers in the cabin") while any walker stands in the cabin (off the
@@ -362,7 +363,7 @@ every kind.
   their hints name the cabin; with a walker anywhere else they say the old lines.
 - **Where a building's walkers start.** Every fresh visit puts the count on random floor you can
   walk to (never in a locked room), at least 6 steps from the door, out of earshot of it where there
-  is room (at least 6.5 tiles in a straight line: a sleeping walker within 6 wakes, `Interior.HEAR`),
+  is room (at least 6.5 tiles in a straight line: a sleeping walker within 6 wakes (9 while you sprint, `HEAR_SPRINT`), `Interior.HEAR`),
   about 3 tiles apart, never on an item, a note spot, a quest spot, the gun or the pole. A walker a
   door note, a note or a graffiti names (`NOTES[id].walkers`) starts within 3 steps of the named spot
   (of the landmark itself when the note names one: "one by the robot" starts within 3 steps of the
@@ -383,7 +384,9 @@ every kind.
   pole; click to cast onto water, wait 7 to 20 s for a bite, click within 2 s to land it. Taking a
   gun props the pole on the bank (line in); a bite then rings its bell until the pole is taken back.
 - 1 food per fish, 4 a trip, then the river rests 3 days (`WORLD.RIVER`). Walkers come out of the
-  trees every 45 to 90 s, one or two, their kinds by the day (`RIVER.walkerMix`); the toast never
+  trees every 45 to 90 s (the first after about half that wait; a gunshot, not the bow, brings
+  the next one within 6 to 14 s, `riverNoise` in `js/river.js`), one or two, their kinds by the
+  day (`RIVER.walkerMix`); the toast never
   counts them ("Something is coming out of the trees!").
 - Cargo food (crates and fish) adds to the crew's food at home.
 
@@ -467,14 +470,16 @@ the game and none of it is quizzed.
   through all fifteen places. A key picked up is a trip item: yours once home, lost on death.
   Keys are listed in the backpack and the cabin's stock tab by how they look (where each was
   found, its tag, the clue note), never by what they open. At a stash door you pick which key
-  to try; only the `trail2` note says which key fits. A wrong key jams the stash (a crowbar opens
+  to try; only the `trail2` note says which key fits (for some keys Jo's key ring tips on the radio, `RADIO` in js/story-home.js, say it too). A wrong key jams the stash (a crowbar opens
   it), snaps off and is gone, or just will not turn, as that note warns (`stashFail`).
 - **Locks** (`LOCKS` in `js/world.js`, `js/locks.js`). Every cache lock is real. Its answers are
   rolled per save and filled into the notes' `{placeholders}`, so they cannot be shared or
   memorized from another save. Kinds: a keypad code; moves pressed in order on word buttons (up,
   right, lift, pull, twist left ...); a search at a fixture beside the main note (which drawer,
-  watering can, key, breaker box or book) that finds the door's key or badge; an alarm panel on a
-  named wall (press the right button first). A mistake costs what the note warns: the alarm
+  watering can, key, breaker box or book) that finds the door's key or badge. Some code doors (`panel` in `LOCKS`; today Signal
+  Electronics, the 4th Precinct and Northgate Mall) also have an alarm panel on a named wall to
+  turn off first: a wrong button, or opening the door with the alarm still on, rings the alarm.
+  A mistake costs what the note warns: the alarm
   (walkers pour in, through the way out too, so there is no leaving: you go down; their kinds are
   the place's alarm mix, never a kind a note keeps to one, at most `ALARM.cap` 40 inside at once,
   and the ones from deeper in start on floor that walks to you with the doors as they stand, else
@@ -513,7 +518,7 @@ June, Tomas and Pip live at the cabin. The full design and the contract between 
   room with a yard plot is built, and Tomas lists wrecked builds. The first talk each day earns
   trust. A long bubble pages with E.
   When they ask something, take something, or Pip wants to name the dog, E again opens the crew
-  card (it pauses; Yes / Not now; locked in a wave).
+  card (it pauses; "I'll do it" / "Not now"; locked in a wave).
 - **Story quests.** Five per crew member, in order, gated by trust stars and days (2, 4, 8, 13, 19;
   the dog on day 28) and offered only once the building is known. One object, one building, on a
   fixed spot beside a landmark the request names with the place, the direction from the cabin and
@@ -554,7 +559,7 @@ arrow `js/tutorial-ui.js` and `css/tutorial.css`, the words `js/content/level1-t
 - **The yard part**, on every stay at home until it is done (new saves after How it works, old saves
   on their next Continue): walk and look around (W A S D and the mouse), open and close the backpack
   (B, or the HUD button, which the card rings), stop a slow practice walker (click or Space), talk to a
-  crew member (E; not the dog), use the office computer (E, then Step away or E again), then the ready card (P
+  crew member (E; not the dog), use the office computer (E, then Step away from the computer or E again), then the ready card (P
   pauses, the Pause button ringed; walk to the van). A step done early is ticked and its card skipped.
   In the try steps an arrow points the way to the walker, the nearest crew member, the computer (along
   the walkable way, through the cabin's doors) or the van, at the screen's edge when it is out of view.
@@ -694,7 +699,14 @@ trap stock and set traps, the crew (trust, talks, topics told, quests and errand
 dog), the yard grid version (`yardV`: an older yard's fence is rebuilt whole
 and its set traps return to stock), each room build's strength (`builds`: room id to health left;
 no key = whole, 0 = wrecked), the walker kinds met (`met`: kind id to the day one was first seen or
-hurt; kept on a trip only if it gets home), typing progress, best score. Only written at the base. An
+hurt; kept on a trip only if it gets home), typing progress, best days and best base level, the save
+version, the label, van health (`vanHp`), the lock seed (`lockSeed`: this save's codes, moves, hiding
+places and panel buttons, js/locks.js), crowbars in stock, the cabin's door and window levels and each
+one's strength (`house`), cabin wall notes read (`houseRead`), the fishing pole (`rod`) and the day
+River Landing was fished out (`riverRest`), partial medical kits brewing in the Lab (`labAcc`), each
+crossover universe's progress and the robot dog (`xover`, js/xoverstate.js), the save's running counts
+(`stats`: trips, walkers, notes and words read, items), waves survived this stay (`wave`) and
+`savedAt`. Only written at the base. An
 older save gets guns on load: the pistol, with mods carried over from its gun upgrades.
 `zs.settings.<n>` holds slot n's settings; `tutorial` there is `null` (none done) or the done tutorial
 card ids, written at once (missing in an older slot = none done, so it does the tutorial too).
@@ -705,12 +717,14 @@ card ids, written at once (missing in an older slot = none done, so it does the 
 rules that keep the notes' walker positions true); `js/layouts.js` holds the floor plans,
 the landmarks the facts point at, the story places (note spots, signs, stash, key) and the walker
 anchors and zones those rules name;
-`js/story.js` and `js/story-home.js` hold the story facts; `js/streets.js` holds street names
+`js/story.js`, `js/story-home.js`, `js/story-crew.js` and `js/story-quests.js` hold the story facts,
+and `js/story-leo.js` and `js/story-fortitude.js` the crossover storylines' (docs/UNIVERSES.md); `js/streets.js` holds street names
 and side streets. `js/content/levelN*.js` hold the words at each level: How it works,
 controls, base room texts, road signs and cards (`levelN.js`), every building's notes, signs
 and key (`levelN-places1.js`, `levelN-places2.js`), and the journal, radio, tags and plot
 signs (`levelN-home.js`), and the crew's talk, tips, reports and quests (`levelN-crew.js`,
-`levelN-crew2.js`, `levelN-quests.js`); June's first-run tutorial is `level1-tutorial.js` alone, read at every
+`levelN-crew2.js`, `levelN-quests.js`), and each crossover universe's ledger lines, radio and crew
+words (`levelN-leo.js`, `levelN-fortitude.js`, shown only while Settings: Universe is on); June's first-run tutorial is `level1-tutorial.js` alone, read at every
 level. `npm test` checks that every level has the same keys as the world,
 that lengths match the level, that notes name their building's landmarks, that every story
 note, key, stash and sign works in every building, that every note's walker positions hold on

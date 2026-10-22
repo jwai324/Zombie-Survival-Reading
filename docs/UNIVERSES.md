@@ -29,9 +29,9 @@ Every crossover text is checked against these. They come from the base texts, no
 - The Fall began as "some sickness across the river" and went from "probably nothing" to alarms and
   running within one week. It was months ago. **Both universes put the origin across the river.**
 - The base texts never say what caused it. The crossover may explain it; the base texts stay silent.
-- The town is a mid-size river town with a sun, a moon, birds, fish, a county and TV. "Earth" appears
-  twice in base text, which is true in the Fortitude universe and becomes a colonist's habit word on
-  Mira-8 (the colonists still call their old home Earth).
+- The town is a mid-size river town with a sun, a moon, birds, fish, a county and TV. The base texts never
+  name Earth as a planet (the two 'earth' mentions are garden soil), so nothing needs reconciling;
+  the Fortitude texts may say Earth freely and the Leo texts avoid it.
 - People are never shown dying. Walkers are scary from outside, never wounds. The Hollises went
   north and are never lost. Tomas's father's fate is never stated. The convoy never leaves on screen.
 - The crew rules hold: no lock answers, no key-to-stash ties, no revealing places on the map.
@@ -75,13 +75,13 @@ knock; Leo's Mission Two list ends "10. ?".
 
 **The robot dog in play** (owner, 2026-10-17). Once the fifth quest is handed in, the robot dog
 follows you in the yard and inside buildings, and rides along in the van (it does nothing on the
-road). It is a **weak helper**: small zaps that slow or stagger walkers, not kill them fast, so you
+road). It is a **weak helper**: small zaps that slow walkers, not kill them fast, so you
 still do most of the fighting. Walkers can bite it; too many bites and it **shuts down** (a robot,
 so no gore: it sparks, sits and goes dark). A shut-down dog stays down for the rest of that run or
 wave, and Tomas repairs it at the cabin for scrap. Bolt's book traits to keep: beeps (two for yes,
 two for a laugh), a metal tail that wags, a nose that is really a chemistry tester.
 
-Not in v1: found items, new notes in buildings, a new place.
+Not in v1: found items (no new tagged loot; Tomas's five quest objects use the base quest path), new notes in buildings, a new place.
 
 ## Fortitude: Earth, hundreds of years after Book 4
 
@@ -120,10 +120,10 @@ super-algae spores; the Abyss Explorer pins; "If you stop failing, you stop lear
 |---------|-----------------|
 | Sky | **Judgment call:** a thin silver arc across the night sky, the old Indestructium shipyard ring in low orbit (Book 1), with Mars as a bright point. Art only. |
 | Radio | Some days, short Fortitude-style bursts of numbers come through on the radio. Decoded, they are **old Accord records**: an automatic archive from Book 1 days, still broadcasting the Fortitude Accord, Valen's first "hello" and other Book 1 history. Who keeps it running stays open. Never replaces a base broadcast. |
-| Journal | June adds lines about the vault, the bursts, the shipyard ring. |
-| Crew talk | New topics: Book 1 legends the town learned in school, the vault, the Accord. Mr. Reyes of Reyes Hardware claims his family descends from Dr. Camila Reyes; after so many centuries nobody can check, and the texts never confirm it. |
-| Quest chain | **Pip decodes the bursts** the way Ava did: count them, find the pictures, listen to the background waves. Five quests long, its own track beside the base quests. |
-| Found items | A tag from a Waiting Vault pod, a copy of an Accord page, an Abyss Explorer pin: the story objects of Pip's track (see "How it works"), each with its tag at six levels. |
+| Journal | June adds lines about the shipyard ring, the Waiting Vault, the Book 1 legends (Dr. Reyes's team, Valen, the old saying, the Abyss Explorer) and Mars; the bursts reach the ledger through the radio broadcasts and Pip's quest lines. |
+| Crew talk | New topics: Book 1 legends the town learned in school, the vault, Indestructium, the bursts; the Accord comes through the radio and Pip's quests. Mr. Reyes of Reyes Hardware claims his family descends from Dr. Camila Reyes; after so many centuries nobody can check, and the texts never confirm it. |
+| Quest chain | **Pip decodes the bursts** the way Ava did: record and count the bursts, match a pod tag's numbers, match the pictures to the old history book and the words to an Accord page, then read the last record. Five quests long, its own track beside the base quests. |
+| Keepsakes | A tag from a Waiting Vault pod, a copy of an Accord page, an Abyss Explorer pin: the story objects of Pip's track (see "How it works"), each with its tag at six levels. |
 
 ## Files
 
@@ -157,8 +157,8 @@ super-algae spores; the Abyss Explorer pins; "If you stop failing, you stop lear
   quest 1.
 - **Rivet** (Leo): home once `tomas-leo-5` is handed in. It follows you in the yard and in buildings (it turns up
   beside you when you walk in; on the road it is in the van, unseen). Every 1.8 s it zaps the nearest awake walker
-  within 4.5 tiles in a clear line: 6 harm (a pistol does 25) and half speed for 1.6 s. A walker with Rivet in reach
-  and you out of it bites Rivet on its own bite clock; 60 health in all (about six bites). Shut down, it lies dark,
+  within 4.5 tiles in a clear line: 6 harm (a pistol does 12) and half speed for 1.6 s. A walker with Rivet in reach
+  and you out of it bites Rivet on its own bite clock; 60 health in all (five bites from a plain walker, whose bite is 12; three from a brute). Shut down, it lies dark,
   stays home on trips, and Tomas fixes it for 20 scrap when you arrive home or a wave is cleared (only with the
   scrap). The practice walker in the tutorial is never zapped or biting it.
 - **The sky** (yard only): Mira-9 to the northeast, a pale disk with turning clouds; or the shipyard ring, a thin
@@ -176,8 +176,8 @@ super-algae spores; the Abyss Explorer pins; "If you stop failing, you stop lear
 - Crossover radio and journal entries live in their own lists (`WORLD.UNIVERSES[u].journal` / `.radio`), told
   in order by the universe's own count; append to them, never insert, like the base ones (saves store indexes).
 - Each crossover text exists at all six levels and follows `docs/TEXT_GUIDE.md`.
-- Size as written: about 2,600 to 3,900 words a level per universe (levels 4 to 6 measured), about a tenth of
-  the base game.
+- Size as written: about 2,600 to 3,900 words a level per universe (levels 4 to 6 measured), about a twentieth of
+  the base game each, about a tenth for both together.
 - June writes her ledger in the first person, but a line whose facts name her must say "June" (the validator), so
   the words bring her name in through someone talking to her.
 - **The ongoing cost:** every later base story beat has to be checked against both universes.

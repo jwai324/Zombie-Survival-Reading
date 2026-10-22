@@ -1,7 +1,7 @@
 # Text Guide (six reading levels)
 
-Every player-facing in-world text exists at six reading levels in `js/content/` (seven
-files per level; level 1 has an eighth, `level1-tutorial.js`; see Schema). The one exception is
+Every player-facing in-world text exists at six reading levels in `js/content/` (nine
+files per level; level 1 has a tenth, `level1-tutorial.js`; see Schema). The one exception is
 June's first-run tutorial: one level-1 text for every reader (see "June's tutorial" below). The facts come from `js/world.js` (`NOTES`, `BASE_ROOMS`,
 `ITEMS`, `LOCATIONS`, `KEYS`), `js/story.js` (extra notes, signs, keys),
 `js/story-home.js` (`JOURNAL`, `RADIO`, `ITEM_TAGS`, `YARD_LOTS`), `js/story-crew.js`
@@ -66,7 +66,7 @@ at every level, in words a reader at that level can use. `npm test` checks numbe
 - How to open the cache, when the note has `unlocks`, exactly as `WORLD.LOCKS` works it, and
   what a mistake costs. The answers are rolled per save, so the words carry placeholders that
   the game fills in: `{code}` `{codeSpoken}` `{move1}` `{move2}` `{moves}` `{pick}` `{button}`, and
-  in decoys `{decoyCode}` `{decoyMoves}` `{decoyMove1}` `{decoyMove2}` `{decoyPick}` `{decoyButton}`.
+  in decoys `{decoyCode}` `{decoyCodeSpoken}` `{decoyMoves}` `{decoyMove1}` `{decoyMove2}` `{decoyPick}` `{decoyButton}`.
   Copy each placeholder from the facts exactly, braces and all; never write a real code. Write
   around them so the sentence reads well whatever they become ({moves} is "lift, then pull";
   {pick} is "top drawer" or "red key"; {button} is a color: "press the {button} button").
@@ -78,7 +78,7 @@ at every level, in words a reader at that level can use. `npm test` checks numbe
   east, downtown, the hills) so the player can find it on the map.
 - `trail1` says where `trail2` is; `trail2` says where the key is, what it looks like, names
   the stash (its `stashName`) and the place it opens, and warns what a wrong key does there.
-  This note is the only place that ties a key to its stash: the key's own name and tag say
+  This note is the only in-building text that ties a key to its stash (a radio key ring tip may repeat it): the key's own name and tag say
   how it looks, never what it opens, so the player has to remember or reread the note.
 - Decoys read as believable; they are allowed to be wrong.
 
@@ -204,12 +204,13 @@ must use every one its facts carry. Copy them exactly, braces and all: the game 
   number: give it as a label, the way the facts do ("2 of these: Box of nails"), never
   "{count} {item}".
 - `{dog}` is the dog's name once Pip's card has named it, and "the dog" before that. Use it only
-  where the dog is home (a topic whose `when` has `dog: true`, the dog quest's thanks and payoff,
-  the dog's `named` and `pet` lines), and start a sentence with it only in `named` and `pet` (it
+  where the dog is home (a topic whose `when` has `dog: true` or is gated on the dog quest or on a
+  later quest of the dog's giver, the dog quest's thanks and payoff, the brief, thanks and payoff
+  of the giver's later quests, and the dog's `named` and `pet` lines), and start a sentence with it only in `named` and `pet` (it
   would read "the dog" with no capital).
 - What they become: `{size}` "a small wave", "a big wave" or "no wave"; `{sides}` "the back
-  fence", "the back fence and the fence by the farm" (one to four sides), or "nowhere" with no
-  wave; `{cost}` "a medical kit", the food it took ("2 food", less when the pantry is short), a sum
+  fence", "the back fence and the fence by the farm" (one to four sides), "every side" when it
+  comes from every side, or "nowhere" with no wave; `{cost}` "a medical kit", the food it took ("2 food", less when the pantry is short), a sum
   over several waves ("2 medical kits and 2 food"), or "nothing";
   `{needs}` a list that may end with scrap ("2 pieces of lumber, 1 box of nails and 20 scrap");
   `{reward}` a list ("30 scrap, 2 pieces of lumber and 1 medical kit"); `{keys}` "1 stash key" or "3 stash keys";
@@ -223,22 +224,24 @@ must use every one its facts carry. Copy them exactly, braces and all: the game 
   before a noun the game mends ("1 holes" reads "1 hole").
 
 How it works, at every level, has a crew paragraph: June, Tomas and Pip by name, who they are,
-walk up to one to talk, the favors they ask, and their trust stars. The fence is never "patched"
-(that word stays banned with the fence); June still "patches you up". The controls list's E line
+walk up to one to talk, the favors they ask, and their trust stars. In How it works, the controls and the
+tutorial cards the fence is never "patched" (that word stays banned there with the fence, so no
+card can imply it mends itself); June's journal may say "patch the fence before supper" because it
+also says the hole stays until someone pays scrap; June still "patches you up". The controls list's E line
 says E talks to the crew.
 
 How it works is mostly backstory (owner decision 2026-10-15, `DESIGN.md`): the Fall, the van, the
 Hollis family's cabin, the crew, the people who write the notes and the key ring. It names no keys
 (the controls list below it does) and carries only the rules a player cannot find out alone:
-the base is the only save, waves and scrap, typing builds, read the notes (a wrong code sets off an
+the base is the only save, waves and scrap, typing builds, read the notes (a wrong code can set off an
 alarm), stashes and their keys in another building, and the road signs (your own lane may turn).
 `HOWTO_MUST` in `tests/validate-text.js` is that list. Keep it about half the length it was.
 
-`node tests/validate-text.js` holds the crew's words to all of the above. Until a level has any
-crew words it only warns how many are missing; once it has some, every missing text is an error,
-and so are the How it works and E-line rules. `node tests/validate-text.js 3 --crew=strict` lists
-everything level 3 still needs; `--crew=present` checks only what is written (for drafting).
-`CREW_STRICT=1`, or `CREW_WORDS_REQUIRED` in the validator, makes every level strict.
+`node tests/validate-text.js` holds the crew's words to all of the above. By default every level is
+checked in full (`CREW_WORDS_REQUIRED` is true in `tests/validate-text.js`), so a missing crew text
+fails `npm test`, and so do the How it works and E-line rules. `--crew=present` checks only what is
+written (for drafting); `--crew=auto` only warns how many are missing for a level with no crew words
+yet, and checks a level that has some in full.
 
 ## June's tutorial (level 1 only)
 
@@ -278,7 +281,7 @@ text the game shows, and the validator wants exactly those keys.
   does not start with a name or a word in capitals.
 
 Beyond the validator: every control and button name must be the game's own, checked against the code
-and the level-1 How it works and controls ("Drive there" on the map, "Step away" at the computer, "Step
+and the level-1 How it works and controls ("Drive there" on the map, "Step away from the computer", "Step
 back" at a lock, "stop the game" for pause), and a card must be true for every save, a veteran's too
 (the computer card says rooms need things from town, never "you cannot build yet"). The lock card is a
 hint only: read the note, do just what it says, a wrong try can cost a lot. Read every card aloud like
@@ -287,20 +290,28 @@ words count toward level 1's reading floor but not toward a player's words read.
 
 ## Schema
 
-Each level is seven files (level 1 eight, with `level1-tutorial.js`), loaded in this order (`index.html`):
+Each level is nine files (level 1 ten, with `level1-tutorial.js`), loaded in this order (`index.html`):
 
-- `js/content/levelN.js`: `level`, `howto`, `controls`, `base` (rooms, traps, bench), `typing`.
+- `js/content/levelN.js`: `level`, `howto`, `controls`, `base` (rooms, traps, bench, `tools`),
+  `road` (the road's banners and wrong-turn lines, tokens as in `Streets.ROAD_TEXT_FALLBACK`;
+  validate-streets checks), `typing`.
 - `js/content/levelN-places1.js`: locations gasngo, grocery, hardware, pharmacy, autoshop,
   radioshack, garden.
 - `js/content/levelN-places2.js`: locations police, school, firehouse, hospital, watertower,
   lumberyard, mall, library.
-- `js/content/levelN-home.js`: `yard`, `journal`, `radio`, `tags`, `recap`.
+- `js/content/levelN-home.js`: `yard`, `journal`, `radio`, `tags`, `recap`, `house` (`notes`,
+  `upgrades`: the cabin's wall notes and door/window cards, facts `HOUSE_NOTES` and `HOUSE_UPGRADE_FACTS`),
+  `river` (River Landing: `blurb`, `rod`, `sign`, `note`, facts `RIVER_FACTS`).
 - `js/content/levelN-crew.js`: `crew` talk, tips, reports and dog.
 - `js/content/levelN-crew2.js`: more crew tips and reports (the walker kinds, the wreckers and the
   wrecked builds: Tomas `lanky`, `armored`, `wrecked`; Pip `screamer`, `wreckers`; reports `builds`,
   `buildsFree`). It merges into each crew member's tips (`tips.tomas = Object.assign(tips.tomas ||
   {}, { ... })`), never replacing them.
 - `js/content/levelN-quests.js`: `crew` quests and errands.
+- `js/content/levelN-leo.js`: `universe.leo` (journal, radio) and the Captain Leo universe's `crew`
+  talk and quests (facts in `js/story-leo.js`; see docs/UNIVERSES.md).
+- `js/content/levelN-fortitude.js`: `universe.fortitude` (journal, radio) and the Fortitude universe's
+  `crew` talk and quests (facts in `js/story-fortitude.js`).
 - `js/content/level1-tutorial.js` (level 1 only, read at every reading level): `tutorial`, June's
   first-run tutorial. It merges into `ZSR.TEXT[1]` and loads after `level1.js`.
 

@@ -2,7 +2,10 @@
 /* Sanity checks for js/world.js, js/layouts.js and the story facts (js/story.js, js/story-home.js and every other
    js/story*.js the page loads):
    interior layouts (legend v2, landmarks, decor, reachability), the stash and key in every building,
-   note spots and wall signs, notes that name the landmarks, the key ring, and reveal chains; and the crew
+   note spots and wall signs, notes that name the landmarks, the key ring, and reveal chains; the walker rules R1-R8 (where the texts
+   put walkers, every count up to RULE_DAYS); outdoor places (River Landing: RIVER and the pole's spot); the yard
+   (YARD), the cabin (HOUSE, HOUSE_UPGRADES) and the roads; the walker kinds (WALKER_TYPES), the scream, the alarm's
+   cap and the wreckers' and builds' numbers; and the van's paint looks and decals (PAINT_LOOKS); and the crew
    at home base (js/story-crew.js: roster, rules, talk, tips, reports, errands) and their story quests
    (js/story-quests.js: spots, landmarks, gating, rewards, perks, the dog). Contract: docs/CREW.md. */
 "use strict";
@@ -266,7 +269,7 @@ W.LOCATIONS.filter((l) => l.outdoor).forEach((l) => {
    Checked for every count a building has from day 1 to RULE_DAYS. The geometry is the engine's: floor is the
    markers and plain floor (solid landmarks' footprints blocked), a rule's ring walks with every door shut, a
    walker starts walkerSpawn.minSteps or more from the start tile with the doors opened, off every busy tile. */
-const RULE_DAYS = 120; // SCALE: the last day whose walker count is checked (walkersPerLocation stops growing on day 36)
+const RULE_DAYS = 120; // SCALE: the last day whose walker count is checked (walkersPerLocation stops growing on day 33)
 const RULE_FIELDS = ["says", "z", "r", "zone", "n", "share", "exact", "type", "only", "all", "near"];
 const RULE_POS = /\b(in|by|at|along|near|to) the\b/i; // a fact that puts walkers somewhere
 const RULE_BY = 2; // "one by the robot": an exact rule with `near` keeps every other walker this many steps or more from it
