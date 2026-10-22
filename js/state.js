@@ -8,7 +8,11 @@
 
   // settings: the shared fallback (no save chosen yet, or a slot from before settings were per save);
   // slotSettings: each save slot's own reading level, text size, sound and the rest
-  const KEYS = { settings: "zs.settings", slotSettings: (id) => "zs.settings." + id, slots: "zs.slots", legacy: "zs.base", slot: (id) => "zs.save." + id };
+  // readLog: each save slot's reading check log (js/readcheck.js), written apart from the save the moment a note
+  // closes, so a trip lost to a death still counts; readCheck: the owner's PIN (hashed) and speed limit, all saves
+  const KEYS = { settings: "zs.settings", slotSettings: (id) => "zs.settings." + id, slots: "zs.slots", legacy: "zs.base", slot: (id) => "zs.save." + id, readLog: (id) => "zs.readlog." + id, readCheck: "zs.readcheck" };
+  // SCALE: the newest READ_LOG_MAX timed notes are kept per save (about 150 bytes each in localStorage)
+  const READ_LOG_MAX = 600;
 
   const DEFAULT_SETTINGS = {
     level: 3, // reading level 1..6
@@ -345,6 +349,7 @@
       idx.list[sid] = { label: name, createdAt: Date.now() };
       idx.active = sid;
       write(KEYS.slots, idx);
+      write(KEYS.readLog(sid), null); // a new player starts a new reading check log
       // a new save starts from the settings on screen, and shows its new player the how-to and the tutorial
       this.settings = Object.assign({}, this.settings, { seenHowto: false, tutorial: null });
       this.saveSettings();
@@ -360,6 +365,7 @@
       delete idx.list[id];
       write(KEYS.slot(id), null);
       write(KEYS.slotSettings(id), null);
+      write(KEYS.readLog(id), null);
       if (wasActive) idx.active = null;
       write(KEYS.slots, idx);
       if (wasActive) {
@@ -382,6 +388,30 @@
         return;
       }
       write(KEYS.slot(sid), this.save);
+    },
+    /* ---------- The reading check (js/readcheck.js) ---------- */
+    /** A save slot's timed notes, oldest first: { at, kind, id, title, place, words, ms, level, day, again }. */
+    readLog(id) {
+      return id ? read(KEYS.readLog(id), { list: [] }).list || [] : [];
+    },
+    /** One timed note for the active save, written now. Nothing is kept in god mode or with no save chosen. */
+    logReading(entry) {
+      const sid = this.activeSlot();
+      if (!sid || this.god) return false;
+      const list = this.readLog(sid);
+      list.push(entry);
+      write(KEYS.readLog(sid), { list: list.slice(-READ_LOG_MAX) });
+      return true;
+    },
+    clearReadLog(id) {
+      write(KEYS.readLog(id), null);
+    },
+    /** { pinHash: null until the owner sets a PIN, wpm: the "too fast" line, or null for the default }. */
+    readCheckConfig() {
+      return read(KEYS.readCheck, { pinHash: null, wpm: null });
+    },
+    saveReadCheckConfig(c) {
+      write(KEYS.readCheck, c);
     },
     wipe() {
       const sid = this.activeSlot();

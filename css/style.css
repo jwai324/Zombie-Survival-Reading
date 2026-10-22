@@ -139,6 +139,26 @@ kbd { font-family: var(--font-body); font-weight: 700; background: var(--paper-3
 .seg button { font-family: var(--font-head); font-size: 1.05rem; font-weight: 700; letter-spacing: .06em; padding: .5rem .9rem; background: var(--paper-3); border: .19rem solid var(--ink); cursor: pointer; box-shadow: .19rem .19rem 0 var(--ink); }
 .seg button.on { background: var(--red); color: var(--paper-3); }
 
+/* Reading check (js/readcheck.js) */
+.readcheck-panel { max-width: 60rem; }
+.rc-pin input, .rc-wpm input { font: inherit; font-size: 1.3rem; padding: .35rem .5rem; border: .19rem solid var(--ink); background: var(--paper-3); max-width: 10rem; }
+.rc-msg { color: var(--red); font-weight: 700; min-height: 1.2em; }
+.rc-slot { background: var(--paper-3); border: .19rem solid var(--ink); box-shadow: .19rem .19rem 0 var(--ink); padding: .6rem .8rem; margin: .9rem 0; }
+.rc-who { margin: 0 0 .2rem; }
+.rc-who .small { text-transform: none; letter-spacing: 0; font-weight: 500; }
+.rc-sum { margin: .2rem 0 .4rem; }
+.rc-details summary { cursor: pointer; font-weight: 700; margin: .3rem 0; }
+.rc-scroll { overflow-x: auto; }
+.rc-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.rc-table th, .rc-table td { text-align: left; vertical-align: top; padding: .3rem .4rem; border-bottom: .06rem solid rgba(0,0,0,.2); }
+.rc-table .num { text-align: right; white-space: nowrap; }
+.rc-more { font-size: .8rem; color: var(--muted); }
+.rc-kind { font-size: .8rem; color: var(--muted); }
+.rc-flag { display: inline-block; font-size: .8rem; font-weight: 700; padding: 0 .35rem; border: .125rem solid var(--ink); white-space: nowrap; }
+.rc-flag.fast { background: var(--red); color: var(--paper-3); }
+.rc-flag.ok { background: var(--olive); }
+.rc-clear { font-size: .9rem; padding: .4rem .7rem; margin-top: .5rem; background: var(--paper-2); }
+
 /* How to */
 .controls { padding-left: 1.4rem; }
 .controls li { margin: .6rem 0; line-height: 1.5; }

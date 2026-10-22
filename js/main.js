@@ -14,7 +14,7 @@
   const Tutorial = ZSR.Tutorial; // June's first-run tutorial (js/tutorial.js): told of every new screen
 
   const $ = (id) => document.getElementById(id);
-  const SCREENS = ["screen-title", "screen-newsave", "screen-settings", "screen-howto", "screen-map", "screen-base", "screen-backpack", "screen-note", "screen-pause", "screen-death", "screen-confirm", "screen-wrong", "screen-crew"];
+  const SCREENS = ["screen-title", "screen-newsave", "screen-settings", "screen-howto", "screen-map", "screen-base", "screen-backpack", "screen-note", "screen-pause", "screen-death", "screen-confirm", "screen-wrong", "screen-crew", "screen-readcheck"];
   const ORDINAL = { 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "5th", 6: "6th" };
   let settingsReturn = "screen-title";
   let titleRaf = 0;
@@ -110,6 +110,8 @@
   const crewCardOpen = () => !$("screen-crew").classList.contains("hidden");
   function crewSeen(key, text) {
     if (State.seeCrewTalk && text) State.seeCrewTalk(key, wordCount(text));
+    // the reading check times the card from here until it closes (js/readcheck.js)
+    if (ZSR.ReadCheck) ZSR.ReadCheck.start("screen-crew", { kind: "crew", id: "crew:" + key, title: $("crew-title").textContent, place: $("crew-name").textContent, text });
   }
   /** A copy of a sprite canvas (the cache keeps its own), or null when the art is not loaded. */
   function spriteCopy(name, opts) {
@@ -1053,6 +1055,18 @@
       Audio.play("click");
       if (settingsReturn === "start") goYardWithDay();
       else show(settingsReturn);
+    });
+    // the reading check: behind the owner's PIN, locked again on the way out (js/readcheck.js)
+    $("btn-readcheck").addEventListener("click", () => {
+      Audio.play("click");
+      ZSR.ReadCheck.lock();
+      show("screen-readcheck");
+      ZSR.ReadCheck.render();
+    });
+    $("btn-readcheck-back").addEventListener("click", () => {
+      Audio.play("click");
+      ZSR.ReadCheck.lock();
+      show("screen-settings");
     });
     $("btn-settings-back").addEventListener("click", () => {
       Audio.play("click");

@@ -294,6 +294,7 @@ js/weapons.js           guns carried on foot: stats, mods, where each one is hid
 js/audio.js             synthesized sound effects
 js/main.js              screen flow
 js/god.js               god mode: the owner's test sandbox (type !godmode), nothing saved while it is on
+js/readcheck.js         the reading check (Settings, behind the owner's PIN): how long each note stayed open, per save
 docs/GAME_SPEC.md       the design as agreed
 docs/TEXT_GUIDE.md      how to write the six reading levels from the facts
 docs/STORY.md           the people, the story threads and the key ring
@@ -302,7 +303,7 @@ docs/SCALING.md         growing the game: limits the city is near, add-a-place c
 docs/UNIVERSES.md       the Captain Leo and Fortitude crossover universes: canon, rules, what each adds
 DESIGN.md               the dated log of owner decisions and judgment calls (record new ones here)
 CLAUDE.md               standing notes for future builds (the game will grow; read docs/SCALING.md first)
-tests/                  world, weapons, text, streets, drive, scenery, engine, crew, art, typing, god-mode and balance validators, script
+tests/                  world, weapons, text, streets, drive, scenery, engine, crew, art, typing, god-mode, reading check and balance validators, script
                         syntax check, word counter; tests/balance: the road's balance run (npm run balance)
 ```
 
